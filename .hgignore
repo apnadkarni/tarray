@@ -1,0 +1,35 @@
+syntax: glob
+
+# Emacs backups
+*~
+
+# .cod - Cl assembler output
+*.cod
+
+*.log
+*.orig
+*.pdb
+*.sav
+*.plg
+*.ncb
+*.opt
+*.tlb
+*.aps
+temp
+build
+dist
+doc/chm-build
+doc/website-build
+doc/website
+tools/h2c/*
+TAGS
+\#*#
+*.vfs
+Thumbs.db
+SyncToy*
+Release*/*
+
+# TEA based intermediate files
+autom4te.cache/*
+config.status
+twapi_entry.tcl
