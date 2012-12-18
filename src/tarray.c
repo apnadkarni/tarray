@@ -32,14 +32,14 @@
  * and Tcl_Obj.internalRep.ptrAndLongRep.ptr holds a pointer to 
  * an allocated array of that type.
  */
-static void TArrayDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
-static void TArrayFreeRep(Tcl_Obj *objP);
-static void TArrayUpdateStringRep(Tcl_Obj *objP);
+static void TArrayTypeDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
+static void TArrayTypeFreeRep(Tcl_Obj *objP);
+static void TArrayTypeUpdateStringRep(Tcl_Obj *objP);
 struct Tcl_ObjType gTArrayType = {
     "TArray",
-    TArrayFreeRep,
-    TArrayDupObj,
-    TArrayUpdateStringRep,
+    TArrayTypeFreeRep,
+    TArrayTypeDupObj,
+    TArrayTypeUpdateStringRep,
     NULL,     /* jenglish advises to keep this NULL */
 };
 
@@ -77,6 +77,16 @@ void TArrayTypePanic(unsigned char tatype)
     Tcl_Panic("Unknown or unexpected tarray type %d", tatype);
 }
 
+void TArraySharedPanic(const char *where)
+{
+    Tcl_Panic("Shared TArrayHdr passed for modification to %s.", where);
+}
+
+void TArrayTooSmallPanic(TArrayHdr *thdrP, const char *where)
+{
+    Tcl_Panic("Insufficient space in TArrayHdr (allocated %d) in %s.", thdrP->allocated, where);
+}
+
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname)
 {
     Tcl_SetObjResult(interp, Tcl_ObjPrintf("Missing or invalid argument to option '%s'", optname));
@@ -96,6 +106,149 @@ TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, enum TArraySearchSwitches 
             Tcl_SetObjResult(interp, Tcl_ObjPrintf("Unknown or invalid search operator (%s).", ops));
     }
     return TCL_ERROR;
+}
+
+TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
+                              unsigned char tatype, TArrayValue *tavP)
+{
+    int i;
+    switch (tatype) {
+    case TARRAY_BOOLEAN:
+        if (Tcl_GetBooleanFromObj(interp, objP, &i) != TCL_OK)
+            return TCL_ERROR;
+        tavP->bval = (i != 0);
+        break;
+    case TARRAY_BYTE:
+    case TARRAY_INT:
+        if (Tcl_GetIntFromObj(interp, objP, &tavP->ival) != TCL_OK)
+            return TCL_ERROR;
+        if (tatype == TARRAY_INT)
+            break;
+        if (tavP->ival > 255 || tavP->ival < 0) {
+            if (interp)
+                Tcl_SetObjResult(interp,
+                                 Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", tavP->ival));
+            return TCL_ERROR;
+        }
+        tavP->ucval = (unsigned char) tavP->ival;
+        break;
+    case TARRAY_UINT:
+    case TARRAY_WIDE:
+        if (Tcl_GetWideIntFromObj(interp, objP, &tavP->wval) != TCL_OK)
+            return TCL_ERROR;
+        if (tatype == TARRAY_WIDE)
+            break;
+        if (tavP->wval < 0 || tavP->wval > 0xFFFFFFFF) {
+            if (interp)
+                Tcl_SetObjResult(interp,
+                                 Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(objP)));
+            return TCL_ERROR;
+        }
+        tavP->uival = (unsigned int) tavP->wval;
+        break;
+    case TARRAY_DOUBLE:
+        if (Tcl_GetDoubleFromObj(interp, objP, &tavP->dval) != TCL_OK)
+            return TCL_ERROR;
+        break;
+    case TARRAY_OBJ:
+        tavP->oval = objP;
+        break;
+    default:
+        TArrayTypePanic(tatype);
+    }
+
+    tavP->type = tatype;
+    return TCL_OK;
+}
+
+/*
+ * Set the value of an element range at a position in a TArrayHdr.
+ * See the asserts below for conditions under which this can be called
+ */
+void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
+                   TArrayValue *tavP, int pos, int count)
+{
+    int i;
+
+    TARRAY_ASSERT(! TAHDR_SHARED(thdrP));
+    TARRAY_ASSERT((pos+count) < thdrP->allocated);
+    TARRAY_ASSERT(pos <= thdrP->used);
+    TARRAY_ASSERT(thdrP->type == tavP->type);
+
+    switch (thdrP->type) {
+    case TARRAY_BOOLEAN:
+        bitarray_set(TAHDRELEMPTR(thdrP, unsigned char, 0), pos, count, tavP->bval);
+        break;
+    case TARRAY_INT:
+    case TARRAY_UINT:
+        if (tavP->ival == 0) {
+            memset(TAHDRELEMPTR(thdrP, int, pos), 0, count*sizeof(int));
+        } else {
+            int *iP;
+            iP = TAHDRELEMPTR(thdrP, int, pos);
+            for (i = 0; i < count; ++i, ++iP)
+                *iP = tavP->ival;
+        }
+        break;
+        
+    case TARRAY_BYTE:
+        memset(TAHDRELEMPTR(thdrP, unsigned char, pos), tavP->ucval, count);
+        break;
+
+    case TARRAY_WIDE:
+        if (tavP->wval == 0) {
+            memset(TAHDRELEMPTR(thdrP, Tcl_WideInt, pos), 0, count*sizeof(Tcl_WideInt));
+        } else {
+            Tcl_WideInt *wideP;
+            wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, pos);
+            for (i = 0; i < count; ++i, ++wideP)
+                *wideP = tavP->wval;
+        }
+        break;
+    case TARRAY_DOUBLE:
+        {
+            double *dvalP;
+            dvalP = TAHDRELEMPTR(thdrP, double, pos);
+            for (i = 0; i < count; ++i, ++dvalP)
+                *dvalP = tavP->dval;
+        }
+        break;
+    case TARRAY_OBJ:
+        {
+            Tcl_Obj **objPP;
+            int n;
+
+            /*
+             * We have to deal with reference counts here. For the object
+             * we are copying we need to increment the reference counts
+             * that many times. For objects being overwritten,
+             * we need to decrement reference counts.
+             */
+            /* First loop overwriting existing elements */
+            n = pos + count;
+            if (n > thdrP->used)
+                n = thdrP->used;
+            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, pos);
+            for (i = pos; i < n; ++i) {
+                /* Be careful of the order */
+                Tcl_IncrRefCount(tavP->oval);
+                Tcl_DecrRefCount(*objPP);
+                *objPP = tavP->oval;
+            }
+
+            /* Now loop over new elements being appended */
+            for (; i < pos+count; ++i) {
+                Tcl_IncrRefCount(tavP->oval);
+                *objPP = tavP->oval;
+            }
+        }
+        break;
+    default:
+        TArrayTypePanic(thdrP->type);
+    }
+
+    if ((pos + count) > thdrP->used)
+        thdrP->used = pos + count;
 }
 
 
@@ -138,14 +291,12 @@ void TArrayDecrObjRefs(TArrayHdr *thdrP, int first, int count)
     }
 }
 
-void TArrayFreeHdr(TArrayHdr *thdrP)
+void TArrayHdrFree(TArrayHdr *thdrP)
 {
-    if (--thdrP->nrefs <= 0) {
-        if (thdrP->type == TARRAY_OBJ) {
-            TArrayDecrObjRefs(thdrP, 0, thdrP->used);
-        }
-        TARRAY_FREEMEM(thdrP);
+    if (thdrP->type == TARRAY_OBJ) {
+        TArrayDecrObjRefs(thdrP, 0, thdrP->used);
     }
+    TARRAY_FREEMEM(thdrP);
 }
 
 TCL_RESULT TArrayVerifyType(Tcl_Interp *interp, Tcl_Obj *objP)
@@ -159,7 +310,7 @@ TCL_RESULT TArrayVerifyType(Tcl_Interp *interp, Tcl_Obj *objP)
     }
 }
 
-static void TArrayFreeRep(Tcl_Obj *objP)
+static void TArrayTypeFreeRep(Tcl_Obj *objP)
 {
     TArrayHdr *thdrP;
 
@@ -168,17 +319,17 @@ static void TArrayFreeRep(Tcl_Obj *objP)
     thdrP = TARRAYHDR(objP); 
     TARRAY_ASSERT(thdrP);
 
-    TArrayFreeHdr(thdrP);
+    TAHDR_DECRREF(thdrP);
     TARRAYHDR(objP) = NULL;
     objP->typePtr = NULL;
 }
 
-static void TArrayDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP)
+static void TArrayTypeDupObj(Tcl_Obj *srcObj, Tcl_Obj *dstObj)
 {
-    TARRAY_ASSERT(srcP->typePtr == &gTArrayType);
-    TARRAY_ASSERT(TARRAYDATA(srcP) != NULL);
+    TARRAY_ASSERT(srcObj->typePtr == &gTArrayType);
+    TARRAY_ASSERT(TARRAYHDR(srcObj) != NULL);
         
-    TARRAY_OBJ_SETREP(dstP, TARRAYHDR(srcP));
+    TARRAY_OBJ_SETREP(dstObj, TARRAYHDR(srcObj));
 }
 
 
@@ -246,7 +397,7 @@ static void UpdateObjArrayString(
 }
 
 
-static void TArrayUpdateStringRep(Tcl_Obj *objP)
+static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
 {
     int i, n, count;
     int allocated, unused;
@@ -857,7 +1008,7 @@ TArrayHdr *TArrayClone(TArrayHdr *srcP, int minsize)
     /* TBD - optimize these two calls */
     thdrP = TArrayAlloc(srcP->type, minsize);
     if (TArraySet(NULL, thdrP, 0, srcP, 0, srcP->used) != TCL_OK) {
-        TArrayFreeHdr(thdrP);
+        TAHDR_DECRREF(thdrP);
         return NULL;
     }
     return thdrP;
@@ -914,7 +1065,7 @@ TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
     int i, n, ival;
     unsigned char *ucP;
 
-    /* TBD - optimize when value is 0 by using memset */
+    /* TBD - use TArrayHdrSetFromValue */
 
     TARRAY_ASSERT(dstP->nrefs < 2); /* Must not be shared */
 
@@ -950,7 +1101,7 @@ TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
              * We have to deal with reference counts here. For the object
              * we are copying we need to increment the reference counts
              * that many times. For objects being overwritten,
-             * we need to decrement reference counts. Note we c
+             * we need to decrement reference counts.
              */
             /* First loop overwriting existing elements */
             n = dst_first + count;
@@ -1034,6 +1185,197 @@ TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
     return TCL_OK;
 }
 
+/*
+ * Set the item of each specified TArrayHdr to the corresponding value.
+ * The TArrayHdr arrays should not be shared, and must be large enough.
+ * Will panic otherwise.
+ *
+ * On success, all arrays are modified. On error, none are.
+ */
+void TArrayHdrFillTuple(Tcl_Interp *interp, TArrayHdr *const thdrs[],
+                        const TArrayValue *valuesP , int nthdrs, int pos,
+                        int count)
+{
+    int i;
+
+    for (i = 0; i < nthdrs; ++i, ++valuesP) {
+        TArrayHdr *thdrP = thdrs[i];
+        TARRAY_ASSERT(! TAHDR_SHARED(thdrP));
+        TARRAY_ASSERT(pos < thdrP->allocated);
+        TARRAY_ASSERT(pos <= thdrP->used);
+        TARRAY_ASSERT(thdrP->type == valuesP->type);
+
+        TArrayHdrFill(interp, thdrP, valuesP, pos, count);
+    }
+}
+                             
+TCL_RESULT TArray_TupleFillObjCmd(ClientData clientdata, Tcl_Interp *interp,
+                              int objc, Tcl_Obj *const objv[])
+{
+    int i, low, count, tuple_width;
+    TArrayHdr *thdrs[32];
+    TArrayHdr **thdrsP;
+    TArrayValue values[sizeof(thdrs)/sizeof(thdrs[0])];
+    TArrayValue *valuesP;
+    Tcl_Obj *resultObjs[sizeof(thdrs)/sizeof(thdrs[0])];
+    Tcl_Obj **resultObjsP;
+    int nthdrs = 0;
+    Tcl_Obj *lowObj = NULL;
+    Tcl_Obj *highObj = NULL;
+    Tcl_Obj **taObjs;
+    Tcl_Obj **valueObjs;
+    int status = TCL_ERROR;
+    int new_size;
+
+    // tarray::filltuples low high TARRAYLIST VALUELIST
+
+    if (objc != 5) {
+	Tcl_WrongNumArgs(interp, 1, objv, "low high tarraylist valuelist");
+	return TCL_ERROR;
+    }
+
+    if (Tcl_ListObjGetElements(interp, objv[3], &tuple_width, &taObjs) != TCL_OK)
+        return TCL_ERROR;
+    if (Tcl_ListObjGetElements(interp, objv[4], &i, &valueObjs) != TCL_OK)
+        return TCL_ERROR;
+    if (i != tuple_width) {
+        Tcl_SetResult(interp, "Count of values supplied does not match count of tarrays", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    /* Check for empty tuple so as to simplify loops below */
+    if (tuple_width == 0)
+        return TCL_OK;          /* Return empty result */
+
+    /*
+     * Extract low/high indices. Be careful not to shimmer because
+     * in the unlikely but legal case where index is same object
+     * as the passed tarray, we do not want to lose the tarray
+     * representation. For example,
+     *   set v [tarray create int {0}]
+     *   tarray filltuples $v $v [list $v] 0
+     * So if the index Tcl_Obj's are of tarrays, we dup them.
+     */
+
+    if (objv[1]->typePtr == &gTArrayType)
+        lowObj = Tcl_DuplicateObj(objv[1]);
+    else {
+        lowObj = objv[1];
+        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
+    }
+
+    if (objv[2]->typePtr == &gTArrayType)
+        highObj = Tcl_DuplicateObj(objv[2]);
+    else {
+        highObj = objv[2];
+        Tcl_IncrRefCount(highObj); /* Since we will release at end */
+    }
+
+    if (tuple_width > sizeof(thdrs)/sizeof(thdrs[0])) {
+        thdrsP = (TArrayHdr **) ckalloc(tuple_width * sizeof(TArrayHdr *));
+        valuesP = (TArrayValue *) ckalloc(tuple_width * sizeof(TArrayValue));
+        resultObjsP = (Tcl_Obj **)ckalloc(tuple_width * sizeof(Tcl_Obj *));
+    } else {
+        valuesP = values;
+        thdrsP = thdrs;
+        resultObjsP = resultObjs;
+    }
+        
+    /*
+     * Now verify tarrays and values. The latter should be of the
+     * appropriate type. Also ensure all tarrays are the same size.
+     */
+    for (nthdrs = 0; nthdrs < tuple_width; ++nthdrs) {
+        if (TArrayVerifyType(interp, taObjs[nthdrs]) != TCL_OK)
+            goto error_return;
+        thdrsP[nthdrs] = TARRAYHDR(taObjs[nthdrs]);
+        if (thdrsP[nthdrs]->used != thdrsP[0]->used) {
+            Tcl_SetResult(interp, "tarrays have differing number of elements", TCL_STATIC);
+            goto error_return;
+        }
+        if (TArrayValueFromObj(interp, valueObjs[nthdrs], thdrsP[nthdrs]->type,
+                               &valuesP[nthdrs]) != TCL_OK)
+            goto error_return;
+    }
+
+    /* Get the limits of the range to set */
+    if (RationalizeIndices(interp, thdrsP[0], lowObj, highObj, &low, &count) != TCL_OK)
+        return TCL_ERROR;
+
+    /*
+     * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT FATAL ONES
+     * LIKE BUGCHECKS OR OUT OF MEMORY. Code below is written accordingly.
+     */
+
+    /*
+     * Now that we have verified inputs are correct, get ready to
+     * generate results. With respect to where to store the results,
+     * there are three cases to consider for each tarray.
+     * (1) If taObj[i] is shared, then we cannot modify in place since
+     *     the object is referenced elsewhere in the program. We have to
+     *     clone the corresponding thdrsP[i] and stick it in a new
+     *     Tcl_Obj.
+     * (2) If taObj[i] is unshared, the corresponding thdrsP[i] might
+     *     still be shared (pointed to from elsewhere). In this case
+     *     also, we clone thdrsP[i] but instead of allocating a new 
+     *     Tcl_Obj, we store it as the internal rep of taObj[i].
+     * (3) If taObj[i] and thdrsP[i] are unshared, (a) we can modify in
+     *     place (b) unless thdrsP[i] is too small. In that case we have
+     *     to follow the same path as (2).
+     *
+     * NOTE: taObjsP points into memory owned by objv[3] list. We cannot
+     * write to it, hence we use a separate output area resultObjsP[].
+     */
+
+    TARRAY_ASSERT(nthdrs == tuple_width);
+
+    /* If we have to realloc anyway, we will leave a bit extra room */
+    new_size = low + count + TARRAY_EXTRA(low+count);
+    for (i = 0; i < tuple_width; ++i) {
+        if (Tcl_IsShared(taObjs[i])) {
+            /* Case (1) */
+            thdrsP[i] = TArrayClone(thdrsP[i], new_size);
+            TARRAY_ASSERT(thdrsP[i]);
+            resultObjsP[i] = TArrayNewObj(thdrsP[i]);
+        } else {
+            if (TAHDR_SHARED(thdrsP[i]) || thdrsP[i]->allocated < (low+count)) {
+                /* Case (2) or (3b) */
+                thdrsP[i] = TArrayClone(thdrsP[i], new_size);
+                TARRAY_ASSERT(thdrsP[i]);
+                TAHDR_DECRREF(TARRAYHDR(taObjs[i]));
+                TARRAYHDR(taObjs[i]) = NULL;
+                TARRAY_OBJ_SETREP(taObjs[i], thdrsP[i]);
+                resultObjsP[i] = taObjs[i];
+            } else {
+                /* Case (3) */
+                /* thdrsP[i] can be reused as is */
+                resultObjsP[i] = taObjs[i];
+            }
+        }
+    }
+
+    /* Ok everything in place to do the actual filling */
+    TArrayHdrFillTuple(interp, thdrsP, valuesP, tuple_width, low, count);
+    Tcl_SetObjResult(interp, Tcl_NewListObj(tuple_width, resultObjsP));
+    status = TCL_OK;
+    
+error_return:                   /* interp must already hold error message */
+    if (lowObj)
+        Tcl_DecrRefCount(lowObj);
+    if (highObj)
+        Tcl_DecrRefCount(highObj);
+
+    if (resultObjsP != resultObjs)
+        ckfree((char *) resultObjsP);
+    if (thdrsP != thdrs)
+        ckfree((char *) thdrsP);
+    if (valuesP != values)
+        ckfree((char *) valuesP);
+
+    return status;
+}
+
+
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
 Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, int index)
 {
@@ -1066,7 +1408,7 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, int index)
 }
 
 /* Returns a TArrayHdr of type int. The header's ref count is incremented
- * so caller should call TArrayFreeHdr as appropriate
+ * so caller should call TArrayHdrFree as appropriate
  */
 TArrayHdr *TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP)
 {
@@ -1611,7 +1953,7 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TArrayHdr * haystackP,
                 compare_result = Tcl_RegExpExecObj(interp, re, *objPP,
                                                    0, 0, 0);
                 if (compare_result < 0) {
-                    TArrayFreeHdr(thdrP); /* Note this unrefs embedded Tcl_Objs if needed */
+                    TAHDR_DECRREF(thdrP); /* Note this unrefs embedded Tcl_Objs if needed */
                     return TCL_ERROR;
                 }
                 break;
@@ -1814,6 +2156,50 @@ int TArrayNumSetBits(TArrayHdr *thdrP)
     }
 
     return count;
+}
+
+/* Map numeric or string end index to numeric int (which may be -1 also */
+TCL_RESULT IndexToInt(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *objP, int *indexP)
+{
+    char *s;
+
+    if (Tcl_GetIntFromObj(NULL, objP, indexP) != TCL_OK) {
+        s = Tcl_GetString(objP);
+        if (strcmp(s, "end")) {
+            if (interp != NULL) {
+                Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+                                     "bad index '%s': must be 'end' or an integer value", s));
+                Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "INDEX", NULL);
+            }
+            return TCL_ERROR;
+        }
+        *indexP = thdrP->used - 1;
+    }
+    return TCL_OK;
+}
+
+TCL_RESULT RationalizeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
+{
+    int low, high;
+
+    if (IndexToInt(interp, thdrP, lowObj, &low) != TCL_OK)
+        return TCL_ERROR;
+
+    if (IndexToInt(interp, thdrP, highObj, &high) != TCL_OK)
+        return TCL_ERROR;
+
+    /* We allow low index to be 1 greater than last element. Caller should
+     * check for this if appropriate. High index can be any greater value
+     * than lower range.
+     */
+    if (low < 0 || low > thdrP->used || high < low) {
+        Tcl_SetResult(interp, "tarray index out of range.", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    *lowP = low;
+    *countP = high - low + 1;
+    return TCL_OK;
 }
 
 /*
@@ -2321,4 +2707,5 @@ loop:	SWAPINIT(a, es);
 	}
 /*		qsort(pn - r, r / es, es, cmp);*/
 }
+
 
