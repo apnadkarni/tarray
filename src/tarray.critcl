@@ -67,8 +67,8 @@ critcl::cproc tarray::type {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
     return TCL_OK;
 }
 
-critcl::cproc tarray::index {Tcl_Interp* interp TArrayObjPtr taobjP int index} ok {
-    Tcl_Obj *objP = TArrayIndex(interp, TARRAYHDR(taobjP), index);
+critcl::cproc tarray::index {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* indexObj} ok {
+    Tcl_Obj *objP = TArrayIndex(interp, TARRAYHDR(taObj), indexObj);
     if (objP) {
         Tcl_SetObjResult(interp, objP);
         return TCL_OK;
@@ -80,7 +80,7 @@ critcl::cproc tarray::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* low
     TArrayHdr *thdrP;
     int low, count;
 
-    if (RationalizeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
+    if (RationalizeRangeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
         return TCL_ERROR;
 
     thdrP = TArrayAlloc(TARRAYTYPE(taobjP), count);
@@ -253,12 +253,12 @@ critcl::cproc tarray::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
 }
 
 
-critcl::cproc tarray::setrange {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* lowObj Tcl_Obj* highObj Tcl_Obj* valObj } ok {
+critcl::cproc tarray::OBSOLETEsetrange {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* lowObj Tcl_Obj* highObj Tcl_Obj* valObj } ok {
     int low, count;
     Tcl_Obj *resultObj;
     TArrayHdr *thdrP;
     
-    if (RationalizeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
+    if (RationalizeRangeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
         return TCL_ERROR;
 
     thdrP = TARRAYHDR(taobjP);
