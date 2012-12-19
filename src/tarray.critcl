@@ -255,11 +255,12 @@ critcl::cproc tarray::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
 critcl::ccommand tarray::search TArray_SearchObjCmd
 
 critcl::ccommand tarray::fill {} {
-    if (objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "low high tarray value");
+    if (objc != 4 && objc != 5) {
+	Tcl_WrongNumArgs(interp, 1, objv, "tarray value low ?high?");
 	return TCL_ERROR;
     }
-    return TArrayTupleFill(interp, objv[1], objv[2], &objv[3], &objv[4], 1, TARRAY_FILL_SINGLE);
+    
+    return TArrayTupleFill(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
 }
 
 critcl::ccommand tarray::tuplefill {} {
@@ -269,14 +270,14 @@ critcl::ccommand tarray::tuplefill {} {
 
     // tarray::filltuples low high TARRAYLIST VALUELIST
 
-    if (objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "low high tarraylist valuelist");
+    if (objc != 4 && objc != 5) {
+	Tcl_WrongNumArgs(interp, 1, objv, "tarraylist valuelist low ?high?");
 	return TCL_ERROR;
     }
 
-    if (Tcl_ListObjGetElements(interp, objv[3], &tuple_width, &taObjs) != TCL_OK)
+    if (Tcl_ListObjGetElements(interp, objv[1], &tuple_width, &taObjs) != TCL_OK)
         return TCL_ERROR;
-    if (Tcl_ListObjGetElements(interp, objv[4], &i, &valueObjs) != TCL_OK)
+    if (Tcl_ListObjGetElements(interp, objv[2], &i, &valueObjs) != TCL_OK)
         return TCL_ERROR;
     if (i != tuple_width) {
         Tcl_SetResult(interp, "Count of values supplied does not match count of tarrays", TCL_STATIC);
@@ -287,7 +288,7 @@ critcl::ccommand tarray::tuplefill {} {
     if (tuple_width == 0)
         return TCL_OK;          /* Return empty result */
 
-    return TArrayTupleFill(interp, objv[1], objv[2], taObjs, valueObjs, tuple_width, 0);
+    return TArrayTupleFill(interp, objv[3], objv[objc == 5 ? 4 : 3], taObjs, valueObjs, tuple_width, 0);
 }
 
 package provide tarray 0.1
