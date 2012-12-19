@@ -198,7 +198,5 @@ int tclobjcmpindexedrev(void *, const void *a, const void *b);
 /* Tcl script level commands */
 TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
                                       int objc, Tcl_Obj *const objv[]);
-TCL_RESULT TArray_TupleFillObjCmd(ClientData clientdata, Tcl_Interp *interp,
-                                      int objc, Tcl_Obj *const objv[]);
 
 #endif
