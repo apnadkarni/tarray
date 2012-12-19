@@ -1201,7 +1201,7 @@ TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
  *
  * On success, all arrays are modified. On error, none are.
  */
-void TArrayHdrTupleFill(Tcl_Interp *interp, TArrayHdr *const thdrs[],
+void OBSOLETETArrayHdrTupleFill(Tcl_Interp *interp, TArrayHdr *const thdrs[],
                         const TArrayValue *valuesP , int nthdrs, int pos,
                         int count)
 {
@@ -1221,16 +1221,16 @@ void TArrayHdrTupleFill(Tcl_Interp *interp, TArrayHdr *const thdrs[],
 TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
                            Tcl_Obj *lowObj, Tcl_Obj *highObj,
                            Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
-                           int tuple_width)
+                           int tuple_width,
+                           int flags)
 {
     int i, low, count;
-    TArrayHdr *thdrs[32];
-    TArrayHdr **thdrsP;
-    TArrayValue values[sizeof(thdrs)/sizeof(thdrs[0])];
+    TArrayHdr *thdrP;
+    TArrayHdr *thdr0P;
+    TArrayValue values[32];
     TArrayValue *valuesP;
-    Tcl_Obj *resultObjs[sizeof(thdrs)/sizeof(thdrs[0])];
+    Tcl_Obj *resultObjs[sizeof(values)/sizeof(values[0])];
     Tcl_Obj **resultObjsP;
-    int nthdrs = 0;
     int status = TCL_ERROR;
     int new_size;
 
@@ -1258,13 +1258,11 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
     else
         Tcl_IncrRefCount(highObj); /* Since we will release at end */
 
-    if (tuple_width > sizeof(thdrs)/sizeof(thdrs[0])) {
-        thdrsP = (TArrayHdr **) ckalloc(tuple_width * sizeof(TArrayHdr *));
+    if (tuple_width > sizeof(values)/sizeof(values[0])) {
         valuesP = (TArrayValue *) ckalloc(tuple_width * sizeof(TArrayValue));
         resultObjsP = (Tcl_Obj **)ckalloc(tuple_width * sizeof(Tcl_Obj *));
     } else {
         valuesP = values;
-        thdrsP = thdrs;
         resultObjsP = resultObjs;
     }
         
@@ -1272,21 +1270,23 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
      * Now verify tarrays and values. The latter should be of the
      * appropriate type. Also ensure all tarrays are the same size.
      */
-    for (nthdrs = 0; nthdrs < tuple_width; ++nthdrs) {
-        if (TArrayVerifyType(interp, taObjs[nthdrs]) != TCL_OK)
+    thdr0P = TARRAYHDR(taObjs[0]);
+    for (i = 0; i < tuple_width; ++i) {
+        if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
-        thdrsP[nthdrs] = TARRAYHDR(taObjs[nthdrs]);
-        if (thdrsP[nthdrs]->used != thdrsP[0]->used) {
+        thdrP = TARRAYHDR(taObjs[i]);
+        if (thdrP->used != thdr0P->used) {
             Tcl_SetResult(interp, "tarrays have differing number of elements", TCL_STATIC);
             goto vamoose;
         }
-        if (TArrayValueFromObj(interp, valueObjs[nthdrs], thdrsP[nthdrs]->type,
-                               &valuesP[nthdrs]) != TCL_OK)
+        if (TArrayValueFromObj(interp, valueObjs[i], thdrP->type, &valuesP[i])
+            != TCL_OK)
             goto vamoose;
     }
 
     /* Get the limits of the range to set */
-    if (RationalizeRangeIndices(interp, thdrsP[0], lowObj, highObj, &low, &count) != TCL_OK)
+    if (RationalizeRangeIndices(interp, thdr0P, lowObj, highObj, &low, &count)
+        != TCL_OK)
         return TCL_ERROR;
 
     /*
@@ -1302,19 +1302,17 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
      *     the object is referenced elsewhere in the program. We have to
      *     clone the corresponding thdrsP[i] and stick it in a new
      *     Tcl_Obj.
-     * (2) If taObj[i] is unshared, the corresponding thdrsP[i] might
+     * (2) If taObj[i] is unshared, the corresponding thdrP might
      *     still be shared (pointed to from elsewhere). In this case
-     *     also, we clone thdrsP[i] but instead of allocating a new 
+     *     also, we clone the thdrP but instead of allocating a new 
      *     Tcl_Obj, we store it as the internal rep of taObj[i].
-     * (3) If taObj[i] and thdrsP[i] are unshared, (a) we can modify in
-     *     place (b) unless thdrsP[i] is too small. In that case we have
+     * (3) If taObj[i] and its thdrP are unshared, (a) we can modify in
+     *     place (b) unless thdrP is too small. In that case we have
      *     to follow the same path as (2).
      *
      * NOTE: taObjsP points into memory owned by objv[3] list. We cannot
      * write to it, hence we use a separate output area resultObjsP[].
      */
-
-    TARRAY_ASSERT(nthdrs == tuple_width);
 
     /* If nothing to set, return existing tuple array as is */
     if (count == 0)
@@ -1323,31 +1321,36 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
         /* If we have to realloc anyway, we will leave a bit extra room */
         new_size = low + count + TARRAY_EXTRA(low+count);
         for (i = 0; i < tuple_width; ++i) {
+            thdrP = TARRAYHDR(taObjs[i]);
             if (Tcl_IsShared(taObjs[i])) {
                 /* Case (1) */
-                thdrsP[i] = TArrayClone(thdrsP[i], new_size);
-                TARRAY_ASSERT(thdrsP[i]);
-                resultObjsP[i] = TArrayNewObj(thdrsP[i]);
+                thdrP = TArrayClone(thdrP, new_size);
+                TARRAY_ASSERT(thdrP);
+                resultObjsP[i] = TArrayNewObj(thdrP);
             } else {
-                if (TAHDR_SHARED(thdrsP[i]) || thdrsP[i]->allocated < (low+count)) {
+                if (TAHDR_SHARED(thdrP) || thdrP->allocated < (low+count)) {
                     /* Case (2) or (3b) */
-                    thdrsP[i] = TArrayClone(thdrsP[i], new_size);
-                    TARRAY_ASSERT(thdrsP[i]);
-                    TAHDR_DECRREF(TARRAYHDR(taObjs[i]));
+                    thdrP = TArrayClone(thdrP, new_size);
+                    TARRAY_ASSERT(thdrP);
+                    TAHDR_DECRREF(TARRAYHDR(taObjs[i])); /* Release old */
                     TARRAYHDR(taObjs[i]) = NULL;
-                    TARRAY_OBJ_SETREP(taObjs[i], thdrsP[i]);
+                    TARRAY_OBJ_SETREP(taObjs[i], thdrP);
                     resultObjsP[i] = taObjs[i];
                 } else {
-                    /* Case (3) */
-                    /* thdrsP[i] can be reused as is */
+                    /* Case (3) - can be reused as is */
                     resultObjsP[i] = taObjs[i];
                 }
             }
+            TArrayHdrFill(interp, thdrP, &valuesP[i], low, count);
         }
         
-        /* Ok everything in place to do the actual filling */
-        TArrayHdrTupleFill(interp, thdrsP, valuesP, tuple_width, low, count);
-        Tcl_SetObjResult(interp, Tcl_NewListObj(tuple_width, resultObjsP));
+        //OBSOLETETArrayHdrTupleFill(interp, thdrsP, valuesP, tuple_width, low, count);
+        /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
+        TARRAY_ASSERT(tuple_width == 1 || (flags & TARRAY_FILL_SINGLE) == 0);
+        if (flags & TARRAY_FILL_SINGLE)
+            Tcl_SetObjResult(interp, resultObjsP[0]);
+        else
+            Tcl_SetObjResult(interp, Tcl_NewListObj(tuple_width, resultObjsP));
     }
     status = TCL_OK;
     
@@ -1357,8 +1360,6 @@ vamoose:                   /* interp must already hold error message */
 
     if (resultObjsP != resultObjs)
         ckfree((char *) resultObjsP);
-    if (thdrsP != thdrs)
-        ckfree((char *) thdrsP);
     if (valuesP != values)
         ckfree((char *) valuesP);
 

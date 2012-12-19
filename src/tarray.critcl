@@ -1,11 +1,11 @@
 package require critcl
 critcl::clean_cache
 critcl::tcl 8.5
-critcl::debug symbols
+# critcl::debug symbols
 critcl::cheaders tarray.h
+
 critcl::ccode {
 #include "tarray.h"
-
 }
 
 critcl::csources tarray.c
@@ -289,7 +289,7 @@ critcl::ccommand tarray::fill {} {
 	Tcl_WrongNumArgs(interp, 1, objv, "low high tarray value");
 	return TCL_ERROR;
     }
-    return TArrayTupleFill(interp, objv[1], objv[2], &objv[3], &objv[4], 1);
+    return TArrayTupleFill(interp, objv[1], objv[2], &objv[3], &objv[4], 1, TARRAY_FILL_SINGLE);
 }
 
 critcl::ccommand tarray::tuplefill {} {
@@ -317,7 +317,7 @@ critcl::ccommand tarray::tuplefill {} {
     if (tuple_width == 0)
         return TCL_OK;          /* Return empty result */
 
-    return TArrayTupleFill(interp, objv[1], objv[2], taObjs, valueObjs, tuple_width);
+    return TArrayTupleFill(interp, objv[1], objv[2], taObjs, valueObjs, tuple_width, 0);
 }
 
 package provide tarray 0.1
