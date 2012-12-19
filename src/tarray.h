@@ -141,7 +141,8 @@ void TArrayHdrTupleFill(Tcl_Interp *interp,
 TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
                            Tcl_Obj *lowObj, Tcl_Obj *highObj,
                            Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
-                           int tuple_width);
+                           int tuple_width, int flags);
+#define TARRAY_FILL_SINGLE 1
 
 Tcl_Obj * TArrayNewObj(TArrayHdr *thdrP);
 TCL_RESULT TArraySetFromObjs(struct Tcl_Interp *interp,TArrayHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
