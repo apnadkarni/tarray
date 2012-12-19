@@ -133,11 +133,15 @@ TCL_RESULT TArrayVerifyType(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                                              unsigned char tatype, TArrayValue *tavP);
 void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
-                                   TArrayValue *tavP, int pos, int count);
-void TArrayHdrFillTuple(Tcl_Interp *interp,
+                                   const TArrayValue *tavP, int pos, int count);
+void TArrayHdrTupleFill(Tcl_Interp *interp,
                         TArrayHdr *const thdrs[],
                         TArrayValue const values[] ,
                         int nthdrs, int pos, int count);
+TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
+                           Tcl_Obj *lowObj, Tcl_Obj *highObj,
+                           Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
+                           int tuple_width);
 
 Tcl_Obj * TArrayNewObj(TArrayHdr *thdrP);
 TCL_RESULT TArraySetFromObjs(struct Tcl_Interp *interp,TArrayHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
@@ -147,13 +151,13 @@ TArrayHdr *TArrayAlloc(unsigned char tatype, int count);
 TArrayHdr *TArrayAllocAndInit(struct Tcl_Interp *interp,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 int TArraySet(struct Tcl_Interp *interp,TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
 TArrayHdr *TArrayClone(TArrayHdr *srcP, int init_size);
-struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TArrayHdr *thdrP,int index);
+struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TArrayHdr *thdrP,Tcl_Obj *indexObj);
 TArrayHdr *TArrayConvertToIndices(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
 TArrayHdr *TArrayGetValues(struct Tcl_Interp *interp,TArrayHdr *srcP,TArrayHdr *indicesP);
 int TArrayNumSetBits(TArrayHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
-TCL_RESULT IndexToInt(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *objP, int *indexP);
-TCL_RESULT RationalizeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
+TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value);
+TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
 
 
 /* Search and sort routines */
