@@ -150,7 +150,7 @@ int TArrayCalcSize(unsigned char tatype,int count);
 TArrayHdr *TArrayRealloc(TArrayHdr *oldP,int new_count);
 TArrayHdr *TArrayAlloc(unsigned char tatype, int count);
 TArrayHdr *TArrayAllocAndInit(struct Tcl_Interp *interp,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
-int TArraySet(struct Tcl_Interp *interp,TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
+int TArrayCopy(struct Tcl_Interp *interp,TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
 TArrayHdr *TArrayClone(TArrayHdr *srcP, int init_size);
 struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TArrayHdr *thdrP,Tcl_Obj *indexObj);
 TArrayHdr *TArrayConvertToIndices(struct Tcl_Interp *interp,struct Tcl_Obj *objP);

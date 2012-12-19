@@ -2,7 +2,6 @@
 #define TARRAY_ENABLE_ASSERT 1
 #include "tarray.h"
 
-
 /*
  * Various operations on bit arrays use the following definitions. 
  * Since we are using the bitarray code from stackoverflow, bit arrays
@@ -905,7 +904,7 @@ TArrayHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
 }
 
 /* dstP must not be shared and must be large enough */
-TCL_RESULT TArraySet(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
+TCL_RESULT TArrayCopy(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
                              TArrayHdr *srcP, int src_first, int count)
 {
     int nbytes;
@@ -1016,7 +1015,7 @@ TArrayHdr *TArrayClone(TArrayHdr *srcP, int minsize)
 
     /* TBD - optimize these two calls */
     thdrP = TArrayAlloc(srcP->type, minsize);
-    if (TArraySet(NULL, thdrP, 0, srcP, 0, srcP->used) != TCL_OK) {
+    if (TArrayCopy(NULL, thdrP, 0, srcP, 0, srcP->used) != TCL_OK) {
         TAHDR_DECRREF(thdrP);
         return NULL;
     }
@@ -1066,158 +1065,6 @@ void bitarray_set(unsigned char *ucP, int offset, int count, int ival)
     }
 }
 
-
-/* dstP must not be shared and must be large enough */
-TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
-                          int count, Tcl_Obj *objP)
-{
-    int i, n, ival;
-    unsigned char *ucP;
-
-    /* TBD - use TArrayHdrSetFromValue */
-
-    TARRAY_ASSERT(dstP->nrefs < 2); /* Must not be shared */
-
-    if (count <= 0)
-        return TCL_OK;
-
-    if (dst_first < 0)
-        dst_first = 0;
-    else if (dst_first > dstP->used)
-        dst_first = dstP->used;
-
-    if ((dst_first + count) > dstP->allocated) {
-        if (interp)
-            Tcl_SetResult(interp, "Internal error: TArray too small.", TCL_STATIC);
-        return TCL_ERROR;
-    }
-
-    switch (dstP->type) {
-    case TARRAY_BOOLEAN:
-        if (Tcl_GetBooleanFromObj(interp, objP, &ival) != TCL_OK)
-            return TCL_ERROR;
-        else {
-            bitarray_set(TAHDRELEMPTR(dstP, unsigned char, 0), dst_first,
-                         count, ival);
-        }
-        break;
-
-    case TARRAY_OBJ:
-        {
-            Tcl_Obj **objPP;
-
-            /*
-             * We have to deal with reference counts here. For the object
-             * we are copying we need to increment the reference counts
-             * that many times. For objects being overwritten,
-             * we need to decrement reference counts.
-             */
-            /* First loop overwriting existing elements */
-            n = dst_first + count;
-            if (n > dstP->used)
-                n = dstP->used;
-            objPP = TAHDRELEMPTR(dstP, Tcl_Obj *, dst_first);
-            for (i = dst_first; i < n; ++i) {
-                /* Be careful of the order */
-                Tcl_IncrRefCount(objP);
-                Tcl_DecrRefCount(*objPP);
-                *objPP = objP;
-            }
-
-            /* Now loop over new elements being appended */
-            for (; i < dst_first+count; ++i) {
-                Tcl_IncrRefCount(objP);
-                *objPP = objP;
-            }
-        }
-        break;
-
-    case TARRAY_UINT:           /* TBD - test specifically for UINT_MAX etc. */
-    case TARRAY_INT:
-        if (Tcl_GetIntFromObj(interp, objP, &ival) != TCL_OK)
-            return TCL_ERROR;
-        else {
-            int *iP;
-            iP = TAHDRELEMPTR(dstP, int, dst_first);
-            for (i = 0; i < count; ++i, ++iP)
-                *iP = ival;
-        }
-        break;
-    case TARRAY_WIDE:
-        {
-            Tcl_WideInt wide, *wideP;
-
-            if (Tcl_GetWideIntFromObj(interp, objP, &wide) != TCL_OK)
-                return TCL_ERROR;
-
-            wideP = TAHDRELEMPTR(dstP, Tcl_WideInt, dst_first);
-            for (i = 0; i < count; ++i, ++wideP)
-                *wideP = wide;
-        }
-        break;
-
-    case TARRAY_DOUBLE:
-        {
-            double dval, *dvalP;
-            if (Tcl_GetDoubleFromObj(interp, objP, &dval) != TCL_OK)
-                return TCL_ERROR;
-
-            dvalP = TAHDRELEMPTR(dstP, double, dst_first);
-            for (i = 0; i < count; ++i, ++dvalP)
-                *dvalP = dval;
-        }
-        break;
-
-    case TARRAY_BYTE:
-        if (Tcl_GetIntFromObj(interp, objP, &ival) != TCL_OK)
-            return TCL_ERROR;
-        else {
-            if (ival > 255 || ival < 0) {
-                if (interp)
-                    Tcl_SetObjResult(interp,
-                                     Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
-                return TCL_ERROR;
-            }
-            ucP = TAHDRELEMPTR(dstP, unsigned char, dst_first);
-            for (i = 0; i < count; ++i, ++ucP)
-                *ucP = (unsigned char) ival;
-        }
-        break;
-
-    default:
-        TArrayTypePanic(dstP->type);
-    }
-
-    if ((dst_first + count) > dstP->used)
-        dstP->used = dst_first + count;
-
-    return TCL_OK;
-}
-
-/*
- * Set the item of each specified TArrayHdr to the corresponding value.
- * The TArrayHdr arrays should not be shared, and must be large enough.
- * Will panic otherwise.
- *
- * On success, all arrays are modified. On error, none are.
- */
-void OBSOLETETArrayHdrTupleFill(Tcl_Interp *interp, TArrayHdr *const thdrs[],
-                        const TArrayValue *valuesP , int nthdrs, int pos,
-                        int count)
-{
-    int i;
-
-    for (i = 0; i < nthdrs; ++i, ++valuesP) {
-        TArrayHdr *thdrP = thdrs[i];
-        TARRAY_ASSERT(! TAHDR_SHARED(thdrP));
-        TARRAY_ASSERT(pos < thdrP->allocated);
-        TARRAY_ASSERT(pos <= thdrP->used);
-        TARRAY_ASSERT(thdrP->type == valuesP->type);
-
-        TArrayHdrFill(interp, thdrP, valuesP, pos, count);
-    }
-}
-                             
 TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
                            Tcl_Obj *lowObj, Tcl_Obj *highObj,
                            Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
@@ -1344,7 +1191,6 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
             TArrayHdrFill(interp, thdrP, &valuesP[i], low, count);
         }
         
-        //OBSOLETETArrayHdrTupleFill(interp, thdrsP, valuesP, tuple_width, low, count);
         /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
         TARRAY_ASSERT(tuple_width == 1 || (flags & TARRAY_FILL_SINGLE) == 0);
         if (flags & TARRAY_FILL_SINGLE)
