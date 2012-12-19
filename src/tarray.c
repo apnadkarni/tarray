@@ -1366,7 +1366,8 @@ TArrayHdr *TArrayGetValues(Tcl_Interp *interp, TArrayHdr *srcP, TArrayHdr *indic
 
 
 static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TArrayHdr * haystackP,
-                                      Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
+                                      Tcl_Obj *needleObj, int start,
+                                      enum TArraySearchSwitches op, int flags)
 {
     int bval;
     unsigned char *ucP;
