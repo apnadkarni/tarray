@@ -1365,37 +1365,6 @@ vamoose:                   /* interp must already hold error message */
     return status;
 }
 
-TCL_RESULT TArray_TupleFillObjCmd(ClientData clientdata, Tcl_Interp *interp,
-                              int objc, Tcl_Obj *const objv[])
-{
-    int i, tuple_width;
-    Tcl_Obj **taObjs;
-    Tcl_Obj **valueObjs;
-
-    // tarray::filltuples low high TARRAYLIST VALUELIST
-
-    if (objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "low high tarraylist valuelist");
-	return TCL_ERROR;
-    }
-
-    if (Tcl_ListObjGetElements(interp, objv[3], &tuple_width, &taObjs) != TCL_OK)
-        return TCL_ERROR;
-    if (Tcl_ListObjGetElements(interp, objv[4], &i, &valueObjs) != TCL_OK)
-        return TCL_ERROR;
-    if (i != tuple_width) {
-        Tcl_SetResult(interp, "Count of values supplied does not match count of tarrays", TCL_STATIC);
-        return TCL_ERROR;
-    }
-
-    /* Check for empty tuple so as to simplify loops below */
-    if (tuple_width == 0)
-        return TCL_OK;          /* Return empty result */
-
-    return TArrayTupleFill(interp, objv[1], objv[2], taObjs, valueObjs, tuple_width);
-}
-
-
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
 Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *indexObj)
 {
