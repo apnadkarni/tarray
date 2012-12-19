@@ -87,7 +87,7 @@ critcl::cproc tarray::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* low
     if (thdrP == NULL)
         return TCL_ERROR;
 
-    if (TArraySet(interp, thdrP, 0, TARRAYHDR(taobjP), low, count) != TCL_OK)
+    if (TArrayCopy(interp, thdrP, 0, TARRAYHDR(taobjP), low, count) != TCL_OK)
         return TCL_ERROR;
 
     Tcl_SetObjResult(interp, TArrayNewObj(thdrP));
@@ -250,36 +250,6 @@ critcl::cproc tarray::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
     Tcl_SetObjResult(interp, Tcl_NewIntObj(TArrayNumSetBits(TARRAYHDR(taobjP))));
     return TCL_OK;
 
-}
-
-
-critcl::cproc tarray::OBSOLETEsetrange {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* lowObj Tcl_Obj* highObj Tcl_Obj* valObj } ok {
-    int low, count;
-    Tcl_Obj *resultObj;
-    TArrayHdr *thdrP;
-    
-    if (RationalizeRangeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
-        return TCL_ERROR;
-
-    thdrP = TARRAYHDR(taobjP);
-    if (Tcl_IsShared(taobjP) || TAHDR_SHARED(thdrP)) {
-        /* Cannot modify in place. Need to dup it */
-        thdrP = TArrayClone(thdrP, low + count);
-        if (thdrP == NULL) {
-            Tcl_SetResult(interp, "Could not clone tarray", TCL_STATIC);
-            return TCL_ERROR;
-        }
-        resultObj = TArrayNewObj(thdrP);
-    } else {
-        resultObj = taobjP;
-        Tcl_InvalidateStringRep(resultObj);
-    }
-
-    if (TArraySetRange(interp, thdrP, low, count, valObj) != TCL_OK)
-        return TCL_ERROR;
-
-    Tcl_SetObjResult(interp, resultObj);
-    return TCL_OK;
 }
 
 critcl::ccommand tarray::search TArray_SearchObjCmd
