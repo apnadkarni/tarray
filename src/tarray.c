@@ -27,8 +27,7 @@
 /*
  * TArray is a Tcl "type" used for densely storing arrays of elements
  * of a specific type.
- * The Tcl_Obj.internalRep.ptrAndLongRep.value type of an element.
- * and Tcl_Obj.internalRep.ptrAndLongRep.ptr holds a pointer to 
+ * Tcl_Obj.internalRep.ptrAndLongRep.ptr holds a pointer to 
  * an allocated array of that type.
  */
 static void TArrayTypeDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
@@ -181,7 +180,7 @@ void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
     int i;
 
     TARRAY_ASSERT(! TAHDR_SHARED(thdrP));
-    TARRAY_ASSERT((pos+count) < thdrP->allocated);
+    TARRAY_ASSERT((pos+count) <= thdrP->allocated);
     TARRAY_ASSERT(pos <= thdrP->used);
     TARRAY_ASSERT(thdrP->type == tavP->type);
 
@@ -1050,8 +1049,9 @@ void bitarray_set(unsigned char *ucP, int offset, int count, int ival)
     /* Copied the first i bits. Now copy full bytes with memset */
     memset(ucP, ival ? 0xff : 0, (count-i)/CHAR_BIT);
     ucP += (count-i)/CHAR_BIT;
-    i = i + 8*(count-i); /* Number of bits left to be copied */
-    TARRAY_ASSERT(i < 8);
+    i = count - (i + CHAR_BIT*((count - i)/CHAR_BIT)); /* Num bits left to cp */
+    TARRAY_ASSERT(i >= 0);
+    TARRAY_ASSERT(i < CHAR_BIT);
     /* Now leftover bits */
     if (i) {
         uc = *ucP;
