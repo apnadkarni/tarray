@@ -1117,12 +1117,13 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
      * Now verify tarrays and values. The latter should be of the
      * appropriate type. Also ensure all tarrays are the same size.
      */
-    thdr0P = TARRAYHDR(taObjs[0]);
     for (i = 0; i < tuple_width; ++i) {
         if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
-        if (thdrP->used != thdr0P->used) {
+        if (i == 0)
+            thdr0P = TARRAYHDR(taObjs[0]);
+        else if (thdrP->used != thdr0P->used) {
             Tcl_SetResult(interp, "tarrays have differing number of elements", TCL_STATIC);
             goto vamoose;
         }
