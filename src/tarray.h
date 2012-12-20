@@ -79,7 +79,7 @@ typedef union TArrayHdr_s {
 #define TARRAYELEMPTR(optr_, type_, index_) TAHDRELEMPTR(TARRAYHDR(optr_), type_, index_)
 
 /* How much extra slots to allocate when allocating memory. n_ should
- * be number of elements currently.
+ * be number of elements currently. TBD - guard against overflow
  */
 #define TARRAY_EXTRA(n_)  \
     ((n_) < 10 ? 10 : ((n_) < 100 ? (n_) : ((n_) < 800 ? 100 : ((n_)/8))))
