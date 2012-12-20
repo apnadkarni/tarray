@@ -11,7 +11,7 @@ critcl::ccode {
 critcl::csources tarray.c
 
 critcl::argtype TArrayObjPtr {
-    if (TArrayVerifyType(interp, @@) != TCL_OK)
+    if (TArrayVerifyType(interp, @@) == NULL)
         return TCL_ERROR;
     @A = @@;
 }
@@ -54,9 +54,10 @@ critcl::ccommand tarray::create {} {
 }
 
 critcl::cproc tarray::size {Tcl_Interp* interp Tcl_Obj* taobjP} ok {
-    if (TArrayVerifyType(interp, taobjP) != TCL_OK)
+    TArrayHdr *thdrP;
+    if ((thdrP = TArrayVerifyType(interp, taobjP)) == NULL)
         return TCL_ERROR;
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(TARRAYELEMCOUNT(taobjP)));
+    Tcl_SetObjResult(interp, Tcl_NewIntObj(thdrP->used));
     return TCL_OK;
 }
 
@@ -87,7 +88,7 @@ critcl::cproc tarray::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* low
     if (thdrP == NULL)
         return TCL_ERROR;
 
-    if (TArrayCopy(interp, thdrP, 0, TARRAYHDR(taobjP), low, count) != TCL_OK)
+    if (TArrayHdrCopy(interp, thdrP, 0, TARRAYHDR(taobjP), low, count) != TCL_OK)
         return TCL_ERROR;
 
     Tcl_SetObjResult(interp, TArrayNewObj(thdrP));
@@ -132,7 +133,8 @@ critcl::ccommand tarray::sort {} {
 	return TCL_ERROR;
     }
 
-    if (TArrayVerifyType(interp, objv[objc-1]) != TCL_OK)
+    srcObj = objv[objc-1];
+    if ((srcP = TArrayVerifyType(interp, objv[objc-1])) == NULL)
         return TCL_ERROR;
 
     for (i = 1; i < objc-1; ++i) {
@@ -147,9 +149,6 @@ critcl::ccommand tarray::sort {} {
         }
     }
 
-    srcObj = objv[objc-1];
-    srcP = TARRAYHDR(srcObj);
-    
     if (return_indices) {
         int *indexP;
         sortedP = TArrayAlloc(TARRAY_INT, srcP->used);
@@ -188,7 +187,7 @@ critcl::ccommand tarray::sort {} {
            sort in place, else need to modify */
         if (Tcl_IsShared(srcObj) || TAHDR_SHARED(srcP)) {
             /* Cannot modify in place. Need to dup it */
-            sortedP = TArrayClone(srcP, 0);
+            sortedP = TArrayHdrClone(srcP, 0);
             resultObj = TArrayNewObj(sortedP);
         } else {
             sortedP = srcP;
@@ -254,9 +253,34 @@ critcl::cproc tarray::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
 
 critcl::ccommand tarray::search TArray_SearchObjCmd
 
+critcl::ccommand tarray::delete {} {
+    Tcl_Obj *taObj;
+    TArrayHdr *thdrP;
+    int low, count;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY LOW ?HIGH?");
+	return TCL_ERROR;
+    }
+    
+    if ((thdrP = TArrayVerifyType(interp, objv[1])) == NULL)
+        return TCL_ERROR;
+
+    if (RationalizeRangeIndices(interp, thdrP, objv[2],
+                                objc == 4 ? objv[3] : objv[2],
+                                &low, &count) != TCL_OK)
+        return TCL_ERROR;
+
+    taObj = TArrayMakeWritable(objv[1], thdrP->used, thdrP->used, 0);
+    /* Note thdrP potentially INVALID at this point */
+    TArrayHdrDelete(TARRAYHDR(taObj), low, count);
+    Tcl_SetObjResult(interp, taObj);
+    return TCL_OK;
+}
+
 critcl::ccommand tarray::fill {} {
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "tarray value low ?high?");
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY VALUE LOW ?HIGH?");
 	return TCL_ERROR;
     }
     
@@ -271,7 +295,7 @@ critcl::ccommand tarray::tuplefill {} {
     // tarray::filltuples low high TARRAYLIST VALUELIST
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "tarraylist valuelist low ?high?");
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYLIST VALUELIST LOW ?HIGH?");
 	return TCL_ERROR;
     }
 

@@ -308,14 +308,14 @@ void TArrayHdrFree(TArrayHdr *thdrP)
     TARRAY_FREEMEM(thdrP);
 }
 
-TCL_RESULT TArrayVerifyType(Tcl_Interp *interp, Tcl_Obj *objP)
+TArrayHdr *TArrayVerifyType(Tcl_Interp *interp, Tcl_Obj *objP)
 {
     if (objP->typePtr == &gTArrayType)
-        return TCL_OK;
+        return TARRAYHDR(objP);
     else {
         if (interp)
             Tcl_SetResult(interp, "Value is not a tarray", TCL_STATIC);
-        return TCL_ERROR;
+        return NULL;
     }
 }
 
@@ -902,18 +902,98 @@ TArrayHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
 
 }
 
-/* dstP must not be shared and must be large enough */
-TCL_RESULT TArrayCopy(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
+/* Deletes a range from a TArrayHdr. See asserts below for requirements */
+void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count)
+{
+    int nbytes;
+    void *s, *d;
+
+    TARRAY_ASSERT(! TAHDR_SHARED(thdrP));
+    TARRAY_ASSERT(first >= 0);
+
+    if (first >= thdrP->used)
+        return;          /* Nothing to be deleted */
+    
+    if ((first + count) >= thdrP->used)
+        count = thdrP->used - first;
+
+    if (count <= 0)
+        return;          /* Nothing to be deleted */
+
+    /*
+     * For all types other than BOOLEAN and OBJ, we can just memmove
+     * Those two types have complication in that BOOLEANs are compacted
+     * into bytes and the copy may not be aligned on a byte boundary.
+     * For OBJ types, we have to deal with reference counts.
+     */
+    switch (thdrP->type) {
+    case TARRAY_BOOLEAN:
+        bitarray_copy(TAHDRELEMPTR(thdrP, unsigned char, 0),
+                      first+count, count,
+                      TAHDRELEMPTR(thdrP, unsigned char, 0),
+                      first);
+        thdrP->used -= count;
+        return;
+
+    case TARRAY_OBJ:
+        /*
+         * We have to deal with reference counts here. For the objects
+         * we are deleting we need to decrement the reference counts.
+         */
+
+        TArrayDecrObjRefs(thdrP, first, count);
+         
+        /* Now we can just memcpy like the other types */
+        nbytes = count * sizeof(Tcl_Obj *);
+        s = TAHDRELEMPTR(thdrP, Tcl_Obj *, first+count);
+        d = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        break;
+
+    case TARRAY_UINT:
+    case TARRAY_INT:
+        nbytes = count * sizeof(int);
+        s = TAHDRELEMPTR(thdrP, int, first+count);
+        d = TAHDRELEMPTR(thdrP, int, first);
+        break;
+    case TARRAY_WIDE:
+        nbytes = count * sizeof(Tcl_WideInt);
+        s = TAHDRELEMPTR(thdrP, Tcl_WideInt, first+count);
+        d = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+        break;
+    case TARRAY_DOUBLE:
+        nbytes = count * sizeof(double);
+        s = TAHDRELEMPTR(thdrP, double, first+count);
+        d = TAHDRELEMPTR(thdrP, double, first);
+        break;
+    case TARRAY_BYTE:
+        nbytes = count * sizeof(unsigned char);
+        s = TAHDRELEMPTR(thdrP, unsigned char, first+count);
+        d = TAHDRELEMPTR(thdrP, unsigned char, first);
+        break;
+    default:
+        TArrayTypePanic(thdrP->type);
+    }
+
+    memmove(d, s, nbytes);      /* NOT memcpy since overlapping copy */
+
+    thdrP->used -= count;
+}
+
+
+/* Copies partial content from one TArrayHdr to another. See asserts below
+   for requirements */
+TCL_RESULT TArrayHdrCopy(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
                              TArrayHdr *srcP, int src_first, int count)
 {
     int nbytes;
     void *s, *d;
 
+    TARRAY_ASSERT(dstP != srcP);
     TARRAY_ASSERT(dstP->type == srcP->type);
     TARRAY_ASSERT(! TAHDR_SHARED(dstP));
     TARRAY_ASSERT(src_first >= 0);
 
-    if (src_first >= srcP->used || dstP == srcP)
+    if (src_first >= srcP->used)
         return TCL_OK;          /* Nothing to be copied */
 
     if ((src_first + count) > srcP->used)
@@ -1003,7 +1083,7 @@ TCL_RESULT TArrayCopy(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
 }
 
 /* Note: nrefs of cloned array is 0 */
-TArrayHdr *TArrayClone(TArrayHdr *srcP, int minsize)
+TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int minsize)
 {
     TArrayHdr *thdrP;
 
@@ -1014,11 +1094,63 @@ TArrayHdr *TArrayClone(TArrayHdr *srcP, int minsize)
 
     /* TBD - optimize these two calls */
     thdrP = TArrayAlloc(srcP->type, minsize);
-    if (TArrayCopy(NULL, thdrP, 0, srcP, 0, srcP->used) != TCL_OK) {
+    if (TArrayHdrCopy(NULL, thdrP, 0, srcP, 0, srcP->used) != TCL_OK) {
         TAHDR_DECRREF(thdrP);
         return NULL;
     }
     return thdrP;
+}
+
+/*
+ * Convert a Tcl_Obj to one that is suitable for modifying.
+ * There are three cases to consider:
+ * (1) If taObj is shared, then we cannot modify in place since
+ *     the object is referenced elsewhere in the program. We have to
+ *     clone the corresponding TArrayHdr and stick it in a new
+ *     Tcl_Obj.
+ * (2) If taObj is unshared, the corresponding TArrayHdr might
+ *     still be shared (pointed to from elsewhere). In this case
+ *     also, we clone the TArrayHdr but instead of allocating a new 
+ *     Tcl_Obj, we store it as the internal rep of taObj.
+ * (3) If taObj and its TArrayHdr are unshared, (a) we can modify in
+ *     place unless (b) TArrayHdr is too small. In case (b) we have
+ *     to follow the same path as (2).
+ *
+ * If bumpref is true, the returned object, whether what's passed in
+ * or newly allocated, has its ref count incremented. Caller is responsible
+ * for decrementing as appropriate. If bumpref is false, newly allocated
+ * objects have ref count 0 and passed-in ones are returned with no change.
+ *
+ * Generally, if caller is immediately going to add the object to
+ * (for example) a list or set it as the interp result, it should pass
+ * bumpref as 0. If it adds to a list in some cases, and frees it in others
+ * (such as error conditions), it should pass bumpref as 1 and then ALWAYS 
+ * Tcl_DecrRefCount it.
+ */
+Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int bumpref)
+{
+    TArrayHdr *thdrP;
+
+    TARRAY_ASSERT(taObj->typePtr == &gTArrayType);
+    thdrP = TARRAYHDR(taObj);
+    if (Tcl_IsShared(taObj)) {
+        /* Case (1) */
+        thdrP = TArrayHdrClone(thdrP, prefsize);
+        TARRAY_ASSERT(thdrP);
+        taObj = TArrayNewObj(thdrP);
+    } else if (TAHDR_SHARED(thdrP) || thdrP->allocated < minsize) {
+        /* Case (2) or (3b) */
+        thdrP = TArrayHdrClone(thdrP, prefsize);
+        TARRAY_ASSERT(thdrP);
+        TAHDR_DECRREF(TARRAYHDR(taObj)); /* Release old */
+        TARRAYHDR(taObj) = NULL;
+        TARRAY_OBJ_SETREP(taObj, thdrP);
+    } else {
+        /* Case (3) - can be reused as is */
+    }
+
+    Tcl_IncrRefCount(taObj);
+    return taObj;
 }
 
 void bitarray_set(unsigned char *ucP, int offset, int count, int ival)
@@ -1072,7 +1204,6 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
                            int flags)
 {
     int i, low, count;
-    TArrayHdr *thdrP;
     TArrayHdr *thdr0P;
     TArrayValue values[32];
     TArrayValue *valuesP;
@@ -1118,9 +1249,9 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
      * appropriate type. Also ensure all tarrays are the same size.
      */
     for (i = 0; i < tuple_width; ++i) {
-        if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
+        TArrayHdr *thdrP;
+        if ((thdrP = TArrayVerifyType(interp, taObjs[i])) == NULL)
             goto vamoose;
-        thdrP = TARRAYHDR(taObjs[i]);
         if (i == 0)
             thdr0P = TARRAYHDR(taObjs[0]);
         else if (thdrP->used != thdr0P->used) {
@@ -1169,27 +1300,10 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
         /* If we have to realloc anyway, we will leave a bit extra room */
         new_size = low + count + TARRAY_EXTRA(low+count);
         for (i = 0; i < tuple_width; ++i) {
-            thdrP = TARRAYHDR(taObjs[i]);
-            if (Tcl_IsShared(taObjs[i])) {
-                /* Case (1) */
-                thdrP = TArrayClone(thdrP, new_size);
-                TARRAY_ASSERT(thdrP);
-                resultObjsP[i] = TArrayNewObj(thdrP);
-            } else {
-                if (TAHDR_SHARED(thdrP) || thdrP->allocated < (low+count)) {
-                    /* Case (2) or (3b) */
-                    thdrP = TArrayClone(thdrP, new_size);
-                    TARRAY_ASSERT(thdrP);
-                    TAHDR_DECRREF(TARRAYHDR(taObjs[i])); /* Release old */
-                    TARRAYHDR(taObjs[i]) = NULL;
-                    TARRAY_OBJ_SETREP(taObjs[i], thdrP);
-                    resultObjsP[i] = taObjs[i];
-                } else {
-                    /* Case (3) - can be reused as is */
-                    resultObjsP[i] = taObjs[i];
-                }
-            }
-            TArrayHdrFill(interp, thdrP, &valuesP[i], low, count);
+            TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
+            resultObjsP[i] = TArrayMakeWritable(taObjs[i], low+count, new_size, 0);
+            TArrayHdrFill(interp, TARRAYHDR(resultObjs[i]),
+                          &valuesP[i], low, count);
         }
         
         /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
@@ -1868,7 +1982,7 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
 	return TCL_ERROR;
     }
 
-    if (TArrayVerifyType(interp, objv[objc-2]) != TCL_OK)
+    if ((haystackP = TArrayVerifyType(interp, objv[objc-2])) == NULL)
         return TCL_ERROR;
 
     flags = 0;
@@ -1912,7 +2026,6 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
         }
     }
 
-    haystackP = TARRAYHDR(objv[objc-2]);
     switch (haystackP->type) {
     case TARRAY_BOOLEAN:
         return TArraySearchBoolean(interp, haystackP, objv[objc-1], start_index,op,flags);
