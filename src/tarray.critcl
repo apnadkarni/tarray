@@ -288,7 +288,7 @@ critcl::ccommand tarray::fill {} {
     return TArrayTupleFill(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
 }
 
-critcl::ccommand tarray::tuplefill {} {
+critcl::ccommand tarray::tablefill {} {
     int i, tuple_width;
     Tcl_Obj **taObjs;
     Tcl_Obj **valueObjs;
