@@ -129,7 +129,7 @@ TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, enum TArraySearchSwitches 
 void TArrayIncrObjRefs(TArrayHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TArrayHdr *thdrP,int first,int count);
 void TArrayHdrFree(TArrayHdr *thdrP);
-TCL_RESULT TArrayVerifyType(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
+TArrayHdr *TArrayVerifyType(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                                              unsigned char tatype, TArrayValue *tavP);
 void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
@@ -145,13 +145,15 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
 #define TARRAY_FILL_SINGLE 1
 
 Tcl_Obj * TArrayNewObj(TArrayHdr *thdrP);
+Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int bumpref);
 TCL_RESULT TArraySetFromObjs(struct Tcl_Interp *interp,TArrayHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
 int TArrayCalcSize(unsigned char tatype,int count);
 TArrayHdr *TArrayRealloc(TArrayHdr *oldP,int new_count);
 TArrayHdr *TArrayAlloc(unsigned char tatype, int count);
 TArrayHdr *TArrayAllocAndInit(struct Tcl_Interp *interp,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
-int TArrayCopy(struct Tcl_Interp *interp,TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
-TArrayHdr *TArrayClone(TArrayHdr *srcP, int init_size);
+int TArrayHdrCopy(struct Tcl_Interp *interp,TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
+void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count);
+TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int init_size);
 struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TArrayHdr *thdrP,Tcl_Obj *indexObj);
 TArrayHdr *TArrayConvertToIndices(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
 TArrayHdr *TArrayGetValues(struct Tcl_Interp *interp,TArrayHdr *srcP,TArrayHdr *indicesP);
