@@ -9,6 +9,7 @@ critcl::ccode {
 }
 
 critcl::csources tarray.c
+critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
     if (TArrayVerifyType(interp, @@) == NULL)
