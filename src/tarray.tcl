@@ -1,4 +1,4 @@
-proc tarray::tabledelete {tab low {high ""}} {
+proc tarray::ttabledelete {tab low {high ""}} {
     if {$high eq ""} {
         set high $low
     }
@@ -27,8 +27,8 @@ namespace eval tarray {
     }
 
     namespace ensemble create -command ttable -map {
-        delete tabledelete
-        fill tablefill
+        delete ttabledelete
+        fill ttablefill
     }
 
     namespace export tarray ttable
