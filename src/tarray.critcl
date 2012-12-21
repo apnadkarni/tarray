@@ -1,7 +1,7 @@
 package require critcl
 critcl::clean_cache
 critcl::tcl 8.5
-# critcl::debug symbols
+critcl::debug symbols
 critcl::cheaders tarray.h
 
 critcl::ccode {
@@ -288,7 +288,7 @@ critcl::ccommand tarray::fill {} {
     return TArrayTupleFill(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
 }
 
-critcl::ccommand tarray::tablefill {} {
+critcl::ccommand tarray::ttablefill {} {
     int i, tuple_width;
     Tcl_Obj **taObjs;
     Tcl_Obj **valueObjs;
