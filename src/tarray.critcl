@@ -8,7 +8,7 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-critcl::csources tarray.c
+critcl::csources tarray.c bitarray.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
