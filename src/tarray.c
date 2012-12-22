@@ -915,7 +915,8 @@ void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count)
     switch (thdrP->type) {
     case TARRAY_BOOLEAN:
         ba_copy(TAHDRELEMPTR(thdrP, ba_t, 0), first, 
-                TAHDRELEMPTR(thdrP, ba_t, 0), first+count, count);
+                TAHDRELEMPTR(thdrP, ba_t, 0), first+count,
+                thdrP->used-(first+count));
         thdrP->used -= count;
         return;
 
