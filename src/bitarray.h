@@ -39,6 +39,9 @@
 /* Return a mask containing a 1 at a bit position (MSB being bit 0) 
    BITPOSMASK(2) -> 00100000 */
 #define BITPOSMASK(pos_) ((ba_t)(((ba_t) 1) << (pos_)))
+#define BITPOSMASKLT(pos_) (BITPOSMASK(pos_)-1)
+#define BITPOSMASKGE(pos_) (- BITPOSMASK(pos_))
+#define BITPOSMASKGT(pos_) (BITPOSMASKGE(pos_) - BITPOSMASK(pos_))
 
 /*
  * Return a mask where all bit positions up to, but not including pos
@@ -49,8 +52,44 @@
 #define BITMASKNEXT(mask_) ((ba_t)((mask_) << 1))
 #define BITMASKGE(mask_) ((ba_t)(-(mask_)))
 
-void ba_copy(const ba_t *dst, int dst_off, const ba_t *src, int src_off,
-             int len);
+#ifdef _MSC_VER
+# define BA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
+#else
+# define BA_LINLINE inline
+#endif
+BA_INLINE int ba_get(ba_t *baP, int off)
+{
+    return (baP[off / BA_UNIT_SIZE] & BITPOSMASK(off % BA_UNIT_SIZE)) != 0;
+}
 
+BA_INLINE void ba_put(ba_t *baP, int off, int val)
+{
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    if (val)
+        *baP |= BITPOSMASK(off);
+    else
+        *baP &= ~ BITPOSMASK(off);
+}
+
+BA_INLINE void ba_set(ba_t *baP, int off)
+{
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    *baP |= BITPOSMASK(off);
+}
+
+BA_INLINE void ba_reset(ba_t *baP, int off)
+{
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    *baP &= ~ BITPOSMASK(off);
+}
+
+void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len);
+void ba_fill(ba_t *baP, int off, int count, int ival);
+int ba_find(ba_t *baP, int bval, int offset, int count);
+int ba_count_set(ba_t *baP, int off, int count);
+int ba_count_reset(ba_t *baP, int off, int count);
 
 #endif

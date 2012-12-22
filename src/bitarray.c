@@ -5,15 +5,14 @@
  * See the file LICENSE for license
  */
 
+#include <string.h>
 #include "bitarray.h"
 
-
-
 /* Caller must have ensured enough space in destination (see BA_BYTES_NEEDED) */
-void ba_copy(const ba_t *dst, int dst_off, const ba_t *src, int src_off,
-             int len)
+void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
 {
-    ba_t *from, *to;
+    const ba_t *from;
+    ba_t *to;
     ba_t mask;
     int from_internal_off, to_internal_off, ba_len;
 
@@ -111,18 +110,18 @@ void ba_copy(const ba_t *dst, int dst_off, const ba_t *src, int src_off,
                 len = 0;
             }
             /* Collect nbits bits from the source into low bits of ba */
-            ba = (*from & BITPOSMASKGE(from_internal_offset)) >> from_internal_offset;
+            ba = (*from & BITPOSMASKGE(from_internal_off)) >> from_internal_off;
             if ((nbits + from_internal_off) <= BA_UNIT_SIZE) {
                 /* One source unit was enough to supply nbits. */
-                from_internal_offset += nbits;
-                from_internal_offset %= BA_UNIT_SIZE; /* Probably not needed? */
+                from_internal_off += nbits;
+                from_internal_off %= BA_UNIT_SIZE; /* Probably not needed? */
             } else {
                 /* Need to collect from two source units */
                 int nbits2;     /* # bits needed from second unit */
                 ++from;         /* Point to next second unit */
-                nbits2 = (nbits + from_internal_offset) - BA_UNIT_SIZE;
-                ba |= (*from & BITPOSMASKLT(nbits2)) << (BA_UNIT_SIZE - from_internal_offset);
-                from_internal_offset = nbits - (BA_UNIT_SIZE - from_internal_offset);
+                nbits2 = (nbits + from_internal_off) - BA_UNIT_SIZE;
+                ba |= (*from & BITPOSMASKLT(nbits2)) << (BA_UNIT_SIZE - from_internal_off);
+                from_internal_off = nbits - (BA_UNIT_SIZE - from_internal_off);
             }
             /* ba contains required bits in low order. Store them in dest */
             ba <<= to_internal_off;
@@ -140,17 +139,16 @@ void ba_copy(const ba_t *dst, int dst_off, const ba_t *src, int src_off,
          *    to_internal_off is immaterial)
          *  - from points to the unit containing bits to be copied
          *  - len has been updated to reflect # bits copied so far
-         *  - from_internal_offset has been updated to reflect some
+         *  - from_internal_off has been updated to reflect some
          *    bits have been copied from the source
          */
 
         ba_len = len / BA_UNIT_SIZE; /* # ba_t units to copy */
         len = len % BA_UNIT_SIZE;    /* # left over bits */
-        nbits = 
         while (ba_len--) {
             /* Again note use of temporary ba in case to and from overlap */
-            ba = *from++ >> from_internal_offset;
-            ba |= *from << (BA_UNIT_SIZE - from_internal_offset);
+            ba = *from++ >> from_internal_off;
+            ba |= *from << (BA_UNIT_SIZE - from_internal_off);
             *to++ = ba;
         }
 
@@ -158,11 +156,11 @@ void ba_copy(const ba_t *dst, int dst_off, const ba_t *src, int src_off,
         if (len == 0)
             return;
 
-        ba = *from >> from_internal_offset;
-        if ((from_internal_offset+len) > BA_UNIT_SIZE) {
+        ba = *from >> from_internal_off;
+        if ((from_internal_off+len) > BA_UNIT_SIZE) {
             /* Still more bits needed */
             ++from;
-            ba |= *from << (BA_UNIT_SIZE - from_internal_offset);
+            ba |= *from << (BA_UNIT_SIZE - from_internal_off);
         }
         mask = BITPOSMASKGE(len);  /* Dest bits to preserve */
         *to = (*to & mask) | (ba & ~mask);
@@ -171,24 +169,8 @@ void ba_copy(const ba_t *dst, int dst_off, const ba_t *src, int src_off,
     /* Phew! */
 }
 
-int bitarray_bit(ba_t *baP, int off)
+void ba_fill(ba_t *baP, int off, int count, int ival)
 {
-    return (baP[off / BA_UNIT_SIZE] & BITPOSMASK(off % BA_UNIT_SIZE)) != 0;
-}
-
-void bitarray_set(ba_t *baP, int off, int val)
-{
-    baP += off / BA_UNIT_SIZE;
-    off = off % BA_UNIT_SIZE;
-    if (val)
-        *baP |= BITPOSMASK(off);
-    else
-        *baP &= ~BITPOSMASK(off);
-}
-
-void bitarray_fill(ba_t *baP, int off, int count, int ival)
-{
-    ba_t ba;
     int bitpos;
 
     if (count == 0)
@@ -196,7 +178,7 @@ void bitarray_fill(ba_t *baP, int off, int count, int ival)
 
     /* First set the bits to get to a char boundary */
     baP += off / BA_UNIT_SIZE;
-    bitpos = off % CHAR_BIT; /* Offset of bit within a char */
+    bitpos = off % BA_UNIT_SIZE; /* Offset of bit within a char */
     if (bitpos != 0) {
         if (ival)
             *baP++ |= BITPOSMASKGE(bitpos);
@@ -216,3 +198,115 @@ void bitarray_fill(ba_t *baP, int off, int count, int ival)
     }
 }
 
+/* count is total # bits in baP, not beyond offset */
+int ba_find(ba_t *baP, int bval, int off, int count)
+{
+    ba_t ba, skip, ba_mask;
+    int pos = -1;
+
+    if (count <= off)
+        return -1;
+
+    skip = BITPOSMASKGE(0);
+    if (bval)
+        skip = ~skip;
+    
+
+    /* TBD - this code to be optimized */
+
+    /* First locate the starting point for the search */
+    baP += off/BA_UNIT_SIZE;
+    ba_mask = BITPOSMASK(off % BA_UNIT_SIZE);
+    for (; off < count; ba_mask = BITPOSMASK(0)) {
+        /*
+         * At top of loop, *baP potentially has a matching
+         * bit, ba_mask contains position at which to begin match
+         */
+        ba = *baP++;
+        if (ba == skip) {
+            /* Looking for 1's and uc is all 0's or vice versa */
+            off += BA_UNIT_SIZE;
+            continue;
+        }
+        while (ba_mask) {
+            /* Compare bit against 1 or 0 as appropriate */
+                if ((bval && (ba_mask & ba)) ||
+                    !(bval || (ba_mask & ba))) {
+                    /* Match but note this may be beyond count */
+                    return pos >= count ? -1 : pos;
+                }
+                ba_mask >>= 1;
+                ++off;
+            }
+    }
+
+    return -1;
+}
+
+/* Find number bits set in a bit array */
+int ba_count_reset(ba_t *baP,  int off, int count)
+{
+    if (count <= off)
+        return 0;
+    else
+        return (count-off) - ba_count_set(baP, off, count);
+}
+
+
+int ba_count_set(ba_t *baP, int off, int count)
+{
+    ba_t ba;
+    int i, n, nbits;
+    int *iP;
+
+    if (count <= off)
+        return 0;
+
+    nbits = 0;
+    baP += off / BA_UNIT_SIZE;
+    ba = *baP & BITPOSMASKGE(off % BA_UNIT_SIZE);
+    n = ((count + off) / BA_UNIT_SIZE) * BA_UNIT_SIZE;
+    /* At this point,
+     * baP points to ba_t containing first bit of interest
+     * ba contains *baP with bits not of interest masked off
+     * n is count minus the partial bits in the last ba_t
+     */
+    while (off < n) {
+        /* At top of loop ba contains the bits to count */
+#if BA_UNIT_SIZE == 32
+        // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
+        ba = ba - ((ba >> 1) & 0x55555555); // reuse input as temporary
+        ba = (ba & 0x33333333) + ((ba >> 2) & 0x33333333);     // temp
+        nbits += ((ba + (ba >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
+#else
+        /* TBD - Need to optimize these cases too */
+        for (; ba; ++nbits)
+        {
+            ba &= ba - 1; // clear the least significant bit set
+        }
+#endif
+        ba = *baP++;
+        off += BA_UNIT_SIZE;
+    }
+
+    /* When above loop terminates, ba contains any partial bits (if any)
+     * in the last ba_t of the specified range
+     */
+    if (off < count) {
+        ba = ba & BITPOSMASKLT(count-off);
+#if BA_UNIT_SIZE == 32
+        // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
+        ba = ba - ((ba >> 1) & 0x55555555); // reuse input as temporary
+        ba = (ba & 0x33333333) + ((ba >> 2) & 0x33333333);     // temp
+        nbits += ((ba + (ba >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
+#else
+        /* TBD - Need to optimize these cases too */
+        for (; ba; ++nbits)
+        {
+            ba &= ba - 1; // clear the least significant bit set
+        }
+#endif
+    }
+
+    return nbits;
+}
