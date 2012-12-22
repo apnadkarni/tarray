@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <stdlib.h>
 
+#include "bitarray.h"
+
 /* If building out of twapi pool, use its settings */
 #if defined(TWAPI_ENABLE_ASSERT) && !defined(TARRAY_ENABLE_ASSERT)
 #define TARRAY_ENABLE_ASSERT TWAPI_ENABLE_ASSERT

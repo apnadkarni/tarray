@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2012, Ashok P. Nadkarni
+ * All rights reserved.
+ *
+ * See the file LICENSE for license
+ */
+
 #include "tcl.h"
 #define TARRAY_ENABLE_ASSERT 1
 #include "tarray.h"
@@ -164,7 +171,7 @@ void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
 
     switch (thdrP->type) {
     case TARRAY_BOOLEAN:
-        bitarray_fill(TAHDRELEMPTR(thdrP, unsigned char, 0), pos, count, tavP->bval);
+        ba_fill(TAHDRELEMPTR(thdrP, ba_t, 0), pos, count, tavP->bval);
         break;
     case TARRAY_INT:
     case TARRAY_UINT:
@@ -907,8 +914,8 @@ void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count)
      */
     switch (thdrP->type) {
     case TARRAY_BOOLEAN:
-        ba_copy(TAHDRELEMPTR(thdrP, unsigned char, 0), first, 
-                TAHDRELEMPTR(thdrP, unsigned char, 0), first+count, count);
+        ba_copy(TAHDRELEMPTR(thdrP, ba_t, 0), first, 
+                TAHDRELEMPTR(thdrP, ba_t, 0), first+count, count);
         thdrP->used -= count;
         return;
 
@@ -998,8 +1005,8 @@ TCL_RESULT TArrayHdrCopy(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first,
      */
     switch (srcP->type) {
     case TARRAY_BOOLEAN:
-        ba_copy(TAHDRELEMPTR(dstP, unsigned char, 0), dst_first,
-                TAHDRELEMPTR(srcP, unsigned char, 0), src_first, count);
+        ba_copy(TAHDRELEMPTR(dstP, ba_t, 0), dst_first,
+                TAHDRELEMPTR(srcP, ba_t, 0), src_first, count);
         if ((dst_first + count) > dstP->used)
             dstP->used = dst_first + count;
         return TCL_OK;
@@ -1261,7 +1268,6 @@ vamoose:                   /* interp must already hold error message */
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
 Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *indexObj)
 {
-    int offset;
     int index;
 
     if (IndexToInt(interp, indexObj, &index, thdrP->used-1) != TCL_OK)
@@ -1273,7 +1279,7 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *indexObj)
 
     switch (thdrP->type) {
     case TARRAY_BOOLEAN:
-        return Tcl_NewIntObj(bitarray_bit(TAHDRELEMPTR(thdrP, ba_t, 0), index));
+        return Tcl_NewIntObj(ba_get(TAHDRELEMPTR(thdrP, ba_t, 0), index));
     case TARRAY_UINT:
         return Tcl_NewWideIntObj(*TAHDRELEMPTR(thdrP, unsigned int, index));
     case TARRAY_INT:
@@ -1343,7 +1349,7 @@ TArrayHdr *TArrayGetValues(Tcl_Interp *interp, TArrayHdr *srcP, TArrayHdr *indic
         {
             ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
             for (i = 0; i < count; ++i, ++indexP)
-                bitarray_set(baP, i, *indexP);
+                ba_put(baP, i, *indexP);
         }
         break;
     case TARRAY_UINT:
@@ -1391,16 +1397,15 @@ TArrayHdr *TArrayGetValues(Tcl_Interp *interp, TArrayHdr *srcP, TArrayHdr *indic
     thdrP->used = count;
     return thdrP;
 }
-HERE;
+
 
 static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TArrayHdr * haystackP,
                                       Tcl_Obj *needleObj, int start,
                                       enum TArraySearchSwitches op, int flags)
 {
     int bval;
-    unsigned char *ucP;
-    unsigned char uc, uc_mask, skip;
-    int offset;
+    ba_t *baP;
+    int pos;
     Tcl_Obj *resultObj;
 
     TARRAY_ASSERT(haystackP->type == TARRAY_BOOLEAN);
@@ -1414,112 +1419,34 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TArrayHdr * haystackP,
     if (flags & TARRAY_SEARCH_INVERT)
         bval = !bval;
 
-    skip = bval ? 0 : 0xff;     /* Skip entire bytes of this value */
-
     /* First locate the starting point for the search */
-    ucP = TAHDRELEMPTR(haystackP, unsigned char, 0);
-    ucP += start/CHAR_BIT;
-    uc_mask = BITPOSMASK(start % CHAR_BIT);
+    baP = TAHDRELEMPTR(haystackP, ba_t, 0);
 
-    /* TBD - optimize this code */
-
-    /*
-     * At this point,
-     * ucP points to the memory location containing bit at offset start
-     * uc_mask is the mask for the start bit within that location
-     */
     if (flags & TARRAY_SEARCH_ALL) {
         TArrayHdr *thdrP;
-
         thdrP = TArrayAlloc(
             flags & TARRAY_SEARCH_INLINE ? TARRAY_BOOLEAN : TARRAY_INT,
             10);                /* Assume 10 hits */
-
-        for (offset = start; offset < haystackP->used; uc_mask = BITPOSMASK(0)) {
-            /*
-             * At top of loop, *ucP potentially has a matching
-             * bit, uc_mask contains position at which to
-             * begin match
-             */
-            uc = *ucP++;
-            if (uc == skip) {
-                /* Looking for 1's and uc is all 0's or vice versa */
-                offset += CHAR_BIT;
-                continue;
-            }
-            while (uc_mask) {
-                /* Compare bit against 1 or 0 as appropriate */
-                if ((bval && (uc_mask & uc)) ||
-                    !(bval || (uc_mask & uc))) {
-                    /* Note this may be beyond haystackP->used, so check */
-                    if (offset >= haystackP->used) {
-                        /* Yep, beyond end */
-                        break; /* Stop inner loop */
-                    }
-                    /* Ensure enough space in target array */
-                    if (thdrP->used >= thdrP->allocated)
-                        thdrP = TArrayRealloc(thdrP, thdrP->used + TARRAY_EXTRA(thdrP->used));
-                    if (flags & TARRAY_SEARCH_INLINE) {
-                        unsigned char *uc2P = TAHDRELEMPTR(thdrP, unsigned char, thdrP->used/CHAR_BIT);
-                        unsigned char uc = BITPOSMASK(thdrP->used % CHAR_BIT);
-                        if (bval)
-                            *uc2P |= uc;
-                        else
-                            *uc2P &= ~uc;
-                    } else {
-                        *TAHDRELEMPTR(thdrP, int, thdrP->used) = offset;
-                    }
-                    thdrP->used++;
-                }
-                uc_mask >>= 1;
-                ++offset;
-            }
+        pos = start;
+        while ((pos = ba_find(baP, bval, pos, thdrP->used)) != -1) {
+            /* Ensure enough space in target array */
+            if (thdrP->used >= thdrP->allocated)
+                thdrP = TArrayRealloc(thdrP, thdrP->used + TARRAY_EXTRA(thdrP->used));
+            if (flags & TARRAY_SEARCH_INLINE)
+                ba_put(TAHDRELEMPTR(thdrP, ba_t, 0), thdrP->used, bval);
+            else
+                *TAHDRELEMPTR(thdrP, int, thdrP->used) = pos;
+            thdrP->used++;
+            ++pos;
         }
 
         resultObj = TArrayNewObj(thdrP);
-
     } else {
         /* Return first found element */
-        int pos = -1;
-
-        for (offset = start; offset < haystackP->used; uc_mask = BITPOSMASK(0)) {
-            /*
-             * At top of loop, *ucP potentially has a matching
-             * bit, uc_mask contains position at which to
-             * begin match
-             */
-            uc = *ucP++;
-            if (uc == skip) {
-                /* Looking for 1's and uc is all 0's or vice versa */
-                offset += CHAR_BIT;
-                continue;
-            }
-            while (uc_mask) {
-                /* Compare bit against 1 or 0 as appropriate */
-                if ((bval && (uc_mask & uc)) ||
-                    !(bval || (uc_mask & uc))) {
-                    /* Note this may be beyond haystackP->used, but
-                     * that's ok, we'll reset later rather than
-                     * add another test to this loop
-                     */
-                    pos = offset;
-                    break;
-                }
-                uc_mask >>= 1;
-                ++offset;
-            }
-            if (pos >= 0)
-                break;
-        }
-
-        if (pos >= haystackP->used)
-            pos = -1;       /* We matched on extraneous bits in last byte */
-        if (pos == -1)
-            resultObj = Tcl_NewObj();
-        else {
-            resultObj =
-                Tcl_NewIntObj((flags & TARRAY_SEARCH_INLINE) ? bval : pos);
-        }
+        pos = ba_find(baP, bval, start, haystackP->used);
+        resultObj = pos == -1 ?
+            Tcl_NewObj() :
+            Tcl_NewIntObj((flags & TARRAY_SEARCH_INLINE) ? bval : pos);
     }
 
     Tcl_SetObjResult(interp, resultObj);
@@ -1980,49 +1907,6 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
-
-
-/* Find number bits set in a bit array */
-int TArrayNumSetBits(TArrayHdr *thdrP)
-{
-    int v, count;
-    int i, n;
-    int *iP;
-
-    TARRAY_ASSERT(thdrP->type == TARRAY_BOOLEAN);
-    
-    n = thdrP->used / (sizeof(int)*CHAR_BIT); /* Number of ints */
-    for (count = 0, i = 0, iP = TAHDRELEMPTR(thdrP, int, 0); i < n; ++i, ++iP) {
-        // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
-        v = *iP;
-        v = v - ((v >> 1) & 0x55555555); // reuse input as temporary
-        v = (v & 0x33333333) + ((v >> 2) & 0x33333333);     // temp
-        count += ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
-    }
-//    TBD - in alloc code make sure allocations are aligned on longest elem size;
-    /* Remaining bits */
-    n = thdrP->used % (sizeof(int)*CHAR_BIT); /* Number of left over bits */
-    if (n) {
-        /* *iP points to next int, however, not all bytes in that int are
-           valid. Mask off invalid bits */
-        unsigned char *ucP = (unsigned char *) iP;
-        /* Note value of v will change depending on endianness but no matter
-           as we only care about number of 1's */
-        for (i = 0, v = 0; n >= CHAR_BIT; ++i, n -= CHAR_BIT) {
-            v = (v << 8) | ucP[i];
-        }
-        if (n) {
-            v = (v << 8) | (ucP[i] & (-BITPOSMASK(n-1))  );
-        }
-
-        v = v - ((v >> 1) & 0x55555555);
-        v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
-        count += ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
-    }
-
-    return count;
-}
-
 /*
  * Map numeric or string index to numeric integer index.
  * Does NOT check for out of bounds errors, caller must do that
@@ -2069,127 +1953,6 @@ TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj
     *countP = high - low + 1;
     return TCL_OK;
 }
-
-#ifdef OBSOLETE
-/*
- * Following bitcopy code from stackoverflow.com. Bits are indexed
- * from MSB (0) to LSB (7)
- */
-#define PREPARE_FIRST_COPY()                                      \
-    do {                                                          \
-    if (src_len >= (CHAR_BIT - dst_offset_modulo)) {              \
-        *dst     &= reverse_mask[dst_offset_modulo];              \
-        src_len -= CHAR_BIT - dst_offset_modulo;                  \
-    } else {                                                      \
-        *dst     &= reverse_mask[dst_offset_modulo]               \
-              | reverse_mask_xor[dst_offset_modulo + src_len + 1];\
-         c       &= reverse_mask[dst_offset_modulo + src_len    ];\
-        src_len = 0;                                              \
-    } } while (0)
-
-
-void
-bitarray_copy(const unsigned char *src_org, int src_offset, int src_len,
-                    unsigned char *dst_org, int dst_offset)
-{
-    static const unsigned char mask[] =
-        { 0x55, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff };
-    static const unsigned char mask_xor[] =
-        { 0x55, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x00 };
-    static const unsigned char reverse_mask[] =
-        { 0x55, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff };
-    static const unsigned char reverse_mask_xor[] =
-        { 0xff, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01, 0x00 };
-
-    if (src_len) {
-        const unsigned char *src;
-              unsigned char *dst;
-        int                  src_offset_modulo,
-                             dst_offset_modulo;
-
-        src = src_org + (src_offset / CHAR_BIT);
-        dst = dst_org + (dst_offset / CHAR_BIT);
-
-        src_offset_modulo = src_offset % CHAR_BIT;
-        dst_offset_modulo = dst_offset % CHAR_BIT;
-
-        if (src_offset_modulo == dst_offset_modulo) {
-            int              byte_len;
-            int              src_len_modulo;
-            if (src_offset_modulo) {
-                unsigned char   c;
-
-                c = reverse_mask_xor[dst_offset_modulo]     & *src++;
-
-                PREPARE_FIRST_COPY();
-                *dst++ |= c;
-            }
-
-            byte_len = src_len / CHAR_BIT;
-            src_len_modulo = src_len % CHAR_BIT;
-
-            if (byte_len) {
-                memcpy(dst, src, byte_len);
-                src += byte_len;
-                dst += byte_len;
-            }
-            if (src_len_modulo) {
-                *dst     &= reverse_mask_xor[src_len_modulo];
-                *dst |= reverse_mask[src_len_modulo]     & *src;
-            }
-        } else {
-            int             bit_diff_ls,
-                            bit_diff_rs;
-            int             byte_len;
-            int             src_len_modulo;
-            unsigned char   c;
-            /*
-             * Begin: Line things up on destination. 
-             */
-            if (src_offset_modulo > dst_offset_modulo) {
-                bit_diff_ls = src_offset_modulo - dst_offset_modulo;
-                bit_diff_rs = CHAR_BIT - bit_diff_ls;
-
-                c = *src++ << bit_diff_ls;
-                c |= *src >> bit_diff_rs;
-                c     &= reverse_mask_xor[dst_offset_modulo];
-            } else {
-                bit_diff_rs = dst_offset_modulo - src_offset_modulo;
-                bit_diff_ls = CHAR_BIT - bit_diff_rs;
-
-                c = *src >> bit_diff_rs     &
-                    reverse_mask_xor[dst_offset_modulo];
-            }
-            PREPARE_FIRST_COPY();
-            *dst++ |= c;
-
-            /*
-             * Middle: copy with only shifting the source. 
-             */
-            byte_len = src_len / CHAR_BIT;
-
-            while (--byte_len >= 0) {
-                c = *src++ << bit_diff_ls;
-                c |= *src >> bit_diff_rs;
-                *dst++ = c;
-            }
-
-            /*
-             * End: copy the remaing bits; 
-             */
-            src_len_modulo = src_len % CHAR_BIT;
-            if (src_len_modulo) {
-                c = *src++ << bit_diff_ls;
-                c |= *src >> bit_diff_rs;
-                c     &= reverse_mask[src_len_modulo];
-
-                *dst     &= reverse_mask_xor[src_len_modulo];
-                *dst |= c;
-            }
-        }
-    }
-}
-#endif // OBSOLETE
 
 /*
  * Comparison functions for qsort. For a stable sort, if two items are
@@ -2333,13 +2096,11 @@ int tclobjcmpindexedrev(void *ctx, const void *ai, const void *bi)
 }
 int booleancmpindexed(void *ctx, const void *ai, const void *bi)
 {
-    unsigned char *ucP = (unsigned char *)ctx;
     unsigned char uca, ucb;
 
-    uca = ucP[(*(int*) ai)/CHAR_BIT] & BITPOSMASK((*(int*)ai) % CHAR_BIT);
-    ucb = ucP[(*(int*) bi)/CHAR_BIT] & BITPOSMASK((*(int*)bi) % CHAR_BIT);
-
-    if (!uca == !ucb) {
+    uca = ba_get((ba_t *)ctx, *(int *)ai);
+    ucb = ba_get((ba_t *)ctx, *(int *)bi);
+    if (uca == ucb) {
         /* Both bits set or unset, use index position to differentiate */
         return *(int *)ai - *(int *)bi;
     } else if (uca)
@@ -2350,13 +2111,12 @@ int booleancmpindexed(void *ctx, const void *ai, const void *bi)
 
 int booleancmpindexedrev(void *ctx, const void *ai, const void *bi)
 {
-    unsigned char *ucP = (unsigned char *)ctx;
     unsigned char uca, ucb;
 
-    uca = ucP[(*(int*) ai)/CHAR_BIT] & BITPOSMASK((*(int*)ai) % CHAR_BIT);
-    ucb = ucP[(*(int*) bi)/CHAR_BIT] & BITPOSMASK((*(int*)bi) % CHAR_BIT);
+    uca = ba_get((ba_t *)ctx, *(int *)ai);
+    ucb = ba_get((ba_t *)ctx, *(int *)bi);
 
-    if (!uca == !ucb) {
+    if (uca == ucb) {
         /* Both bits set or unset, use index position to differentiate */
         return *(int *)ai - *(int *)bi;
     } else if (uca)

@@ -1,3 +1,10 @@
+#
+# Copyright (c) 2012, Ashok P. Nadkarni
+# All rights reserved.
+#
+# See the file LICENSE for license
+
+
 package require critcl
 critcl::clean_cache
 critcl::tcl 8.5
@@ -200,17 +207,14 @@ critcl::ccommand tarray::sort {} {
          * since we just need to count how many 1's and 0's.
          */
         if (sortedP->type == TARRAY_BOOLEAN) {
-            n = TArrayNumSetBits(sortedP); /* Number of 1's set */
+            ba_t *baP = TAHDRELEMPTR(sortedP, ba_t, 0);
+            n = ba_count_set(baP, 0, sortedP->used); /* Number of 1's set */
             if (decreasing) {
-                bitarray_set(TAHDRELEMPTR(sortedP, unsigned char, 0),
-                             0, n, 1);
-                bitarray_set(TAHDRELEMPTR(sortedP, unsigned char, 0),
-                             n, sortedP->used - n, 0);
+                ba_fill(baP, 0, n, 1);
+                ba_fill(baP, n, sortedP->used - n, 0);
             } else {
-                bitarray_set(TAHDRELEMPTR(sortedP, unsigned char, 0),
-                             0, sortedP->used - n, 0);
-                bitarray_set(TAHDRELEMPTR(sortedP, unsigned char, 0),
-                             sortedP->used - n, n, 1);
+                ba_fill(baP, 0, sortedP->used - n, 0);
+                ba_fill(baP, sortedP->used - n, n, 1);
             }
         } else {
             switch (sortedP->type) {
@@ -242,14 +246,16 @@ critcl::ccommand tarray::sort {} {
 }
 
 critcl::cproc tarray::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
-    if (TARRAYHDR(taobjP)->type != TARRAY_BOOLEAN) {
+    TArrayHdr *thdrP = TARRAYHDR(taobjP);
+    if (thdrP->type != TARRAY_BOOLEAN) {
         Tcl_SetResult(interp, "tarray type is not boolean", TCL_STATIC);
         return TCL_ERROR;
     }
         
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(TArrayNumSetBits(TARRAYHDR(taobjP))));
+    Tcl_SetObjResult(
+        interp,
+        Tcl_NewIntObj(ba_count_set(TAHDRELEMPTR(thdrP, ba_t, 0), 0, thdrP->used)));
     return TCL_OK;
-
 }
 
 critcl::ccommand tarray::search TArray_SearchObjCmd
