@@ -89,7 +89,7 @@ BA_INLINE void ba_reset(ba_t *baP, int off)
 void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len);
 void ba_fill(ba_t *baP, int off, int count, int ival);
 int ba_find(ba_t *baP, int bval, int offset, int count);
-int ba_count_set(ba_t *baP, int off, int count);
-int ba_count_reset(ba_t *baP, int off, int count);
+int ba_count_ones(ba_t *baP, int off, int count);
+int ba_count_zeroes(ba_t *baP, int off, int count);
 
 #endif

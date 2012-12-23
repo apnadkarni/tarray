@@ -212,7 +212,11 @@ int ba_find(ba_t *baP, int bval, int off, int count)
         skip = ~skip;
     
 
-    /* TBD - this code to be optimized */
+    /* TBD - this code to be optimized
+       see http://bits.stephan-brumme.com/lowestBitSet.html or
+       http://www.steike.com/code/bits/debruijn/ or
+       ffs and equivalent
+     */
 
     /* First locate the starting point for the search */
     baP += off/BA_UNIT_SIZE;
@@ -244,16 +248,16 @@ int ba_find(ba_t *baP, int bval, int off, int count)
 }
 
 /* Find number bits set in a bit array */
-int ba_count_reset(ba_t *baP,  int off, int count)
+int ba_count_zeroes(ba_t *baP,  int off, int count)
 {
     if (count <= off)
         return 0;
     else
-        return (count-off) - ba_count_set(baP, off, count);
+        return (count-off) - ba_count_ones(baP, off, count);
 }
 
 
-int ba_count_set(ba_t *baP, int off, int count)
+int ba_count_ones(ba_t *baP, int off, int count)
 {
     ba_t ba;
     int i, n, nbits;

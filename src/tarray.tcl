@@ -1,4 +1,10 @@
-proc tarray::ttabledelete {tab low {high ""}} {
+namespace eval tarray {
+    namespace eval column {}
+    namespace eval grid {}
+    namespace eval table {}
+}
+
+proc tarray::grid::delete {tab low {high ""}} {
     if {$high eq ""} {
         set high $low
     }
@@ -10,27 +16,50 @@ proc tarray::ttabledelete {tab low {high ""}} {
     return $tab
 }
 
+proc tarray::table::create {def {init {}} {size 0}} {
+    variable _tables
+    variable _table_ctr
+
+    set ncols [expr {[llength $def] / 2}]
+    set grid [list ]
+    set table [dict create]
+    set col -1
+    foreach {name type} $def {
+        lappend grid [tarray::column create $type {} $size]
+        dict set table fields $name [list type $type column [incr $col]]
+    }
+    dict set table data $grid
+    set tok "table#[incr _table_ctr]"
+    set _tables($tok) $table
+    return $tok
+}
+
+
 namespace eval tarray {
 
-    namespace ensemble create -command tarray -map {
-        create create
-        delete delete
-        fill fill
-        get get
-        index index
-        list list
-        range range
-        size size
-        search search
-        sort sort
-        type type
+    namespace eval column {
+        namespace ensemble create -map {
+            create create
+            delete delete
+            fill fill
+            get get
+            index index
+            list list
+            range range
+            size size
+            search search
+            sort sort
+            type type
+        }
     }
 
-    namespace ensemble create -command ttable -map {
-        delete ttabledelete
-        fill ttablefill
+    namespace eval grid {
+        namespace ensemble create -map {
+            delete delete
+            fill fill
+        }
     }
 
-    namespace export tarray ttable
+    namespace export column ttable
 }
 
