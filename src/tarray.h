@@ -136,11 +136,11 @@ TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                                              unsigned char tatype, TArrayValue *tavP);
 void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
                                    const TArrayValue *tavP, int pos, int count);
-void TArrayHdrTupleFill(Tcl_Interp *interp,
-                        TArrayHdr *const thdrs[],
-                        TArrayValue const values[] ,
-                        int nthdrs, int pos, int count);
-TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
+TCL_RESULT TArrayHdrGridSetFromObjs(Tcl_Interp *interp,
+                                    TArrayHdr * const thdrs[], int nthdrs,
+                                    Tcl_Obj *tuples, int first);
+
+TCL_RESULT TArrayGridFillFromObjs(Tcl_Interp *interp,
                            Tcl_Obj *lowObj, Tcl_Obj *highObj,
                            Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
                            int tuple_width, int flags);
@@ -148,7 +148,9 @@ TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
 
 Tcl_Obj * TArrayNewObj(TArrayHdr *thdrP);
 Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int bumpref);
-TCL_RESULT TArraySetFromObjs(struct Tcl_Interp *interp,TArrayHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
+#define TARRAY_MAKE_WRITABLE_INCREF 1
+
+TCL_RESULT TArrayHdrSetFromObjs(struct Tcl_Interp *interp,TArrayHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
 int TArrayCalcSize(unsigned char tatype,int count);
 TArrayHdr *TArrayRealloc(TArrayHdr *oldP,int new_count);
 TArrayHdr *TArrayAlloc(unsigned char tatype, int count);
@@ -163,6 +165,12 @@ int TArrayNumSetBits(TArrayHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
 TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value);
 TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
+TCL_RESULT TArrayGridSetFromObjs(
+    Tcl_Interp *interp,
+    Tcl_Obj *lowObj,
+    const Tcl_Obj *gridObj,
+    Tcl_Obj *valueObjs, /* Each element is a list (tuple value) */
+    int flags);
 
 
 /* Search and sort routines */

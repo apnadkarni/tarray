@@ -536,7 +536,7 @@ Tcl_Obj *TArrayNewObj(TArrayHdr *thdrP)
     
 /* thdrP must NOT be shared and must have enough slots */
 /* interp may be NULL (only used for errors) */
-TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, TArrayHdr *thdrP,
+TCL_RESULT TArrayHdrSetFromObjs(Tcl_Interp *interp, TArrayHdr *thdrP,
                                  int first, int nelems,
                                  Tcl_Obj * const elems[])
 {
@@ -565,10 +565,11 @@ TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, TArrayHdr *thdrP,
      *
      * As a special optimization, when appending to the end, we do
      * not need to first check. We directly store the values and in case
-     * of errors, simply restore the old size.
+     * of errors, simply do not update size.
      *
      * Also for TARRAY_OBJ there is no question of conversion and hence
      * no question of conversion errors.
+     *
      */
 
     if (first < thdrP->used && thdrP->type != TARRAY_OBJ) {
@@ -783,6 +784,349 @@ convert_error:                  /* Interp should already contain errors */
 
 }
 
+/* interp may be NULL (only used for errors) */
+/* See asserts in code for prerequisite conditions */
+TCL_RESULT TArrayHdrGridSetFromObjs(Tcl_Interp *interp,
+                                    TArrayHdr * const thdrs[], int nthdrs,
+                                    Tcl_Obj *tuples, int first)
+{
+    int t, r, ival;
+    TArrayHdr *thdrP;
+    Tcl_WideInt wide;
+    double dval;
+    Tcl_Obj **rows;
+    int nrows;
+    int have_obj_cols;
+    int have_other_cols;
+    int need_data_validation;
+    Tcl_Obj *valObj;
+
+    TARRAY_ASSERT(nthdrs > 0);
+
+    if (Tcl_ListObjGetElements(interp, tuples, &nrows, &rows) != TCL_OK)
+        return TCL_ERROR;
+
+    if (nrows == 0)
+        return TCL_OK;          /* Nought to do */
+
+    for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < nthdrs; ++t) {
+        TARRAY_ASSERT(thdrs[t]->nrefs < 2); /* Unshared */
+        TARRAY_ASSERT(thdrs[t]->allocated >= (first + nrows)); /* 'Nuff space */
+        TARRAY_ASSERT(thdrs[t]->used == thdrs[0]->used); /* All same size */
+
+        if (thdrs[t]->type == TARRAY_OBJ)
+            have_obj_cols = 1;
+        else
+            have_other_cols = 1;
+
+    }
+
+    /*
+     * In case of errors, we have to keep the old values
+     * so we loop through first to verify there are no errors and then
+     * a second time to actually store the values. The arrays can be
+     * very large so we do not want to allocate a temporary
+     * holding area for saving old values to be restored in case of errors
+     * or to hold new Tcl_Values so conversion does not need to be repeated.
+     *
+     * There are two kinds of errors - data type errors (e.g. attempt
+     * to store a non-integer into an integer field) and structural
+     * errors (e.g. a row not having enough elements).
+     *
+     * As a special optimization, when appending to the end, we do
+     * not need to first check. We directly store the values and in case
+     * of errors, simply not update the old size.
+     *
+     * TARRAY_OBJ add a complication. They do not need a type check
+     * but because their reference counts have to be managed, it is more
+     * complicated to back track on errors when we skip the validation
+     * checks in the pure append case. So we update these columns
+     * only after everything else has been updated.
+     */
+
+    if (! have_other_cols) {
+        /* Only TARRAY_OBJ columns, data validation is a no-op */
+        need_data_validation = 0;
+    } else if (first >= thdrs[0]->used) {
+        /*
+         * Pure append, not overwriting so rollback becomes easy and
+         * no need for prevalidation step.
+         */
+        need_data_validation = 0;
+    } else
+        need_data_validation = 1;
+       
+    /* We could either iterate vertically or horizontally
+     *   for (per thdr)
+     *     switch (thdr->type)
+     *       for (per row)
+     *         field <- Tcl_ListObjIndex
+     *         validate field
+     * or
+     *   for (per row)
+     *     fields <- Tcl_ListObjGetElements
+     *     per field
+     *       switch thdr->type
+     *         validate field
+     *
+     * Not clear which will perform better - first case inner loop has
+     * a call (Tcl_ListObjIndex). Second case inner loop has a switch
+     * (probably faster than a call). On the other hand, when actually
+     * writing out to the array, cache effects might make the former
+     * faster (writing consecutive locations).
+     *
+     * As it turns out, we use the first method for a different reason -
+     * when we are strictly appending without overwriting, we do not
+     * validate since rollback is easy. The complication is that if
+     * any column is of type TARRAY_OBJ, when an error occurs we have to
+     * rollback that column's Tcl_Obj reference counts. Keeping track
+     * of this is more involved using the second scheme and much simpler
+     * with the first scheme. Hence we go with that.
+     */
+
+    if (need_data_validation) {
+        for (r = 0; r < nrows; ++r) {
+            Tcl_Obj **fields;
+            int nfields;
+        
+            if (Tcl_ListObjGetElements(interp, rows[r], &nfields, &fields)
+                != TCL_OK)
+                goto error_return;
+
+            /* Must have sufficient fields, more is ok */
+            if (nfields < nthdrs)
+                goto width_error;
+
+            for (t = 0; t < nthdrs; ++t) {
+                switch (thdrs[t]->type) {
+                case TARRAY_BOOLEAN:
+                    if (Tcl_GetBooleanFromObj(interp, fields[t], &ival) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TARRAY_UINT:
+                    if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
+                        goto error_return;
+                    if (wide < 0 || wide > 0xFFFFFFFF) {
+                        if (interp)
+                            Tcl_SetObjResult(interp,
+                                             Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(fields[t])));
+                        goto error_return;
+                    }
+                    break;
+                case TARRAY_INT:
+                    if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TARRAY_WIDE:
+                    if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TARRAY_DOUBLE:
+                    if (Tcl_GetDoubleFromObj(interp, fields[t], &dval) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TARRAY_BYTE:
+                    if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
+                        goto error_return;
+                    if (ival > 255 || ival < 0) {
+                        if (interp)
+                            Tcl_SetObjResult(interp,
+                                             Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
+                        goto error_return;
+                    }
+                    break;
+                case TARRAY_OBJ:
+                    break;      /* No validation */
+                default:
+                    TArrayTypePanic(thdrP->type);
+                }
+            }
+        }
+    } else {
+        /* We are not validating data but then validate row widths */
+        /* We are doing this to simplify error rollback for TARRAY_OBJ */
+        for (r = 0; r < nrows; ++r) {
+            if (Tcl_ListObjLength(interp, rows[r], &ival) == TCL_ERROR)
+                goto error_return;
+            /* Width of row must not be too short, longer is ok */
+            if (ival < nthdrs)
+                goto width_error;
+        }
+    }
+
+    /*
+     * Now actually store the values. Note we still have to check
+     * status on conversion in case we did not do checks when we are appending
+     * to the end, and we have to store TARRAY_OBJ last to facilitate
+     * rollback on errors as discussed earlier.
+     */
+    if (have_other_cols) {
+        for (t=0; t < nthdrs; ++t) {
+            /* Skip TARRAY_OBJ on this round, until all other data is stored */
+            if (thdrs[t]->type == TARRAY_OBJ)
+                continue;
+            switch (thdrP->type) {
+            case TARRAY_BOOLEAN:
+                {
+                    register ba_t *baP;
+                    ba_t ba, ba_mask;
+                    int off;
+
+                    /* Take care of the initial condition where the first bit
+                       may not be aligned on a boundary */
+                    baP = TAHDRELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
+                    off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
+                    ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
+                    if (off != 0) {
+                        /*
+                         * Offset is off within a ba_t. Get the ba_t at that location
+                         * preserving the preceding bits within the char.
+                         */
+                        ba = *baP & BITPOSMASKLT(off);
+                    } else
+                        ba = 0;
+                    for (r = 0; r < nrows; ++r) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TARRAY_ASSERT(valObj);
+                        if (Tcl_GetBooleanFromObj(interp, valObj, &ival) != TCL_OK)
+                            goto error_return;
+                        if (ival)
+                            ba |= ba_mask;
+                        ba_mask = BITMASKNEXT(ba_mask);
+                        if (ba_mask == 0) {
+                            *baP++ = ba;
+                            ba = 0;
+                            ba_mask = BITPOSMASK(0);
+                        }
+                    }
+                    if (ba_mask != BITPOSMASK(0)) {
+                        /* We have some leftover bits in ba that need
+                        to be stored.  * We need to *merge* these into
+                        the corresponding word * keeping the existing
+                        high index bits.  * Note the bit indicated by
+                        ba_mask also has to be preserved, * not
+                        overwritten.  */
+                        *baP = ba | (*baP & BITMASKGE(ba_mask));
+                    }
+                }
+                break;
+
+            case TARRAY_UINT:
+                {
+                    register unsigned int *uintP;
+                    uintP = TAHDRELEMPTR(thdrP, unsigned int, first);
+                    for (r = 0; r < nrows; ++r, ++uintP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TARRAY_ASSERT(valObj);
+                        if (Tcl_GetWideIntFromObj(interp, valObj, &wide) != TCL_OK)
+                            goto error_return;
+                        if (wide < 0 || wide > 0xFFFFFFFF) {
+                            if (interp)
+                                Tcl_SetObjResult(interp,
+                                                 Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(rows[r])));
+                            goto error_return;
+                        }
+                        *uintP = (unsigned int) wide;
+                    }
+                }
+                break;
+            case TARRAY_INT:
+                {
+                    register int *intP;
+                    intP = TAHDRELEMPTR(thdrP, int, first);
+                    for (r = 0; r < nrows; ++r, ++intP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TARRAY_ASSERT(valObj);
+                        if (Tcl_GetIntFromObj(interp, valObj, intP) != TCL_OK)
+                            goto error_return;
+                    }
+                }
+                break;
+            case TARRAY_WIDE:
+                {
+                    register Tcl_WideInt *wideP;
+                    wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+                    for (r = 0; r < nrows; ++r, ++wideP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TARRAY_ASSERT(valObj);
+                        if (Tcl_GetWideIntFromObj(interp, valObj, wideP) != TCL_OK)
+                            goto error_return;
+                    }
+                }
+                break;
+            case TARRAY_DOUBLE:
+                {
+                    register double *dblP;
+                    dblP = TAHDRELEMPTR(thdrP, double, first);
+                    for (r = 0; r < nrows; ++r, ++dblP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TARRAY_ASSERT(valObj);
+                        if (Tcl_GetDoubleFromObj(interp, valObj, dblP) != TCL_OK)
+                            goto error_return;
+                    }
+                }
+                break;
+            case TARRAY_BYTE:
+                {
+                    register unsigned char *byteP;
+                    byteP = TAHDRELEMPTR(thdrP, unsigned char, first);
+                    for (r = 0; r < nrows; ++r, ++byteP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TARRAY_ASSERT(valObj);
+                        if (Tcl_GetIntFromObj(interp, valObj, &ival) != TCL_OK)
+                            goto error_return;
+                        if (ival > 255 || ival < 0) {
+                            if (interp)
+                                Tcl_SetObjResult(interp,
+                                                 Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
+                            goto error_return;
+                        }
+                        *byteP = (unsigned char) ival;
+                    }
+                }
+                break;
+            default:
+                TArrayTypePanic(thdrP->type);
+            }
+        }
+    }
+
+    /* Now that no errors are possible, update the TARRAY_OBJ columns */
+    for (t=0; t < nthdrs; ++t) {
+        register Tcl_Obj **objPP;
+        if (thdrs[t]->type != TARRAY_OBJ)
+            continue;
+        objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        for (r = 0; r < nrows ; ++r, ++objPP) {
+            Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+            TARRAY_ASSERT(valObj);
+            /* Careful about the order here! */
+            Tcl_IncrRefCount(valObj);
+            if ((first + r) < thdrP->used) {
+                /* Deref what was originally in that slot */
+                Tcl_DecrRefCount(*objPP);
+            }
+            *objPP = valObj;
+        }
+    }
+
+    /* Now finally, update all the counts */
+    for (t=0; t < nthdrs; ++t) {
+        if ((first + nrows) > thdrs[t]->used)
+            thdrs[t]->used = first + nrows;
+    }
+
+    return TCL_OK;
+
+width_error:
+    if (interp)
+        Tcl_SetResult(interp, "Not enough elements in row", TCL_STATIC);
+
+error_return:                  /* Interp should already contain errors */
+    return TCL_ERROR;
+}
+
+
 int TArrayCalcSize(unsigned char tatype, int count)
 {
     int space;
@@ -878,7 +1222,7 @@ TArrayHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
     thdrP = TArrayAlloc(tatype, init_size);
 
     if (elems != NULL && nelems != 0) {
-        if (TArraySetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
+        if (TArrayHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
             TARRAY_FREEMEM(thdrP);
             return NULL;
         }
@@ -1099,18 +1443,19 @@ TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int minsize)
  *     place unless (b) TArrayHdr is too small. In case (b) we have
  *     to follow the same path as (2).
  *
- * If bumpref is true, the returned object, whether what's passed in
- * or newly allocated, has its ref count incremented. Caller is responsible
- * for decrementing as appropriate. If bumpref is false, newly allocated
+ * If flags contains TARRAY_MAKE_WRITABLE_REF, the returned object, 
+ * whether what's passed in or newly allocated, has its ref count
+ * incremented. Caller is responsible for decrementing as appropriate.
+ * If flags does not contain TARRAY_MAKE_WRITABLE_REF, newly allocated
  * objects have ref count 0 and passed-in ones are returned with no change.
  *
  * Generally, if caller is immediately going to add the object to
  * (for example) a list or set it as the interp result, it should pass
- * bumpref as 0. If it adds to a list in some cases, and frees it in others
- * (such as error conditions), it should pass bumpref as 1 and then ALWAYS 
- * Tcl_DecrRefCount it.
+ * flags as 0. If it adds to a list in some cases, and frees it in others
+ * (such as error conditions), it should pass flags as TARRAY_MAKE_WRITABLE_REF
+ * and then ALWAYS Tcl_DecrRefCount it.
  */
-Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int bumpref)
+Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int flags)
 {
     TArrayHdr *thdrP;
 
@@ -1132,15 +1477,17 @@ Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int bumpr
         /* Case (3) - can be reused as is */
     }
 
-    Tcl_IncrRefCount(taObj);
+    if (flags & TARRAY_MAKE_WRITABLE_INCREF)
+        Tcl_IncrRefCount(taObj);
+
     return taObj;
 }
 
-TCL_RESULT TArrayTupleFill(Tcl_Interp *interp,
-                           Tcl_Obj *lowObj, Tcl_Obj *highObj,
-                           Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
-                           int tuple_width,
-                           int flags)
+TCL_RESULT TArrayGridFillFromObjs(
+    Tcl_Interp *interp,
+    Tcl_Obj *lowObj, Tcl_Obj *highObj,
+    Tcl_Obj *const taObjs[], Tcl_Obj *const valueObjs[],
+    int tuple_width, int flags)
 {
     int i, low, count;
     TArrayHdr *thdr0P;
@@ -1262,6 +1609,134 @@ vamoose:                   /* interp must already hold error message */
         ckfree((char *) resultObjsP);
     if (valuesP != values)
         ckfree((char *) valuesP);
+
+    return status;
+}
+
+TCL_RESULT TArrayGridSetFromObjs(
+    Tcl_Interp *interp,
+    Tcl_Obj *lowObj,
+    Tcl_Obj *gridObj,
+    Tcl_Obj *valueObjs, /* List of lists (tuple values) */
+    int flags)
+{
+    int i, low, count, grid_width;
+    TArrayHdr *thdr0P;
+    Tcl_Obj **taObjs;
+    Tcl_Obj *resultObjs[32];
+    Tcl_Obj **resultObjsP;
+    TArrayHdr *thdrs[sizeof(resultObjs)/sizeof(resultObjs[0])];
+    TArrayHdr **thdrsP;
+    int status = TCL_ERROR;
+    int new_size;
+
+    if (Tcl_ListObjGetElements(interp, gridObj, &grid_width, &taObjs) != TCL_OK
+        || Tcl_ListObjLength(interp, valueObjs, &count) != TCL_OK)
+        return TCL_ERROR;
+
+    /* Check for empty tuple or no new values so as to simplify loops below */
+    if (grid_width == 0 || count == 0) {
+        Tcl_SetObjResult(interp, gridObj);
+        return TCL_OK;
+    }
+
+    /*
+     * Extract low/high indices. Be careful not to shimmer because
+     * in the unlikely but legal case where index is same object
+     * as the passed tarray, we do not want to lose the tarray
+     * representation. For example,
+     *   set v [tarray create int {0}]
+     *   tarray filltuples $v $v [list $v] 0
+     * So if the index Tcl_Obj's are of tarrays, we dup them.
+     */
+
+    if (lowObj->typePtr == &gTArrayType)
+        lowObj = Tcl_DuplicateObj(lowObj);
+    else
+        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
+
+    if (grid_width > sizeof(resultObjs)/sizeof(resultObjs[0])) {
+        /* Allocate room for both resultObjs and thdrs in one shot */
+        resultObjsP = (Tcl_Obj **)ckalloc(grid_width * sizeof(void *));
+        thdrsP = (TArrayHdr **)&resultObjsP[grid_width];
+    }
+    else {
+        resultObjsP = resultObjs;
+        thdrsP = thdrs;
+    }        
+
+    /* Now verify tarrays are in fact tarrays and of the same size. */
+    for (i = 0; i < grid_width; ++i) {
+        TArrayHdr *thdrP;
+        if ((thdrP = TArrayVerifyType(interp, taObjs[i])) == NULL)
+            goto vamoose;
+        if (i == 0)
+            thdr0P = TARRAYHDR(taObjs[0]);
+        else if (thdrP->used != thdr0P->used) {
+            Tcl_SetResult(interp, "tarrays have differing number of elements", TCL_STATIC);
+            goto vamoose;
+        }
+    }
+
+    /* Get the start of the range to set */
+    if (IndexToInt(interp, lowObj, &low, thdr0P->used) != TCL_OK)
+        goto vamoose;
+
+    if (low < 0 || low > thdr0P->used) {
+        TArrayIndexRangeError(interp, lowObj);
+        goto vamoose;
+    }
+
+    count += low;               /* Needed size of array */
+
+    /*
+     * With respect to where to store the results,
+     * there are three cases to consider for each tarray.
+     * (1) If taObj[i] is shared, then we cannot modify in place since
+     *     the object is referenced elsewhere in the program. We have to
+     *     clone the corresponding thdrsP[i] and stick it in a new
+     *     Tcl_Obj.
+     * (2) If taObj[i] is unshared, the corresponding thdrP might
+     *     still be shared (pointed to from elsewhere). In this case
+     *     also, we clone the thdrP but instead of allocating a new 
+     *     Tcl_Obj, we store it as the internal rep of taObj[i].
+     * (3) If taObj[i] and its thdrP are unshared, (a) we can modify in
+     *     place (b) unless thdrP is too small. In that case we have
+     *     to follow the same path as (2).
+     *
+     * NOTE: taObjsP points into memory owned by objv[3] list. We cannot
+     * write to it, hence we use a separate output area resultObjsP[].
+     */
+
+    TARRAY_ASSERT(count > 0);
+    /* If we have to realloc anyway, we will leave a bit extra room */
+    new_size = count + TARRAY_EXTRA(count);
+    for (i = 0; i < grid_width; ++i) {
+        TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
+        resultObjsP[i] = TArrayMakeWritable(taObjs[i], count,
+                               new_size, TARRAY_MAKE_WRITABLE_INCREF);
+        thdrsP[i] = TARRAYHDR(resultObjsP[i]);
+    }
+        
+    status = TArrayHdrGridSetFromObjs(interp, thdrsP, grid_width, valueObjs, low);
+
+    if (status == TCL_OK) {
+        /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
+        TARRAY_ASSERT(grid_width == 1 || (flags & TARRAY_FILL_SINGLE) == 0);
+        if (flags & TARRAY_FILL_SINGLE)
+            Tcl_SetObjResult(interp, resultObjsP[0]);
+        else
+            Tcl_SetObjResult(interp, Tcl_NewListObj(grid_width, resultObjsP));
+    }
+
+    for (i=0; i < grid_width; ++i)
+        Tcl_DecrRefCount(resultObjsP[i]); /* Remove ref added by MakeWritable */
+
+vamoose:                   /* interp must already hold error message */
+    Tcl_DecrRefCount(lowObj);
+
+    if (resultObjsP != resultObjs)
+        ckfree((char *) resultObjsP);
 
     return status;
 }

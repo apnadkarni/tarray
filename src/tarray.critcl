@@ -291,7 +291,7 @@ critcl::ccommand tarray::column::fill {} {
 	return TCL_ERROR;
     }
     
-    return TArrayTupleFill(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
+    return TArrayGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
 }
 
 critcl::ccommand tarray::grid::fill {} {
@@ -319,7 +319,7 @@ critcl::ccommand tarray::grid::fill {} {
     if (tuple_width == 0)
         return TCL_OK;          /* Return empty result */
 
-    return TArrayTupleFill(interp, objv[3], objv[objc == 5 ? 4 : 3], taObjs, valueObjs, tuple_width, 0);
+    return TArrayGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], taObjs, valueObjs, tuple_width, 0);
 }
 
 package provide tarray 0.1
