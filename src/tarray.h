@@ -126,6 +126,7 @@ void TArraySharedPanic(const char *where);
 void TArrayTooSmallPanic(TArrayHdr *thdrP, const char *where);
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname);
 TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, enum TArraySearchSwitches op);
+TCL_RESULT TArrayNotTArrayError(Tcl_Interp *interp);
 
 
 void TArrayIncrObjRefs(TArrayHdr *thdrP,int first,int count);
@@ -169,7 +170,7 @@ TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj
 TCL_RESULT TArrayGridSetFromObjs(
     Tcl_Interp *interp,
     Tcl_Obj *lowObj,
-    const Tcl_Obj *gridObj,
+    Tcl_Obj *gridObj,
     Tcl_Obj *valueObjs, /* Each element is a list (tuple value) */
     int flags);
 
