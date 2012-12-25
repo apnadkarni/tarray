@@ -72,8 +72,19 @@ void TArrayTooSmallPanic(TArrayHdr *thdrP, const char *where)
 
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname)
 {
-    Tcl_SetObjResult(interp, Tcl_ObjPrintf("Missing or invalid argument to option '%s'", optname));
-    Tcl_SetErrorCode(interp, "TARRAY", "ARGUMENT", NULL);
+    if (interp) {
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf("Missing or invalid argument to option '%s'", optname));
+        Tcl_SetErrorCode(interp, "TARRAY", "ARGUMENT", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT TArrayNotTArrayError(Tcl_Interp *interp)
+{
+    if (interp) {
+        Tcl_SetResult(interp, "Object is not a TArray", TCL_STATIC);
+        Tcl_SetErrorCode(interp, "TARRAY", "OBJTYPE", NULL);
+    }
     return TCL_ERROR;
 }
 
@@ -100,6 +111,53 @@ TCL_RESULT TArrayIndexRangeError(Tcl_Interp *interp, Tcl_Obj *indexObj)
         Tcl_SetErrorCode(interp, "TARRAY", "INDEX", "RANGE", NULL);
     }
     return TCL_ERROR;
+}
+
+/*
+ * Map numeric or string index to numeric integer index.
+ * Does NOT check for out of bounds errors, caller must do that
+ */
+TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value)
+{
+    char *s;
+
+    if (Tcl_GetIntFromObj(NULL, objP, indexP) != TCL_OK) {
+        s = Tcl_GetString(objP);
+        if (strcmp(s, "end")) {
+            if (interp != NULL) {
+                Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+                                     "bad index '%s': must be 'end' or an integer value", s));
+                Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "INDEX", NULL);
+            }
+            return TCL_ERROR;
+        }
+        *indexP = end_value;
+    }
+    return TCL_OK;
+}
+
+TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
+{
+    int low, high;
+
+    if (IndexToInt(interp, lowObj, &low, thdrP->used-1) != TCL_OK)
+        return TCL_ERROR;
+
+    if (IndexToInt(interp, highObj, &high, thdrP->used-1) != TCL_OK)
+        return TCL_ERROR;
+
+    /* We allow low index to be 1 greater than last element. Caller should
+     * check for this if appropriate. High index can be any greater value
+     * than lower range.
+     */
+    if (low < 0 || low > thdrP->used || high < low) {
+        Tcl_SetResult(interp, "tarray index out of range.", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    *lowP = low;
+    *countP = high - low + 1;
+    return TCL_OK;
 }
 
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
@@ -298,8 +356,7 @@ TArrayHdr *TArrayVerifyType(Tcl_Interp *interp, Tcl_Obj *objP)
     if (objP->typePtr == &gTArrayType)
         return TARRAYHDR(objP);
     else {
-        if (interp)
-            Tcl_SetResult(interp, "Value is not a tarray", TCL_STATIC);
+        TArrayNotTArrayError(interp);
         return NULL;
     }
 }
@@ -1419,17 +1476,17 @@ TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int minsize)
 
 Tcl_Obj *TArrayGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
 {
-    Tcl_Obj **thdrObjs;
-    int i, nthdrObjs;
+    Tcl_Obj **taObjs;
+    int i, ntaObjs;
     Tcl_Obj *cloneObj;
 
-    if (Tcl_ListObjGetElements(interp, gridObj, &nthdrObjs, thdrObjs) != TCL_OK)
-        return TCL_ERROR;
-    cloneObj = Tcl_NewListObj(nthdrObjs, NULL);
-    for (i = 0; i < nthdrObjs; ++i) {
-        TARRAY_ASSERT(thdrObjs[i]->typePtr == &gTArrayType);
+    if (Tcl_ListObjGetElements(interp, gridObj, &ntaObjs, &taObjs) != TCL_OK)
+        return NULL;
+    cloneObj = Tcl_NewListObj(ntaObjs, NULL);
+    for (i = 0; i < ntaObjs; ++i) {
+        TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType);
         Tcl_ListObjAppendElement(interp, cloneObj,
-                                 TArrayNewObj(TArrayHdrClone(TARRAYHDR(thdrObjs[i]), minsize)));
+                                 TArrayNewObj(TArrayHdrClone(TARRAYHDR(taObjs[i]), minsize)));
     }
     return cloneObj;
 }
@@ -1481,7 +1538,7 @@ Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int flags
         TARRAY_OBJ_SETREP(taObj, thdrP);
         Tcl_InvalidateStringRep(taObj);
     } else {
-        /* Case (3) - can be reused but need to invalidate the string rep */
+        /* Case (3) - can be reused, invalidate the string rep */
         Tcl_InvalidateStringRep(taObj);
     }
 
@@ -1489,6 +1546,72 @@ Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int flags
         Tcl_IncrRefCount(taObj);
 
     return taObj;
+}
+
+/* On error, returns NULL without gridObj being modified (though it may
+   shimmer) */
+Tcl_Obj *TArrayGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, int prefsize, int flags)
+{
+    Tcl_Obj *writableObj;
+    
+    if (Tcl_IsShared(gridObj))
+        writableObj = TArrayGridClone(interp, gridObj, prefsize);
+    else {
+        int n;
+        int writable;
+        int i;
+        Tcl_Obj *taObj;
+        TArrayHdr *thdrP;
+        
+        /* Even if the grid Tcl_Obj is not shared, the contained
+         * TArray Tcl_Objs may be. Note we do not use Tcl_ListObjGetElements
+         * and loop through the array because the underlying memory
+         * storage *may* change when we replace the elements with
+         * unshared ones.
+         */
+        if (Tcl_ListObjLength(interp, gridObj, &n) != TCL_OK)
+            return NULL;
+        /* First verify all elements are TArrays before doing anything */
+        for (writable = 1, i = 0; i < n; ++i) {
+            if (Tcl_ListObjIndex(interp, gridObj, i, &taObj)  != TCL_OK)
+                return NULL;
+            if (taObj->typePtr != &gTArrayType) {
+                TArrayNotTArrayError(interp);
+                return NULL;
+            }
+            thdrP = TARRAYHDR(taObj);
+            if (Tcl_IsShared(taObj) ||
+                TAHDR_SHARED(thdrP) || thdrP->allocated < minsize)
+                writable = 0;
+        }
+        /* Now do any require changes */
+        if (! writable) {
+            /* Need to replace at least one TArray Tcl_Obj in the grid */
+            for (i = 0; i < n; ++i) {
+                Tcl_ListObjIndex(interp, gridObj, i, &taObj);
+                thdrP = TARRAYHDR(taObj);
+                if (Tcl_IsShared(taObj) ||
+                    TAHDR_SHARED(thdrP) || thdrP->allocated < minsize) {
+                    /* Note we INCREF and DecrRef because ListObjReplace
+                       decrements deleted obj ref counts before incr refs
+                       of added objects. Here it probably does not matter
+                       since TArrayMakeWritable would have allocate new
+                       object, but just to future-protect */
+                    taObj = TArrayMakeWritable(taObj, minsize, prefsize,
+                                               TARRAY_MAKE_WRITABLE_INCREF);
+                    Tcl_ListObjReplace(interp, gridObj, i, 1, 1, &taObj);
+                    Tcl_DecrRefCount(taObj); /* For INCREF above */
+                }
+            }
+            Tcl_InvalidateStringRep(gridObj);
+        }
+        writableObj = gridObj;
+    }
+                    
+    if (flags & TARRAY_MAKE_WRITABLE_INCREF)
+        Tcl_IncrRefCount(writableObj);
+
+    return writableObj;
 }
 
 TCL_RESULT TArrayGridFillFromObjs(
@@ -1621,6 +1744,12 @@ vamoose:                   /* interp must already hold error message */
     return status;
 }
 
+/*
+ * See asserts in code for entry conditions.
+ * On success, gridObj (which must NOT be shared) is modified with the new
+ * values. On error, gridObj is left unchanged.
+ * interp is used only for errors,
+ */
 TCL_RESULT TArrayGridSetFromObjs(
     Tcl_Interp *interp,
     Tcl_Obj *lowObj,
@@ -1637,6 +1766,9 @@ TCL_RESULT TArrayGridSetFromObjs(
     TArrayHdr **thdrsP;
     int status = TCL_ERROR;
     int new_size;
+
+    // TBD - review and fix if necessary for shared objects;
+    TARRAY_ASSERT(! Tcl_IsShared(gridObj));
 
     if (Tcl_ListObjGetElements(interp, gridObj, &grid_width, &taObjs) != TCL_OK
         || Tcl_ListObjLength(interp, valueObjs, &count) != TCL_OK)
@@ -2369,7 +2501,6 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
 
 }
 
-
 int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 {
     char *a, *b;
@@ -2390,51 +2521,3 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     }
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
-
-/*
- * Map numeric or string index to numeric integer index.
- * Does NOT check for out of bounds errors, caller must do that
- */
-TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value)
-{
-    char *s;
-
-    if (Tcl_GetIntFromObj(NULL, objP, indexP) != TCL_OK) {
-        s = Tcl_GetString(objP);
-        if (strcmp(s, "end")) {
-            if (interp != NULL) {
-                Tcl_SetObjResult(interp, Tcl_ObjPrintf(
-                                     "bad index '%s': must be 'end' or an integer value", s));
-                Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "INDEX", NULL);
-            }
-            return TCL_ERROR;
-        }
-        *indexP = end_value;
-    }
-    return TCL_OK;
-}
-
-TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
-{
-    int low, high;
-
-    if (IndexToInt(interp, lowObj, &low, thdrP->used-1) != TCL_OK)
-        return TCL_ERROR;
-
-    if (IndexToInt(interp, highObj, &high, thdrP->used-1) != TCL_OK)
-        return TCL_ERROR;
-
-    /* We allow low index to be 1 greater than last element. Caller should
-     * check for this if appropriate. High index can be any greater value
-     * than lower range.
-     */
-    if (low < 0 || low > thdrP->used || high < low) {
-        Tcl_SetResult(interp, "tarray index out of range.", TCL_STATIC);
-        return TCL_ERROR;
-    }
-
-    *lowP = low;
-    *countP = high - low + 1;
-    return TCL_OK;
-}
-
