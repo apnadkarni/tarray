@@ -5,7 +5,10 @@
 # See the file LICENSE for license
 
 
-package require critcl
+package require critcl 3.1
+critcl::buildrequirement {
+    package require critcl::class ; # DSL, easy spec of Tcl class/object commands.
+}
 critcl::clean_cache
 critcl::tcl 8.5
 critcl::debug symbols
@@ -15,7 +18,7 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-critcl::csources tarray.c bitarray.c
+critcl::csources tarray.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
@@ -96,8 +99,7 @@ critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_
     if (thdrP == NULL)
         return TCL_ERROR;
 
-    if (TArrayHdrCopy(interp, thdrP, 0, TARRAYHDR(taobjP), low, count) != TCL_OK)
-        return TCL_ERROR;
+    TArrayHdrCopy(thdrP, 0, TARRAYHDR(taobjP), low, count);
 
     Tcl_SetObjResult(interp, TArrayNewObj(thdrP));
     return TCL_OK;
@@ -298,28 +300,45 @@ critcl::ccommand tarray::grid::fill {} {
     int i, tuple_width;
     Tcl_Obj **taObjs;
     Tcl_Obj **valueObjs;
-
-    // tarray::filltuples low high TARRAYLIST VALUELIST
+    Tcl_Obj *gridObj;
+    int we_own_gridobj;
+    int status;
 
     if (objc != 4 && objc != 5) {
 	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYLIST VALUELIST LOW ?HIGH?");
 	return TCL_ERROR;
     }
 
-    if (Tcl_ListObjGetElements(interp, objv[1], &tuple_width, &taObjs) != TCL_OK)
-        return TCL_ERROR;
-    if (Tcl_ListObjGetElements(interp, objv[2], &i, &valueObjs) != TCL_OK)
-        return TCL_ERROR;
-    if (i != tuple_width) {
-        Tcl_SetResult(interp, "Count of values supplied does not match count of tarrays", TCL_STATIC);
-        return TCL_ERROR;
+    gridObj = objv[1];
+    if (Tcl_IsShared(gridObj)) {
+        gridObj = Tcl_DuplicateObj(gridObj);
+        we_own_gridobj = 1;
+    } else
+        we_own_gridobj = 0;
+
+    status = TCL_ERROR;
+    if (Tcl_ListObjGetElements(interp, gridObj, &tuple_width, &taObjs) == TCL_OK) {
+        if (Tcl_ListObjGetElements(interp, objv[2], &i, &valueObjs) == TCL_OK) {
+            if (i == tuple_width) {
+                if (tuple_width == 0)
+                    status = TCL_OK;          /* Return empty result */
+                else
+                    status =
+                        TArrayGridFillFromObjs(interp, objv[3],
+                                               objv[objc == 5 ? 4 : 3],
+                                               taObjs, valueObjs,
+                                               tuple_width, 0);
+            } else {
+                Tcl_SetResult(interp, "Count of values supplied does not match count of tarrays", TCL_STATIC);
+                return TCL_ERROR;
+            }
+        }
     }
 
-    /* Check for empty tuple so as to simplify loops below */
-    if (tuple_width == 0)
-        return TCL_OK;          /* Return empty result */
+    if (we_own_gridobj)
+        Tcl_DecrRefCount(gridObj);
 
-    return TArrayGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], taObjs, valueObjs, tuple_width, 0);
+    return status;
 }
 
 package provide tarray 0.1

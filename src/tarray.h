@@ -155,9 +155,10 @@ int TArrayCalcSize(unsigned char tatype,int count);
 TArrayHdr *TArrayRealloc(TArrayHdr *oldP,int new_count);
 TArrayHdr *TArrayAlloc(unsigned char tatype, int count);
 TArrayHdr *TArrayAllocAndInit(struct Tcl_Interp *interp,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
-int TArrayHdrCopy(struct Tcl_Interp *interp,TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
+void TArrayHdrCopy(TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
 void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count);
 TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int init_size);
+Tcl_Obj *TArrayGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize);
 struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TArrayHdr *thdrP,Tcl_Obj *indexObj);
 TArrayHdr *TArrayConvertToIndices(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
 TArrayHdr *TArrayGetValues(struct Tcl_Interp *interp,TArrayHdr *srcP,TArrayHdr *indicesP);
@@ -175,10 +176,6 @@ TCL_RESULT TArrayGridSetFromObjs(
 
 /* Search and sort routines */
 int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
-
-void bitarray_set(unsigned char *ucP, int offset, int count, int ival);
-void bitarray_copy(const unsigned char *src_org, int src_offset,
-                                  int src_len, unsigned char *dst_org, int dst_offset);
 
 void tarray_qsort_r(void *a, size_t n, size_t es, void *thunk, int (*cmp)(void *, const void *, const void *));
 int intcmp(const void *a, const void *b);
