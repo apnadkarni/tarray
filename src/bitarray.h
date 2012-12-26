@@ -56,11 +56,16 @@
 #define BITMASKNEXT(mask_) ((ba_t)((mask_) << 1))
 #define BITMASKGE(mask_) ((ba_t)(-(sba_t)(mask_)))
 
-#ifdef _MSC_VER
-# define BA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
-#else
-# define BA_LINLINE inline
+#ifndef BA_INLINE
+# ifdef _MSC_VER
+#  define BA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
+# elif __GNUC__ && !__GNUC_STDC_INLINE__
+#  define BA_INLINE extern inline
+# else
+#  define BA_INLINE inline
+# endif
 #endif
+
 BA_INLINE int ba_get(ba_t *baP, int off)
 {
     return (baP[off / BA_UNIT_SIZE] & BITPOSMASK(off % BA_UNIT_SIZE)) != 0;

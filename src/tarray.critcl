@@ -11,7 +11,9 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-critcl::debug symbols
+#critcl::debug symbols
+#critcl::cflags -std=gnu99 -Winline
+
 critcl::cheaders tarray.h
 
 critcl::ccode {
@@ -22,7 +24,7 @@ critcl::csources tarray.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
-    if (TArrayVerifyType(interp, @@) == NULL)
+    if (TArrayVerifyType(interp, @@) != TCL_OK)
         return TCL_ERROR;
     @A = @@;
 }
@@ -65,10 +67,10 @@ critcl::ccommand tarray::column::create {} {
 }
 
 critcl::cproc tarray::column::size {Tcl_Interp* interp Tcl_Obj* taobjP} ok {
-    TArrayHdr *thdrP;
-    if ((thdrP = TArrayVerifyType(interp, taobjP)) == NULL)
+    if (TArrayVerifyType(interp, taobjP) != TCL_OK)
         return TCL_ERROR;
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(thdrP->used));
+    
+    Tcl_SetObjResult(interp, Tcl_NewIntObj(TARRAYELEMCOUNT(taobjP)));
     return TCL_OK;
 }
 
@@ -144,9 +146,9 @@ critcl::ccommand tarray::column::sort {} {
     }
 
     srcObj = objv[objc-1];
-    if ((srcP = TArrayVerifyType(interp, objv[objc-1])) == NULL)
+    if (TArrayVerifyType(interp, objv[objc-1]) != TCL_OK)
         return TCL_ERROR;
-
+    srcP = TARRAYHDR(objv[objc-1]);
     for (i = 1; i < objc-1; ++i) {
 	if (Tcl_GetIndexFromObj(interp, objv[i], switches, "option", 0, &opt)
             != TCL_OK) {
@@ -272,9 +274,9 @@ critcl::ccommand tarray::column::delete {} {
 	return TCL_ERROR;
     }
     
-    if ((thdrP = TArrayVerifyType(interp, objv[1])) == NULL)
+    if (TArrayVerifyType(interp, objv[1]) != TCL_OK)
         return TCL_ERROR;
-
+    thdrP = TARRAYHDR(objv[1]);
     if (RationalizeRangeIndices(interp, thdrP, objv[2],
                                 objc == 4 ? objv[3] : objv[2],
                                 &low, &count) != TCL_OK)

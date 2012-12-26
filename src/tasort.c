@@ -212,7 +212,7 @@ static char sccsid[] = "@(#)qsort.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 
 #if !defined(_MSC_VER)
-#include <sys/cdefs.h>
+// #include <sys/cdefs.h>
 #endif
 
 #include <stdlib.h>
