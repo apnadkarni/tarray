@@ -5,7 +5,13 @@
  * See the file LICENSE for license
  */
 
+#include <string.h>
 #include "tcl.h"
+#if __GNUC__ && !__GNUC_STDC_INLINE__
+/* Force generation of code for inline - older gnu compilers */
+#define TA_INLINE
+#endif
+
 #define TARRAY_ENABLE_ASSERT 1
 #include "tarray.h"
 
@@ -54,7 +60,6 @@ enum TArraySearchSwitches {
 #define TARRAY_SEARCH_ALL    4  /* Return all matches */
 #define TARRAY_SEARCH_NOCASE 8  /* Ignore case */
 
-
 void TArrayTypePanic(unsigned char tatype)
 {
     Tcl_Panic("Unknown or unexpected tarray type %d", tatype);
@@ -88,12 +93,12 @@ TCL_RESULT TArrayNotTArrayError(Tcl_Interp *interp)
     return TCL_ERROR;
 }
 
-TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, enum TArraySearchSwitches op)
+TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op)
 {
     if (interp) {
         const char *ops = NULL;
-        if ((int)op < (sizeof(TArraySearchSwitches)/sizeof(TArraySearchSwitches[0])))
-            ops = TArraySearchSwitches[(int)op];
+        if (op < (sizeof(TArraySearchSwitches)/sizeof(TArraySearchSwitches[0])))
+            ops = TArraySearchSwitches[op];
         if (ops == NULL)
             Tcl_SetObjResult(interp, Tcl_ObjPrintf("Unknown or invalid search operator (%d).", op));
         else
@@ -351,14 +356,19 @@ void TArrayHdrFree(TArrayHdr *thdrP)
     TARRAY_FREEMEM(thdrP);
 }
 
-TArrayHdr *TArrayVerifyType(Tcl_Interp *interp, Tcl_Obj *objP)
+TCL_RESULT TArrayGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj)
 {
-    if (objP->typePtr == &gTArrayType)
-        return TARRAYHDR(objP);
-    else {
-        TArrayNotTArrayError(interp);
-        return NULL;
+    Tcl_Obj **taObjs;
+    int ntaObjs;
+    if (Tcl_ListObjGetElements(interp, gridObj, &ntaObjs, &taObjs) != TCL_OK)
+        return TCL_ERROR;
+
+    while (ntaObjs--) {
+        if (TArrayVerifyType(interp, taObjs[ntaObjs]) != TCL_OK)
+            return TCL_ERROR;
     }
+
+    return TCL_OK;
 }
 
 static void TArrayTypeFreeRep(Tcl_Obj *objP)
@@ -1667,8 +1677,9 @@ TCL_RESULT TArrayGridFillFromObjs(
      */
     for (i = 0; i < tuple_width; ++i) {
         TArrayHdr *thdrP;
-        if ((thdrP = TArrayVerifyType(interp, taObjs[i])) == NULL)
+        if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
+        thdrP = TARRAYHDR(taObjs[i]);
         if (i == 0)
             thdr0P = TARRAYHDR(taObjs[0]);
         else if (thdrP->used != thdr0P->used) {
@@ -1767,7 +1778,6 @@ TCL_RESULT TArrayGridSetFromObjs(
     int status = TCL_ERROR;
     int new_size;
 
-    // TBD - review and fix if necessary for shared objects;
     TARRAY_ASSERT(! Tcl_IsShared(gridObj));
 
     if (Tcl_ListObjGetElements(interp, gridObj, &grid_width, &taObjs) != TCL_OK
@@ -1808,8 +1818,9 @@ TCL_RESULT TArrayGridSetFromObjs(
     /* Now verify tarrays are in fact tarrays and of the same size. */
     for (i = 0; i < grid_width; ++i) {
         TArrayHdr *thdrP;
-        if ((thdrP = TArrayVerifyType(interp, taObjs[i])) == NULL)
+        if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
+        thdrP = TARRAYHDR(taObjs[i]);
         if (i == 0)
             thdr0P = TARRAYHDR(taObjs[0]);
         else if (thdrP->used != thdr0P->used) {
@@ -2438,9 +2449,9 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
 	return TCL_ERROR;
     }
 
-    if ((haystackP = TArrayVerifyType(interp, objv[objc-2])) == NULL)
+    if (TArrayVerifyType(interp, objv[objc-2]) != TCL_OK)
         return TCL_ERROR;
-
+    haystackP = TARRAYHDR(objv[objc-2]);
     flags = 0;
     start_index = 0;
     op = TARRAY_SEARCH_OPT_EQ;
@@ -2449,7 +2460,7 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
             != TCL_OK) {
             return TCL_ERROR;
 	}
-        switch ((enum TArraySortSwitches) opt) {
+        switch ((enum TArraySearchSwitches) opt) {
         case TARRAY_SEARCH_OPT_ALL: flags |= TARRAY_SEARCH_ALL; break;
         case TARRAY_SEARCH_OPT_INLINE: flags |= TARRAY_SEARCH_INLINE; break;
         case TARRAY_SEARCH_OPT_INVERT: flags |= TARRAY_SEARCH_INVERT; break;
@@ -2478,7 +2489,7 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
         case TARRAY_SEARCH_OPT_LT:
         case TARRAY_SEARCH_OPT_PAT:
         case TARRAY_SEARCH_OPT_RE:
-            op = (enum TArraySortSwitches) opt;
+            op = (enum TArraySearchSwitches) opt;
         }
     }
 

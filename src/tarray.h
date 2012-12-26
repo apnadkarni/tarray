@@ -6,6 +6,16 @@
 
 #include "bitarray.h"
 
+#ifndef TA_INLINE
+# ifdef _MSC_VER
+#  define TA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
+# elif __GNUC__ && !__GNUC_STDC_INLINE__
+#  define TA_INLINE extern inline
+# else
+#  define TA_INLINE inline
+# endif
+#endif
+
 /* If building out of twapi pool, use its settings */
 #if defined(TWAPI_ENABLE_ASSERT) && !defined(TARRAY_ENABLE_ASSERT)
 #define TARRAY_ENABLE_ASSERT TWAPI_ENABLE_ASSERT
@@ -73,8 +83,7 @@ typedef union TArrayHdr_s {
 #define TAHDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(TArrayHdr) + (char *) (thdr_)))
 #define TAHDRELEMUSEDBYTES(thdr_) ((((thdr_)->used * (thdr_)->elem_bits) + CHAR_BIT-1) / CHAR_BIT)
 
-#define TARRAYDATA(optr_)  ((optr_)->internalRep.ptrAndLongRep.ptr)
-#define TARRAYHDR(optr_) ((TArrayHdr *)TARRAYDATA(optr_))
+#define TARRAYHDR(optr_) (*(TArrayHdr **) (&((optr_)->internalRep.ptrAndLongRep.ptr)))
 #define TARRAYTYPE(optr_) (TARRAYHDR(optr_)->type)
 #define TARRAYELEMSLOTS(optr_) ((TARRAYHDR(optr_))->allocated)
 #define TARRAYELEMCOUNT(optr_) ((TARRAYHDR(optr_))->used)
@@ -125,14 +134,19 @@ void TArrayTypePanic(unsigned char tatype);
 void TArraySharedPanic(const char *where);
 void TArrayTooSmallPanic(TArrayHdr *thdrP, const char *where);
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname);
-TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, enum TArraySearchSwitches op);
 TCL_RESULT TArrayNotTArrayError(Tcl_Interp *interp);
-
+TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op);
 
 void TArrayIncrObjRefs(TArrayHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TArrayHdr *thdrP,int first,int count);
 void TArrayHdrFree(TArrayHdr *thdrP);
-TArrayHdr *TArrayVerifyType(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
+TA_INLINE TCL_RESULT TArrayVerifyType(Tcl_Interp *interp,Tcl_Obj *objP)
+{
+    return (objP->typePtr == &gTArrayType ? TCL_OK : TArrayNotTArrayError(interp));
+}
+
+TCL_RESULT TArrayGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj);
+
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                                              unsigned char tatype, TArrayValue *tavP);
 void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
