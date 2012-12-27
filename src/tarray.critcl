@@ -20,7 +20,7 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-critcl::csources tarray.c  bitarray.c tasort.c
+critcl::csources tarray.c tgrid.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
@@ -296,6 +296,27 @@ critcl::ccommand tarray::column::fill {} {
     }
     
     return TArrayGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
+}
+
+critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
+    Tcl_Obj **taObjs;
+    int ntaObjs;
+    Tcl_Obj *gridObj;
+    
+    if (objP->typePtr == &gTGridType) {
+        Tcl_SetObjResult(interp, objP);
+        return TCL_OK;
+    }
+
+    if (Tcl_ListObjGetElements(interp, objP, &ntaObjs, &taObjs) == TCL_ERROR)
+        return TCL_ERROR;
+    
+    gridObj = TGridNewObj(interp, ntaObjs, taObjs);
+    if (gridObj) {
+        Tcl_SetObjResult(interp, gridObj);
+        return TCL_OK;
+    } else
+        return TCL_ERROR;
 }
 
 critcl::ccommand tarray::grid::fill {} {

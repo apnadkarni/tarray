@@ -182,6 +182,50 @@ TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *lo
     return TCL_OK;
 }
 
+TCL_RESULT TArrayConvert(Tcl_Interp *interp, Tcl_Obj *objP)
+{
+    Tcl_Obj **elems;
+    int nelems, tatype;
+    
+    if (objP->typePtr == &gTArrayType)
+        return TCL_OK;
+
+    /* See if we can convert it to one based on string representation */
+    if (Tcl_ListObjGetElements(NULL, objP, &nelems, &elems) == TCL_OK
+        && nelems == 3
+        && !strcmp(Tcl_GetString(elems[0]), "tarray")
+        && Tcl_GetIndexFromObj(interp, elems[1], gTArrayTypeTokens, "TArrayType",
+                               TCL_EXACT, &tatype) == TCL_OK) {
+        /* So far so good. Try and convert */
+        TAHdr *thdrP;
+        Tcl_Obj **valueObjs;
+        int nvalues;
+        
+        if (Tcl_ListObjGetElements(interp, elems[2], &nvalues, &valueObjs)
+            != TCL_OK)
+            return TCL_ERROR;
+
+        thdrP = TArrayAllocAndInit(interp, tatype, nvalues, valueObjs, 0);
+        if (thdrP == NULL)
+            return TCL_ERROR;
+
+        /*
+         * Get rid of old representation and stick in the new one. Note
+         * string rep is NOT invalidated and must NOT be if it is shared.
+         * In any case, no need to do so here.
+         */
+        if (objP->typePtr && objP->typePtr->freeIntRepProc) {
+            objP->typePtr->freeIntRepProc(objP);
+            objP->typePtr = NULL;
+        }
+
+        TARRAY_OBJ_SETREP(objP, thdrP);
+        return TCL_OK;
+    }
+                
+    return TArrayNotTArrayError(interp);
+}
+
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                               unsigned char tatype, TArrayValue *tavP)
 {
