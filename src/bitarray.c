@@ -6,6 +6,9 @@
  */
 
 #include <string.h>
+#if __GNUC__ && !__GNUC_STDC_INLINE__
+#define BA_INLINE
+#endif
 #include "bitarray.h"
 
 /* Caller must have ensured enough space in destination (see BA_BYTES_NEEDED) */

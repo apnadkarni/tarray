@@ -67,9 +67,9 @@ extern const char *gTArrayTypeTokens[];
 #define TARRAY_DEFAULT_NSLOTS 1000
 
 #define TARRAY_MAX_ELEM_SIZE (sizeof(double) > sizeof(int) ? (sizeof(double) > sizeof(void*) ? sizeof(double) : sizeof(void*)) : sizeof(int))
-#define TARRAY_MAX_COUNT (1 + (int)(((size_t)UINT_MAX - sizeof(TArrayHdr))/TARRAY_MAX_ELEM_SIZE))
+#define TARRAY_MAX_COUNT (1 + (int)(((size_t)UINT_MAX - sizeof(TAHdr))/TARRAY_MAX_ELEM_SIZE))
 
-typedef union TArrayHdr_s {
+typedef union TAHdr_s {
     void *pointer_aligner;
     double double_aligner;
     struct {
@@ -79,11 +79,11 @@ typedef union TArrayHdr_s {
         unsigned char type;
         unsigned char elem_bits; /* Size of element in bits */
     };
-} TArrayHdr;
-#define TAHDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(TArrayHdr) + (char *) (thdr_)))
+} TAHdr;
+#define TAHDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(TAHdr) + (char *) (thdr_)))
 #define TAHDRELEMUSEDBYTES(thdr_) ((((thdr_)->used * (thdr_)->elem_bits) + CHAR_BIT-1) / CHAR_BIT)
 
-#define TARRAYHDR(optr_) (*(TArrayHdr **) (&((optr_)->internalRep.ptrAndLongRep.ptr)))
+#define TARRAYHDR(optr_) (*(TAHdr **) (&((optr_)->internalRep.ptrAndLongRep.ptr)))
 #define TARRAYTYPE(optr_) (TARRAYHDR(optr_)->type)
 #define TARRAYELEMSLOTS(optr_) ((TARRAYHDR(optr_))->allocated)
 #define TARRAYELEMCOUNT(optr_) ((TARRAYHDR(optr_))->used)
@@ -95,7 +95,7 @@ typedef union TArrayHdr_s {
 #define TARRAY_EXTRA(n_)  \
     ((n_) < 10 ? 10 : ((n_) < 100 ? (n_) : ((n_) < 800 ? 100 : ((n_)/8))))
 
-/* Can a TArrayHdr block be modified ? Must be unshared and large enough */
+/* Can a TAHdr block be modified ? Must be unshared and large enough */
 #define TAHDR_SHARED(th_) ((th_)->nrefs > 1)
 #define TAHDR_WRITABLE(th_, size_) (TARRAYHDR_SHARED(th_) && (th_)->allocated >= (size_))
 
@@ -104,16 +104,16 @@ extern struct Tcl_ObjType gTArrayType;
 #define TAHDR_INCRREF(thdr_) do { (thdr_)->nrefs++; } while (0)
 #define TAHDR_DECRREF(thdr_)                                            \
     do {                                                                \
-        TArrayHdr *h_ = (thdr_);  /* Temp in case parameter has sideeffects*/ \
+        TAHdr *h_ = (thdr_);  /* Temp in case parameter has sideeffects*/ \
         if (--(h_)->nrefs <= 0)                                         \
-            TArrayHdrFree(h_);                                          \
+            TAHdrFree(h_);                                          \
     } while (0)
 
 /* Sets a Tcl_Obj's internal rep pointer. Assumes the Tcl_Obj int rep is
    invalid / uninitialized */
 #define TARRAY_OBJ_SETREP(obj_, thdr_)                                     \
     do {                                                                \
-        TArrayHdr *h_ = (thdr_);  /* Temp in case parameter has sideeffects*/ \
+        TAHdr *h_ = (thdr_);  /* Temp in case parameter has sideeffects*/ \
         Tcl_Obj *o_ = (obj_);  /* Temp in case parameter has sideeffects*/ \
         TAHDR_INCRREF(h_); \
         TARRAYHDR(o_) = h_; \
@@ -132,14 +132,14 @@ extern struct Tcl_ObjType gTArrayType;
 /* Error and panic routines */
 void TArrayTypePanic(unsigned char tatype);
 void TArraySharedPanic(const char *where);
-void TArrayTooSmallPanic(TArrayHdr *thdrP, const char *where);
+void TArrayTooSmallPanic(TAHdr *thdrP, const char *where);
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname);
 TCL_RESULT TArrayNotTArrayError(Tcl_Interp *interp);
 TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op);
 
-void TArrayIncrObjRefs(TArrayHdr *thdrP,int first,int count);
-void TArrayDecrObjRefs(TArrayHdr *thdrP,int first,int count);
-void TArrayHdrFree(TArrayHdr *thdrP);
+void TArrayIncrObjRefs(TAHdr *thdrP,int first,int count);
+void TArrayDecrObjRefs(TAHdr *thdrP,int first,int count);
+void TAHdrFree(TAHdr *thdrP);
 TA_INLINE TCL_RESULT TArrayVerifyType(Tcl_Interp *interp,Tcl_Obj *objP)
 {
     return (objP->typePtr == &gTArrayType ? TCL_OK : TArrayNotTArrayError(interp));
@@ -149,10 +149,10 @@ TCL_RESULT TArrayGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj);
 
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                                              unsigned char tatype, TArrayValue *tavP);
-void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
+void TAHdrFill(Tcl_Interp *interp, TAHdr *thdrP,
                                    const TArrayValue *tavP, int pos, int count);
-TCL_RESULT TArrayHdrGridSetFromObjs(Tcl_Interp *interp,
-                                    TArrayHdr * const thdrs[], int nthdrs,
+TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
+                                    TAHdr * const thdrs[], int nthdrs,
                                     Tcl_Obj *tuples, int first);
 
 TCL_RESULT TArrayGridFillFromObjs(Tcl_Interp *interp,
@@ -161,26 +161,26 @@ TCL_RESULT TArrayGridFillFromObjs(Tcl_Interp *interp,
                            int tuple_width, int flags);
 #define TARRAY_FILL_SINGLE 1
 
-Tcl_Obj * TArrayNewObj(TArrayHdr *thdrP);
+Tcl_Obj * TArrayNewObj(TAHdr *thdrP);
 Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int bumpref);
 #define TARRAY_MAKE_WRITABLE_INCREF 1
 
-TCL_RESULT TArrayHdrSetFromObjs(struct Tcl_Interp *interp,TArrayHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
+TCL_RESULT TAHdrSetFromObjs(struct Tcl_Interp *interp,TAHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
 int TArrayCalcSize(unsigned char tatype,int count);
-TArrayHdr *TArrayRealloc(TArrayHdr *oldP,int new_count);
-TArrayHdr *TArrayAlloc(unsigned char tatype, int count);
-TArrayHdr *TArrayAllocAndInit(struct Tcl_Interp *interp,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
-void TArrayHdrCopy(TArrayHdr *dstP,int dst_first,TArrayHdr *srcP,int src_first,int count);
-void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count);
-TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int init_size);
+TAHdr *TArrayRealloc(TAHdr *oldP,int new_count);
+TAHdr *TArrayAlloc(unsigned char tatype, int count);
+TAHdr *TArrayAllocAndInit(struct Tcl_Interp *interp,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+void TAHdrCopy(TAHdr *dstP,int dst_first,TAHdr *srcP,int src_first,int count);
+void TAHdrDelete(TAHdr *thdrP, int first, int count);
+TAHdr *TAHdrClone(TAHdr *srcP, int init_size);
 Tcl_Obj *TArrayGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize);
-struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TArrayHdr *thdrP,Tcl_Obj *indexObj);
-TArrayHdr *TArrayConvertToIndices(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
-TArrayHdr *TArrayGetValues(struct Tcl_Interp *interp,TArrayHdr *srcP,TArrayHdr *indicesP);
-int TArrayNumSetBits(TArrayHdr *thdrP);
-TCL_RESULT TArraySetRange(Tcl_Interp *interp, TArrayHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
+struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *interp,TAHdr *thdrP,Tcl_Obj *indexObj);
+TAHdr *TArrayConvertToIndices(struct Tcl_Interp *interp,struct Tcl_Obj *objP);
+TAHdr *TArrayGetValues(struct Tcl_Interp *interp,TAHdr *srcP,TAHdr *indicesP);
+int TArrayNumSetBits(TAHdr *thdrP);
+TCL_RESULT TArraySetRange(Tcl_Interp *interp, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
 TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value);
-TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
+TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
 TCL_RESULT TArrayGridSetFromObjs(
     Tcl_Interp *interp,
     Tcl_Obj *lowObj,
