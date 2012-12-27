@@ -35,8 +35,8 @@ struct Tcl_ObjType gTArrayType = {
 /* Must match definitions in tarray.h ! */
 const char *gTArrayTypeTokens[] = {
     "boolean",
-    "int",
     "uint",
+    "int",
     "wide",
     "double",
     "byte",
@@ -122,6 +122,19 @@ TCL_RESULT TArrayIndexRangeError(Tcl_Interp *interp, Tcl_Obj *indexObj)
     return TCL_ERROR;
 }
 
+TCL_RESULT TArrayValueTypeError(Tcl_Interp *interp, Tcl_Obj *objP, int tatype)
+{
+    if (interp) {
+        Tcl_SetObjResult(interp,
+                         Tcl_ObjPrintf("Value %s not valid for %s type array.",
+                                       Tcl_GetString(objP),
+                                       gTArrayTypeTokens[tatype]));
+                                       
+        Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "TYPE", NULL);
+    }
+    return TCL_ERROR;
+}
+
 /*
  * Map numeric or string index to numeric integer index.
  * Does NOT check for out of bounds errors, caller must do that
@@ -185,12 +198,8 @@ TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
             return TCL_ERROR;
         if (tatype == TARRAY_INT)
             break;
-        if (tavP->ival > 255 || tavP->ival < 0) {
-            if (interp)
-                Tcl_SetObjResult(interp,
-                                 Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", tavP->ival));
-            return TCL_ERROR;
-        }
+        if (tavP->ival > 255 || tavP->ival < 0)
+            return TArrayValueTypeError(interp, objP, tatype);
         tavP->ucval = (unsigned char) tavP->ival;
         break;
     case TARRAY_UINT:
@@ -199,12 +208,8 @@ TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
             return TCL_ERROR;
         if (tatype == TARRAY_WIDE)
             break;
-        if (tavP->wval < 0 || tavP->wval > 0xFFFFFFFF) {
-            if (interp)
-                Tcl_SetObjResult(interp,
-                                 Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(objP)));
-            return TCL_ERROR;
-        }
+        if (tavP->wval < 0 || tavP->wval > 0xFFFFFFFF)
+            return TArrayValueTypeError(interp, objP, tatype);
         tavP->uival = (unsigned int) tavP->wval;
         break;
     case TARRAY_DOUBLE:
@@ -418,8 +423,8 @@ static void UpdateStringForObjType(Tcl_Obj *objP)
     bytesNeeded +=
         sizeof("tarray ") - 1 /* -1 to exclude the null */
         + sizeof(" {") - 1 /* Start of list minus trailing null */
-        + 1;               /* Trailing "}" */
-    bytesNeeded += strlen(gTArrayTypeTokens[TARRAY_OBJ]);
+        + 1               /* Trailing "}" */
+        + strlen(gTArrayTypeTokens[TARRAY_OBJ]);
     for (i = 0; i < objc; i++) {
         /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
         flagPtr[i] = TCL_DONT_QUOTE_HASH;
@@ -470,8 +475,8 @@ static void UpdateStringForObjType(Tcl_Obj *objP)
 
 static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
 {
-    int i, n, count;
-    int allocated, unused;
+    unsigned int i, n, count;
+    unsigned int allocated, unused, min_needed, prefix_len;
     char *cP;
     int max_elem_space;  /* Max space to print one element including
                             either terminating null or space */
@@ -479,24 +484,28 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
         
     TARRAY_ASSERT(objP->typePtr == &gTArrayType);
 
+    thdrP = TARRAYHDR(objP);
+    TARRAY_ASSERT(thdrP->type < sizeof(gTArrayTypeTokens)/sizeof(gTArrayTypeTokens[0]));
+
     objP->bytes = NULL;
+
+    prefix_len = 
+        sizeof("tarray ") - 1   /* -1 to exclude the null */
+        + strlen(gTArrayTypeTokens[thdrP->type])
+        + 2;                         /* Start of list " {" */
+    min_needed = prefix_len + 1 + 1;            /* Trailing "}" and null */
 
     count = TARRAYELEMCOUNT(objP);
     if (count == 0) {
-        objP->bytes = ckalloc(sizeof(objP->bytes[0]));
-        objP->bytes[0] = 0;
-        objP->length = 0;
+        cP = ckalloc(min_needed);
+        objP->bytes = cP;
+        _snprintf(cP, min_needed, "tarray %s {}",
+                  gTArrayTypeTokens[thdrP->type]);
+        objP->length = min_needed - 1;
         return;
     }
 
-    thdrP = TARRAYHDR(objP);
-
     /* Code below based on count > 0 else terminating \0 will blow memory */
-
-    /*
-     * Special case Boolean since we know exactly how many chars will
-     * be required 
-     */
 
     /*
      * When output size cannot be calculated exactly, we allocate using
@@ -506,13 +515,20 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
     switch (TARRAYTYPE(objP)) {
     case TARRAY_BOOLEAN:
         {
+            /*
+             * Special case Boolean since we know exactly how many chars will
+             * be required 
+             */
             ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
             register ba_t ba = *baP;
             register ba_t ba_mask;
 
-            /* For BOOLEANS, we know how long a buffer needs to be */
-            cP = ckalloc(2*count);
+            cP = ckalloc(min_needed + 2*count - 1);
+            n = _snprintf(cP, min_needed, "tarray %s {",
+                      gTArrayTypeTokens[TARRAY_BOOLEAN]);
+            TARRAY_ASSERT(n > 0 && n < min_needed);
             objP->bytes = cP;
+            cP += n;
             n = count / BA_UNIT_SIZE;
             for (i = 0; i < n; ++i, ++baP) {
                 for (ba_mask = BITPOSMASK(0); ba_mask ; ba_mask = BITMASKNEXT(ba_mask)) {
@@ -528,8 +544,9 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
                     *cP++ = ' ';
                 }
             }
-            cP[-1] = 0;         /* Overwrite last space with terminating \0 */
-            objP->length = 2*count - 1;
+            cP[-1] = '}';
+            *cP = '\0';
+            objP->length = cP - objP->bytes;
         }
         return;
                 
@@ -540,66 +557,117 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
     case TARRAY_UINT:
     case TARRAY_INT:
         TARRAY_ASSERT(sizeof(int) == 4); /* So max string space needed is 11 */
-        max_elem_space = 11+1;
+        max_elem_space = 11;
         break;
     case TARRAY_WIDE:
-        max_elem_space = TCL_INTEGER_SPACE+1;
+        max_elem_space = TCL_INTEGER_SPACE;
         break;
     case TARRAY_DOUBLE:
-        max_elem_space = TCL_DOUBLE_SPACE+1;
+        max_elem_space = TCL_DOUBLE_SPACE;
         break;
     case TARRAY_BYTE:
-        max_elem_space = 3+1;
+        max_elem_space = 3;
         break;
     default:
         TArrayTypePanic(thdrP->type);
     }
             
-    allocated = 0;
-    unused = 0;
-    objP->bytes= NULL;
-    /* TBD - do Nested loop for efficiency reasons to avoid switch on every iter */
-    for (i = 0; i < count; ++i) {
-        if (unused < max_elem_space) {
+    /*
+     * Assume an element averages half max space with room for at
+     * least one max element. Note max_elem_space includes trailing ' '
+     */
+    allocated = min_needed + max_elem_space + ((max_elem_space + 1)/2)*count;
+    unused = allocated - prefix_len;
+    cP = ckalloc(allocated);
+    objP->bytes = cP;
+    _snprintf(cP, prefix_len+1, "tarray %s {", gTArrayTypeTokens[thdrP->type]);
+    TARRAY_ASSERT(strlen(cP) == prefix_len);
+    cP += prefix_len;
+    min_needed = max_elem_space + 2; /* space or terminating "}" and null */
+    for (i = 0; i < count; ) {
+        if (unused < min_needed) {
             n = allocated - unused; /* Used space */
-            /* Increase assuming remaining take half max space on average */
-            allocated += ((max_elem_space + 1)/2)*(count - i);
+            /* Increase assuming average space taken so far (roughly) */
+            TARRAY_ASSERT(i != 0);
+            allocated += min_needed + (count - i) * (n/i);
             objP->bytes = ckrealloc(objP->bytes, allocated);
             cP = n + (char *) objP->bytes;
             unused = allocated - n;
         }
+        /*
+         * We nest loops for performance by minimizing switch jumps
+         * At top of nested loops below, there is room for at least one elem
+         */
         switch (thdrP->type) {
         case TARRAY_UINT:
-            _snprintf(cP, unused, "%u", *TAHDRELEMPTR(thdrP, unsigned int, i));
-            break;
         case TARRAY_INT:
-            _snprintf(cP, unused, "%d", *TAHDRELEMPTR(thdrP, int, i));
+            {
+                int *intP = TAHDRELEMPTR(thdrP, int, i);
+                char *fmt = thdrP->type == TARRAY_UINT ? "%u" : "%d";
+                while (i < count && unused >= min_needed) {
+                    n = _snprintf(cP, unused, fmt, *intP++);
+                    TARRAY_ASSERT(n > 0 && n < unused);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
             break;
         case TARRAY_WIDE:
-            _snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *TAHDRELEMPTR(thdrP, Tcl_WideInt, i));
+            {
+                Tcl_WideInt *wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, i);
+                while (i < count && unused >= min_needed) {
+                    n = _snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *wideP++);
+                    TARRAY_ASSERT(n > 0 && n < unused);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
             break;
         case TARRAY_DOUBLE:
             /* Do not use _snprintf because of slight difference
                it does not include decimal point for whole ints. For
                consistency with Tcl, use Tcl_PrintDouble instead */
-            Tcl_PrintDouble(NULL, *TAHDRELEMPTR(thdrP, double, i), cP);
+            {
+                double *dblP = TAHDRELEMPTR(thdrP, double, i);
+                while (i < count && unused >= min_needed) {
+                    Tcl_PrintDouble(NULL, *dblP++, cP);
+                    n = strlen(cP);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
             break;
         case TARRAY_BYTE:
-            _snprintf(cP, unused, "%u", *TAHDRELEMPTR(thdrP, unsigned char, i));
+            {
+                unsigned char *ucP = TAHDRELEMPTR(thdrP, unsigned char, i);
+                while (i < count && unused >= min_needed) {
+                    n = _snprintf(cP, unused, "%u", *ucP++);
+                    TARRAY_ASSERT(n > 0 && n < unused);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
             break;
         }
-        n = strlen(cP);
-        cP += n;
-        *cP++ = ' ';
-        unused -= n+1;
     }
 
-    cP[-1] = 0;         /* Overwrite last space with terminating \0 */
-    objP->length = allocated - unused - 1; /* Terminating null not included in length */
+    TARRAY_ASSERT(unused >=1 );
+    cP[-1] = '}';         /* Terminate list */
+    *cP = '\0';
+    objP->length = cP - objP->bytes; /* Terminating null not included in length */
             
     /* Only shrink array if unused space is comparatively too large */
-    if (unused > (allocated / 8) && unused > 10)
-        objP->bytes = ckrealloc(objP->bytes, allocated - unused);
+    unused = allocated - (objP->length + 1);
+    if (unused > (allocated / 8) && unused > 20)
+        objP->bytes = ckrealloc(objP->bytes, objP->length + 1);
     return;
 }
 
@@ -664,9 +732,7 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
                 if (Tcl_GetWideIntFromObj(interp, elems[i], &wide) != TCL_OK)
                     goto convert_error;
                 if (wide < 0 || wide > 0xFFFFFFFF) {
-                    if (interp)
-                        Tcl_SetObjResult(interp,
-                                         Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(elems[i])));
+                    TArrayValueTypeError(interp, elems[i], thdrP->type);
                     goto convert_error;
                 }
             }
@@ -698,9 +764,7 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
                 if (Tcl_GetIntFromObj(interp, elems[i], &ival) != TCL_OK)
                     goto convert_error;
                 if (ival > 255 || ival < 0) {
-                    if (interp)
-                        Tcl_SetObjResult(interp,
-                                         Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
+                    TArrayValueTypeError(interp, elems[i], thdrP->type);
                     goto convert_error;
                 }
             }
@@ -769,9 +833,7 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
                 if (Tcl_GetWideIntFromObj(interp, elems[i], &wide) != TCL_OK)
                     goto convert_error;
                 if (wide < 0 || wide > 0xFFFFFFFF) {
-                    if (interp)
-                        Tcl_SetObjResult(interp,
-                                         Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(elems[i])));
+                    TArrayValueTypeError(interp, elems[i], thdrP->type);
                     goto convert_error;
                 }
                 *uintP = (unsigned int) wide;
@@ -835,9 +897,7 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
                 if (Tcl_GetIntFromObj(interp, elems[i], &ival) != TCL_OK)
                     goto convert_error;
                 if (ival > 255 || ival < 0) {
-                    if (interp)
-                        Tcl_SetObjResult(interp,
-                                         Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
+                    TArrayValueTypeError(interp, elems[i], thdrP->type);
                     goto convert_error;
                 }
                 *byteP = (unsigned char) ival;
@@ -868,7 +928,6 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
                                     Tcl_Obj *tuples, int first)
 {
     int t, r, ival;
-    TAHdr *thdrP;
     Tcl_WideInt wide;
     double dval;
     Tcl_Obj **rows;
@@ -877,6 +936,7 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
     int have_other_cols;
     int need_data_validation;
     Tcl_Obj *valObj;
+    TAHdr *thdrP;
 
     TARRAY_ASSERT(nthdrs > 0);
 
@@ -975,7 +1035,8 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
                 goto width_error;
 
             for (t = 0; t < nthdrs; ++t) {
-                switch (thdrs[t]->type) {
+                thdrP = thdrs[t];
+                switch (thdrP->type) {
                 case TARRAY_BOOLEAN:
                     if (Tcl_GetBooleanFromObj(interp, fields[t], &ival) != TCL_OK)
                         goto error_return;
@@ -984,9 +1045,7 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
                     if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
                         goto error_return;
                     if (wide < 0 || wide > 0xFFFFFFFF) {
-                        if (interp)
-                            Tcl_SetObjResult(interp,
-                                             Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(fields[t])));
+                        TArrayValueTypeError(interp, fields[t], thdrP->type);
                         goto error_return;
                     }
                     break;
@@ -1006,16 +1065,14 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
                     if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
                         goto error_return;
                     if (ival > 255 || ival < 0) {
-                        if (interp)
-                            Tcl_SetObjResult(interp,
-                                             Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
+                        TArrayValueTypeError(interp, fields[t], thdrP->type);
                         goto error_return;
                     }
                     break;
                 case TARRAY_OBJ:
                     break;      /* No validation */
                 default:
-                    TArrayTypePanic(thdrP->type);
+                    TArrayTypePanic(thdrs[t]->type);
                 }
             }
         }
@@ -1040,9 +1097,10 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
     if (have_other_cols) {
         for (t=0; t < nthdrs; ++t) {
             /* Skip TARRAY_OBJ on this round, until all other data is stored */
-            if (thdrs[t]->type == TARRAY_OBJ)
+            thdrP = thdrs[t];
+            if (thdrP->type == TARRAY_OBJ)
                 continue;
-            switch (thdrP->type) {
+            switch (thdrs[t]->type) {
             case TARRAY_BOOLEAN:
                 {
                     register ba_t *baP;
@@ -1098,9 +1156,7 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
                         if (Tcl_GetWideIntFromObj(interp, valObj, &wide) != TCL_OK)
                             goto error_return;
                         if (wide < 0 || wide > 0xFFFFFFFF) {
-                            if (interp)
-                                Tcl_SetObjResult(interp,
-                                                 Tcl_ObjPrintf("Integer \"%s\" too large for type \"uint\" typearray.", Tcl_GetString(rows[r])));
+                            TArrayValueTypeError(interp, valObj, thdrP->type);
                             goto error_return;
                         }
                         *uintP = (unsigned int) wide;
@@ -1153,9 +1209,7 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
                         if (Tcl_GetIntFromObj(interp, valObj, &ival) != TCL_OK)
                             goto error_return;
                         if (ival > 255 || ival < 0) {
-                            if (interp)
-                                Tcl_SetObjResult(interp,
-                                                 Tcl_ObjPrintf("Integer \"%d\" does not fit type \"byte\" typearray.", ival));
+                            TArrayValueTypeError(interp, valObj, thdrP->type);
                             goto error_return;
                         }
                         *byteP = (unsigned char) ival;
@@ -1171,7 +1225,8 @@ TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
     /* Now that no errors are possible, update the TARRAY_OBJ columns */
     for (t=0; t < nthdrs; ++t) {
         register Tcl_Obj **objPP;
-        if (thdrs[t]->type != TARRAY_OBJ)
+        thdrP = thdrs[t];
+        if (thdrP->type != TARRAY_OBJ)
             continue;
         objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
         for (r = 0; r < nrows ; ++r, ++objPP) {

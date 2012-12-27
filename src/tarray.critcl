@@ -37,7 +37,7 @@ critcl::ccommand tarray::column::create {} {
     TAHdr *thdrP;
 
     if (objc < 2 || objc > 4) {
-        Tcl_WrongNumArgs(interp, 1, objv, "TYPE ?INITVAL? ?COUNT?");
+        Tcl_WrongNumArgs(interp, 1, objv, "TYPE ?INITVAL? ?INITSIZE?");
         return TCL_ERROR;
     }
 
