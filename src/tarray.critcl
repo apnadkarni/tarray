@@ -20,7 +20,7 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-critcl::csources tarray.c bitarray.c tasort.c
+critcl::csources tarray.c  bitarray.c tasort.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
@@ -34,7 +34,7 @@ critcl::ccommand tarray::column::create {} {
     int tatype;
     Tcl_Obj **elems;
     int nelems;
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     if (objc < 2 || objc > 4) {
         Tcl_WrongNumArgs(interp, 1, objv, "TYPE ?INITVAL? ?COUNT?");
@@ -91,7 +91,7 @@ critcl::cproc tarray::column::index {Tcl_Interp* interp TArrayObjPtr taObj Tcl_O
 }
 
 critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* lowObj Tcl_Obj* highObj} ok {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
     int low, count;
 
     if (RationalizeRangeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
@@ -101,15 +101,15 @@ critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_
     if (thdrP == NULL)
         return TCL_ERROR;
 
-    TArrayHdrCopy(thdrP, 0, TARRAYHDR(taobjP), low, count);
+    TAHdrCopy(thdrP, 0, TARRAYHDR(taobjP), low, count);
 
     Tcl_SetObjResult(interp, TArrayNewObj(thdrP));
     return TCL_OK;
 }
 
 critcl::cproc tarray::column::get {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_Obj* indicesP} ok {
-    TArrayHdr *valuesP;
-    TArrayHdr *thdrP = TArrayConvertToIndices(interp, indicesP);
+    TAHdr *valuesP;
+    TAHdr *thdrP = TArrayConvertToIndices(interp, indicesP);
     
     if (thdrP == NULL)
         return TCL_ERROR;
@@ -134,8 +134,8 @@ critcl::ccommand tarray::column::sort {} {
     int return_indices = 0;
     Tcl_Obj *srcObj;
     int i, n, opt;
-    TArrayHdr *srcP;
-    TArrayHdr *sortedP;
+    TAHdr *srcP;
+    TAHdr *sortedP;
     Tcl_Obj *resultObj;
     int (__cdecl *cmpfn)(const void*, const void*);
     int (__cdecl *cmpindexedfn)(void *, const void*, const void*);
@@ -199,7 +199,7 @@ critcl::ccommand tarray::column::sort {} {
            sort in place, else need to modify */
         if (Tcl_IsShared(srcObj) || TAHDR_SHARED(srcP)) {
             /* Cannot modify in place. Need to dup it */
-            sortedP = TArrayHdrClone(srcP, 0);
+            sortedP = TAHdrClone(srcP, 0);
             resultObj = TArrayNewObj(sortedP);
         } else {
             sortedP = srcP;
@@ -250,7 +250,7 @@ critcl::ccommand tarray::column::sort {} {
 }
 
 critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
-    TArrayHdr *thdrP = TARRAYHDR(taobjP);
+    TAHdr *thdrP = TARRAYHDR(taobjP);
     if (thdrP->type != TARRAY_BOOLEAN) {
         Tcl_SetResult(interp, "tarray type is not boolean", TCL_STATIC);
         return TCL_ERROR;
@@ -266,7 +266,7 @@ critcl::ccommand tarray::column::search TArray_SearchObjCmd
 
 critcl::ccommand tarray::column::delete {} {
     Tcl_Obj *taObj;
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
     int low, count;
 
     if (objc != 3 && objc != 4) {
@@ -284,7 +284,7 @@ critcl::ccommand tarray::column::delete {} {
 
     taObj = TArrayMakeWritable(objv[1], thdrP->used, thdrP->used, 0);
     /* Note thdrP potentially INVALID at this point */
-    TArrayHdrDelete(TARRAYHDR(taObj), low, count);
+    TAHdrDelete(TARRAYHDR(taObj), low, count);
     Tcl_SetObjResult(interp, taObj);
     return TCL_OK;
 }

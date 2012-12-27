@@ -18,8 +18,6 @@
 /*
  * TArray is a Tcl "type" used for densely storing arrays of elements
  * of a specific type.
- * Tcl_Obj.internalRep.ptrAndLongRep.ptr holds a pointer to 
- * an allocated array of that type.
  */
 static void TArrayTypeDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
 static void TArrayTypeFreeRep(Tcl_Obj *objP);
@@ -31,6 +29,7 @@ struct Tcl_ObjType gTArrayType = {
     TArrayTypeUpdateStringRep,
     NULL,     /* jenglish advises to keep this NULL */
 };
+
 
 
 /* Must match definitions in tarray.h ! */
@@ -60,6 +59,11 @@ enum TArraySearchSwitches {
 #define TARRAY_SEARCH_ALL    4  /* Return all matches */
 #define TARRAY_SEARCH_NOCASE 8  /* Ignore case */
 
+void TArrayStringOverflowPanic(const char *where)
+{
+    Tcl_Panic("Max size for a Tcl value (%d bytes) exceeded in %s", INT_MAX, where ? where : "unknown function");
+}
+
 void TArrayTypePanic(unsigned char tatype)
 {
     Tcl_Panic("Unknown or unexpected tarray type %d", tatype);
@@ -67,12 +71,12 @@ void TArrayTypePanic(unsigned char tatype)
 
 void TArraySharedPanic(const char *where)
 {
-    Tcl_Panic("Shared TArrayHdr passed for modification to %s.", where);
+    Tcl_Panic("Shared TAHdr passed for modification to %s.", where);
 }
 
-void TArrayTooSmallPanic(TArrayHdr *thdrP, const char *where)
+void TArrayTooSmallPanic(TAHdr *thdrP, const char *where)
 {
-    Tcl_Panic("Insufficient space in TArrayHdr (allocated %d) in %s.", thdrP->allocated, where);
+    Tcl_Panic("Insufficient space in TAHdr (allocated %d) in %s.", thdrP->allocated, where);
 }
 
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname)
@@ -141,7 +145,7 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
     return TCL_OK;
 }
 
-TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
+TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
 {
     int low, high;
 
@@ -219,10 +223,10 @@ TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
 }
 
 /*
- * Set the value of an element range at a position in a TArrayHdr.
+ * Set the value of an element range at a position in a TAHdr.
  * See the asserts below for conditions under which this can be called
  */
-void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
+void TAHdrFill(Tcl_Interp *interp, TAHdr *thdrP,
                    const TArrayValue *tavP, int pos, int count)
 {
     int i;
@@ -311,7 +315,7 @@ void TArrayHdrFill(Tcl_Interp *interp, TArrayHdr *thdrP,
 
 /* Increments the ref counts of Tcl_Objs in a tarray making sure not
    to run past end of array */
-void TArrayIncrObjRefs(TArrayHdr *thdrP, int first, int count)
+void TArrayIncrObjRefs(TAHdr *thdrP, int first, int count)
 {
     register int i;
     register Tcl_Obj **objPP;
@@ -331,7 +335,7 @@ void TArrayIncrObjRefs(TArrayHdr *thdrP, int first, int count)
 /* Decrements the ref counts of Tcl_Objs in a tarray.
    Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
 */
-void TArrayDecrObjRefs(TArrayHdr *thdrP, int first, int count)
+void TArrayDecrObjRefs(TAHdr *thdrP, int first, int count)
 {
     register int i;
     register Tcl_Obj **objPP;
@@ -348,7 +352,7 @@ void TArrayDecrObjRefs(TArrayHdr *thdrP, int first, int count)
     }
 }
 
-void TArrayHdrFree(TArrayHdr *thdrP)
+void TAHdrFree(TAHdr *thdrP)
 {
     if (thdrP->type == TARRAY_OBJ) {
         TArrayDecrObjRefs(thdrP, 0, thdrP->used);
@@ -356,24 +360,10 @@ void TArrayHdrFree(TArrayHdr *thdrP)
     TARRAY_FREEMEM(thdrP);
 }
 
-TCL_RESULT TArrayGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj)
-{
-    Tcl_Obj **taObjs;
-    int ntaObjs;
-    if (Tcl_ListObjGetElements(interp, gridObj, &ntaObjs, &taObjs) != TCL_OK)
-        return TCL_ERROR;
-
-    while (ntaObjs--) {
-        if (TArrayVerifyType(interp, taObjs[ntaObjs]) != TCL_OK)
-            return TCL_ERROR;
-    }
-
-    return TCL_OK;
-}
 
 static void TArrayTypeFreeRep(Tcl_Obj *objP)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     TARRAY_ASSERT(objP->typePtr == &gTArrayType);
 
@@ -395,21 +385,21 @@ static void TArrayTypeDupObj(Tcl_Obj *srcObj, Tcl_Obj *dstObj)
 
 
 /* Called to generate a string implementation from an array of Tcl_Obj */
-static void UpdateObjArrayString(
-    Tcl_Obj *objP,
-    Tcl_Obj **objv,             /* Must NOT be NULL */
-    int objc                    /* Must NOT be 0 */
-    )
+static void UpdateStringForObjType(Tcl_Obj *objP)
 {
     /* Copied almost verbatim from the Tcl's UpdateStringOfList */
+    Tcl_Obj **objv;
+    int objc;
+    TAHdr *tahP;
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr = NULL;
     int i, length, bytesNeeded = 0;
     const char *elem;
     char *dst;
 
-    TARRAY_ASSERT(objv);
-    TARRAY_ASSERT(objc > 0);
+    tahP = TARRAYHDR(objP);
+    objv = TAHDRELEMPTR(tahP, Tcl_Obj *, 0);
+    objc = tahP->used;
 
     /*
      * Pass 1: estimate space, gather flags.
@@ -424,33 +414,53 @@ static void UpdateObjArrayString(
 
         flagPtr = (int *) ckalloc(objc * sizeof(int));
     }
+
+    bytesNeeded +=
+        sizeof("tarray ") - 1 /* -1 to exclude the null */
+        + sizeof(" {") - 1 /* Start of list minus trailing null */
+        + 1;               /* Trailing "}" */
+    bytesNeeded += strlen(gTArrayTypeTokens[TARRAY_OBJ]);
     for (i = 0; i < objc; i++) {
-        flagPtr[i] = (i ? TCL_DONT_QUOTE_HASH : 0);
+        /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
+        flagPtr[i] = TCL_DONT_QUOTE_HASH;
         elem = Tcl_GetStringFromObj(objv[i], &length);
-        bytesNeeded += Tcl_ScanCountedElement(elem, length, flagPtr+i);
-        if (bytesNeeded < 0) {
-            Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
-        }
+        bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
+        if (bytesNeeded < 0)
+            TArrayStringOverflowPanic("UpdateStringForObjType");
     }
-    if (bytesNeeded > INT_MAX - objc + 1) {
-        Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
-    }
-    bytesNeeded += objc;
+    if (bytesNeeded > INT_MAX - objc + 1)
+        TArrayStringOverflowPanic("UpdateStringForObjType");
+
+    bytesNeeded += objc;        /* For separators and terminating null */
 
     /*
      * Pass 2: copy into string rep buffer.
      */
 
-    objP->length = bytesNeeded - 1;
     objP->bytes = ckalloc(bytesNeeded);
     dst = objP->bytes;
-    for (i = 0; i < objc; i++) {
-        flagPtr[i] |= (i ? TCL_DONT_QUOTE_HASH : 0);
-        elem = Tcl_GetStringFromObj(objv[i], &length);
-        dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
-        *dst++ = ' ';
-    }
-    objP->bytes[objP->length] = '\0';
+    memcpy(dst, "tarray ", sizeof("tarray ")-1);
+    dst += sizeof("tarray ") - 1;
+    strcpy(dst, gTArrayTypeTokens[TARRAY_OBJ]);
+    dst += strlen(gTArrayTypeTokens[TARRAY_OBJ]);
+    *dst++ = ' ';
+    *dst++ = '{';
+    /* TBD - handle objc==0 case */
+    if (objc) {
+        for (i = 0; i < objc; i++) {
+            flagPtr[i] |= (i ? TCL_DONT_QUOTE_HASH : 0);
+            elem = Tcl_GetStringFromObj(objv[i], &length);
+            dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
+            *dst++ = ' ';
+            /* Assert <, not <= because need to add terminating "}" */
+            TARRAY_ASSERT((dst-objP->bytes) < bytesNeeded);
+        }
+        dst[-1] = '}';
+    } else
+        *dst++ = '}';
+    *dst = '\0';
+    TARRAY_ASSERT((dst-objP->bytes) < bytesNeeded);
+    objP->length = dst - objP->bytes;
 
     if (flagPtr != localFlags) {
         ckfree((char *) flagPtr);
@@ -465,7 +475,7 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
     char *cP;
     int max_elem_space;  /* Max space to print one element including
                             either terminating null or space */
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
         
     TARRAY_ASSERT(objP->typePtr == &gTArrayType);
 
@@ -524,7 +534,7 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
         return;
                 
     case TARRAY_OBJ:
-        UpdateObjArrayString(objP, TAHDRELEMPTR(thdrP, Tcl_Obj *, 0), count);
+        UpdateStringForObjType(objP);
         return;
                 
     case TARRAY_UINT:
@@ -593,7 +603,7 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
     return;
 }
 
-Tcl_Obj *TArrayNewObj(TArrayHdr *thdrP)
+Tcl_Obj *TArrayNewObj(TAHdr *thdrP)
 {
     Tcl_Obj *objP = Tcl_NewObj();
     Tcl_InvalidateStringRep(objP);
@@ -603,7 +613,7 @@ Tcl_Obj *TArrayNewObj(TArrayHdr *thdrP)
     
 /* thdrP must NOT be shared and must have enough slots */
 /* interp may be NULL (only used for errors) */
-TCL_RESULT TArrayHdrSetFromObjs(Tcl_Interp *interp, TArrayHdr *thdrP,
+TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
                                  int first, int nelems,
                                  Tcl_Obj * const elems[])
 {
@@ -853,12 +863,12 @@ convert_error:                  /* Interp should already contain errors */
 
 /* interp may be NULL (only used for errors) */
 /* See asserts in code for prerequisite conditions */
-TCL_RESULT TArrayHdrGridSetFromObjs(Tcl_Interp *interp,
-                                    TArrayHdr * const thdrs[], int nthdrs,
+TCL_RESULT TAHdrGridSetFromObjs(Tcl_Interp *interp,
+                                    TAHdr * const thdrs[], int nthdrs,
                                     Tcl_Obj *tuples, int first)
 {
     int t, r, ival;
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
     Tcl_WideInt wide;
     double dval;
     Tcl_Obj **rows;
@@ -1222,29 +1232,29 @@ int TArrayCalcSize(unsigned char tatype, int count)
         TArrayTypePanic(tatype);
     }
 
-    return sizeof(TArrayHdr) + space;
+    return sizeof(TAHdr) + space;
 }
 
-TArrayHdr *TArrayRealloc(TArrayHdr *oldP, int new_count)
+TAHdr *TArrayRealloc(TAHdr *oldP, int new_count)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     TARRAY_ASSERT(oldP->nrefs < 2);
     TARRAY_ASSERT(oldP->used <= new_count);
 
-    thdrP = (TArrayHdr *) TARRAY_REALLOCMEM((char *) oldP, TArrayCalcSize(oldP->type, new_count));
+    thdrP = (TAHdr *) TARRAY_REALLOCMEM((char *) oldP, TArrayCalcSize(oldP->type, new_count));
     thdrP->allocated = new_count;
     return thdrP;
 }
 
-TArrayHdr * TArrayAlloc(unsigned char tatype, int count)
+TAHdr * TArrayAlloc(unsigned char tatype, int count)
 {
     unsigned char nbits;
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     if (count == 0)
             count = TARRAY_DEFAULT_NSLOTS;
-    thdrP = (TArrayHdr *) TARRAY_ALLOCMEM(TArrayCalcSize(tatype, count));
+    thdrP = (TAHdr *) TARRAY_ALLOCMEM(TArrayCalcSize(tatype, count));
     thdrP->nrefs = 0;
     thdrP->allocated = count;
     thdrP->used = 0;
@@ -1265,11 +1275,11 @@ TArrayHdr * TArrayAlloc(unsigned char tatype, int count)
     return thdrP;
 }
 
-TArrayHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
+TAHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
                            int nelems, Tcl_Obj * const elems[],
                            int init_size)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     if (elems) {
         /*
@@ -1289,7 +1299,7 @@ TArrayHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
     thdrP = TArrayAlloc(tatype, init_size);
 
     if (elems != NULL && nelems != 0) {
-        if (TArrayHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
+        if (TAHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
             TARRAY_FREEMEM(thdrP);
             return NULL;
         }
@@ -1299,8 +1309,8 @@ TArrayHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
 
 }
 
-/* Deletes a range from a TArrayHdr. See asserts below for requirements */
-void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count)
+/* Deletes a range from a TAHdr. See asserts below for requirements */
+void TAHdrDelete(TAHdr *thdrP, int first, int count)
 {
     int nbytes;
     void *s, *d;
@@ -1376,10 +1386,10 @@ void TArrayHdrDelete(TArrayHdr *thdrP, int first, int count)
 }
 
 
-/* Copies partial content from one TArrayHdr to another. See asserts below
+/* Copies partial content from one TAHdr to another. See asserts below
    for requirements */
-void TArrayHdrCopy(TArrayHdr *dstP, int dst_first,
-                   TArrayHdr *srcP, int src_first, int count)
+void TAHdrCopy(TAHdr *dstP, int dst_first,
+                   TAHdr *srcP, int src_first, int count)
 {
     int nbytes;
     void *s, *d;
@@ -1469,9 +1479,9 @@ void TArrayHdrCopy(TArrayHdr *dstP, int dst_first,
 }
 
 /* Note: nrefs of cloned array is 0 */
-TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int minsize)
+TAHdr *TAHdrClone(TAHdr *srcP, int minsize)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     if (minsize == 0)
         minsize = srcP->allocated;
@@ -1480,7 +1490,7 @@ TArrayHdr *TArrayHdrClone(TArrayHdr *srcP, int minsize)
 
     /* TBD - optimize these two calls */
     thdrP = TArrayAlloc(srcP->type, minsize);
-    TArrayHdrCopy(thdrP, 0, srcP, 0, srcP->used);
+    TAHdrCopy(thdrP, 0, srcP, 0, srcP->used);
     return thdrP;
 }
 
@@ -1496,7 +1506,7 @@ Tcl_Obj *TArrayGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
     for (i = 0; i < ntaObjs; ++i) {
         TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType);
         Tcl_ListObjAppendElement(interp, cloneObj,
-                                 TArrayNewObj(TArrayHdrClone(TARRAYHDR(taObjs[i]), minsize)));
+                                 TArrayNewObj(TAHdrClone(TARRAYHDR(taObjs[i]), minsize)));
     }
     return cloneObj;
 }
@@ -1506,14 +1516,14 @@ Tcl_Obj *TArrayGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
  * There are three cases to consider:
  * (1) If taObj is shared, then we cannot modify in place since
  *     the object is referenced elsewhere in the program. We have to
- *     clone the corresponding TArrayHdr and stick it in a new
+ *     clone the corresponding TAHdr and stick it in a new
  *     Tcl_Obj.
- * (2) If taObj is unshared, the corresponding TArrayHdr might
+ * (2) If taObj is unshared, the corresponding TAHdr might
  *     still be shared (pointed to from elsewhere). In this case
- *     also, we clone the TArrayHdr but instead of allocating a new 
+ *     also, we clone the TAHdr but instead of allocating a new 
  *     Tcl_Obj, we store it as the internal rep of taObj.
- * (3) If taObj and its TArrayHdr are unshared, (a) we can modify in
- *     place unless (b) TArrayHdr is too small. In case (b) we have
+ * (3) If taObj and its TAHdr are unshared, (a) we can modify in
+ *     place unless (b) TAHdr is too small. In case (b) we have
  *     to follow the same path as (2).
  *
  * If flags contains TARRAY_MAKE_WRITABLE_REF, the returned object, 
@@ -1530,18 +1540,18 @@ Tcl_Obj *TArrayGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
  */
 Tcl_Obj *TArrayMakeWritable(Tcl_Obj *taObj, int minsize, int prefsize, int flags)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
 
     TARRAY_ASSERT(taObj->typePtr == &gTArrayType);
     thdrP = TARRAYHDR(taObj);
     if (Tcl_IsShared(taObj)) {
         /* Case (1) */
-        thdrP = TArrayHdrClone(thdrP, prefsize);
+        thdrP = TAHdrClone(thdrP, prefsize);
         TARRAY_ASSERT(thdrP);
         taObj = TArrayNewObj(thdrP);
     } else if (TAHDR_SHARED(thdrP) || thdrP->allocated < minsize) {
         /* Case (2) or (3b) */
-        thdrP = TArrayHdrClone(thdrP, prefsize);
+        thdrP = TAHdrClone(thdrP, prefsize);
         TARRAY_ASSERT(thdrP);
         TAHDR_DECRREF(TARRAYHDR(taObj)); /* Release old */
         TARRAYHDR(taObj) = NULL;
@@ -1571,7 +1581,7 @@ Tcl_Obj *TArrayGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsiz
         int writable;
         int i;
         Tcl_Obj *taObj;
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
         
         /* Even if the grid Tcl_Obj is not shared, the contained
          * TArray Tcl_Objs may be. Note we do not use Tcl_ListObjGetElements
@@ -1631,7 +1641,7 @@ TCL_RESULT TArrayGridFillFromObjs(
     int tuple_width, int flags)
 {
     int i, low, count;
-    TArrayHdr *thdr0P;
+    TAHdr *thdr0P;
     TArrayValue values[32];
     TArrayValue *valuesP;
     Tcl_Obj *resultObjs[sizeof(values)/sizeof(values[0])];
@@ -1676,7 +1686,7 @@ TCL_RESULT TArrayGridFillFromObjs(
      * appropriate type. Also ensure all tarrays are the same size.
      */
     for (i = 0; i < tuple_width; ++i) {
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
         if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
@@ -1730,7 +1740,7 @@ TCL_RESULT TArrayGridFillFromObjs(
         for (i = 0; i < tuple_width; ++i) {
             TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
             resultObjsP[i] = TArrayMakeWritable(taObjs[i], low+count, new_size, 0);
-            TArrayHdrFill(interp, TARRAYHDR(resultObjs[i]),
+            TAHdrFill(interp, TARRAYHDR(resultObjs[i]),
                           &valuesP[i], low, count);
         }
         
@@ -1769,12 +1779,12 @@ TCL_RESULT TArrayGridSetFromObjs(
     int flags)
 {
     int i, low, count, grid_width;
-    TArrayHdr *thdr0P;
+    TAHdr *thdr0P;
     Tcl_Obj **taObjs;
     Tcl_Obj *resultObjs[32];
     Tcl_Obj **resultObjsP;
-    TArrayHdr *thdrs[sizeof(resultObjs)/sizeof(resultObjs[0])];
-    TArrayHdr **thdrsP;
+    TAHdr *thdrs[sizeof(resultObjs)/sizeof(resultObjs[0])];
+    TAHdr **thdrsP;
     int status = TCL_ERROR;
     int new_size;
 
@@ -1808,7 +1818,7 @@ TCL_RESULT TArrayGridSetFromObjs(
     if (grid_width > sizeof(resultObjs)/sizeof(resultObjs[0])) {
         /* Allocate room for both resultObjs and thdrs in one shot */
         resultObjsP = (Tcl_Obj **)ckalloc(grid_width * sizeof(void *));
-        thdrsP = (TArrayHdr **)&resultObjsP[grid_width];
+        thdrsP = (TAHdr **)&resultObjsP[grid_width];
     }
     else {
         resultObjsP = resultObjs;
@@ -1817,7 +1827,7 @@ TCL_RESULT TArrayGridSetFromObjs(
 
     /* Now verify tarrays are in fact tarrays and of the same size. */
     for (i = 0; i < grid_width; ++i) {
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
         if (TArrayVerifyType(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
@@ -1869,7 +1879,7 @@ TCL_RESULT TArrayGridSetFromObjs(
         thdrsP[i] = TARRAYHDR(resultObjsP[i]);
     }
         
-    status = TArrayHdrGridSetFromObjs(interp, thdrsP, grid_width, valueObjs, low);
+    status = TAHdrGridSetFromObjs(interp, thdrsP, grid_width, valueObjs, low);
 
     if (status == TCL_OK) {
         /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
@@ -1893,7 +1903,7 @@ vamoose:                   /* interp must already hold error message */
 }
 
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
-Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *indexObj)
+Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
 {
     int index;
 
@@ -1922,12 +1932,12 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TArrayHdr *thdrP, Tcl_Obj *indexObj)
     }
 }
 
-/* Returns a TArrayHdr of type int. The header's ref count is incremented
+/* Returns a TAHdr of type int. The header's ref count is incremented
  * so caller should call TAHDR_DECRREF as appropriate
  */
-TArrayHdr *TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP)
+TAHdr *TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
     Tcl_Obj **elems;
     int       nelems;
 
@@ -1950,11 +1960,11 @@ TArrayHdr *TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP)
     return thdrP;
 }
 
-/* Returns a newly allocated TArrayHdr (with ref count 0) containing the
+/* Returns a newly allocated TAHdr (with ref count 0) containing the
    values from the specified indices */
-TArrayHdr *TArrayGetValues(Tcl_Interp *interp, TArrayHdr *srcP, TArrayHdr *indicesP)
+TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
 {
-    TArrayHdr *thdrP;
+    TAHdr *thdrP;
     int i, count;
     int *indexP;
 
@@ -2026,7 +2036,7 @@ TArrayHdr *TArrayGetValues(Tcl_Interp *interp, TArrayHdr *srcP, TArrayHdr *indic
 }
 
 
-static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TArrayHdr * haystackP,
+static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
                                       Tcl_Obj *needleObj, int start,
                                       enum TArraySearchSwitches op, int flags)
 {
@@ -2050,7 +2060,7 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TArrayHdr * haystackP,
     baP = TAHDRELEMPTR(haystackP, ba_t, 0);
 
     if (flags & TARRAY_SEARCH_ALL) {
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
         thdrP = TArrayAlloc(
             flags & TARRAY_SEARCH_INLINE ? TARRAY_BOOLEAN : TARRAY_INT,
             10);                /* Assume 10 hits */
@@ -2082,7 +2092,7 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TArrayHdr * haystackP,
                         
 /* TBD - see how much performance is gained by separating this search function into
    type-specific functions */
-static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TArrayHdr * haystackP,
+static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
                                      Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
 {
     int offset;
@@ -2144,7 +2154,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TArrayHdr * haystackP,
     compare_wanted = flags & TARRAY_SEARCH_INVERT ? 0 : 1;
 
     if (flags & TARRAY_SEARCH_ALL) {
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
 
         thdrP = TArrayAlloc(
             flags & TARRAY_SEARCH_INLINE ? haystackP->type : TARRAY_INT,
@@ -2219,7 +2229,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TArrayHdr * haystackP,
 }
 
 
-static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TArrayHdr * haystackP,
+static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
                                           Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
 {
     int offset;
@@ -2248,7 +2258,7 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TArrayHdr * haystackP,
     dvalP = TAHDRELEMPTR(haystackP, double, start);
 
     if (flags & TARRAY_SEARCH_ALL) {
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
 
         thdrP = TArrayAlloc(
             flags & TARRAY_SEARCH_INLINE ? TARRAY_DOUBLE : TARRAY_INT,
@@ -2303,7 +2313,7 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TArrayHdr * haystackP,
     return TCL_OK;
 }
 
-static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TArrayHdr * haystackP,
+static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
                                   Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
 {
     int offset;
@@ -2350,7 +2360,7 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TArrayHdr * haystackP,
 
 
     if (flags & TARRAY_SEARCH_ALL) {
-        TArrayHdr *thdrP;
+        TAHdr *thdrP;
 
         thdrP = TArrayAlloc(
             flags & TARRAY_SEARCH_INLINE ? TARRAY_OBJ : TARRAY_INT,
@@ -2441,7 +2451,7 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
     int flags;
     int start_index;
     int i, n, opt;
-    TArrayHdr *haystackP;
+    TAHdr *haystackP;
     enum TArraySearchSwitches op;
 
     if (objc < 3) {
