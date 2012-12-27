@@ -136,6 +136,7 @@ void TArrayTooSmallPanic(TAHdr *thdrP, const char *where);
 TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname);
 TCL_RESULT TArrayNotTArrayError(Tcl_Interp *interp);
 TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op);
+TCL_RESULT TArrayValueTypeError(Tcl_Interp *interp, Tcl_Obj *objP, int tatype);
 
 void TArrayIncrObjRefs(TAHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TAHdr *thdrP,int first,int count);
