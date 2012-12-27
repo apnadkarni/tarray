@@ -100,6 +100,7 @@ typedef union TAHdr_s {
 #define TAHDR_WRITABLE(th_, size_) (TARRAYHDR_SHARED(th_) && (th_)->allocated >= (size_))
 
 extern struct Tcl_ObjType gTArrayType;
+extern struct Tcl_ObjType gTGridType;
 
 #define TAHDR_INCRREF(thdr_) do { (thdr_)->nrefs++; } while (0)
 #define TAHDR_DECRREF(thdr_)                                            \
@@ -145,9 +146,10 @@ TA_INLINE TCL_RESULT TArrayVerifyType(Tcl_Interp *interp,Tcl_Obj *objP)
 {
     return (objP->typePtr == &gTArrayType ? TCL_OK : TArrayNotTArrayError(interp));
 }
+TCL_RESULT TArrayConvert(Tcl_Interp *interp, Tcl_Obj *objP);
 
 TCL_RESULT TArrayGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj);
-
+Tcl_Obj *TGridNewObj(Tcl_Interp *interp, int nobjs, Tcl_Obj *const taObjs[]);
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
                                              unsigned char tatype, TArrayValue *tavP);
 void TAHdrFill(Tcl_Interp *interp, TAHdr *thdrP,
