@@ -11,7 +11,7 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-#critcl::debug symbols
+critcl::debug symbols
 #critcl::cflags -std=gnu99 -Winline
 
 critcl::cheaders tarray.h
@@ -24,7 +24,7 @@ critcl::csources tarray.c tgrid.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
-    if (TArrayVerifyType(interp, @@) != TCL_OK)
+    if (TArrayConvert(interp, @@) != TCL_OK)
         return TCL_ERROR;
     @A = @@;
 }
@@ -67,7 +67,7 @@ critcl::ccommand tarray::column::create {} {
 }
 
 critcl::cproc tarray::column::size {Tcl_Interp* interp Tcl_Obj* taobjP} ok {
-    if (TArrayVerifyType(interp, taobjP) != TCL_OK)
+    if (TArrayConvert(interp, taobjP) != TCL_OK)
         return TCL_ERROR;
     
     Tcl_SetObjResult(interp, Tcl_NewIntObj(TARRAYELEMCOUNT(taobjP)));
@@ -146,7 +146,7 @@ critcl::ccommand tarray::column::sort {} {
     }
 
     srcObj = objv[objc-1];
-    if (TArrayVerifyType(interp, objv[objc-1]) != TCL_OK)
+    if (TArrayConvert(interp, objv[objc-1]) != TCL_OK)
         return TCL_ERROR;
     srcP = TARRAYHDR(objv[objc-1]);
     for (i = 1; i < objc-1; ++i) {
@@ -274,7 +274,7 @@ critcl::ccommand tarray::column::delete {} {
 	return TCL_ERROR;
     }
     
-    if (TArrayVerifyType(interp, objv[1]) != TCL_OK)
+    if (TArrayConvert(interp, objv[1]) != TCL_OK)
         return TCL_ERROR;
     thdrP = TARRAYHDR(objv[1]);
     if (RationalizeRangeIndices(interp, thdrP, objv[2],
@@ -295,7 +295,7 @@ critcl::ccommand tarray::column::fill {} {
 	return TCL_ERROR;
     }
     
-    return TArrayGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
+    return TGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
 }
 
 critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
@@ -347,7 +347,7 @@ critcl::ccommand tarray::grid::fill {} {
                     status = TCL_OK;          /* Return empty result */
                 else
                     status =
-                        TArrayGridFillFromObjs(interp, objv[3],
+                        TGridFillFromObjs(interp, objv[3],
                                                objv[objc == 5 ? 4 : 3],
                                                taObjs, valueObjs,
                                                tuple_width, 0);
@@ -363,6 +363,28 @@ critcl::ccommand tarray::grid::fill {} {
 
     return status;
 }
+
+critcl::ccommand crash {} {
+    Tcl_Obj *objP;
+    if (objc != 2) {
+	Tcl_WrongNumArgs(interp, 1, objv, "LIST");
+	return TCL_ERROR;
+    }
+
+    /* Just demo - No error checking */
+
+    if (Tcl_IsShared(objv[1])) {
+        Tcl_SetResult(interp, "Need unshared list obj for test", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    /* Move second element to the end */
+    Tcl_ListObjIndex(interp, objv[1], 1, &objP);
+    Tcl_ListObjReplace(interp, objv[1], 1, 2, 1, &objP);
+    Tcl_SetObjResult(interp, objv[1]);
+    return TCL_OK;
+}
+
 
 package provide tarray 0.1
 
