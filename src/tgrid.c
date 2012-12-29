@@ -12,14 +12,12 @@
 #define TA_INLINE
 #endif
 
-#define TARRAY_ENABLE_ASSERT 1
+#define TA_ENABLE_ASSERT 1
 #include "tarray.h"
 
 /*
  * TGrid is a Tcl "type" used for storing arrays of TArrays.
- * It is essentially stored as a Tcl_Obj list internally. We do not
- * directly use a Tcl_Obj list as a grid of TArrays to avoid repeated
- * validation that a list of the proper format is being passed to us.
+ * Internally it is stored as a TAHdr containing TArrays Tcl_Objs.
  */
 static void TGridTypeDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
 static void TGridTypeFreeRep(Tcl_Obj *objP);
@@ -33,23 +31,34 @@ struct Tcl_ObjType gTGridType = {
 };
 
 #define TGRID_LISTPTR(optr_) (*(Tcl_Obj **) (&((optr_)->internalRep.ptrAndLongRep.ptr)))
-TA_INLINE TGridSetIntRep(Tcl_Obj *gridObj, Tcl_Obj *listObj)
+
+TA_INLINE TAHdr *TGridIntRep(Tcl_Obj *gridObj)
 {
-    Tcl_IncrRefCount(listObj);
-    TGRID_LISTPTR(gridObj) = listObj;
+    TA_ASSERT(gridObj->typePtr == &gTGridType);
+    return (TAHdr *) gridObj->internalRep.ptrAndLongRep.ptr;
+}
+
+TA_INLINE void TGridSetIntRep(Tcl_Obj *gridObj, TAHdr *thdrP)
+{
+    TA_ASSERT(gridObj->typePtr == &gTGridType);
+    TA_ASSERT(thdrP->type == TA_OBJ);
+
+    TAHDR_INCRREF(thdrP);
+    gridObj->internalRep.ptrAndLongRep.ptr = thdrP;
     gridObj->typePtr = &gTGridType;
 }
 
 #if 0
 TCL_RESULT TGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj)
 {
+    TBD;
     Tcl_Obj **taObjs;
     int ntaObjs;
 
     if (gridObj->typePtr != &gTGridType)
         return TCL_ERROR;
 
-    TARRAY_ASSERT(TGRID_LISTPTR(gridObj) != NULL);
+    TA_ASSERT(TGRID_LISTPTR(gridObj) != NULL);
 
     if (Tcl_ListObjGetElements(interp, TGRID_LISTPTR(gridObj),
                                &ntaObjs, &taObjs) != TCL_OK)
@@ -66,39 +75,43 @@ TCL_RESULT TGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj)
 
 static void TGridTypeFreeRep(Tcl_Obj *gridObj)
 {
-    Tcl_Obj *listObj;
-
-    TARRAY_ASSERT(gridObj->typePtr == &gTGridType);
-
-    listObj = TGRID_LISTPTR(gridObj);
-    if (listObj) {
-        Tcl_DecrRefCount(listObj);
-        TGRID_LISTPTR(gridObj) = NULL;
-    }
+    TAHdr *thdrP;
+    TA_ASSERT(gridObj->typePtr == &gTGridType);
+    thdrP = TGridIntRep(gridObj);
+    TAHDR_DECRREF(thdrP);
+    gridObj->internalRep.ptrAndLongRep.ptr = NULL;
     gridObj->typePtr = NULL;
 }
 
 static void TGridTypeDupObj(Tcl_Obj *srcObj, Tcl_Obj *dstObj)
 {
-    Tcl_Obj *listObj;
-    TARRAY_ASSERT(srcObj->typePtr == &gTGridType);
-
-    listObj = TGRID_LISTPTR(srcObj);
-    TGridSetIntRep(dstObj, listObj);
+    TAHdr *thdrP;
+    TA_ASSERT(srcObj->typePtr == &gTGridType);
+    thdrP = TGridIntRep(gridObj);
+    TGridSetIntRep(dstObj, thdrP);
 }
 
 static void TGridTypeUpdateStringRep(Tcl_Obj *gridObj)
 {
-    /* Just construct a string from the internal list and copy it */
     Tcl_Obj *listObj;
+    TAHdr *thdrP;
     char *p;
 
-    TARRAY_ASSERT(gridObj->typePtr == &gTGridType);
-
-    listObj = TGRID_LISTPTR(gridObj);
+    TA_ASSERT(gridObj->typePtr == &gTGridType);
+    /*
+     * Just construct a string from the internal list and copy it.
+     * Not the most optimal way but grid string representation should
+     * not normally be needed.
+     */
+    thdrP = TGridIntRep(gridObj);
+    listObj = Tcl_NewListObj(thdrP->used, TAHDRELEMPTR(thdrP, Tcl_Obj *, 0));
     p = Tcl_GetStringFromObj(listObj, &gridObj->length);
     gridObj->bytes = ckalloc(gridObj->length+1);
     memcpy(gridObj->bytes, p, gridObj->length+1);
+    Tcl_DecrRefCount(listObj);
+    /* TBD - should we go delete the string reps of contained elements
+       if they are not shared (to save memory(
+    */
 }
 
 Tcl_Obj *TGridNewObj(Tcl_Interp *interp, int ntaObjs, Tcl_Obj * const taObjs[])
@@ -126,7 +139,7 @@ Tcl_Obj *TGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
     Tcl_Obj *listObj;
     Tcl_Obj *cloneObj;
 
-    TARRAY_ASSERT(gridObj->typePtr == &gTGridType);
+    TA_ASSERT(gridObj->typePtr == &gTGridType);
 
     Tcl_ListObjGetElements(interp, TGRID_LISTPTR(listObj), &ntaObjs, &taObjs);
     listObj = Tcl_NewListObj(ntaObjs, NULL);
@@ -135,7 +148,7 @@ Tcl_Obj *TGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
             Tcl_DecrRefCount(listObj);
             return TCL_ERROR;
         }
-        TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType);
+        TA_ASSERT(taObjs[i]->typePtr == &gTArrayType);
         Tcl_ListObjAppendElement(interp, listObj,
                                  TArrayNewObj(TAHdrClone(TARRAYHDR(taObjs[i]), minsize)));
     }
@@ -248,7 +261,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, in
                        since TArrayMakeWritable would have allocate new
                        object, but just to future-protect */
                     taObj = TArrayMakeWritable(taObj, minsize, prefsize,
-                                               TARRAY_MAKE_WRITABLE_INCREF);
+                                               TA_MAKE_WRITABLE_INCREF);
                     Tcl_ListObjReplace(interp, gridObj, i, 1, 1, &taObj);
                     Tcl_DecrRefCount(taObj); /* For INCREF above */
                 }
@@ -258,7 +271,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, in
         writableObj = gridObj;
     }
                     
-    if (flags & TARRAY_MAKE_WRITABLE_INCREF)
+    if (flags & TA_MAKE_WRITABLE_INCREF)
         Tcl_IncrRefCount(writableObj);
 
     return writableObj;
@@ -366,17 +379,17 @@ TCL_RESULT TGridFillFromObjs(
         Tcl_SetObjResult(interp, Tcl_NewListObj(tuple_width, taObjs));
     else {
         /* If we have to realloc anyway, we will leave a bit extra room */
-        new_size = low + count + TARRAY_EXTRA(low+count);
+        new_size = low + count + TA_EXTRA(low+count);
         for (i = 0; i < tuple_width; ++i) {
-            TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
+            TA_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
             resultObjsP[i] = TArrayMakeWritable(taObjs[i], low+count, new_size, 0);
             TAHdrFill(interp, TARRAYHDR(resultObjs[i]),
                           &valuesP[i], low, count);
         }
         
-        /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
-        TARRAY_ASSERT(tuple_width == 1 || (flags & TARRAY_FILL_SINGLE) == 0);
-        if (flags & TARRAY_FILL_SINGLE)
+        /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */
+        TA_ASSERT(tuple_width == 1 || (flags & TA_FILL_SINGLE) == 0);
+        if (flags & TA_FILL_SINGLE)
             Tcl_SetObjResult(interp, resultObjsP[0]);
         else
             Tcl_SetObjResult(interp, Tcl_NewListObj(tuple_width, resultObjsP));
@@ -418,7 +431,7 @@ TCL_RESULT TGridSetFromObjs(
     int status = TCL_ERROR;
     int new_size;
 
-    TARRAY_ASSERT(! Tcl_IsShared(gridObj));
+    TA_ASSERT(! Tcl_IsShared(gridObj));
 
     if (Tcl_ListObjGetElements(interp, gridObj, &grid_width, &taObjs) != TCL_OK
         || Tcl_ListObjLength(interp, valueObjs, &count) != TCL_OK)
@@ -499,22 +512,22 @@ TCL_RESULT TGridSetFromObjs(
      * write to it, hence we use a separate output area resultObjsP[].
      */
 
-    TARRAY_ASSERT(count > 0);
+    TA_ASSERT(count > 0);
     /* If we have to realloc anyway, we will leave a bit extra room */
-    new_size = count + TARRAY_EXTRA(count);
+    new_size = count + TA_EXTRA(count);
     for (i = 0; i < grid_width; ++i) {
-        TARRAY_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
+        TA_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
         resultObjsP[i] = TArrayMakeWritable(taObjs[i], count,
-                               new_size, TARRAY_MAKE_WRITABLE_INCREF);
+                               new_size, TA_MAKE_WRITABLE_INCREF);
         thdrsP[i] = TARRAYHDR(resultObjsP[i]);
     }
         
     status = TAHdrSetMultipleFromObjs(interp, thdrsP, grid_width, valueObjs, low);
 
     if (status == TCL_OK) {
-        /* Caller should not set TARRAY_FILL_RETURN_ONE unless single tarray */
-        TARRAY_ASSERT(grid_width == 1 || (flags & TARRAY_FILL_SINGLE) == 0);
-        if (flags & TARRAY_FILL_SINGLE)
+        /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */
+        TA_ASSERT(grid_width == 1 || (flags & TA_FILL_SINGLE) == 0);
+        if (flags & TA_FILL_SINGLE)
             Tcl_SetObjResult(interp, resultObjsP[0]);
         else
             Tcl_SetObjResult(interp, Tcl_NewListObj(grid_width, resultObjsP));
