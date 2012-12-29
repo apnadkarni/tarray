@@ -293,8 +293,35 @@ critcl::ccommand tarray::column::delete {} {
 }
 
 critcl::ccommand tarray::column::fill {} {
-    Tcl_SetResult(interp, "TBD - fill not implemented", TCL_STATIC);
-    return TCL_ERROR;
+    int i;
+    Tcl_Obj *taObj;
+    Tcl_Obj **valueObjs;
+    int we_allocated_obj;
+    int status;
+
+    if (objc != 4 && objc != 5) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY VALUE LOW ?HIGH?");
+	return TCL_ERROR;
+    }
+
+    taObj = objv[1];
+    if (Tcl_IsShared(taObj)) {
+        taObj = Tcl_DuplicateObj(taObj);
+        we_allocated_obj = 1;
+    } else
+        we_allocated_obj = 0;
+
+    status = TArrayFillFromObj(interp, objv[3], objv[objc == 5 ? 4 : 3],
+                                taObj, objv[2]);
+
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, taObj);
+    else {
+        if (we_allocated_obj)
+            Tcl_DecrRefCount(taObj);
+    }
+
+    return status;
 }
 
 critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
@@ -303,7 +330,6 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
     int i;
     int status;
     
-    __asm int 3
     if (objP->typePtr != &gTArrayType) {
         if ((status = TArrayConvert(interp, objP) != TCL_OK))
             return TCL_OK;
@@ -311,7 +337,7 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
 
     thdrP = TARRAYHDR(objP);
     if (thdrP->type != TA_OBJ)
-        return TArrayBadTypeError(interp, thdrP->type);
+        return TArrayBadTypeError(interp, thdrP);
 
     taObjs = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
     for (i = 0; i < thdrP->used; ++i, ++taObjs) {
@@ -326,7 +352,6 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
 critcl::ccommand tarray::grid::fill {} {
     int i, tuple_width;
     Tcl_Obj **taObjs;
-    Tcl_Obj **valueObjs;
     Tcl_Obj *gridObj;
     int we_allocated_gridobj;
     int status;

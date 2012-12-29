@@ -158,6 +158,8 @@ void TAHdrFill(Tcl_Interp *, TAHdr *thdrP,
 TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *,
                                     TAHdr * const thdrs[], int nthdrs,
                                     Tcl_Obj *tuples, int first);
+TCL_RESULT TArrayFillFromObj(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
+                             Tcl_Obj *taObj, Tcl_Obj *valueObj);
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 

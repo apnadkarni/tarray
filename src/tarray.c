@@ -2319,6 +2319,94 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
+/* The tarray Tcl_Obj is modified */
+TCL_RESULT TArrayFillFromObj(
+    Tcl_Interp *interp,
+    Tcl_Obj *lowObj, Tcl_Obj *highObj,
+    Tcl_Obj *taObj,
+    Tcl_Obj *valueObj)
+{
+    TAHdr *thdrP;
+    int i, low, count;
+    TArrayValue value;
+    int status;
+    int new_size;
+
+    TA_ASSERT(! Tcl_IsShared(taObj));
+
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+    thdrP = TARRAYHDR(taObj);
+    status = TArrayValueFromObj(interp, valueObj, thdrP->type, &value);
+    if (status != TCL_OK)
+        return TCL_ERROR;
+
+    /*
+     * Extract low/high indices. Be careful not to shimmer because
+     * in the unlikely but legal case where index is same object
+     * as the passed tarray, we do not want to lose the tarray
+     * representation. For example,
+     *   set v [tarray create int {0}]
+     *   tarray filltuples $v $v [list $v] 0
+     * So if the index Tcl_Obj's are of tarrays, we dup them.
+     */
+
+    if (lowObj->typePtr == &gTArrayType)
+        lowObj = Tcl_DuplicateObj(lowObj);
+    else
+        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
+
+    if (highObj->typePtr == &gTArrayType)
+        highObj = Tcl_DuplicateObj(highObj);
+    else
+        Tcl_IncrRefCount(highObj); /* Since we will release at end */
+
+    /* Get the limits of the range to set */
+    if (RationalizeRangeIndices(interp, thdrP, lowObj, highObj, &low, &count)
+        != TCL_OK)
+        return TCL_ERROR;
+
+    /*
+     * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT FATAL ONES
+     * LIKE BUGCHECKS OR OUT OF MEMORY. Code below is written accordingly.
+     */
+
+    /*
+     * Now that we have verified inputs are correct, get ready to
+     * generate results. With respect to where to store the results,
+     * there are three cases to consider for each tarray.
+     * (1) If taObj[i] is shared, then we cannot modify in place since
+     *     the object is referenced elsewhere in the program. We have to
+     *     clone the corresponding thdrsP[i] and stick it in a new
+     *     Tcl_Obj.
+     * (2) If taObj[i] is unshared, the corresponding thdrP might
+     *     still be shared (pointed to from elsewhere). In this case
+     *     also, we clone the thdrP but instead of allocating a new 
+     *     Tcl_Obj, we store it as the internal rep of taObj[i].
+     * (3) If taObj[i] and its thdrP are unshared, (a) we can modify in
+     *     place (b) unless thdrP is too small. In that case we have
+     *     to follow the same path as (2).
+     *
+     * NOTE: taObjsP points into memory owned by objv[3] list. We cannot
+     * write to it, hence we use a separate output area resultObjsP[].
+     */
+
+    /* If nothing to fill, return existing array as is */
+    if (count) {
+        /* Note this also invalidates the string rep as desired */
+        TArrayMakeModifiable(taObj, thdrP->used, thdrP->allocated);
+        thdrP = TARRAYHDR(taObj); /* Might have changed */
+        TAHdrFill(interp, thdrP, &value, low, count);
+    }
+    status = TCL_OK;
+    
+vamoose:                   /* interp must already hold error message */
+    Tcl_DecrRefCount(lowObj);
+    Tcl_DecrRefCount(highObj);
+
+    return status;
+}
+
 /* The grid Tcl_Obj gridObj is modified */
 TCL_RESULT TGridFillFromObjs(
     Tcl_Interp *interp,
