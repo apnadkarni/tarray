@@ -125,6 +125,8 @@ extern struct Tcl_ObjType gTGridType;
 #define TA_ALLOCMEM ckalloc
 #define TA_FREEMEM(p_) if (p_) ckfree((char *)p_)
 #define TA_REALLOCMEM ckrealloc
+#define TA_ATTEMPTALLOCMEM attemptckalloc
+#define TA_ATTEMPTREALLOCMEM attemptckrealloc
 
 /*
  * Error and panic routines
@@ -140,12 +142,12 @@ TCL_RESULT TArrayValueTypeError(Tcl_Interp *, Tcl_Obj *objP, int tatype);
 TCL_RESULT TArrayGridLengthError(Tcl_Interp *);
 TCL_RESULT TArrayRowWidthError(Tcl_Interp *, int rowwidth, int gridwidth);
 TCL_RESULT TArrayBadTypeError(Tcl_Interp *interp, TAHdr *thdrP);
+TCL_RESULT TArrayNoMemError(Tcl_Interp *, int size);
 
 void TArrayIncrObjRefs(TAHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TAHdr *thdrP,int first,int count);
 void TAHdrFree(TAHdr *thdrP);
 TCL_RESULT TArrayConvert(Tcl_Interp *, Tcl_Obj *objP);
-TAHdr *TAHdrClone(TAHdr *srcP, int minsize);
 
 TCL_RESULT TGridVerifyType(Tcl_Interp *, Tcl_Obj *gridObj);
 Tcl_Obj *TGridNewObj(Tcl_Interp *, int nobjs, Tcl_Obj *const taObjs[]);
@@ -164,16 +166,16 @@ TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 
 Tcl_Obj * TArrayNewObj(TAHdr *thdrP);
-void TArrayMakeModifiable(Tcl_Obj *taObj, int minsize, int prefsize);
+TCL_RESULT TArrayMakeModifiable(Tcl_Interp *interp, Tcl_Obj *taObj, int minsize, int prefsize);
 
 TCL_RESULT TAHdrSetFromObjs(struct Tcl_Interp *,TAHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
 int TArrayCalcSize(unsigned char tatype,int count);
-TAHdr *TArrayRealloc(TAHdr *oldP,int new_count);
-TAHdr *TArrayAlloc(unsigned char tatype, int count);
-TAHdr *TArrayAllocAndInit(struct Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+TAHdr *TArrayRealloc(Tcl_Interp *, TAHdr *oldP,int new_count);
+TAHdr *TArrayAlloc(Tcl_Interp *, unsigned char tatype, int count);
+TAHdr *TArrayAllocAndInit(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 void TAHdrCopy(TAHdr *dstP,int dst_first,TAHdr *srcP,int src_first,int count);
 void TAHdrDelete(TAHdr *thdrP, int first, int count);
-TAHdr *TAHdrClone(TAHdr *srcP, int init_size);
+TAHdr *TAHdrClone(Tcl_Interp *, TAHdr *srcP, int init_size);
 struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *,TAHdr *thdrP, Tcl_Obj *index);
 TAHdr *TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP);
 TAHdr *TArrayGetValues(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP);

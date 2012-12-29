@@ -172,6 +172,16 @@ TCL_RESULT TArrayGridLengthError(Tcl_Interp *interp)
     return TCL_ERROR;
 }
 
+TCL_RESULT TArrayNoMemError(Tcl_Interp *interp, int req_size)
+{
+    if (interp) {
+        Tcl_SetObjResult(interp,
+                         Tcl_ObjPrintf("Memory allocation failed (%d bytes).",
+                                       req_size));
+        Tcl_SetErrorCode(interp, "TARRAY", "NOMEM", NULL);
+    }
+    return TCL_ERROR;
+}
 
 /*
  * Map numeric or string index to numeric integer index.
@@ -499,7 +509,7 @@ static void UpdateStringForObjType(Tcl_Obj *objP)
          * We know objc <= TA_MAX_OBJC, so this is safe.
          */
 
-        flagPtr = (int *) ckalloc(objc * sizeof(int));
+        flagPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
     }
 
     bytesNeeded +=
@@ -524,6 +534,8 @@ static void UpdateStringForObjType(Tcl_Obj *objP)
      * Pass 2: copy into string rep buffer.
      */
 
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc */
     objP->bytes = ckalloc(bytesNeeded);
     dst = objP->bytes;
     memcpy(dst, "tarray ", sizeof("tarray ")-1);
@@ -550,7 +562,7 @@ static void UpdateStringForObjType(Tcl_Obj *objP)
     objP->length = dst - objP->bytes;
 
     if (flagPtr != localFlags) {
-        ckfree((char *) flagPtr);
+        TA_FREEMEM((char *) flagPtr);
     }
 }
 
@@ -579,6 +591,8 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
 
     count = TARRAYELEMCOUNT(objP);
     if (count == 0) {
+        /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+           defined as ckalloc */
         cP = ckalloc(min_needed);
         objP->bytes = cP;
         _snprintf(cP, min_needed, "tarray %s {}",
@@ -605,6 +619,8 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
             register ba_t ba = *baP;
             register ba_t ba_mask;
 
+            /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+               defined as ckalloc */
             cP = ckalloc(min_needed + 2*count - 1);
             n = _snprintf(cP, min_needed, "tarray %s {",
                       gTArrayTypeTokens[TA_BOOLEAN]);
@@ -660,6 +676,8 @@ static void TArrayTypeUpdateStringRep(Tcl_Obj *objP)
      */
     allocated = min_needed + max_elem_space + ((max_elem_space + 1)/2)*count;
     unused = allocated - prefix_len;
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc */
     cP = ckalloc(allocated);
     objP->bytes = cP;
     _snprintf(cP, prefix_len+1, "tarray %s {", gTArrayTypeTokens[thdrP->type]);
@@ -1372,26 +1390,34 @@ int TArrayCalcSize(unsigned char tatype, int count)
     return sizeof(TAHdr) + space;
 }
 
-TAHdr *TArrayRealloc(TAHdr *oldP, int new_count)
+TAHdr *TArrayRealloc(Tcl_Interp *interp, TAHdr *oldP, int new_count)
 {
     TAHdr *thdrP;
 
     TA_ASSERT(oldP->nrefs < 2);
     TA_ASSERT(oldP->used <= new_count);
 
-    thdrP = (TAHdr *) TA_REALLOCMEM((char *) oldP, TArrayCalcSize(oldP->type, new_count));
-    thdrP->allocated = new_count;
+    thdrP = (TAHdr *) TA_ATTEMPTREALLOCMEM((char *) oldP, TArrayCalcSize(oldP->type, new_count));
+    if (thdrP)
+        thdrP->allocated = new_count;
+    else
+        TArrayNoMemError(interp, new_count);
     return thdrP;
 }
 
-TAHdr * TArrayAlloc(unsigned char tatype, int count)
+TAHdr * TArrayAlloc(Tcl_Interp *interp, unsigned char tatype, int count)
 {
     unsigned char nbits;
     TAHdr *thdrP;
 
     if (count == 0)
             count = TA_DEFAULT_NSLOTS;
-    thdrP = (TAHdr *) TA_ALLOCMEM(TArrayCalcSize(tatype, count));
+    thdrP = (TAHdr *) TA_ATTEMPTALLOCMEM(TArrayCalcSize(tatype, count));
+    if (thdrP == NULL) {
+        if (interp)
+            TArrayNoMemError(interp, count);
+        return NULL;
+    }
     thdrP->nrefs = 0;
     thdrP->allocated = count;
     thdrP->used = 0;
@@ -1433,17 +1459,17 @@ TAHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
         nelems = 0;
     }
 
-    thdrP = TArrayAlloc(tatype, init_size);
-
-    if (elems != NULL && nelems != 0) {
-        if (TAHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
-            TA_FREEMEM(thdrP);
-            return NULL;
+    thdrP = TArrayAlloc(interp, tatype, init_size);
+    if (thdrP) {
+        if (elems != NULL && nelems != 0) {
+            if (TAHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
+                TAHDR_DECRREF(thdrP);
+                thdrP = NULL;
+            }
         }
     }
 
-    return thdrP;
-
+    return thdrP;               /* May be NULL on error */
 }
 
 /* Deletes a range from a TAHdr. See asserts below for requirements */
@@ -1616,7 +1642,7 @@ void TAHdrCopy(TAHdr *dstP, int dst_first,
 }
 
 /* Note: nrefs of cloned array is 0 */
-TAHdr *TAHdrClone(TAHdr *srcP, int minsize)
+TAHdr *TAHdrClone(Tcl_Interp *interp, TAHdr *srcP, int minsize)
 {
     TAHdr *thdrP;
 
@@ -1626,8 +1652,9 @@ TAHdr *TAHdrClone(TAHdr *srcP, int minsize)
         minsize = srcP->used;
 
     /* TBD - optimize these two calls */
-    thdrP = TArrayAlloc(srcP->type, minsize);
-    TAHdrCopy(thdrP, 0, srcP, 0, srcP->used);
+    thdrP = TArrayAlloc(interp, srcP->type, minsize);
+    if (thdrP)
+        TAHdrCopy(thdrP, 0, srcP, 0, srcP->used);
     return thdrP;
 }
 
@@ -1643,9 +1670,11 @@ TAHdr *TAHdrClone(TAHdr *srcP, int minsize)
  *     place, unless 
  * (3) TAHdr is too small in which case we have to reallocate it.
  *
- *  Invalidates the string rep in all cases.
+ * Invalidates the string rep in all cases.
+ * Only fails on memory allocation failure.
  */
-void TArrayMakeModifiable(Tcl_Obj *taObj, int minsize, int prefsize)
+TCL_RESULT TArrayMakeModifiable(Tcl_Interp *interp,
+                                Tcl_Obj *taObj, int minsize, int prefsize)
 {
     TAHdr *thdrP;
 
@@ -1660,8 +1689,9 @@ void TArrayMakeModifiable(Tcl_Obj *taObj, int minsize, int prefsize)
 
     if (TAHDR_SHARED(thdrP)) {
         /* Case (1) */
-        thdrP = TAHdrClone(thdrP, prefsize);
-        TA_ASSERT(thdrP);
+        thdrP = TAHdrClone(interp, thdrP, prefsize);
+        if (thdrP == NULL)
+            return TCL_ERROR;   /* Note taObj is not changed */
         TAHDR_DECRREF(TARRAYHDR(taObj)); /* Release old */
         TARRAYHDR(taObj) = NULL;
         TA_OBJ_SETREP(taObj, thdrP);
@@ -1670,11 +1700,17 @@ void TArrayMakeModifiable(Tcl_Obj *taObj, int minsize, int prefsize)
         /* Case (3). Note don't use TA_OBJ_SETREP as we are keeping all 
            fields and ref counts the same */
         Tcl_InvalidateStringRep(taObj);
-        TARRAYHDR(taObj) = TArrayRealloc(thdrP, prefsize);
+        thdrP = TArrayRealloc(interp, thdrP, prefsize);
+        if (thdrP)
+            TARRAYHDR(taObj) = thdrP;
+        else
+            return TCL_ERROR;   /* Note taObj is not changed */
     } else {
         /* Case (2) - just reuse, invalidate the string rep */
         Tcl_InvalidateStringRep(taObj);
     }
+
+    return TCL_OK;
 }
 
 
@@ -1751,7 +1787,7 @@ TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
     }
 
     count = indicesP->used;
-    thdrP = TArrayAlloc(srcP->type, count);
+    thdrP = TArrayAlloc(interp, srcP->type, count);
     if (thdrP == 0 || count == 0)
         return thdrP;
 
@@ -1837,14 +1873,23 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
 
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP;
-        thdrP = TArrayAlloc(
-            flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
-            10);                /* Assume 10 hits */
+        TAHdr *newP;
+        thdrP = TArrayAlloc(interp, 
+                            flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
+                            10);                /* Assume 10 hits */
+        if (thdrP == NULL)
+            return TCL_ERROR;
         pos = start;
         while ((pos = ba_find(baP, bval, pos, thdrP->used)) != -1) {
             /* Ensure enough space in target array */
             if (thdrP->used >= thdrP->allocated)
-                thdrP = TArrayRealloc(thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+            if (newP)
+                thdrP = newP;
+            else {
+                TAHDR_DECRREF(thdrP);
+                return TCL_ERROR;
+            }
             if (flags & TA_SEARCH_INLINE)
                 ba_put(TAHDRELEMPTR(thdrP, ba_t, 0), thdrP->used, bval);
             else
@@ -1930,11 +1975,13 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP;
+        TAHdr *thdrP, *newP;
 
-        thdrP = TArrayAlloc(
-            flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
-            10);                /* Assume 10 hits TBD */
+        thdrP = TArrayAlloc(interp,
+                            flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
+                            10);                /* Assume 10 hits TBD */
+        if (thdrP == NULL)
+            return TCL_ERROR;
 
         for (offset = start; offset < haystackP->used; ++offset, p += elem_size) {
             switch (haystackP->type) {
@@ -1954,7 +2001,13 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
                 /* Have a match */
                 /* Ensure enough space in target array */
                 if (thdrP->used >= thdrP->allocated)
-                    thdrP = TArrayRealloc(thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                    newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                if (newP)
+                    thdrP = newP;
+                else {
+                    TAHDR_DECRREF(thdrP);
+                    return TCL_ERROR;
+                }
                 if (flags & TA_SEARCH_INLINE) {
                     switch (thdrP->type) {
                     case TA_INT:  *TAHDRELEMPTR(thdrP, int, thdrP->used) = (int) elem; break;
@@ -2034,11 +2087,13 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
     dvalP = TAHDRELEMPTR(haystackP, double, start);
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP;
+        TAHdr *thdrP, *newP;
 
-        thdrP = TArrayAlloc(
-            flags & TA_SEARCH_INLINE ? TA_DOUBLE : TA_INT,
-            10);                /* Assume 10 hits */
+        thdrP = TArrayAlloc(interp,
+                            flags & TA_SEARCH_INLINE ? TA_DOUBLE : TA_INT,
+                            10);                /* Assume 10 hits */
+        if (thdrP == NULL)
+            return TCL_ERROR;
 
         for (offset = start; offset < haystackP->used; ++offset, ++dvalP) {
             switch (op) {
@@ -2051,7 +2106,13 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
                 /* Have a match */
                 /* Ensure enough space in target array */
                 if (thdrP->used >= thdrP->allocated)
-                    thdrP = TArrayRealloc(thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                    newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                if (newP)
+                    thdrP = newP;
+                else {
+                    TAHDR_DECRREF(thdrP);
+                    return TCL_ERROR;
+                }
                 if (flags & TA_SEARCH_INLINE) {
                     *TAHDRELEMPTR(thdrP, double, thdrP->used) = *dvalP;
                 } else {
@@ -2136,11 +2197,13 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
 
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP;
+        TAHdr *thdrP, *newP;
 
-        thdrP = TArrayAlloc(
-            flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
-            10);                /* Assume 10 hits */
+        thdrP = TArrayAlloc(interp,
+                            flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
+                            10);                /* Assume 10 hits */
+        if (thdrP == NULL)
+            return TCL_ERROR;
 
         for (offset = start; offset < haystackP->used; ++offset, ++objPP) {
             switch (op) {
@@ -2168,7 +2231,13 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
                 /* Have a match */
                 /* Ensure enough space in target array */
                 if (thdrP->used >= thdrP->allocated)
-                    thdrP = TArrayRealloc(thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                    newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                if (newP)
+                    thdrP = newP;
+                else {
+                    TAHDR_DECRREF(thdrP);
+                    return TCL_ERROR;
+                }
                 if (flags & TA_SEARCH_INLINE) {
                     Tcl_IncrRefCount(*objPP);
                     *TAHDRELEMPTR(thdrP, Tcl_Obj *, thdrP->used) = *objPP;
@@ -2367,38 +2436,22 @@ TCL_RESULT TArrayFillFromObj(
         return TCL_ERROR;
 
     /*
-     * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT FATAL ONES
+     * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT
      * LIKE BUGCHECKS OR OUT OF MEMORY. Code below is written accordingly.
      */
 
-    /*
-     * Now that we have verified inputs are correct, get ready to
-     * generate results. With respect to where to store the results,
-     * there are three cases to consider for each tarray.
-     * (1) If taObj[i] is shared, then we cannot modify in place since
-     *     the object is referenced elsewhere in the program. We have to
-     *     clone the corresponding thdrsP[i] and stick it in a new
-     *     Tcl_Obj.
-     * (2) If taObj[i] is unshared, the corresponding thdrP might
-     *     still be shared (pointed to from elsewhere). In this case
-     *     also, we clone the thdrP but instead of allocating a new 
-     *     Tcl_Obj, we store it as the internal rep of taObj[i].
-     * (3) If taObj[i] and its thdrP are unshared, (a) we can modify in
-     *     place (b) unless thdrP is too small. In that case we have
-     *     to follow the same path as (2).
-     *
-     * NOTE: taObjsP points into memory owned by objv[3] list. We cannot
-     * write to it, hence we use a separate output area resultObjsP[].
-     */
-
     /* If nothing to fill, return existing array as is */
+    status = TCL_OK;
     if (count) {
         /* Note this also invalidates the string rep as desired */
-        TArrayMakeModifiable(taObj, thdrP->used, thdrP->allocated);
-        thdrP = TARRAYHDR(taObj); /* Might have changed */
-        TAHdrFill(interp, thdrP, &value, low, count);
+        if (TArrayMakeModifiable(interp, taObj,
+                                 thdrP->used, thdrP->allocated) != TCL_OK) {
+            status = TCL_ERROR;
+        } else {
+            thdrP = TARRAYHDR(taObj); /* Might have changed */
+            TAHdrFill(interp, thdrP, &value, low, count);
+        }
     }
-    status = TCL_OK;
     
 vamoose:                   /* interp must already hold error message */
     Tcl_DecrRefCount(lowObj);
@@ -2415,12 +2468,13 @@ TCL_RESULT TGridFillFromObjs(
     Tcl_Obj *rowObj)
 {
     int i, low, count, row_width;
-    TAHdr *thdr0P, *gridHdrP;
+    TAHdr *gridHdrP;
     TArrayValue values[32];
     TArrayValue *valuesP;
     Tcl_Obj **taObjPP;
     int status;
     int new_size;
+    int collength;
 
     TA_ASSERT(! Tcl_IsShared(gridObj));
 
@@ -2460,30 +2514,66 @@ TCL_RESULT TGridFillFromObjs(
         Tcl_IncrRefCount(highObj); /* Since we will release at end */
 
     if (row_width > sizeof(values)/sizeof(values[0])) {
-        valuesP = (TArrayValue *) ckalloc(row_width * sizeof(TArrayValue));
+        valuesP = (TArrayValue *) TA_ALLOCMEM(row_width * sizeof(TArrayValue));
     } else {
         valuesP = values;
     }
         
+    /* Make sure grid object is modifiable */
+    if ((status = TArrayMakeModifiable(interp, gridObj,
+                                       gridHdrP->used,
+                                       gridHdrP->allocated)) != TCL_OK)
+        goto vamoose;
+    gridHdrP = TARRAYHDR(gridObj); /* Might have changed */
+
     /*
      * Now verify tarrays and values. The latter should be of the
-     * appropriate type. Also ensure all tarrays are the same size.
+     * appropriate type. Also ensure all tarrays are the same size
+     * and can be modified.
+     *
+     * NOTE THAT AT ALL TIMES, gridObj has valid unmodified contents
+     * (logically unmodified though allocated blocks might have changed)
+     * so even on error we exit with a clean gridObj.
      */
     for (i = 0, taObjPP = TAHDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++taObjPP) {
         TAHdr *thdrP;
         Tcl_Obj *valueObj;
+        Tcl_Obj *colObj = *taObjPP;
 
         if ((status = TArrayConvert(interp, *taObjPP)) != TCL_OK)
             goto vamoose;
-        thdrP = TARRAYHDR(*taObjPP);
-        if (i == 0)
-            thdr0P = thdrP;
-        else if (thdrP->used != thdr0P->used) {
+
+        thdrP = TARRAYHDR(colObj);
+        if (i == 0) {
+            collength = thdrP->used;
+            /* Get the limits of the range to set */
+            status = RationalizeRangeIndices(interp, thdrP, lowObj, highObj, &low, &count);
+            if (status != TCL_OK || count == 0)
+                goto vamoose;   /* Error or nothing to do */
+        }
+        else if (thdrP->used != collength) {
             status = TArrayGridLengthError(interp);
             goto vamoose;
         }
+
+        /* Preferred size in case we have to reallocate */
+        new_size = low + count + TA_EXTRA(low+count); /* Disregarded if < allocated */
+
+        /* We have already converted above */
+        TA_ASSERT(colObj->typePtr == &gTArrayType);
+        if (Tcl_IsShared(colObj)) {
+            colObj = Tcl_DuplicateObj(colObj);
+            Tcl_IncrRefCount(colObj);
+            Tcl_DecrRefCount(*taObjPP);
+            *taObjPP = colObj;
+            thdrP = TARRAYHDR(colObj);
+        }
+
+        /* Note this also invalidates the string rep as desired */
+        if ((status = TArrayMakeModifiable(interp, colObj, low+count, new_size)) != TCL_OK)
+            goto vamoose;
 
         if ((status = Tcl_ListObjIndex(interp, rowObj, i, &valueObj)) != TCL_OK)
             goto vamoose;
@@ -2492,62 +2582,17 @@ TCL_RESULT TGridFillFromObjs(
             goto vamoose;
     }
 
-    /* Get the limits of the range to set */
-    if (RationalizeRangeIndices(interp, thdr0P, lowObj, highObj, &low, &count)
-        != TCL_OK)
-        return TCL_ERROR;
 
     /*
+     * We can now do the actual modifications. All validation and memory
+     * allocations are done.
      * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT FATAL ONES
-     * LIKE BUGCHECKS OR OUT OF MEMORY. Code below is written accordingly.
      */
 
-    /*
-     * Now that we have verified inputs are correct, get ready to
-     * generate results. With respect to where to store the results,
-     * there are three cases to consider for each tarray.
-     * (1) If taObj[i] is shared, then we cannot modify in place since
-     *     the object is referenced elsewhere in the program. We have to
-     *     clone the corresponding thdrsP[i] and stick it in a new
-     *     Tcl_Obj.
-     * (2) If taObj[i] is unshared, the corresponding thdrP might
-     *     still be shared (pointed to from elsewhere). In this case
-     *     also, we clone the thdrP but instead of allocating a new 
-     *     Tcl_Obj, we store it as the internal rep of taObj[i].
-     * (3) If taObj[i] and its thdrP are unshared, (a) we can modify in
-     *     place (b) unless thdrP is too small. In that case we have
-     *     to follow the same path as (2).
-     *
-     * NOTE: taObjsP points into memory owned by objv[3] list. We cannot
-     * write to it, hence we use a separate output area resultObjsP[].
-     */
-
-    /* If nothing to fill, return existing array as is */
-    if (count) {
-        TArrayMakeModifiable(gridObj, gridHdrP->used, gridHdrP->allocated);
-        gridHdrP = TARRAYHDR(gridObj); /* Might have changed */
-
-        /* If we have to realloc columns anyway, leave a bit extra room */
-        new_size = low + count + TA_EXTRA(low+count);
-        for (i = 0, taObjPP = TAHDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
-             i < row_width;
-             ++i, ++taObjPP) {
-            Tcl_Obj *colObj = *taObjPP;
-
-            /* We have already converted above */
-            TA_ASSERT((*taObjPP)->typePtr == &gTArrayType);
-            if (Tcl_IsShared(colObj)) {
-                colObj = Tcl_DuplicateObj(colObj);
-                Tcl_IncrRefCount(colObj);
-                Tcl_DecrRefCount(*taObjPP);
-                *taObjPP = colObj;
-            }
-
-            /* Note this also invalidates the string rep as desired */
-            TArrayMakeModifiable(colObj, low+count, new_size);
-
-            TAHdrFill(interp, TARRAYHDR(colObj), &valuesP[i], low, count);
-        }
+    for (i = 0, taObjPP = TAHDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
+         i < row_width;
+         ++i, ++taObjPP) {
+        TAHdrFill(interp, TARRAYHDR(*taObjPP), &valuesP[i], low, count);
     }
     status = TCL_OK;
     
@@ -2555,7 +2600,7 @@ vamoose:                   /* interp must already hold error message */
     Tcl_DecrRefCount(lowObj);
     Tcl_DecrRefCount(highObj);
     if (valuesP != values)
-        ckfree((char *) valuesP);
+        TA_FREEMEM((char *) valuesP);
 
     return status;
 }

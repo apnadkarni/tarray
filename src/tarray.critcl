@@ -66,19 +66,12 @@ critcl::ccommand tarray::column::create {} {
     return TCL_OK;
 }
 
-critcl::cproc tarray::column::size {Tcl_Interp* interp Tcl_Obj* taobjP} ok {
-    if (TArrayConvert(interp, taobjP) != TCL_OK)
-        return TCL_ERROR;
-    
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(TARRAYELEMCOUNT(taobjP)));
-    return TCL_OK;
+critcl::cproc tarray::column::size {Tcl_Interp* interp TArrayObjPtr taobjP} int {
+    return TARRAYELEMCOUNT(taobjP);
 }
 
-critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
-    int tatype = TARRAYTYPE(taobjP);
-
-    Tcl_SetObjResult(interp, Tcl_NewStringObj(gTArrayTypeTokens[tatype], -1));
-    return TCL_OK;
+critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr taobjP} char* {
+    return TArrayTypeString(TARRAYTYPE(taobjP));
 }
 
 critcl::cproc tarray::column::index {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* indexObj} ok {
@@ -97,7 +90,7 @@ critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taobjP Tcl_
     if (RationalizeRangeIndices(interp, TARRAYHDR(taobjP), lowObj, highObj, &low, &count) != TCL_OK)
         return TCL_ERROR;
 
-    thdrP = TArrayAlloc(TARRAYTYPE(taobjP), count);
+    thdrP = TArrayAlloc(interp, TARRAYTYPE(taobjP), count);
     if (thdrP == NULL)
         return TCL_ERROR;
 
@@ -163,7 +156,9 @@ critcl::ccommand tarray::column::sort {} {
 
     if (return_indices) {
         int *indexP;
-        sortedP = TArrayAlloc(TA_INT, srcP->used);
+        sortedP = TArrayAlloc(interp, TA_INT, srcP->used);
+        if (sortedP == NULL)
+            return TCL_ERROR;
         resultObj = TArrayNewObj(sortedP);
         /* Initialize the indexes */
         sortedP->used = srcP->used;
@@ -199,7 +194,9 @@ critcl::ccommand tarray::column::sort {} {
            sort in place, else need to modify */
         if (Tcl_IsShared(srcObj) || TAHDR_SHARED(srcP)) {
             /* Cannot modify in place. Need to dup it */
-            sortedP = TAHdrClone(srcP, 0);
+            sortedP = TAHdrClone(interp, srcP, 0);
+            if (sortedP == NULL)
+                return TCL_ERROR;
             resultObj = TArrayNewObj(sortedP);
         } else {
             sortedP = srcP;
@@ -285,7 +282,9 @@ critcl::ccommand tarray::column::delete {} {
     if (Tcl_IsShared(taObj))
         taObj = Tcl_DuplicateObj(taObj);
 
-    TArrayMakeModifiable(objv[1], thdrP->used, thdrP->used);
+    if (TArrayMakeModifiable(interp, objv[1], thdrP->used, thdrP->used) != TCL_OK)
+        return TCL_ERROR;
+
     /* Note thdrP potentially INVALID at this point */
     TAHdrDelete(TARRAYHDR(taObj), low, count);
     Tcl_SetObjResult(interp, taObj);
