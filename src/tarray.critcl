@@ -20,7 +20,7 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-critcl::csources tarray.c tgrid.c bitarray.c tasort.c
+critcl::csources tarray.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 
 critcl::argtype TArrayObjPtr {
@@ -128,7 +128,7 @@ critcl::ccommand tarray::column::sort {} {
         "-decreasing", "-increasing", "-indices", NULL
     };
     enum TArraySortSwitches {
-        TARRAY_SORT_DECREASING, TARRAY_SORT_INCREASING, TARRAY_SORT_INDICES
+        TA_SORT_DECREASING, TA_SORT_INCREASING, TA_SORT_INDICES
     };
     int decreasing = 0;
     int return_indices = 0;
@@ -155,15 +155,15 @@ critcl::ccommand tarray::column::sort {} {
             return TCL_ERROR;
 	}
         switch ((enum TArraySortSwitches) opt) {
-        case TARRAY_SORT_DECREASING: decreasing = 1; break;
-        case TARRAY_SORT_INCREASING: decreasing = 0; break;
-        case TARRAY_SORT_INDICES: return_indices = 1; break;
+        case TA_SORT_DECREASING: decreasing = 1; break;
+        case TA_SORT_INCREASING: decreasing = 0; break;
+        case TA_SORT_INDICES: return_indices = 1; break;
         }
     }
 
     if (return_indices) {
         int *indexP;
-        sortedP = TArrayAlloc(TARRAY_INT, srcP->used);
+        sortedP = TArrayAlloc(TA_INT, srcP->used);
         resultObj = TArrayNewObj(sortedP);
         /* Initialize the indexes */
         sortedP->used = srcP->used;
@@ -172,22 +172,22 @@ critcl::ccommand tarray::column::sort {} {
             *indexP = i;
 
         switch (sortedP->type) {
-        case TARRAY_BOOLEAN:
+        case TA_BOOLEAN:
             cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
             break;
-        case TARRAY_UINT:
+        case TA_UINT:
             cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
             break;
-        case TARRAY_INT:
+        case TA_INT:
             cmpindexedfn = decreasing ? intcmpindexedrev : intcmpindexed;
             break;
-        case TARRAY_WIDE:
+        case TA_WIDE:
             cmpindexedfn = decreasing ? widecmpindexedrev : widecmpindexed;
             break;
-        case TARRAY_DOUBLE:
+        case TA_DOUBLE:
             cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
             break;
-        case TARRAY_OBJ:
+        case TA_OBJ:
             cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
             break;
         default:
@@ -210,7 +210,7 @@ critcl::ccommand tarray::column::sort {} {
          * Return sorted contents. Boolean type we treat separately
          * since we just need to count how many 1's and 0's.
          */
-        if (sortedP->type == TARRAY_BOOLEAN) {
+        if (sortedP->type == TA_BOOLEAN) {
             ba_t *baP = TAHDRELEMPTR(sortedP, ba_t, 0);
             n = ba_count_ones(baP, 0, sortedP->used); /* Number of 1's set */
             if (decreasing) {
@@ -222,19 +222,19 @@ critcl::ccommand tarray::column::sort {} {
             }
         } else {
             switch (sortedP->type) {
-            case TARRAY_UINT:
+            case TA_UINT:
                 cmpfn = decreasing ? uintcmprev : uintcmp;
                 break;
-            case TARRAY_INT:
+            case TA_INT:
                 cmpfn = decreasing ? intcmprev : intcmp;
                 break;
-            case TARRAY_WIDE:
+            case TA_WIDE:
                 cmpfn = decreasing ? widecmprev : widecmp;
                 break;
-            case TARRAY_DOUBLE:
+            case TA_DOUBLE:
                 cmpfn = decreasing ? doublecmprev : doublecmp;
                 break;
-            case TARRAY_OBJ:
+            case TA_OBJ:
                 cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
                 break;
             default:
@@ -251,7 +251,7 @@ critcl::ccommand tarray::column::sort {} {
 
 critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr taobjP} ok {
     TAHdr *thdrP = TARRAYHDR(taobjP);
-    if (thdrP->type != TARRAY_BOOLEAN) {
+    if (thdrP->type != TA_BOOLEAN) {
         Tcl_SetResult(interp, "tarray type is not boolean", TCL_STATIC);
         return TCL_ERROR;
     }
@@ -282,7 +282,10 @@ critcl::ccommand tarray::column::delete {} {
                                 &low, &count) != TCL_OK)
         return TCL_ERROR;
 
-    taObj = TArrayMakeWritable(objv[1], thdrP->used, thdrP->used, 0);
+    if (Tcl_IsShared(taObj))
+        taObj = Tcl_DuplicateObj(taObj);
+
+    TArrayMakeModifiable(objv[1], thdrP->used, thdrP->used);
     /* Note thdrP potentially INVALID at this point */
     TAHdrDelete(TARRAYHDR(taObj), low, count);
     Tcl_SetObjResult(interp, taObj);
@@ -290,33 +293,34 @@ critcl::ccommand tarray::column::delete {} {
 }
 
 critcl::ccommand tarray::column::fill {} {
-    if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY VALUE LOW ?HIGH?");
-	return TCL_ERROR;
-    }
-    
-    return TGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3], &objv[1], &objv[2], 1, TARRAY_FILL_SINGLE);
+    Tcl_SetResult(interp, "TBD - fill not implemented", TCL_STATIC);
+    return TCL_ERROR;
 }
 
 critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
     Tcl_Obj **taObjs;
-    int ntaObjs;
-    Tcl_Obj *gridObj;
+    TAHdr *thdrP;
+    int i;
+    int status;
     
-    if (objP->typePtr == &gTGridType) {
-        Tcl_SetObjResult(interp, objP);
-        return TCL_OK;
+    __asm int 3
+    if (objP->typePtr != &gTArrayType) {
+        if ((status = TArrayConvert(interp, objP) != TCL_OK))
+            return TCL_OK;
+    }            
+
+    thdrP = TARRAYHDR(objP);
+    if (thdrP->type != TA_OBJ)
+        return TArrayBadTypeError(interp, thdrP->type);
+
+    taObjs = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+    for (i = 0; i < thdrP->used; ++i, ++taObjs) {
+        if ((status = TArrayConvert(interp, *taObjs)) != TCL_OK)
+            return TCL_ERROR;
     }
 
-    if (Tcl_ListObjGetElements(interp, objP, &ntaObjs, &taObjs) == TCL_ERROR)
-        return TCL_ERROR;
-    
-    gridObj = TGridNewObj(interp, ntaObjs, taObjs);
-    if (gridObj) {
-        Tcl_SetObjResult(interp, gridObj);
-        return TCL_OK;
-    } else
-        return TCL_ERROR;
+    Tcl_SetObjResult(interp, objP);
+    return TCL_OK;
 }
 
 critcl::ccommand tarray::grid::fill {} {
@@ -324,67 +328,33 @@ critcl::ccommand tarray::grid::fill {} {
     Tcl_Obj **taObjs;
     Tcl_Obj **valueObjs;
     Tcl_Obj *gridObj;
-    int we_own_gridobj;
+    int we_allocated_gridobj;
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYLIST VALUELIST LOW ?HIGH?");
+	Tcl_WrongNumArgs(interp, 1, objv, "GRID VALUELIST LOW ?HIGH?");
 	return TCL_ERROR;
     }
 
     gridObj = objv[1];
     if (Tcl_IsShared(gridObj)) {
         gridObj = Tcl_DuplicateObj(gridObj);
-        we_own_gridobj = 1;
+        we_allocated_gridobj = 1;
     } else
-        we_own_gridobj = 0;
+        we_allocated_gridobj = 0;
 
-    status = TCL_ERROR;
-    if (Tcl_ListObjGetElements(interp, gridObj, &tuple_width, &taObjs) == TCL_OK) {
-        if (Tcl_ListObjGetElements(interp, objv[2], &i, &valueObjs) == TCL_OK) {
-            if (i == tuple_width) {
-                if (tuple_width == 0)
-                    status = TCL_OK;          /* Return empty result */
-                else
-                    status =
-                        TGridFillFromObjs(interp, objv[3],
-                                               objv[objc == 5 ? 4 : 3],
-                                               taObjs, valueObjs,
-                                               tuple_width, 0);
-            } else {
-                Tcl_SetResult(interp, "Count of values supplied does not match count of tarrays", TCL_STATIC);
-                return TCL_ERROR;
-            }
-        }
+    status = TGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3],
+                               gridObj, objv[2]);
+
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, gridObj);
+    else {
+        if (we_allocated_gridobj)
+            Tcl_DecrRefCount(gridObj);
     }
-
-    if (we_own_gridobj)
-        Tcl_DecrRefCount(gridObj);
 
     return status;
 }
-
-critcl::ccommand crash {} {
-    Tcl_Obj *objP;
-    if (objc != 2) {
-	Tcl_WrongNumArgs(interp, 1, objv, "LIST");
-	return TCL_ERROR;
-    }
-
-    /* Just demo - No error checking */
-
-    if (Tcl_IsShared(objv[1])) {
-        Tcl_SetResult(interp, "Need unshared list obj for test", TCL_STATIC);
-        return TCL_ERROR;
-    }
-
-    /* Move second element to the end */
-    Tcl_ListObjIndex(interp, objv[1], 1, &objP);
-    Tcl_ListObjReplace(interp, objv[1], 1, 2, 1, &objP);
-    Tcl_SetObjResult(interp, objv[1]);
-    return TCL_OK;
-}
-
 
 package provide tarray 0.1
 
