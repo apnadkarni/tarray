@@ -28,7 +28,7 @@ suitable structures, such as B-Trees may be easily scripted on top
 without a significant performance penalty.
 
 [para]
-The extension introduces [sectref Columns columns],
+The extension implements [sectref Columns columns],
 which store arrays of values of a single type indexed by integers, and
 [sectref Grids grids], which are arrays of columns. 
 
@@ -63,10 +63,21 @@ over a plain Tcl list.
 Attempts to store values in typed array column that are not valid
 for that column will result in an error being generated.
 
-
-
 [section "Grids"]
 A typed grid is an ordered sequence of typed arrays of the equal size. It can be viewed as an array of records where the record fields happen to use column-wise storage. The corresponding grid command operates on typed tables.
+
+[section Indices]
+An index into a typed column or grid can be specified as either an integer
+or the keyword [const end] which specifies the last element in the
+typed array. Unlike the built-in Tcl commands, index arithmetic of
+the form [const end-2] is not supported.
+[para]
+Many commands allow multiple indices to be specified. These may take one
+of two forms. Some commands, like [cmd get], allow specification of a
+[emph range] which includes all indices between a lower and an upper 
+bound (inclusive). Other commands like [cmd pick] allow specification of
+an [emph "index list"] which make be a list of integers, or a typed 
+[const int] column.
 
 [section "Standard Options"]
 Many commands take standard options which are described here.
@@ -122,46 +133,93 @@ indices [arg LOW] and [arg HIGH] are returned. In this case the format
 of the returned values is controlled by [arg STANDARDOPTION]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
-[nl]
+[para]
 [arg LOW] and [arg HIGH] may be specified in any of the
-[sectref "Index Formats"].
+[sectref Indices].
 It is an error if any index is invalid (e.g. negative or out of range).
 
 
 [call [cmd "column pick"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg INDICES]]
 Returns the values in a typed column at the
-positions specified by [arg INDICES] which must be either a typed column
-of type [const int] or a list of integers.
+positions specified by [arg INDICES] which must be a 
+index list in the one of the forms described in [sectref Indices].
 It is an error if any of the indices are invalid.
-[nl]
+[para]
 The format of the returned values is controlled by [arg STANDARDOPTION]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
 
+[call [cmd "column place"] [arg TARRAYCOLUMN] [arg VALUEDICT]]
+[call [cmd "column place"] [arg TARRAYCOLUMN] [arg INDICES] [arg VALUES]]
+In the first form, [arg VALUEDICT] is a dictionary mapping
+indices to the new values.
+In the second case, [arg INDICES] must be a 
+index list in the one of the forms described in [sectref Indices].
+[arg VALUES] may be a list of values or a typed column in the same order.
+In both cases, the modified typed column is returned. The command may extend
+the array if necessary.
+[para]
+The command will generate an error if [arg TARRAYCOLUMN]
+is not a typed column,  or if a value cannot be converted to 
+the column's type or if an index is out of range.
+
+[call [cmd "column put"] [arg TARRAYCOLUMN] [arg VALUES] [arg FIRST]]
+Returns a typed column with the elements starting at index [arg FIRST]
+replaced by the corresponding elements of [arg VALUELIST].
+[arg VALUES] may be a list of values or a typed column. Any existing
+elements at those position are overwritten. The command may extend
+the array if necessary.
+[para]
+The command will generate an error if [arg TARRAYCOLUMN]
+is not a typed column,  or if a value cannot be converted to 
+the column's type or if the specified starting index is out of range.
+
+[call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg TARRAYCOLUMN] [arg VALUE]]
+Searches the specified typed column for a matching value. By default,
+the search starts at index 0 and returns the index of the first match
+found, returning -1 if no matching value is found. The other options
+modify this behaviour. If the option [option -start] is specified, the search
+starts at index [arg STARTINDEX] instead of 0. If [option -all]
+is specified, the
+search does not stop at the first match but instead returns a list
+containing the indices of all matched elements. This may be an empty
+list if no elements matched. If the [option -inline] option is specified, the
+command returns the matched value(s) instead of their indices.
+[para]
+[arg OPER] specifies the comparison operator and must be one of the following:
+[list_begin options]
+[opt_def -eq] Matches when equal to value (default)
+[opt_def -gt] Matches when greater than [arg VALUE]. 
+Not valid for [const boolean] type.
+[opt_def -lt] Matches when less than [arg VALUE].
+Not valid for [const boolean] type.
+[opt_def -pat] Matches [arg VALUE] using [cmd "string match"] pattern rules.
+Only valid for type [const any].
+[opt_def -re] Matches [arg VALUE] as a regular expression.
+Only valid for type [const any].
+[list_end]
+
+The sense of the match can be inverted by specifying the [option -not] option
+so for example specifying [option "-not -gt"] will match all elements that are
+less than or equal to [arg VALUE]. For case insensitive matching, the
+[option -nocase] option may be specified. This is ignored for all array types
+except type [const any].
+
+
 [call [cmd "column size"] [arg TARRAYCOLUMN]]
 Returns the number of elements in the typed column.
 
-#### `tarray search ?-start STARTINDEX? ?-all? ?-inline? ?-not? ?-nocase? ?OPER? TARRAY VALUE`
-Searches the specified typed array for a matching value. By default, the search starts at index 0 and returns the index of the first match found, returning -1 if no matching value is found. The other options modify this behaviour. If the option `-start` is specified, the search starts at index `STARTINDEX` instead of 0. If `-all` is specified, the search does not stop at the first match but instead returns a list containing the indices of all matched elements. This may be an empty list if no elements matched. If the `-inline` option is specified, the command returns the matched value(s) instead of their indices.
+[call [cmd "column sort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [arg TARRAYCOLUMN]]
+Returns a sorted typed column. [arg TARRAYCOLUMN] is the typed column to
+be sorted. The comparison is done in a column type-specific manner.
+Sorting is sorted in increasing order by default.
+The [option -decreasing] option may be specified to change this. If
+the [option -indices] option is specified, the command returns a typed array
+containing the indices of the sorted values instead of the values
+themselves.
 
-The `OPER` controls what type of matching is done and must be one of the following:
-
-`OPER` | Matching operation| Supported `tarray` types
--------|-------------------|-------------------------
--eq | Matches when equal to value (default) | All
--gt | Matches when greater than `VALUE`     | All except `boolean`
--lt | Matches when less than `VALUE`        | All except `boolean`
--pat | Matches `VALUE` using `string match` pattern rules | `tclobj`
--re | Matches `VALUE` as a regular expression | `tclobj`
-
-The sense of the match can be inverted by specifying the `-not` option so for example specifying `-not -gt` will match all elements that are less than or equal to `VALUE`. For case insensitive matching, the `-nocase` option may be specified. This is ignored for all array types except `tclobj`.
-
-#### `tarray sort ?-indices? ?-increasing? ?-decreasing? TARRAY`
-Returns a sorted typed array. `TARRAY` is the typed array to be sorted. The comparison depends on the type of `TARRAY`. By default, it is sorted in increasing order of values. The `-decreasing` option may be specified to change this. If the `-indices` option is specified, the command returns a typed array containing the indices of the sorted values instead of the values themselves.
-
-#### `tarray type TARRAY`
-Returns the type of the typed array.
-
+[call [cmd "column type"] [arg TARRAYCOLUMN]]
+Returns the [sectref "Column Types" type] of the typed column.
 
 [list_end]
 
