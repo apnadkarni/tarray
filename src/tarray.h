@@ -181,7 +181,8 @@ TAHdr *TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP);
 TAHdr *TArrayGetValues(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP);
 int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
-TCL_RESULT IndexToInt(Tcl_Interp *, Tcl_Obj *objP, int *indexP, int end_value);
+TCL_RESULT IndexToInt(Tcl_Interp *, Tcl_Obj *objP, int *indexP,
+                      int end_value, int low, int high);
 TCL_RESULT RationalizeRangeIndices(Tcl_Interp *, TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
 TCL_RESULT TGridSetFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *gridObj,
     Tcl_Obj *valueObjs, /* Each element is a list (tuple value) */
