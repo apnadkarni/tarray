@@ -1,0 +1,170 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin "tarray" n ""]
+[copyright "2012 Ashok P. Nadkarni"]
+[moddesc "Typed Arrays"]
+[titledesc "Commands related to typed arrays"]
+[require Tcl 8.5]
+[require tarray ?0.1?]
+[description]
+
+
+[section Introduction]
+
+The TArray extension implements typed arrays and associated commands
+[cmd column] and [cmd grid]. The primary motivation for this extension
+is efficient memory utilization and speed of certain operations in
+applications dealing with very large numbers of elements.
+Typed arrays and grids do not really provide any additional
+capabilities over Tcl's built-in commands, particularly `list` and
+`dict` and the script libraries based on these. Their primary use is
+in applications with large number of data items.
+
+[para]
+Also, for applications that do a lot of insertions and deletions, the
+array based storage may not be directly suitable (although on modern processors
+the point at which that happens is quite large). For such
+applications, the package provides sufficient flexibility that more
+suitable structures, such as B-Trees may be easily scripted on top
+without a significant performance penalty.
+
+[para]
+The extension introduces [sectref Columns columns],
+which store arrays of values of a single type indexed by integers, and
+[sectref Grids grids], which are arrays of columns. 
+
+[section "Columns"] 
+A typed array column contains elements of a single 
+[sectref "Column Types" type]
+that is specified when it is created. The command tarray can be used
+to create and manipulate typed arrays including searching and sorting
+operations.
+
+[section "Column Types"]
+The extension supports the following element types for typed arrays:
+[list_begin options]
+[opt_def [option any]] Any Tcl value
+[opt_def [option boolean]] A boolean value
+[opt_def [option byte]] Unsigned 8-bit integer
+[opt_def [option double]] Floating point value
+[opt_def [option int]]| Signed 32-bit integer
+[opt_def [option uint]] Unsigned 32-bit integer
+[opt_def [option wide]] Signed 64-bit integer
+[list_end]
+The primary purpose of the type is to specify what values can be
+stored in that column. This impacts the compactness of the internal
+storage (really the primary purpose of the extension) as well certain
+operations (like sort or search) invoked on the column. The type
+[option any] allows any Tcl type. These are essentially treated as strings.
+However, use of a column of this type by itself 
+(i.e. not in conjunction with other columns) offers very little benefit
+over a plain Tcl list.
+
+[para]
+Attempts to store values in typed array column that are not valid
+for that column will result in an error being generated.
+
+
+
+[section "Grids"]
+A typed grid is an ordered sequence of typed arrays of the equal size. It can be viewed as an array of records where the record fields happen to use column-wise storage. The corresponding grid command operates on typed tables.
+
+[section "Standard Options"]
+Many commands take standard options which are described here.
+[para]
+Commands returning values from typed columns and grids take the following
+options that controls the format of the returned values.
+
+[list_begin options]
+[opt_def -dict]
+The values are returned as a dictionary with keys being
+the indices.
+[opt_def -tarray] The values are returned as a typed column or grid as
+appropriate. This is the default if none of the other options is specified.
+[opt_def -list] The values are returned as a Tcl list.
+[list_end]
+
+
+[section Commands]
+
+[list_begin definitions]
+
+[call [cmd "column create"] [arg TYPE] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
+Returns a typed array of the type [arg TYPE] which must be one of one
+of valid types described in [sectref "Column Types"]. If 
+[arg INITIALIZER] is specified, it is the initial content of the typed array 
+and must be a
+list with elements of the appropriate type. For performance reasons,
+the [arg INITSIZE] argument may be specified to indicate how many slots to
+preallocate for the array. This is only treated as a hint and actual
+size allocated may differ.
+
+[call [cmd "column delete"] [arg TARRAYCOLUMN] [arg LOW] [arg [opt HIGH]]]
+Returns a typed column with all elements between indices [arg LOW]
+and [arg HIGH] deleted. [arg HIGH] defaults to [arg LOW] if unspecified.
+
+[call [cmd "column fill"] [arg TARRAYCOLUMN] [arg VALUE] [arg LOW] [arg [opt HIGH]]]
+Returns a typed column with 
+all elements between indices [arg LOW] and [arg HIGH] set to [arg VALUE].
+If unspecified, [arg HIGH] defaults to [arg LOW].
+The indices may be specified as an integer or
+the keyword [const end] signifying the last
+element of the typed array. If [arg HIGH] is greater than the current size
+of the typed array, it is extended and new elements are filled with
+[arg VALUE]. The command will generate an error if [arg TARRAYCOLUMN]
+is not a typed column,  or if [arg VALUE] cannot be converted to 
+the column's type or if the specified indices are out of range.
+
+[call [cmd "column get"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg LOW] [arg [opt HIGH]]]
+Returns the value or values at a specific index or index range 
+in a typed column. If [arg HIGH] is not specified, the value at the specified
+index is returned. If [arg HIGH] is specified, the values between
+indices [arg LOW] and [arg HIGH] are returned. In this case the format
+of the returned values is controlled by [arg STANDARDOPTION]
+which may be any of the options controlling returned formats
+as specified in [sectref "Standard Options"].
+[nl]
+[arg LOW] and [arg HIGH] may be specified in any of the
+[sectref "Index Formats"].
+It is an error if any index is invalid (e.g. negative or out of range).
+
+
+[call [cmd "column pick"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg INDICES]]
+Returns the values in a typed column at the
+positions specified by [arg INDICES] which must be either a typed column
+of type [const int] or a list of integers.
+It is an error if any of the indices are invalid.
+[nl]
+The format of the returned values is controlled by [arg STANDARDOPTION]
+which may be any of the options controlling returned formats
+as specified in [sectref "Standard Options"].
+
+[call [cmd "column size"] [arg TARRAYCOLUMN]]
+Returns the number of elements in the typed column.
+
+#### `tarray search ?-start STARTINDEX? ?-all? ?-inline? ?-not? ?-nocase? ?OPER? TARRAY VALUE`
+Searches the specified typed array for a matching value. By default, the search starts at index 0 and returns the index of the first match found, returning -1 if no matching value is found. The other options modify this behaviour. If the option `-start` is specified, the search starts at index `STARTINDEX` instead of 0. If `-all` is specified, the search does not stop at the first match but instead returns a list containing the indices of all matched elements. This may be an empty list if no elements matched. If the `-inline` option is specified, the command returns the matched value(s) instead of their indices.
+
+The `OPER` controls what type of matching is done and must be one of the following:
+
+`OPER` | Matching operation| Supported `tarray` types
+-------|-------------------|-------------------------
+-eq | Matches when equal to value (default) | All
+-gt | Matches when greater than `VALUE`     | All except `boolean`
+-lt | Matches when less than `VALUE`        | All except `boolean`
+-pat | Matches `VALUE` using `string match` pattern rules | `tclobj`
+-re | Matches `VALUE` as a regular expression | `tclobj`
+
+The sense of the match can be inverted by specifying the `-not` option so for example specifying `-not -gt` will match all elements that are less than or equal to `VALUE`. For case insensitive matching, the `-nocase` option may be specified. This is ignored for all array types except `tclobj`.
+
+#### `tarray sort ?-indices? ?-increasing? ?-decreasing? TARRAY`
+Returns a sorted typed array. `TARRAY` is the typed array to be sorted. The comparison depends on the type of `TARRAY`. By default, it is sorted in increasing order of values. The `-decreasing` option may be specified to change this. If the `-indices` option is specified, the command returns a typed array containing the indices of the sorted values instead of the values themselves.
+
+#### `tarray type TARRAY`
+Returns the type of the typed array.
+
+
+[list_end]
+
+[keywords column grid]
+
+[manpage_end]

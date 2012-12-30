@@ -185,13 +185,13 @@ TCL_RESULT TArrayNoMemError(Tcl_Interp *interp, int req_size)
 
 /*
  * Map numeric or string index to numeric integer index.
- * Does NOT check for out of bounds errors, caller must do that
  */
-TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value)
+TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_value, int low, int high)
 {
     char *s;
+    int val;
 
-    if (Tcl_GetIntFromObj(NULL, objP, indexP) != TCL_OK) {
+    if (Tcl_GetIntFromObj(NULL, objP, &val) != TCL_OK) {
         s = Tcl_GetString(objP);
         if (strcmp(s, "end")) {
             if (interp != NULL) {
@@ -201,32 +201,39 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
             }
             return TCL_ERROR;
         }
-        *indexP = end_value;
+        val = end_value;
     }
-    return TCL_OK;
+    
+    if (val < low || val > high)
+        return TArrayIndexRangeError(interp, objP);
+    else
+        return TCL_OK;
 }
 
+/* low has to be between 0 and one beyond last element.
+   high is 0-INT_MAX
+   if (high < low) count is returned as 0 (not an error)
+*/
 TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
 {
     int low, high;
 
-    if (IndexToInt(interp, lowObj, &low, thdrP->used-1) != TCL_OK)
-        return TCL_ERROR;
-
-    if (IndexToInt(interp, highObj, &high, thdrP->used-1) != TCL_OK)
-        return TCL_ERROR;
-
-    /* We allow low index to be 1 greater than last element. Caller should
+    /* TBD - We allow low index to be 1 greater than last element. Caller should
      * check for this if appropriate. High index can be any greater value
      * than lower range.
      */
-    if (low < 0 || low > thdrP->used || high < low) {
-        Tcl_SetResult(interp, "tarray index out of range.", TCL_STATIC);
+    if (IndexToInt(interp, lowObj, &low, thdrP->used-1, 0, thdrP->used) != TCL_OK)
         return TCL_ERROR;
-    }
+
+    if (IndexToInt(interp, highObj, &high, thdrP->used-1, 0, INT_MAX) != TCL_OK)
+        return TCL_ERROR;
 
     *lowP = low;
-    *countP = high - low + 1;
+    if (high < low)
+        *countP = 0;            /* This is how lrange behaves */
+    else
+        *countP = high - low + 1;
+
     return TCL_OK;
 }
 
@@ -790,16 +797,7 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
     double dval;
 
     TA_ASSERT(thdrP->nrefs < 2);
-
-    if ((first + nelems) > thdrP->allocated) {
-        /* Should really panic but not a fatal error (ie. no memory
-         * corruption etc.). Most likely some code path did not check
-         * size and allocate space accordingly.
-         */
-        if (interp)
-            Tcl_SetResult(interp, "Internal error: TArray too small.", TCL_STATIC);
-        return TCL_ERROR;
-    }
+    TA_ASSERT((first + nelems) <= thdrP->allocated);
 
     /*
      * In case of conversion errors, we have to keep the old values
@@ -1719,7 +1717,7 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
 {
     int index;
 
-    if (IndexToInt(interp, indexObj, &index, thdrP->used-1) != TCL_OK)
+    if (IndexToInt(interp, indexObj, &index, thdrP->used-1, 0, thdrP->used-1) != TCL_OK)
         return NULL;
     if (index < 0 || index >= thdrP->used) {
         TArrayIndexRangeError(interp, indexObj);
@@ -2388,6 +2386,8 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
+
+
 /* The tarray Tcl_Obj is modified */
 TCL_RESULT TArrayFillFromObj(
     Tcl_Interp *interp,
@@ -2396,10 +2396,9 @@ TCL_RESULT TArrayFillFromObj(
     Tcl_Obj *valueObj)
 {
     TAHdr *thdrP;
-    int i, low, count;
+    int low, count;
     TArrayValue value;
     int status;
-    int new_size;
 
     TA_ASSERT(! Tcl_IsShared(taObj));
 
@@ -2431,9 +2430,9 @@ TCL_RESULT TArrayFillFromObj(
         Tcl_IncrRefCount(highObj); /* Since we will release at end */
 
     /* Get the limits of the range to set */
-    if (RationalizeRangeIndices(interp, thdrP, lowObj, highObj, &low, &count)
-        != TCL_OK)
-        return TCL_ERROR;
+    status = RationalizeRangeIndices(interp, thdrP, lowObj, highObj, &low, &count);
+    if (status != TCL_OK)
+        goto vamoose;
 
     /*
      * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT
@@ -2441,7 +2440,6 @@ TCL_RESULT TArrayFillFromObj(
      */
 
     /* If nothing to fill, return existing array as is */
-    status = TCL_OK;
     if (count) {
         /* Note this also invalidates the string rep as desired */
         if (TArrayMakeModifiable(interp, taObj,
@@ -2459,6 +2457,67 @@ vamoose:                   /* interp must already hold error message */
 
     return status;
 }
+
+/* The tarray Tcl_Obj is modified */
+TCL_RESULT TArraySetFromObjs(
+    Tcl_Interp *interp,
+    Tcl_Obj *firstObj, 
+    Tcl_Obj *taObj,
+    Tcl_Obj *valueListObj)
+{
+    TAHdr *thdrP;
+    int i, first;
+    TArrayValue value;
+    int status;
+    int new_size;
+    Tcl_Obj **valueObjs;
+    int nvalues;
+
+    TA_ASSERT(! Tcl_IsShared(taObj));
+
+    status = Tcl_ListObjGetElements(interp, valueListObj, &nvalues, &valueObjs);
+    if (status != TCL_OK)
+        return status;
+
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+    thdrP = TARRAYHDR(taObj);
+
+    /*
+     * Extract index. Be careful not to shimmer
+     * in the unlikely error case where incorrect args passed,
+     * we do not want to lose the tarray representation. For example,
+     * So if the index Tcl_Obj's are of tarrays, we dup them.
+     */
+
+    if (firstObj->typePtr == &gTArrayType)
+        firstObj = Tcl_DuplicateObj(firstObj);
+    else
+        Tcl_IncrRefCount(firstObj); /* Since we will release at end */
+
+    /* Get the limits of the range to set */
+    if ((status = IndexToInt(interp, firstObj, &first, thdrP->used, 0, thdrP->used)) != TCL_OK)
+        goto vamoose;
+
+    if (nvalues) {
+        /* Note this also invalidates the string rep as desired */
+        status = TArrayMakeModifiable(interp, taObj,
+                                      thdrP->used, thdrP->allocated);
+        if (status == TCL_OK) {
+            /* Note even on error TAHdrSetFromObjs guarantees a consistent 
+             * (though un-updated) taObj
+             */
+            thdrP = TARRAYHDR(taObj); /* Might have changed */
+            status = TAHdrSetFromObjs(interp, thdrP, first, nvalues, valueObjs);
+        }
+    }
+    
+vamoose:                   /* interp must already hold error message */
+    Tcl_DecrRefCount(firstObj);
+
+    return status;
+}
+
 
 /* The grid Tcl_Obj gridObj is modified */
 TCL_RESULT TGridFillFromObjs(
