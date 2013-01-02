@@ -78,6 +78,9 @@ typedef union TAHdr_s {
         int used;
         unsigned char type;
         unsigned char elem_bits; /* Size of element in bits */
+        unsigned char flags;
+#define TAHDR_F_SORTED    0x01
+#define TAHDR_F_ASCENDING 0x02
     };
 } TAHdr;
 #define TAHDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(TAHdr) + (char *) (thdr_)))
@@ -128,6 +131,29 @@ extern struct Tcl_ObjType gTGridType;
 #define TA_ATTEMPTALLOCMEM attemptckalloc
 #define TA_ATTEMPTREALLOCMEM attemptckrealloc
 
+TA_INLINE int TAHdrSorted(TAHdr *thdrP) {
+    return thdrP->flags & TAHDR_F_SORTED;
+}
+TA_INLINE int TAHdrSortOrder(TAHdr *thdrP) {
+    return thdrP->flags & TAHDR_F_SORTED 
+        ? (thdrP->flags & TAHDR_F_ASCENDING ? 1 : -1)
+        : 0;
+}
+TA_INLINE void TAHdrSortMarkUnsorted(TAHdr *thdrP) {
+    thdrP->flags &= ~TAHDR_F_SORTED;
+}
+TA_INLINE void TAHdrSortMarkAscending(TAHdr *thdrP) {
+    thdrP->flags |= TAHDR_F_SORTED | TAHDR_F_ASCENDING;
+}
+TA_INLINE void TAHdrSortMarkDescending(TAHdr *thdrP) {
+    thdrP->flags &= ~TAHDR_F_ASCENDING;
+    thdrP->flags |= TAHDR_F_SORTED;
+}
+TA_INLINE void TAHdrSortMarkCopy(TAHdr *thdrP, TAHdr *fromP) {
+    thdrP->flags &= ~(TAHDR_F_SORTED | TAHDR_F_ASCENDING);
+    thdrP->flags |= fromP->flags & (TAHDR_F_SORTED | TAHDR_F_ASCENDING);
+}
+
 /*
  * Error and panic routines
  */
@@ -171,8 +197,8 @@ TCL_RESULT TArrayMakeModifiable(Tcl_Interp *interp, Tcl_Obj *taObj, int minsize,
 TCL_RESULT TAHdrSetFromObjs(struct Tcl_Interp *,TAHdr *thdrP,int first,int nelems,struct Tcl_Obj *const *elems );
 int TArrayCalcSize(unsigned char tatype,int count);
 TAHdr *TArrayRealloc(Tcl_Interp *, TAHdr *oldP,int new_count);
-TAHdr *TArrayAlloc(Tcl_Interp *, unsigned char tatype, int count);
-TAHdr *TArrayAllocAndInit(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+TAHdr *TAHdrAlloc(Tcl_Interp *, unsigned char tatype, int count);
+TAHdr *TAHdrAllocAndInit(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 void TAHdrCopy(TAHdr *dstP,int dst_first,TAHdr *srcP,int src_first,int count);
 void TAHdrDelete(TAHdr *thdrP, int first, int count);
 TAHdr *TAHdrClone(Tcl_Interp *, TAHdr *srcP, int init_size);
@@ -183,7 +209,7 @@ int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
 TCL_RESULT IndexToInt(Tcl_Interp *, Tcl_Obj *objP, int *indexP,
                       int end_value, int low, int high);
-TCL_RESULT RationalizeRangeIndices(Tcl_Interp *, TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
+TCL_RESULT RationalizeRangeIndices(Tcl_Interp *, const TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);
 TCL_RESULT TGridSetFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *gridObj,
     Tcl_Obj *valueObjs, /* Each element is a list (tuple value) */
     int flags);

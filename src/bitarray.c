@@ -12,6 +12,7 @@
 #include "bitarray.h"
 
 /* Caller must have ensured enough space in destination (see BA_BYTES_NEEDED) */
+/* TBD - test with overlapping moves, both where dst > src and src > dst */
 void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
 {
     const ba_t *from;
@@ -59,7 +60,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
                 mask |= BITPOSMASKGE(to_internal_off); /* upper bits to preserve */
                 len = 0;
             }
-            *to = (*to & mask) | (*from & ~mask);
+            *to = ba_merge_unit(*from, *to, mask); // = (*to & mask) | (*from & ~mask)
             ++to;
             ++from;
         }
@@ -86,7 +87,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
 
         /* Finally, do left-over bits. */
         mask = BITPOSMASKGT(len);  /* Destination bits to preserve */
-        *to = (*to & mask) | (*from & ~mask);
+        *to = ba_merge_unit(*from, *to, mask); // = (*to & mask) | (*from & ~mask)
 
     } else {
         /*
@@ -128,7 +129,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
             }
             /* ba contains required bits in low order. Store them in dest */
             ba <<= to_internal_off;
-            *to = (*to & mask) | (ba & ~mask);
+            *to = ba_merge(ba, *to); // = (*to & mask) | (ba & ~mask)
             ++to;
         }
 
@@ -166,7 +167,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
             ba |= *from << (BA_UNIT_SIZE - from_internal_off);
         }
         mask = BITPOSMASKGE(len);  /* Dest bits to preserve */
-        *to = (*to & mask) | (ba & ~mask);
+        *to = ba_merge(ba, *to); // = (*to & mask) | (ba & ~mask)
     }
 
     /* Phew! */
@@ -263,8 +264,7 @@ int ba_count_zeroes(ba_t *baP,  int off, int count)
 int ba_count_ones(ba_t *baP, int off, int count)
 {
     ba_t ba;
-    int i, n, nbits;
-    int *iP;
+    int n, nbits;
 
     if (count <= off)
         return 0;
@@ -280,18 +280,7 @@ int ba_count_ones(ba_t *baP, int off, int count)
      */
     while (off < n) {
         /* At top of loop ba contains the bits to count */
-#if BA_UNIT_SIZE == 32
-        // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
-        ba = ba - ((ba >> 1) & 0x55555555); // reuse input as temporary
-        ba = (ba & 0x33333333) + ((ba >> 2) & 0x33333333);     // temp
-        nbits += ((ba + (ba >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
-#else
-        /* TBD - Need to optimize these cases too */
-        for (; ba; ++nbits)
-        {
-            ba &= ba - 1; // clear the least significant bit set
-        }
-#endif
+        nbits += ba_count_unit_ones(ba);
         ba = *baP++;
         off += BA_UNIT_SIZE;
     }
@@ -301,19 +290,35 @@ int ba_count_ones(ba_t *baP, int off, int count)
      */
     if (off < count) {
         ba = ba & BITPOSMASKLT(count-off);
-#if BA_UNIT_SIZE == 32
-        // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
-        ba = ba - ((ba >> 1) & 0x55555555); // reuse input as temporary
-        ba = (ba & 0x33333333) + ((ba >> 2) & 0x33333333);     // temp
-        nbits += ((ba + (ba >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
-#else
-        /* TBD - Need to optimize these cases too */
-        for (; ba; ++nbits)
-        {
-            ba &= ba - 1; // clear the least significant bit set
-        }
-#endif
+        nbits += ba_count_unit_ones(ba);
     }
 
     return nbits;
+}
+
+void ba_reverse(ba_t *baP, int off, int len)
+{
+    ba_t front, end;
+    int end_off;
+
+    /* TBD - optimize by aligning front or back */
+    end_off = off + len - BA_UNIT_SIZE;
+    /* We will loop until there is overlap */
+    while (end_off >= (off + BA_UNIT_SIZE)) {
+        front = ba_reverse_unit(ba_get_unit(baP, off));
+        end = ba_reverse_unit(ba_get_unit(baP, end_off));
+        ba_put_unit(baP, off, end);
+        ba_put_unit(baP, end_off, front);
+        off += BA_UNIT_SIZE;
+        end_off -= BA_UNIT_SIZE;
+    }
+    /* Now we have to do the overlapping bits */
+    len = end_off + BA_UNIT_SIZE - off;
+    BA_ASSERT(len >= 0 && len < BA_UNIT_SIZE);
+    if (len) {
+        front = ba_get_unit(baP, off); /* Get the overlapping bits */
+        /* Reverse the bits and shift into position */
+        end = ba_reverse_unit(front) >> (BA_UNIT_SIZE-len);
+        ba_put_unit(baP, off, ba_merge_unit(front, end, BITPOSMASK(len)));
+    }
 }

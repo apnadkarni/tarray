@@ -3,6 +3,22 @@
 
 #include <limits.h>             /* CHAR_BIT etc. */
 
+#ifdef BA_ENABLE_ASSERTS
+# if !defined(BA_ASSERT)
+#  include <assert.h>
+#  define BA_ASSERT assert
+# endif
+#else
+# define BA_ASSERT(bool_) ((void) 0)
+#endif
+
+#ifdef _MSC_VER
+# define LIT64(x) (x)
+#else
+# define LIT64X(x, suff) (x ## suff)
+# define LIT64(x) LIT64X(x, LLU)
+#endif
+
 /*
  * # bits in a unit - must be 8, 32 or 64. Pointers passed to all routines
  * MUST be aligned appropriately.
@@ -65,6 +81,113 @@
 #  define BA_INLINE inline
 # endif
 #endif
+
+/* Some constants needed for bit operations */
+#if BA_UNIT_SIZE == 64
+# define BA_MASK_01 LIT64(0x0101010101010101)
+# define BA_MASK_33 LIT64(0x3333333333333333)
+# define BA_MASK_55 LIT64(0x5555555555555555)
+# define BA_MASK_0F LIT64(0x0F0F0F0F0F0F0F0F)
+# define BA_MASK_FF LIT64(0x00FF00FF00FF00FF)
+# define BA_MASK_FFFF LIT64(0x0000FFFF0000FFFF)
+#else
+# define BA_MASK_01 0x01010101
+# define BA_MASK_33 0x33333333
+# define BA_MASK_55 0x55555555
+# define BA_MASK_0F 0x0F0F0F0F
+# define BA_MASK_FF 0x00FF00FF
+# define BA_MASK_FFFF 0x0000FFFF
+#endif
+
+/* Count bits in unit */
+BA_INLINE int ba_count_unit_ones(ba_t ba)
+{
+#if BA_UNIT_SIZE == 32
+    // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
+    ba = ba - ((ba >> 1) & BA_MASK_55); // reuse input as temporary
+    ba = (ba & BA_MASK_33) + ((ba >> 2) & BA_MASK_33);     // temp
+    return ((ba + (ba >> 4) & BA_MASK_0F) * BA_MASK_01) >> 24; // count
+#else
+    int nbits;
+    /* TBD - Need to optimize these cases too */
+    for (nbits = 0; ba; ++nbits)
+        ba &= ba - 1; // clear the least significant bit set
+    return nbits;
+#endif
+    
+}
+
+
+/*
+ * Merges the bits from b specified by mask with the non-masked bits of a
+ * A faster version of (a & ~mask) | (b & mask)
+ */
+BA_INLINE ba_t ba_merge_unit(ba_t a, ba_t b, ba_t mask)
+{
+    return a ^ ((a ^ b) & mask);
+}
+
+/* Caller should take care of case where there are not BA_UNIT_SIZE bits
+   valid at offset off */
+BA_INLINE ba_t ba_get_unit(ba_t *baP, int off)
+{
+    ba_t mask;
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    if (off == 0)
+        return *baP;
+    else {
+        mask = BITPOSMASKGE(off);
+        return ba_merge_unit(baP[1], baP[0], mask);
+    }
+}
+
+/* Caller should take care of case where there are not BA_UNIT_SIZE bits
+   valid at offset off */
+BA_INLINE void ba_put_unit(ba_t *baP, int off, ba_t ba)
+{
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    if (off == 0)
+        *baP = ba;
+    else {
+        ba_t mask;
+        mask = BITPOSMASKGE(off);
+        baP[0] = ba_merge_unit(baP[0], ba << off, mask);
+        baP[1] = ba_merge_unit(ba >> (BA_UNIT_SIZE - off), baP[1], mask);
+    }
+}
+
+BA_INLINE ba_t ba_reverse_unit(ba_t ba)
+{
+    /* See http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel*/
+    /* TBD - time and pick the other alternatives there */
+
+#if BA_UNIT_SIZE == 8
+
+    return (ba_t) (((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16);
+
+#elif BA_UNIT_SIZE == 32
+
+    ba = ((ba >> 1) & BA_MASK_55) | ((ba & BA_MASK_55) << 1); /* odd<->even */
+    ba = ((ba >> 2) & BA_MASK_33) | ((ba & BA_MASK_33) << 2); /* swap pairs */
+    ba = ((ba >> 4) & BA_MASK_0F) | ((ba & BA_MASK_0F) << 4); /* swap nibbles */
+    ba = ((ba >> 8) & BA_MASK_FF) | ((ba & BA_MASK_FF) << 8); /* swap bytes */
+    /* swap 2-byte long pairs */
+    return ( ba >> 16 ) | ( ba << 16);
+
+#else
+
+    ba = ((ba >> 1) & BA_MASK_55) | ((ba & BA_MASK_55) << 1); /* odd<->even */
+    ba = ((ba >> 2) & BA_MASK_33) | ((ba & BA_MASK_33) << 2); /* swap pairs */
+    ba = ((ba >> 4) & BA_MASK_0F) | ((ba & BA_MASK_0F) << 4); /* swap nibbles */
+    ba = ((ba >> 8) & BA_MASK_FF) | ((ba & BA_MASK_FF) << 8); /* swap bytes */
+    ba = ((ba >> 16) & BA_MASK_FFFF) | ((ba & BA_MASK_FFFF) << 16); /* swap words */
+    return ( ba >> 32) | ( ba << 32); /* swap 32bits*/
+
+#endif
+}
+
 
 BA_INLINE int ba_get(ba_t *baP, int off)
 {
