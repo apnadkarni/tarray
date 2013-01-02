@@ -14,14 +14,18 @@ critcl::tcl 8.5
 critcl::debug symbols
 #critcl::cflags -std=gnu99 -Winline
 
+critcl::csources tarray.c bitarray.c tasort.c
+critcl::tsources tarray.tcl
 critcl::cheaders tarray.h
 
 critcl::ccode {
 #include "tarray.h"
 }
 
-critcl::csources tarray.c bitarray.c tasort.c
-critcl::tsources tarray.tcl
+critcl::cinit {
+    tclListTypePtr = Tcl_GetObjType("list");
+} {
+}
 
 critcl::argtype TArrayObjPtr {
     if (TArrayConvert(interp, @@) != TCL_OK)
@@ -70,6 +74,7 @@ critcl::ccommand tarray::column::delete {} {
     Tcl_Obj *taObj;
     TAHdr *thdrP;
     int low, count;
+    int status;
 
     if (objc != 3 && objc != 4) {
 	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY LOW ?HIGH?");
@@ -81,20 +86,41 @@ critcl::ccommand tarray::column::delete {} {
     else
         taObj = objv[1];
 
-    if (TArrayConvert(interp, taObj) != TCL_OK)
-        return TCL_ERROR;
+    status = TArrayConvert(interp, taObj);
+    if (status != TCL_OK)
+        return status;
 
-    if (TArrayMakeModifiable(interp, taObj, thdrP->used, thdrP->used) != TCL_OK)
-        return TCL_ERROR;
+    status = TArrayMakeModifiable(interp, taObj, thdrP->used, thdrP->used);
+    if (status != TCL_OK)
+        return status;
+
     thdrP = TARRAYHDR(taObj);
-    if (RationalizeRangeIndices(interp, thdrP, objv[2],
-                                objc == 4 ? objv[3] : objv[2],
-                                &low, &count) != TCL_OK)
-        return TCL_ERROR;
+    if (objc == 4) {
+        status = RationalizeRangeIndices(interp, thdrP, objv[2],
+                                         objv[3], &low, &count);
+        if (status == TCL_OK)
+            TAHdrDeleteRange(thdrP, low, count);
+    } else {
+        /* Not a range, either a list or single index */
+        TAHdr *indicesP;
+        /* Note status is TCL_OK at this point */
+        switch (TArrayConvertToIndices(interp, objv[2], &indicesP, &low)) {
+        case TA_INDEX_TYPE_ERROR:
+            status = TCL_ERROR;
+            break;
+        case TA_INDEX_TYPE_INT:
+            TAHdrDeleteRange(thdrP, low, 1);
+            break;
+        case TA_INDEX_TYPE_TAHDR:
+            TAHdrDeleteIndices(thdrP, indicesP);
+            TAHDR_DECRREF(indicesP);
+            break;
+        }
+    }
 
-    TAHdrDelete(thdrP, low, count);
-    Tcl_SetObjResult(interp, taObj);
-    return TCL_OK;
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, taObj);
+    return status;
 }
 
 critcl::cproc tarray::column::size {Tcl_Interp* interp TArrayObjPtr taobjP} int {
@@ -134,18 +160,22 @@ critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taObj Tcl_O
 
 critcl::cproc tarray::column::get {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* indicesP} ok {
     TAHdr *valuesP;
-    TAHdr *thdrP = TArrayConvertToIndices(interp, indicesP);
-    
-    if (thdrP == NULL)
+    int ix;
+    TAHdr *thdrP;
+
+    switch (TArrayConvertToIndices(interp, indicesP, &thdrP, &ix)) {
+    case TA_INDEX_TYPE_ERROR:
         return TCL_ERROR;
-
-    valuesP = TArrayGetValues(interp, TARRAYHDR(taObj), thdrP);
-    if (valuesP) {
-        Tcl_SetObjResult(interp, TArrayNewObj(valuesP));
+    case TA_INDEX_TYPE_TAHDR:
+        valuesP = TArrayGetValues(interp, TARRAYHDR(taObj), thdrP);
+        if (valuesP) {
+            Tcl_SetObjResult(interp, TArrayNewObj(valuesP));
+        }
+        TAHDR_DECRREF(thdrP);
+        return valuesP ? TCL_OK : TCL_ERROR;
+    case TA_INDEX_TYPE_INT:
+        return TCL_ERROR;       /* TBD */
     }
-
-    TAHDR_DECRREF(thdrP);
-    return valuesP ? TCL_OK : TCL_ERROR;
 }
 
 critcl::ccommand tarray::column::sort {} {
@@ -278,6 +308,7 @@ critcl::ccommand tarray::column::sort {} {
          * We want sorted contents, not indices. If object is not shared,
          * we can sort in place, else need to create a new object.
          */
+        /* Why not using TArrayMakeModifiable here ? */
         if (Tcl_IsShared(srcObj) || TAHDR_SHARED(srcP)) {
             /* Cannot modify in place. Need to dup it */
             sortedP = TAHdrClone(interp, srcP, 0);

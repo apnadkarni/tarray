@@ -138,7 +138,6 @@ as specified in [sectref "Standard Options"].
 [sectref Indices].
 It is an error if any index is invalid (e.g. negative or out of range).
 
-
 [call [cmd "column pick"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg INDICES]]
 Returns the values in a typed column at the
 positions specified by [arg INDICES] which must be a 
@@ -163,16 +162,25 @@ The command will generate an error if [arg TARRAYCOLUMN]
 is not a typed column,  or if a value cannot be converted to 
 the column's type or if an index is out of range.
 
-[call [cmd "column put"] [arg TARRAYCOLUMN] [arg VALUES] [arg FIRST]]
+[call [cmd "column put"] [arg TARRAYCOLUMN] [arg VALUES] [arg FIRST] [arg [opt LAST]]]
 Returns a typed column with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg VALUELIST].
 [arg VALUES] may be a list of values or a typed column. Any existing
 elements at those position are overwritten. The command may extend
 the array if necessary.
 [para]
+If [arg LAST] is not specified, it is calculated based on the number of 
+elements in [arg VALUES]. If it is specified, only elements at positions
+between [arg FIRST] and [arg LAST] are replaced. If there are not enough
+elements in [arg VALUES], they are repeated in circular fashion. If there
+are extra elements in [arg VALUES], they are ignored.
+[para]
 The command will generate an error if [arg TARRAYCOLUMN]
 is not a typed column,  or if a value cannot be converted to 
 the column's type or if the specified starting index is out of range.
+
+[call [cmd "column reverse"] [arg TARRAYCOLUMN]]
+Returns the typed column with order of elements reversed.
 
 [call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg TARRAYCOLUMN] [arg VALUE]]
 Searches the specified typed column for a matching value. By default,

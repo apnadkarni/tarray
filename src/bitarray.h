@@ -223,5 +223,6 @@ void ba_fill(ba_t *baP, int off, int count, int ival);
 int ba_find(ba_t *baP, int bval, int offset, int count);
 int ba_count_ones(ba_t *baP, int off, int count);
 int ba_count_zeroes(ba_t *baP, int off, int count);
+void ba_reverse(ba_t *baP, int off, int len);
 
 #endif
