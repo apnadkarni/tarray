@@ -42,6 +42,8 @@ const char *gTArrayTypeTokens[] = {
     NULL
 };    
 
+Tcl_ObjType *tclListTypePtr;
+
 /*
  * Options for 'tarray search'
  */
@@ -56,6 +58,8 @@ enum TArraySearchSwitches {
 #define TA_SEARCH_INVERT 2  /* Invert matching expression */
 #define TA_SEARCH_ALL    4  /* Return all matches */
 #define TA_SEARCH_NOCASE 8  /* Ignore case */
+
+/* TBD - in error and panic routines make sure strings are not too long */
 
 const char *TArrayTypeString(int tatype)
 {
@@ -183,6 +187,24 @@ TCL_RESULT TArrayNoMemError(Tcl_Interp *interp, int req_size)
     return TCL_ERROR;
 }
 
+TCL_RESULT TArrayBadIndicesError(Tcl_Interp *interp, Tcl_Obj *objP)
+{
+    if (interp) {
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf("Invalid index list '%s'. Must be an integer, or a list or typed array of type int.", Tcl_GetString(objP)));
+        Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "INDEXLIST", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT TArrayBadIndexError(Tcl_Interp *interp, Tcl_Obj *objP)
+{
+    if (interp) {
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf("Invalid index '%s'. Must be an integer or the keyword 'end'.", Tcl_GetString(objP)));
+        Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "INDEX", NULL);
+    }
+    return TCL_ERROR;
+}
+
 /*
  * Map numeric or string index to numeric integer index.
  */
@@ -194,12 +216,7 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
     if (Tcl_GetIntFromObj(NULL, objP, &val) != TCL_OK) {
         s = Tcl_GetString(objP);
         if (strcmp(s, "end")) {
-            if (interp != NULL) {
-                Tcl_SetObjResult(interp, Tcl_ObjPrintf(
-                                     "bad index '%s': must be 'end' or an integer value", s));
-                Tcl_SetErrorCode(interp, "TARRAY", "VALUE", "INDEX", NULL);
-            }
-            return TCL_ERROR;
+            return TArrayBadIndexError(interp, objP);
         }
         val = end_value;
     }
@@ -1478,7 +1495,7 @@ TAHdr * TAHdrAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
 }
 
 /* Deletes a range from a TAHdr. See asserts below for requirements */
-void TAHdrDelete(TAHdr *thdrP, int first, int count)
+void TAHdrDeleteRange(TAHdr *thdrP, int first, int count)
 {
     int nbytes;
     void *s, *d;
@@ -1495,7 +1512,9 @@ void TAHdrDelete(TAHdr *thdrP, int first, int count)
     if (count <= 0)
         return;          /* Nothing to be deleted */
 
-    TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
+#ifdef NOTNEEDED    /* Deletion does not change sort state! */
+    TAHdrSortMarkUnsorted(thdrP);
+#endif
 
     /*
      * For all types other than BOOLEAN and OBJ, we can just memmove
@@ -1555,6 +1574,100 @@ void TAHdrDelete(TAHdr *thdrP, int first, int count)
     thdrP->used -= count;
 }
 
+void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
+{
+    int i;
+    int *indexP;
+    TAHdr *sortedP;
+
+    TA_ASSERT(thdrP->type = TA_INT);
+
+    /*
+     * We have to be careful to delete from back to front so as to not
+     * invalidate index positions when earlier ones are deleted
+     */
+    if (TAHdrSorted(indicesP))
+        sortedP = indicesP;
+    else {
+        sortedP = TAHdrClone(NULL, indicesP, indicesP->used);
+        qsort(TAHDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), intcmp);
+        TAHdrSortMarkAscending(sortedP);
+    }
+    
+    /*
+     * TBD - this will be desperately slow. Fix
+     */
+    
+    /* We always want to delete back to front. However the index array
+     * may be presorted in any direction. So check and loop accordingly
+     */
+    i = sortedP->used;
+    if (TAHdrSortOrder(sortedP) > 0) {
+        /* Sort order is ascending so iterate index array back to front */
+        indexP = TAHDRELEMPTR(sortedP, int, sortedP->used-1 );
+        while (i--) {
+            if (*indexP > 0 && *indexP < thdrP->used)
+                TAHdrDeleteRange(thdrP, *indexP, 1);
+            --indexP;
+        }
+    } else {
+        /* Sort order is descending so iterate index array front to back */
+        indexP = TAHDRELEMPTR(sortedP, int, 0);
+        while (i--) {
+            if (*indexP > 0 && *indexP < thdrP->used)
+                TAHdrDeleteRange(thdrP, *indexP, 1);
+            ++indexP;
+        }
+    }
+
+    if (sortedP != indicesP)
+        TAHDR_DECRREF(sortedP);
+}
+
+void TAHdrReverse(TAHdr *thdrP)
+{
+    int existing_sort_order;
+    if (thdrP->used == 0)
+        return;
+
+    existing_sort_order = TAHdrSorted(thdrP);
+    
+#define SWAPALL(thdrP_, type_)                                          \
+    do {                                                                \
+        type_ *front;                                                   \
+        type_ *back;                                                    \
+        front = TAHDRELEMPTR((thdrP_), type_, 0);                       \
+        back  = TAHDRELEMPTR((thdrP_), type_, (thdrP_)->used-1);        \
+        while (front < back) {                                          \
+            type_ temp;                                                 \
+            temp = *front;                                              \
+            *front++ = *back;                                           \
+            *back++ = temp;                                             \
+        }                                                               \
+    } while (0)
+
+    switch (thdrP->type) {
+    case TA_BOOLEAN:
+        ba_reverse(TAHDRELEMPTR(thdrP, ba_t, 0), 0, thdrP->used);
+        break;
+    case TA_OBJ:    SWAPALL(thdrP, Tcl_Obj*); break;
+    case TA_UINT:   /* Fall thru */
+    case TA_INT:    SWAPALL(thdrP, int); break;
+    case TA_WIDE:   SWAPALL(thdrP, Tcl_WideInt); break;
+    case TA_DOUBLE: SWAPALL(thdrP, double); break;
+    case TA_BYTE:   SWAPALL(thdrP, unsigned char); break;
+    default:
+        TArrayTypePanic(thdrP->type);
+    }
+
+    if (existing_sort_order) {
+        if (existing_sort_order < 0)
+            TAHdrSortMarkAscending(thdrP);
+        else
+            TAHdrSortMarkDescending(thdrP);
+    }
+}
+
 /* Copies partial content from one TAHdr to another. See asserts below
    for requirements */
 void TAHdrCopy(TAHdr *dstP, int dst_first,
@@ -1567,6 +1680,7 @@ void TAHdrCopy(TAHdr *dstP, int dst_first,
     TA_ASSERT(dstP->type == srcP->type);
     TA_ASSERT(! TAHDR_SHARED(dstP));
     TA_ASSERT(src_first >= 0);
+
     if (src_first >= srcP->used)
         return;          /* Nothing to be copied */
     if ((src_first + count) > srcP->used)
@@ -1649,6 +1763,90 @@ void TAHdrCopy(TAHdr *dstP, int dst_first,
     return;
 }
 
+/* Copies partial content from one TAHdr to another in reverse.
+   See asserts below for requirements */
+void TAHdrCopyReversed(TAHdr *dstP, int dst_first,
+                       TAHdr *srcP, int src_first, int count)
+{
+    TA_ASSERT(dstP != srcP);
+    TA_ASSERT(dstP->type == srcP->type);
+    TA_ASSERT(! TAHDR_SHARED(dstP));
+    TA_ASSERT(src_first >= 0);
+
+    if (src_first >= srcP->used)
+        return;          /* Nothing to be copied */
+    if ((src_first + count) > srcP->used)
+        count = srcP->used - src_first;
+    if (count <= 0)
+        return;
+    TA_ASSERT((dst_first + count) <= dstP->allocated);
+
+    if (dst_first < 0)
+        dst_first = 0;
+    else if (dst_first > dstP->used)
+        dst_first = dstP->used;
+
+    TAHdrSortMarkUnsorted(dstP); /* TBD - optimize for sorted arrays */
+
+#define COPYREVERSE(type_, dstP_, doff_, srcP_, soff_, count_)          \
+    do {                                                                \
+        type_ *src;                                                     \
+        type_ *dst;                                                     \
+        int    i = (count_);                                            \
+        src = TAHDRELEMPTR((srcP_), type_ , (soff_));                  \
+        dst  = TAHDRELEMPTR((dstP_), type_ , 0);                       \
+        dst += (doff_ ) + i - 1;                                        \
+        while (i--) {                                                   \
+            /* Remember caller ensured no overlap between src & dst */  \
+            *dst-- = *src++;                                            \
+        }                                                               \
+    } while (0)
+
+    switch (srcP->type) {
+    case TA_BOOLEAN:
+        ba_copy(TAHDRELEMPTR(dstP, ba_t, 0), dst_first,
+                TAHDRELEMPTR(srcP, ba_t, 0), src_first, count);
+        ba_reverse(TAHDRELEMPTR(dstP, ba_t, 0), dst_first, count);
+        break;
+    case TA_OBJ:
+        /*
+         * We have to deal with reference counts here. For the objects
+         * we are copying (source) we need to increment the reference counts.
+         * For objects in destination that we are overwriting, we need
+         * to decrement reference counts.
+         */
+
+        TArrayIncrObjRefs(srcP, src_first, count); /* Do this first */
+        /* Note this call take care of the case where count exceeds
+         * actual number in dstP
+         */
+        TArrayDecrObjRefs(dstP, dst_first, count);
+        COPYREVERSE(Tcl_Obj*, dstP, dst_first, srcP, src_first, count);
+        break;
+
+    case TA_UINT:
+    case TA_INT:
+        COPYREVERSE(int, dstP, dst_first, srcP, src_first, count);
+        break;
+    case TA_WIDE:
+        COPYREVERSE(Tcl_WideInt, dstP, dst_first, srcP, src_first, count);
+        break;
+    case TA_DOUBLE:
+        COPYREVERSE(double, dstP, dst_first, srcP, src_first, count);
+        break;
+    case TA_BYTE:
+        COPYREVERSE(unsigned char, dstP, dst_first, srcP, src_first, count);
+        break;
+    default:
+        TArrayTypePanic(srcP->type);
+    }
+
+    if ((dst_first + count) > dstP->used)
+        dstP->used = dst_first + count;
+
+    return;
+}
+
 /* Note: nrefs of cloned array is 0 */
 TAHdr *TAHdrClone(Tcl_Interp *interp, TAHdr *srcP, int minsize)
 {
@@ -1664,6 +1862,34 @@ TAHdr *TAHdrClone(Tcl_Interp *interp, TAHdr *srcP, int minsize)
     if (thdrP) {
         TAHdrCopy(thdrP, 0, srcP, 0, srcP->used);
         TAHdrSortMarkCopy(thdrP, srcP);
+    }
+    return thdrP;
+}
+
+/* Note: nrefs of cloned array is 0 */
+TAHdr *TAHdrCloneReversed(Tcl_Interp *interp, TAHdr *srcP, int minsize)
+{
+    TAHdr *thdrP;
+    int existing_sort_order;
+
+    existing_sort_order = TAHdrSorted(srcP);
+
+    if (minsize == 0)
+        minsize = srcP->allocated;
+    else if (minsize < srcP->used)
+        minsize = srcP->used;
+
+    /* TBD - optimize these two calls */
+    thdrP = TAHdrAlloc(interp, srcP->type, minsize);
+    if (thdrP) {
+        TAHdrCopyReversed(thdrP, 0, srcP, 0, srcP->used);
+        if (existing_sort_order) {
+            /* Sort order is not reversed */
+            if (existing_sort_order < 0)
+                TAHdrSortMarkAscending(thdrP);
+            else
+                TAHdrSortMarkDescending(thdrP);
+        }
     }
     return thdrP;
 }
@@ -1754,32 +1980,65 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
     }
 }
 
-/* Returns a TAHdr of type int. The header's ref count is incremented
- * so caller should call TAHDR_DECRREF as appropriate
+/*
+ * Converts the passed Tcl_Obj objP to integer indexes. If a single index
+ * stores it in *indexP and returns TA_INDEX_TYPE_INT. If multiple indices,
+ * stores a TAHdr of type int containing the indices into *thdrPP and
+ * returns TA_INDEX_TYPE_TAHDR. The TAHdr's ref count is incremented
+ * so caller should call TAHDR_DECRREF as appropriate.
  */
-TAHdr *TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP)
+int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP, TAHdr **thdrPP, int *indexP)
 {
     TAHdr *thdrP;
     Tcl_Obj **elems;
-    int       nelems;
+    int       n;
+    TCL_RESULT status;
 
-    /* Indices should be a tarray of ints. If not, treat as a list
-     * and convert it that way. Though that is slower, it should be rare
-     * as all tarray indices are returned already in the proper format.
+    /*
+     * For efficiencies sake, we need to avoid shimmering. So we first
+     * check for specific types and default to a list otherwise.
      */
-    if (objP->typePtr == &gTArrayType && TARRAYTYPE(objP) == TA_INT) {
-        thdrP = TARRAYHDR(objP);
-        thdrP->nrefs++;
-        return thdrP;
+    if (objP->typePtr == &gTArrayType) {
+        if (TARRAYTYPE(objP) == TA_INT) {
+            /*
+             * Indices should be a tarray of ints. Other tarrays will be
+             * treated as lists. Though that is slower, it should be rare
+             * as all tarray indices are returned already in the proper format
+             * by command such as search.
+             */
+            thdrP = TARRAYHDR(objP);
+            thdrP->nrefs++;
+            *thdrPP = thdrP;
+            return TA_INDEX_TYPE_TAHDR;
+        } else {
+            /* TBD - write conversion from other type tarrays */
+            TArrayBadIndicesError(interp, objP);
+            return TA_INDEX_TYPE_ERROR;
+        }
     }
 
-    if (Tcl_ListObjGetElements(interp, objP, &nelems, &elems) != TCL_OK)
-        return NULL;
+    /* To prevent shimmering, first check known to be a list */
+    if (objP->typePtr != tclListTypePtr) {
+        status = Tcl_GetIntFromObj(NULL, objP, &n);
+        if (status == TCL_OK) {
+            *indexP = n;
+            return TA_INDEX_TYPE_INT;
+        }
+        /* else fall through to try as list */
+    }
 
-    thdrP = TAHdrAllocAndInit(interp, TA_INT, nelems, elems, 0);
-    if (thdrP)
+    if (Tcl_ListObjGetElements(NULL, objP, &n, &elems) != TCL_OK) {
+        TArrayBadIndicesError(interp, objP);
+        return TA_INDEX_TYPE_ERROR;
+    }
+
+    thdrP = TAHdrAllocAndInit(interp, TA_INT, n, elems, 0);
+    if (thdrP) {
         thdrP->nrefs++;
-    return thdrP;
+        *thdrPP = thdrP;
+        return TA_INDEX_TYPE_TAHDR;
+    } else
+        return TA_INDEX_TYPE_ERROR;
 }
 
 /* Returns a newly allocated TAHdr (with ref count 0) containing the

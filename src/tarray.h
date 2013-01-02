@@ -63,6 +63,9 @@ typedef Tcl_Obj *TArrayObjPtr;
 
 extern const char *gTArrayTypeTokens[];
 
+/* Pointers to Tcl's built-in type descriptors */
+extern Tcl_ObjType *tclListTypePtr;
+
 /* How many slots to allocate by default */
 #define TA_DEFAULT_NSLOTS 1000
 
@@ -169,6 +172,8 @@ TCL_RESULT TArrayGridLengthError(Tcl_Interp *);
 TCL_RESULT TArrayRowWidthError(Tcl_Interp *, int rowwidth, int gridwidth);
 TCL_RESULT TArrayBadTypeError(Tcl_Interp *interp, TAHdr *thdrP);
 TCL_RESULT TArrayNoMemError(Tcl_Interp *, int size);
+TCL_RESULT TArrayBadIndicesError(Tcl_Interp *interp, Tcl_Obj *objP);
+TCL_RESULT TArrayBadIndexError(Tcl_Interp *interp, Tcl_Obj *objP);
 
 void TArrayIncrObjRefs(TAHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TAHdr *thdrP,int first,int count);
@@ -199,11 +204,20 @@ int TArrayCalcSize(unsigned char tatype,int count);
 TAHdr *TArrayRealloc(Tcl_Interp *, TAHdr *oldP,int new_count);
 TAHdr *TAHdrAlloc(Tcl_Interp *, unsigned char tatype, int count);
 TAHdr *TAHdrAllocAndInit(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+void TAHdrReverse(TAHdr *tdrhP);
+void TAHdrCopyReversed(TAHdr *dstP,int dst_first,TAHdr *srcP,int src_first,int count);
 void TAHdrCopy(TAHdr *dstP,int dst_first,TAHdr *srcP,int src_first,int count);
-void TAHdrDelete(TAHdr *thdrP, int first, int count);
+void TAHdrDeleteRange(TAHdr *thdrP, int first, int count);
+void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP);
 TAHdr *TAHdrClone(Tcl_Interp *, TAHdr *srcP, int init_size);
+TAHdr *TAHdrCloneReversed(Tcl_Interp *, TAHdr *srcP, int init_size);
 struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *,TAHdr *thdrP, Tcl_Obj *index);
-TAHdr *TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP);
+int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
+                           TAHdr **thdrPP, int *indexP);
+#define TA_INDEX_TYPE_ERROR 0
+#define TA_INDEX_TYPE_INT   1
+#define TA_INDEX_TYPE_TAHDR 2
+
 TAHdr *TArrayGetValues(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP);
 int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);

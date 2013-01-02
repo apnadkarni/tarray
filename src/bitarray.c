@@ -129,7 +129,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
             }
             /* ba contains required bits in low order. Store them in dest */
             ba <<= to_internal_off;
-            *to = ba_merge(ba, *to); // = (*to & mask) | (ba & ~mask)
+            *to = ba_merge_unit(ba, *to, mask); // = (*to & mask) | (ba & ~mask)
             ++to;
         }
 
@@ -167,11 +167,19 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
             ba |= *from << (BA_UNIT_SIZE - from_internal_off);
         }
         mask = BITPOSMASKGE(len);  /* Dest bits to preserve */
-        *to = ba_merge(ba, *to); // = (*to & mask) | (ba & ~mask)
+        *to = ba_merge_unit(ba, *to, mask); // = (*to & mask) | (ba & ~mask)
     }
 
     /* Phew! */
 }
+
+void ba_copy_reverse(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
+{
+    /* TBD - make more efficient but tricky when overlapping */
+    ba_copy(dst, dst_off, src, src_off, len);
+    ba_reverse(dst, dst_off, len);
+}
+
 
 void ba_fill(ba_t *baP, int off, int count, int ival)
 {
