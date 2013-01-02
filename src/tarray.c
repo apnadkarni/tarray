@@ -214,7 +214,7 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
    high is 0-INT_MAX
    if (high < low) count is returned as 0 (not an error)
 */
-TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
+TCL_RESULT RationalizeRangeIndices(Tcl_Interp *interp, const TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
 {
     int low, high;
 
@@ -260,7 +260,7 @@ TCL_RESULT TArrayConvert(Tcl_Interp *interp, Tcl_Obj *objP)
             != TCL_OK)
             return TCL_ERROR;
 
-        thdrP = TArrayAllocAndInit(interp, tatype, nvalues, valueObjs, 0);
+        thdrP = TAHdrAllocAndInit(interp, tatype, nvalues, valueObjs, 0);
         if (thdrP == NULL)
             return TCL_ERROR;
 
@@ -340,6 +340,7 @@ void TAHdrFill(Tcl_Interp *interp, TAHdr *thdrP,
     TA_ASSERT(pos <= thdrP->used);
     TA_ASSERT(thdrP->type == tavP->type);
 
+    TAHdrSortMarkUnsorted(thdrP);
     switch (thdrP->type) {
     case TA_BOOLEAN:
         ba_fill(TAHDRELEMPTR(thdrP, ba_t, 0), pos, count, tavP->bval);
@@ -494,16 +495,16 @@ static void UpdateStringForObjType(Tcl_Obj *objP)
     /* Copied almost verbatim from the Tcl's UpdateStringOfList */
     Tcl_Obj **objv;
     int objc;
-    TAHdr *tahP;
+    TAHdr *thdrP;
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr = NULL;
     int i, length, bytesNeeded = 0;
     const char *elem;
     char *dst;
 
-    tahP = TARRAYHDR(objP);
-    objv = TAHDRELEMPTR(tahP, Tcl_Obj *, 0);
-    objc = tahP->used;
+    thdrP = TARRAYHDR(objP);
+    objv = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+    objc = thdrP->used;
 
     /*
      * Pass 1: estimate space, gather flags.
@@ -798,6 +799,8 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
 
     TA_ASSERT(thdrP->nrefs < 2);
     TA_ASSERT((first + nelems) <= thdrP->allocated);
+
+    TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
 
     /*
      * In case of conversion errors, we have to keep the old values
@@ -1198,6 +1201,8 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
             thdrP = thdrs[t];
             if (thdrP->type == TA_OBJ)
                 continue;
+
+            TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
             switch (thdrs[t]->type) {
             case TA_BOOLEAN:
                 {
@@ -1326,6 +1331,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
         thdrP = thdrs[t];
         if (thdrP->type != TA_OBJ)
             continue;
+        TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
         objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
         for (r = 0; r < nrows ; ++r, ++objPP) {
             Tcl_ListObjIndex(interp, rows[r], t, &valObj);
@@ -1403,7 +1409,7 @@ TAHdr *TArrayRealloc(Tcl_Interp *interp, TAHdr *oldP, int new_count)
     return thdrP;
 }
 
-TAHdr * TArrayAlloc(Tcl_Interp *interp, unsigned char tatype, int count)
+TAHdr * TAHdrAlloc(Tcl_Interp *interp, unsigned char tatype, int count)
 {
     unsigned char nbits;
     TAHdr *thdrP;
@@ -1432,11 +1438,12 @@ TAHdr * TArrayAlloc(Tcl_Interp *interp, unsigned char tatype, int count)
         TArrayTypePanic(tatype);
     }
     thdrP->elem_bits = nbits;
-    
+    thdrP->flags = 0;
+
     return thdrP;
 }
 
-TAHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
+TAHdr * TAHdrAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
                            int nelems, Tcl_Obj * const elems[],
                            int init_size)
 {
@@ -1457,7 +1464,7 @@ TAHdr * TArrayAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
         nelems = 0;
     }
 
-    thdrP = TArrayAlloc(interp, tatype, init_size);
+    thdrP = TAHdrAlloc(interp, tatype, init_size);
     if (thdrP) {
         if (elems != NULL && nelems != 0) {
             if (TAHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
@@ -1487,6 +1494,8 @@ void TAHdrDelete(TAHdr *thdrP, int first, int count)
 
     if (count <= 0)
         return;          /* Nothing to be deleted */
+
+    TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
 
     /*
      * For all types other than BOOLEAN and OBJ, we can just memmove
@@ -1546,7 +1555,6 @@ void TAHdrDelete(TAHdr *thdrP, int first, int count)
     thdrP->used -= count;
 }
 
-
 /* Copies partial content from one TAHdr to another. See asserts below
    for requirements */
 void TAHdrCopy(TAHdr *dstP, int dst_first,
@@ -1571,6 +1579,8 @@ void TAHdrCopy(TAHdr *dstP, int dst_first,
         dst_first = 0;
     else if (dst_first > dstP->used)
         dst_first = dstP->used;
+
+    TAHdrSortMarkUnsorted(dstP); /* TBD - optimize */
 
     /*
      * For all types other than BOOLEAN and OBJ, we can just memcpy
@@ -1650,9 +1660,11 @@ TAHdr *TAHdrClone(Tcl_Interp *interp, TAHdr *srcP, int minsize)
         minsize = srcP->used;
 
     /* TBD - optimize these two calls */
-    thdrP = TArrayAlloc(interp, srcP->type, minsize);
-    if (thdrP)
+    thdrP = TAHdrAlloc(interp, srcP->type, minsize);
+    if (thdrP) {
         TAHdrCopy(thdrP, 0, srcP, 0, srcP->used);
+        TAHdrSortMarkCopy(thdrP, srcP);
+    }
     return thdrP;
 }
 
@@ -1764,7 +1776,7 @@ TAHdr *TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP)
     if (Tcl_ListObjGetElements(interp, objP, &nelems, &elems) != TCL_OK)
         return NULL;
 
-    thdrP = TArrayAllocAndInit(interp, TA_INT, nelems, elems, 0);
+    thdrP = TAHdrAllocAndInit(interp, TA_INT, nelems, elems, 0);
     if (thdrP)
         thdrP->nrefs++;
     return thdrP;
@@ -1785,7 +1797,7 @@ TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
     }
 
     count = indicesP->used;
-    thdrP = TArrayAlloc(interp, srcP->type, count);
+    thdrP = TAHdrAlloc(interp, srcP->type, count);
     if (thdrP == 0 || count == 0)
         return thdrP;
 
@@ -1872,7 +1884,7 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP;
         TAHdr *newP;
-        thdrP = TArrayAlloc(interp, 
+        thdrP = TAHdrAlloc(interp, 
                             flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdrP == NULL)
@@ -1895,7 +1907,8 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
             thdrP->used++;
             ++pos;
         }
-
+        if ((flags & TA_SEARCH_INLINE) == 0)
+            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
         resultObj = TArrayNewObj(thdrP);
     } else {
         /* Return first found element */
@@ -1975,7 +1988,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP, *newP;
 
-        thdrP = TArrayAlloc(interp,
+        thdrP = TAHdrAlloc(interp,
                             flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
                             10);                /* Assume 10 hits TBD */
         if (thdrP == NULL)
@@ -2020,6 +2033,8 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
             }
         }
 
+        if ((flags & TA_SEARCH_INLINE) == 0)
+            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
         resultObj = TArrayNewObj(thdrP);
 
     } else {
@@ -2087,7 +2102,7 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP, *newP;
 
-        thdrP = TArrayAlloc(interp,
+        thdrP = TAHdrAlloc(interp,
                             flags & TA_SEARCH_INLINE ? TA_DOUBLE : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdrP == NULL)
@@ -2120,6 +2135,8 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
             }
         }
 
+        if ((flags & TA_SEARCH_INLINE) == 0)
+            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
         resultObj = TArrayNewObj(thdrP);
 
     } else {
@@ -2197,7 +2214,7 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP, *newP;
 
-        thdrP = TArrayAlloc(interp,
+        thdrP = TAHdrAlloc(interp,
                             flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdrP == NULL)
@@ -2246,6 +2263,8 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
             }
         }
 
+        if ((flags & TA_SEARCH_INLINE) == 0)
+            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
         resultObj = TArrayNewObj(thdrP);
 
     } else {
@@ -2584,6 +2603,9 @@ TCL_RESULT TGridFillFromObjs(
                                        gridHdrP->allocated)) != TCL_OK)
         goto vamoose;
     gridHdrP = TARRAYHDR(gridObj); /* Might have changed */
+
+    /* Grids don't care about sort bits, but nevertheless.. */
+    TAHdrSortMarkUnsorted(gridHdrP);
 
     /*
      * Now verify tarrays and values. The latter should be of the
