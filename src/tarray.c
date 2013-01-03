@@ -223,8 +223,10 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
     
     if (val < low || val > high)
         return TArrayIndexRangeError(interp, objP);
-    else
+    else {
+        *indexP = val;
         return TCL_OK;
+    }
 }
 
 /* low has to be between 0 and one beyond last element.
@@ -1497,7 +1499,7 @@ TAHdr * TAHdrAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
 /* Deletes a range from a TAHdr. See asserts below for requirements */
 void TAHdrDeleteRange(TAHdr *thdrP, int first, int count)
 {
-    int nbytes;
+    int n;
     void *s, *d;
 
     TA_ASSERT(! TAHDR_SHARED(thdrP));
@@ -1539,37 +1541,42 @@ void TAHdrDeleteRange(TAHdr *thdrP, int first, int count)
         TArrayDecrObjRefs(thdrP, first, count);
          
         /* Now we can just memcpy like the other types */
-        nbytes = count * sizeof(Tcl_Obj *);
-        s = TAHDRELEMPTR(thdrP, Tcl_Obj *, first+count);
+        n = count + first;         /* Point beyond deleted elements */
+        s = TAHDRELEMPTR(thdrP, Tcl_Obj *, n);
         d = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        n = (thdrP->used - n) * sizeof(Tcl_Obj *); /* #bytes to move */
         break;
 
     case TA_UINT:
     case TA_INT:
-        nbytes = count * sizeof(int);
-        s = TAHDRELEMPTR(thdrP, int, first+count);
+        n = count + first;         /* Point beyond deleted elements */
+        s = TAHDRELEMPTR(thdrP, int, n);
         d = TAHDRELEMPTR(thdrP, int, first);
+        n = (thdrP->used - n) * sizeof(int); /* #bytes to move */
         break;
     case TA_WIDE:
-        nbytes = count * sizeof(Tcl_WideInt);
-        s = TAHDRELEMPTR(thdrP, Tcl_WideInt, first+count);
+        n = count + first;         /* Point beyond deleted elements */
+        s = TAHDRELEMPTR(thdrP, Tcl_WideInt, n);
         d = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+        n = (thdrP->used - n) * sizeof(Tcl_WideInt); /* #bytes to move */
         break;
     case TA_DOUBLE:
-        nbytes = count * sizeof(double);
-        s = TAHDRELEMPTR(thdrP, double, first+count);
+        n = count + first;         /* Point beyond deleted elements */
+        s = TAHDRELEMPTR(thdrP, double, n);
         d = TAHDRELEMPTR(thdrP, double, first);
+        n = (thdrP->used - n) * sizeof(double); /* #bytes to move */
         break;
     case TA_BYTE:
-        nbytes = count * sizeof(unsigned char);
-        s = TAHDRELEMPTR(thdrP, unsigned char, first+count);
+        n = count + first;         /* Point beyond deleted elements */
+        s = TAHDRELEMPTR(thdrP, unsigned char, n);
         d = TAHDRELEMPTR(thdrP, unsigned char, first);
+        n = (thdrP->used - n) * sizeof(unsigned char); /* #bytes to move */
         break;
     default:
         TArrayTypePanic(thdrP->type);
     }
 
-    memmove(d, s, nbytes);      /* NOT memcpy since overlapping copy */
+    memmove(d, s, n);      /* NOT memcpy since overlapping copy */
 
     thdrP->used -= count;
 }
@@ -1606,7 +1613,7 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
         /* Sort order is ascending so iterate index array back to front */
         indexP = TAHDRELEMPTR(sortedP, int, sortedP->used-1 );
         while (i--) {
-            if (*indexP > 0 && *indexP < thdrP->used)
+            if (*indexP >= 0 && *indexP < thdrP->used)
                 TAHdrDeleteRange(thdrP, *indexP, 1);
             --indexP;
         }
@@ -1614,7 +1621,7 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
         /* Sort order is descending so iterate index array front to back */
         indexP = TAHDRELEMPTR(sortedP, int, 0);
         while (i--) {
-            if (*indexP > 0 && *indexP < thdrP->used)
+            if (*indexP >= 0 && *indexP < thdrP->used)
                 TAHdrDeleteRange(thdrP, *indexP, 1);
             ++indexP;
         }

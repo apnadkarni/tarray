@@ -90,11 +90,12 @@ critcl::ccommand tarray::column::delete {} {
     if (status != TCL_OK)
         return status;
 
+    thdrP = TARRAYHDR(taObj);
     status = TArrayMakeModifiable(interp, taObj, thdrP->used, thdrP->used);
+    thdrP = TARRAYHDR(taObj);   /* May have changed! */
     if (status != TCL_OK)
         return status;
 
-    thdrP = TARRAYHDR(taObj);
     if (objc == 4) {
         status = RationalizeRangeIndices(interp, thdrP, objv[2],
                                          objv[3], &low, &count);
