@@ -7,7 +7,6 @@
 [require tarray ?0.1?]
 [description]
 
-
 [section Introduction]
 
 The TArray extension implements typed arrays and associated commands
@@ -72,12 +71,17 @@ or the keyword [const end] which specifies the last element in the
 typed array. Unlike the built-in Tcl commands, index arithmetic of
 the form [const end-2] is not supported.
 [para]
-Many commands allow multiple indices to be specified. These may take one
-of two forms. Some commands, like [cmd get], allow specification of a
-[emph range] which includes all indices between a lower and an upper 
-bound (inclusive). Other commands like [cmd pick] allow specification of
-an [emph "index list"] which make be a list of integers, or a typed 
-[const int] column.
+Many commands also allow multiple indices to be specified. These may take one
+of two forms - 
+a [emph range] which includes all indices between a lower and an upper 
+bound (inclusive), and
+an [emph "index list"] which make be a list of integers, or a
+[const int] [sectref Columns "typed column"]. This latter allows the
+indices returned by commands such as [cmd "column search"] to be 
+efficiently passed to other commands.
+[para]
+Note that keyword [const end] can be used to specify a single index or
+as a range bound, but cannot be used in an index list.
 
 [section "Standard Options"]
 Many commands take standard options which are described here.
@@ -109,21 +113,25 @@ the [arg INITSIZE] argument may be specified to indicate how many slots to
 preallocate for the array. This is only treated as a hint and actual
 size allocated may differ.
 
-[call [cmd "column delete"] [arg TARRAYCOLUMN] [arg LOW] [arg [opt HIGH]]]
-Returns a typed column with all elements between indices [arg LOW]
-and [arg HIGH] deleted. [arg HIGH] defaults to [arg LOW] if unspecified.
+[call [cmd "column delete"] [arg TARRAYCOLUMN] [arg INDEX]]
+[call [cmd "column delete"] [arg TARRAYCOLUMN] [arg INDEXLIST]]
+[call [cmd "column delete"] [arg TARRAYCOLUMN] [arg LOW] [arg HIGH]]
+Returns a typed column with all specified elements deleted. 
+Indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "column fill"] [arg TARRAYCOLUMN] [arg VALUE] [arg LOW] [arg [opt HIGH]]]
-Returns a typed column with 
-all elements between indices [arg LOW] and [arg HIGH] set to [arg VALUE].
-If unspecified, [arg HIGH] defaults to [arg LOW].
-The indices may be specified as an integer or
-the keyword [const end] signifying the last
-element of the typed array. If [arg HIGH] is greater than the current size
-of the typed array, it is extended and new elements are filled with
-[arg VALUE]. The command will generate an error if [arg TARRAYCOLUMN]
-is not a typed column,  or if [arg VALUE] cannot be converted to 
-the column's type or if the specified indices are out of range.
+[call [cmd "column fill"] [arg TARRAYCOLUMN] [arg VALUE] [arg INDEX]]
+[call [cmd "column fill"] [arg TARRAYCOLUMN] [arg VALUE] [arg INDEXLIST]]
+[call [cmd "column fill"] [arg TARRAYCOLUMN] [arg VALUE] [arg LOW] [arg HIGH]]
+Returns a typed column with specified indices set to [arg VALUE].
+Indices are specified in any of the forms described in [sectref Indices].
+The size of the array will be extended if necessary. However, when
+indices are specified as an [sectref Indices "index list"] cause
+the array to be extended, the index list must include all indices
+beyond the current array size without any gaps. For example, if
+an array contains a thousand elements (the highest index thereby being 999),
+the index list [const "1001 1000 1002"] is legal but [const "1001 1002"]
+is not.
+
 
 [call [cmd "column get"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg LOW] [arg [opt HIGH]]]
 Returns the value or values at a specific index or index range 
@@ -230,6 +238,7 @@ themselves.
 Returns the [sectref "Column Types" type] of the typed column.
 
 [list_end]
+
 
 [keywords column grid]
 
