@@ -133,11 +133,11 @@ TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op)
     return TCL_ERROR;
 }
 
-TCL_RESULT TArrayIndexRangeError(Tcl_Interp *interp, Tcl_Obj *indexObj)
+TCL_RESULT TArrayIndexRangeError(Tcl_Interp *interp, int index)
 {
     if (interp) {
         Tcl_SetObjResult(interp,
-                         Tcl_ObjPrintf("tarray index %s out of bounds", Tcl_GetString(indexObj)));
+                         Tcl_ObjPrintf("tarray index %d out of bounds", index));
         Tcl_SetErrorCode(interp, "TARRAY", "INDEX", "RANGE", NULL);
     }
     return TCL_ERROR;
@@ -213,6 +213,15 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
     char *s;
     int val;
 
+    /* Do type checks to avoid expensive shimmering in case of errors */
+    if (objP->typePtr == &gTArrayType)
+        return TArrayBadIndexError(interp, objP);
+
+    if (objP->typePtr == tclListTypePtr) {
+        if (Tcl_ListObjLength(NULL, objP, &val) != TCL_OK || val != 1)
+            return TArrayBadIndexError(interp, objP);
+    }
+
     if (Tcl_GetIntFromObj(NULL, objP, &val) != TCL_OK) {
         s = Tcl_GetString(objP);
         if (strcmp(s, "end")) {
@@ -222,7 +231,7 @@ TCL_RESULT IndexToInt(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int end_va
     }
     
     if (val < low || val > high)
-        return TArrayIndexRangeError(interp, objP);
+        return TArrayIndexRangeError(interp, val);
     else {
         *indexP = val;
         return TCL_OK;
@@ -349,7 +358,7 @@ TCL_RESULT TArrayValueFromObj(Tcl_Interp *interp, Tcl_Obj *objP,
  * Set the value of an element range at a position in a TAHdr.
  * See the asserts below for conditions under which this can be called
  */
-void TAHdrFill(Tcl_Interp *interp, TAHdr *thdrP,
+void TAHdrFillRange(Tcl_Interp *interp, TAHdr *thdrP,
                    const TArrayValue *tavP, int pos, int count)
 {
     int i;
@@ -435,6 +444,144 @@ void TAHdrFill(Tcl_Interp *interp, TAHdr *thdrP,
     if ((pos + count) > thdrP->used)
         thdrP->used = pos + count;
 }
+
+/* Verify that the specified index list is valid.
+   We need to verify that the indices
+   are not beyond the range. At the same time the indices may
+   themselves extend the range. Sort indices to simplify this.
+   Returns new size needed if array has to be grown or -1 on error.
+*/
+TCL_RESULT TAHdrVerifyIndices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP, int *new_sizeP)
+{
+    int i, new_size;
+    int *indexP, *endP;
+
+    TA_ASSERT(indicesP->type == TA_INT);
+    TA_ASSERT(TAHdrSorted(indicesP));
+
+    new_size = thdrP->used;
+    indexP = TAHDRELEMPTR(indicesP, int, 0);
+    endP = TAHDRELEMPTR(indicesP, int, indicesP->used);
+    if (TAHdrSortOrder(indicesP) > 0) {
+        /* Sort order is ascending. Make sure no gaps */
+        while (indexP < endP) {
+            i = *indexP++;
+            if (i < new_size)
+                continue;
+            if (i > new_size)
+                return TArrayIndexRangeError(interp, i);
+            new_size = i;       /* Appending without a gap */
+        }
+    } else {
+        /* Sort order is descending. Go in reverse to make sure no gaps */
+        while (indexP < endP) {
+            i = *--endP;
+            if (i < new_size)
+                continue;
+            if (i > new_size) {
+                TArrayIndexRangeError(interp, i);
+                return -1;
+            }
+            new_size = i;       /* Appending without a gap */
+        }
+    }
+    *new_sizeP = new_size;
+    return TCL_OK;
+}
+
+/* thdrP must be large enough for largest index. And see asserts in code */
+void TAHdrFillIndices(Tcl_Interp *interp, TAHdr *thdrP, 
+                      const TArrayValue *tavP, TAHdr *indicesP)
+{
+    int highest_index;
+    int *indexP, *endP;
+
+    TA_ASSERT(! TAHDR_SHARED(thdrP));
+    TA_ASSERT(thdrP->type == tavP->type);
+    TA_ASSERT(indicesP->type == TA_INT);
+    TA_ASSERT(TAHdrSorted(indicesP));
+
+    if (indicesP->used == 0)
+        return;          /* Nothing to do */
+
+    /* Rest of code assumes > 0 indices */
+
+    indexP = TAHDRELEMPTR(indicesP, int, 0);
+    endP = TAHDRELEMPTR(indicesP, int, indicesP->used);
+
+    /* Caller guarantees room for highest index value */
+    highest_index = TAHdrSortOrder(indicesP) > 0 ? endP[-1] : indexP[0];
+    TA_ASSERT(highest_index < thdrP->allocated);
+
+    TAHdrSortMarkUnsorted(thdrP);
+    switch (thdrP->type) {
+    case TA_BOOLEAN:
+        {
+            ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
+            while (indexP < endP)
+                ba_put(baP, *indexP++, tavP->bval);
+        }
+        break;
+    case TA_INT:
+    case TA_UINT:
+        {
+            int *iP = TAHDRELEMPTR(thdrP, int, 0);
+            while (indexP < endP)
+                iP[*indexP++] = tavP->ival;
+        }
+        break;
+    case TA_BYTE:
+        {
+            unsigned char *ucP = TAHDRELEMPTR(thdrP, unsigned char, 0);
+            while (indexP < endP)
+                ucP[*indexP++] = tavP->ucval;
+        }
+        break;
+    case TA_WIDE:
+        {
+            Tcl_WideInt *wideP;
+            wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, 0);
+            while (indexP < endP)
+                wideP[*indexP] = tavP->wval;
+        }
+        break;
+    case TA_DOUBLE:
+        {
+            double *dvalP;
+            dvalP = TAHDRELEMPTR(thdrP, double, 0);
+            while (indexP < endP)
+                dvalP[*indexP] = tavP->dval;
+        }
+        break;
+    case TA_OBJ:
+        {
+            Tcl_Obj **objPP;
+            int n;
+
+            /*
+             * We have to deal with reference counts here. For the object
+             * we are copying we need to increment the reference counts
+             * that many times. For objects being overwritten,
+             * we need to decrement reference counts. Note that
+             * indices may be sorted in either order.
+             */
+            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+            while (indexP < endP) {
+                Tcl_IncrRefCount(tavP->oval);
+                if (*indexP < thdrP->used)
+                    Tcl_DecrRefCount(objPP[*indexP]);
+                objPP[*indexP] = tavP->oval;
+            }
+        }
+        break;
+    default:
+        TArrayTypePanic(thdrP->type);
+    }
+
+    if (highest_index >= thdrP->used)
+        thdrP->used = highest_index + 1;
+}
+
 
 
 /* Increments the ref counts of Tcl_Objs in a tarray making sure not
@@ -1587,19 +1734,13 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
     int *indexP;
     TAHdr *sortedP;
 
-    TA_ASSERT(thdrP->type = TA_INT);
+    TA_ASSERT(indicesP->type == TA_INT);
 
     /*
      * We have to be careful to delete from back to front so as to not
      * invalidate index positions when earlier ones are deleted
      */
-    if (TAHdrSorted(indicesP))
-        sortedP = indicesP;
-    else {
-        sortedP = TAHdrClone(NULL, indicesP, indicesP->used);
-        qsort(TAHDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), intcmp);
-        TAHdrSortMarkAscending(sortedP);
-    }
+    TA_ASSERT(TAHdrSorted(indicesP));
     
     /*
      * TBD - this will be desperately slow. Fix
@@ -1965,7 +2106,7 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
     if (IndexToInt(interp, indexObj, &index, thdrP->used-1, 0, thdrP->used-1) != TCL_OK)
         return NULL;
     if (index < 0 || index >= thdrP->used) {
-        TArrayIndexRangeError(interp, indexObj);
+        TArrayIndexRangeError(interp, index);
         return NULL;
     }
 
@@ -1994,7 +2135,8 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
  * returns TA_INDEX_TYPE_TAHDR. The TAHdr's ref count is incremented
  * so caller should call TAHDR_DECRREF as appropriate.
  */
-int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP, TAHdr **thdrPP, int *indexP)
+int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP,
+                           int want_sorted, TAHdr **thdrPP, int *indexP)
 {
     TAHdr *thdrP;
     Tcl_Obj **elems;
@@ -2007,13 +2149,14 @@ int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP, TAHdr **thdrPP, in
      */
     if (objP->typePtr == &gTArrayType) {
         if (TARRAYTYPE(objP) == TA_INT) {
-            /*
-             * Indices should be a tarray of ints. Other tarrays will be
-             * treated as lists. Though that is slower, it should be rare
-             * as all tarray indices are returned already in the proper format
-             * by command such as search.
-             */
             thdrP = TARRAYHDR(objP);
+            if (want_sorted && ! TAHdrSorted(thdrP)) {
+                thdrP = TAHdrClone(interp, thdrP, thdrP->used);
+                if (thdrP == NULL)
+                    return TA_INDEX_TYPE_ERROR;
+                qsort(TAHDRELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
+                TAHdrSortMarkAscending(thdrP);
+            }
             thdrP->nrefs++;
             *thdrPP = thdrP;
             return TA_INDEX_TYPE_TAHDR;
@@ -2041,6 +2184,8 @@ int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP, TAHdr **thdrPP, in
 
     thdrP = TAHdrAllocAndInit(interp, TA_INT, n, elems, 0);
     if (thdrP) {
+        qsort(TAHDRELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
+        TAHdrSortMarkAscending(thdrP);
         thdrP->nrefs++;
         *thdrPP = thdrP;
         return TA_INDEX_TYPE_TAHDR;
@@ -2073,8 +2218,9 @@ TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
     case TA_BOOLEAN:
         {
             ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
+            ba_t *srcbaP = TAHDRELEMPTR(srcP, ba_t, 0);
             for (i = 0; i < count; ++i, ++indexP)
-                ba_put(baP, i, *indexP);
+                ba_put(baP, i, ba_get(srcbaP, *indexP));
         }
         break;
     case TA_UINT:
@@ -2674,7 +2820,7 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 
 
 /* The tarray Tcl_Obj is modified */
-TCL_RESULT TArrayFillFromObj(
+TCL_RESULT TArrayFillFromObjOBSOLETE(
     Tcl_Interp *interp,
     Tcl_Obj *lowObj, Tcl_Obj *highObj,
     Tcl_Obj *taObj,
@@ -2732,7 +2878,7 @@ TCL_RESULT TArrayFillFromObj(
             status = TCL_ERROR;
         } else {
             thdrP = TARRAYHDR(taObj); /* Might have changed */
-            TAHdrFill(interp, thdrP, &value, low, count);
+            TAHdrFillRange(interp, thdrP, &value, low, count);
         }
     }
     
@@ -2939,7 +3085,7 @@ TCL_RESULT TGridFillFromObjs(
     for (i = 0, taObjPP = TAHDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++taObjPP) {
-        TAHdrFill(interp, TARRAYHDR(*taObjPP), &valuesP[i], low, count);
+        TAHdrFillRange(interp, TARRAYHDR(*taObjPP), &valuesP[i], low, count);
     }
     status = TCL_OK;
     
