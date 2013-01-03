@@ -2097,16 +2097,9 @@ TCL_RESULT TArrayMakeModifiable(Tcl_Interp *interp,
 
 
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
-Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
+Tcl_Obj * TAHdrIndex(TAHdr *thdrP, int index)
 {
-    int index;
-
-    if (IndexToInt(interp, indexObj, &index, thdrP->used-1, 0, thdrP->used-1) != TCL_OK)
-        return NULL;
-    if (index < 0 || index >= thdrP->used) {
-        TArrayIndexRangeError(interp, index);
-        return NULL;
-    }
+    TA_ASSERT(index >= 0 && index < thdrP->used);
 
     switch (thdrP->type) {
     case TA_BOOLEAN:
@@ -2123,6 +2116,8 @@ Tcl_Obj * TArrayIndex(Tcl_Interp *interp, TAHdr *thdrP, Tcl_Obj *indexObj)
         return Tcl_NewIntObj(*TAHDRELEMPTR(thdrP, unsigned char, index));
     case TA_OBJ:
         return *TAHDRELEMPTR(thdrP, Tcl_Obj *, index);
+    default:
+        TArrayTypePanic(thdrP->type);
     }
 }
 
