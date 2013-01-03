@@ -174,6 +174,7 @@ TCL_RESULT TArrayBadTypeError(Tcl_Interp *interp, TAHdr *thdrP);
 TCL_RESULT TArrayNoMemError(Tcl_Interp *, int size);
 TCL_RESULT TArrayBadIndicesError(Tcl_Interp *interp, Tcl_Obj *objP);
 TCL_RESULT TArrayBadIndexError(Tcl_Interp *interp, Tcl_Obj *objP);
+TCL_RESULT TArrayIndexRangeError(Tcl_Interp *interp, int index);
 
 void TArrayIncrObjRefs(TAHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TAHdr *thdrP,int first,int count);
@@ -186,12 +187,15 @@ Tcl_Obj *TGridClone(Tcl_Interp *, Tcl_Obj *gridObj, int minsize);
 TCL_RESULT TGridConvert(Tcl_Interp *, Tcl_Obj *objP);
 TCL_RESULT TArrayValueFromObj(Tcl_Interp *, Tcl_Obj *objP,
                               unsigned char tatype, TArrayValue *tavP);
-void TAHdrFill(Tcl_Interp *, TAHdr *thdrP,
-                                   const TArrayValue *tavP, int pos, int count);
+void TAHdrFillRange(Tcl_Interp *, TAHdr *thdrP,
+                    const TArrayValue *tavP, int pos, int count);
+void TAHdrFillIndices(Tcl_Interp *, TAHdr *thdrP,
+                            const TArrayValue *tavP, TAHdr *indicesP);
+
 TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *,
                                     TAHdr * const thdrs[], int nthdrs,
                                     Tcl_Obj *tuples, int first);
-TCL_RESULT TArrayFillFromObj(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
+TCL_RESULT TArrayFillFromObjOBSOLETE(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
                              Tcl_Obj *taObj, Tcl_Obj *valueObj);
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
@@ -212,8 +216,9 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP);
 TAHdr *TAHdrClone(Tcl_Interp *, TAHdr *srcP, int init_size);
 TAHdr *TAHdrCloneReversed(Tcl_Interp *, TAHdr *srcP, int init_size);
 struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *,TAHdr *thdrP, Tcl_Obj *index);
+TCL_RESULT TAHdrVerifyIndices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP, int *new_sizeP);
 int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
-                           TAHdr **thdrPP, int *indexP);
+                           int want_sorted, TAHdr **thdrPP, int *indexP);
 #define TA_INDEX_TYPE_ERROR 0
 #define TA_INDEX_TYPE_INT   1
 #define TA_INDEX_TYPE_TAHDR 2

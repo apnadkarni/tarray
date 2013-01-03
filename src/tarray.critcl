@@ -81,46 +81,44 @@ critcl::ccommand tarray::column::delete {} {
 	return TCL_ERROR;
     }
     
-    if (Tcl_IsShared(objv[1]))
-        taObj = Tcl_DuplicateObj(objv[1]);
-    else
-        taObj = objv[1];
-
-    status = TArrayConvert(interp, taObj);
-    if (status != TCL_OK)
+    if ((status = TArrayConvert(interp, objv[1])) != TCL_OK)
         return status;
 
+    taObj = Tcl_IsShared(objv[1]) ? Tcl_DuplicateObj(objv[1]) : objv[1];
+
+    status = TArrayMakeModifiable(interp, taObj, TARRAYELEMCOUNT(taObj),
+                                  TARRAYELEMCOUNT(taObj));
     thdrP = TARRAYHDR(taObj);
-    status = TArrayMakeModifiable(interp, taObj, thdrP->used, thdrP->used);
-    thdrP = TARRAYHDR(taObj);   /* May have changed! */
-    if (status != TCL_OK)
-        return status;
-
-    if (objc == 4) {
-        status = RationalizeRangeIndices(interp, thdrP, objv[2],
-                                         objv[3], &low, &count);
-        if (status == TCL_OK)
-            TAHdrDeleteRange(thdrP, low, count);
-    } else {
-        /* Not a range, either a list or single index */
-        TAHdr *indicesP;
-        /* Note status is TCL_OK at this point */
-        switch (TArrayConvertToIndices(interp, objv[2], &indicesP, &low)) {
-        case TA_INDEX_TYPE_ERROR:
-            status = TCL_ERROR;
-            break;
-        case TA_INDEX_TYPE_INT:
-            TAHdrDeleteRange(thdrP, low, 1);
-            break;
-        case TA_INDEX_TYPE_TAHDR:
-            TAHdrDeleteIndices(thdrP, indicesP);
-            TAHDR_DECRREF(indicesP);
-            break;
+    if (status == TCL_OK) {
+        if (objc == 4) {
+            status = RationalizeRangeIndices(interp, thdrP, objv[2],
+                                             objv[3], &low, &count);
+            if (status == TCL_OK)
+                TAHdrDeleteRange(thdrP, low, count);
+        } else {
+            /* Not a range, either a list or single index */
+            TAHdr *indicesP;
+            /* Note status is TCL_OK at this point */
+            switch (TArrayConvertToIndices(interp, objv[2], 1, &indicesP, &low)) {
+            case TA_INDEX_TYPE_ERROR:
+                status = TCL_ERROR;
+                break;
+            case TA_INDEX_TYPE_INT:
+                TAHdrDeleteRange(thdrP, low, 1);
+                break;
+            case TA_INDEX_TYPE_TAHDR:
+                TAHdrDeleteIndices(thdrP, indicesP);
+                TAHDR_DECRREF(indicesP);
+                break;
+            }
         }
     }
 
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, taObj);
+    else if (taObj != objv[1])
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+
     return status;
 }
 
@@ -164,7 +162,7 @@ critcl::cproc tarray::column::get {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj
     int ix;
     TAHdr *thdrP;
 
-    switch (TArrayConvertToIndices(interp, indicesP, &thdrP, &ix)) {
+    switch (TArrayConvertToIndices(interp, indicesP, 0, &thdrP, &ix)) {
     case TA_INDEX_TYPE_ERROR:
         return TCL_ERROR;
     case TA_INDEX_TYPE_TAHDR:
@@ -386,11 +384,10 @@ critcl::ccommand tarray::column::search TArray_SearchObjCmd
 
 
 critcl::ccommand tarray::column::fill {} {
-    int i;
+    int i, low, count;
     Tcl_Obj *taObj;
-    Tcl_Obj **valueObjs;
-    int we_allocated_obj;
     int status;
+    TArrayValue value;
 
     if (objc != 4 && objc != 5) {
 	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY VALUE LOW ?HIGH?");
@@ -398,21 +395,54 @@ critcl::ccommand tarray::column::fill {} {
     }
 
     taObj = objv[1];
-    if (Tcl_IsShared(taObj)) {
-        taObj = Tcl_DuplicateObj(taObj);
-        we_allocated_obj = 1;
-    } else
-        we_allocated_obj = 0;
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+    if ((status = TArrayValueFromObj(interp, objv[2],
+                                     TARRAYTYPE(taObj), &value)) != TCL_OK)
+        return TCL_ERROR;
 
-    status = TArrayFillFromObj(interp, objv[3], objv[objc == 5 ? 4 : 3],
-                                taObj, objv[2]);
+    if (Tcl_IsShared(taObj))
+        taObj = Tcl_DuplicateObj(objv[1]);
+
+    if (objc == 5) {
+        status = RationalizeRangeIndices(interp, TARRAYHDR(taObj), objv[3],
+                                         objv[4], &low, &count);
+        if (status == TCL_OK && count != 0) {
+            status = TArrayMakeModifiable(interp, taObj, low+count, TARRAYELEMSLOTS(taObj));
+            if (status == TCL_OK)
+                TAHdrFillRange(interp, TARRAYHDR(taObj), &value, low, count);
+        }
+    } else {
+        /* Not a range, either a list or single index */
+        TAHdr *indicesP;
+        /* Note status is TCL_OK at this point */
+        switch (TArrayConvertToIndices(interp, objv[3], 1, &indicesP, &low)) {
+        case TA_INDEX_TYPE_ERROR:
+            status = TCL_ERROR;
+            break;
+        case TA_INDEX_TYPE_INT:
+            if (low < 0 || low > TARRAYELEMCOUNT(taObj)) {
+                TArrayIndexRangeError(interp, low);
+                status = TCL_ERROR;
+            } else
+                TAHdrFillRange(interp, TARRAYHDR(taObj), &value, low, 1);
+            break;
+        case TA_INDEX_TYPE_TAHDR:
+            status = TAHdrVerifyIndices(interp, TARRAYHDR(taObj), indicesP, &count);
+            if (status == TCL_OK) {
+                status = TArrayMakeModifiable(interp, taObj, count, count); // TBD - count + extra?
+                if (status == TCL_OK)
+                    TAHdrFillIndices(interp, TARRAYHDR(taObj), &value, indicesP);
+            }
+            TAHDR_DECRREF(indicesP);
+            break;
+        }
+    }
 
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, taObj);
-    else {
-        if (we_allocated_obj)
-            Tcl_DecrRefCount(taObj);
-    }
+    else if (taObj != objv[1])
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
 
     return status;
 }
