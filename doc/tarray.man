@@ -132,29 +132,18 @@ an array contains a thousand elements (the highest index thereby being 999),
 the index list [const "1001 1000 1002"] is legal but [const "1001 1002"]
 is not.
 
-
-[call [cmd "column get"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg LOW] [arg [opt HIGH]]]
-Returns the value or values at a specific index or index range 
-in a typed column. If [arg HIGH] is not specified, the value at the specified
-index is returned. If [arg HIGH] is specified, the values between
-indices [arg LOW] and [arg HIGH] are returned. In this case the format
-of the returned values is controlled by [arg STANDARDOPTION]
+[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg TARRAYCOLUMN] [arg INDEXLIST]]
+[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg TARRAYCOLUMN] [arg LOW] [arg [opt HIGH]]]
+Returns the values from a typed column at the indices specified as
+[sectref Indices "index list"] or [sectref Indices range].
+The format
+of the returned values is controlled by [arg STANDARDOPTIONS]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
-[para]
-[arg LOW] and [arg HIGH] may be specified in any of the
-[sectref Indices].
-It is an error if any index is invalid (e.g. negative or out of range).
 
-[call [cmd "column pick"] [arg [opt "STANDARDOPTION"]] [arg TARRAYCOLUMN] [arg INDICES]]
-Returns the values in a typed column at the
-positions specified by [arg INDICES] which must be a 
-index list in the one of the forms described in [sectref Indices].
-It is an error if any of the indices are invalid.
-[para]
-The format of the returned values is controlled by [arg STANDARDOPTION]
-which may be any of the options controlling returned formats
-as specified in [sectref "Standard Options"].
+[call [cmd "column index"] [arg TARRAYCOLUMN] [arg INDEX]]
+Returns the value of the element at the position specified by [arg INDEX]
+which is a single [sectref Indices index].
 
 [call [cmd "column place"] [arg TARRAYCOLUMN] [arg VALUEDICT]]
 [call [cmd "column place"] [arg TARRAYCOLUMN] [arg INDICES] [arg VALUES]]

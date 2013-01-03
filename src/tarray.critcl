@@ -20,6 +20,7 @@ critcl::cheaders tarray.h
 
 critcl::ccode {
 #include "tarray.h"
+typedef Tcl_Obj *TArrayObjPtr;
 }
 
 critcl::cinit {
@@ -31,6 +32,12 @@ critcl::argtype TArrayObjPtr {
     if (TArrayConvert(interp, @@) != TCL_OK)
         return TCL_ERROR;
     @A = @@;
+}
+
+critcl::argtype TAHdr* {
+    if (TArrayConvert(interp, @@) != TCL_OK)
+        return TCL_ERROR;
+    @A = TARRAYHDR(@@);
 }
 
 critcl::ccommand tarray::column::create {} {
@@ -130,13 +137,16 @@ critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr taobjP} "con
     return TArrayTypeString(TARRAYTYPE(taobjP));
 }
 
-critcl::cproc tarray::column::index {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* indexObj} ok {
-    Tcl_Obj *objP = TArrayIndex(interp, TARRAYHDR(taObj), indexObj);
-    if (objP) {
-        Tcl_SetObjResult(interp, objP);
-        return TCL_OK;
-    } else
+critcl::cproc tarray::column::index {Tcl_Interp* interp TAHdr* tcolumn Tcl_Obj* index} ok {
+    int ix;
+    if (IndexToInt(interp, index, &ix, tcolumn->used-1, 0, tcolumn->used-1) != TCL_OK)
         return TCL_ERROR;
+    if (ix < 0 || ix >= tcolumn->used) {
+        TArrayIndexRangeError(interp, ix);
+        return TCL_ERROR;
+    }
+    Tcl_SetObjResult(interp, TAHdrIndex(tcolumn, ix));
+    return TCL_OK;
 }
 
 critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* lowObj Tcl_Obj* highObj} ok {

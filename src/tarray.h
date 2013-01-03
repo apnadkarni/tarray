@@ -59,8 +59,6 @@ typedef struct TArrayValue_s {
     };
 } TArrayValue;
 
-typedef Tcl_Obj *TArrayObjPtr;
-
 extern const char *gTArrayTypeTokens[];
 
 /* Pointers to Tcl's built-in type descriptors */
@@ -191,6 +189,7 @@ void TAHdrFillRange(Tcl_Interp *, TAHdr *thdrP,
                     const TArrayValue *tavP, int pos, int count);
 void TAHdrFillIndices(Tcl_Interp *, TAHdr *thdrP,
                             const TArrayValue *tavP, TAHdr *indicesP);
+Tcl_Obj *TAHdrIndex(TAHdr *thdrP, int index);
 
 TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *,
                                     TAHdr * const thdrs[], int nthdrs,
@@ -215,7 +214,6 @@ void TAHdrDeleteRange(TAHdr *thdrP, int first, int count);
 void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP);
 TAHdr *TAHdrClone(Tcl_Interp *, TAHdr *srcP, int init_size);
 TAHdr *TAHdrCloneReversed(Tcl_Interp *, TAHdr *srcP, int init_size);
-struct Tcl_Obj *TArrayIndex(struct Tcl_Interp *,TAHdr *thdrP, Tcl_Obj *index);
 TCL_RESULT TAHdrVerifyIndices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP, int *new_sizeP);
 int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
                            int want_sorted, TAHdr **thdrPP, int *indexP);
