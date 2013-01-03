@@ -470,7 +470,7 @@ TCL_RESULT TAHdrVerifyIndices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP,
                 continue;
             if (i > new_size)
                 return TArrayIndexRangeError(interp, i);
-            new_size = i;       /* Appending without a gap */
+            new_size = i+1;       /* Appending without a gap */
         }
     } else {
         /* Sort order is descending. Go in reverse to make sure no gaps */
@@ -482,7 +482,7 @@ TCL_RESULT TAHdrVerifyIndices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP,
                 TArrayIndexRangeError(interp, i);
                 return -1;
             }
-            new_size = i;       /* Appending without a gap */
+            new_size = i+1;       /* Appending without a gap */
         }
     }
     *new_sizeP = new_size;
@@ -1732,7 +1732,6 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
 {
     int i;
     int *indexP;
-    TAHdr *sortedP;
 
     TA_ASSERT(indicesP->type == TA_INT);
 
@@ -1749,10 +1748,10 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
     /* We always want to delete back to front. However the index array
      * may be presorted in any direction. So check and loop accordingly
      */
-    i = sortedP->used;
-    if (TAHdrSortOrder(sortedP) > 0) {
+    i = indicesP->used;
+    if (TAHdrSortOrder(indicesP) > 0) {
         /* Sort order is ascending so iterate index array back to front */
-        indexP = TAHDRELEMPTR(sortedP, int, sortedP->used-1 );
+        indexP = TAHDRELEMPTR(indicesP, int, indicesP->used-1 );
         while (i--) {
             if (*indexP >= 0 && *indexP < thdrP->used)
                 TAHdrDeleteRange(thdrP, *indexP, 1);
@@ -1760,16 +1759,13 @@ void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP)
         }
     } else {
         /* Sort order is descending so iterate index array front to back */
-        indexP = TAHDRELEMPTR(sortedP, int, 0);
+        indexP = TAHDRELEMPTR(indicesP, int, 0);
         while (i--) {
             if (*indexP >= 0 && *indexP < thdrP->used)
                 TAHdrDeleteRange(thdrP, *indexP, 1);
             ++indexP;
         }
     }
-
-    if (sortedP != indicesP)
-        TAHDR_DECRREF(sortedP);
 }
 
 void TAHdrReverse(TAHdr *thdrP)
@@ -2066,6 +2062,8 @@ TCL_RESULT TArrayMakeModifiable(Tcl_Interp *interp,
     TA_ASSERT(! Tcl_IsShared(taObj));
 
     thdrP = TARRAYHDR(taObj);
+    if (prefsize == 0)
+        prefsize = thdrP->allocated;
     if (minsize < thdrP->used)
         minsize = thdrP->used;
     if (minsize > prefsize)

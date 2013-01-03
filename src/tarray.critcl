@@ -424,13 +424,17 @@ critcl::ccommand tarray::column::fill {} {
             if (low < 0 || low > TARRAYELEMCOUNT(taObj)) {
                 TArrayIndexRangeError(interp, low);
                 status = TCL_ERROR;
-            } else
-                TAHdrFillRange(interp, TARRAYHDR(taObj), &value, low, 1);
+            } else {
+                status = TArrayMakeModifiable(interp, taObj, low+1, 0);
+                if (status == TCL_OK)
+                    TAHdrFillRange(interp, TARRAYHDR(taObj), &value, low, 1);
+            }
             break;
         case TA_INDEX_TYPE_TAHDR:
             status = TAHdrVerifyIndices(interp, TARRAYHDR(taObj), indicesP, &count);
+            /* count is highest index specified in index array */
             if (status == TCL_OK) {
-                status = TArrayMakeModifiable(interp, taObj, count, count); // TBD - count + extra?
+                status = TArrayMakeModifiable(interp, taObj, count+1, count+1); // TBD - count + extra?
                 if (status == TCL_OK)
                     TAHdrFillIndices(interp, TARRAYHDR(taObj), &value, indicesP);
             }
