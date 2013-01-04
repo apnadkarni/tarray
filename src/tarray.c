@@ -556,7 +556,6 @@ void TAHdrFillIndices(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_OBJ:
         {
             Tcl_Obj **objPP;
-            int n;
 
             /*
              * We have to deal with reference counts here. For the object
@@ -2038,6 +2037,131 @@ TAHdr *TAHdrCloneReversed(Tcl_Interp *interp, TAHdr *srcP, int minsize)
     return thdrP;
 }
 
+TAHdr *TAHdrRange(Tcl_Interp *interp, TAHdr *srcP, int low, int count)
+{
+    TAHdr *thdrP;
+
+    TA_ASSERT(low >= 0);
+    TA_ASSERT(count >= 0);
+
+    thdrP = TAHdrAlloc(interp, srcP->type, count);
+    if (thdrP) {
+        TAHdrCopy(thdrP, 0, srcP, low, count);
+        TAHdrSortMarkCopy(thdrP, srcP);
+    }
+    return thdrP;
+}
+
+Tcl_Obj *TArrayRange(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
+                     int fmt)
+{
+    int end;
+    TAHdr *srcP;
+    Tcl_Obj *objP;
+
+    TA_ASSERT(low >= 0);
+    TA_ASSERT(count >= 0);
+
+    srcP = TARRAYHDR(srcObj);
+
+    if (fmt == TA_FORMAT_TARRAY) {
+        TAHdr *thdrP = TAHdrRange(interp, srcP, low, count);
+        return thdrP == NULL ? NULL : TArrayNewObj(thdrP);
+    }
+
+    end = low + count;
+    if (end > srcP->used)
+        end = srcP->used;
+
+    /* Even dicts more efficiently built as lists and shimmered as necessary */
+    objP = Tcl_NewListObj(end-low, NULL);
+
+    switch (srcP->type) {
+    case TA_BOOLEAN:
+        {
+            ba_t *baP = TAHDRELEMPTR(srcP, ba_t, 0);
+            while (low < end) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low));
+                Tcl_ListObjAppendElement(interp, objP, 
+                                         Tcl_NewIntObj(ba_get(baP, low)));
+                ++low;
+            }
+        }
+        break;
+    case TA_UINT:
+        {
+            unsigned int *uiP = TAHDRELEMPTR(srcP, unsigned int, low);
+            unsigned int *uiendP = TAHDRELEMPTR(srcP, unsigned int, end);
+            while (uiP < uiendP) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
+                Tcl_ListObjAppendElement(interp, objP, Tcl_NewWideIntObj(*uiP++));
+            }
+        }
+        break;
+    case TA_INT:
+        {
+            int *iP = TAHDRELEMPTR(srcP, int, low);
+            int *iendP = TAHDRELEMPTR(srcP, int, end);
+            while (iP < iendP) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
+                Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(*iP++));
+            }
+        }
+        break;
+    case TA_WIDE:
+        {
+            Tcl_WideInt *wideP = TAHDRELEMPTR(srcP, Tcl_WideInt, low);
+            Tcl_WideInt *wideendP = TAHDRELEMPTR(srcP, Tcl_WideInt, end);
+            while (wideP < wideendP) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
+                Tcl_ListObjAppendElement(interp, objP, Tcl_NewWideIntObj(*wideP++));
+            }
+        }
+        break;
+    case TA_DOUBLE:
+        {
+            double *dblP = TAHDRELEMPTR(srcP, double, low);
+            double *dblendP = TAHDRELEMPTR(srcP, double, end);
+            while (dblP < dblendP) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
+                Tcl_ListObjAppendElement(interp, objP, Tcl_NewDoubleObj(*dblP++));
+            }
+        }
+        break;
+    case TA_BYTE:
+        {
+            unsigned char *ucP = TAHDRELEMPTR(srcP, unsigned char, low);
+            unsigned char *ucendP = TAHDRELEMPTR(srcP, unsigned char, end);
+            while (ucP < ucendP) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
+                Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(*ucP++));
+            }
+        }
+        break;
+    case TA_OBJ:
+        {
+            Tcl_Obj **oPP = TAHDRELEMPTR(srcP, Tcl_Obj *, low);
+            Tcl_Obj **oendPP = TAHDRELEMPTR(srcP, Tcl_Obj *, end);
+            while (oPP < oendPP) {
+                if (fmt == TA_FORMAT_DICT)
+                    Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
+                Tcl_ListObjAppendElement(interp, objP, *oPP);
+            }
+        }
+        break;
+    default:
+        TArrayTypePanic(srcP->type);
+    }
+
+    return objP;
+}
+
 
 /*
  * Convert a TArray Tcl_Obj to one that is suitable for modifying.
@@ -2261,7 +2385,6 @@ TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
     thdrP->used = count;
     return thdrP;
 }
-
 
 static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
                                       Tcl_Obj *needleObj, int start,

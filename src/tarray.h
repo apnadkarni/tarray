@@ -61,6 +61,11 @@ typedef struct TArrayValue_s {
 
 extern const char *gTArrayTypeTokens[];
 
+/* Must match order of gFormatOptions in tarray.critcl ! */
+#define TA_FORMAT_TARRAY 0
+#define TA_FORMAT_LIST 1
+#define TA_FORMAT_DICT 2
+
 /* Pointers to Tcl's built-in type descriptors */
 extern Tcl_ObjType *tclListTypePtr;
 
@@ -221,6 +226,9 @@ int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
 #define TA_INDEX_TYPE_INT   1
 #define TA_INDEX_TYPE_TAHDR 2
 
+TAHdr *TAHdrRange(Tcl_Interp *interp, TAHdr *srcP, int low, int count);
+Tcl_Obj *TArrayRange(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
+                     int fmt);
 TAHdr *TArrayGetValues(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP);
 int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
