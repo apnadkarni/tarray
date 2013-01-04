@@ -20,8 +20,17 @@ critcl::cheaders tarray.h
 
 critcl::ccode {
 #include "tarray.h"
-typedef Tcl_Obj *TArrayObjPtr;
+    typedef Tcl_Obj *TArrayObjPtr;
+
+    /* Must match order of TA_FORMAT_* in tarray.h */
+    static const char *gFormatOptions[] = {
+        "-tarray",
+        "-list",
+        "-dict",
+        NULL
+    };
 }
+
 
 critcl::cinit {
     tclListTypePtr = Tcl_GetObjType("list");
@@ -149,7 +158,7 @@ critcl::cproc tarray::column::index {Tcl_Interp* interp TAHdr* tcolumn Tcl_Obj* 
     return TCL_OK;
 }
 
-critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* lowObj Tcl_Obj* highObj} ok {
+critcl::cproc tarray::column::rangeOBSOLETE {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* lowObj Tcl_Obj* highObj} ok {
     TAHdr *thdrP;
     int low, count;
 
@@ -167,24 +176,68 @@ critcl::cproc tarray::column::range {Tcl_Interp* interp TArrayObjPtr taObj Tcl_O
     return TCL_OK;
 }
 
-critcl::cproc tarray::column::get {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* indicesP} ok {
-    TAHdr *valuesP;
-    int ix;
+critcl::ccommand tarray::column::get {} {
+    Tcl_Obj *taObj;
     TAHdr *thdrP;
+    int low, count;
+    int status;
+    int fmt = TA_FORMAT_TARRAY;
+    int ta_arg;
 
-    switch (TArrayConvertToIndices(interp, indicesP, 0, &thdrP, &ix)) {
-    case TA_INDEX_TYPE_ERROR:
-        return TCL_ERROR;
-    case TA_INDEX_TYPE_TAHDR:
-        valuesP = TArrayGetValues(interp, TARRAYHDR(taObj), thdrP);
-        if (valuesP) {
-            Tcl_SetObjResult(interp, TArrayNewObj(valuesP));
-        }
-        TAHDR_DECRREF(thdrP);
-        return valuesP ? TCL_OK : TCL_ERROR;
-    case TA_INDEX_TYPE_INT:
-        return TCL_ERROR;       /* TBD */
+    if (objc < 3)
+        goto badargs;
+    
+    /*
+     * Parsing is ambiguous. We do not want check if objv[1] is an option
+     * directly because it might shimmer a huge tarray into a string.
+     * So check for options only if not a tarray. Note it is possible that
+     * objv[1] is a tarray even though it's type does not indicate as much.
+     * In that the string rep will anyways exist and question of shimmering
+     * does not arise.
+     */
+    if (objv[1]->typePtr == &gTArrayType) {
+        ta_arg = 1;
+    } else {
+        /* OK, see if it is an option */
+        status = Tcl_GetIndexFromObj(NULL, objv[1], gFormatOptions,
+                                     "FORMAT", TCL_EXACT, &fmt);
+        if (status == TCL_OK)
+            ta_arg = 2;
+        else
+            ta_arg = 1;
+        if ((status = TArrayConvert(interp, objv[ta_arg])) != TCL_OK)
+            return status;
     }
+       
+    if ((objc - ta_arg) < 2 || (objc - ta_arg) > 3)
+        goto badargs;
+
+    switch (objc - ta_arg - 1) {
+    case 1:
+        taObj = Tcl_NewStringObj("Not implemented", -1);
+        break;
+    case 2:
+        /* Range LOW HIGH */
+        status = RationalizeRangeIndices(interp, TARRAYHDR(objv[ta_arg]),
+                                         objv[ta_arg+1], objv[ta_arg+2],
+                                         &low, &count);
+        if (status != TCL_OK)
+            return TCL_ERROR;
+        taObj = TArrayRange(interp, objv[ta_arg], low, count, fmt);
+        if (taObj == NULL)
+            return TCL_ERROR;
+        break;
+    default:
+        goto badargs;
+    }
+
+    Tcl_SetObjResult(interp, taObj);
+    return TCL_OK;
+
+badargs:
+    Tcl_WrongNumArgs(interp, 1, objv, "?OPTIONS? TCOLUMN (LOW ?HIGH? | INDEXLIST)");
+    return TCL_ERROR;
+
 }
 
 critcl::ccommand tarray::column::sort {} {
