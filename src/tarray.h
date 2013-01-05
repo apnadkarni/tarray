@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdlib.h>
 
+#include "tcl.h"
 #include "bitarray.h"
 
 #ifndef TA_INLINE
