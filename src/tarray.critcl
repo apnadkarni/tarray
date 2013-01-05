@@ -14,7 +14,7 @@ critcl::tcl 8.5
 critcl::debug symbols
 #critcl::cflags -std=gnu99 -Winline
 
-critcl::csources tarray.c bitarray.c tasort.c
+critcl::csources tarray.c tasearch.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h
 
