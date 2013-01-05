@@ -17,6 +17,8 @@
 # endif
 #endif
 
+#define TA_ENABLE_ASSERT 1      /* TBD - remove after development */
+
 /* If building out of twapi pool, use its settings */
 #if defined(TWAPI_ENABLE_ASSERT) && !defined(TA_ENABLE_ASSERT)
 #define TA_ENABLE_ASSERT TWAPI_ENABLE_ASSERT
@@ -230,6 +232,8 @@ int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
 TAHdr *TAHdrRange(Tcl_Interp *interp, TAHdr *srcP, int low, int count);
 Tcl_Obj *TArrayRange(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
+TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
+                        Tcl_Obj *indexA, Tcl_Obj *indexB);
 Tcl_Obj *TArrayGet(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP, int fmt);
 int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);

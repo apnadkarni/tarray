@@ -33,7 +33,7 @@ which store arrays of values of a single type indexed by integers, and
 
 [section "Columns"] 
 A typed array column contains elements of a single 
-[sectref "Column Types" type]
+[sectref "Types" type]
 that is specified when it is created. The command tarray can be used
 to create and manipulate typed arrays including searching and sorting
 operations.
@@ -108,7 +108,7 @@ appropriate. This is the default if none of the other options is specified.
 
 [call [cmd "column create"] [arg TYPE] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
 Returns a typed array of the type [arg TYPE] which must be one of one
-of valid types described in [sectref "Column Types"]. If 
+of valid types described in [sectref "Types"]. If 
 [arg INITIALIZER] is specified, it is the initial content of the typed array 
 and must be a
 list with elements of the appropriate type. For performance reasons,
@@ -227,7 +227,15 @@ containing the indices of the sorted values instead of the values
 themselves.
 
 [call [cmd "column type"] [arg TARRAYCOLUMN]]
-Returns the [sectref "Column Types" type] of the typed column.
+Returns the [sectref "Types" type] of the typed column.
+
+[call [cmd "column vdelete"] [arg TCOLUMNVAR] [arg INDEX]]
+[call [cmd "column velete"] [arg TCOLUMNVAR] [arg INDEXLIST]]
+[call [cmd "column velete"] [arg TCOLUMNVAR] [arg LOW] [arg HIGH]]
+Deletes elements from the typed array column in variable [arg TCOLUMNVAR].
+The new value is assigned back to the variable and also returned as the
+result of the command.
+Indices are specified in any of the forms described in [sectref Indices].
 
 [list_end]
 

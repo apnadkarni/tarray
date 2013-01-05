@@ -86,53 +86,61 @@ critcl::ccommand tarray::column::create {} {
     return TCL_OK;
 }
 
+
 critcl::ccommand tarray::column::delete {} {
     Tcl_Obj *taObj;
-    TAHdr *thdrP;
+    int status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY (INDEXLIST | LOW ?HIGH?)");
+	return TCL_ERROR;
+    }
+    
+    taObj = Tcl_IsShared(objv[1]) ? Tcl_DuplicateObj(objv[1]) : objv[1];
+
+    status = TArrayDelete(interp, taObj, objv[2], objc == 4 ? objv[3] : NULL);
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, taObj);
+    else if (taObj != objv[1])
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+
+    return status;
+}
+
+
+critcl::ccommand tarray::column::vdelete {} {
+    Tcl_Obj *valueObj;
+    Tcl_Obj *taObj;
     int low, count;
     int status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY LOW ?HIGH?");
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYVAR (INDEXLIST | LOW ?HIGH?)");
 	return TCL_ERROR;
     }
     
-    if ((status = TArrayConvert(interp, objv[1])) != TCL_OK)
-        return status;
+    valueObj = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (valueObj == NULL)
+        return TCL_ERROR;
 
-    taObj = Tcl_IsShared(objv[1]) ? Tcl_DuplicateObj(objv[1]) : objv[1];
+    taObj = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
 
-    status = TArrayMakeModifiable(interp, taObj, TARRAYELEMCOUNT(taObj),
-                                  TARRAYELEMCOUNT(taObj));
-    thdrP = TARRAYHDR(taObj);
+    status = TArrayDelete(interp, taObj, objv[2], objc == 4 ? objv[3] : NULL);
     if (status == TCL_OK) {
-        if (objc == 4) {
-            status = RationalizeRangeIndices(interp, thdrP, objv[2],
-                                             objv[3], &low, &count);
-            if (status == TCL_OK)
-                TAHdrDeleteRange(thdrP, low, count);
-        } else {
-            /* Not a range, either a list or single index */
-            TAHdr *indicesP;
-            /* Note status is TCL_OK at this point */
-            switch (TArrayConvertToIndices(interp, objv[2], 1, &indicesP, &low)) {
-            case TA_INDEX_TYPE_ERROR:
-                status = TCL_ERROR;
-                break;
-            case TA_INDEX_TYPE_INT:
-                TAHdrDeleteRange(thdrP, low, 1);
-                break;
-            case TA_INDEX_TYPE_TAHDR:
-                TAHdrDeleteIndices(thdrP, indicesP);
-                TAHDR_DECRREF(indicesP);
-                break;
-            }
-        }
-    }
-
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, taObj);
-    else if (taObj != objv[1])
+        /* Even if we had not duplicated the value in the variable, we
+         * still need to store it back so that traces are triggered. Also,
+         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
+         * ref count 0 on error (currently it frees iff ref == 0) so
+         * do a Incr/Decr
+         */
+        Tcl_IncrRefCount(taObj);
+        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(taObj);
+        if (valueObj)
+            Tcl_SetObjResult(interp, valueObj);
+        else
+            status = TCL_ERROR;
+    } else if (taObj != valueObj)
         Tcl_DecrRefCount(taObj); /* We allocated it so free it */
 
     return status;

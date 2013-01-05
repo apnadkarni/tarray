@@ -2421,6 +2421,51 @@ error_return:
 
 }
 
+/* See asserts for conditions */
+TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
+                        Tcl_Obj *indexA, Tcl_Obj *indexB)
+{
+    TAHdr *thdrP;
+    int low, count;
+    int status;
+
+    TA_ASSERT(! Tcl_IsShared(taObj));
+
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+
+    status = TArrayMakeModifiable(interp, taObj, TARRAYELEMCOUNT(taObj),
+                                  TARRAYELEMCOUNT(taObj));
+    thdrP = TARRAYHDR(taObj);
+    if (status == TCL_OK) {
+        if (indexB) {
+            status = RationalizeRangeIndices(interp, thdrP, indexA,
+                                             indexB, &low, &count);
+            if (status == TCL_OK)
+                TAHdrDeleteRange(thdrP, low, count);
+        } else {
+            /* Not a range, either a list or single index */
+            TAHdr *indicesP;
+            /* Note status is TCL_OK at this point */
+            switch (TArrayConvertToIndices(interp, indexA, 1, &indicesP, &low)) {
+            case TA_INDEX_TYPE_ERROR:
+                status = TCL_ERROR;
+                break;
+            case TA_INDEX_TYPE_INT:
+                TAHdrDeleteRange(thdrP, low, 1);
+                break;
+            case TA_INDEX_TYPE_TAHDR:
+                TAHdrDeleteIndices(thdrP, indicesP);
+                TAHDR_DECRREF(indicesP);
+                break;
+            }
+        }
+    }
+
+    return status;
+}
+
+
 
 int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 {
