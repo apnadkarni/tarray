@@ -38,7 +38,7 @@ that is specified when it is created. The command tarray can be used
 to create and manipulate typed arrays including searching and sorting
 operations.
 
-[section "Column Types"]
+[section "Types"]
 The extension supports the following element types for typed arrays:
 [list_begin options]
 [opt_def [option any]] Any Tcl value
@@ -63,7 +63,10 @@ Attempts to store values in typed array column that are not valid
 for that column will result in an error being generated.
 
 [section "Grids"]
-A typed grid is an ordered sequence of typed arrays of the equal size. It can be viewed as an array of records where the record fields happen to use column-wise storage. The corresponding grid command operates on typed tables.
+A typed grid is an ordered sequence of typed columns
+of equal size. It can be viewed as an array of records where the
+record fields happen to use column-wise storage. The corresponding
+grid command operates on typed grids.
 
 [section Indices]
 An index into a typed column or grid can be specified as either an integer

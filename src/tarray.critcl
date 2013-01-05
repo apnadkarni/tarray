@@ -158,24 +158,6 @@ critcl::cproc tarray::column::index {Tcl_Interp* interp TAHdr* tcolumn Tcl_Obj* 
     return TCL_OK;
 }
 
-critcl::cproc tarray::column::rangeOBSOLETE {Tcl_Interp* interp TArrayObjPtr taObj Tcl_Obj* lowObj Tcl_Obj* highObj} ok {
-    TAHdr *thdrP;
-    int low, count;
-
-    if (RationalizeRangeIndices(interp, TARRAYHDR(taObj), lowObj, highObj, &low, &count) != TCL_OK)
-        return TCL_ERROR;
-
-    thdrP = TAHdrAlloc(interp, TARRAYTYPE(taObj), count);
-    if (thdrP == NULL)
-        return TCL_ERROR;
-
-    TAHdrCopy(thdrP, 0, TARRAYHDR(taObj), low, count);
-    TAHdrSortMarkCopy(thdrP, TARRAYHDR(taObj));
-
-    Tcl_SetObjResult(interp, TArrayNewObj(thdrP));
-    return TCL_OK;
-}
-
 critcl::ccommand tarray::column::get {} {
     Tcl_Obj *taObj;
     TAHdr *thdrP;
@@ -183,6 +165,7 @@ critcl::ccommand tarray::column::get {} {
     int status;
     int fmt = TA_FORMAT_TARRAY;
     int ta_arg;
+    TAHdr *indicesP;
 
     if (objc < 3)
         goto badargs;
@@ -214,25 +197,37 @@ critcl::ccommand tarray::column::get {} {
 
     switch (objc - ta_arg - 1) {
     case 1:
-        taObj = Tcl_NewStringObj("Not implemented", -1);
+        switch (TArrayConvertToIndices(interp, objv[ta_arg+1], 0, &indicesP, NULL)) {
+        case TA_INDEX_TYPE_ERROR:
+            return TCL_ERROR;
+        case TA_INDEX_TYPE_INT:
+            Tcl_Panic("TArrayConvertToIndices returned TA_INDEX_TYPE_INT when passed NULL pointer");
+            break;
+        case TA_INDEX_TYPE_TAHDR:
+            taObj = TArrayGet(interp, TARRAYHDR(objv[ta_arg]), indicesP, fmt);
+            TAHDR_DECRREF(indicesP);
+            break;
+        }
         break;
     case 2:
         /* Range LOW HIGH */
+        /* TBD - reuse the TAHdr if not shared */
         status = RationalizeRangeIndices(interp, TARRAYHDR(objv[ta_arg]),
                                          objv[ta_arg+1], objv[ta_arg+2],
                                          &low, &count);
         if (status != TCL_OK)
             return TCL_ERROR;
         taObj = TArrayRange(interp, objv[ta_arg], low, count, fmt);
-        if (taObj == NULL)
-            return TCL_ERROR;
         break;
     default:
         goto badargs;
     }
 
-    Tcl_SetObjResult(interp, taObj);
-    return TCL_OK;
+    if (taObj) {
+        Tcl_SetObjResult(interp, taObj);
+        return TCL_OK;
+    } else
+        return TCL_ERROR;
 
 badargs:
     Tcl_WrongNumArgs(interp, 1, objv, "?OPTIONS? TCOLUMN (LOW ?HIGH? | INDEXLIST)");
