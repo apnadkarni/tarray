@@ -89,10 +89,10 @@ void TArrayTooSmallPanic(TAHdr *thdrP, const char *where)
     Tcl_Panic("Insufficient space in TAHdr (allocated %d) in %s.", thdrP->allocated, where);
 }
 
-TCL_RESULT TArrayBadArgError(Tcl_Interp *interp, const char *optname)
+TCL_RESULT TArrayMissingArgError(Tcl_Interp *interp, char *optname)
 {
     if (interp) {
-        Tcl_SetObjResult(interp, Tcl_ObjPrintf("Missing or invalid argument to option '%s'", optname));
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf("Missing argument to option '%s'", optname));
         Tcl_SetErrorCode(interp, "TARRAY", "ARGUMENT", NULL);
     }
     return TCL_ERROR;
@@ -2932,7 +2932,7 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
         case TA_SEARCH_OPT_NOCASE: flags |= TA_SEARCH_NOCASE; break;
         case TA_SEARCH_OPT_START:
             if (i > objc-4)
-                return TArrayBadArgError(interp, "-start");
+                return TArrayMissingArgError(interp, "-start");
             ++i;
             /*
              * To prevent shimmering, check if the index object is same
