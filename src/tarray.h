@@ -229,7 +229,7 @@ int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
 TAHdr *TAHdrRange(Tcl_Interp *interp, TAHdr *srcP, int low, int count);
 Tcl_Obj *TArrayRange(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
-TAHdr *TArrayGetValues(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP);
+Tcl_Obj *TArrayGet(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP, int fmt);
 int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
 TCL_RESULT IndexToInt(Tcl_Interp *, Tcl_Obj *objP, int *indexP,

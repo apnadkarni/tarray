@@ -2251,9 +2251,20 @@ Tcl_Obj * TAHdrIndex(TAHdr *thdrP, int index)
  * stores a TAHdr of type int containing the indices into *thdrPP and
  * returns TA_INDEX_TYPE_TAHDR. The TAHdr's ref count is incremented
  * so caller should call TAHDR_DECRREF as appropriate.
+ *
+ * If indexP is NULL, always returns as TA_INDEX_TYPE_TAHDR.
+ *
+ * This facility to return a single int or a index list should only
+ * be used by commands where it does not matter whether {1} is treated
+ * as a list or an int, for example the fill command, and the distinction
+ * is just an efficiency issue. Commands should
+ * not use this to pick whether a single index or a list was specified
+ * if it impacts their semantics.
  */
 int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP,
-                           int want_sorted, TAHdr **thdrPP, int *indexP)
+                           int want_sorted,
+                           TAHdr **thdrPP, /* Cannot be NULL */
+                           int *indexP)    /* Can be NULL */
 {
     TAHdr *thdrP;
     Tcl_Obj **elems;
@@ -2285,7 +2296,7 @@ int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP,
     }
 
     /* To prevent shimmering, first check known to be a list */
-    if (objP->typePtr != tclListTypePtr) {
+    if (objP->typePtr != tclListTypePtr && indexP != NULL) {
         status = Tcl_GetIntFromObj(NULL, objP, &n);
         if (status == TCL_OK) {
             *indexP = n;
@@ -2301,8 +2312,10 @@ int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP,
 
     thdrP = TAHdrAllocAndInit(interp, TA_INT, n, elems, 0);
     if (thdrP) {
-        qsort(TAHDRELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
-        TAHdrSortMarkAscending(thdrP);
+        if (want_sorted) {
+            qsort(TAHDRELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
+            TAHdrSortMarkAscending(thdrP);
+        }
         thdrP->nrefs++;
         *thdrPP = thdrP;
         return TA_INDEX_TYPE_TAHDR;
@@ -2312,69 +2325,113 @@ int TArrayConvertToIndices(Tcl_Interp *interp, Tcl_Obj *objP,
 
 /* Returns a newly allocated TAHdr (with ref count 0) containing the
    values from the specified indices */
-TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
+Tcl_Obj *TArrayGet(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP, int fmt)
 {
     TAHdr *thdrP;
-    int i, count;
-    int *indexP;
+    int count, index, bound;
+    int *indexP, *endP;
+    Tcl_Obj *taObj;
+    void *srcbaseP, *thdrbaseP;
 
-    if (indicesP->type != TA_INT) {
-        if (interp)
-            Tcl_SetResult(interp, "Invalid type for tarray indices", TCL_STATIC);
-        return NULL;
-    }
-
+    TA_ASSERT(indicesP->type == TA_INT);
     count = indicesP->used;
-    thdrP = TAHdrAlloc(interp, srcP->type, count);
-    if (thdrP == 0 || count == 0)
-        return thdrP;
+
+    if (fmt == TA_FORMAT_TARRAY) {
+        thdrP = TAHdrAlloc(interp, srcP->type, count);
+        if (thdrP == NULL)
+            return NULL;
+        thdrbaseP = TAHDRELEMPTR(thdrP, unsigned char, 0);
+        taObj = TArrayNewObj(thdrP);
+    } else {
+        thdrP = NULL;
+        thdrbaseP = NULL;
+        taObj = Tcl_NewListObj(fmt == TA_FORMAT_LIST ? count : 2*count, NULL);
+    }
+    if (count == 0)
+        return taObj;           /* Empty index list so nothing to return */
+
+#define TArrayGet_COPY(type_, objfn_)                                   \
+    do {                                                                \
+        type_ *fromP = srcbaseP;                                        \
+        type_ *toP = thdrbaseP;                                         \
+        while (indexP < endP) {                                         \
+            index = *indexP++;                                          \
+            if (index < 0 || index >= bound)                            \
+                goto index_error;                                       \
+            if (fmt == TA_FORMAT_TARRAY)                                \
+                *toP++ = fromP[index];                                  \
+            else {                                                      \
+                if (fmt == TA_FORMAT_DICT)                              \
+                    Tcl_ListObjAppendElement(interp, taObj, Tcl_NewIntObj(index)); \
+                Tcl_ListObjAppendElement(interp, taObj,                 \
+                                         objfn_(fromP[index])); \
+            }                                                           \
+        }                                                               \
+        if (fmt == TA_FORMAT_TARRAY)                                    \
+            thdrP->used = count;                                        \
+    } while (0)
+
 
     indexP = TAHDRELEMPTR(indicesP, int, 0);
-
+    endP = indexP + count;
+    srcbaseP = TAHDRELEMPTR(srcP, unsigned char, 0);
+    bound = srcP->used;
     switch (srcP->type) {
     case TA_BOOLEAN:
         {
-            ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
-            ba_t *srcbaP = TAHDRELEMPTR(srcP, ba_t, 0);
-            for (i = 0; i < count; ++i, ++indexP)
-                ba_put(baP, i, ba_get(srcbaP, *indexP));
+            ba_t *srcbaP = srcbaseP;
+            ba_t *baP = thdrbaseP;
+            int i;
+            for (i = 0; indexP < endP; ++i, ++indexP) {
+                index = *indexP; 
+                if (index < 0 || index >= bound)
+                    goto index_error;
+                if (fmt == TA_FORMAT_TARRAY)
+                    ba_put(baP, i, ba_get(srcbaP, index));
+                else {
+                    if (fmt == TA_FORMAT_DICT)
+                        Tcl_ListObjAppendElement(interp, taObj, Tcl_NewIntObj(index));
+                    Tcl_ListObjAppendElement(interp, taObj,
+                                             Tcl_NewIntObj(ba_get(srcbaP, index)));
+                }
+            }
         }
         break;
     case TA_UINT:
     case TA_INT:
-        {
-            unsigned int *uiP = TAHDRELEMPTR(thdrP, unsigned int, 0);
-            for (i = 0; i < count; ++i, ++indexP, ++uiP)
-                *uiP = *TAHDRELEMPTR(srcP, unsigned int, *indexP);
-        }
+        TArrayGet_COPY(unsigned int, Tcl_NewIntObj);
         break;
     case TA_WIDE:
-        {
-            Tcl_WideInt *wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, 0);
-            for (i = 0; i < count; ++i, ++indexP, ++wideP)
-                *wideP = *TAHDRELEMPTR(srcP, Tcl_WideInt, *indexP);
-        }
+        TArrayGet_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
         break;
     case TA_DOUBLE:
-        {
-            double *dblP = TAHDRELEMPTR(thdrP, double, 0);
-            for (i = 0; i < count; ++i, ++indexP, ++dblP)
-                *dblP = *TAHDRELEMPTR(srcP, double, *indexP);
-        }
+        TArrayGet_COPY(double, Tcl_NewDoubleObj);
         break;
     case TA_BYTE:
-        {
-            unsigned char *ucP = TAHDRELEMPTR(thdrP, unsigned char, 0);
-            for (i = 0; i < count; ++i, ++indexP, ++ucP)
-                *ucP = *TAHDRELEMPTR(srcP, unsigned char, *indexP);
-        }
+        TArrayGet_COPY(unsigned char, Tcl_NewIntObj);
         break;
     case TA_OBJ:
+        /* Cannot use macro here because of ref counts etc. */
         {
-            Tcl_Obj **objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
-            for (i = 0; i < count; ++i, ++indexP, ++objPP) {
-                *objPP = *TAHDRELEMPTR(srcP, Tcl_Obj *, *indexP);
-                Tcl_IncrRefCount(*objPP);
+            Tcl_Obj **objsrcPP = srcbaseP;
+            Tcl_Obj **objPP = thdrbaseP;
+            while (indexP < endP) {
+                index = *indexP++; 
+                if (index < 0 || index >= bound)
+                    goto index_error;
+                if (fmt == TA_FORMAT_TARRAY) {
+                    *objPP = objsrcPP[index];
+                    Tcl_IncrRefCount(*objPP);
+                    ++objPP;
+                    thdrP->used++; /* Bump as we go along in case taObj has
+                                      to be released on error */
+                } else {
+                    /* No need to bump ref counts as lists take care of it */
+                    if (fmt == TA_FORMAT_DICT)
+                        Tcl_ListObjAppendElement(interp, taObj, index);
+                    Tcl_ListObjAppendElement(interp, taObj,
+                                             Tcl_NewIntObj(objsrcPP[index]));
+                }
             }
         }
         break;
@@ -2382,8 +2439,16 @@ TAHdr *TArrayGetValues(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP)
         TArrayTypePanic(srcP->type);
     }
 
-    thdrP->used = count;
-    return thdrP;
+    return taObj;
+
+index_error:   /* index should hold the current index in error */
+    TArrayIndexRangeError(interp, index);
+
+error_return:
+    if (taObj)
+        Tcl_DecrRefCount(taObj);
+    return NULL;
+
 }
 
 static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
