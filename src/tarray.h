@@ -234,6 +234,8 @@ Tcl_Obj *TArrayRange(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
 TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
+TCL_RESULT TArrayFill(Tcl_Interp *interp, Tcl_Obj *taObj, Tcl_Obj *valueObj,
+                      Tcl_Obj *indexA, Tcl_Obj *indexB);
 Tcl_Obj *TArrayGet(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP, int fmt);
 int TArrayNumSetBits(TAHdr *thdrP);
 TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
