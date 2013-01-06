@@ -202,8 +202,6 @@ Tcl_Obj *TAHdrIndex(TAHdr *thdrP, int index);
 TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *,
                                     TAHdr * const thdrs[], int nthdrs,
                                     Tcl_Obj *tuples, int first);
-TCL_RESULT TArrayFillFromObjOBSOLETE(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
-                             Tcl_Obj *taObj, Tcl_Obj *valueObj);
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *highObj,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 
@@ -222,6 +220,8 @@ void TAHdrDeleteRange(TAHdr *thdrP, int first, int count);
 void TAHdrDeleteIndices(TAHdr *thdrP, TAHdr *indicesP);
 TAHdr *TAHdrClone(Tcl_Interp *, TAHdr *srcP, int init_size);
 TAHdr *TAHdrCloneReversed(Tcl_Interp *, TAHdr *srcP, int init_size);
+TCL_RESULT TAHdrVerifyValueObjs(Tcl_Interp *intepr, int tatype,
+                             int nelems, Tcl_Obj * const elems[]);
 TCL_RESULT TAHdrVerifyIndices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP, int *new_sizeP);
 int TArrayConvertToIndices(struct Tcl_Interp *, struct Tcl_Obj *objP,
                            int want_sorted, TAHdr **thdrPP, int *indexP);
@@ -234,11 +234,12 @@ Tcl_Obj *TArrayRange(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
 TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
-TCL_RESULT TArrayFill(Tcl_Interp *interp, Tcl_Obj *taObj, Tcl_Obj *valueObj,
+TCL_RESULT TArrayFillFromObj(Tcl_Interp *interp, Tcl_Obj *taObj, Tcl_Obj *valueObj,
                       Tcl_Obj *indexA, Tcl_Obj *indexB);
 Tcl_Obj *TArrayGet(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP, int fmt);
 int TArrayNumSetBits(TAHdr *thdrP);
-TCL_RESULT TArraySetRange(Tcl_Interp *, TAHdr *dstP, int dst_first, int count, Tcl_Obj *objP);
+TCL_RESULT TArraySetFromObjs(Tcl_Interp *, Tcl_Obj *taObj,
+                             Tcl_Obj *valueListObj, Tcl_Obj *firstObj);
 TCL_RESULT IndexToInt(Tcl_Interp *, Tcl_Obj *objP, int *indexP,
                       int end_value, int low, int high);
 TCL_RESULT RationalizeRangeIndices(Tcl_Interp *, const TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP);

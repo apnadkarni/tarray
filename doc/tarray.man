@@ -149,7 +149,7 @@ Returns the value of the element at the position specified by [arg INDEX]
 which is a single [sectref Indices index].
 
 [call [cmd "column place"] [arg TARRAYCOLUMN] [arg VALUEDICT]]
-[call [cmd "column place"] [arg TARRAYCOLUMN] [arg INDICES] [arg VALUES]]
+[call [cmd "column place"] [arg TARRAYCOLUMN] [arg VALUES] [arg INDICES]]
 In the first form, [arg VALUEDICT] is a dictionary mapping
 indices to the new values.
 In the second case, [arg INDICES] must be a 
@@ -230,8 +230,8 @@ themselves.
 Returns the [sectref "Types" type] of the typed column.
 
 [call [cmd "column vdelete"] [arg TCOLUMNVAR] [arg INDEX]]
-[call [cmd "column velete"] [arg TCOLUMNVAR] [arg INDEXLIST]]
-[call [cmd "column velete"] [arg TCOLUMNVAR] [arg LOW] [arg HIGH]]
+[call [cmd "column vdelete"] [arg TCOLUMNVAR] [arg INDEXLIST]]
+[call [cmd "column vdelete"] [arg TCOLUMNVAR] [arg LOW] [arg HIGH]]
 Deletes elements from the typed array column in variable [arg TCOLUMNVAR].
 The new value is assigned back to the variable and also returned as the
 result of the command.

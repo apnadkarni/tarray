@@ -113,7 +113,6 @@ critcl::ccommand tarray::column::delete {} {
 critcl::ccommand tarray::column::vdelete {} {
     Tcl_Obj *valueObj;
     Tcl_Obj *taObj;
-    int low, count;
     int status;
 
     if (objc != 3 && objc != 4) {
@@ -170,7 +169,6 @@ critcl::cproc tarray::column::index {Tcl_Interp* interp TAHdr* tcolumn Tcl_Obj* 
 
 critcl::ccommand tarray::column::get {} {
     Tcl_Obj *taObj;
-    TAHdr *thdrP;
     int low, count;
     int status;
     int fmt = TA_FORMAT_TARRAY;
@@ -450,6 +448,36 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr taObj} ok
 
 critcl::ccommand tarray::column::search TArray_SearchObjCmd
 
+critcl::ccommand tarray::column::put {} {
+    Tcl_Obj *taObj;
+    int status;
+
+    if (objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYVAR VALUES FIRST");
+	return TCL_ERROR;
+    }
+    
+    taObj = objv[1];
+    if (Tcl_IsShared(taObj))
+        taObj = Tcl_DuplicateObj(objv[1]);
+
+    /* Values may be given as a list or a tarray */
+    if (TArrayConvert(NULL, objv[2]) == TCL_OK) {
+        /* It is a tarray. Verify the right type */
+        status = TCL_ERROR;
+        Tcl_SetResult(interp, "Not implemented", TCL_STATIC);
+    } else {
+        status = TArraySetFromObjs(interp, taObj, objv[2], objv[3]);
+    }
+
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, taObj);
+    else if (taObj != objv[1])
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+
+    return status;
+
+}
 
 critcl::ccommand tarray::column::fill {} {
     Tcl_Obj *taObj;
@@ -464,7 +492,7 @@ critcl::ccommand tarray::column::fill {} {
     if (Tcl_IsShared(taObj))
         taObj = Tcl_DuplicateObj(objv[1]);
 
-    status = TArrayFill(interp, taObj, objv[2], objv[3],
+    status = TArrayFillFromObj(interp, taObj, objv[2], objv[3],
                         objc == 5 ? objv[4] : NULL);
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, taObj);
@@ -492,7 +520,7 @@ critcl::ccommand tarray::column::vfill {} {
 
     taObj = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
 
-    status = TArrayFill(interp, taObj, objv[2], objv[3], objc == 5 ? objv[4] : NULL);
+    status = TArrayFillFromObj(interp, taObj, objv[2], objv[3], objc == 5 ? objv[4] : NULL);
     if (status == TCL_OK) {
         /* Even if we had not duplicated the value in the variable, we
          * still need to store it back so that traces are triggered. Also,

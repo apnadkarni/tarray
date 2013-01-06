@@ -415,6 +415,75 @@ void TAHdrFillRange(Tcl_Interp *interp, TAHdr *thdrP,
         thdrP->used = pos + count;
 }
 
+TCL_RESULT TAHdrVerifyValueObjs(Tcl_Interp *interp, int tatype,
+                                int nelems, Tcl_Obj * const elems[])
+{
+    Tcl_Obj * const *objPP = elems;
+    Tcl_Obj * const *end = elems + nelems;
+    switch (tatype) {
+    case TA_BOOLEAN:
+        for ( ; objPP < end; ++objPP) {
+            int ival;
+            if (Tcl_GetBooleanFromObj(interp, *objPP, &ival) != TCL_OK)
+                return TCL_ERROR;
+        }
+        break;
+
+    case TA_UINT:
+        for ( ; objPP < end; ++objPP) {
+            Tcl_WideInt wide;
+            if (Tcl_GetWideIntFromObj(interp, *objPP, &wide) != TCL_OK)
+                return TCL_ERROR;
+            if (wide < 0 || wide > 0xFFFFFFFF) {
+                return TArrayValueTypeError(interp, *objPP, tatype);
+            }
+        }
+        break;
+
+    case TA_INT:
+        for ( ; objPP < end; ++objPP) {
+            int ival;
+            if (Tcl_GetIntFromObj(interp, *objPP, &ival) != TCL_OK)
+                return TCL_ERROR;
+        }
+        break;
+
+    case TA_WIDE:
+        for ( ; objPP < end; ++objPP) {
+            Tcl_WideInt wide;
+            if (Tcl_GetWideIntFromObj(interp, *objPP, &wide) != TCL_OK)
+                return TCL_ERROR;
+        }
+        break;
+
+    case TA_DOUBLE:
+        for ( ; objPP < end; ++objPP) {
+            double dval;
+            if (Tcl_GetDoubleFromObj(interp, *objPP, &dval) != TCL_OK)
+                return TCL_ERROR;
+        }
+        break;
+
+    case TA_BYTE:
+        for ( ; objPP < end; ++objPP) {
+            int ival;
+            if (Tcl_GetIntFromObj(interp, *objPP, &ival) != TCL_OK)
+                return TCL_ERROR;
+            if (ival > 255 || ival < 0) {
+                TArrayValueTypeError(interp, *objPP, tatype);
+                return TCL_ERROR;
+            }
+        }
+        break;
+    case TA_OBJ:
+        break;                  /* Just pointers, nothing to verify */
+    default:
+        TArrayTypePanic(tatype);
+    }
+    return TCL_OK;
+}
+
+
 /* Verify that the specified index list is valid.
    We need to verify that the indices
    are not beyond the range. At the same time the indices may
@@ -922,6 +991,9 @@ Tcl_Obj *TArrayNewObj(TAHdr *thdrP)
     return objP;
 }
     
+
+
+
 /* thdrP must NOT be shared and must have enough slots */
 /* interp may be NULL (only used for errors) */
 TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
@@ -930,7 +1002,7 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
 {
     int i, ival;
     Tcl_WideInt wide;
-    double dval;
+    int status;
 
     TA_ASSERT(thdrP->nrefs < 2);
     TA_ASSERT((first + nelems) <= thdrP->allocated);
@@ -947,67 +1019,12 @@ TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
      * As a special optimization, when appending to the end, we do
      * not need to first check. We directly store the values and in case
      * of errors, simply do not update size.
-     *
-     * Also for TA_OBJ there is no question of conversion and hence
-     * no question of conversion errors.
-     *
      */
 
-    if (first < thdrP->used && thdrP->type != TA_OBJ) {
-        /* Not appending, need to verify conversion */
-        switch (thdrP->type) {
-        case TA_BOOLEAN:
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetBooleanFromObj(interp, elems[i], &ival) != TCL_OK)
-                    goto convert_error;
-            }
-            break;
-
-        case TA_UINT:
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetWideIntFromObj(interp, elems[i], &wide) != TCL_OK)
-                    goto convert_error;
-                if (wide < 0 || wide > 0xFFFFFFFF) {
-                    TArrayValueTypeError(interp, elems[i], thdrP->type);
-                    goto convert_error;
-                }
-            }
-            break;
-
-        case TA_INT:
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetIntFromObj(interp, elems[i], &ival) != TCL_OK)
-                    goto convert_error;
-            }
-            break;
-
-        case TA_WIDE:
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetWideIntFromObj(interp, elems[i], &wide) != TCL_OK)
-                    goto convert_error;
-            }
-            break;
-
-        case TA_DOUBLE:
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetDoubleFromObj(interp, elems[i], &dval) != TCL_OK)
-                    goto convert_error;
-            }
-            break;
-
-        case TA_BYTE:
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetIntFromObj(interp, elems[i], &ival) != TCL_OK)
-                    goto convert_error;
-                if (ival > 255 || ival < 0) {
-                    TArrayValueTypeError(interp, elems[i], thdrP->type);
-                    goto convert_error;
-                }
-            }
-            break;
-        default:
-            TArrayTypePanic(thdrP->type);
-        }
+    if (first < thdrP->used) {
+        if ((status = TAHdrVerifyValueObjs(interp, thdrP->type, nelems, elems))
+            != TCL_OK)
+            return TCL_ERROR;
     }
 
     /*
@@ -2462,8 +2479,9 @@ TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
     return status;
 }
 
-TCL_RESULT TArrayFill(Tcl_Interp *interp, Tcl_Obj *taObj, Tcl_Obj *valueObj,
-                      Tcl_Obj *indexA, Tcl_Obj *indexB)
+TCL_RESULT TArrayFillFromObj(Tcl_Interp *interp, Tcl_Obj *taObj,
+                             Tcl_Obj *valueObj,
+                             Tcl_Obj *indexA, Tcl_Obj *indexB)
 {
     int low, count;
     int status;
@@ -2540,92 +2558,14 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
-
-
 /* The tarray Tcl_Obj is modified */
-TCL_RESULT TArrayFillFromObjOBSOLETE(
-    Tcl_Interp *interp,
-    Tcl_Obj *lowObj, Tcl_Obj *highObj,
-    Tcl_Obj *taObj,
-    Tcl_Obj *valueObj)
+TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
+                             Tcl_Obj *valueListObj, Tcl_Obj *firstObj)
 {
-    TAHdr *thdrP;
-    int low, count;
-    TArrayValue value;
     int status;
-
-    TA_ASSERT(! Tcl_IsShared(taObj));
-
-    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
-        return status;
-    thdrP = TARRAYHDR(taObj);
-    status = TArrayValueFromObj(interp, valueObj, thdrP->type, &value);
-    if (status != TCL_OK)
-        return TCL_ERROR;
-
-    /*
-     * Extract low/high indices. Be careful not to shimmer because
-     * in the unlikely but legal case where index is same object
-     * as the passed tarray, we do not want to lose the tarray
-     * representation. For example,
-     *   set v [tarray create int {0}]
-     *   tarray filltuples $v $v [list $v] 0
-     * So if the index Tcl_Obj's are of tarrays, we dup them.
-     */
-
-    if (lowObj->typePtr == &gTArrayType)
-        lowObj = Tcl_DuplicateObj(lowObj);
-    else
-        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
-
-    if (highObj->typePtr == &gTArrayType)
-        highObj = Tcl_DuplicateObj(highObj);
-    else
-        Tcl_IncrRefCount(highObj); /* Since we will release at end */
-
-    /* Get the limits of the range to set */
-    status = RationalizeRangeIndices(interp, thdrP, lowObj, highObj, &low, &count);
-    if (status != TCL_OK)
-        goto vamoose;
-
-    /*
-     * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT
-     * LIKE BUGCHECKS OR OUT OF MEMORY. Code below is written accordingly.
-     */
-
-    /* If nothing to fill, return existing array as is */
-    if (count) {
-        /* Note this also invalidates the string rep as desired */
-        if (TArrayMakeModifiable(interp, taObj,
-                                 thdrP->used, thdrP->allocated) != TCL_OK) {
-            status = TCL_ERROR;
-        } else {
-            thdrP = TARRAYHDR(taObj); /* Might have changed */
-            TAHdrFillRange(interp, thdrP, &value, low, count);
-        }
-    }
-    
-vamoose:                   /* interp must already hold error message */
-    Tcl_DecrRefCount(lowObj);
-    Tcl_DecrRefCount(highObj);
-
-    return status;
-}
-
-/* The tarray Tcl_Obj is modified */
-TCL_RESULT TArraySetFromObjs(
-    Tcl_Interp *interp,
-    Tcl_Obj *firstObj, 
-    Tcl_Obj *taObj,
-    Tcl_Obj *valueListObj)
-{
-    TAHdr *thdrP;
-    int i, first;
-    TArrayValue value;
-    int status;
-    int new_size;
     Tcl_Obj **valueObjs;
     int nvalues;
+    int first;
 
     TA_ASSERT(! Tcl_IsShared(taObj));
 
@@ -2635,40 +2575,25 @@ TCL_RESULT TArraySetFromObjs(
 
     if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
         return status;
-    thdrP = TARRAYHDR(taObj);
-
-    /*
-     * Extract index. Be careful not to shimmer
-     * in the unlikely error case where incorrect args passed,
-     * we do not want to lose the tarray representation. For example,
-     * So if the index Tcl_Obj's are of tarrays, we dup them.
-     */
-
-    if (firstObj->typePtr == &gTArrayType)
-        firstObj = Tcl_DuplicateObj(firstObj);
-    else
-        Tcl_IncrRefCount(firstObj); /* Since we will release at end */
 
     /* Get the limits of the range to set */
-    if ((status = IndexToInt(interp, firstObj, &first, thdrP->used, 0, thdrP->used)) != TCL_OK)
-        goto vamoose;
+
+    if ((status = IndexToInt(interp, firstObj, &first, TARRAYELEMCOUNT(taObj),
+                             0, TARRAYELEMCOUNT(taObj))) != TCL_OK)
+        return status;
 
     if (nvalues) {
         /* Note this also invalidates the string rep as desired */
-        status = TArrayMakeModifiable(interp, taObj,
-                                      thdrP->used, thdrP->allocated);
+        status = TArrayMakeModifiable(interp, taObj, first + nvalues, 0);
         if (status == TCL_OK) {
             /* Note even on error TAHdrSetFromObjs guarantees a consistent 
-             * (though un-updated) taObj
+             * and unchanged taObj
              */
-            thdrP = TARRAYHDR(taObj); /* Might have changed */
-            status = TAHdrSetFromObjs(interp, thdrP, first, nvalues, valueObjs);
+            status = TAHdrSetFromObjs(interp, TARRAYHDR(taObj),
+                                      first, nvalues, valueObjs);
         }
     }
     
-vamoose:                   /* interp must already hold error message */
-    Tcl_DecrRefCount(firstObj);
-
     return status;
 }
 
