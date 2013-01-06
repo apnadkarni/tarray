@@ -2398,9 +2398,8 @@ Tcl_Obj *TArrayGet(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP, int fmt)
                 } else {
                     /* No need to bump ref counts as lists take care of it */
                     if (fmt == TA_FORMAT_DICT)
-                        Tcl_ListObjAppendElement(interp, taObj, index);
-                    Tcl_ListObjAppendElement(interp, taObj,
-                                             Tcl_NewIntObj(objsrcPP[index]));
+                        Tcl_ListObjAppendElement(interp, taObj, Tcl_NewIntObj(index));
+                    Tcl_ListObjAppendElement(interp, taObj, objsrcPP[index]);
                 }
             }
         }
@@ -2414,7 +2413,6 @@ Tcl_Obj *TArrayGet(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP, int fmt)
 index_error:   /* index should hold the current index in error */
     TArrayIndexRangeError(interp, index);
 
-error_return:
     if (taObj)
         Tcl_DecrRefCount(taObj);
     return NULL;
@@ -2425,7 +2423,6 @@ error_return:
 TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
                         Tcl_Obj *indexA, Tcl_Obj *indexB)
 {
-    TAHdr *thdrP;
     int low, count;
     int status;
 
@@ -2436,8 +2433,8 @@ TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
 
     status = TArrayMakeModifiable(interp, taObj, TARRAYELEMCOUNT(taObj),
                                   TARRAYELEMCOUNT(taObj));
-    thdrP = TARRAYHDR(taObj);
     if (status == TCL_OK) {
+        TAHdr *thdrP = TARRAYHDR(taObj);
         if (indexB) {
             status = RationalizeRangeIndices(interp, thdrP, indexA,
                                              indexB, &low, &count);
@@ -2465,7 +2462,62 @@ TCL_RESULT TArrayDelete(Tcl_Interp *interp, Tcl_Obj *taObj,
     return status;
 }
 
+TCL_RESULT TArrayFill(Tcl_Interp *interp, Tcl_Obj *taObj, Tcl_Obj *valueObj,
+                      Tcl_Obj *indexA, Tcl_Obj *indexB)
+{
+    int low, count;
+    int status;
+    TArrayValue value;
 
+    TA_ASSERT(! Tcl_IsShared(taObj));
+
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+    if ((status = TArrayValueFromObj(interp, valueObj,
+                                     TARRAYTYPE(taObj), &value)) != TCL_OK)
+        return status;
+
+    if (indexB) {
+        status = RationalizeRangeIndices(interp, TARRAYHDR(taObj), indexA,
+                                         indexB, &low, &count);
+        if (status == TCL_OK && count != 0) {
+            status = TArrayMakeModifiable(interp, taObj, low+count, TARRAYELEMSLOTS(taObj));
+            if (status == TCL_OK)
+                TAHdrFillRange(interp, TARRAYHDR(taObj), &value, low, count);
+        }
+    } else {
+        /* Not a range, either a list or single index */
+        TAHdr *indicesP;
+        /* Note status is TCL_OK at this point */
+        switch (TArrayConvertToIndices(interp, indexA, 1, &indicesP, &low)) {
+        case TA_INDEX_TYPE_ERROR:
+            status = TCL_ERROR;
+            break;
+        case TA_INDEX_TYPE_INT:
+            if (low < 0 || low > TARRAYELEMCOUNT(taObj)) {
+                TArrayIndexRangeError(interp, low);
+                status = TCL_ERROR;
+            } else {
+                status = TArrayMakeModifiable(interp, taObj, low+1, 0);
+                if (status == TCL_OK)
+                    TAHdrFillRange(interp, TARRAYHDR(taObj), &value, low, 1);
+            }
+            break;
+        case TA_INDEX_TYPE_TAHDR:
+            status = TAHdrVerifyIndices(interp, TARRAYHDR(taObj), indicesP, &count);
+            /* count is highest index specified in index array */
+            if (status == TCL_OK) {
+                status = TArrayMakeModifiable(interp, taObj, count+1, count+1); // TBD - count + extra?
+                if (status == TCL_OK)
+                    TAHdrFillIndices(interp, TARRAYHDR(taObj), &value, indicesP);
+            }
+            TAHDR_DECRREF(indicesP);
+            break;
+        }
+    }
+
+    return status;
+}
 
 int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 {

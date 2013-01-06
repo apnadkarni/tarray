@@ -237,6 +237,16 @@ The new value is assigned back to the variable and also returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
+[call [cmd "column vfill"] [arg TCOLUMNVAR] [arg VALUE] [arg INDEX]]
+[call [cmd "column vfill"] [arg TCOLUMNVAR] [arg VALUE] [arg INDEXLIST]]
+[call [cmd "column vfill"] [arg TCOLUMNVAR] [arg VALUE] [arg LOW] [arg HIGH]]
+Set the elements of the typed column in variable [arg TCOLUMNVAR] to
+[arg VALUE]. 
+The new value is assigned back to the variable and also returned as the
+result of the command.
+[para]
+See [cmd fill] for more information.
+
 [list_end]
 
 

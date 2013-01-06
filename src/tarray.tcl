@@ -44,12 +44,12 @@ namespace eval tarray {
             fill fill
             get get
             index index
-            list list
-            range range
             size size
             search search
             sort sort
             type type
+            vdelete vdelete
+            vfill vfill
         }
     }
 
