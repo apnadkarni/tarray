@@ -453,7 +453,7 @@ critcl::ccommand tarray::column::put {} {
     int status;
 
     if (objc != 4) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYVAR VALUES FIRST");
+	Tcl_WrongNumArgs(interp, 1, objv, "TARRAY VALUES FIRST");
 	return TCL_ERROR;
     }
     
@@ -464,8 +464,7 @@ critcl::ccommand tarray::column::put {} {
     /* Values may be given as a list or a tarray */
     if (TArrayConvert(NULL, objv[2]) == TCL_OK) {
         /* It is a tarray. Verify the right type */
-        status = TCL_ERROR;
-        Tcl_SetResult(interp, "Not implemented", TCL_STATIC);
+        status = TArrayCopy(interp, taObj, TARRAYHDR(objv[2]), objv[3]);
     } else {
         status = TArraySetFromObjs(interp, taObj, objv[2], objv[3]);
     }
@@ -484,7 +483,7 @@ critcl::ccommand tarray::column::fill {} {
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYVAR VALUE (INDEXLIST | LOW ?HIGH?)");
+	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMN VALUE (INDEXLIST | LOW ?HIGH?)");
 	return TCL_ERROR;
     }
 
@@ -504,9 +503,7 @@ critcl::ccommand tarray::column::fill {} {
 
 critcl::ccommand tarray::column::vfill {} {
     Tcl_Obj *valueObj;
-    Tcl_Obj *newvalueObj;
     Tcl_Obj *taObj;
-    int low, count;
     int status;
 
     if (objc != 4 && objc != 5) {

@@ -175,6 +175,17 @@ TCL_RESULT TArrayBadIndexError(Tcl_Interp *interp, Tcl_Obj *objP)
     return TCL_ERROR;
 }
 
+TCL_RESULT TArrayIncompatibleTypesError(Tcl_Interp *interp)
+{
+    if (interp) {
+        Tcl_SetResult(interp, "tarray types are not compatible for attempted operation", TCL_STATIC);
+        Tcl_SetErrorCode(interp, "TARRAY", "TYPE", "INCOMPATIBLE", NULL);
+    }
+
+    return TCL_ERROR;
+}
+
+
 /*
  * Map numeric or string index to numeric integer index.
  */
@@ -1798,6 +1809,7 @@ void TAHdrReverse(TAHdr *thdrP)
     }
 }
 
+
 /* Copies partial content from one TAHdr to another. See asserts below
    for requirements */
 void TAHdrCopy(TAHdr *dstP, int dst_first,
@@ -2558,6 +2570,27 @@ int TArrayCompareObjs(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
+TCL_RESULT TArrayCopy(Tcl_Interp *interp, Tcl_Obj *taObj, TAHdr *srcP, Tcl_Obj *firstObj)
+{
+    int first, status;
+
+    TA_ASSERT(! Tcl_IsShared(taObj));
+
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+    if (TARRAYTYPE(taObj) != srcP->type)
+        return TArrayIncompatibleTypesError(interp);
+
+    status = IndexToInt(interp, firstObj, &first, TARRAYELEMCOUNT(taObj),
+                        0, TARRAYELEMCOUNT(taObj));
+    if (status == TCL_OK && srcP->used) {
+        status = TArrayMakeModifiable(interp, taObj, first + srcP->used, 0);
+        if (status == TCL_OK)
+            TAHdrCopy(TARRAYHDR(taObj), first, srcP, 0, srcP->used); 
+    }
+    return status;
+}
+
 /* The tarray Tcl_Obj is modified */
 TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
                              Tcl_Obj *valueListObj, Tcl_Obj *firstObj)
@@ -2578,11 +2611,9 @@ TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
 
     /* Get the limits of the range to set */
 
-    if ((status = IndexToInt(interp, firstObj, &first, TARRAYELEMCOUNT(taObj),
-                             0, TARRAYELEMCOUNT(taObj))) != TCL_OK)
-        return status;
-
-    if (nvalues) {
+    status = IndexToInt(interp, firstObj, &first, TARRAYELEMCOUNT(taObj),
+                        0, TARRAYELEMCOUNT(taObj));
+    if (status == TCL_OK && nvalues) {
         /* Note this also invalidates the string rep as desired */
         status = TArrayMakeModifiable(interp, taObj, first + nvalues, 0);
         if (status == TCL_OK) {

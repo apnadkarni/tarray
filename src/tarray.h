@@ -181,6 +181,7 @@ TCL_RESULT TArrayNoMemError(Tcl_Interp *, int size);
 TCL_RESULT TArrayBadIndicesError(Tcl_Interp *interp, Tcl_Obj *objP);
 TCL_RESULT TArrayBadIndexError(Tcl_Interp *interp, Tcl_Obj *objP);
 TCL_RESULT TArrayIndexRangeError(Tcl_Interp *interp, int index);
+TCL_RESULT TArrayIncompatibleTypesError(Tcl_Interp *interp);
 
 void TArrayIncrObjRefs(TAHdr *thdrP,int first,int count);
 void TArrayDecrObjRefs(TAHdr *thdrP,int first,int count);
@@ -238,6 +239,7 @@ TCL_RESULT TArrayFillFromObj(Tcl_Interp *interp, Tcl_Obj *taObj, Tcl_Obj *valueO
                       Tcl_Obj *indexA, Tcl_Obj *indexB);
 Tcl_Obj *TArrayGet(struct Tcl_Interp *, TAHdr *srcP, TAHdr *indicesP, int fmt);
 int TArrayNumSetBits(TAHdr *thdrP);
+TCL_RESULT TArrayCopy(Tcl_Interp *, Tcl_Obj *taObj, TAHdr *srcP, Tcl_Obj *firstObj);
 TCL_RESULT TArraySetFromObjs(Tcl_Interp *, Tcl_Obj *taObj,
                              Tcl_Obj *valueListObj, Tcl_Obj *firstObj);
 TCL_RESULT IndexToInt(Tcl_Interp *, Tcl_Obj *objP, int *indexP,
