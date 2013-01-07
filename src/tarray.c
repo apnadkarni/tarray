@@ -185,6 +185,16 @@ TCL_RESULT TArrayIncompatibleTypesError(Tcl_Interp *interp)
     return TCL_ERROR;
 }
 
+TCL_RESULT TArrayIndicesCountError(Tcl_Interp *interp, int nindices, int nvalues)
+{
+    if (interp) {
+        Tcl_SetObjResult(interp,
+                         Tcl_ObjPrintf("Number of indices (%d) not same as number of values (%d).", nindices, nvalues));
+        Tcl_SetErrorCode(interp, "TARRAY", "INDICES", "COUNT", NULL);
+    }
+
+    return TCL_ERROR;
+}
 
 /*
  * Map numeric or string index to numeric integer index.
@@ -1001,13 +1011,10 @@ Tcl_Obj *TArrayNewObj(TAHdr *thdrP)
     TA_OBJ_SETREP(objP, thdrP);
     return objP;
 }
-    
-
-
 
 /* thdrP must NOT be shared and must have enough slots */
 /* interp may be NULL (only used for errors) */
-TCL_RESULT TAHdrSetFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
+TCL_RESULT TAHdrPutFromObjs(Tcl_Interp *interp, TAHdr *thdrP,
                                  int first, int nelems,
                                  Tcl_Obj * const elems[])
 {
@@ -1185,346 +1192,131 @@ convert_error:                  /* Interp should already contain errors */
 
 }
 
-/* interp may be NULL (only used for errors) */
-/* See asserts in code for prerequisite conditions */
-TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
-                                TAHdr * const thdrs[], int nthdrs,
-                                Tcl_Obj *tuples, int first)
+TCL_RESULT TAHdrPlaceFromObjs(
+    Tcl_Interp *interp,
+    TAHdr *thdrP,               /* TAHdr to be modified - must NOT be shared */
+    TAHdr *indicesP,            /* Contains indices. */
+    int highest_in_indices,          /* Highest index in indicesP.
+                                   If >= thdrP->used, all intermediate indices
+                                   must also be present in indicesP. Caller
+                                   must have checked
+                                */
+    int nvalues,                /* # values in valuesP */
+    Tcl_Obj * const *valuesP)   /* Values to be stored */
 {
-    int t, r, ival;
-    Tcl_WideInt wide;
-    double dval;
-    Tcl_Obj **rows;
-    int nrows;
-    int have_obj_cols;
-    int have_other_cols;
-    int need_data_validation;
-    Tcl_Obj *valObj;
-    TAHdr *thdrP;
+    int *indexP, *endP;
+    int status;
+    TArrayValue v;
 
-    TA_ASSERT(nthdrs > 0);
+    TA_ASSERT(thdrP->nrefs < 2);
+    TA_ASSERT(indicesP->type == TA_INT);
+    TA_ASSERT(highest_in_indices < thdrP->allocated);
 
-    if (Tcl_ListObjGetElements(interp, tuples, &nrows, &rows) != TCL_OK)
-        return TCL_ERROR;
+    if (indicesP->used != nvalues)
+        return TArrayIndicesCountError(interp, indicesP->used, nvalues);
 
-    if (nrows == 0)
-        return TCL_OK;          /* Nought to do */
+    if (nvalues == 0)
+        return TCL_OK;          /* Nothing to change */
 
-    for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < nthdrs; ++t) {
-        TA_ASSERT(thdrs[t]->nrefs < 2); /* Unshared */
-        TA_ASSERT(thdrs[t]->allocated >= (first + nrows)); /* 'Nuff space */
-        TA_ASSERT(thdrs[t]->used == thdrs[0]->used); /* All same size */
-
-        if (thdrs[t]->type == TA_OBJ)
-            have_obj_cols = 1;
-        else
-            have_other_cols = 1;
-
-    }
+    TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
 
     /*
-     * In case of errors, we have to keep the old values
+     * In case of conversion errors, we have to keep the old values
      * so we loop through first to verify there are no errors and then
      * a second time to actually store the values. The arrays can be
      * very large so we do not want to allocate a temporary
-     * holding area for saving old values to be restored in case of errors
-     * or to hold new Tcl_Values so conversion does not need to be repeated.
-     *
-     * There are two kinds of errors - data type errors (e.g. attempt
-     * to store a non-integer into an integer field) and structural
-     * errors (e.g. a row not having enough elements).
-     *
-     * As a special optimization, when appending to the end, we do
-     * not need to first check. We directly store the values and in case
-     * of errors, simply not update the old size.
-     *
-     * TA_OBJ add a complication. They do not need a type check
-     * but because their reference counts have to be managed, it is more
-     * complicated to back track on errors when we skip the validation
-     * checks in the pure append case. So we update these columns
-     * only after everything else has been updated.
+     * holding area for saving old values to be restored in case of errors.
      */
 
-    if (! have_other_cols) {
-        /* Only TA_OBJ columns, data validation is a no-op */
-        need_data_validation = 0;
-    } else if (first >= thdrs[0]->used) {
-        /*
-         * Pure append, not overwriting so rollback becomes easy and
-         * no need for prevalidation step.
-         */
-        need_data_validation = 0;
-    } else
-        need_data_validation = 1;
-       
-    /* We could either iterate vertically or horizontally
-     *   for (per thdr)
-     *     switch (thdr->type)
-     *       for (per row)
-     *         field <- Tcl_ListObjIndex
-     *         validate field
-     * or
-     *   for (per row)
-     *     fields <- Tcl_ListObjGetElements
-     *     per field
-     *       switch thdr->type
-     *         validate field
-     *
-     * Not clear which will perform better - first case inner loop has
-     * a call (Tcl_ListObjIndex). Second case inner loop has a switch
-     * (probably faster than a call). On the other hand, when actually
-     * writing out to the array, cache effects might make the former
-     * faster (writing consecutive locations).
-     *
-     * As it turns out, we use the first method for a different reason -
-     * when we are strictly appending without overwriting, we do not
-     * validate since rollback is easy. The complication is that if
-     * any column is of type TA_OBJ, when an error occurs we have to
-     * rollback that column's Tcl_Obj reference counts. Keeping track
-     * of this is more involved using the second scheme and much simpler
-     * with the first scheme. Hence we go with that.
-     */
-
-    if (need_data_validation) {
-        for (r = 0; r < nrows; ++r) {
-            Tcl_Obj **fields;
-            int nfields;
-        
-            if (Tcl_ListObjGetElements(interp, rows[r], &nfields, &fields)
-                != TCL_OK)
-                goto error_return;
-
-            /* Must have sufficient fields, more is ok */
-            if (nfields < nthdrs)
-                goto width_error;
-
-            for (t = 0; t < nthdrs; ++t) {
-                thdrP = thdrs[t];
-                switch (thdrP->type) {
-                case TA_BOOLEAN:
-                    if (Tcl_GetBooleanFromObj(interp, fields[t], &ival) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_UINT:
-                    if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
-                        goto error_return;
-                    if (wide < 0 || wide > 0xFFFFFFFF) {
-                        TArrayValueTypeError(interp, fields[t], thdrP->type);
-                        goto error_return;
-                    }
-                    break;
-                case TA_INT:
-                    if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_WIDE:
-                    if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_DOUBLE:
-                    if (Tcl_GetDoubleFromObj(interp, fields[t], &dval) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_BYTE:
-                    if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
-                        goto error_return;
-                    if (ival > 255 || ival < 0) {
-                        TArrayValueTypeError(interp, fields[t], thdrP->type);
-                        goto error_return;
-                    }
-                    break;
-                case TA_OBJ:
-                    break;      /* No validation */
-                default:
-                    TArrayTypePanic(thdrs[t]->type);
-                }
-            }
-        }
-    } else {
-        /* We are not validating data but then validate row widths */
-        /* We are doing this to simplify error rollback for TA_OBJ */
-        for (r = 0; r < nrows; ++r) {
-            if (Tcl_ListObjLength(interp, rows[r], &ival) == TCL_ERROR)
-                goto error_return;
-            /* Width of row must not be too short, longer is ok */
-            if (ival < nthdrs)
-                goto width_error;
-        }
-    }
+    if ((status = TAHdrVerifyValueObjs(interp, thdrP->type, nvalues, valuesP))
+        != TCL_OK)
+        return status;
 
     /*
-     * Now actually store the values. Note we still have to check
-     * status on conversion in case we did not do checks when we are appending
-     * to the end, and we have to store TA_OBJ last to facilitate
-     * rollback on errors as discussed earlier.
+     * Now  store the values. Note we do not have to check
+     * status on any conversion since we did so already.
      */
-    if (have_other_cols) {
-        for (t=0; t < nthdrs; ++t) {
-            /* Skip TA_OBJ on this round, until all other data is stored */
-            thdrP = thdrs[t];
-            if (thdrP->type == TA_OBJ)
-                continue;
 
-            TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
-            switch (thdrs[t]->type) {
-            case TA_BOOLEAN:
-                {
-                    register ba_t *baP;
-                    ba_t ba, ba_mask;
-                    int off;
-
-                    /* Take care of the initial condition where the first bit
-                       may not be aligned on a boundary */
-                    baP = TAHDRELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
-                    off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
-                    ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
-                    if (off != 0) {
-                        /*
-                         * Offset is off within a ba_t. Get the ba_t at that location
-                         * preserving the preceding bits within the char.
-                         */
-                        ba = *baP & BITPOSMASKLT(off);
-                    } else
-                        ba = 0;
-                    for (r = 0; r < nrows; ++r) {
-                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetBooleanFromObj(interp, valObj, &ival) != TCL_OK)
-                            goto error_return;
-                        if (ival)
-                            ba |= ba_mask;
-                        ba_mask = BITMASKNEXT(ba_mask);
-                        if (ba_mask == 0) {
-                            *baP++ = ba;
-                            ba = 0;
-                            ba_mask = BITPOSMASK(0);
-                        }
-                    }
-                    if (ba_mask != BITPOSMASK(0)) {
-                        /* We have some leftover bits in ba that need
-                        to be stored.  * We need to *merge* these into
-                        the corresponding word * keeping the existing
-                        high index bits.  * Note the bit indicated by
-                        ba_mask also has to be preserved, * not
-                        overwritten.  */
-                        *baP = ba | (*baP & BITMASKGE(ba_mask));
-                    }
-                }
-                break;
-
-            case TA_UINT:
-                {
-                    register unsigned int *uintP;
-                    uintP = TAHDRELEMPTR(thdrP, unsigned int, first);
-                    for (r = 0; r < nrows; ++r, ++uintP) {
-                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetWideIntFromObj(interp, valObj, &wide) != TCL_OK)
-                            goto error_return;
-                        if (wide < 0 || wide > 0xFFFFFFFF) {
-                            TArrayValueTypeError(interp, valObj, thdrP->type);
-                            goto error_return;
-                        }
-                        *uintP = (unsigned int) wide;
-                    }
-                }
-                break;
-            case TA_INT:
-                {
-                    register int *intP;
-                    intP = TAHDRELEMPTR(thdrP, int, first);
-                    for (r = 0; r < nrows; ++r, ++intP) {
-                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetIntFromObj(interp, valObj, intP) != TCL_OK)
-                            goto error_return;
-                    }
-                }
-                break;
-            case TA_WIDE:
-                {
-                    register Tcl_WideInt *wideP;
-                    wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
-                    for (r = 0; r < nrows; ++r, ++wideP) {
-                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetWideIntFromObj(interp, valObj, wideP) != TCL_OK)
-                            goto error_return;
-                    }
-                }
-                break;
-            case TA_DOUBLE:
-                {
-                    register double *dblP;
-                    dblP = TAHDRELEMPTR(thdrP, double, first);
-                    for (r = 0; r < nrows; ++r, ++dblP) {
-                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetDoubleFromObj(interp, valObj, dblP) != TCL_OK)
-                            goto error_return;
-                    }
-                }
-                break;
-            case TA_BYTE:
-                {
-                    register unsigned char *byteP;
-                    byteP = TAHDRELEMPTR(thdrP, unsigned char, first);
-                    for (r = 0; r < nrows; ++r, ++byteP) {
-                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetIntFromObj(interp, valObj, &ival) != TCL_OK)
-                            goto error_return;
-                        if (ival > 255 || ival < 0) {
-                            TArrayValueTypeError(interp, valObj, thdrP->type);
-                            goto error_return;
-                        }
-                        *byteP = (unsigned char) ival;
-                    }
-                }
-                break;
-            default:
-                TArrayTypePanic(thdrP->type);
+#define PLACEVALUES(type, fn, var) do {                 \
+        type *p;                                        \
+        p = TAHDRELEMPTR(thdrP, type, 0);             \
+        while (indexP < endP) {                         \
+            status = fn(interp, *valuesP++, &var);      \
+            TA_ASSERT(status == TCL_OK);                \
+            TA_ASSERT(*indexP < thdrP->allocated);      \
+            TA_ASSERT(*indexP <= thdrP->used);          \
+            p[*indexP++] = (type) var;                  \
+        }                                               \
+    } while (0)
+    
+    indexP = TAHDRELEMPTR(indicesP, int, 0);
+    endP = indexP + nvalues;
+    switch (thdrP->type) {
+    case TA_BOOLEAN:
+        {
+            ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
+            while (indexP < endP) {
+                status = Tcl_GetBooleanFromObj(interp, *valuesP++, &v.ival);
+                TA_ASSERT(status == TCL_OK); /* Since values are verified */
+                TA_ASSERT(*indexP < thdrP->allocated);
+                TA_ASSERT(*indexP <= thdrP->used);
+                ba_put(baP, *indexP++, v.ival);
             }
         }
-    }
+        break;
 
-    /* Now that no errors are possible, update the TA_OBJ columns */
-    for (t=0; t < nthdrs; ++t) {
-        register Tcl_Obj **objPP;
-        thdrP = thdrs[t];
-        if (thdrP->type != TA_OBJ)
-            continue;
-        TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
-        objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
-        for (r = 0; r < nrows ; ++r, ++objPP) {
-            Tcl_ListObjIndex(interp, rows[r], t, &valObj);
-            TA_ASSERT(valObj);
-            /* Careful about the order here! */
-            Tcl_IncrRefCount(valObj);
-            if ((first + r) < thdrP->used) {
-                /* Deref what was originally in that slot */
-                Tcl_DecrRefCount(*objPP);
+    case TA_UINT:
+        PLACEVALUES(unsigned int, Tcl_GetWideIntFromObj, v.wval);
+        break;
+    case TA_INT:
+        PLACEVALUES(int, Tcl_GetIntFromObj, v.ival);
+        break;
+    case TA_WIDE:
+        PLACEVALUES(Tcl_WideInt, Tcl_GetWideIntFromObj, v.wval);
+        break;
+    case TA_DOUBLE:
+        PLACEVALUES(double, Tcl_GetDoubleFromObj, v.dval);
+        break;
+    case TA_OBJ:
+        {
+            int i;
+            Tcl_Obj **objPP;
+            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+            /*
+             * Reference counts makes this tricky. If replacing an existing
+             * index we have to increment the new value's ref and decrement
+             * the old value's. If the index points to a previously unused
+             * slot, then the value there is garbage and Tcl_DecrRefCount
+             * should not be called on it. The problem is we cannot distinguish
+             * the cases up front using thdrP->used as a threshold because
+             * indicesP is in arbitrary order AND indices may be repeated.
+             * Hence what we do is to store NULL first in all unused slots
+             * that will be written to mark what is unused.
+             */
+            for (i = thdrP->used; i <= highest_in_indices; ++i)
+                objPP[i] = NULL;
+            while (indexP < endP) {
+                /* Careful about the order here! */
+                Tcl_IncrRefCount(*valuesP);
+                if (objPP[*indexP] != NULL)
+                    Tcl_DecrRefCount(*objPP);/* Deref what was originally in that slot */
+                objPP[*indexP] = *valuesP++;
             }
-            *objPP = valObj;
         }
+        break;
+
+    case TA_BYTE:
+        PLACEVALUES(unsigned int, Tcl_GetIntFromObj, v.ival);
+        break;
+    default:
+        TArrayTypePanic(thdrP->type);
     }
 
-    /* Now finally, update all the counts */
-    for (t=0; t < nthdrs; ++t) {
-        if ((first + nrows) > thdrs[t]->used)
-            thdrs[t]->used = first + nrows;
-    }
+    if (highest_in_indices >= thdrP->used)
+        thdrP->used = highest_in_indices + 1;
 
     return TCL_OK;
-
-width_error:
-    if (interp)
-        Tcl_SetResult(interp, "Not enough elements in row", TCL_STATIC);
-
-error_return:                  /* Interp should already contain errors */
-    return TCL_ERROR;
 }
-
 
 int TArrayCalcSize(unsigned char tatype, int count)
 {
@@ -1630,7 +1422,7 @@ TAHdr * TAHdrAllocAndInit(Tcl_Interp *interp, unsigned char tatype,
     thdrP = TAHdrAlloc(interp, tatype, init_size);
     if (thdrP) {
         if (elems != NULL && nelems != 0) {
-            if (TAHdrSetFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
+            if (TAHdrPutFromObjs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
                 TAHDR_DECRREF(thdrP);
                 thdrP = NULL;
             }
@@ -2535,9 +2327,8 @@ TCL_RESULT TArrayFillFromObj(Tcl_Interp *interp, Tcl_Obj *taObj,
             break;
         case TA_INDEX_TYPE_TAHDR:
             status = TAHdrVerifyIndices(interp, TARRAYHDR(taObj), indicesP, &count);
-            /* count is highest index specified in index array */
             if (status == TCL_OK) {
-                status = TArrayMakeModifiable(interp, taObj, count+1, count+1); // TBD - count + extra?
+                status = TArrayMakeModifiable(interp, taObj, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
                     TAHdrFillIndices(interp, TARRAYHDR(taObj), &value, indicesP);
             }
@@ -2592,7 +2383,7 @@ TCL_RESULT TArrayCopy(Tcl_Interp *interp, Tcl_Obj *taObj, TAHdr *srcP, Tcl_Obj *
 }
 
 /* The tarray Tcl_Obj is modified */
-TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
+TCL_RESULT TArrayPutFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
                              Tcl_Obj *valueListObj, Tcl_Obj *firstObj)
 {
     int status;
@@ -2617,14 +2408,67 @@ TCL_RESULT TArraySetFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
         /* Note this also invalidates the string rep as desired */
         status = TArrayMakeModifiable(interp, taObj, first + nvalues, 0);
         if (status == TCL_OK) {
-            /* Note even on error TAHdrSetFromObjs guarantees a consistent 
+            /* Note even on error TAHdrPutFromObjs guarantees a consistent 
              * and unchanged taObj
              */
-            status = TAHdrSetFromObjs(interp, TARRAYHDR(taObj),
+            status = TAHdrPutFromObjs(interp, TARRAYHDR(taObj),
                                       first, nvalues, valueObjs);
         }
     }
     
+    return status;
+}
+
+TCL_RESULT TArrayPlaceFromObjs(Tcl_Interp *interp, Tcl_Obj *taObj,
+                               Tcl_Obj *valueListObj,
+                               Tcl_Obj *indicesObj)
+{
+    int new_size;
+    int status;
+    TAHdr *indicesP;
+    Tcl_Obj **valueObjs;
+    int nvalues;
+    TAHdr *sortedP;
+
+    TA_ASSERT(! Tcl_IsShared(taObj));
+
+    status = Tcl_ListObjGetElements(interp, valueListObj, &nvalues, &valueObjs);
+    if (status != TCL_OK)
+        return status;
+
+    if ((status = TArrayConvert(interp, taObj)) != TCL_OK)
+        return status;
+
+    if (TArrayConvertToIndices(interp, indicesObj, 0, &indicesP, NULL)
+        != TA_INDEX_TYPE_TAHDR)
+        return TCL_ERROR;
+
+    if (indicesP->used == 0)
+        return TCL_OK;
+
+    /* For verification we will need to sort indices */
+    sortedP = indicesP;
+    if (! TAHdrSorted(sortedP)) {
+        sortedP = TAHdrClone(interp, sortedP, 0);
+        if (sortedP == NULL)
+            return TCL_ERROR;
+        qsort(TAHDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), intcmp);
+        TAHdrSortMarkAscending(sortedP);
+    }
+
+    status = TAHdrVerifyIndices(interp, TARRAYHDR(taObj), sortedP, &new_size);
+    if (sortedP != indicesP)
+        TAHDR_DECRREF(sortedP);
+    if (status == TCL_OK) {
+        status = TArrayMakeModifiable(interp, taObj, new_size, new_size); // TBD - count + extra?
+        if (status == TCL_OK) {
+            status = TAHdrPlaceFromObjs(interp, TARRAYHDR(taObj), indicesP,
+                                        new_size-1, /* Highest index in indicesP */
+                                        nvalues, valueObjs);
+        }
+    }
+    TAHDR_DECRREF(indicesP);
+
     return status;
 }
 
@@ -2775,4 +2619,346 @@ vamoose:                   /* interp must already hold error message */
         TA_FREEMEM((char *) valuesP);
 
     return status;
+}
+
+
+
+/* interp may be NULL (only used for errors) */
+/* See asserts in code for prerequisite conditions */
+TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
+                                TAHdr * const thdrs[], int nthdrs,
+                                Tcl_Obj *tuples, int first)
+{
+    int t, r, ival;
+    Tcl_WideInt wide;
+    double dval;
+    Tcl_Obj **rows;
+    int nrows;
+    int have_obj_cols;
+    int have_other_cols;
+    int need_data_validation;
+    Tcl_Obj *valObj;
+    TAHdr *thdrP;
+
+    TA_ASSERT(nthdrs > 0);
+
+    if (Tcl_ListObjGetElements(interp, tuples, &nrows, &rows) != TCL_OK)
+        return TCL_ERROR;
+
+    if (nrows == 0)
+        return TCL_OK;          /* Nought to do */
+
+    for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < nthdrs; ++t) {
+        TA_ASSERT(thdrs[t]->nrefs < 2); /* Unshared */
+        TA_ASSERT(thdrs[t]->allocated >= (first + nrows)); /* 'Nuff space */
+        TA_ASSERT(thdrs[t]->used == thdrs[0]->used); /* All same size */
+
+        if (thdrs[t]->type == TA_OBJ)
+            have_obj_cols = 1;
+        else
+            have_other_cols = 1;
+
+    }
+
+    /*
+     * In case of errors, we have to keep the old values
+     * so we loop through first to verify there are no errors and then
+     * a second time to actually store the values. The arrays can be
+     * very large so we do not want to allocate a temporary
+     * holding area for saving old values to be restored in case of errors
+     * or to hold new Tcl_Values so conversion does not need to be repeated.
+     *
+     * There are two kinds of errors - data type errors (e.g. attempt
+     * to store a non-integer into an integer field) and structural
+     * errors (e.g. a row not having enough elements).
+     *
+     * As a special optimization, when appending to the end, we do
+     * not need to first check. We directly store the values and in case
+     * of errors, simply not update the old size.
+     *
+     * TA_OBJ add a complication. They do not need a type check
+     * but because their reference counts have to be managed, it is more
+     * complicated to back track on errors when we skip the validation
+     * checks in the pure append case. So we update these columns
+     * only after everything else has been updated.
+     */
+
+    if (! have_other_cols) {
+        /* Only TA_OBJ columns, data validation is a no-op */
+        need_data_validation = 0;
+    } else if (first >= thdrs[0]->used) {
+        /*
+         * Pure append, not overwriting so rollback becomes easy and
+         * no need for prevalidation step.
+         */
+        need_data_validation = 0;
+    } else
+        need_data_validation = 1;
+       
+    /* We could either iterate vertically or horizontally
+     *   for (per thdr)
+     *     switch (thdr->type)
+     *       for (per row)
+     *         field <- Tcl_ListObjIndex
+     *         validate field
+     * or
+     *   for (per row)
+     *     fields <- Tcl_ListObjGetElements
+     *     per field
+     *       switch thdr->type
+     *         validate field
+     *
+     * Not clear which will perform better - first case inner loop has
+     * a call (Tcl_ListObjIndex). Second case inner loop has a switch
+     * (probably faster than a call). On the other hand, when actually
+     * writing out to the array, cache effects might make the former
+     * faster (writing consecutive locations).
+     *
+     * As it turns out, we use the first method for a different reason -
+     * when we are strictly appending without overwriting, we do not
+     * validate since rollback is easy. The complication is that if
+     * any column is of type TA_OBJ, when an error occurs we have to
+     * rollback that column's Tcl_Obj reference counts. Keeping track
+     * of this is more involved using the second scheme and much simpler
+     * with the first scheme. Hence we go with that.
+     */
+
+    if (need_data_validation) {
+        for (r = 0; r < nrows; ++r) {
+            Tcl_Obj **fields;
+            int nfields;
+        
+            if (Tcl_ListObjGetElements(interp, rows[r], &nfields, &fields)
+                != TCL_OK)
+                goto error_return;
+
+            /* Must have sufficient fields, more is ok */
+            if (nfields < nthdrs)
+                goto width_error;
+
+            for (t = 0; t < nthdrs; ++t) {
+                thdrP = thdrs[t];
+                switch (thdrP->type) {
+                case TA_BOOLEAN:
+                    if (Tcl_GetBooleanFromObj(interp, fields[t], &ival) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TA_UINT:
+                    if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
+                        goto error_return;
+                    if (wide < 0 || wide > 0xFFFFFFFF) {
+                        TArrayValueTypeError(interp, fields[t], thdrP->type);
+                        goto error_return;
+                    }
+                    break;
+                case TA_INT:
+                    if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TA_WIDE:
+                    if (Tcl_GetWideIntFromObj(interp, fields[t], &wide) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TA_DOUBLE:
+                    if (Tcl_GetDoubleFromObj(interp, fields[t], &dval) != TCL_OK)
+                        goto error_return;
+                    break;
+                case TA_BYTE:
+                    if (Tcl_GetIntFromObj(interp, fields[t], &ival) != TCL_OK)
+                        goto error_return;
+                    if (ival > 255 || ival < 0) {
+                        TArrayValueTypeError(interp, fields[t], thdrP->type);
+                        goto error_return;
+                    }
+                    break;
+                case TA_OBJ:
+                    break;      /* No validation */
+                default:
+                    TArrayTypePanic(thdrs[t]->type);
+                }
+            }
+        }
+    } else {
+        /* We are not validating data but then validate row widths */
+        /* We are doing this to simplify error rollback for TA_OBJ */
+        for (r = 0; r < nrows; ++r) {
+            if (Tcl_ListObjLength(interp, rows[r], &ival) == TCL_ERROR)
+                goto error_return;
+            /* Width of row must not be too short, longer is ok */
+            if (ival < nthdrs)
+                goto width_error;
+        }
+    }
+
+    /*
+     * Now actually store the values. Note we still have to check
+     * status on conversion in case we did not do checks when we are appending
+     * to the end, and we have to store TA_OBJ last to facilitate
+     * rollback on errors as discussed earlier.
+     */
+    if (have_other_cols) {
+        for (t=0; t < nthdrs; ++t) {
+            /* Skip TA_OBJ on this round, until all other data is stored */
+            thdrP = thdrs[t];
+            if (thdrP->type == TA_OBJ)
+                continue;
+
+            TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
+            switch (thdrs[t]->type) {
+            case TA_BOOLEAN:
+                {
+                    register ba_t *baP;
+                    ba_t ba, ba_mask;
+                    int off;
+
+                    /* Take care of the initial condition where the first bit
+                       may not be aligned on a boundary */
+                    baP = TAHDRELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
+                    off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
+                    ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
+                    if (off != 0) {
+                        /*
+                         * Offset is off within a ba_t. Get the ba_t at that location
+                         * preserving the preceding bits within the char.
+                         */
+                        ba = *baP & BITPOSMASKLT(off);
+                    } else
+                        ba = 0;
+                    for (r = 0; r < nrows; ++r) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TA_ASSERT(valObj);
+                        if (Tcl_GetBooleanFromObj(interp, valObj, &ival) != TCL_OK)
+                            goto error_return;
+                        if (ival)
+                            ba |= ba_mask;
+                        ba_mask = BITMASKNEXT(ba_mask);
+                        if (ba_mask == 0) {
+                            *baP++ = ba;
+                            ba = 0;
+                            ba_mask = BITPOSMASK(0);
+                        }
+                    }
+                    if (ba_mask != BITPOSMASK(0)) {
+                        /* We have some leftover bits in ba that need
+                        to be stored.  * We need to *merge* these into
+                        the corresponding word * keeping the existing
+                        high index bits.  * Note the bit indicated by
+                        ba_mask also has to be preserved, * not
+                        overwritten.  */
+                        *baP = ba | (*baP & BITMASKGE(ba_mask));
+                    }
+                }
+                break;
+
+            case TA_UINT:
+                {
+                    register unsigned int *uintP;
+                    uintP = TAHDRELEMPTR(thdrP, unsigned int, first);
+                    for (r = 0; r < nrows; ++r, ++uintP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TA_ASSERT(valObj);
+                        if (Tcl_GetWideIntFromObj(interp, valObj, &wide) != TCL_OK)
+                            goto error_return;
+                        if (wide < 0 || wide > 0xFFFFFFFF) {
+                            TArrayValueTypeError(interp, valObj, thdrP->type);
+                            goto error_return;
+                        }
+                        *uintP = (unsigned int) wide;
+                    }
+                }
+                break;
+            case TA_INT:
+                {
+                    register int *intP;
+                    intP = TAHDRELEMPTR(thdrP, int, first);
+                    for (r = 0; r < nrows; ++r, ++intP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TA_ASSERT(valObj);
+                        if (Tcl_GetIntFromObj(interp, valObj, intP) != TCL_OK)
+                            goto error_return;
+                    }
+                }
+                break;
+            case TA_WIDE:
+                {
+                    register Tcl_WideInt *wideP;
+                    wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+                    for (r = 0; r < nrows; ++r, ++wideP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TA_ASSERT(valObj);
+                        if (Tcl_GetWideIntFromObj(interp, valObj, wideP) != TCL_OK)
+                            goto error_return;
+                    }
+                }
+                break;
+            case TA_DOUBLE:
+                {
+                    register double *dblP;
+                    dblP = TAHDRELEMPTR(thdrP, double, first);
+                    for (r = 0; r < nrows; ++r, ++dblP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TA_ASSERT(valObj);
+                        if (Tcl_GetDoubleFromObj(interp, valObj, dblP) != TCL_OK)
+                            goto error_return;
+                    }
+                }
+                break;
+            case TA_BYTE:
+                {
+                    register unsigned char *byteP;
+                    byteP = TAHDRELEMPTR(thdrP, unsigned char, first);
+                    for (r = 0; r < nrows; ++r, ++byteP) {
+                        Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+                        TA_ASSERT(valObj);
+                        if (Tcl_GetIntFromObj(interp, valObj, &ival) != TCL_OK)
+                            goto error_return;
+                        if (ival > 255 || ival < 0) {
+                            TArrayValueTypeError(interp, valObj, thdrP->type);
+                            goto error_return;
+                        }
+                        *byteP = (unsigned char) ival;
+                    }
+                }
+                break;
+            default:
+                TArrayTypePanic(thdrP->type);
+            }
+        }
+    }
+
+    /* Now that no errors are possible, update the TA_OBJ columns */
+    for (t=0; t < nthdrs; ++t) {
+        register Tcl_Obj **objPP;
+        thdrP = thdrs[t];
+        if (thdrP->type != TA_OBJ)
+            continue;
+        TAHdrSortMarkUnsorted(thdrP); /* TBD - optimize */
+        objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        for (r = 0; r < nrows ; ++r, ++objPP) {
+            Tcl_ListObjIndex(interp, rows[r], t, &valObj);
+            TA_ASSERT(valObj);
+            /* Careful about the order here! */
+            Tcl_IncrRefCount(valObj);
+            if ((first + r) < thdrP->used) {
+                /* Deref what was originally in that slot */
+                Tcl_DecrRefCount(*objPP);
+            }
+            *objPP = valObj;
+        }
+    }
+
+    /* Now finally, update all the counts */
+    for (t=0; t < nthdrs; ++t) {
+        if ((first + nrows) > thdrs[t]->used)
+            thdrs[t]->used = first + nrows;
+    }
+
+    return TCL_OK;
+
+width_error:
+    if (interp)
+        Tcl_SetResult(interp, "Not enough elements in row", TCL_STATIC);
+
+error_return:                  /* Interp should already contain errors */
+    return TCL_ERROR;
 }

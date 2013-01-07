@@ -7,7 +7,7 @@
 
 package require critcl 3.1
 critcl::buildrequirement {
-    package require critcl::class ; # DSL, easy spec of Tcl class/object commands.
+    package require critcl::class
 }
 critcl::clean_cache
 critcl::tcl 8.5
@@ -108,7 +108,6 @@ critcl::ccommand tarray::column::delete {} {
 
     return status;
 }
-
 
 critcl::ccommand tarray::column::vdelete {} {
     Tcl_Obj *valueObj;
@@ -466,7 +465,7 @@ critcl::ccommand tarray::column::put {} {
         /* It is a tarray. Verify the right type */
         status = TArrayCopy(interp, taObj, TARRAYHDR(objv[2]), objv[3]);
     } else {
-        status = TArraySetFromObjs(interp, taObj, objv[2], objv[3]);
+        status = TArrayPutFromObjs(interp, taObj, objv[2], objv[3]);
     }
 
     if (status == TCL_OK)
@@ -476,6 +475,74 @@ critcl::ccommand tarray::column::put {} {
 
     return status;
 
+}
+
+critcl::ccommand tarray::column::vput {} {
+    Tcl_Obj *taObj;
+    Tcl_Obj *varValueObj;
+    int status;
+
+    if (objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMNVAR VALUES FIRST");
+	return TCL_ERROR;
+    }
+    
+    varValueObj = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (varValueObj == NULL)
+        return TCL_ERROR;
+
+    taObj = varValueObj;
+    if (Tcl_IsShared(taObj))
+        taObj = Tcl_DuplicateObj(varValueObj);
+
+    /* Values may be given as a list or a tarray */
+    if (TArrayConvert(NULL, objv[2]) == TCL_OK) {
+        /* It is a tarray. Verify the right type */
+        status = TArrayCopy(interp, taObj, TARRAYHDR(objv[2]), objv[3]);
+    } else {
+        status = TArrayPutFromObjs(interp, taObj, objv[2], objv[3]);
+    }
+
+    if (status == TCL_OK) {
+        /* Even if we had not duplicated the value in the variable, we
+         * still need to store it back so that traces are triggered. Also,
+         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
+         * ref count 0 on error (currently it frees iff ref == 0) so
+         * do a Incr/Decr
+         */
+        Tcl_IncrRefCount(taObj);
+        varValueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(taObj);
+        if (varValueObj)
+            Tcl_SetObjResult(interp, varValueObj);
+        else
+            status = TCL_ERROR;
+    } else if (taObj != varValueObj)
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+
+    return status;
+}
+
+critcl::ccommand tarray::column::place {} {
+    Tcl_Obj *taObj;
+    int status;
+
+    if (objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMN VALUES INDEXLIST");
+	return TCL_ERROR;
+    }
+
+    taObj = objv[1];
+    if (Tcl_IsShared(taObj))
+        taObj = Tcl_DuplicateObj(objv[1]);
+
+    status = TArrayPlaceFromObjs(interp, taObj, objv[2], objv[3]);
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, taObj);
+    else if (taObj != objv[1])
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+
+    return status;
 }
 
 critcl::ccommand tarray::column::fill {} {
@@ -492,7 +559,7 @@ critcl::ccommand tarray::column::fill {} {
         taObj = Tcl_DuplicateObj(objv[1]);
 
     status = TArrayFillFromObj(interp, taObj, objv[2], objv[3],
-                        objc == 5 ? objv[4] : NULL);
+                               objc == 5 ? objv[4] : NULL);
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, taObj);
     else if (taObj != objv[1])
@@ -507,7 +574,7 @@ critcl::ccommand tarray::column::vfill {} {
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TARRAYVAR VALUE (INDEXLIST | LOW ?HIGH?)");
+	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMNVAR VALUE (INDEXLIST | LOW ?HIGH?)");
 	return TCL_ERROR;
     }
     
