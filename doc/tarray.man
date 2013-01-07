@@ -162,22 +162,11 @@ The command will generate an error if [arg TARRAYCOLUMN]
 is not a typed column,  or if a value cannot be converted to 
 the column's type or if an index is out of range.
 
-[call [cmd "column put"] [arg TARRAYCOLUMN] [arg VALUES] [arg FIRST] [arg [opt LAST]]]
+[call [cmd "column put"] [arg TARRAYCOLUMN] [arg VALUES] [arg FIRST]]
 Returns a typed column with the elements starting at index [arg FIRST]
-replaced by the corresponding elements of [arg VALUELIST].
-[arg VALUES] may be a list of values or a typed column. Any existing
-elements at those position are overwritten. The command may extend
-the array if necessary.
-[para]
-If [arg LAST] is not specified, it is calculated based on the number of 
-elements in [arg VALUES]. If it is specified, only elements at positions
-between [arg FIRST] and [arg LAST] are replaced. If there are not enough
-elements in [arg VALUES], they are repeated in circular fashion. If there
-are extra elements in [arg VALUES], they are ignored.
-[para]
-The command will generate an error if [arg TARRAYCOLUMN]
-is not a typed column,  or if a value cannot be converted to 
-the column's type or if the specified starting index is out of range.
+replaced by the corresponding elements of [arg VALUES].
+[arg VALUES] may be a list of values or a typed column of the same type.
+The command may extend the array if necessary.
 
 [call [cmd "column reverse"] [arg TARRAYCOLUMN]]
 Returns the typed column with order of elements reversed.
@@ -247,6 +236,16 @@ result of the command.
 [para]
 See [cmd fill] for more information.
 
+[call [cmd "column vput"] [arg TCOLUMNVAR] [arg VALUES] [arg FIRST]]
+Modifies a variable [arg TCOLUMNVAR] containing a typed column.
+The elements of the column starting at index [arg FIRST] are
+replaced by the corresponding elements of [arg VALUES].
+[arg VALUES] may be a list of values or a typed column of the same type. 
+Any existing elements are overwritten and the command may extend
+the array if necessary.
+[para]
+The new value is assigned back to the variable and also returned as the
+result of the command.
 [list_end]
 
 
