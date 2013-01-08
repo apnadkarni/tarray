@@ -545,6 +545,43 @@ critcl::ccommand tarray::column::place {} {
     return status;
 }
 
+critcl::ccommand tarray::column::vplace {} {
+    Tcl_Obj *valueObj;
+    Tcl_Obj *taObj;
+    int status;
+
+    if (objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMNVAR VALUES INDEXLIST");
+	return TCL_ERROR;
+    }
+
+    valueObj = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (valueObj == NULL)
+        return TCL_ERROR;
+
+    taObj = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
+
+    status = TArrayPlaceFromObjs(interp, taObj, objv[2], objv[3]);
+    if (status == TCL_OK) {
+        /* Even if we had not duplicated the value in the variable, we
+         * still need to store it back so that traces are triggered. Also,
+         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
+         * ref count 0 on error (currently it frees iff ref == 0) so
+         * do a Incr/Decr
+         */
+        Tcl_IncrRefCount(taObj);
+        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(taObj);
+        if (valueObj)
+            Tcl_SetObjResult(interp, valueObj);
+        else
+            status = TCL_ERROR;
+    } else if (taObj != valueObj)
+        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+
+    return status;
+}
+
 critcl::ccommand tarray::column::fill {} {
     Tcl_Obj *taObj;
     int status;
