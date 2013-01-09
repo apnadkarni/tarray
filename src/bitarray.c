@@ -11,6 +11,123 @@
 #endif
 #include "bitarray.h"
 
+static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, int len)
+{
+    ba_t ba, mask;
+    int nbits, ba_len;
+
+    BA_ASSERT(to_internal_off < BA_UNIT_MASK);
+    BA_ASSERT(from_internal_off < BA_UNIT_MASK);
+    BA_ASSERT(to_internal_off != from_internal_off); /* Because then should be calling a faster routine */
+    BA_ASSERT(from > to || (from == to && from_internal_off > to_internal_off));      /* else should be calling ba_copy_unaligned_downward */
+
+    if (len == 0)
+        return;                 /* Also simplifies logic below */
+
+    /* Start out by aligning the destination */
+    if (to_internal_off) {
+        /* Align destination by writing out the fractional bits */
+        nbits = BA_UNIT_SIZE - to_internal_off;
+        if (nbits > len) {
+            nbits = len;
+            len = 0;
+        } else {
+            len -= nbits;
+        }
+        ba = ba_getn(from, from_internal_off, nbits);
+        ba_putn(to, to_internal_off, ba, nbits);
+        ++to;
+        from_internal_off += nbits;
+        if (from_internal_off >= BA_UNIT_SIZE) {
+            from_internal_off -= BA_UNIT_SIZE;
+            ++from;
+        }
+    }
+
+    if (len == 0)
+        return;
+
+    /*
+     * At this point
+     *  - to points to the aligned destination (to_internal_off is irrelevant)
+     *  - from points to the unit containing bits to be copied
+     *  - len has been updated to reflect # bits copied so far
+     *  - from_internal_off has been updated to reflect some
+     *    bits have been copied from the source
+     */
+
+    ba_len = len / BA_UNIT_SIZE; /* # whole ba_t units to copy */
+    len = len % BA_UNIT_SIZE;    /* # left over bits */
+    while (ba_len--) {
+        /* Again note use of temporary ba in case to and from overlap */
+        ba = *from++ >> from_internal_off;
+        ba |= *from << (BA_UNIT_SIZE - from_internal_off);
+        *to++ = ba;
+    }
+            
+    /* Now we have the left over len bits */
+    if (len == 0)
+        return;
+
+    ba = ba_getn(from, from_internal_off, len);
+    ba_putn(to, 0, ba, len);
+}
+
+static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, int len)
+{
+    ba_t ba, mask;
+    int nbits, ba_len;
+    int off;
+
+    BA_ASSERT(to_internal_off < BA_UNIT_MASK);
+    BA_ASSERT(from_internal_off < BA_UNIT_MASK);
+    BA_ASSERT(to_internal_off != from_internal_off); /* Because then should be calling a faster routine */
+    BA_ASSERT(from < to || (from == to && from_internal_off < to_internal_off));      /* else should be calling ba_copy_unaligned_upward */
+
+    if (len == 0)
+        return;                 /* Also simplifies logic below */
+
+    /* We  will be copying backwards so find end of the destination */
+    off = to_internal_off + len - 1; /* Offset of last bit to write to */
+    to += off / BA_UNIT_SIZE;        /* to -> last ba_t to be written to */
+    nbits = (off % BA_UNIT_SIZE) + 1; /* Number of bits to write in last ba_t */
+    if (nbits > len)
+        nbits = len;
+
+    off = from_internal_off + len - nbits;
+    from += off / BA_UNIT_SIZE;
+    from_internal_off = off % BA_UNIT_SIZE;
+    BA_ASSERT(from_internal_off != 0);         /* Since to & from unaligned */
+
+    /* Start out by writing the partial "left over" bits at end */
+    if (nbits < BA_UNIT_SIZE) {
+        ba = ba_getn(from, from_internal_off, nbits);
+        ba_putn(to, 0, ba, nbits);
+        len -= nbits;
+        --to;
+        --from; /* Essentially move the source BA_UNIT_SIZE bits for next copy */
+    }
+
+    /* Now we move whole ba_t units into the destination */
+    ba_len = len / BA_UNIT_SIZE; /* # whole ba_t units to copy */
+    len = len % BA_UNIT_SIZE;    /* # left over bits */
+    while (ba_len--) {
+        /* Note use of temporary ba in case to and from overlap */
+        ba = *from >> from_internal_off;
+        ba |= from[1] << (BA_UNIT_SIZE - from_internal_off);
+        *to-- = ba;
+        --from;
+    }
+            
+    /* Now we have the left over len bits */
+    if (len == 0)
+        return;
+
+    ba = ba_getn(from, from_internal_off, len);
+    ba_putn(to, BA_UNIT_SIZE - len, ba, len);
+}
+
+
 /* Caller must have ensured enough space in destination (see BA_BYTES_NEEDED) */
 /* TBD - test with overlapping moves, both where dst > src and src > dst */
 void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
@@ -90,86 +207,12 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
         *to = ba_merge_unit(*from, *to, mask); // = (*to & mask) | (*from & ~mask)
 
     } else {
-        /*
-         * Sadly, to and from have different alignments. Nought to do
-         * but pluck out fragments and merge. We want writes to memory
-         * to be aligned so we will collect destination units and write
-         * them out
-         */
-        ba_t ba;
-        int nbits;
-
-        /* Start out by aligning the destination */
-        if (to_internal_off) {
-            mask = BITPOSMASKLT(to_internal_off); /* Dest bits to preserve */
-            if ((len + to_internal_off) >= BA_UNIT_SIZE) {
-                nbits = BA_UNIT_SIZE - to_internal_off; /* #bits need of src */
-                len -= nbits;
-            } else {
-                /* Need to preserve bits at other end of unit as well */
-                nbits = len + to_internal_off; /* Temp to pass to macro in
-                                                  case macro double evals */
-                mask |= BITPOSMASKGE(nbits); /* upper bits to preserve */
-                nbits = len;              /* # bits need of source */
-                len = 0;
-            }
-            /* Collect nbits bits from the source into low bits of ba */
-            ba = (*from & BITPOSMASKGE(from_internal_off)) >> from_internal_off;
-            if ((nbits + from_internal_off) <= BA_UNIT_SIZE) {
-                /* One source unit was enough to supply nbits. */
-                from_internal_off += nbits;
-                from_internal_off %= BA_UNIT_SIZE; /* Probably not needed? */
-            } else {
-                /* Need to collect from two source units */
-                int nbits2;     /* # bits needed from second unit */
-                ++from;         /* Point to next second unit */
-                nbits2 = (nbits + from_internal_off) - BA_UNIT_SIZE;
-                ba |= (*from & BITPOSMASKLT(nbits2)) << (BA_UNIT_SIZE - from_internal_off);
-                from_internal_off = nbits - (BA_UNIT_SIZE - from_internal_off);
-            }
-            /* ba contains required bits in low order. Store them in dest */
-            ba <<= to_internal_off;
-            *to = ba_merge_unit(ba, *to, mask); // = (*to & mask) | (ba & ~mask)
-            ++to;
-        }
-
-        if (len == 0)
-            return;
-
-        /*
-         * Sigh...all we have done so far is update the first destination unit!
-         * At this point
-         *  - to points to the aligned destination (effectively, 
-         *    to_internal_off is immaterial)
-         *  - from points to the unit containing bits to be copied
-         *  - len has been updated to reflect # bits copied so far
-         *  - from_internal_off has been updated to reflect some
-         *    bits have been copied from the source
-         */
-
-        ba_len = len / BA_UNIT_SIZE; /* # ba_t units to copy */
-        len = len % BA_UNIT_SIZE;    /* # left over bits */
-        while (ba_len--) {
-            /* Again note use of temporary ba in case to and from overlap */
-            ba = *from++ >> from_internal_off;
-            ba |= *from << (BA_UNIT_SIZE - from_internal_off);
-            *to++ = ba;
-        }
-
-        /* Now we have the left over len bits */
-        if (len == 0)
-            return;
-
-        ba = *from >> from_internal_off;
-        if ((from_internal_off+len) > BA_UNIT_SIZE) {
-            /* Still more bits needed */
-            ++from;
-            ba |= *from << (BA_UNIT_SIZE - from_internal_off);
-        }
-        mask = BITPOSMASKGE(len);  /* Dest bits to preserve */
-        *to = ba_merge_unit(ba, *to, mask); // = (*to & mask) | (ba & ~mask)
+        /* to_internal_off != from_internal_off so we have to merge/copy fragments */
+        if ((from > to) || (from == to && from_internal_off > to_internal_off))
+            ba_copy_unaligned_upward(to, to_internal_off, from, from_internal_off, len);
+        else
+            ba_copy_unaligned_downward(to, to_internal_off, from, from_internal_off, len);
     }
-
     /* Phew! */
 }
 
@@ -330,3 +373,15 @@ void ba_reverse(ba_t *baP, int off, int len)
         ba_put_unit(baP, off, ba_merge_unit(front, end, BITPOSMASK(len)));
     }
 }
+
+#ifdef BA_TEST
+int main()
+{
+    /* Temp means of trying specific tests. Actual test suite is in
+       the tarray code */
+    unsigned char a[] = {0xaa, 0x00, 0xff, 0x55, 0x33};
+    ba_copy(a, 4, a, 16, 15);
+    printf("%x %x %x %x %x", a[0], a[1], a[2], a[3], a[4]);
+}
+
+#endif

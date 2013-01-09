@@ -59,9 +59,9 @@
 /* Return a mask containing a 1 at a bit position (MSB being bit 0) 
    BITPOSMASK(2) -> 00100000 */
 #define BITPOSMASK(pos_) ((ba_t)(((ba_t) 1) << (pos_)))
-#define BITPOSMASKLT(pos_) (BITPOSMASK(pos_)-1)
+#define BITPOSMASKLT(pos_) ((ba_t)(BITPOSMASK(pos_)-1))
 #define BITPOSMASKGE(pos_) ((ba_t) (- (sba_t)BITPOSMASK(pos_)))
-#define BITPOSMASKGT(pos_) (BITPOSMASKGE(pos_) - BITPOSMASK(pos_))
+#define BITPOSMASKGT(pos_) ((ba_t)(BITPOSMASKGE(pos_) - BITPOSMASK(pos_)))
 
 /*
  * Return a mask where all bit positions up to, but not including pos
@@ -127,6 +127,58 @@ BA_INLINE ba_t ba_merge_unit(ba_t a, ba_t b, ba_t mask)
     return a ^ ((a ^ b) & mask);
 }
 
+/* Caller should take care of case where there are not n bits
+   valid at offset off */
+BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
+{
+    BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    if (off == 0)
+        return (*baP & BITPOSMASKLT(n));
+    else {
+        /* We have to be careful here that though off + n may be valid,
+           off+BA_UNIT_SIZE may not be so do not try to get more bits than
+           asked for.
+        */
+        n += off; /* n <- high bits to ignore */
+        if (n > BA_UNIT_SIZE) {
+            /*  n bits are spread between baP and baP+1 */
+            return ((baP[1] & BITPOSMASKLT(n-BA_UNIT_SIZE)) << (BA_UNIT_SIZE - off)) | (baP[0] >> off);
+        } else {
+            /* Entire range is within one ba_t */
+            return (BITPOSMASKLT(n) & *baP) >> off;
+        }
+    }
+}
+
+/* Caller should take care of case where there are not n bits of memory
+   valid at offset off */
+BA_INLINE void ba_putn(ba_t *baP, int off, ba_t ba, int n)
+{
+    BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
+
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    if (off == 0)
+        *baP = ba_merge_unit(ba, *baP, BITPOSMASKGE(n));
+    else {
+        n += off;
+        if (n > BA_UNIT_SIZE) {
+            /* bits are spread across two ba_t units */
+            baP[0] = ba_merge_unit(baP[0], (ba_t)(ba << off), BITPOSMASKGE(off));
+            n -= BA_UNIT_SIZE;  /* # bits to store in top word */
+            baP[1] = ba_merge_unit((ba_t)(ba >> (BA_UNIT_SIZE - off)), baP[1],
+                                   BITPOSMASKLT(n));
+        } else {
+            /* Bits fit in one word */
+            ba <<= off;
+            *baP = ba_merge_unit(ba, *baP, (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
+        }
+    }
+}
+
+
 /* Caller should take care of case where there are not BA_UNIT_SIZE bits
    valid at offset off */
 BA_INLINE ba_t ba_get_unit(ba_t *baP, int off)
@@ -135,11 +187,9 @@ BA_INLINE ba_t ba_get_unit(ba_t *baP, int off)
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
     if (off == 0)
-        return *baP;
-    else {
-        mask = BITPOSMASKGE(off);
-        return ba_merge_unit(baP[1], baP[0], mask);
-    }
+        return *baP;            /* Faster path */
+    else 
+        return ba_getn(baP, off, BA_UNIT_SIZE);
 }
 
 /* Caller should take care of case where there are not BA_UNIT_SIZE bits
@@ -149,13 +199,9 @@ BA_INLINE void ba_put_unit(ba_t *baP, int off, ba_t ba)
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
     if (off == 0)
-        *baP = ba;
-    else {
-        ba_t mask;
-        mask = BITPOSMASKGE(off);
-        baP[0] = ba_merge_unit(baP[0], ba << off, mask);
-        baP[1] = ba_merge_unit(ba >> (BA_UNIT_SIZE - off), baP[1], mask);
-    }
+        *baP = ba;              /* Fast path */
+    else
+        ba_putn(baP, off, ba, BA_UNIT_SIZE);
 }
 
 BA_INLINE ba_t ba_reverse_unit(ba_t ba)
@@ -165,7 +211,7 @@ BA_INLINE ba_t ba_reverse_unit(ba_t ba)
 
 #if BA_UNIT_SIZE == 8
 
-    return (ba_t) (((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16);
+    return (ba_t) (((ba * 0x0802LU & 0x22110LU) | (ba * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16);
 
 #elif BA_UNIT_SIZE == 32
 
