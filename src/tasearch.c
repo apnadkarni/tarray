@@ -37,7 +37,7 @@ TCL_RESULT ta_search_op_error(Tcl_Interp *interp, int op)
     return TCL_ERROR;
 }
 
-static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, TAHdr * haystackP,
+static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, thdr_t * haystackP,
                                       Tcl_Obj *needleObj, int start,
                                       enum ta_search_switches_e op, int flags)
 {
@@ -58,11 +58,11 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, TAHdr * haystackP,
         bval = !bval;
 
     /* First locate the starting point for the search */
-    baP = TAHDRELEMPTR(haystackP, ba_t, 0);
+    baP = thdr_tELEMPTR(haystackP, ba_t, 0);
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP;
-        TAHdr *newP;
+        thdr_t *thdrP;
+        thdr_t *newP;
         thdrP = thdr_alloc(interp, 
                             flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
                             10);                /* Assume 10 hits */
@@ -76,13 +76,13 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, TAHdr * haystackP,
             if (newP)
                 thdrP = newP;
             else {
-                TAHDR_DECRREF(thdrP);
+                thdr_t_DECRREF(thdrP);
                 return TCL_ERROR;
             }
             if (flags & TA_SEARCH_INLINE)
-                ba_put(TAHDRELEMPTR(thdrP, ba_t, 0), thdrP->used, bval);
+                ba_put(thdr_tELEMPTR(thdrP, ba_t, 0), thdrP->used, bval);
             else
-                *TAHDRELEMPTR(thdrP, int, thdrP->used) = pos;
+                *thdr_tELEMPTR(thdrP, int, thdrP->used) = pos;
             thdrP->used++;
             ++pos;
         }
@@ -103,7 +103,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, TAHdr * haystackP,
                         
 /* TBD - see how much performance is gained by separating this search function into
    type-specific functions */
-static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, TAHdr * haystackP,
+static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
                                      Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
@@ -126,7 +126,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, TAHdr * haystackP,
     if (Tcl_GetWideIntFromObj(interp, needleObj, &needle) != TCL_OK)
         return TCL_ERROR;
 
-    p = TAHDRELEMPTR(haystackP, char, 0);
+    p = thdr_tELEMPTR(haystackP, char, 0);
     switch (haystackP->type) {
     case TA_INT:
         max_val = INT_MAX;
@@ -165,7 +165,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, TAHdr * haystackP,
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP, *newP;
+        thdr_t *thdrP, *newP;
 
         thdrP = thdr_alloc(interp,
                             flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
@@ -195,18 +195,18 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, TAHdr * haystackP,
                 if (newP)
                     thdrP = newP;
                 else {
-                    TAHDR_DECRREF(thdrP);
+                    thdr_t_DECRREF(thdrP);
                     return TCL_ERROR;
                 }
                 if (flags & TA_SEARCH_INLINE) {
                     switch (thdrP->type) {
-                    case TA_INT:  *TAHDRELEMPTR(thdrP, int, thdrP->used) = (int) elem; break;
-                    case TA_UINT: *TAHDRELEMPTR(thdrP, unsigned int, thdrP->used) = (unsigned int) elem; break;
-                    case TA_WIDE: *TAHDRELEMPTR(thdrP, Tcl_WideInt, thdrP->used) = elem; break;
-                    case TA_BYTE:  *TAHDRELEMPTR(thdrP, unsigned char, thdrP->used) = (unsigned char) elem; break;
+                    case TA_INT:  *thdr_tELEMPTR(thdrP, int, thdrP->used) = (int) elem; break;
+                    case TA_UINT: *thdr_tELEMPTR(thdrP, unsigned int, thdrP->used) = (unsigned int) elem; break;
+                    case TA_WIDE: *thdr_tELEMPTR(thdrP, Tcl_WideInt, thdrP->used) = elem; break;
+                    case TA_BYTE:  *thdr_tELEMPTR(thdrP, unsigned char, thdrP->used) = (unsigned char) elem; break;
                     }
                 } else {
-                    *TAHDRELEMPTR(thdrP, int, thdrP->used) = offset;
+                    *thdr_tELEMPTR(thdrP, int, thdrP->used) = offset;
                 }
                 thdrP->used++;
             }
@@ -250,7 +250,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, TAHdr * haystackP,
 }
 
 
-static TCL_RESULT thdr_search_double(Tcl_Interp *interp, TAHdr * haystackP,
+static TCL_RESULT thdr_search_double(Tcl_Interp *interp, thdr_t * haystackP,
                                           Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
@@ -276,10 +276,10 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *interp, TAHdr * haystackP,
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
 
     /* First locate the starting point for the search */
-    dvalP = TAHDRELEMPTR(haystackP, double, start);
+    dvalP = thdr_tELEMPTR(haystackP, double, start);
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP, *newP;
+        thdr_t *thdrP, *newP;
 
         thdrP = thdr_alloc(interp,
                             flags & TA_SEARCH_INLINE ? TA_DOUBLE : TA_INT,
@@ -302,13 +302,13 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *interp, TAHdr * haystackP,
                 if (newP)
                     thdrP = newP;
                 else {
-                    TAHDR_DECRREF(thdrP);
+                    thdr_t_DECRREF(thdrP);
                     return TCL_ERROR;
                 }
                 if (flags & TA_SEARCH_INLINE) {
-                    *TAHDRELEMPTR(thdrP, double, thdrP->used) = *dvalP;
+                    *thdr_tELEMPTR(thdrP, double, thdrP->used) = *dvalP;
                 } else {
-                    *TAHDRELEMPTR(thdrP, int, thdrP->used) = offset;
+                    *thdr_tELEMPTR(thdrP, int, thdrP->used) = offset;
                 }
                 thdrP->used++;
             }
@@ -344,7 +344,7 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *interp, TAHdr * haystackP,
     return TCL_OK;
 }
 
-static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, TAHdr * haystackP,
+static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, thdr_t * haystackP,
                                   Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
@@ -387,11 +387,11 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, TAHdr * haystackP,
     }
 
     /* First locate the starting point for the search */
-    objPP = TAHDRELEMPTR(haystackP, Tcl_Obj *, start);
+    objPP = thdr_tELEMPTR(haystackP, Tcl_Obj *, start);
 
 
     if (flags & TA_SEARCH_ALL) {
-        TAHdr *thdrP, *newP;
+        thdr_t *thdrP, *newP;
 
         thdrP = thdr_alloc(interp,
                             flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
@@ -416,7 +416,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, TAHdr * haystackP,
                 compare_result = Tcl_RegExpExecObj(interp, re, *objPP,
                                                    0, 0, 0);
                 if (compare_result < 0) {
-                    TAHDR_DECRREF(thdrP); /* Note this unrefs embedded Tcl_Objs if needed */
+                    thdr_t_DECRREF(thdrP); /* Note this unrefs embedded Tcl_Objs if needed */
                     return TCL_ERROR;
                 }
                 break;
@@ -429,14 +429,14 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, TAHdr * haystackP,
                 if (newP)
                     thdrP = newP;
                 else {
-                    TAHDR_DECRREF(thdrP);
+                    thdr_t_DECRREF(thdrP);
                     return TCL_ERROR;
                 }
                 if (flags & TA_SEARCH_INLINE) {
                     Tcl_IncrRefCount(*objPP);
-                    *TAHDRELEMPTR(thdrP, Tcl_Obj *, thdrP->used) = *objPP;
+                    *thdr_tELEMPTR(thdrP, Tcl_Obj *, thdrP->used) = *objPP;
                 } else {
-                    *TAHDRELEMPTR(thdrP, int, thdrP->used) = offset;
+                    *thdr_tELEMPTR(thdrP, int, thdrP->used) = offset;
                 }
                 thdrP->used++;
             }
@@ -492,7 +492,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
     int flags;
     int start_index;
     int i, n, opt;
-    TAHdr *haystackP;
+    thdr_t *haystackP;
     enum ta_search_switches_e op;
 
     if (objc < 3) {
