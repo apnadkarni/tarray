@@ -56,7 +56,7 @@ int bytecmprev(const void *a, const void *b) { RETCMPREV(a,b,unsigned char); }
 int tclobjcmp(const void *a, const void *b)
 {
     int n;
-    n = TArrayCompareObjs(*(Tcl_Obj **)a, *(Tcl_Obj **)b, 0);
+    n = ta_obj_compare(*(Tcl_Obj **)a, *(Tcl_Obj **)b, 0);
     if (n)
         return n;
     else
@@ -65,7 +65,7 @@ int tclobjcmp(const void *a, const void *b)
 int tclobjcmprev(const void *a, const void *b)
 {
     int n;
-    n = TArrayCompareObjs(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 0);
+    n = ta_obj_compare(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 0);
     if (n)
         return n;
     else
@@ -124,7 +124,7 @@ int tclobjcmpindexed(void *ctx, const void *ai, const void *bi)
     int n;
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
-    n = TArrayCompareObjs(a, b, 0);
+    n = ta_obj_compare(a, b, 0);
     if (n)
         return n;
     else
@@ -135,7 +135,7 @@ int tclobjcmpindexedrev(void *ctx, const void *ai, const void *bi)
     int n;
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
-    n = TArrayCompareObjs(b, a, 0);
+    n = ta_obj_compare(b, a, 0);
     if (n)
         return n;
     else

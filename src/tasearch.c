@@ -10,10 +10,10 @@
 /*
  * Options for 'tarray search'
  */
-static const char *TArraySearchSwitches[] = {
+static const char *ta_search_switches_e[] = {
     "-all", "-inline", "-not", "-start", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", NULL
 };
-enum TArraySearchSwitches {
+enum ta_search_switches_e {
     TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_START, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE
 };
 /* Search flags */
@@ -22,12 +22,12 @@ enum TArraySearchSwitches {
 #define TA_SEARCH_ALL    4  /* Return all matches */
 #define TA_SEARCH_NOCASE 8  /* Ignore case */
 
-TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op)
+TCL_RESULT ta_search_op_error(Tcl_Interp *interp, int op)
 {
     if (interp) {
         const char *ops = NULL;
-        if (op < (sizeof(TArraySearchSwitches)/sizeof(TArraySearchSwitches[0])))
-            ops = TArraySearchSwitches[op];
+        if (op < (sizeof(ta_search_switches_e)/sizeof(ta_search_switches_e[0])))
+            ops = ta_search_switches_e[op];
         if (ops == NULL)
             Tcl_SetObjResult(interp, Tcl_ObjPrintf("Unknown or invalid search operator (%d).", op));
         else
@@ -37,9 +37,9 @@ TCL_RESULT TArrayBadSearchOpError(Tcl_Interp *interp, int op)
     return TCL_ERROR;
 }
 
-static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
+static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, TAHdr * haystackP,
                                       Tcl_Obj *needleObj, int start,
-                                      enum TArraySearchSwitches op, int flags)
+                                      enum ta_search_switches_e op, int flags)
 {
     int bval;
     ba_t *baP;
@@ -49,7 +49,7 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
     TA_ASSERT(haystackP->type == TA_BOOLEAN);
 
     if (op != TA_SEARCH_OPT_EQ)
-        return TArrayBadSearchOpError(interp, op);
+        return ta_search_op_error(interp, op);
 
     if (Tcl_GetBooleanFromObj(interp, needleObj, &bval) != TCL_OK)
         return TCL_ERROR;
@@ -63,7 +63,7 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP;
         TAHdr *newP;
-        thdrP = TAHdrAlloc(interp, 
+        thdrP = thdr_alloc(interp, 
                             flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdrP == NULL)
@@ -72,7 +72,7 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
         while ((pos = ba_find(baP, bval, pos, thdrP->used)) != -1) {
             /* Ensure enough space in target array */
             if (thdrP->used >= thdrP->allocated)
-                newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
             if (newP)
                 thdrP = newP;
             else {
@@ -87,8 +87,8 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
             ++pos;
         }
         if ((flags & TA_SEARCH_INLINE) == 0)
-            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
-        resultObj = TArrayNewObj(thdrP);
+            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
+        resultObj = tcol_new(thdrP);
     } else {
         /* Return first found element */
         pos = ba_find(baP, bval, start, haystackP->used);
@@ -103,8 +103,8 @@ static TCL_RESULT TArraySearchBoolean(Tcl_Interp *interp, TAHdr * haystackP,
                         
 /* TBD - see how much performance is gained by separating this search function into
    type-specific functions */
-static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
-                                     Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
+static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, TAHdr * haystackP,
+                                     Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
     Tcl_Obj *resultObj;
@@ -120,7 +120,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
     case TA_SEARCH_OPT_EQ:
         break;
     default:
-        return TArrayBadSearchOpError(interp, op);
+        return ta_search_op_error(interp, op);
     }
 
     if (Tcl_GetWideIntFromObj(interp, needleObj, &needle) != TCL_OK)
@@ -153,7 +153,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
         elem_size = sizeof(unsigned char);
         break;
     default:
-        TArrayTypePanic(haystackP->type);
+        ta_type_panic(haystackP->type);
     }
 
     if (needle > max_val || needle < min_val) {
@@ -167,7 +167,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP, *newP;
 
-        thdrP = TAHdrAlloc(interp,
+        thdrP = thdr_alloc(interp,
                             flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
                             10);                /* Assume 10 hits TBD */
         if (thdrP == NULL)
@@ -191,7 +191,7 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
                 /* Have a match */
                 /* Ensure enough space in target array */
                 if (thdrP->used >= thdrP->allocated)
-                    newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                    newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
                 if (newP)
                     thdrP = newP;
                 else {
@@ -213,8 +213,8 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
-        resultObj = TArrayNewObj(thdrP);
+            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
+        resultObj = tcol_new(thdrP);
 
     } else {
         /* Return first found element */
@@ -250,8 +250,8 @@ static TCL_RESULT TArraySearchEntier(Tcl_Interp *interp, TAHdr * haystackP,
 }
 
 
-static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
-                                          Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
+static TCL_RESULT thdr_search_double(Tcl_Interp *interp, TAHdr * haystackP,
+                                          Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
     Tcl_Obj *resultObj;
@@ -267,7 +267,7 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
     case TA_SEARCH_OPT_EQ:
         break;
     default:
-        return TArrayBadSearchOpError(interp, op);
+        return ta_search_op_error(interp, op);
     }
 
     if (Tcl_GetDoubleFromObj(interp, needleObj, &dval) != TCL_OK)
@@ -281,7 +281,7 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP, *newP;
 
-        thdrP = TAHdrAlloc(interp,
+        thdrP = thdr_alloc(interp,
                             flags & TA_SEARCH_INLINE ? TA_DOUBLE : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdrP == NULL)
@@ -298,7 +298,7 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
                 /* Have a match */
                 /* Ensure enough space in target array */
                 if (thdrP->used >= thdrP->allocated)
-                    newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                    newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
                 if (newP)
                     thdrP = newP;
                 else {
@@ -315,8 +315,8 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
-        resultObj = TArrayNewObj(thdrP);
+            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
+        resultObj = tcol_new(thdrP);
 
     } else {
         /* Return first found element */
@@ -344,8 +344,8 @@ static TCL_RESULT TArraySearchDouble(Tcl_Interp *interp, TAHdr * haystackP,
     return TCL_OK;
 }
 
-static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
-                                  Tcl_Obj *needleObj, int start, enum TArraySearchSwitches op, int flags)
+static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, TAHdr * haystackP,
+                                  Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
     Tcl_Obj **objPP;
@@ -383,7 +383,7 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
         }
         break;
     default:
-        return TArrayBadSearchOpError(interp, op);
+        return ta_search_op_error(interp, op);
     }
 
     /* First locate the starting point for the search */
@@ -393,7 +393,7 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
     if (flags & TA_SEARCH_ALL) {
         TAHdr *thdrP, *newP;
 
-        thdrP = TAHdrAlloc(interp,
+        thdrP = thdr_alloc(interp,
                             flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdrP == NULL)
@@ -402,11 +402,11 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
         for (offset = start; offset < haystackP->used; ++offset, ++objPP) {
             switch (op) {
             case TA_SEARCH_OPT_GT:
-                compare_result = TArrayCompareObjs(*objPP, needleObj, nocase) > 0; break;
+                compare_result = ta_obj_compare(*objPP, needleObj, nocase) > 0; break;
             case TA_SEARCH_OPT_LT: 
-                compare_result = TArrayCompareObjs(*objPP, needleObj, nocase) < 0; break;
+                compare_result = ta_obj_compare(*objPP, needleObj, nocase) < 0; break;
             case TA_SEARCH_OPT_EQ:
-                compare_result = TArrayCompareObjs(*objPP, needleObj, nocase) == 0; break;
+                compare_result = ta_obj_compare(*objPP, needleObj, nocase) == 0; break;
             case TA_SEARCH_OPT_PAT:
                 compare_result = Tcl_StringCaseMatch(Tcl_GetString(*objPP),
                                                      Tcl_GetString(needleObj),
@@ -425,7 +425,7 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
                 /* Have a match */
                 /* Ensure enough space in target array */
                 if (thdrP->used >= thdrP->allocated)
-                    newP = TArrayRealloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                    newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
                 if (newP)
                     thdrP = newP;
                 else {
@@ -443,19 +443,19 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            TAHdrSortMarkAscending(thdrP); /* indices are naturally sorted */
-        resultObj = TArrayNewObj(thdrP);
+            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
+        resultObj = tcol_new(thdrP);
 
     } else {
         /* Return first found element */
         for (offset = start; offset < haystackP->used; ++offset, ++objPP) {
             switch (op) {
             case TA_SEARCH_OPT_GT:
-                compare_result = TArrayCompareObjs(*objPP, needleObj, nocase) > 0; break;
+                compare_result = ta_obj_compare(*objPP, needleObj, nocase) > 0; break;
             case TA_SEARCH_OPT_LT: 
-                compare_result = TArrayCompareObjs(*objPP, needleObj, nocase) < 0; break;
+                compare_result = ta_obj_compare(*objPP, needleObj, nocase) < 0; break;
             case TA_SEARCH_OPT_EQ:
-                compare_result = TArrayCompareObjs(*objPP, needleObj, nocase) == 0; break;
+                compare_result = ta_obj_compare(*objPP, needleObj, nocase) == 0; break;
             case TA_SEARCH_OPT_PAT:
                 compare_result = Tcl_StringCaseMatch(Tcl_GetString(*objPP),
                                                      Tcl_GetString(needleObj),
@@ -486,39 +486,39 @@ static TCL_RESULT TArraySearchObj(Tcl_Interp *interp, TAHdr * haystackP,
     return TCL_OK;
 }
 
-TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
+TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
                               int objc, Tcl_Obj *const objv[])
 {
     int flags;
     int start_index;
     int i, n, opt;
     TAHdr *haystackP;
-    enum TArraySearchSwitches op;
+    enum ta_search_switches_e op;
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(interp, 1, objv, "?options? tarray pattern");
 	return TCL_ERROR;
     }
 
-    if (TArrayConvert(interp, objv[objc-2]) != TCL_OK)
+    if (tcol_convert(interp, objv[objc-2]) != TCL_OK)
         return TCL_ERROR;
     haystackP = TARRAYHDR(objv[objc-2]);
     flags = 0;
     start_index = 0;
     op = TA_SEARCH_OPT_EQ;
     for (i = 1; i < objc-2; ++i) {
-	if (Tcl_GetIndexFromObj(interp, objv[i], TArraySearchSwitches, "option", 0, &opt)
+	if (Tcl_GetIndexFromObj(interp, objv[i], ta_search_switches_e, "option", 0, &opt)
             != TCL_OK) {
             return TCL_ERROR;
 	}
-        switch ((enum TArraySearchSwitches) opt) {
+        switch ((enum ta_search_switches_e) opt) {
         case TA_SEARCH_OPT_ALL: flags |= TA_SEARCH_ALL; break;
         case TA_SEARCH_OPT_INLINE: flags |= TA_SEARCH_INLINE; break;
         case TA_SEARCH_OPT_INVERT: flags |= TA_SEARCH_INVERT; break;
         case TA_SEARCH_OPT_NOCASE: flags |= TA_SEARCH_NOCASE; break;
         case TA_SEARCH_OPT_START:
             if (i > objc-4)
-                return TArrayMissingArgError(interp, "-start");
+                return ta_missing_arg_error(interp, "-start");
             ++i;
             /*
              * To prevent shimmering, check if the index object is same
@@ -540,22 +540,22 @@ TCL_RESULT TArray_SearchObjCmd(ClientData clientdata, Tcl_Interp *interp,
         case TA_SEARCH_OPT_LT:
         case TA_SEARCH_OPT_PAT:
         case TA_SEARCH_OPT_RE:
-            op = (enum TArraySearchSwitches) opt;
+            op = (enum ta_search_switches_e) opt;
         }
     }
 
     switch (haystackP->type) {
     case TA_BOOLEAN:
-        return TArraySearchBoolean(interp, haystackP, objv[objc-1], start_index,op,flags);
+        return thdr_search_boolean(interp, haystackP, objv[objc-1], start_index,op,flags);
     case TA_INT:
     case TA_UINT:
     case TA_BYTE:
     case TA_WIDE:
-        return TArraySearchEntier(interp, haystackP, objv[objc-1], start_index, op, flags);
+        return thdr_search_entier(interp, haystackP, objv[objc-1], start_index, op, flags);
     case TA_DOUBLE:
-        return TArraySearchDouble(interp, haystackP, objv[objc-1], start_index, op, flags);
+        return thdr_search_double(interp, haystackP, objv[objc-1], start_index, op, flags);
     case TA_OBJ:
-        return TArraySearchObj(interp, haystackP, objv[objc-1], start_index, op, flags);
+        return thdr_search_obj(interp, haystackP, objv[objc-1], start_index, op, flags);
     default:
         Tcl_SetResult(interp, "Not implemented", TCL_STATIC);
         return TCL_ERROR;
