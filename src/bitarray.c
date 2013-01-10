@@ -388,13 +388,14 @@ void ba_reverse(ba_t *baP, int off, int len)
 }
 
 #ifdef BA_TEST
-int main()
+int main(int argc, char *argv[])
 {
     /* Temp means of trying specific tests. Actual test suite is in
        the tarray code */
     unsigned char a[] = {0xaa, 0x00, 0xff, 0x55, 0x33};
     ba_copy(a, 12, a, 4, 13);
     printf("%x %x %x %x %x", a[0], a[1], a[2], a[3], a[4]);
+    return 0;
 }
 
 #endif
