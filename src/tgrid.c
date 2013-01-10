@@ -65,7 +65,7 @@ TCL_RESULT TGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj)
         return TCL_ERROR;
 
     while (ntaObjs--) {
-        if (TArrayConvert(interp, taObjs[ntaObjs]) != TCL_OK)
+        if (tcol_convert(interp, taObjs[ntaObjs]) != TCL_OK)
             return TCL_ERROR;
     }
 
@@ -121,7 +121,7 @@ Tcl_Obj *TGridNewObj(Tcl_Interp *interp, int ntaObjs, Tcl_Obj * const taObjs[])
     Tcl_Obj *listObj;
 
     for (i = 0; i < ntaObjs; ++i) {
-        if (TArrayConvert(interp, taObjs[i]) != TCL_OK)
+        if (tcol_convert(interp, taObjs[i]) != TCL_OK)
             return NULL;
     }
 
@@ -144,13 +144,13 @@ Tcl_Obj *TGridClone(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize)
     Tcl_ListObjGetElements(interp, TGRID_LISTPTR(listObj), &ntaObjs, &taObjs);
     listObj = Tcl_NewListObj(ntaObjs, NULL);
     for (i = 0; i < ntaObjs; ++i) {
-        if (TArrayConvert(interp, taObjs[i]) != TCL_OK) {
+        if (tcol_convert(interp, taObjs[i]) != TCL_OK) {
             Tcl_DecrRefCount(listObj);
             return TCL_ERROR;
         }
-        TA_ASSERT(taObjs[i]->typePtr == &gTArrayType);
+        TA_ASSERT(taObjs[i]->typePtr == &g_ta_type);
         Tcl_ListObjAppendElement(interp, listObj,
-                                 TArrayNewObj(TAHdrClone(TARRAYHDR(taObjs[i]), minsize)));
+                                 tcol_new(thdr_clone(TARRAYHDR(taObjs[i]), minsize)));
     }
 
     cloneObj = Tcl_NewObj();
@@ -177,7 +177,7 @@ TCL_RESULT TGridConvert(Tcl_Interp *interp, Tcl_Obj *objP)
     listObj = Tcl_DuplicateObj(objP);
     if (Tcl_ListObjGetElements(interp, listObj, &nelems, &elems) == TCL_OK) {
         while (nelems--) {
-            if (TArrayConvert(interp, elems[nelems]) != TCL_OK)
+            if (tcol_convert(interp, elems[nelems]) != TCL_OK)
                 goto error_return;
         }
         if (objP->typePtr && objP->typePtr->freeIntRepProc) {
@@ -238,8 +238,8 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, in
         for (writable = 1, i = 0; i < n; ++i) {
             if (Tcl_ListObjIndex(interp, gridObj, i, &taObj)  != TCL_OK)
                 return NULL;
-            if (taObj->typePtr != &gTArrayType) {
-                TArrayNotTArrayError(interp);
+            if (taObj->typePtr != &g_ta_type) {
+                ta_not_tarray_error(interp);
                 return NULL;
             }
             thdrP = TARRAYHDR(taObj);
@@ -306,12 +306,12 @@ TCL_RESULT TGridFillFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (lowObj->typePtr == &gTArrayType)
+    if (lowObj->typePtr == &g_ta_type)
         lowObj = Tcl_DuplicateObj(lowObj);
     else
         Tcl_IncrRefCount(lowObj); /* Since we will release at end */
 
-    if (highObj->typePtr == &gTArrayType)
+    if (highObj->typePtr == &g_ta_type)
         highObj = Tcl_DuplicateObj(highObj);
     else
         Tcl_IncrRefCount(highObj); /* Since we will release at end */
@@ -330,7 +330,7 @@ TCL_RESULT TGridFillFromObjs(
      */
     for (i = 0; i < tuple_width; ++i) {
         TAHdr *thdrP;
-        if (TArrayConvert(interp, taObjs[i]) != TCL_OK)
+        if (tcol_convert(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
         if (i == 0)
@@ -339,13 +339,13 @@ TCL_RESULT TGridFillFromObjs(
             Tcl_SetResult(interp, "tarrays have differing number of elements", TCL_STATIC);
             goto vamoose;
         }
-        if (TArrayValueFromObj(interp, valueObjs[i], thdrP->type, &valuesP[i])
+        if (ta_value_from_obj(interp, valueObjs[i], thdrP->type, &valuesP[i])
             != TCL_OK)
             goto vamoose;
     }
 
     /* Get the limits of the range to set */
-    if (RationalizeRangeIndices(interp, thdr0P, lowObj, highObj, &low, &count)
+    if (ta_fix_range_bounds(interp, thdr0P, lowObj, highObj, &low, &count)
         != TCL_OK)
         return TCL_ERROR;
 
@@ -381,7 +381,7 @@ TCL_RESULT TGridFillFromObjs(
         /* If we have to realloc anyway, we will leave a bit extra room */
         new_size = low + count + TA_EXTRA(low+count);
         for (i = 0; i < tuple_width; ++i) {
-            TA_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
+            TA_ASSERT(taObjs[i]->typePtr == &g_ta_type); // Verify no shimmering
             resultObjsP[i] = TArrayMakeWritable(taObjs[i], low+count, new_size, 0);
             TAHdrFill(interp, TARRAYHDR(resultObjs[i]),
                           &valuesP[i], low, count);
@@ -453,7 +453,7 @@ TCL_RESULT TGridSetFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (lowObj->typePtr == &gTArrayType)
+    if (lowObj->typePtr == &g_ta_type)
         lowObj = Tcl_DuplicateObj(lowObj);
     else
         Tcl_IncrRefCount(lowObj); /* Since we will release at end */
@@ -471,7 +471,7 @@ TCL_RESULT TGridSetFromObjs(
     /* Now verify tarrays are in fact tarrays and of the same size. */
     for (i = 0; i < grid_width; ++i) {
         TAHdr *thdrP;
-        if (TArrayConvert(interp, taObjs[i]) != TCL_OK)
+        if (tcol_convert(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
         if (i == 0)
@@ -483,11 +483,11 @@ TCL_RESULT TGridSetFromObjs(
     }
 
     /* Get the start of the range to set */
-    if (IndexToInt(interp, lowObj, &low, thdr0P->used) != TCL_OK)
+    if (ta_convert_index(interp, lowObj, &low, thdr0P->used) != TCL_OK)
         goto vamoose;
 
     if (low < 0 || low > thdr0P->used) {
-        TArrayIndexRangeError(interp, lowObj);
+        ta_index_range_error(interp, lowObj);
         goto vamoose;
     }
 
@@ -516,7 +516,7 @@ TCL_RESULT TGridSetFromObjs(
     /* If we have to realloc anyway, we will leave a bit extra room */
     new_size = count + TA_EXTRA(count);
     for (i = 0; i < grid_width; ++i) {
-        TA_ASSERT(taObjs[i]->typePtr == &gTArrayType); // Verify no shimmering
+        TA_ASSERT(taObjs[i]->typePtr == &g_ta_type); // Verify no shimmering
         resultObjsP[i] = TArrayMakeWritable(taObjs[i], count,
                                new_size, TA_MAKE_WRITABLE_INCREF);
         thdrsP[i] = TARRAYHDR(resultObjsP[i]);
