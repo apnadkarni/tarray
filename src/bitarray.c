@@ -149,63 +149,76 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
     to_internal_off = dst_off % BA_UNIT_SIZE;
 
     /*
-     * If source and destination offsets have same alignment, we can
-     * copy initial bits, then move chunks of memory and then copy
+     * If source and destination offsets have same alignment,
+     * we can move chunks of memory and then copy
      * left over bits. If alignments are different, we are forced to
      * read a unit from the source, merge it with the destination
      * and then write it back.
      */
     if (from_internal_off == to_internal_off) {
+        ba_t *leadingP;
+        ba_t saved_leading_partial;
+        int  leading_partial_len;
+        ba_t saved_trailing_partial;
+
         /*
-         * Copy the first few bits to get to the ba_unit boundary
-         * Note if ba_t is not unsigned char, we cannot copy just to
-         * the byte boundary and then use memmove.
-        */
+         * Same alignment on source and destination. We can copy
+         * entire ba_t units, taking care of extra bits separately.
+         * We have to be careful in case source and destination overlap
+         * and source addr < dest address that overlapping bytes of
+         * source are not written into as destination *before* they
+         * are copied out. memmove() guarantees this for the source
+         * and destination buffers it's passed, but we also
+         * have to ensure this for the extra bits outside the ba_t alignment.
+         * We do this by saving off the source extra bits at the beginning
+         * and end and writing them to the destination after the memmove
+         * is done.
+         */
         if (to_internal_off) {
-            /* We do have some initial bits to copy. Use an intermediary ba
-             * in case to and from are same. We have to consider two cases:
-             * when the # bits to be copied extends to the end of the
-             * ba_t unit, and when # bits is so small that only middle bits
-             * have to be modified.
-             */
-            mask = BITPOSMASKLT(to_internal_off); /* Dest bits to be preserved */
+            /* We will save the partial bits and write them
+               to destination later in case of overlap. */
+            saved_trailing_partial = from[(from_internal_off + len - 1) / BA_UNIT_SIZE];
+            leadingP = to;
             if ((len + to_internal_off) >= BA_UNIT_SIZE) {
-                len -= BA_UNIT_SIZE - to_internal_off;
+                leading_partial_len = BA_UNIT_SIZE - to_internal_off;
+                len -= leading_partial_len;
             } else {
-                /* Need to preserve bits at other end of unit as well */
-                to_internal_off += len;
-                mask |= BITPOSMASKGE(to_internal_off); /* upper bits to preserve */
+                /* Entire length fits in first ba_t */
+                leading_partial_len = len;
                 len = 0;
             }
-            *to = ba_merge_unit(*from, *to, mask); // = (*to & mask) | (*from & ~mask)
-            ++to;
+            saved_leading_partial = ba_getn(from, to_internal_off, leading_partial_len);
+            ++to;               /* Point to aligned ba_t's */
             ++from;
         }
 
-        if (len == 0)
-            return;
+        if (len) {
+            /* Leading partial bits were not all that are to be copied. */
+            ba_len = len / BA_UNIT_SIZE; /* # ba_t units to copy */
+            len = len % BA_UNIT_SIZE;    /* # left over bits */
 
-        ba_len = len / BA_UNIT_SIZE; /* # ba_t units to copy */
-        len = len % BA_UNIT_SIZE;    /* # left over bits */
-
-        /* Copy middle chunk  Note we need to copy to the ba_t boundary,
-         * not byte boundary, else will not work correctly depending
-         * on platform byte order and our bit order settings.
-         */
-        if (ba_len) {
-            /* Not memcpy since may overlap! */
-            memmove(dst, src, ba_len * sizeof(ba_t));
-            from += ba_len;
-            to += ba_len;
+            /* Copy middle chunk  Note we need to copy to the ba_t boundary,
+             * not byte boundary, else will not work correctly depending
+             * on platform byte order and our bit order settings.
+             */
+            if (ba_len) {
+                /* Not memcpy since may overlap! */
+                memmove(to, from, ba_len * sizeof(ba_t));
+                from += ba_len;
+                to += ba_len;
+            }
+            
+            if (len) {
+                /* There are left over trailing bits */
+                ba_putn(to, 0, saved_trailing_partial, len);
+            }
         }
-
-        if (len == 0)
-            return;             /* No leftover bits */
-
-        /* Finally, do left-over bits. */
-        mask = BITPOSMASKGT(len);  /* Destination bits to preserve */
-        *to = ba_merge_unit(*from, *to, mask); // = (*to & mask) | (*from & ~mask)
-
+        
+        /* Now finally write the first partial, if there was one */
+        if (to_internal_off) {
+            ba_putn(leadingP, to_internal_off, saved_leading_partial,
+                    leading_partial_len);
+        }
     } else {
         /* to_internal_off != from_internal_off so we have to merge/copy fragments */
         if ((from > to) || (from == to && from_internal_off > to_internal_off))
@@ -367,10 +380,10 @@ void ba_reverse(ba_t *baP, int off, int len)
     len = end_off + BA_UNIT_SIZE - off;
     BA_ASSERT(len >= 0 && len < BA_UNIT_SIZE);
     if (len) {
-        front = ba_get_unit(baP, off); /* Get the overlapping bits */
+        front = ba_getn(baP, off, len); /* Get the overlapping bits */
         /* Reverse the bits and shift into position */
         end = ba_reverse_unit(front) >> (BA_UNIT_SIZE-len);
-        ba_put_unit(baP, off, ba_merge_unit(front, end, BITPOSMASK(len)));
+        ba_putn(baP, off, front, len);
     }
 }
 
@@ -380,7 +393,7 @@ int main()
     /* Temp means of trying specific tests. Actual test suite is in
        the tarray code */
     unsigned char a[] = {0xaa, 0x00, 0xff, 0x55, 0x33};
-    ba_copy(a, 4, a, 16, 15);
+    ba_copy(a, 12, a, 4, 13);
     printf("%x %x %x %x %x", a[0], a[1], a[2], a[3], a[4]);
 }
 

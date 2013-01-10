@@ -1212,7 +1212,7 @@ TCL_RESULT TAHdrPlaceFromObjs(
     TA_ASSERT(indicesP->type == TA_INT);
     TA_ASSERT(highest_in_indices < thdrP->allocated);
 
-    if (indicesP->used != nvalues)
+    if (indicesP->used > nvalues)
         return TArrayIndicesCountError(interp, indicesP->used, nvalues);
 
     if (nvalues == 0)
