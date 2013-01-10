@@ -17,7 +17,7 @@
 
 /*
  * TGrid is a Tcl "type" used for storing arrays of TArrays.
- * Internally it is stored as a TAHdr containing TArrays Tcl_Objs.
+ * Internally it is stored as a thdr_t containing TArrays Tcl_Objs.
  */
 static void TGridTypeDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
 static void TGridTypeFreeRep(Tcl_Obj *objP);
@@ -32,18 +32,18 @@ struct Tcl_ObjType gTGridType = {
 
 #define TGRID_LISTPTR(optr_) (*(Tcl_Obj **) (&((optr_)->internalRep.ptrAndLongRep.ptr)))
 
-TA_INLINE TAHdr *TGridIntRep(Tcl_Obj *gridObj)
+TA_INLINE thdr_t *TGridIntRep(Tcl_Obj *gridObj)
 {
     TA_ASSERT(gridObj->typePtr == &gTGridType);
-    return (TAHdr *) gridObj->internalRep.ptrAndLongRep.ptr;
+    return (thdr_t *) gridObj->internalRep.ptrAndLongRep.ptr;
 }
 
-TA_INLINE void TGridSetIntRep(Tcl_Obj *gridObj, TAHdr *thdrP)
+TA_INLINE void TGridSetIntRep(Tcl_Obj *gridObj, thdr_t *thdrP)
 {
     TA_ASSERT(gridObj->typePtr == &gTGridType);
     TA_ASSERT(thdrP->type == TA_OBJ);
 
-    TAHDR_INCRREF(thdrP);
+    thdr_t_INCRREF(thdrP);
     gridObj->internalRep.ptrAndLongRep.ptr = thdrP;
     gridObj->typePtr = &gTGridType;
 }
@@ -75,17 +75,17 @@ TCL_RESULT TGridVerifyType(Tcl_Interp *interp, Tcl_Obj *gridObj)
 
 static void TGridTypeFreeRep(Tcl_Obj *gridObj)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
     TA_ASSERT(gridObj->typePtr == &gTGridType);
     thdrP = TGridIntRep(gridObj);
-    TAHDR_DECRREF(thdrP);
+    thdr_t_DECRREF(thdrP);
     gridObj->internalRep.ptrAndLongRep.ptr = NULL;
     gridObj->typePtr = NULL;
 }
 
 static void TGridTypeDupObj(Tcl_Obj *srcObj, Tcl_Obj *dstObj)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
     TA_ASSERT(srcObj->typePtr == &gTGridType);
     thdrP = TGridIntRep(gridObj);
     TGridSetIntRep(dstObj, thdrP);
@@ -94,7 +94,7 @@ static void TGridTypeDupObj(Tcl_Obj *srcObj, Tcl_Obj *dstObj)
 static void TGridTypeUpdateStringRep(Tcl_Obj *gridObj)
 {
     Tcl_Obj *listObj;
-    TAHdr *thdrP;
+    thdr_t *thdrP;
     char *p;
 
     TA_ASSERT(gridObj->typePtr == &gTGridType);
@@ -104,7 +104,7 @@ static void TGridTypeUpdateStringRep(Tcl_Obj *gridObj)
      * not normally be needed.
      */
     thdrP = TGridIntRep(gridObj);
-    listObj = Tcl_NewListObj(thdrP->used, TAHDRELEMPTR(thdrP, Tcl_Obj *, 0));
+    listObj = Tcl_NewListObj(thdrP->used, thdr_tELEMPTR(thdrP, Tcl_Obj *, 0));
     p = Tcl_GetStringFromObj(listObj, &gridObj->length);
     gridObj->bytes = ckalloc(gridObj->length+1);
     memcpy(gridObj->bytes, p, gridObj->length+1);
@@ -202,8 +202,8 @@ error_return:
 /*
  * Returns a grid object that is modifiable. Modifiable means that
  * the object itself is not shared, that its TArray object elements
- * are not shared, and the TArray->TAHdr are not shared (though objects
- * inside the TAHdr may be).
+ * are not shared, and the TArray->thdr_t are not shared (though objects
+ * inside the thdr_t may be).
  * TBD - check if this is overkill. Do we have to unshare the TArrays
  * here ? What if caller only wants to modify a subset of the TArrays ?
  *
@@ -224,7 +224,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, in
         int writable;
         int i;
         Tcl_Obj *taObj;
-        TAHdr *thdrP;
+        thdr_t *thdrP;
         
         /* Even if the grid Tcl_Obj is not shared, the contained
          * TArray Tcl_Objs may be. Note we do not use Tcl_ListObjGetElements
@@ -244,7 +244,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, in
             }
             thdrP = TARRAYHDR(taObj);
             if (Tcl_IsShared(taObj) ||
-                TAHDR_SHARED(thdrP) || thdrP->allocated < minsize)
+                thdr_sHARED(thdrP) || thdrP->allocated < minsize)
                 writable = 0;
         }
         /* Now do any require changes */
@@ -254,7 +254,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *interp, Tcl_Obj *gridObj, int minsize, in
                 Tcl_ListObjIndex(interp, gridObj, i, &taObj);
                 thdrP = TARRAYHDR(taObj);
                 if (Tcl_IsShared(taObj) ||
-                    TAHDR_SHARED(thdrP) || thdrP->allocated < minsize) {
+                    thdr_sHARED(thdrP) || thdrP->allocated < minsize) {
                     /* Note we INCREF and DecrRef because ListObjReplace
                        decrements deleted obj ref counts before incr refs
                        of added objects. Here it probably does not matter
@@ -284,9 +284,9 @@ TCL_RESULT TGridFillFromObjs(
     int tuple_width, int flags)
 {
     int i, low, count;
-    TAHdr *thdr0P;
-    TArrayValue values[32];
-    TArrayValue *valuesP;
+    thdr_t *thdr0P;
+    ta_value_t values[32];
+    ta_value_t *valuesP;
     Tcl_Obj *resultObjs[sizeof(values)/sizeof(values[0])];
     Tcl_Obj **resultObjsP;
     int status = TCL_ERROR;
@@ -317,7 +317,7 @@ TCL_RESULT TGridFillFromObjs(
         Tcl_IncrRefCount(highObj); /* Since we will release at end */
 
     if (tuple_width > sizeof(values)/sizeof(values[0])) {
-        valuesP = (TArrayValue *) ckalloc(tuple_width * sizeof(TArrayValue));
+        valuesP = (ta_value_t *) ckalloc(tuple_width * sizeof(ta_value_t));
         resultObjsP = (Tcl_Obj **)ckalloc(tuple_width * sizeof(Tcl_Obj *));
     } else {
         valuesP = values;
@@ -329,7 +329,7 @@ TCL_RESULT TGridFillFromObjs(
      * appropriate type. Also ensure all tarrays are the same size.
      */
     for (i = 0; i < tuple_width; ++i) {
-        TAHdr *thdrP;
+        thdr_t *thdrP;
         if (tcol_convert(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
@@ -383,7 +383,7 @@ TCL_RESULT TGridFillFromObjs(
         for (i = 0; i < tuple_width; ++i) {
             TA_ASSERT(taObjs[i]->typePtr == &g_ta_type); // Verify no shimmering
             resultObjsP[i] = TArrayMakeWritable(taObjs[i], low+count, new_size, 0);
-            TAHdrFill(interp, TARRAYHDR(resultObjs[i]),
+            thdr_tFill(interp, TARRAYHDR(resultObjs[i]),
                           &valuesP[i], low, count);
         }
         
@@ -422,12 +422,12 @@ TCL_RESULT TGridSetFromObjs(
     int flags)
 {
     int i, low, count, grid_width;
-    TAHdr *thdr0P;
+    thdr_t *thdr0P;
     Tcl_Obj **taObjs;
     Tcl_Obj *resultObjs[32];
     Tcl_Obj **resultObjsP;
-    TAHdr *thdrs[sizeof(resultObjs)/sizeof(resultObjs[0])];
-    TAHdr **thdrsP;
+    thdr_t *thdrs[sizeof(resultObjs)/sizeof(resultObjs[0])];
+    thdr_t **thdrsP;
     int status = TCL_ERROR;
     int new_size;
 
@@ -461,7 +461,7 @@ TCL_RESULT TGridSetFromObjs(
     if (grid_width > sizeof(resultObjs)/sizeof(resultObjs[0])) {
         /* Allocate room for both resultObjs and thdrs in one shot */
         resultObjsP = (Tcl_Obj **)ckalloc(grid_width * sizeof(void *));
-        thdrsP = (TAHdr **)&resultObjsP[grid_width];
+        thdrsP = (thdr_t **)&resultObjsP[grid_width];
     }
     else {
         resultObjsP = resultObjs;
@@ -470,7 +470,7 @@ TCL_RESULT TGridSetFromObjs(
 
     /* Now verify tarrays are in fact tarrays and of the same size. */
     for (i = 0; i < grid_width; ++i) {
-        TAHdr *thdrP;
+        thdr_t *thdrP;
         if (tcol_convert(interp, taObjs[i]) != TCL_OK)
             goto vamoose;
         thdrP = TARRAYHDR(taObjs[i]);
@@ -522,7 +522,7 @@ TCL_RESULT TGridSetFromObjs(
         thdrsP[i] = TARRAYHDR(resultObjsP[i]);
     }
         
-    status = TAHdrSetMultipleFromObjs(interp, thdrsP, grid_width, valueObjs, low);
+    status = thdr_tSetMultipleFromObjs(interp, thdrsP, grid_width, valueObjs, low);
 
     if (status == TCL_OK) {
         /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */

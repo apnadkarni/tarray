@@ -65,12 +65,12 @@ void ta_type_panic(unsigned char tatype)
 
 void ta_shared_panic(const char *where)
 {
-    Tcl_Panic("Shared TAHdr passed for modification to %s.", where);
+    Tcl_Panic("Shared thdr_t passed for modification to %s.", where);
 }
 
-void ta_small_panic(TAHdr *thdrP, const char *where)
+void ta_small_panic(thdr_t *thdrP, const char *where)
 {
-    Tcl_Panic("Insufficient space in TAHdr (allocated %d) in %s.", thdrP->allocated, where);
+    Tcl_Panic("Insufficient space in thdr_t (allocated %d) in %s.", thdrP->allocated, where);
 }
 
 TCL_RESULT ta_missing_arg_error(Tcl_Interp *interp, char *optname)
@@ -91,7 +91,7 @@ TCL_RESULT ta_not_tarray_error(Tcl_Interp *interp)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_bad_type_error(Tcl_Interp *interp, TAHdr *thdrP)
+TCL_RESULT ta_bad_type_error(Tcl_Interp *interp, thdr_t *thdrP)
 {
     if (interp) {
         Tcl_SetObjResult(interp,
@@ -233,7 +233,7 @@ TCL_RESULT ta_convert_index(Tcl_Interp *interp, Tcl_Obj *objP, int *indexP, int 
    high is 0-INT_MAX
    if (high < low) count is returned as 0 (not an error)
 */
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *interp, const TAHdr *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
+TCL_RESULT ta_fix_range_bounds(Tcl_Interp *interp, const thdr_t *thdrP, Tcl_Obj *lowObj, Tcl_Obj *highObj, int *lowP, int *countP)
 {
     int low, high;
 
@@ -271,7 +271,7 @@ TCL_RESULT tcol_convert(Tcl_Interp *interp, Tcl_Obj *objP)
         && Tcl_GetIndexFromObj(interp, elems[1], g_ta_type_tokens, "TArrayType",
                                TCL_EXACT, &tatype) == TCL_OK) {
         /* So far so good. Try and convert */
-        TAHdr *thdrP;
+        thdr_t *thdrP;
         Tcl_Obj **valueObjs;
         int nvalues;
         
@@ -301,7 +301,7 @@ TCL_RESULT tcol_convert(Tcl_Interp *interp, Tcl_Obj *objP)
 }
 
 TCL_RESULT ta_value_from_obj(Tcl_Interp *interp, Tcl_Obj *objP,
-                              unsigned char tatype, TArrayValue *tavP)
+                              unsigned char tatype, ta_value_t *tavP)
 {
     int i;
     switch (tatype) {
@@ -346,15 +346,15 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *interp, Tcl_Obj *objP,
 }
 
 /*
- * Set the value of an element range at a position in a TAHdr.
+ * Set the value of an element range at a position in a thdr_t.
  * See the asserts below for conditions under which this can be called
  */
-void thdr_fill_range(Tcl_Interp *interp, TAHdr *thdrP,
-                   const TArrayValue *tavP, int pos, int count)
+void thdr_fill_range(Tcl_Interp *interp, thdr_t *thdrP,
+                   const ta_value_t *tavP, int pos, int count)
 {
     int i;
 
-    TA_ASSERT(! TAHDR_SHARED(thdrP));
+    TA_ASSERT(! thdr_sHARED(thdrP));
     TA_ASSERT((pos+count) <= thdrP->allocated);
     TA_ASSERT(pos <= thdrP->used);
     TA_ASSERT(thdrP->type == tavP->type);
@@ -362,30 +362,30 @@ void thdr_fill_range(Tcl_Interp *interp, TAHdr *thdrP,
     thdr_mark_unsorted(thdrP);
     switch (thdrP->type) {
     case TA_BOOLEAN:
-        ba_fill(TAHDRELEMPTR(thdrP, ba_t, 0), pos, count, tavP->bval);
+        ba_fill(thdr_tELEMPTR(thdrP, ba_t, 0), pos, count, tavP->bval);
         break;
     case TA_INT:
     case TA_UINT:
         if (tavP->ival == 0) {
-            memset(TAHDRELEMPTR(thdrP, int, pos), 0, count*sizeof(int));
+            memset(thdr_tELEMPTR(thdrP, int, pos), 0, count*sizeof(int));
         } else {
             int *iP;
-            iP = TAHDRELEMPTR(thdrP, int, pos);
+            iP = thdr_tELEMPTR(thdrP, int, pos);
             for (i = 0; i < count; ++i, ++iP)
                 *iP = tavP->ival;
         }
         break;
         
     case TA_BYTE:
-        memset(TAHDRELEMPTR(thdrP, unsigned char, pos), tavP->ucval, count);
+        memset(thdr_tELEMPTR(thdrP, unsigned char, pos), tavP->ucval, count);
         break;
 
     case TA_WIDE:
         if (tavP->wval == 0) {
-            memset(TAHDRELEMPTR(thdrP, Tcl_WideInt, pos), 0, count*sizeof(Tcl_WideInt));
+            memset(thdr_tELEMPTR(thdrP, Tcl_WideInt, pos), 0, count*sizeof(Tcl_WideInt));
         } else {
             Tcl_WideInt *wideP;
-            wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, pos);
+            wideP = thdr_tELEMPTR(thdrP, Tcl_WideInt, pos);
             for (i = 0; i < count; ++i, ++wideP)
                 *wideP = tavP->wval;
         }
@@ -393,7 +393,7 @@ void thdr_fill_range(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_DOUBLE:
         {
             double *dvalP;
-            dvalP = TAHDRELEMPTR(thdrP, double, pos);
+            dvalP = thdr_tELEMPTR(thdrP, double, pos);
             for (i = 0; i < count; ++i, ++dvalP)
                 *dvalP = tavP->dval;
         }
@@ -413,7 +413,7 @@ void thdr_fill_range(Tcl_Interp *interp, TAHdr *thdrP,
             n = pos + count;
             if (n > thdrP->used)
                 n = thdrP->used;
-            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, pos);
+            objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, pos);
             for (i = pos; i < n; ++i) {
                 /* Be careful of the order */
                 Tcl_IncrRefCount(tavP->oval);
@@ -511,7 +511,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *interp, int tatype,
    themselves extend the range. Sort indices to simplify this.
    Returns new size needed if array has to be grown or -1 on error.
 */
-TCL_RESULT thdr_verify_indices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP, int *new_sizeP)
+TCL_RESULT thdr_verify_indices(Tcl_Interp *interp, thdr_t *thdrP, thdr_t *indicesP, int *new_sizeP)
 {
     int i, new_size;
     int *indexP, *endP;
@@ -520,8 +520,8 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP
     TA_ASSERT(thdr_sorted(indicesP));
 
     new_size = thdrP->used;
-    indexP = TAHDRELEMPTR(indicesP, int, 0);
-    endP = TAHDRELEMPTR(indicesP, int, indicesP->used);
+    indexP = thdr_tELEMPTR(indicesP, int, 0);
+    endP = thdr_tELEMPTR(indicesP, int, indicesP->used);
     if (thdr_sort_order(indicesP) > 0) {
         /* Sort order is ascending. Make sure no gaps */
         while (indexP < endP) {
@@ -550,13 +550,13 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *interp, TAHdr *thdrP, TAHdr *indicesP
 }
 
 /* thdrP must be large enough for largest index. And see asserts in code */
-void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP, 
-                      const TArrayValue *tavP, TAHdr *indicesP)
+void thdr_fill_indices(Tcl_Interp *interp, thdr_t *thdrP, 
+                      const ta_value_t *tavP, thdr_t *indicesP)
 {
     int highest_index;
     int *indexP, *endP;
 
-    TA_ASSERT(! TAHDR_SHARED(thdrP));
+    TA_ASSERT(! thdr_sHARED(thdrP));
     TA_ASSERT(thdrP->type == tavP->type);
     TA_ASSERT(indicesP->type == TA_INT);
     TA_ASSERT(thdr_sorted(indicesP));
@@ -566,8 +566,8 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
 
     /* Rest of code assumes > 0 indices */
 
-    indexP = TAHDRELEMPTR(indicesP, int, 0);
-    endP = TAHDRELEMPTR(indicesP, int, indicesP->used);
+    indexP = thdr_tELEMPTR(indicesP, int, 0);
+    endP = thdr_tELEMPTR(indicesP, int, indicesP->used);
 
     /* Caller guarantees room for highest index value */
     highest_index = thdr_sort_order(indicesP) > 0 ? endP[-1] : indexP[0];
@@ -577,7 +577,7 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
     switch (thdrP->type) {
     case TA_BOOLEAN:
         {
-            ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
+            ba_t *baP = thdr_tELEMPTR(thdrP, ba_t, 0);
             while (indexP < endP)
                 ba_put(baP, *indexP++, tavP->bval);
         }
@@ -585,14 +585,14 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_INT:
     case TA_UINT:
         {
-            int *iP = TAHDRELEMPTR(thdrP, int, 0);
+            int *iP = thdr_tELEMPTR(thdrP, int, 0);
             while (indexP < endP)
                 iP[*indexP++] = tavP->ival;
         }
         break;
     case TA_BYTE:
         {
-            unsigned char *ucP = TAHDRELEMPTR(thdrP, unsigned char, 0);
+            unsigned char *ucP = thdr_tELEMPTR(thdrP, unsigned char, 0);
             while (indexP < endP)
                 ucP[*indexP++] = tavP->ucval;
         }
@@ -600,7 +600,7 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_WIDE:
         {
             Tcl_WideInt *wideP;
-            wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, 0);
+            wideP = thdr_tELEMPTR(thdrP, Tcl_WideInt, 0);
             while (indexP < endP)
                 wideP[*indexP] = tavP->wval;
         }
@@ -608,7 +608,7 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_DOUBLE:
         {
             double *dvalP;
-            dvalP = TAHDRELEMPTR(thdrP, double, 0);
+            dvalP = thdr_tELEMPTR(thdrP, double, 0);
             while (indexP < endP)
                 dvalP[*indexP] = tavP->dval;
         }
@@ -624,7 +624,7 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
              * we need to decrement reference counts. Note that
              * indices may be sorted in either order.
              */
-            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+            objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, 0);
             while (indexP < endP) {
                 Tcl_IncrRefCount(tavP->oval);
                 if (*indexP < thdrP->used)
@@ -645,7 +645,7 @@ void thdr_fill_indices(Tcl_Interp *interp, TAHdr *thdrP,
 
 /* Increments the ref counts of Tcl_Objs in a tarray making sure not
    to run past end of array */
-void thdr_incr_obj_refs(TAHdr *thdrP, int first, int count)
+void thdr_incr_obj_refs(thdr_t *thdrP, int first, int count)
 {
     register int i;
     register Tcl_Obj **objPP;
@@ -655,7 +655,7 @@ void thdr_incr_obj_refs(TAHdr *thdrP, int first, int count)
             count = thdrP->used - first;
         if (count <= 0)
             return;
-        objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, first);
         for (i = 0; i < count; ++i, ++objPP) {
             Tcl_IncrRefCount(*objPP);
         }
@@ -665,7 +665,7 @@ void thdr_incr_obj_refs(TAHdr *thdrP, int first, int count)
 /* Decrements the ref counts of Tcl_Objs in a tarray.
    Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
 */
-void thdr_decr_obj_refs(TAHdr *thdrP, int first, int count)
+void thdr_decr_obj_refs(thdr_t *thdrP, int first, int count)
 {
     register int i;
     register Tcl_Obj **objPP;
@@ -675,14 +675,14 @@ void thdr_decr_obj_refs(TAHdr *thdrP, int first, int count)
             count = thdrP->used - first;
         if (count <= 0)
             return;
-        objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, first);
         for (i = 0; i < count; ++i, ++objPP) {
             Tcl_DecrRefCount(*objPP);
         }
     }
 }
 
-void thdr_free(TAHdr *thdrP)
+void thdr_free(thdr_t *thdrP)
 {
     if (thdrP->type == TA_OBJ) {
         thdr_decr_obj_refs(thdrP, 0, thdrP->used);
@@ -693,14 +693,14 @@ void thdr_free(TAHdr *thdrP)
 
 static void ta_type_free_intrep(Tcl_Obj *objP)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     TA_ASSERT(objP->typePtr == &g_ta_type);
 
     thdrP = TARRAYHDR(objP); 
     TA_ASSERT(thdrP);
 
-    TAHDR_DECRREF(thdrP);
+    thdr_t_DECRREF(thdrP);
     TARRAYHDR(objP) = NULL;
     objP->typePtr = NULL;
 }
@@ -720,7 +720,7 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *objP)
     /* Copied almost verbatim from the Tcl's UpdateStringOfList */
     Tcl_Obj **objv;
     int objc;
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr = NULL;
     int i, length, bytesNeeded = 0;
@@ -728,7 +728,7 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *objP)
     char *dst;
 
     thdrP = TARRAYHDR(objP);
-    objv = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+    objv = thdr_tELEMPTR(thdrP, Tcl_Obj *, 0);
     objc = thdrP->used;
 
     /*
@@ -807,7 +807,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
     char *cP;
     int max_elem_space;  /* Max space to print one element including
                             either terminating null or space */
-    TAHdr *thdrP;
+    thdr_t *thdrP;
         
     TA_ASSERT(objP->typePtr == &g_ta_type);
 
@@ -848,7 +848,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
              * Special case Boolean since we know exactly how many chars will
              * be required 
              */
-            ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
+            ba_t *baP = thdr_tELEMPTR(thdrP, ba_t, 0);
             register ba_t ba = *baP;
             register ba_t ba_mask;
 
@@ -935,7 +935,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
         case TA_UINT:
         case TA_INT:
             {
-                int *intP = TAHDRELEMPTR(thdrP, int, i);
+                int *intP = thdr_tELEMPTR(thdrP, int, i);
                 char *fmt = thdrP->type == TA_UINT ? "%u" : "%d";
                 while (i < count && unused >= min_needed) {
                     n = _snprintf(cP, unused, fmt, *intP++);
@@ -949,7 +949,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
             break;
         case TA_WIDE:
             {
-                Tcl_WideInt *wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, i);
+                Tcl_WideInt *wideP = thdr_tELEMPTR(thdrP, Tcl_WideInt, i);
                 while (i < count && unused >= min_needed) {
                     n = _snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *wideP++);
                     TA_ASSERT(n > 0 && n < unused);
@@ -965,7 +965,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
                it does not include decimal point for whole ints. For
                consistency with Tcl, use Tcl_PrintDouble instead */
             {
-                double *dblP = TAHDRELEMPTR(thdrP, double, i);
+                double *dblP = thdr_tELEMPTR(thdrP, double, i);
                 while (i < count && unused >= min_needed) {
                     Tcl_PrintDouble(NULL, *dblP++, cP);
                     n = strlen(cP);
@@ -978,7 +978,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
             break;
         case TA_BYTE:
             {
-                unsigned char *ucP = TAHDRELEMPTR(thdrP, unsigned char, i);
+                unsigned char *ucP = thdr_tELEMPTR(thdrP, unsigned char, i);
                 while (i < count && unused >= min_needed) {
                     n = _snprintf(cP, unused, "%u", *ucP++);
                     TA_ASSERT(n > 0 && n < unused);
@@ -1004,7 +1004,7 @@ static void ta_type_update_string(Tcl_Obj *objP)
     return;
 }
 
-Tcl_Obj *tcol_new(TAHdr *thdrP)
+Tcl_Obj *tcol_new(thdr_t *thdrP)
 {
     Tcl_Obj *objP = Tcl_NewObj();
     Tcl_InvalidateStringRep(objP);
@@ -1014,7 +1014,7 @@ Tcl_Obj *tcol_new(TAHdr *thdrP)
 
 /* thdrP must NOT be shared and must have enough slots */
 /* interp may be NULL (only used for errors) */
-TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
+TCL_RESULT thdr_put_objs(Tcl_Interp *interp, thdr_t *thdrP,
                                  int first, int nelems,
                                  Tcl_Obj * const elems[])
 {
@@ -1060,7 +1060,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
 
             /* Take care of the initial condition where the first bit
                may not be aligned on a boundary */
-            baP = TAHDRELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
+            baP = thdr_tELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
             off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
             ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
             if (off != 0) {
@@ -1099,7 +1099,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_UINT:
         {
             register unsigned int *uintP;
-            uintP = TAHDRELEMPTR(thdrP, unsigned int, first);
+            uintP = thdr_tELEMPTR(thdrP, unsigned int, first);
             for (i = 0; i < nelems; ++i, ++uintP) {
                 if (Tcl_GetWideIntFromObj(interp, elems[i], &wide) != TCL_OK)
                     goto convert_error;
@@ -1114,7 +1114,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_INT:
         {
             register int *intP;
-            intP = TAHDRELEMPTR(thdrP, int, first);
+            intP = thdr_tELEMPTR(thdrP, int, first);
             for (i = 0; i < nelems; ++i, ++intP) {
                 if (Tcl_GetIntFromObj(interp, elems[i], intP) != TCL_OK)
                     goto convert_error;
@@ -1125,7 +1125,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_WIDE:
         {
             register Tcl_WideInt *wideP;
-            wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+            wideP = thdr_tELEMPTR(thdrP, Tcl_WideInt, first);
             for (i = 0; i < nelems; ++i, ++wideP) {
                 if (Tcl_GetWideIntFromObj(interp, elems[i], wideP) != TCL_OK)
                     goto convert_error;
@@ -1136,7 +1136,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_DOUBLE:
         {
             register double *dblP;
-            dblP = TAHDRELEMPTR(thdrP, double, first);
+            dblP = thdr_tELEMPTR(thdrP, double, first);
             for (i = 0; i < nelems; ++i, ++dblP) {
                 if (Tcl_GetDoubleFromObj(interp, elems[i], dblP) != TCL_OK)
                     goto convert_error;
@@ -1147,7 +1147,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_OBJ:
         {
             register Tcl_Obj **objPP;
-            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+            objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, first);
             for (i = 0; i < nelems; ++i, ++objPP) {
                 /* Careful about the order here! */
                 Tcl_IncrRefCount(elems[i]);
@@ -1163,7 +1163,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *interp, TAHdr *thdrP,
     case TA_BYTE:
         {
             register unsigned char *byteP;
-            byteP = TAHDRELEMPTR(thdrP, unsigned char, first);
+            byteP = thdr_tELEMPTR(thdrP, unsigned char, first);
             for (i = 0; i < nelems; ++i, ++byteP) {
                 if (Tcl_GetIntFromObj(interp, elems[i], &ival) != TCL_OK)
                     goto convert_error;
@@ -1194,8 +1194,8 @@ convert_error:                  /* Interp should already contain errors */
 
 TCL_RESULT thdr_place_objs(
     Tcl_Interp *interp,
-    TAHdr *thdrP,               /* TAHdr to be modified - must NOT be shared */
-    TAHdr *indicesP,            /* Contains indices. */
+    thdr_t *thdrP,               /* thdr_t to be modified - must NOT be shared */
+    thdr_t *indicesP,            /* Contains indices. */
     int highest_in_indices,          /* Highest index in indicesP.
                                    If >= thdrP->used, all intermediate indices
                                    must also be present in indicesP. Caller
@@ -1206,7 +1206,7 @@ TCL_RESULT thdr_place_objs(
 {
     int *indexP, *endP;
     int status;
-    TArrayValue v;
+    ta_value_t v;
 
     TA_ASSERT(thdrP->nrefs < 2);
     TA_ASSERT(indicesP->type == TA_INT);
@@ -1239,7 +1239,7 @@ TCL_RESULT thdr_place_objs(
 
 #define PLACEVALUES(type, fn, var) do {                 \
         type *p;                                        \
-        p = TAHDRELEMPTR(thdrP, type, 0);             \
+        p = thdr_tELEMPTR(thdrP, type, 0);             \
         while (indexP < endP) {                         \
             status = fn(interp, *valuesP++, &var);      \
             TA_ASSERT(status == TCL_OK);                \
@@ -1249,12 +1249,12 @@ TCL_RESULT thdr_place_objs(
         }                                               \
     } while (0)
     
-    indexP = TAHDRELEMPTR(indicesP, int, 0);
+    indexP = thdr_tELEMPTR(indicesP, int, 0);
     endP = indexP + nvalues;
     switch (thdrP->type) {
     case TA_BOOLEAN:
         {
-            ba_t *baP = TAHDRELEMPTR(thdrP, ba_t, 0);
+            ba_t *baP = thdr_tELEMPTR(thdrP, ba_t, 0);
             while (indexP < endP) {
                 status = Tcl_GetBooleanFromObj(interp, *valuesP++, &v.ival);
                 TA_ASSERT(status == TCL_OK); /* Since values are verified */
@@ -1281,7 +1281,7 @@ TCL_RESULT thdr_place_objs(
         {
             int i;
             Tcl_Obj **objPP;
-            objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, 0);
+            objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, 0);
             /*
              * Reference counts makes this tricky. If replacing an existing
              * index we have to increment the new value's ref and decrement
@@ -1346,17 +1346,17 @@ int thdr_required_size(unsigned char tatype, int count)
         ta_type_panic(tatype);
     }
 
-    return sizeof(TAHdr) + space;
+    return sizeof(thdr_t) + space;
 }
 
-TAHdr *thdr_realloc(Tcl_Interp *interp, TAHdr *oldP, int new_count)
+thdr_t *thdr_realloc(Tcl_Interp *interp, thdr_t *oldP, int new_count)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     TA_ASSERT(oldP->nrefs < 2);
     TA_ASSERT(oldP->used <= new_count);
 
-    thdrP = (TAHdr *) TA_ATTEMPTREALLOCMEM((char *) oldP, thdr_required_size(oldP->type, new_count));
+    thdrP = (thdr_t *) TA_ATTEMPTREALLOCMEM((char *) oldP, thdr_required_size(oldP->type, new_count));
     if (thdrP)
         thdrP->allocated = new_count;
     else
@@ -1364,14 +1364,14 @@ TAHdr *thdr_realloc(Tcl_Interp *interp, TAHdr *oldP, int new_count)
     return thdrP;
 }
 
-TAHdr * thdr_alloc(Tcl_Interp *interp, unsigned char tatype, int count)
+thdr_t * thdr_alloc(Tcl_Interp *interp, unsigned char tatype, int count)
 {
     unsigned char nbits;
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     if (count == 0)
             count = TA_DEFAULT_NSLOTS;
-    thdrP = (TAHdr *) TA_ATTEMPTALLOCMEM(thdr_required_size(tatype, count));
+    thdrP = (thdr_t *) TA_ATTEMPTALLOCMEM(thdr_required_size(tatype, count));
     if (thdrP == NULL) {
         if (interp)
             ta_memory_error(interp, count);
@@ -1398,11 +1398,11 @@ TAHdr * thdr_alloc(Tcl_Interp *interp, unsigned char tatype, int count)
     return thdrP;
 }
 
-TAHdr * thdr_alloc_and_init(Tcl_Interp *interp, unsigned char tatype,
+thdr_t * thdr_alloc_and_init(Tcl_Interp *interp, unsigned char tatype,
                            int nelems, Tcl_Obj * const elems[],
                            int init_size)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     if (elems) {
         /*
@@ -1423,7 +1423,7 @@ TAHdr * thdr_alloc_and_init(Tcl_Interp *interp, unsigned char tatype,
     if (thdrP) {
         if (elems != NULL && nelems != 0) {
             if (thdr_put_objs(interp, thdrP, 0, nelems, elems) != TCL_OK) {
-                TAHDR_DECRREF(thdrP);
+                thdr_t_DECRREF(thdrP);
                 thdrP = NULL;
             }
         }
@@ -1432,13 +1432,13 @@ TAHdr * thdr_alloc_and_init(Tcl_Interp *interp, unsigned char tatype,
     return thdrP;               /* May be NULL on error */
 }
 
-/* Deletes a range from a TAHdr. See asserts below for requirements */
-void thdr_delete_range(TAHdr *thdrP, int first, int count)
+/* Deletes a range from a thdr_t. See asserts below for requirements */
+void thdr_delete_range(thdr_t *thdrP, int first, int count)
 {
     int n;
     void *s, *d;
 
-    TA_ASSERT(! TAHDR_SHARED(thdrP));
+    TA_ASSERT(! thdr_sHARED(thdrP));
     TA_ASSERT(first >= 0);
 
     if (first >= thdrP->used)
@@ -1462,8 +1462,8 @@ void thdr_delete_range(TAHdr *thdrP, int first, int count)
      */
     switch (thdrP->type) {
     case TA_BOOLEAN:
-        ba_copy(TAHDRELEMPTR(thdrP, ba_t, 0), first, 
-                TAHDRELEMPTR(thdrP, ba_t, 0), first+count,
+        ba_copy(thdr_tELEMPTR(thdrP, ba_t, 0), first, 
+                thdr_tELEMPTR(thdrP, ba_t, 0), first+count,
                 thdrP->used-(first+count));
         thdrP->used -= count;
         return;
@@ -1478,34 +1478,34 @@ void thdr_delete_range(TAHdr *thdrP, int first, int count)
          
         /* Now we can just memcpy like the other types */
         n = count + first;         /* Point beyond deleted elements */
-        s = TAHDRELEMPTR(thdrP, Tcl_Obj *, n);
-        d = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        s = thdr_tELEMPTR(thdrP, Tcl_Obj *, n);
+        d = thdr_tELEMPTR(thdrP, Tcl_Obj *, first);
         n = (thdrP->used - n) * sizeof(Tcl_Obj *); /* #bytes to move */
         break;
 
     case TA_UINT:
     case TA_INT:
         n = count + first;         /* Point beyond deleted elements */
-        s = TAHDRELEMPTR(thdrP, int, n);
-        d = TAHDRELEMPTR(thdrP, int, first);
+        s = thdr_tELEMPTR(thdrP, int, n);
+        d = thdr_tELEMPTR(thdrP, int, first);
         n = (thdrP->used - n) * sizeof(int); /* #bytes to move */
         break;
     case TA_WIDE:
         n = count + first;         /* Point beyond deleted elements */
-        s = TAHDRELEMPTR(thdrP, Tcl_WideInt, n);
-        d = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+        s = thdr_tELEMPTR(thdrP, Tcl_WideInt, n);
+        d = thdr_tELEMPTR(thdrP, Tcl_WideInt, first);
         n = (thdrP->used - n) * sizeof(Tcl_WideInt); /* #bytes to move */
         break;
     case TA_DOUBLE:
         n = count + first;         /* Point beyond deleted elements */
-        s = TAHDRELEMPTR(thdrP, double, n);
-        d = TAHDRELEMPTR(thdrP, double, first);
+        s = thdr_tELEMPTR(thdrP, double, n);
+        d = thdr_tELEMPTR(thdrP, double, first);
         n = (thdrP->used - n) * sizeof(double); /* #bytes to move */
         break;
     case TA_BYTE:
         n = count + first;         /* Point beyond deleted elements */
-        s = TAHDRELEMPTR(thdrP, unsigned char, n);
-        d = TAHDRELEMPTR(thdrP, unsigned char, first);
+        s = thdr_tELEMPTR(thdrP, unsigned char, n);
+        d = thdr_tELEMPTR(thdrP, unsigned char, first);
         n = (thdrP->used - n) * sizeof(unsigned char); /* #bytes to move */
         break;
     default:
@@ -1517,7 +1517,7 @@ void thdr_delete_range(TAHdr *thdrP, int first, int count)
     thdrP->used -= count;
 }
 
-void thdr_delete_Indices(TAHdr *thdrP, TAHdr *indicesP)
+void thdr_delete_Indices(thdr_t *thdrP, thdr_t *indicesP)
 {
     int i;
     int *indexP;
@@ -1540,7 +1540,7 @@ void thdr_delete_Indices(TAHdr *thdrP, TAHdr *indicesP)
     i = indicesP->used;
     if (thdr_sort_order(indicesP) > 0) {
         /* Sort order is ascending so iterate index array back to front */
-        indexP = TAHDRELEMPTR(indicesP, int, indicesP->used-1 );
+        indexP = thdr_tELEMPTR(indicesP, int, indicesP->used-1 );
         while (i--) {
             if (*indexP >= 0 && *indexP < thdrP->used)
                 thdr_delete_range(thdrP, *indexP, 1);
@@ -1548,7 +1548,7 @@ void thdr_delete_Indices(TAHdr *thdrP, TAHdr *indicesP)
         }
     } else {
         /* Sort order is descending so iterate index array front to back */
-        indexP = TAHDRELEMPTR(indicesP, int, 0);
+        indexP = thdr_tELEMPTR(indicesP, int, 0);
         while (i--) {
             if (*indexP >= 0 && *indexP < thdrP->used)
                 thdr_delete_range(thdrP, *indexP, 1);
@@ -1557,7 +1557,7 @@ void thdr_delete_Indices(TAHdr *thdrP, TAHdr *indicesP)
     }
 }
 
-void TAHdrReverse(TAHdr *thdrP)
+void thdr_tReverse(thdr_t *thdrP)
 {
     int existing_sort_order;
     if (thdrP->used == 0)
@@ -1569,8 +1569,8 @@ void TAHdrReverse(TAHdr *thdrP)
     do {                                                                \
         type_ *front;                                                   \
         type_ *back;                                                    \
-        front = TAHDRELEMPTR((thdrP_), type_, 0);                       \
-        back  = TAHDRELEMPTR((thdrP_), type_, (thdrP_)->used-1);        \
+        front = thdr_tELEMPTR((thdrP_), type_, 0);                       \
+        back  = thdr_tELEMPTR((thdrP_), type_, (thdrP_)->used-1);        \
         while (front < back) {                                          \
             type_ temp;                                                 \
             temp = *front;                                              \
@@ -1581,7 +1581,7 @@ void TAHdrReverse(TAHdr *thdrP)
 
     switch (thdrP->type) {
     case TA_BOOLEAN:
-        ba_reverse(TAHDRELEMPTR(thdrP, ba_t, 0), 0, thdrP->used);
+        ba_reverse(thdr_tELEMPTR(thdrP, ba_t, 0), 0, thdrP->used);
         break;
     case TA_OBJ:    SWAPALL(thdrP, Tcl_Obj*); break;
     case TA_UINT:   /* Fall thru */
@@ -1602,17 +1602,17 @@ void TAHdrReverse(TAHdr *thdrP)
 }
 
 
-/* Copies partial content from one TAHdr to another. See asserts below
+/* Copies partial content from one thdr_t to another. See asserts below
    for requirements */
-void thdr_copy(TAHdr *dstP, int dst_first,
-                   TAHdr *srcP, int src_first, int count)
+void thdr_copy(thdr_t *dstP, int dst_first,
+                   thdr_t *srcP, int src_first, int count)
 {
     int nbytes;
     void *s, *d;
 
     TA_ASSERT(dstP != srcP);
     TA_ASSERT(dstP->type == srcP->type);
-    TA_ASSERT(! TAHDR_SHARED(dstP));
+    TA_ASSERT(! thdr_sHARED(dstP));
     TA_ASSERT(src_first >= 0);
 
     if (src_first >= srcP->used)
@@ -1638,8 +1638,8 @@ void thdr_copy(TAHdr *dstP, int dst_first,
      */
     switch (srcP->type) {
     case TA_BOOLEAN:
-        ba_copy(TAHDRELEMPTR(dstP, ba_t, 0), dst_first,
-                TAHDRELEMPTR(srcP, ba_t, 0), src_first, count);
+        ba_copy(thdr_tELEMPTR(dstP, ba_t, 0), dst_first,
+                thdr_tELEMPTR(srcP, ba_t, 0), src_first, count);
         if ((dst_first + count) > dstP->used)
             dstP->used = dst_first + count;
         return;
@@ -1660,30 +1660,30 @@ void thdr_copy(TAHdr *dstP, int dst_first,
          
         /* Now we can just memcpy like the other types */
         nbytes = count * sizeof(Tcl_Obj *);
-        s = TAHDRELEMPTR(srcP, Tcl_Obj *, src_first);
-        d = TAHDRELEMPTR(dstP, Tcl_Obj *, dst_first);
+        s = thdr_tELEMPTR(srcP, Tcl_Obj *, src_first);
+        d = thdr_tELEMPTR(dstP, Tcl_Obj *, dst_first);
         break;
 
     case TA_UINT:
     case TA_INT:
         nbytes = count * sizeof(int);
-        s = TAHDRELEMPTR(srcP, int, src_first);
-        d = TAHDRELEMPTR(dstP, int, dst_first);
+        s = thdr_tELEMPTR(srcP, int, src_first);
+        d = thdr_tELEMPTR(dstP, int, dst_first);
         break;
     case TA_WIDE:
         nbytes = count * sizeof(Tcl_WideInt);
-        s = TAHDRELEMPTR(srcP, Tcl_WideInt, src_first);
-        d = TAHDRELEMPTR(dstP, Tcl_WideInt, dst_first);
+        s = thdr_tELEMPTR(srcP, Tcl_WideInt, src_first);
+        d = thdr_tELEMPTR(dstP, Tcl_WideInt, dst_first);
         break;
     case TA_DOUBLE:
         nbytes = count * sizeof(double);
-        s = TAHDRELEMPTR(srcP, double, src_first);
-        d = TAHDRELEMPTR(dstP, double, dst_first);
+        s = thdr_tELEMPTR(srcP, double, src_first);
+        d = thdr_tELEMPTR(dstP, double, dst_first);
         break;
     case TA_BYTE:
         nbytes = count * sizeof(unsigned char);
-        s = TAHDRELEMPTR(srcP, unsigned char, src_first);
-        d = TAHDRELEMPTR(dstP, unsigned char, dst_first);
+        s = thdr_tELEMPTR(srcP, unsigned char, src_first);
+        d = thdr_tELEMPTR(dstP, unsigned char, dst_first);
         break;
     default:
         ta_type_panic(srcP->type);
@@ -1697,14 +1697,14 @@ void thdr_copy(TAHdr *dstP, int dst_first,
     return;
 }
 
-/* Copies partial content from one TAHdr to another in reverse.
+/* Copies partial content from one thdr_t to another in reverse.
    See asserts below for requirements */
-void thdr_copy_reversed(TAHdr *dstP, int dst_first,
-                       TAHdr *srcP, int src_first, int count)
+void thdr_copy_reversed(thdr_t *dstP, int dst_first,
+                       thdr_t *srcP, int src_first, int count)
 {
     TA_ASSERT(dstP != srcP);
     TA_ASSERT(dstP->type == srcP->type);
-    TA_ASSERT(! TAHDR_SHARED(dstP));
+    TA_ASSERT(! thdr_sHARED(dstP));
     TA_ASSERT(src_first >= 0);
 
     if (src_first >= srcP->used)
@@ -1727,8 +1727,8 @@ void thdr_copy_reversed(TAHdr *dstP, int dst_first,
         type_ *src;                                                     \
         type_ *dst;                                                     \
         int    i = (count_);                                            \
-        src = TAHDRELEMPTR((srcP_), type_ , (soff_));                  \
-        dst  = TAHDRELEMPTR((dstP_), type_ , 0);                       \
+        src = thdr_tELEMPTR((srcP_), type_ , (soff_));                  \
+        dst  = thdr_tELEMPTR((dstP_), type_ , 0);                       \
         dst += (doff_ ) + i - 1;                                        \
         while (i--) {                                                   \
             /* Remember caller ensured no overlap between src & dst */  \
@@ -1738,9 +1738,9 @@ void thdr_copy_reversed(TAHdr *dstP, int dst_first,
 
     switch (srcP->type) {
     case TA_BOOLEAN:
-        ba_copy(TAHDRELEMPTR(dstP, ba_t, 0), dst_first,
-                TAHDRELEMPTR(srcP, ba_t, 0), src_first, count);
-        ba_reverse(TAHDRELEMPTR(dstP, ba_t, 0), dst_first, count);
+        ba_copy(thdr_tELEMPTR(dstP, ba_t, 0), dst_first,
+                thdr_tELEMPTR(srcP, ba_t, 0), src_first, count);
+        ba_reverse(thdr_tELEMPTR(dstP, ba_t, 0), dst_first, count);
         break;
     case TA_OBJ:
         /*
@@ -1782,9 +1782,9 @@ void thdr_copy_reversed(TAHdr *dstP, int dst_first,
 }
 
 /* Note: nrefs of cloned array is 0 */
-TAHdr *thdr_clone(Tcl_Interp *interp, TAHdr *srcP, int minsize)
+thdr_t *thdr_clone(Tcl_Interp *interp, thdr_t *srcP, int minsize)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     if (minsize == 0)
         minsize = srcP->allocated;
@@ -1801,9 +1801,9 @@ TAHdr *thdr_clone(Tcl_Interp *interp, TAHdr *srcP, int minsize)
 }
 
 /* Note: nrefs of cloned array is 0 */
-TAHdr *thdr_clone_reversed(Tcl_Interp *interp, TAHdr *srcP, int minsize)
+thdr_t *thdr_clone_reversed(Tcl_Interp *interp, thdr_t *srcP, int minsize)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
     int existing_sort_order;
 
     existing_sort_order = thdr_sorted(srcP);
@@ -1828,9 +1828,9 @@ TAHdr *thdr_clone_reversed(Tcl_Interp *interp, TAHdr *srcP, int minsize)
     return thdrP;
 }
 
-TAHdr *thdr_range(Tcl_Interp *interp, TAHdr *srcP, int low, int count)
+thdr_t *thdr_range(Tcl_Interp *interp, thdr_t *srcP, int low, int count)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     TA_ASSERT(low >= 0);
     TA_ASSERT(count >= 0);
@@ -1847,7 +1847,7 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
                      int fmt)
 {
     int end;
-    TAHdr *srcP;
+    thdr_t *srcP;
     Tcl_Obj *objP;
 
     TA_ASSERT(low >= 0);
@@ -1856,7 +1856,7 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
     srcP = TARRAYHDR(srcObj);
 
     if (fmt == TA_FORMAT_TARRAY) {
-        TAHdr *thdrP = thdr_range(interp, srcP, low, count);
+        thdr_t *thdrP = thdr_range(interp, srcP, low, count);
         return thdrP == NULL ? NULL : tcol_new(thdrP);
     }
 
@@ -1870,7 +1870,7 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
     switch (srcP->type) {
     case TA_BOOLEAN:
         {
-            ba_t *baP = TAHDRELEMPTR(srcP, ba_t, 0);
+            ba_t *baP = thdr_tELEMPTR(srcP, ba_t, 0);
             while (low < end) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low));
@@ -1882,8 +1882,8 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_UINT:
         {
-            unsigned int *uiP = TAHDRELEMPTR(srcP, unsigned int, low);
-            unsigned int *uiendP = TAHDRELEMPTR(srcP, unsigned int, end);
+            unsigned int *uiP = thdr_tELEMPTR(srcP, unsigned int, low);
+            unsigned int *uiendP = thdr_tELEMPTR(srcP, unsigned int, end);
             while (uiP < uiendP) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
@@ -1893,8 +1893,8 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_INT:
         {
-            int *iP = TAHDRELEMPTR(srcP, int, low);
-            int *iendP = TAHDRELEMPTR(srcP, int, end);
+            int *iP = thdr_tELEMPTR(srcP, int, low);
+            int *iendP = thdr_tELEMPTR(srcP, int, end);
             while (iP < iendP) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
@@ -1904,8 +1904,8 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_WIDE:
         {
-            Tcl_WideInt *wideP = TAHDRELEMPTR(srcP, Tcl_WideInt, low);
-            Tcl_WideInt *wideendP = TAHDRELEMPTR(srcP, Tcl_WideInt, end);
+            Tcl_WideInt *wideP = thdr_tELEMPTR(srcP, Tcl_WideInt, low);
+            Tcl_WideInt *wideendP = thdr_tELEMPTR(srcP, Tcl_WideInt, end);
             while (wideP < wideendP) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
@@ -1915,8 +1915,8 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_DOUBLE:
         {
-            double *dblP = TAHDRELEMPTR(srcP, double, low);
-            double *dblendP = TAHDRELEMPTR(srcP, double, end);
+            double *dblP = thdr_tELEMPTR(srcP, double, low);
+            double *dblendP = thdr_tELEMPTR(srcP, double, end);
             while (dblP < dblendP) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
@@ -1926,8 +1926,8 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_BYTE:
         {
-            unsigned char *ucP = TAHDRELEMPTR(srcP, unsigned char, low);
-            unsigned char *ucendP = TAHDRELEMPTR(srcP, unsigned char, end);
+            unsigned char *ucP = thdr_tELEMPTR(srcP, unsigned char, low);
+            unsigned char *ucendP = thdr_tELEMPTR(srcP, unsigned char, end);
             while (ucP < ucendP) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
@@ -1937,8 +1937,8 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_OBJ:
         {
-            Tcl_Obj **oPP = TAHDRELEMPTR(srcP, Tcl_Obj *, low);
-            Tcl_Obj **oendPP = TAHDRELEMPTR(srcP, Tcl_Obj *, end);
+            Tcl_Obj **oPP = thdr_tELEMPTR(srcP, Tcl_Obj *, low);
+            Tcl_Obj **oendPP = thdr_tELEMPTR(srcP, Tcl_Obj *, end);
             while (oPP < oendPP) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(interp, objP, Tcl_NewIntObj(low++));
@@ -1958,12 +1958,12 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
  * Convert a TArray Tcl_Obj to one that is suitable for modifying.
  * The Tcl_Obj must NOT be shared.
  * There are three cases to consider:
- * (1) Even though taObj is unshared, the corresponding TAHdr might
+ * (1) Even though taObj is unshared, the corresponding thdr_t might
  *     still be shared (pointed to from elsewhere). In this case
- *     also, we clone the TAHdr and store it as the new internal rep.
- * (2) If its TAHdr is unshared, we can modify in
+ *     also, we clone the thdr_t and store it as the new internal rep.
+ * (2) If its thdr_t is unshared, we can modify in
  *     place, unless 
- * (3) TAHdr is too small in which case we have to reallocate it.
+ * (3) thdr_t is too small in which case we have to reallocate it.
  *
  * Invalidates the string rep in all cases.
  * Only fails on memory allocation failure.
@@ -1971,7 +1971,7 @@ Tcl_Obj *ta_range(Tcl_Interp *interp, Tcl_Obj *srcObj, int low, int count,
 TCL_RESULT ta_make_modifiable(Tcl_Interp *interp,
                                 Tcl_Obj *taObj, int minsize, int prefsize)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     TA_ASSERT(taObj->typePtr == &g_ta_type);
     TA_ASSERT(! Tcl_IsShared(taObj));
@@ -1984,12 +1984,12 @@ TCL_RESULT ta_make_modifiable(Tcl_Interp *interp,
     if (minsize > prefsize)
         prefsize = minsize;
 
-    if (TAHDR_SHARED(thdrP)) {
+    if (thdr_sHARED(thdrP)) {
         /* Case (1) */
         thdrP = thdr_clone(interp, thdrP, prefsize);
         if (thdrP == NULL)
             return TCL_ERROR;   /* Note taObj is not changed */
-        TAHDR_DECRREF(TARRAYHDR(taObj)); /* Release old */
+        thdr_t_DECRREF(TARRAYHDR(taObj)); /* Release old */
         TARRAYHDR(taObj) = NULL;
         TA_OBJ_SETREP(taObj, thdrP);
         Tcl_InvalidateStringRep(taObj);
@@ -2012,25 +2012,25 @@ TCL_RESULT ta_make_modifiable(Tcl_Interp *interp,
 
 
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
-Tcl_Obj * thdr_index(TAHdr *thdrP, int index)
+Tcl_Obj * thdr_index(thdr_t *thdrP, int index)
 {
     TA_ASSERT(index >= 0 && index < thdrP->used);
 
     switch (thdrP->type) {
     case TA_BOOLEAN:
-        return Tcl_NewIntObj(ba_get(TAHDRELEMPTR(thdrP, ba_t, 0), index));
+        return Tcl_NewIntObj(ba_get(thdr_tELEMPTR(thdrP, ba_t, 0), index));
     case TA_UINT:
-        return Tcl_NewWideIntObj(*TAHDRELEMPTR(thdrP, unsigned int, index));
+        return Tcl_NewWideIntObj(*thdr_tELEMPTR(thdrP, unsigned int, index));
     case TA_INT:
-        return Tcl_NewIntObj(*TAHDRELEMPTR(thdrP, int, index));
+        return Tcl_NewIntObj(*thdr_tELEMPTR(thdrP, int, index));
     case TA_WIDE:
-        return Tcl_NewWideIntObj(*TAHDRELEMPTR(thdrP, Tcl_WideInt, index));
+        return Tcl_NewWideIntObj(*thdr_tELEMPTR(thdrP, Tcl_WideInt, index));
     case TA_DOUBLE:
-        return Tcl_NewDoubleObj(*TAHDRELEMPTR(thdrP, double, index));
+        return Tcl_NewDoubleObj(*thdr_tELEMPTR(thdrP, double, index));
     case TA_BYTE:
-        return Tcl_NewIntObj(*TAHDRELEMPTR(thdrP, unsigned char, index));
+        return Tcl_NewIntObj(*thdr_tELEMPTR(thdrP, unsigned char, index));
     case TA_OBJ:
-        return *TAHDRELEMPTR(thdrP, Tcl_Obj *, index);
+        return *thdr_tELEMPTR(thdrP, Tcl_Obj *, index);
     default:
         ta_type_panic(thdrP->type);
     }
@@ -2039,11 +2039,11 @@ Tcl_Obj * thdr_index(TAHdr *thdrP, int index)
 /*
  * Converts the passed Tcl_Obj objP to integer indexes. If a single index
  * stores it in *indexP and returns TA_INDEX_TYPE_INT. If multiple indices,
- * stores a TAHdr of type int containing the indices into *thdrPP and
- * returns TA_INDEX_TYPE_TAHDR. The TAHdr's ref count is incremented
- * so caller should call TAHDR_DECRREF as appropriate.
+ * stores a thdr_t of type int containing the indices into *thdrPP and
+ * returns TA_INDEX_TYPE_thdr_t. The thdr_t's ref count is incremented
+ * so caller should call thdr_t_DECRREF as appropriate.
  *
- * If indexP is NULL, always returns as TA_INDEX_TYPE_TAHDR.
+ * If indexP is NULL, always returns as TA_INDEX_TYPE_thdr_t.
  *
  * This facility to return a single int or a index list should only
  * be used by commands where it does not matter whether {1} is treated
@@ -2054,10 +2054,10 @@ Tcl_Obj * thdr_index(TAHdr *thdrP, int index)
  */
 int tcol_to_indices(Tcl_Interp *interp, Tcl_Obj *objP,
                            int want_sorted,
-                           TAHdr **thdrPP, /* Cannot be NULL */
+                           thdr_t **thdrPP, /* Cannot be NULL */
                            int *indexP)    /* Can be NULL */
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
     Tcl_Obj **elems;
     int       n;
     TCL_RESULT status;
@@ -2073,12 +2073,12 @@ int tcol_to_indices(Tcl_Interp *interp, Tcl_Obj *objP,
                 thdrP = thdr_clone(interp, thdrP, thdrP->used);
                 if (thdrP == NULL)
                     return TA_INDEX_TYPE_ERROR;
-                qsort(TAHDRELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
+                qsort(thdr_tELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
                 thdr_mark_sorted_ascending(thdrP);
             }
             thdrP->nrefs++;
             *thdrPP = thdrP;
-            return TA_INDEX_TYPE_TAHDR;
+            return TA_INDEX_TYPE_thdr_t;
         } else {
             /* TBD - write conversion from other type tarrays */
             ta_indices_error(interp, objP);
@@ -2104,21 +2104,21 @@ int tcol_to_indices(Tcl_Interp *interp, Tcl_Obj *objP,
     thdrP = thdr_alloc_and_init(interp, TA_INT, n, elems, 0);
     if (thdrP) {
         if (want_sorted) {
-            qsort(TAHDRELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
+            qsort(thdr_tELEMPTR(thdrP, int, 0), thdrP->used, sizeof(int), intcmp);
             thdr_mark_sorted_ascending(thdrP);
         }
         thdrP->nrefs++;
         *thdrPP = thdrP;
-        return TA_INDEX_TYPE_TAHDR;
+        return TA_INDEX_TYPE_thdr_t;
     } else
         return TA_INDEX_TYPE_ERROR;
 }
 
-/* Returns a newly allocated TAHdr (with ref count 0) containing the
+/* Returns a newly allocated thdr_t (with ref count 0) containing the
    values from the specified indices */
-Tcl_Obj *tcol_get(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP, int fmt)
+Tcl_Obj *tcol_get(Tcl_Interp *interp, thdr_t *srcP, thdr_t *indicesP, int fmt)
 {
-    TAHdr *thdrP;
+    thdr_t *thdrP;
     int count, index, bound;
     int *indexP, *endP;
     Tcl_Obj *taObj;
@@ -2131,7 +2131,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP, int fmt)
         thdrP = thdr_alloc(interp, srcP->type, count);
         if (thdrP == NULL)
             return NULL;
-        thdrbaseP = TAHDRELEMPTR(thdrP, unsigned char, 0);
+        thdrbaseP = thdr_tELEMPTR(thdrP, unsigned char, 0);
         taObj = tcol_new(thdrP);
     } else {
         thdrP = NULL;
@@ -2163,9 +2163,9 @@ Tcl_Obj *tcol_get(Tcl_Interp *interp, TAHdr *srcP, TAHdr *indicesP, int fmt)
     } while (0)
 
 
-    indexP = TAHDRELEMPTR(indicesP, int, 0);
+    indexP = thdr_tELEMPTR(indicesP, int, 0);
     endP = indexP + count;
-    srcbaseP = TAHDRELEMPTR(srcP, unsigned char, 0);
+    srcbaseP = thdr_tELEMPTR(srcP, unsigned char, 0);
     bound = srcP->used;
     switch (srcP->type) {
     case TA_BOOLEAN:
@@ -2255,7 +2255,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *interp, Tcl_Obj *taObj,
     status = ta_make_modifiable(interp, taObj, TARRAYELEMCOUNT(taObj),
                                   TARRAYELEMCOUNT(taObj));
     if (status == TCL_OK) {
-        TAHdr *thdrP = TARRAYHDR(taObj);
+        thdr_t *thdrP = TARRAYHDR(taObj);
         if (indexB) {
             status = ta_fix_range_bounds(interp, thdrP, indexA,
                                              indexB, &low, &count);
@@ -2263,7 +2263,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *interp, Tcl_Obj *taObj,
                 thdr_delete_range(thdrP, low, count);
         } else {
             /* Not a range, either a list or single index */
-            TAHdr *indicesP;
+            thdr_t *indicesP;
             /* Note status is TCL_OK at this point */
             switch (tcol_to_indices(interp, indexA, 1, &indicesP, &low)) {
             case TA_INDEX_TYPE_ERROR:
@@ -2272,9 +2272,9 @@ TCL_RESULT tcol_delete(Tcl_Interp *interp, Tcl_Obj *taObj,
             case TA_INDEX_TYPE_INT:
                 thdr_delete_range(thdrP, low, 1);
                 break;
-            case TA_INDEX_TYPE_TAHDR:
+            case TA_INDEX_TYPE_thdr_t:
                 thdr_delete_Indices(thdrP, indicesP);
-                TAHDR_DECRREF(indicesP);
+                thdr_t_DECRREF(indicesP);
                 break;
             }
         }
@@ -2289,7 +2289,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *interp, Tcl_Obj *taObj,
 {
     int low, count;
     int status;
-    TArrayValue value;
+    ta_value_t value;
 
     TA_ASSERT(! Tcl_IsShared(taObj));
 
@@ -2309,7 +2309,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *interp, Tcl_Obj *taObj,
         }
     } else {
         /* Not a range, either a list or single index */
-        TAHdr *indicesP;
+        thdr_t *indicesP;
         /* Note status is TCL_OK at this point */
         switch (tcol_to_indices(interp, indexA, 1, &indicesP, &low)) {
         case TA_INDEX_TYPE_ERROR:
@@ -2325,14 +2325,14 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *interp, Tcl_Obj *taObj,
                     thdr_fill_range(interp, TARRAYHDR(taObj), &value, low, 1);
             }
             break;
-        case TA_INDEX_TYPE_TAHDR:
+        case TA_INDEX_TYPE_thdr_t:
             status = thdr_verify_indices(interp, TARRAYHDR(taObj), indicesP, &count);
             if (status == TCL_OK) {
                 status = ta_make_modifiable(interp, taObj, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
                     thdr_fill_indices(interp, TARRAYHDR(taObj), &value, indicesP);
             }
-            TAHDR_DECRREF(indicesP);
+            thdr_t_DECRREF(indicesP);
             break;
         }
     }
@@ -2361,7 +2361,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *interp, Tcl_Obj *taObj, TAHdr *srcP, Tcl_Obj *firstObj)
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *interp, Tcl_Obj *taObj, thdr_t *srcP, Tcl_Obj *firstObj)
 {
     int first, status;
 
@@ -2425,10 +2425,10 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *interp, Tcl_Obj *taObj,
 {
     int new_size;
     int status;
-    TAHdr *indicesP;
+    thdr_t *indicesP;
     Tcl_Obj **valueObjs;
     int nvalues;
-    TAHdr *sortedP;
+    thdr_t *sortedP;
 
     TA_ASSERT(! Tcl_IsShared(taObj));
 
@@ -2440,7 +2440,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *interp, Tcl_Obj *taObj,
         return status;
 
     if (tcol_to_indices(interp, indicesObj, 0, &indicesP, NULL)
-        != TA_INDEX_TYPE_TAHDR)
+        != TA_INDEX_TYPE_thdr_t)
         return TCL_ERROR;
 
     if (indicesP->used == 0)
@@ -2452,13 +2452,13 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *interp, Tcl_Obj *taObj,
         sortedP = thdr_clone(interp, sortedP, 0);
         if (sortedP == NULL)
             return TCL_ERROR;
-        qsort(TAHDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), intcmp);
+        qsort(thdr_tELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), intcmp);
         thdr_mark_sorted_ascending(sortedP);
     }
 
     status = thdr_verify_indices(interp, TARRAYHDR(taObj), sortedP, &new_size);
     if (sortedP != indicesP)
-        TAHDR_DECRREF(sortedP);
+        thdr_t_DECRREF(sortedP);
     if (status == TCL_OK) {
         status = ta_make_modifiable(interp, taObj, new_size, new_size); // TBD - count + extra?
         if (status == TCL_OK) {
@@ -2467,7 +2467,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *interp, Tcl_Obj *taObj,
                                         nvalues, valueObjs);
         }
     }
-    TAHDR_DECRREF(indicesP);
+    thdr_t_DECRREF(indicesP);
 
     return status;
 }
@@ -2481,9 +2481,9 @@ TCL_RESULT TGridFillFromObjs(
     Tcl_Obj *rowObj)
 {
     int i, low, count, row_width;
-    TAHdr *gridHdrP;
-    TArrayValue values[32];
-    TArrayValue *valuesP;
+    thdr_t *gridHdrP;
+    ta_value_t values[32];
+    ta_value_t *valuesP;
     Tcl_Obj **taObjPP;
     int status;
     int new_size;
@@ -2527,7 +2527,7 @@ TCL_RESULT TGridFillFromObjs(
         Tcl_IncrRefCount(highObj); /* Since we will release at end */
 
     if (row_width > sizeof(values)/sizeof(values[0])) {
-        valuesP = (TArrayValue *) TA_ALLOCMEM(row_width * sizeof(TArrayValue));
+        valuesP = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
     } else {
         valuesP = values;
     }
@@ -2551,10 +2551,10 @@ TCL_RESULT TGridFillFromObjs(
      * (logically unmodified though allocated blocks might have changed)
      * so even on error we exit with a clean gridObj.
      */
-    for (i = 0, taObjPP = TAHDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
+    for (i = 0, taObjPP = thdr_tELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++taObjPP) {
-        TAHdr *thdrP;
+        thdr_t *thdrP;
         Tcl_Obj *valueObj;
         Tcl_Obj *colObj = *taObjPP;
 
@@ -2605,7 +2605,7 @@ TCL_RESULT TGridFillFromObjs(
      * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT FATAL ONES
      */
 
-    for (i = 0, taObjPP = TAHDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
+    for (i = 0, taObjPP = thdr_tELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++taObjPP) {
         thdr_fill_range(interp, TARRAYHDR(*taObjPP), &valuesP[i], low, count);
@@ -2625,8 +2625,8 @@ vamoose:                   /* interp must already hold error message */
 
 /* interp may be NULL (only used for errors) */
 /* See asserts in code for prerequisite conditions */
-TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
-                                TAHdr * const thdrs[], int nthdrs,
+TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *interp,
+                                thdr_t * const thdrs[], int nthdrs,
                                 Tcl_Obj *tuples, int first)
 {
     int t, r, ival;
@@ -2638,7 +2638,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
     int have_other_cols;
     int need_data_validation;
     Tcl_Obj *valObj;
-    TAHdr *thdrP;
+    thdr_t *thdrP;
 
     TA_ASSERT(nthdrs > 0);
 
@@ -2813,7 +2813,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
 
                     /* Take care of the initial condition where the first bit
                        may not be aligned on a boundary */
-                    baP = TAHDRELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
+                    baP = thdr_tELEMPTR(thdrP, ba_t, first / BA_UNIT_SIZE);
                     off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
                     ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
                     if (off != 0) {
@@ -2853,7 +2853,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
             case TA_UINT:
                 {
                     register unsigned int *uintP;
-                    uintP = TAHDRELEMPTR(thdrP, unsigned int, first);
+                    uintP = thdr_tELEMPTR(thdrP, unsigned int, first);
                     for (r = 0; r < nrows; ++r, ++uintP) {
                         Tcl_ListObjIndex(interp, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
@@ -2870,7 +2870,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
             case TA_INT:
                 {
                     register int *intP;
-                    intP = TAHDRELEMPTR(thdrP, int, first);
+                    intP = thdr_tELEMPTR(thdrP, int, first);
                     for (r = 0; r < nrows; ++r, ++intP) {
                         Tcl_ListObjIndex(interp, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
@@ -2882,7 +2882,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
             case TA_WIDE:
                 {
                     register Tcl_WideInt *wideP;
-                    wideP = TAHDRELEMPTR(thdrP, Tcl_WideInt, first);
+                    wideP = thdr_tELEMPTR(thdrP, Tcl_WideInt, first);
                     for (r = 0; r < nrows; ++r, ++wideP) {
                         Tcl_ListObjIndex(interp, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
@@ -2894,7 +2894,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
             case TA_DOUBLE:
                 {
                     register double *dblP;
-                    dblP = TAHDRELEMPTR(thdrP, double, first);
+                    dblP = thdr_tELEMPTR(thdrP, double, first);
                     for (r = 0; r < nrows; ++r, ++dblP) {
                         Tcl_ListObjIndex(interp, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
@@ -2906,7 +2906,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
             case TA_BYTE:
                 {
                     register unsigned char *byteP;
-                    byteP = TAHDRELEMPTR(thdrP, unsigned char, first);
+                    byteP = thdr_tELEMPTR(thdrP, unsigned char, first);
                     for (r = 0; r < nrows; ++r, ++byteP) {
                         Tcl_ListObjIndex(interp, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
@@ -2933,7 +2933,7 @@ TCL_RESULT TAHdrSetMultipleFromObjs(Tcl_Interp *interp,
         if (thdrP->type != TA_OBJ)
             continue;
         thdr_mark_unsorted(thdrP); /* TBD - optimize */
-        objPP = TAHDRELEMPTR(thdrP, Tcl_Obj *, first);
+        objPP = thdr_tELEMPTR(thdrP, Tcl_Obj *, first);
         for (r = 0; r < nrows ; ++r, ++objPP) {
             Tcl_ListObjIndex(interp, rows[r], t, &valObj);
             TA_ASSERT(valObj);
