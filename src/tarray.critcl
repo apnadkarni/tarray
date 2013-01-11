@@ -88,7 +88,7 @@ critcl::ccommand tarray::column::create {} {
 
 
 critcl::ccommand tarray::column::delete {} {
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 3 && objc != 4) {
@@ -96,22 +96,22 @@ critcl::ccommand tarray::column::delete {} {
 	return TCL_ERROR;
     }
     
-    taObj = objv[1];
-    if (Tcl_IsShared(taObj))
-        taObj = Tcl_DuplicateObj(objv[1]);
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(objv[1]);
 
-    status = tcol_delete(interp, taObj, objv[2], objc == 4 ? objv[3] : NULL);
+    status = tcol_delete(interp, tcol, objv[2], objc == 4 ? objv[3] : NULL);
     if (status == TCL_OK)
-        Tcl_SetObjResult(interp, taObj);
-    else if (taObj != objv[1])
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+        Tcl_SetObjResult(interp, tcol);
+    else if (tcol != objv[1])
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
 
 critcl::ccommand tarray::column::vdelete {} {
     Tcl_Obj *valueObj;
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 3 && objc != 4) {
@@ -123,9 +123,9 @@ critcl::ccommand tarray::column::vdelete {} {
     if (valueObj == NULL)
         return TCL_ERROR;
 
-    taObj = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
+    tcol = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
 
-    status = tcol_delete(interp, taObj, objv[2], objc == 4 ? objv[3] : NULL);
+    status = tcol_delete(interp, tcol, objv[2], objc == 4 ? objv[3] : NULL);
     if (status == TCL_OK) {
         /* Even if we had not duplicated the value in the variable, we
          * still need to store it back so that traces are triggered. Also,
@@ -133,15 +133,15 @@ critcl::ccommand tarray::column::vdelete {} {
          * ref count 0 on error (currently it frees iff ref == 0) so
          * do a Incr/Decr
          */
-        Tcl_IncrRefCount(taObj);
-        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(taObj);
+        Tcl_IncrRefCount(tcol);
+        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(tcol);
         if (valueObj)
             Tcl_SetObjResult(interp, valueObj);
         else
             status = TCL_ERROR;
-    } else if (taObj != valueObj)
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+    } else if (tcol != valueObj)
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
@@ -167,12 +167,12 @@ critcl::cproc tarray::column::index {Tcl_Interp* interp thdr_t* tcolumn Tcl_Obj*
 }
 
 critcl::ccommand tarray::column::get {} {
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int low, count;
     int status;
     int fmt = TA_FORMAT_TARRAY;
     int ta_arg;
-    thdr_t *indicesP;
+    thdr_t *pindices;
 
     if (objc < 3)
         goto badargs;
@@ -204,15 +204,15 @@ critcl::ccommand tarray::column::get {} {
 
     switch (objc - ta_arg - 1) {
     case 1:
-        switch (tcol_to_indices(interp, objv[ta_arg+1], 0, &indicesP, NULL)) {
+        switch (tcol_to_indices(interp, objv[ta_arg+1], 0, &pindices, NULL)) {
         case TA_INDEX_TYPE_ERROR:
             return TCL_ERROR;
         case TA_INDEX_TYPE_INT:
             Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
         case TA_INDEX_TYPE_thdr_t:
-            taObj = tcol_get(interp, TARRAYHDR(objv[ta_arg]), indicesP, fmt);
-            thdr_decr_refs(indicesP);
+            tcol = tcol_get(interp, TARRAYHDR(objv[ta_arg]), pindices, fmt);
+            thdr_decr_refs(pindices);
             break;
         }
         break;
@@ -224,14 +224,14 @@ critcl::ccommand tarray::column::get {} {
                                          &low, &count);
         if (status != TCL_OK)
             return TCL_ERROR;
-        taObj = ta_range(interp, objv[ta_arg], low, count, fmt);
+        tcol = ta_range(interp, objv[ta_arg], low, count, fmt);
         break;
     default:
         goto badargs;
     }
 
-    if (taObj) {
-        Tcl_SetObjResult(interp, taObj);
+    if (tcol) {
+        Tcl_SetObjResult(interp, tcol);
         return TCL_OK;
     } else
         return TCL_ERROR;
@@ -254,8 +254,8 @@ critcl::ccommand tarray::column::sort {} {
     Tcl_Obj *srcObj;
     int i, n, opt;
     thdr_t *srcP;
-    thdr_t *sortedP;
-    Tcl_Obj *resultObj;
+    thdr_t *psorted;
+    Tcl_Obj *oresult;
     int (__cdecl *cmpfn)(const void*, const void*);
     int (__cdecl *cmpindexedfn)(void *, const void*, const void*);
     int existing_sort_order;
@@ -287,7 +287,7 @@ critcl::ccommand tarray::column::sort {} {
         if ((existing_sort_order < 0 && decreasing) ||
             (existing_sort_order > 0 && !decreasing)) {
             /* ...in the desired order, no less! */
-            resultObj = srcObj;
+            oresult = srcObj;
         } else {
             /*
              * Need to reverse the order. If unshared, we can do this
@@ -295,31 +295,31 @@ critcl::ccommand tarray::column::sort {} {
              */
             if (Tcl_IsShared(srcObj) || thdr_shared(srcP)) {
                 /* Cannot modify in place. Need to dup it */
-                sortedP = thdr_clone_reversed(interp, srcP, 0);
-                if (sortedP == NULL)
+                psorted = thdr_clone_reversed(interp, srcP, 0);
+                if (psorted == NULL)
                     return TCL_ERROR;
-                resultObj = tcol_new(sortedP);
+                oresult = tcol_new(psorted);
             } else {
-                sortedP = srcP;
-                resultObj = srcObj;
-                thdr_reverse(sortedP);
-                Tcl_InvalidateStringRep(resultObj);
+                psorted = srcP;
+                oresult = srcObj;
+                thdr_reverse(psorted);
+                Tcl_InvalidateStringRep(oresult);
             }
             if (decreasing)
-                thdr_mark_sorted_descending(sortedP);
+                thdr_mark_sorted_descending(psorted);
             else
-                thdr_mark_sorted_ascending(sortedP);
+                thdr_mark_sorted_ascending(psorted);
         }
     } else if (return_indices) {
         /* Caller wants indices to be returned */
         int *indexP;
-        sortedP = thdr_alloc(interp, TA_INT, srcP->used);
-        if (sortedP == NULL)
+        psorted = thdr_alloc(interp, TA_INT, srcP->used);
+        if (psorted == NULL)
             return TCL_ERROR;
-        resultObj = tcol_new(sortedP);
+        oresult = tcol_new(psorted);
         /* Initialize the indexes */
-        sortedP->used = srcP->used;
-        indexP = THDRELEMPTR(sortedP, int, 0);
+        psorted->used = srcP->used;
+        indexP = THDRELEMPTR(psorted, int, 0);
 
         if (existing_sort_order) {
             /* Input already sorted ... */
@@ -328,12 +328,12 @@ critcl::ccommand tarray::column::sort {} {
                 /* ...and in the right order! */
                 for (i = 0; i < srcP->used; ++i, ++indexP)
                     *indexP = i;
-                thdr_mark_sorted_ascending(sortedP);
+                thdr_mark_sorted_ascending(psorted);
             } else {
                 /* ...but in reverse order. */
                 for (i = srcP->used; i > 0; ++indexP)
                     *indexP = --i;
-                thdr_mark_sorted_descending(sortedP);
+                thdr_mark_sorted_descending(psorted);
             }
         } else {
             /* Input is not already sorted */
@@ -342,7 +342,7 @@ critcl::ccommand tarray::column::sort {} {
             for (i = 0; i < srcP->used; ++i, ++indexP)
                 *indexP = i;
 
-            switch (sortedP->type) {
+            switch (psorted->type) {
             case TA_BOOLEAN:
                 cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
                 break;
@@ -362,10 +362,10 @@ critcl::ccommand tarray::column::sort {} {
                 cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
                 break;
             default:
-                ta_type_panic(sortedP->type);
+                ta_type_panic(psorted->type);
             }
             /* Note the list of indices is NOT sorted, do not mark it as such ! */
-            tarray_qsort_r(THDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), THDRELEMPTR(srcP, unsigned char, 0), cmpindexedfn);
+            tarray_qsort_r(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), THDRELEMPTR(srcP, unsigned char, 0), cmpindexedfn);
         }
     } else {
         /*
@@ -375,32 +375,32 @@ critcl::ccommand tarray::column::sort {} {
         /* Why not using ta_make_modifiable here ? */
         if (Tcl_IsShared(srcObj) || thdr_shared(srcP)) {
             /* Cannot modify in place. Need to dup it */
-            sortedP = thdr_clone(interp, srcP, 0);
-            if (sortedP == NULL)
+            psorted = thdr_clone(interp, srcP, 0);
+            if (psorted == NULL)
                 return TCL_ERROR;
-            resultObj = tcol_new(sortedP);
+            oresult = tcol_new(psorted);
         } else {
-            sortedP = srcP;
-            resultObj = srcObj;
-            Tcl_InvalidateStringRep(resultObj);
+            psorted = srcP;
+            oresult = srcObj;
+            Tcl_InvalidateStringRep(oresult);
         }
 
         /*
          * Return sorted contents. Boolean type we treat separately
          * since we just need to count how many 1's and 0's.
          */
-        if (sortedP->type == TA_BOOLEAN) {
-            ba_t *baP = THDRELEMPTR(sortedP, ba_t, 0);
-            n = ba_count_ones(baP, 0, sortedP->used); /* Number of 1's set */
+        if (psorted->type == TA_BOOLEAN) {
+            ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
+            n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
             if (decreasing) {
                 ba_fill(baP, 0, n, 1);
-                ba_fill(baP, n, sortedP->used - n, 0);
+                ba_fill(baP, n, psorted->used - n, 0);
             } else {
-                ba_fill(baP, 0, sortedP->used - n, 0);
-                ba_fill(baP, sortedP->used - n, n, 1);
+                ba_fill(baP, 0, psorted->used - n, 0);
+                ba_fill(baP, psorted->used - n, n, 1);
             }
         } else {
-            switch (sortedP->type) {
+            switch (psorted->type) {
             case TA_UINT:
                 cmpfn = decreasing ? uintcmprev : uintcmp;
                 break;
@@ -417,23 +417,23 @@ critcl::ccommand tarray::column::sort {} {
                 cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
                 break;
             default:
-                ta_type_panic(sortedP->type);
+                ta_type_panic(psorted->type);
             }
-            qsort(THDRELEMPTR(sortedP, unsigned char, 0), sortedP->used,
-                  sortedP->elem_bits / CHAR_BIT, cmpfn);
+            qsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
+                  psorted->elem_bits / CHAR_BIT, cmpfn);
         }
         if (decreasing)
-            thdr_mark_sorted_descending(sortedP);
+            thdr_mark_sorted_descending(psorted);
         else
-            thdr_mark_sorted_ascending(sortedP);
+            thdr_mark_sorted_ascending(psorted);
     }
 
-    Tcl_SetObjResult(interp, resultObj);
+    Tcl_SetObjResult(interp, oresult);
     return TCL_OK;
 }
 
-critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr taObj} ok {
-    thdr_t *thdrP = TARRAYHDR(taObj);
+critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr tcol} ok {
+    thdr_t *thdrP = TARRAYHDR(tcol);
     if (thdrP->type != TA_BOOLEAN) {
         Tcl_SetResult(interp, "tarray type is not boolean", TCL_STATIC);
         return TCL_ERROR;
@@ -448,7 +448,7 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr taObj} ok
 critcl::ccommand tarray::column::search tcol_search_cmd
 
 critcl::ccommand tarray::column::put {} {
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 4) {
@@ -456,29 +456,29 @@ critcl::ccommand tarray::column::put {} {
 	return TCL_ERROR;
     }
     
-    taObj = objv[1];
-    if (Tcl_IsShared(taObj))
-        taObj = Tcl_DuplicateObj(objv[1]);
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(objv[1]);
 
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, objv[2]) == TCL_OK) {
         /* It is a tarray. Verify the right type */
-        status = tcol_copy_thdr(interp, taObj, TARRAYHDR(objv[2]), objv[3]);
+        status = tcol_copy_thdr(interp, tcol, TARRAYHDR(objv[2]), objv[3]);
     } else {
-        status = tcol_put_objs(interp, taObj, objv[2], objv[3]);
+        status = tcol_put_objs(interp, tcol, objv[2], objv[3]);
     }
 
     if (status == TCL_OK)
-        Tcl_SetObjResult(interp, taObj);
-    else if (taObj != objv[1])
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+        Tcl_SetObjResult(interp, tcol);
+    else if (tcol != objv[1])
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 
 }
 
 critcl::ccommand tarray::column::vput {} {
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     Tcl_Obj *varValueObj;
     int status;
 
@@ -491,16 +491,16 @@ critcl::ccommand tarray::column::vput {} {
     if (varValueObj == NULL)
         return TCL_ERROR;
 
-    taObj = varValueObj;
-    if (Tcl_IsShared(taObj))
-        taObj = Tcl_DuplicateObj(varValueObj);
+    tcol = varValueObj;
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(varValueObj);
 
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, objv[2]) == TCL_OK) {
         /* It is a tarray. Verify the right type */
-        status = tcol_copy_thdr(interp, taObj, TARRAYHDR(objv[2]), objv[3]);
+        status = tcol_copy_thdr(interp, tcol, TARRAYHDR(objv[2]), objv[3]);
     } else {
-        status = tcol_put_objs(interp, taObj, objv[2], objv[3]);
+        status = tcol_put_objs(interp, tcol, objv[2], objv[3]);
     }
 
     if (status == TCL_OK) {
@@ -510,21 +510,21 @@ critcl::ccommand tarray::column::vput {} {
          * ref count 0 on error (currently it frees iff ref == 0) so
          * do a Incr/Decr
          */
-        Tcl_IncrRefCount(taObj);
-        varValueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(taObj);
+        Tcl_IncrRefCount(tcol);
+        varValueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(tcol);
         if (varValueObj)
             Tcl_SetObjResult(interp, varValueObj);
         else
             status = TCL_ERROR;
-    } else if (taObj != varValueObj)
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+    } else if (tcol != varValueObj)
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
 
 critcl::ccommand tarray::column::place {} {
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 4) {
@@ -532,22 +532,22 @@ critcl::ccommand tarray::column::place {} {
 	return TCL_ERROR;
     }
 
-    taObj = objv[1];
-    if (Tcl_IsShared(taObj))
-        taObj = Tcl_DuplicateObj(objv[1]);
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(objv[1]);
 
-    status = tcol_place_objs(interp, taObj, objv[2], objv[3]);
+    status = tcol_place_objs(interp, tcol, objv[2], objv[3]);
     if (status == TCL_OK)
-        Tcl_SetObjResult(interp, taObj);
-    else if (taObj != objv[1])
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+        Tcl_SetObjResult(interp, tcol);
+    else if (tcol != objv[1])
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
 
 critcl::ccommand tarray::column::vplace {} {
     Tcl_Obj *valueObj;
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 4) {
@@ -559,9 +559,9 @@ critcl::ccommand tarray::column::vplace {} {
     if (valueObj == NULL)
         return TCL_ERROR;
 
-    taObj = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
+    tcol = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
 
-    status = tcol_place_objs(interp, taObj, objv[2], objv[3]);
+    status = tcol_place_objs(interp, tcol, objv[2], objv[3]);
     if (status == TCL_OK) {
         /* Even if we had not duplicated the value in the variable, we
          * still need to store it back so that traces are triggered. Also,
@@ -569,21 +569,21 @@ critcl::ccommand tarray::column::vplace {} {
          * ref count 0 on error (currently it frees iff ref == 0) so
          * do a Incr/Decr
          */
-        Tcl_IncrRefCount(taObj);
-        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(taObj);
+        Tcl_IncrRefCount(tcol);
+        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(tcol);
         if (valueObj)
             Tcl_SetObjResult(interp, valueObj);
         else
             status = TCL_ERROR;
-    } else if (taObj != valueObj)
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+    } else if (tcol != valueObj)
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
 
 critcl::ccommand tarray::column::fill {} {
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 4 && objc != 5) {
@@ -591,23 +591,23 @@ critcl::ccommand tarray::column::fill {} {
 	return TCL_ERROR;
     }
 
-    taObj = objv[1];
-    if (Tcl_IsShared(taObj))
-        taObj = Tcl_DuplicateObj(objv[1]);
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(objv[1]);
 
-    status = tcol_fill_obj(interp, taObj, objv[2], objv[3],
+    status = tcol_fill_obj(interp, tcol, objv[2], objv[3],
                                objc == 5 ? objv[4] : NULL);
     if (status == TCL_OK)
-        Tcl_SetObjResult(interp, taObj);
-    else if (taObj != objv[1])
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+        Tcl_SetObjResult(interp, tcol);
+    else if (tcol != objv[1])
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
 
 critcl::ccommand tarray::column::vfill {} {
     Tcl_Obj *valueObj;
-    Tcl_Obj *taObj;
+    Tcl_Obj *tcol;
     int status;
 
     if (objc != 4 && objc != 5) {
@@ -619,9 +619,9 @@ critcl::ccommand tarray::column::vfill {} {
     if (valueObj == NULL)
         return TCL_ERROR;
 
-    taObj = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
+    tcol = Tcl_IsShared(valueObj) ? Tcl_DuplicateObj(valueObj) : valueObj;
 
-    status = tcol_fill_obj(interp, taObj, objv[2], objv[3], objc == 5 ? objv[4] : NULL);
+    status = tcol_fill_obj(interp, tcol, objv[2], objv[3], objc == 5 ? objv[4] : NULL);
     if (status == TCL_OK) {
         /* Even if we had not duplicated the value in the variable, we
          * still need to store it back so that traces are triggered. Also,
@@ -629,22 +629,22 @@ critcl::ccommand tarray::column::vfill {} {
          * ref count 0 on error (currently it frees iff ref == 0) so
          * do a Incr/Decr
          */
-        Tcl_IncrRefCount(taObj);
-        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, taObj, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(taObj);
+        Tcl_IncrRefCount(tcol);
+        valueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(tcol);
         if (valueObj)
             Tcl_SetObjResult(interp, valueObj);
         else
             status = TCL_ERROR;
-    } else if (taObj != valueObj)
-        Tcl_DecrRefCount(taObj); /* We allocated it so free it */
+    } else if (tcol != valueObj)
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
 }
 
 
 critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
-    Tcl_Obj **taObjs;
+    Tcl_Obj **tcols;
     thdr_t *thdrP;
     int i;
     int status;
@@ -658,9 +658,9 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
     if (thdrP->type != TA_OBJ)
         return ta_bad_type_error(interp, thdrP);
 
-    taObjs = THDRELEMPTR(thdrP, Tcl_Obj *, 0);
-    for (i = 0; i < thdrP->used; ++i, ++taObjs) {
-        if ((status = tcol_convert(interp, *taObjs)) != TCL_OK)
+    tcols = THDRELEMPTR(thdrP, Tcl_Obj *, 0);
+    for (i = 0; i < thdrP->used; ++i, ++tcols) {
+        if ((status = tcol_convert(interp, *tcols)) != TCL_OK)
             return TCL_ERROR;
     }
 
@@ -670,7 +670,7 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
 
 critcl::ccommand tarray::grid::fill {} {
     int i, tuple_width;
-    Tcl_Obj **taObjs;
+    Tcl_Obj **tcols;
     Tcl_Obj *gridObj;
     int we_allocated_gridobj;
     int status;
