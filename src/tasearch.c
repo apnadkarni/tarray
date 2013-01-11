@@ -22,22 +22,22 @@ enum ta_search_switches_e {
 #define TA_SEARCH_ALL    4  /* Return all matches */
 #define TA_SEARCH_NOCASE 8  /* Ignore case */
 
-TCL_RESULT ta_search_op_error(Tcl_Interp *interp, int op)
+TCL_RESULT ta_search_op_error(Tcl_Interp *ip, int op)
 {
-    if (interp) {
+    if (ip) {
         const char *ops = NULL;
         if (op < (sizeof(ta_search_switches_e)/sizeof(ta_search_switches_e[0])))
             ops = ta_search_switches_e[op];
         if (ops == NULL)
-            Tcl_SetObjResult(interp, Tcl_ObjPrintf("Unknown or invalid search operator (%d).", op));
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Unknown or invalid search operator (%d).", op));
         else
-            Tcl_SetObjResult(interp, Tcl_ObjPrintf("Unknown or invalid search operator (%s).", ops));
-        Tcl_SetErrorCode(interp, "TARRAY", "SEARCH", "OPER", NULL);
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Unknown or invalid search operator (%s).", ops));
+        Tcl_SetErrorCode(ip, "TARRAY", "SEARCH", "OPER", NULL);
     }
     return TCL_ERROR;
 }
 
-static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, thdr_t * haystackP,
+static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
                                       Tcl_Obj *needleObj, int start,
                                       enum ta_search_switches_e op, int flags)
 {
@@ -49,46 +49,46 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, thdr_t * haystackP,
     TA_ASSERT(haystackP->type == TA_BOOLEAN);
 
     if (op != TA_SEARCH_OPT_EQ)
-        return ta_search_op_error(interp, op);
+        return ta_search_op_error(ip, op);
 
-    if (Tcl_GetBooleanFromObj(interp, needleObj, &bval) != TCL_OK)
+    if (Tcl_GetBooleanFromObj(ip, needleObj, &bval) != TCL_OK)
         return TCL_ERROR;
     
     if (flags & TA_SEARCH_INVERT)
         bval = !bval;
 
     /* First locate the starting point for the search */
-    baP = thdr_tELEMPTR(haystackP, ba_t, 0);
+    baP = THDRELEMPTR(haystackP, ba_t, 0);
 
     if (flags & TA_SEARCH_ALL) {
-        thdr_t *thdrP;
+        thdr_t *thdr;
         thdr_t *newP;
-        thdrP = thdr_alloc(interp, 
+        thdr = thdr_alloc(ip, 
                             flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
                             10);                /* Assume 10 hits */
-        if (thdrP == NULL)
+        if (thdr == NULL)
             return TCL_ERROR;
         pos = start;
-        while ((pos = ba_find(baP, bval, pos, thdrP->used)) != -1) {
+        while ((pos = ba_find(baP, bval, pos, thdr->used)) != -1) {
             /* Ensure enough space in target array */
-            if (thdrP->used >= thdrP->allocated)
-                newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+            if (thdr->used >= thdr->allocated)
+                newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
             if (newP)
-                thdrP = newP;
+                thdr = newP;
             else {
-                thdr_t_DECRREF(thdrP);
+                thdr_decr_refs(thdr);
                 return TCL_ERROR;
             }
             if (flags & TA_SEARCH_INLINE)
-                ba_put(thdr_tELEMPTR(thdrP, ba_t, 0), thdrP->used, bval);
+                ba_put(THDRELEMPTR(thdr, ba_t, 0), thdr->used, bval);
             else
-                *thdr_tELEMPTR(thdrP, int, thdrP->used) = pos;
-            thdrP->used++;
+                *THDRELEMPTR(thdr, int, thdr->used) = pos;
+            thdr->used++;
             ++pos;
         }
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
-        resultObj = tcol_new(thdrP);
+            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+        resultObj = tcol_new(thdr);
     } else {
         /* Return first found element */
         pos = ba_find(baP, bval, start, haystackP->used);
@@ -97,13 +97,13 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *interp, thdr_t * haystackP,
             Tcl_NewIntObj((flags & TA_SEARCH_INLINE) ? bval : pos);
     }
 
-    Tcl_SetObjResult(interp, resultObj);
+    Tcl_SetObjResult(ip, resultObj);
     return TCL_OK;
 }
                         
 /* TBD - see how much performance is gained by separating this search function into
    type-specific functions */
-static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
+static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
                                      Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
@@ -120,13 +120,13 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
     case TA_SEARCH_OPT_EQ:
         break;
     default:
-        return ta_search_op_error(interp, op);
+        return ta_search_op_error(ip, op);
     }
 
-    if (Tcl_GetWideIntFromObj(interp, needleObj, &needle) != TCL_OK)
+    if (Tcl_GetWideIntFromObj(ip, needleObj, &needle) != TCL_OK)
         return TCL_ERROR;
 
-    p = thdr_tELEMPTR(haystackP, char, 0);
+    p = THDRELEMPTR(haystackP, char, 0);
     switch (haystackP->type) {
     case TA_INT:
         max_val = INT_MAX;
@@ -157,7 +157,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
     }
 
     if (needle > max_val || needle < min_val) {
-        Tcl_SetObjResult(interp,
+        Tcl_SetObjResult(ip,
                          Tcl_ObjPrintf("Integer \"%s\" type mismatch for typearray (type %d).", Tcl_GetString(needleObj), haystackP->type));
         return TCL_ERROR;
     }
@@ -165,12 +165,12 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
 
     if (flags & TA_SEARCH_ALL) {
-        thdr_t *thdrP, *newP;
+        thdr_t *thdr, *newP;
 
-        thdrP = thdr_alloc(interp,
+        thdr = thdr_alloc(ip,
                             flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
                             10);                /* Assume 10 hits TBD */
-        if (thdrP == NULL)
+        if (thdr == NULL)
             return TCL_ERROR;
 
         for (offset = start; offset < haystackP->used; ++offset, p += elem_size) {
@@ -190,31 +190,31 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdrP->used >= thdrP->allocated)
-                    newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                if (thdr->used >= thdr->allocated)
+                    newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
                 if (newP)
-                    thdrP = newP;
+                    thdr = newP;
                 else {
-                    thdr_t_DECRREF(thdrP);
+                    thdr_decr_refs(thdr);
                     return TCL_ERROR;
                 }
                 if (flags & TA_SEARCH_INLINE) {
-                    switch (thdrP->type) {
-                    case TA_INT:  *thdr_tELEMPTR(thdrP, int, thdrP->used) = (int) elem; break;
-                    case TA_UINT: *thdr_tELEMPTR(thdrP, unsigned int, thdrP->used) = (unsigned int) elem; break;
-                    case TA_WIDE: *thdr_tELEMPTR(thdrP, Tcl_WideInt, thdrP->used) = elem; break;
-                    case TA_BYTE:  *thdr_tELEMPTR(thdrP, unsigned char, thdrP->used) = (unsigned char) elem; break;
+                    switch (thdr->type) {
+                    case TA_INT:  *THDRELEMPTR(thdr, int, thdr->used) = (int) elem; break;
+                    case TA_UINT: *THDRELEMPTR(thdr, unsigned int, thdr->used) = (unsigned int) elem; break;
+                    case TA_WIDE: *THDRELEMPTR(thdr, Tcl_WideInt, thdr->used) = elem; break;
+                    case TA_BYTE:  *THDRELEMPTR(thdr, unsigned char, thdr->used) = (unsigned char) elem; break;
                     }
                 } else {
-                    *thdr_tELEMPTR(thdrP, int, thdrP->used) = offset;
+                    *THDRELEMPTR(thdr, int, thdr->used) = offset;
                 }
-                thdrP->used++;
+                thdr->used++;
             }
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
-        resultObj = tcol_new(thdrP);
+            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+        resultObj = tcol_new(thdr);
 
     } else {
         /* Return first found element */
@@ -245,12 +245,12 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *interp, thdr_t * haystackP,
         }
     }
 
-    Tcl_SetObjResult(interp, resultObj);
+    Tcl_SetObjResult(ip, resultObj);
     return TCL_OK;
 }
 
 
-static TCL_RESULT thdr_search_double(Tcl_Interp *interp, thdr_t * haystackP,
+static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
                                           Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
@@ -267,24 +267,24 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *interp, thdr_t * haystackP,
     case TA_SEARCH_OPT_EQ:
         break;
     default:
-        return ta_search_op_error(interp, op);
+        return ta_search_op_error(ip, op);
     }
 
-    if (Tcl_GetDoubleFromObj(interp, needleObj, &dval) != TCL_OK)
+    if (Tcl_GetDoubleFromObj(ip, needleObj, &dval) != TCL_OK)
         return TCL_ERROR;
     
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
 
     /* First locate the starting point for the search */
-    dvalP = thdr_tELEMPTR(haystackP, double, start);
+    dvalP = THDRELEMPTR(haystackP, double, start);
 
     if (flags & TA_SEARCH_ALL) {
-        thdr_t *thdrP, *newP;
+        thdr_t *thdr, *newP;
 
-        thdrP = thdr_alloc(interp,
+        thdr = thdr_alloc(ip,
                             flags & TA_SEARCH_INLINE ? TA_DOUBLE : TA_INT,
                             10);                /* Assume 10 hits */
-        if (thdrP == NULL)
+        if (thdr == NULL)
             return TCL_ERROR;
 
         for (offset = start; offset < haystackP->used; ++offset, ++dvalP) {
@@ -297,26 +297,26 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *interp, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdrP->used >= thdrP->allocated)
-                    newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                if (thdr->used >= thdr->allocated)
+                    newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
                 if (newP)
-                    thdrP = newP;
+                    thdr = newP;
                 else {
-                    thdr_t_DECRREF(thdrP);
+                    thdr_decr_refs(thdr);
                     return TCL_ERROR;
                 }
                 if (flags & TA_SEARCH_INLINE) {
-                    *thdr_tELEMPTR(thdrP, double, thdrP->used) = *dvalP;
+                    *THDRELEMPTR(thdr, double, thdr->used) = *dvalP;
                 } else {
-                    *thdr_tELEMPTR(thdrP, int, thdrP->used) = offset;
+                    *THDRELEMPTR(thdr, int, thdr->used) = offset;
                 }
-                thdrP->used++;
+                thdr->used++;
             }
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
-        resultObj = tcol_new(thdrP);
+            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+        resultObj = tcol_new(thdr);
 
     } else {
         /* Return first found element */
@@ -340,15 +340,15 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *interp, thdr_t * haystackP,
         }
     }
 
-    Tcl_SetObjResult(interp, resultObj);
+    Tcl_SetObjResult(ip, resultObj);
     return TCL_OK;
 }
 
-static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, thdr_t * haystackP,
+static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
                                   Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
-    Tcl_Obj **objPP;
+    Tcl_Obj **oP;
     Tcl_Obj *resultObj;
     int compare_result;
     int compare_wanted;
@@ -376,47 +376,47 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, thdr_t * haystackP,
                                   TCL_REG_ADVANCED|(nocase ? TCL_REG_NOCASE : 0)|TCL_REG_NOSUB );
         if (re == NULL) {
             /* That failed, so try without the NOSUB flag */
-            re = Tcl_GetRegExpFromObj(interp, needleObj,
+            re = Tcl_GetRegExpFromObj(ip, needleObj,
                                       TCL_REG_ADVANCED|(nocase ? TCL_REG_NOCASE : 0));
             if (re == NULL)
                 return TCL_ERROR;
         }
         break;
     default:
-        return ta_search_op_error(interp, op);
+        return ta_search_op_error(ip, op);
     }
 
     /* First locate the starting point for the search */
-    objPP = thdr_tELEMPTR(haystackP, Tcl_Obj *, start);
+    oP = THDRELEMPTR(haystackP, Tcl_Obj *, start);
 
 
     if (flags & TA_SEARCH_ALL) {
-        thdr_t *thdrP, *newP;
+        thdr_t *thdr, *newP;
 
-        thdrP = thdr_alloc(interp,
+        thdr = thdr_alloc(ip,
                             flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
                             10);                /* Assume 10 hits */
-        if (thdrP == NULL)
+        if (thdr == NULL)
             return TCL_ERROR;
 
-        for (offset = start; offset < haystackP->used; ++offset, ++objPP) {
+        for (offset = start; offset < haystackP->used; ++offset, ++oP) {
             switch (op) {
             case TA_SEARCH_OPT_GT:
-                compare_result = ta_obj_compare(*objPP, needleObj, nocase) > 0; break;
+                compare_result = ta_obj_compare(*oP, needleObj, nocase) > 0; break;
             case TA_SEARCH_OPT_LT: 
-                compare_result = ta_obj_compare(*objPP, needleObj, nocase) < 0; break;
+                compare_result = ta_obj_compare(*oP, needleObj, nocase) < 0; break;
             case TA_SEARCH_OPT_EQ:
-                compare_result = ta_obj_compare(*objPP, needleObj, nocase) == 0; break;
+                compare_result = ta_obj_compare(*oP, needleObj, nocase) == 0; break;
             case TA_SEARCH_OPT_PAT:
-                compare_result = Tcl_StringCaseMatch(Tcl_GetString(*objPP),
+                compare_result = Tcl_StringCaseMatch(Tcl_GetString(*oP),
                                                      Tcl_GetString(needleObj),
                                                      nocase ? TCL_MATCH_NOCASE : 0);
                 break;
             case TA_SEARCH_OPT_RE:
-                compare_result = Tcl_RegExpExecObj(interp, re, *objPP,
+                compare_result = Tcl_RegExpExecObj(ip, re, *oP,
                                                    0, 0, 0);
                 if (compare_result < 0) {
-                    thdr_t_DECRREF(thdrP); /* Note this unrefs embedded Tcl_Objs if needed */
+                    thdr_decr_refs(thdr); /* Note this unrefs embedded Tcl_Objs if needed */
                     return TCL_ERROR;
                 }
                 break;
@@ -424,45 +424,45 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdrP->used >= thdrP->allocated)
-                    newP = thdr_realloc(interp, thdrP, thdrP->used + TA_EXTRA(thdrP->used));
+                if (thdr->used >= thdr->allocated)
+                    newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
                 if (newP)
-                    thdrP = newP;
+                    thdr = newP;
                 else {
-                    thdr_t_DECRREF(thdrP);
+                    thdr_decr_refs(thdr);
                     return TCL_ERROR;
                 }
                 if (flags & TA_SEARCH_INLINE) {
-                    Tcl_IncrRefCount(*objPP);
-                    *thdr_tELEMPTR(thdrP, Tcl_Obj *, thdrP->used) = *objPP;
+                    Tcl_IncrRefCount(*oP);
+                    *THDRELEMPTR(thdr, Tcl_Obj *, thdr->used) = *oP;
                 } else {
-                    *thdr_tELEMPTR(thdrP, int, thdrP->used) = offset;
+                    *THDRELEMPTR(thdr, int, thdr->used) = offset;
                 }
-                thdrP->used++;
+                thdr->used++;
             }
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdrP); /* indices are naturally sorted */
-        resultObj = tcol_new(thdrP);
+            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+        resultObj = tcol_new(thdr);
 
     } else {
         /* Return first found element */
-        for (offset = start; offset < haystackP->used; ++offset, ++objPP) {
+        for (offset = start; offset < haystackP->used; ++offset, ++oP) {
             switch (op) {
             case TA_SEARCH_OPT_GT:
-                compare_result = ta_obj_compare(*objPP, needleObj, nocase) > 0; break;
+                compare_result = ta_obj_compare(*oP, needleObj, nocase) > 0; break;
             case TA_SEARCH_OPT_LT: 
-                compare_result = ta_obj_compare(*objPP, needleObj, nocase) < 0; break;
+                compare_result = ta_obj_compare(*oP, needleObj, nocase) < 0; break;
             case TA_SEARCH_OPT_EQ:
-                compare_result = ta_obj_compare(*objPP, needleObj, nocase) == 0; break;
+                compare_result = ta_obj_compare(*oP, needleObj, nocase) == 0; break;
             case TA_SEARCH_OPT_PAT:
-                compare_result = Tcl_StringCaseMatch(Tcl_GetString(*objPP),
+                compare_result = Tcl_StringCaseMatch(Tcl_GetString(*oP),
                                                      Tcl_GetString(needleObj),
                                                      nocase ? TCL_MATCH_NOCASE : 0);
                 break;
             case TA_SEARCH_OPT_RE:
-                compare_result = Tcl_RegExpExecObj(interp, re, *objPP,
+                compare_result = Tcl_RegExpExecObj(ip, re, *oP,
                                                    0, 0, 0);
                 if (compare_result < 0)
                     return TCL_ERROR;
@@ -476,17 +476,17 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *interp, thdr_t * haystackP,
             resultObj = Tcl_NewObj();
         } else {
             if (flags & TA_SEARCH_INLINE)
-                resultObj = *objPP; /* No need to incr ref, the SetObjResult does it */
+                resultObj = *oP; /* No need to incr ref, the SetObjResult does it */
             else
                 resultObj = Tcl_NewIntObj(offset);
         }
     }
 
-    Tcl_SetObjResult(interp, resultObj);
+    Tcl_SetObjResult(ip, resultObj);
     return TCL_OK;
 }
 
-TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
+TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
     int flags;
@@ -496,18 +496,18 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
     enum ta_search_switches_e op;
 
     if (objc < 3) {
-	Tcl_WrongNumArgs(interp, 1, objv, "?options? tarray pattern");
+	Tcl_WrongNumArgs(ip, 1, objv, "?options? tarray pattern");
 	return TCL_ERROR;
     }
 
-    if (tcol_convert(interp, objv[objc-2]) != TCL_OK)
+    if (tcol_convert(ip, objv[objc-2]) != TCL_OK)
         return TCL_ERROR;
     haystackP = TARRAYHDR(objv[objc-2]);
     flags = 0;
     start_index = 0;
     op = TA_SEARCH_OPT_EQ;
     for (i = 1; i < objc-2; ++i) {
-	if (Tcl_GetIndexFromObj(interp, objv[i], ta_search_switches_e, "option", 0, &opt)
+	if (Tcl_GetIndexFromObj(ip, objv[i], ta_search_switches_e, "option", 0, &opt)
             != TCL_OK) {
             return TCL_ERROR;
 	}
@@ -518,7 +518,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
         case TA_SEARCH_OPT_NOCASE: flags |= TA_SEARCH_NOCASE; break;
         case TA_SEARCH_OPT_START:
             if (i > objc-4)
-                return ta_missing_arg_error(interp, "-start");
+                return ta_missing_arg_error(ip, "-start");
             ++i;
             /*
              * To prevent shimmering, check if the index object is same
@@ -526,12 +526,12 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
              */
             if (objv[i] == objv[objc-2]) {
                 Tcl_Obj *dupObj = Tcl_DuplicateObj(objv[i]);
-                n = Tcl_GetIntFromObj(interp, dupObj, &start_index);
+                n = Tcl_GetIntFromObj(ip, dupObj, &start_index);
                 Tcl_DecrRefCount(dupObj);
                 if (n != TCL_OK)
                     return TCL_ERROR;
             } else {
-                if (Tcl_GetIntFromObj(interp, objv[i], &start_index) != TCL_OK)
+                if (Tcl_GetIntFromObj(ip, objv[i], &start_index) != TCL_OK)
                     return TCL_ERROR;
             }
             break;
@@ -546,18 +546,18 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *interp,
 
     switch (haystackP->type) {
     case TA_BOOLEAN:
-        return thdr_search_boolean(interp, haystackP, objv[objc-1], start_index,op,flags);
+        return thdr_search_boolean(ip, haystackP, objv[objc-1], start_index,op,flags);
     case TA_INT:
     case TA_UINT:
     case TA_BYTE:
     case TA_WIDE:
-        return thdr_search_entier(interp, haystackP, objv[objc-1], start_index, op, flags);
+        return thdr_search_entier(ip, haystackP, objv[objc-1], start_index, op, flags);
     case TA_DOUBLE:
-        return thdr_search_double(interp, haystackP, objv[objc-1], start_index, op, flags);
+        return thdr_search_double(ip, haystackP, objv[objc-1], start_index, op, flags);
     case TA_OBJ:
-        return thdr_search_obj(interp, haystackP, objv[objc-1], start_index, op, flags);
+        return thdr_search_obj(ip, haystackP, objv[objc-1], start_index, op, flags);
     default:
-        Tcl_SetResult(interp, "Not implemented", TCL_STATIC);
+        Tcl_SetResult(ip, "Not implemented", TCL_STATIC);
         return TCL_ERROR;
     }
 

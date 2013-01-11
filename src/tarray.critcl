@@ -146,12 +146,12 @@ critcl::ccommand tarray::column::vdelete {} {
     return status;
 }
 
-critcl::cproc tarray::column::size {Tcl_Interp* interp TArrayObjPtr taobjP} int {
-    return TARRAYELEMCOUNT(taobjP);
+critcl::cproc tarray::column::size {Tcl_Interp* interp TArrayObjPtr tcol} int {
+    return tcol_occupancy(tcol);
 }
 
-critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr taobjP} "const char*" {
-    return ta_type_string(TARRAYTYPE(taobjP));
+critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr tcol} "const char*" {
+    return ta_type_string(tcol_type(tcol));
 }
 
 critcl::cproc tarray::column::index {Tcl_Interp* interp thdr_t* tcolumn Tcl_Obj* index} ok {
@@ -212,7 +212,7 @@ critcl::ccommand tarray::column::get {} {
             break;
         case TA_INDEX_TYPE_thdr_t:
             taObj = tcol_get(interp, TARRAYHDR(objv[ta_arg]), indicesP, fmt);
-            thdr_t_DECRREF(indicesP);
+            thdr_decr_refs(indicesP);
             break;
         }
         break;
@@ -293,7 +293,7 @@ critcl::ccommand tarray::column::sort {} {
              * Need to reverse the order. If unshared, we can do this
              * in place else need to allocate a new object and array
              */
-            if (Tcl_IsShared(srcObj) || thdr_sHARED(srcP)) {
+            if (Tcl_IsShared(srcObj) || thdr_shared(srcP)) {
                 /* Cannot modify in place. Need to dup it */
                 sortedP = thdr_clone_reversed(interp, srcP, 0);
                 if (sortedP == NULL)
@@ -302,7 +302,7 @@ critcl::ccommand tarray::column::sort {} {
             } else {
                 sortedP = srcP;
                 resultObj = srcObj;
-                thdr_tReverse(sortedP);
+                thdr_reverse(sortedP);
                 Tcl_InvalidateStringRep(resultObj);
             }
             if (decreasing)
@@ -319,7 +319,7 @@ critcl::ccommand tarray::column::sort {} {
         resultObj = tcol_new(sortedP);
         /* Initialize the indexes */
         sortedP->used = srcP->used;
-        indexP = thdr_tELEMPTR(sortedP, int, 0);
+        indexP = THDRELEMPTR(sortedP, int, 0);
 
         if (existing_sort_order) {
             /* Input already sorted ... */
@@ -365,7 +365,7 @@ critcl::ccommand tarray::column::sort {} {
                 ta_type_panic(sortedP->type);
             }
             /* Note the list of indices is NOT sorted, do not mark it as such ! */
-            tarray_qsort_r(thdr_tELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), thdr_tELEMPTR(srcP, unsigned char, 0), cmpindexedfn);
+            tarray_qsort_r(THDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), THDRELEMPTR(srcP, unsigned char, 0), cmpindexedfn);
         }
     } else {
         /*
@@ -373,7 +373,7 @@ critcl::ccommand tarray::column::sort {} {
          * we can sort in place, else need to create a new object.
          */
         /* Why not using ta_make_modifiable here ? */
-        if (Tcl_IsShared(srcObj) || thdr_sHARED(srcP)) {
+        if (Tcl_IsShared(srcObj) || thdr_shared(srcP)) {
             /* Cannot modify in place. Need to dup it */
             sortedP = thdr_clone(interp, srcP, 0);
             if (sortedP == NULL)
@@ -390,7 +390,7 @@ critcl::ccommand tarray::column::sort {} {
          * since we just need to count how many 1's and 0's.
          */
         if (sortedP->type == TA_BOOLEAN) {
-            ba_t *baP = thdr_tELEMPTR(sortedP, ba_t, 0);
+            ba_t *baP = THDRELEMPTR(sortedP, ba_t, 0);
             n = ba_count_ones(baP, 0, sortedP->used); /* Number of 1's set */
             if (decreasing) {
                 ba_fill(baP, 0, n, 1);
@@ -419,7 +419,7 @@ critcl::ccommand tarray::column::sort {} {
             default:
                 ta_type_panic(sortedP->type);
             }
-            qsort(thdr_tELEMPTR(sortedP, unsigned char, 0), sortedP->used,
+            qsort(THDRELEMPTR(sortedP, unsigned char, 0), sortedP->used,
                   sortedP->elem_bits / CHAR_BIT, cmpfn);
         }
         if (decreasing)
@@ -441,7 +441,7 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr taObj} ok
         
     Tcl_SetObjResult(
         interp,
-        Tcl_NewIntObj(ba_count_ones(thdr_tELEMPTR(thdrP, ba_t, 0), 0, thdrP->used)));
+        Tcl_NewIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), 0, thdrP->used)));
     return TCL_OK;
 }
 
@@ -658,7 +658,7 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
     if (thdrP->type != TA_OBJ)
         return ta_bad_type_error(interp, thdrP);
 
-    taObjs = thdr_tELEMPTR(thdrP, Tcl_Obj *, 0);
+    taObjs = THDRELEMPTR(thdrP, Tcl_Obj *, 0);
     for (i = 0; i < thdrP->used; ++i, ++taObjs) {
         if ((status = tcol_convert(interp, *taObjs)) != TCL_OK)
             return TCL_ERROR;
