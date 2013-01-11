@@ -44,7 +44,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
     int bval;
     ba_t *baP;
     int pos;
-    Tcl_Obj *resultObj;
+    Tcl_Obj *oresult;
 
     TA_ASSERT(haystackP->type == TA_BOOLEAN);
 
@@ -88,16 +88,16 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
         }
         if ((flags & TA_SEARCH_INLINE) == 0)
             thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
-        resultObj = tcol_new(thdr);
+        oresult = tcol_new(thdr);
     } else {
         /* Return first found element */
         pos = ba_find(baP, bval, start, haystackP->used);
-        resultObj = pos == -1 ?
+        oresult = pos == -1 ?
             Tcl_NewObj() :
             Tcl_NewIntObj((flags & TA_SEARCH_INLINE) ? bval : pos);
     }
 
-    Tcl_SetObjResult(ip, resultObj);
+    Tcl_SetObjResult(ip, oresult);
     return TCL_OK;
 }
                         
@@ -107,7 +107,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
                                      Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
-    Tcl_Obj *resultObj;
+    Tcl_Obj *oresult;
     Tcl_WideInt needle, elem, min_val, max_val;
     int compare_result;
     int compare_wanted;
@@ -214,7 +214,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
 
         if ((flags & TA_SEARCH_INLINE) == 0)
             thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
-        resultObj = tcol_new(thdr);
+        oresult = tcol_new(thdr);
 
     } else {
         /* Return first found element */
@@ -236,16 +236,16 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
         }
         if (offset >= haystackP->used) {
             /* No match */
-            resultObj = Tcl_NewObj();
+            oresult = Tcl_NewObj();
         } else {
             if (flags & TA_SEARCH_INLINE)
-                resultObj = Tcl_NewWideIntObj(elem);
+                oresult = Tcl_NewWideIntObj(elem);
             else
-                resultObj = Tcl_NewIntObj(offset);
+                oresult = Tcl_NewIntObj(offset);
         }
     }
 
-    Tcl_SetObjResult(ip, resultObj);
+    Tcl_SetObjResult(ip, oresult);
     return TCL_OK;
 }
 
@@ -254,7 +254,7 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
                                           Tcl_Obj *needleObj, int start, enum ta_search_switches_e op, int flags)
 {
     int offset;
-    Tcl_Obj *resultObj;
+    Tcl_Obj *oresult;
     double dval, *dvalP;
     int compare_result;
     int compare_wanted;
@@ -316,7 +316,7 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
 
         if ((flags & TA_SEARCH_INLINE) == 0)
             thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
-        resultObj = tcol_new(thdr);
+        oresult = tcol_new(thdr);
 
     } else {
         /* Return first found element */
@@ -331,16 +331,16 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
         }
         if (offset >= haystackP->used) {
             /* No match */
-            resultObj = Tcl_NewObj();
+            oresult = Tcl_NewObj();
         } else {
             if (flags & TA_SEARCH_INLINE)
-                resultObj = Tcl_NewDoubleObj(*dvalP);
+                oresult = Tcl_NewDoubleObj(*dvalP);
             else
-                resultObj = Tcl_NewIntObj(offset);
+                oresult = Tcl_NewIntObj(offset);
         }
     }
 
-    Tcl_SetObjResult(ip, resultObj);
+    Tcl_SetObjResult(ip, oresult);
     return TCL_OK;
 }
 
@@ -349,7 +349,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
 {
     int offset;
     Tcl_Obj **oP;
-    Tcl_Obj *resultObj;
+    Tcl_Obj *oresult;
     int compare_result;
     int compare_wanted;
     int nocase;
@@ -444,7 +444,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
 
         if ((flags & TA_SEARCH_INLINE) == 0)
             thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
-        resultObj = tcol_new(thdr);
+        oresult = tcol_new(thdr);
 
     } else {
         /* Return first found element */
@@ -473,16 +473,16 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
         }
         if (offset >= haystackP->used) {
             /* No match */
-            resultObj = Tcl_NewObj();
+            oresult = Tcl_NewObj();
         } else {
             if (flags & TA_SEARCH_INLINE)
-                resultObj = *oP; /* No need to incr ref, the SetObjResult does it */
+                oresult = *oP; /* No need to incr ref, the SetObjResult does it */
             else
-                resultObj = Tcl_NewIntObj(offset);
+                oresult = Tcl_NewIntObj(offset);
         }
     }
 
-    Tcl_SetObjResult(ip, resultObj);
+    Tcl_SetObjResult(ip, oresult);
     return TCL_OK;
 }
 

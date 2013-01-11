@@ -146,7 +146,7 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
                     const ta_value_t *ptav, int pos, int count);
 void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
-                            const ta_value_t *ptav, thdr_t *indicesP);
+                            const ta_value_t *ptav, thdr_t *pindices);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 
 TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *,
@@ -159,7 +159,7 @@ Tcl_Obj * tcol_new(thdr_t *thdr);
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
 
 TCL_RESULT thdr_put_objs(struct Tcl_Interp *,thdr_t *thdr,int first,int nelems,struct Tcl_Obj *const *elems );
-TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *indicesP,
+TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
                               int highest_in_indices,
                               int nvalues, Tcl_Obj * const *valuesP);
 int thdr_required_size(unsigned char tatype,int count);
@@ -170,12 +170,12 @@ void thdr_reverse(thdr_t *tdrhP);
 void thdr_copy_reversed(thdr_t *dstP,int dst_first,thdr_t *srcP,int src_first,int count);
 void thdr_copy(thdr_t *dstP,int dst_first,thdr_t *srcP,int src_first,int count);
 void thdr_delete_range(thdr_t *thdr, int first, int count);
-void thdr_delete_indices(thdr_t *thdr, thdr_t *indicesP);
+void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices);
 thdr_t *thdr_clone(Tcl_Interp *, thdr_t *srcP, int init_size);
 thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *srcP, int init_size);
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *intepr, int tatype,
                              int nelems, Tcl_Obj * const elems[]);
-TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *indicesP, int *new_sizeP);
+TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP);
 int tcol_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
                            int want_sorted, thdr_t **thdrP, int *pindex);
 #define TA_INDEX_TYPE_ERROR 0
@@ -189,7 +189,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *valueObj,
                       Tcl_Obj *indexA, Tcl_Obj *indexB);
-Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *srcP, thdr_t *indicesP, int fmt);
+Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *srcP, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *srcP, Tcl_Obj *firstObj);
 TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,

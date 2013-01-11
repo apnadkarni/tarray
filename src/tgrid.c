@@ -287,8 +287,8 @@ TCL_RESULT TGridFillFromObjs(
     thdr_t *thdr0P;
     ta_value_t values[32];
     ta_value_t *valuesP;
-    Tcl_Obj *resultObjs[sizeof(values)/sizeof(values[0])];
-    Tcl_Obj **resultObjsP;
+    Tcl_Obj *oresults[sizeof(values)/sizeof(values[0])];
+    Tcl_Obj **oresultsP;
     int status = TCL_ERROR;
     int new_size;
 
@@ -318,10 +318,10 @@ TCL_RESULT TGridFillFromObjs(
 
     if (tuple_width > sizeof(values)/sizeof(values[0])) {
         valuesP = (ta_value_t *) ckalloc(tuple_width * sizeof(ta_value_t));
-        resultObjsP = (Tcl_Obj **)ckalloc(tuple_width * sizeof(Tcl_Obj *));
+        oresultsP = (Tcl_Obj **)ckalloc(tuple_width * sizeof(Tcl_Obj *));
     } else {
         valuesP = values;
-        resultObjsP = resultObjs;
+        oresultsP = oresults;
     }
         
     /*
@@ -371,7 +371,7 @@ TCL_RESULT TGridFillFromObjs(
      *     to follow the same path as (2).
      *
      * NOTE: tcolsP points into memory owned by objv[3] list. We cannot
-     * write to it, hence we use a separate output area resultObjsP[].
+     * write to it, hence we use a separate output area oresultsP[].
      */
 
     /* If nothing to set, return existing tuple array as is */
@@ -382,17 +382,17 @@ TCL_RESULT TGridFillFromObjs(
         new_size = low + count + TA_EXTRA(low+count);
         for (i = 0; i < tuple_width; ++i) {
             TA_ASSERT(tcols[i]->typePtr == &g_ta_type); // Verify no shimmering
-            resultObjsP[i] = TArrayMakeWritable(tcols[i], low+count, new_size, 0);
-            thdr_tFill(ip, TARRAYHDR(resultObjs[i]),
+            oresultsP[i] = TArrayMakeWritable(tcols[i], low+count, new_size, 0);
+            thdr_tFill(ip, TARRAYHDR(oresults[i]),
                           &valuesP[i], low, count);
         }
         
         /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */
         TA_ASSERT(tuple_width == 1 || (flags & TA_FILL_SINGLE) == 0);
         if (flags & TA_FILL_SINGLE)
-            Tcl_SetObjResult(ip, resultObjsP[0]);
+            Tcl_SetObjResult(ip, oresultsP[0]);
         else
-            Tcl_SetObjResult(ip, Tcl_NewListObj(tuple_width, resultObjsP));
+            Tcl_SetObjResult(ip, Tcl_NewListObj(tuple_width, oresultsP));
     }
     status = TCL_OK;
     
@@ -400,8 +400,8 @@ vamoose:                   /* ip must already hold error message */
     Tcl_DecrRefCount(lowObj);
     Tcl_DecrRefCount(ohigh);
 
-    if (resultObjsP != resultObjs)
-        ckfree((char *) resultObjsP);
+    if (oresultsP != oresults)
+        ckfree((char *) oresultsP);
     if (valuesP != values)
         ckfree((char *) valuesP);
 
@@ -424,9 +424,9 @@ TCL_RESULT TGridSetFromObjs(
     int i, low, count, grid_width;
     thdr_t *thdr0P;
     Tcl_Obj **tcols;
-    Tcl_Obj *resultObjs[32];
-    Tcl_Obj **resultObjsP;
-    thdr_t *thdrs[sizeof(resultObjs)/sizeof(resultObjs[0])];
+    Tcl_Obj *oresults[32];
+    Tcl_Obj **oresultsP;
+    thdr_t *thdrs[sizeof(oresults)/sizeof(oresults[0])];
     thdr_t **thdrsP;
     int status = TCL_ERROR;
     int new_size;
@@ -458,13 +458,13 @@ TCL_RESULT TGridSetFromObjs(
     else
         Tcl_IncrRefCount(lowObj); /* Since we will release at end */
 
-    if (grid_width > sizeof(resultObjs)/sizeof(resultObjs[0])) {
-        /* Allocate room for both resultObjs and thdrs in one shot */
-        resultObjsP = (Tcl_Obj **)ckalloc(grid_width * sizeof(void *));
-        thdrsP = (thdr_t **)&resultObjsP[grid_width];
+    if (grid_width > sizeof(oresults)/sizeof(oresults[0])) {
+        /* Allocate room for both oresults and thdrs in one shot */
+        oresultsP = (Tcl_Obj **)ckalloc(grid_width * sizeof(void *));
+        thdrsP = (thdr_t **)&oresultsP[grid_width];
     }
     else {
-        resultObjsP = resultObjs;
+        oresultsP = oresults;
         thdrsP = thdrs;
     }        
 
@@ -509,7 +509,7 @@ TCL_RESULT TGridSetFromObjs(
      *     to follow the same path as (2).
      *
      * NOTE: tcolsP points into memory owned by objv[3] list. We cannot
-     * write to it, hence we use a separate output area resultObjsP[].
+     * write to it, hence we use a separate output area oresultsP[].
      */
 
     TA_ASSERT(count > 0);
@@ -517,9 +517,9 @@ TCL_RESULT TGridSetFromObjs(
     new_size = count + TA_EXTRA(count);
     for (i = 0; i < grid_width; ++i) {
         TA_ASSERT(tcols[i]->typePtr == &g_ta_type); // Verify no shimmering
-        resultObjsP[i] = TArrayMakeWritable(tcols[i], count,
+        oresultsP[i] = TArrayMakeWritable(tcols[i], count,
                                new_size, TA_MAKE_WRITABLE_INCREF);
-        thdrsP[i] = TARRAYHDR(resultObjsP[i]);
+        thdrsP[i] = TARRAYHDR(oresultsP[i]);
     }
         
     status = thdr_tSetMultipleFromObjs(ip, thdrsP, grid_width, valueObjs, low);
@@ -528,19 +528,19 @@ TCL_RESULT TGridSetFromObjs(
         /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */
         TA_ASSERT(grid_width == 1 || (flags & TA_FILL_SINGLE) == 0);
         if (flags & TA_FILL_SINGLE)
-            Tcl_SetObjResult(ip, resultObjsP[0]);
+            Tcl_SetObjResult(ip, oresultsP[0]);
         else
-            Tcl_SetObjResult(ip, Tcl_NewListObj(grid_width, resultObjsP));
+            Tcl_SetObjResult(ip, Tcl_NewListObj(grid_width, oresultsP));
     }
 
     for (i=0; i < grid_width; ++i)
-        Tcl_DecrRefCount(resultObjsP[i]); /* Remove ref added by MakeWritable */
+        Tcl_DecrRefCount(oresultsP[i]); /* Remove ref added by MakeWritable */
 
 vamoose:                   /* ip must already hold error message */
     Tcl_DecrRefCount(lowObj);
 
-    if (resultObjsP != resultObjs)
-        ckfree((char *) resultObjsP);
+    if (oresultsP != oresults)
+        ckfree((char *) oresultsP);
 
     return status;
 }

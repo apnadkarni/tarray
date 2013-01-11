@@ -511,18 +511,18 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
    themselves extend the range. Sort indices to simplify this.
    Returns new size needed if array has to be grown or -1 on error.
 */
-TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *indicesP, int *new_sizeP)
+TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP)
 {
     int i, new_size;
     int *pindex, *endP;
 
-    TA_ASSERT(indicesP->type == TA_INT);
-    TA_ASSERT(thdr_sorted(indicesP));
+    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(thdr_sorted(pindices));
 
     new_size = thdr->used;
-    pindex = THDRELEMPTR(indicesP, int, 0);
-    endP = THDRELEMPTR(indicesP, int, indicesP->used);
-    if (thdr_sort_order(indicesP) > 0) {
+    pindex = THDRELEMPTR(pindices, int, 0);
+    endP = THDRELEMPTR(pindices, int, pindices->used);
+    if (thdr_sort_order(pindices) > 0) {
         /* Sort order is ascending. Make sure no gaps */
         while (pindex < endP) {
             i = *pindex++;
@@ -551,26 +551,26 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *indicesP, i
 
 /* thdr must be large enough for largest index. And see asserts in code */
 void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr, 
-                      const ta_value_t *ptav, thdr_t *indicesP)
+                      const ta_value_t *ptav, thdr_t *pindices)
 {
     int highest_index;
     int *pindex, *endP;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
-    TA_ASSERT(indicesP->type == TA_INT);
-    TA_ASSERT(thdr_sorted(indicesP));
+    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(thdr_sorted(pindices));
 
-    if (indicesP->used == 0)
+    if (pindices->used == 0)
         return;          /* Nothing to do */
 
     /* Rest of code assumes > 0 indices */
 
-    pindex = THDRELEMPTR(indicesP, int, 0);
-    endP = THDRELEMPTR(indicesP, int, indicesP->used);
+    pindex = THDRELEMPTR(pindices, int, 0);
+    endP = THDRELEMPTR(pindices, int, pindices->used);
 
     /* Caller guarantees room for highest index value */
-    highest_index = thdr_sort_order(indicesP) > 0 ? endP[-1] : pindex[0];
+    highest_index = thdr_sort_order(pindices) > 0 ? endP[-1] : pindex[0];
     TA_ASSERT(highest_index < thdr->allocated);
 
     thdr_mark_unsorted(thdr);
@@ -1195,10 +1195,10 @@ convert_error:                  /* Interp should already contain errors */
 TCL_RESULT thdr_place_objs(
     Tcl_Interp *ip,
     thdr_t *thdr,               /* thdr_t to be modified - must NOT be shared */
-    thdr_t *indicesP,            /* Contains indices. */
-    int highest_in_indices,          /* Highest index in indicesP.
+    thdr_t *pindices,            /* Contains indices. */
+    int highest_in_indices,          /* Highest index in pindices.
                                    If >= thdr->used, all intermediate indices
-                                   must also be present in indicesP. Caller
+                                   must also be present in pindices. Caller
                                    must have checked
                                 */
     int nvalues,                /* # values in valuesP */
@@ -1209,11 +1209,11 @@ TCL_RESULT thdr_place_objs(
     ta_value_t v;
 
     TA_ASSERT(thdr->nrefs < 2);
-    TA_ASSERT(indicesP->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INT);
     TA_ASSERT(highest_in_indices < thdr->allocated);
 
-    if (indicesP->used > nvalues)
-        return ta_indices_count_error(ip, indicesP->used, nvalues);
+    if (pindices->used > nvalues)
+        return ta_indices_count_error(ip, pindices->used, nvalues);
 
     if (nvalues == 0)
         return TCL_OK;          /* Nothing to change */
@@ -1249,7 +1249,7 @@ TCL_RESULT thdr_place_objs(
         }                                               \
     } while (0)
     
-    pindex = THDRELEMPTR(indicesP, int, 0);
+    pindex = THDRELEMPTR(pindices, int, 0);
     endP = pindex + nvalues;
     switch (thdr->type) {
     case TA_BOOLEAN:
@@ -1289,7 +1289,7 @@ TCL_RESULT thdr_place_objs(
              * slot, then the value there is garbage and Tcl_DecrRefCount
              * should not be called on it. The problem is we cannot distinguish
              * the cases up front using thdr->used as a threshold because
-             * indicesP is in arbitrary order AND indices may be repeated.
+             * pindices is in arbitrary order AND indices may be repeated.
              * Hence what we do is to store NULL first in all unused slots
              * that will be written to mark what is unused.
              */
@@ -1517,18 +1517,18 @@ void thdr_delete_range(thdr_t *thdr, int first, int count)
     thdr->used -= count;
 }
 
-void thdr_delete_indices(thdr_t *thdr, thdr_t *indicesP)
+void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
 {
     int i;
     int *pindex;
 
-    TA_ASSERT(indicesP->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INT);
 
     /*
      * We have to be careful to delete from back to front so as to not
      * invalidate index positions when earlier ones are deleted
      */
-    TA_ASSERT(thdr_sorted(indicesP));
+    TA_ASSERT(thdr_sorted(pindices));
     
     /*
      * TBD - this will be desperately slow. Fix
@@ -1537,10 +1537,10 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *indicesP)
     /* We always want to delete back to front. However the index array
      * may be presorted in any direction. So check and loop accordingly
      */
-    i = indicesP->used;
-    if (thdr_sort_order(indicesP) > 0) {
+    i = pindices->used;
+    if (thdr_sort_order(pindices) > 0) {
         /* Sort order is ascending so iterate index array back to front */
-        pindex = THDRELEMPTR(indicesP, int, indicesP->used-1 );
+        pindex = THDRELEMPTR(pindices, int, pindices->used-1 );
         while (i--) {
             if (*pindex >= 0 && *pindex < thdr->used)
                 thdr_delete_range(thdr, *pindex, 1);
@@ -1548,7 +1548,7 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *indicesP)
         }
     } else {
         /* Sort order is descending so iterate index array front to back */
-        pindex = THDRELEMPTR(indicesP, int, 0);
+        pindex = THDRELEMPTR(pindices, int, 0);
         while (i--) {
             if (*pindex >= 0 && *pindex < thdr->used)
                 thdr_delete_range(thdr, *pindex, 1);
@@ -2116,7 +2116,7 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
 
 /* Returns a newly allocated thdr_t (with ref count 0) containing the
    values from the specified indices */
-Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *indicesP, int fmt)
+Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *pindices, int fmt)
 {
     thdr_t *thdr;
     int count, index, bound;
@@ -2124,8 +2124,8 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *indicesP, int fmt)
     Tcl_Obj *tcol;
     void *srcbaseP, *thdrbaseP;
 
-    TA_ASSERT(indicesP->type == TA_INT);
-    count = indicesP->used;
+    TA_ASSERT(pindices->type == TA_INT);
+    count = pindices->used;
 
     if (fmt == TA_FORMAT_TARRAY) {
         thdr = thdr_alloc(ip, srcP->type, count);
@@ -2163,7 +2163,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *indicesP, int fmt)
     } while (0)
 
 
-    pindex = THDRELEMPTR(indicesP, int, 0);
+    pindex = THDRELEMPTR(pindices, int, 0);
     endP = pindex + count;
     srcbaseP = THDRELEMPTR(srcP, unsigned char, 0);
     bound = srcP->used;
@@ -2263,9 +2263,9 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                 thdr_delete_range(thdr, low, count);
         } else {
             /* Not a range, either a list or single index */
-            thdr_t *indicesP;
+            thdr_t *pindices;
             /* Note status is TCL_OK at this point */
-            switch (tcol_to_indices(ip, indexA, 1, &indicesP, &low)) {
+            switch (tcol_to_indices(ip, indexA, 1, &pindices, &low)) {
             case TA_INDEX_TYPE_ERROR:
                 status = TCL_ERROR;
                 break;
@@ -2273,8 +2273,8 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                 thdr_delete_range(thdr, low, 1);
                 break;
             case TA_INDEX_TYPE_thdr_t:
-                thdr_delete_indices(thdr, indicesP);
-                thdr_decr_refs(indicesP);
+                thdr_delete_indices(thdr, pindices);
+                thdr_decr_refs(pindices);
                 break;
             }
         }
@@ -2309,9 +2309,9 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
         }
     } else {
         /* Not a range, either a list or single index */
-        thdr_t *indicesP;
+        thdr_t *pindices;
         /* Note status is TCL_OK at this point */
-        switch (tcol_to_indices(ip, indexA, 1, &indicesP, &low)) {
+        switch (tcol_to_indices(ip, indexA, 1, &pindices, &low)) {
         case TA_INDEX_TYPE_ERROR:
             status = TCL_ERROR;
             break;
@@ -2326,13 +2326,13 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
             }
             break;
         case TA_INDEX_TYPE_thdr_t:
-            status = thdr_verify_indices(ip, TARRAYHDR(tcol), indicesP, &count);
+            status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &count);
             if (status == TCL_OK) {
                 status = tcol_make_modifiable(ip, tcol, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
-                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, indicesP);
+                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, pindices);
             }
-            thdr_decr_refs(indicesP);
+            thdr_decr_refs(pindices);
             break;
         }
     }
@@ -2425,10 +2425,10 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 {
     int new_size;
     int status;
-    thdr_t *indicesP;
+    thdr_t *pindices;
     Tcl_Obj **valueObjs;
     int nvalues;
-    thdr_t *sortedP;
+    thdr_t *psorted;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
@@ -2439,35 +2439,35 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    if (tcol_to_indices(ip, indicesObj, 0, &indicesP, NULL)
+    if (tcol_to_indices(ip, indicesObj, 0, &pindices, NULL)
         != TA_INDEX_TYPE_thdr_t)
         return TCL_ERROR;
 
-    if (indicesP->used == 0)
+    if (pindices->used == 0)
         return TCL_OK;
 
     /* For verification we will need to sort indices */
-    sortedP = indicesP;
-    if (! thdr_sorted(sortedP)) {
-        sortedP = thdr_clone(ip, sortedP, 0);
-        if (sortedP == NULL)
+    psorted = pindices;
+    if (! thdr_sorted(psorted)) {
+        psorted = thdr_clone(ip, psorted, 0);
+        if (psorted == NULL)
             return TCL_ERROR;
-        qsort(THDRELEMPTR(sortedP, int, 0), sortedP->used, sizeof(int), intcmp);
-        thdr_mark_sorted_ascending(sortedP);
+        qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
+        thdr_mark_sorted_ascending(psorted);
     }
 
-    status = thdr_verify_indices(ip, TARRAYHDR(tcol), sortedP, &new_size);
-    if (sortedP != indicesP)
-        thdr_decr_refs(sortedP);
+    status = thdr_verify_indices(ip, TARRAYHDR(tcol), psorted, &new_size);
+    if (psorted != pindices)
+        thdr_decr_refs(psorted);
     if (status == TCL_OK) {
         status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
         if (status == TCL_OK) {
-            status = thdr_place_objs(ip, TARRAYHDR(tcol), indicesP,
-                                        new_size-1, /* Highest index in indicesP */
+            status = thdr_place_objs(ip, TARRAYHDR(tcol), pindices,
+                                        new_size-1, /* Highest index in pindices */
                                         nvalues, valueObjs);
         }
     }
-    thdr_decr_refs(indicesP);
+    thdr_decr_refs(pindices);
 
     return status;
 }
