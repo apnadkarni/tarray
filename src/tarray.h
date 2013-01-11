@@ -152,7 +152,7 @@ Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *,
                                     thdr_t * const thdrs[], int nthdrs,
                                     Tcl_Obj *tuples, int first);
-TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *ohigh,
+TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 
 Tcl_Obj * tcol_new(thdr_t *thdr);
@@ -161,18 +161,18 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int 
 TCL_RESULT thdr_put_objs(struct Tcl_Interp *,thdr_t *thdr,int first,int nelems,struct Tcl_Obj *const *elems );
 TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
                               int highest_in_indices,
-                              int nvalues, Tcl_Obj * const *valuesP);
+                              int nvalues, Tcl_Obj * const *pvalues);
 int thdr_required_size(unsigned char tatype,int count);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, unsigned char tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 void thdr_reverse(thdr_t *tdrhP);
-void thdr_copy_reversed(thdr_t *dstP,int dst_first,thdr_t *srcP,int src_first,int count);
-void thdr_copy(thdr_t *dstP,int dst_first,thdr_t *srcP,int src_first,int count);
+void thdr_copy_reversed(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
+void thdr_copy(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
 void thdr_delete_range(thdr_t *thdr, int first, int count);
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices);
-thdr_t *thdr_clone(Tcl_Interp *, thdr_t *srcP, int init_size);
-thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *srcP, int init_size);
+thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, int init_size);
+thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, int init_size);
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *intepr, int tatype,
                              int nelems, Tcl_Obj * const elems[]);
 TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP);
@@ -182,25 +182,25 @@ int tcol_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
 #define TA_INDEX_TYPE_INT   1
 #define TA_INDEX_TYPE_thdr_t 2
 
-thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *srcP, int low, int count);
+thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count);
 Tcl_Obj *ta_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
-TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *valueObj,
+TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                       Tcl_Obj *indexA, Tcl_Obj *indexB);
-Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *srcP, thdr_t *pindices, int fmt);
+Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *srcP, Tcl_Obj *firstObj);
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj);
 TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,
                              Tcl_Obj *valueListObj, Tcl_Obj *firstObj);
 TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                                Tcl_Obj *valueListObj, Tcl_Obj *indicesObj);
 TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
                       int end_value, int low, int high);
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, const thdr_t *thdr, Tcl_Obj *lowObj, Tcl_Obj *ohigh, int *plow, int *pcount);
-TCL_RESULT TGridSetFromObjs(Tcl_Interp *, Tcl_Obj *lowObj, Tcl_Obj *gridObj,
-    Tcl_Obj *valueObjs, /* Each element is a list (tuple value) */
+TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, const thdr_t *thdr, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
+TCL_RESULT TGridSetFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *gridObj,
+    Tcl_Obj *ovalues, /* Each element is a list (tuple value) */
     int flags);
 
 /*
