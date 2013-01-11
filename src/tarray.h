@@ -91,7 +91,10 @@ typedef union thdr_s {
     double double_aligner;
     struct {
         int nrefs;              /* Ref count when shared between Tcl_Objs */
-        int allocated;
+        int usable;             /* Number of slots that can be used. This
+                                   is one less than number allocated as
+                                   we keep one as a sentinel.
+                                */
         int used;
         unsigned char type;
         unsigned char elem_bits; /* Size of element in bits */
@@ -240,7 +243,9 @@ int tclobjcmpindexedrev(void *, const void *a, const void *b);
 TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                                       int objc, Tcl_Obj *const objv[]);
 
-/* Inlined functions */
+/*
+ *  Inlined functions
+ */
 TA_INLINE void thdr_incr_refs(thdr_t *thdr)  { thdr->nrefs++; }
 TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
     if (thdr->nrefs-- <= 1) thdr_free(thdr);
@@ -281,6 +286,19 @@ TA_INLINE void thdr_copy_sort_status(thdr_t *thdr, thdr_t *fromP) {
     thdr->flags |= fromP->flags & (THDR_F_SORTED | THDR_F_ASCENDING);
 }
 
-
+/*
+ * For a given thdr, computes the pointers to a source and destination offset
+ * as well as converts count number of elements to equivalent bytes.
+ * Must not be called for TA_BOOLEAN as that combines bits into ba_t's.
+ */
+TA_INLINE int thdr_compute_move(thdr_t *thdr, int dst_off, int src_off, int count, void **ppdst, void **ppsrc)
+{
+    char *p = THDRELEMPTR(thdr, char, 0);
+    int elem_size = thdr->elem_bits / CHAR_BIT; /* sizeof of one element in bytes */
+    TA_ASSERT(thdr->type != TA_BOOLEAN);
+    *ppsrc = (src_off * elem_size) + p;
+    *ppdst = (dst_off * elem_size) + p;
+    return count * elem_size;
+}
 
 #endif

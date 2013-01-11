@@ -244,7 +244,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *ip, Tcl_Obj *gridObj, int minsize, int pr
             }
             thdr = TARRAYHDR(tcol);
             if (Tcl_IsShared(tcol) ||
-                thdr_shared(thdr) || thdr->allocated < minsize)
+                thdr_shared(thdr) || thdr->usable < minsize)
                 writable = 0;
         }
         /* Now do any require changes */
@@ -254,7 +254,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *ip, Tcl_Obj *gridObj, int minsize, int pr
                 Tcl_ListObjIndex(ip, gridObj, i, &tcol);
                 thdr = TARRAYHDR(tcol);
                 if (Tcl_IsShared(tcol) ||
-                    thdr_shared(thdr) || thdr->allocated < minsize) {
+                    thdr_shared(thdr) || thdr->usable < minsize) {
                     /* Note we INCREF and DecrRef because ListObjReplace
                        decrements deleted obj ref counts before incr refs
                        of added objects. Here it probably does not matter

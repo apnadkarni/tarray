@@ -70,7 +70,7 @@ void ta_shared_panic(const char *where)
 
 void ta_small_panic(thdr_t *thdr, const char *where)
 {
-    Tcl_Panic("Insufficient space in thdr_t (allocated %d) in %s.", thdr->allocated, where);
+    Tcl_Panic("Insufficient space in thdr_t (allocated %d) in %s.", thdr->usable, where);
 }
 
 TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname)
@@ -355,7 +355,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     int i;
 
     TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT((pos+count) <= thdr->allocated);
+    TA_ASSERT((pos+count) <= thdr->usable);
     TA_ASSERT(pos <= thdr->used);
     TA_ASSERT(thdr->type == ptav->type);
 
@@ -571,7 +571,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
     /* Caller guarantees room for highest index value */
     highest_index = thdr_sort_order(pindices) > 0 ? end[-1] : pindex[0];
-    TA_ASSERT(highest_index < thdr->allocated);
+    TA_ASSERT(highest_index < thdr->usable);
 
     thdr_mark_unsorted(thdr);
     switch (thdr->type) {
@@ -1023,7 +1023,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
     int status;
 
     TA_ASSERT(thdr->nrefs < 2);
-    TA_ASSERT((first + nelems) <= thdr->allocated);
+    TA_ASSERT((first + nelems) <= thdr->usable);
 
     thdr_mark_unsorted(thdr); /* TBD - optimize */
 
@@ -1210,7 +1210,7 @@ TCL_RESULT thdr_place_objs(
 
     TA_ASSERT(thdr->nrefs < 2);
     TA_ASSERT(pindices->type == TA_INT);
-    TA_ASSERT(highest_in_indices < thdr->allocated);
+    TA_ASSERT(highest_in_indices < thdr->usable);
 
     if (pindices->used > nvalues)
         return ta_indices_count_error(ip, pindices->used, nvalues);
@@ -1243,7 +1243,7 @@ TCL_RESULT thdr_place_objs(
         while (pindex < end) {                         \
             status = fn(ip, *pvalues++, &var);      \
             TA_ASSERT(status == TCL_OK);                \
-            TA_ASSERT(*pindex < thdr->allocated);      \
+            TA_ASSERT(*pindex < thdr->usable);      \
             TA_ASSERT(*pindex <= thdr->used);          \
             p[*pindex++] = (type) var;                  \
         }                                               \
@@ -1258,7 +1258,7 @@ TCL_RESULT thdr_place_objs(
             while (pindex < end) {
                 status = Tcl_GetBooleanFromObj(ip, *pvalues++, &v.ival);
                 TA_ASSERT(status == TCL_OK); /* Since values are verified */
-                TA_ASSERT(*pindex < thdr->allocated);
+                TA_ASSERT(*pindex < thdr->usable);
                 TA_ASSERT(*pindex <= thdr->used);
                 ba_put(baP, *pindex++, v.ival);
             }
@@ -1352,33 +1352,39 @@ int thdr_required_size(unsigned char tatype, int count)
 thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
 {
     thdr_t *thdr;
+    int sz;
 
     TA_ASSERT(oldP->nrefs < 2);
     TA_ASSERT(oldP->used <= new_count);
 
-    thdr = (thdr_t *) TA_ATTEMPTREALLOCMEM((char *) oldP, thdr_required_size(oldP->type, new_count));
+    /* We allocate one more for the sentinel */
+    sz = thdr_required_size(oldP->type, new_count + 1);
+    thdr = (thdr_t *) TA_ATTEMPTREALLOCMEM((char *) oldP, sz);
     if (thdr)
-        thdr->allocated = new_count;
+        thdr->usable = new_count;
     else
-        ta_memory_error(ip, new_count);
+        ta_memory_error(ip, sz);
     return thdr;
 }
 
 thdr_t * thdr_alloc(Tcl_Interp *ip, unsigned char tatype, int count)
 {
     unsigned char nbits;
+    int sz;
     thdr_t *thdr;
 
     if (count == 0)
             count = TA_DEFAULT_NSLOTS;
-    thdr = (thdr_t *) TA_ATTEMPTALLOCMEM(thdr_required_size(tatype, count));
+    /* We allocate one extra slot for the sentinel */
+    sz = thdr_required_size(tatype, count + 1);
+    thdr = (thdr_t *) TA_ATTEMPTALLOCMEM(sz);
     if (thdr == NULL) {
         if (ip)
-            ta_memory_error(ip, count);
+            ta_memory_error(ip, sz);
         return NULL;
     }
     thdr->nrefs = 0;
-    thdr->allocated = count;
+    thdr->usable = count;
     thdr->used = 0;
     thdr->type = tatype;
     switch (tatype) {
@@ -1465,54 +1471,33 @@ void thdr_delete_range(thdr_t *thdr, int first, int count)
         ba_copy(THDRELEMPTR(thdr, ba_t, 0), first, 
                 THDRELEMPTR(thdr, ba_t, 0), first+count,
                 thdr->used-(first+count));
-        thdr->used -= count;
-        return;
+        break;
 
     case TA_OBJ:
         /*
          * We have to deal with reference counts here. For the objects
          * we are deleting we need to decrement the reference counts.
          */
-
         thdr_decr_obj_refs(thdr, first, count);
          
-        /* Now we can just memcpy like the other types */
-        n = count + first;         /* Point beyond deleted elements */
-        s = THDRELEMPTR(thdr, Tcl_Obj *, n);
-        d = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        n = (thdr->used - n) * sizeof(Tcl_Obj *); /* #bytes to move */
-        break;
-
+        /* FALLTHRU - now we can just memmove like the other types */
     case TA_UINT:
     case TA_INT:
-        n = count + first;         /* Point beyond deleted elements */
-        s = THDRELEMPTR(thdr, int, n);
-        d = THDRELEMPTR(thdr, int, first);
-        n = (thdr->used - n) * sizeof(int); /* #bytes to move */
-        break;
     case TA_WIDE:
-        n = count + first;         /* Point beyond deleted elements */
-        s = THDRELEMPTR(thdr, Tcl_WideInt, n);
-        d = THDRELEMPTR(thdr, Tcl_WideInt, first);
-        n = (thdr->used - n) * sizeof(Tcl_WideInt); /* #bytes to move */
-        break;
     case TA_DOUBLE:
-        n = count + first;         /* Point beyond deleted elements */
-        s = THDRELEMPTR(thdr, double, n);
-        d = THDRELEMPTR(thdr, double, first);
-        n = (thdr->used - n) * sizeof(double); /* #bytes to move */
-        break;
     case TA_BYTE:
         n = count + first;         /* Point beyond deleted elements */
-        s = THDRELEMPTR(thdr, unsigned char, n);
-        d = THDRELEMPTR(thdr, unsigned char, first);
-        n = (thdr->used - n) * sizeof(unsigned char); /* #bytes to move */
+        n = thdr_compute_move(thdr,
+                              first, /* Offset to destination */
+                              n,     /* Offset to where to copy from (src) */
+                              thdr->used - n, /* # elements - src to end */
+                              &d,             /* Receive ptr to dest */
+                              &s);            /* Receive ptr to src */
+        memmove(d, s, n);      /* NOT memcpy since overlapping copy */
         break;
     default:
         ta_type_panic(thdr->type);
     }
-
-    memmove(d, s, n);      /* NOT memcpy since overlapping copy */
 
     thdr->used -= count;
 }
@@ -1621,7 +1606,7 @@ void thdr_copy(thdr_t *pdst, int dst_first,
         count = psrc->used - src_first;
     if (count <= 0)
         return;
-    TA_ASSERT((dst_first + count) <= pdst->allocated);
+    TA_ASSERT((dst_first + count) <= pdst->usable);
 
     if (dst_first < 0)
         dst_first = 0;
@@ -1713,7 +1698,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
         count = psrc->used - src_first;
     if (count <= 0)
         return;
-    TA_ASSERT((dst_first + count) <= pdst->allocated);
+    TA_ASSERT((dst_first + count) <= pdst->usable);
 
     if (dst_first < 0)
         dst_first = 0;
@@ -1787,7 +1772,7 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     thdr_t *thdr;
 
     if (minsize == 0)
-        minsize = psrc->allocated;
+        minsize = psrc->usable;
     else if (minsize < psrc->used)
         minsize = psrc->used;
 
@@ -1809,7 +1794,7 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     existing_sort_order = thdr_sorted(psrc);
 
     if (minsize == 0)
-        minsize = psrc->allocated;
+        minsize = psrc->usable;
     else if (minsize < psrc->used)
         minsize = psrc->used;
 
@@ -1978,7 +1963,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
 
     thdr = TARRAYHDR(tcol);
     if (prefsize == 0)
-        prefsize = thdr->allocated;
+        prefsize = thdr->usable;
     if (minsize < thdr->used)
         minsize = thdr->used;
     if (minsize > prefsize)
@@ -1993,7 +1978,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
         TARRAYHDR(tcol) = NULL;
         ta_set_intrep(tcol, thdr);
         Tcl_InvalidateStringRep(tcol);
-    } else if (thdr->allocated < minsize) {
+    } else if (thdr->usable < minsize) {
         /* Case (3). Note don't use ta_set_intrep as we are keeping all 
            fields and ref counts the same */
         Tcl_InvalidateStringRep(tcol);
@@ -2534,8 +2519,7 @@ TCL_RESULT TGridFillFromObjs(
         
     /* Make sure grid object is modifiable */
     if ((status = tcol_make_modifiable(ip, gridObj,
-                                       gridHdrP->used,
-                                       gridHdrP->allocated)) != TCL_OK)
+                                       gridHdrP->used, 0)) != TCL_OK)
         goto vamoose;
     gridHdrP = TARRAYHDR(gridObj); /* Might have changed */
 
@@ -2575,7 +2559,7 @@ TCL_RESULT TGridFillFromObjs(
         }
 
         /* Preferred size in case we have to reallocate */
-        new_size = low + count + TA_EXTRA(low+count); /* Disregarded if < allocated */
+        new_size = low + count + TA_EXTRA(low+count); /* Disregarded if < usable */
 
         /* We have already converted above */
         TA_ASSERT(colObj->typePtr == &g_ta_type);
@@ -2650,7 +2634,7 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
 
     for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < nthdrs; ++t) {
         TA_ASSERT(thdrs[t]->nrefs < 2); /* Unshared */
-        TA_ASSERT(thdrs[t]->allocated >= (first + nrows)); /* 'Nuff space */
+        TA_ASSERT(thdrs[t]->usable >= (first + nrows)); /* 'Nuff space */
         TA_ASSERT(thdrs[t]->used == thdrs[0]->used); /* All same size */
 
         if (thdrs[t]->type == TA_OBJ)
