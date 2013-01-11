@@ -183,7 +183,6 @@ BA_INLINE void ba_putn(ba_t *baP, int off, ba_t ba, int n)
    valid at offset off */
 BA_INLINE ba_t ba_get_unit(ba_t *baP, int off)
 {
-    ba_t mask;
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
     if (off == 0)
