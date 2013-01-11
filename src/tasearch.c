@@ -71,7 +71,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
         pos = start;
         while ((pos = ba_find(baP, bval, pos, thdr->used)) != -1) {
             /* Ensure enough space in target array */
-            if (thdr->used >= thdr->allocated)
+            if (thdr->used >= thdr->usable)
                 newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
             if (newP)
                 thdr = newP;
@@ -190,7 +190,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdr->used >= thdr->allocated)
+                if (thdr->used >= thdr->usable)
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
                 if (newP)
                     thdr = newP;
@@ -297,7 +297,7 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdr->used >= thdr->allocated)
+                if (thdr->used >= thdr->usable)
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
                 if (newP)
                     thdr = newP;
@@ -424,7 +424,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdr->used >= thdr->allocated)
+                if (thdr->used >= thdr->usable)
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
                 if (newP)
                     thdr = newP;
