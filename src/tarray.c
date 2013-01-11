@@ -17,7 +17,7 @@
  * TArray is a Tcl "type" used for densely storing arrays of elements
  * of a specific type.
  */
-static void ta_type_dup(Tcl_Obj *srcP, Tcl_Obj *dstP);
+static void ta_type_dup(Tcl_Obj *psrc, Tcl_Obj *pdst);
 static void ta_type_free_intrep(Tcl_Obj *o);
 static void ta_type_update_string(Tcl_Obj *o);
 struct Tcl_ObjType g_ta_type = {
@@ -233,7 +233,7 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
    high is 0-INT_MAX
    if (high < low) count is returned as 0 (not an error)
 */
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, const thdr_t *thdr, Tcl_Obj *lowObj, Tcl_Obj *ohigh, int *plow, int *pcount)
+TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, const thdr_t *thdr, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount)
 {
     int low, high;
 
@@ -241,7 +241,7 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, const thdr_t *thdr, Tcl_Obj *lowO
      * check for this if appropriate. High index can be any greater value
      * than lower range.
      */
-    if (ta_convert_index(ip, lowObj, &low, thdr->used-1, 0, thdr->used) != TCL_OK)
+    if (ta_convert_index(ip, olow, &low, thdr->used-1, 0, thdr->used) != TCL_OK)
         return TCL_ERROR;
 
     if (ta_convert_index(ip, ohigh, &high, thdr->used-1, 0, INT_MAX) != TCL_OK)
@@ -272,14 +272,14 @@ TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o)
                                TCL_EXACT, &tatype) == TCL_OK) {
         /* So far so good. Try and convert */
         thdr_t *thdr;
-        Tcl_Obj **valueObjs;
+        Tcl_Obj **ovalues;
         int nvalues;
         
-        if (Tcl_ListObjGetElements(ip, elems[2], &nvalues, &valueObjs)
+        if (Tcl_ListObjGetElements(ip, elems[2], &nvalues, &ovalues)
             != TCL_OK)
             return TCL_ERROR;
 
-        thdr = thdr_alloc_and_init(ip, tatype, nvalues, valueObjs, 0);
+        thdr = thdr_alloc_and_init(ip, tatype, nvalues, ovalues, 0);
         if (thdr == NULL)
             return TCL_ERROR;
 
@@ -369,10 +369,10 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
         if (ptav->ival == 0) {
             memset(THDRELEMPTR(thdr, int, pos), 0, count*sizeof(int));
         } else {
-            int *iP;
-            iP = THDRELEMPTR(thdr, int, pos);
-            for (i = 0; i < count; ++i, ++iP)
-                *iP = ptav->ival;
+            int *pint;
+            pint = THDRELEMPTR(thdr, int, pos);
+            for (i = 0; i < count; ++i, ++pint)
+                *pint = ptav->ival;
         }
         break;
         
@@ -384,23 +384,23 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
         if (ptav->wval == 0) {
             memset(THDRELEMPTR(thdr, Tcl_WideInt, pos), 0, count*sizeof(Tcl_WideInt));
         } else {
-            Tcl_WideInt *wideP;
-            wideP = THDRELEMPTR(thdr, Tcl_WideInt, pos);
-            for (i = 0; i < count; ++i, ++wideP)
-                *wideP = ptav->wval;
+            Tcl_WideInt *pwide;
+            pwide = THDRELEMPTR(thdr, Tcl_WideInt, pos);
+            for (i = 0; i < count; ++i, ++pwide)
+                *pwide = ptav->wval;
         }
         break;
     case TA_DOUBLE:
         {
-            double *dvalP;
-            dvalP = THDRELEMPTR(thdr, double, pos);
-            for (i = 0; i < count; ++i, ++dvalP)
-                *dvalP = ptav->dval;
+            double *pdbl;
+            pdbl = THDRELEMPTR(thdr, double, pos);
+            for (i = 0; i < count; ++i, ++pdbl)
+                *pdbl = ptav->dval;
         }
         break;
     case TA_OBJ:
         {
-            Tcl_Obj **oP;
+            Tcl_Obj **pobjs;
             int n;
 
             /*
@@ -413,18 +413,18 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
             n = pos + count;
             if (n > thdr->used)
                 n = thdr->used;
-            oP = THDRELEMPTR(thdr, Tcl_Obj *, pos);
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, pos);
             for (i = pos; i < n; ++i) {
                 /* Be careful of the order */
                 Tcl_IncrRefCount(ptav->oval);
-                Tcl_DecrRefCount(*oP);
-                *oP = ptav->oval;
+                Tcl_DecrRefCount(*pobjs);
+                *pobjs = ptav->oval;
             }
 
             /* Now loop over new elements being appended */
             for (; i < pos+count; ++i) {
                 Tcl_IncrRefCount(ptav->oval);
-                *oP = ptav->oval;
+                *pobjs = ptav->oval;
             }
         }
         break;
@@ -439,59 +439,59 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
                                 int nelems, Tcl_Obj * const elems[])
 {
-    Tcl_Obj * const *oP = elems;
+    Tcl_Obj * const *pobjs = elems;
     Tcl_Obj * const *end = elems + nelems;
     switch (tatype) {
     case TA_BOOLEAN:
-        for ( ; oP < end; ++oP) {
+        for ( ; pobjs < end; ++pobjs) {
             int ival;
-            if (Tcl_GetBooleanFromObj(ip, *oP, &ival) != TCL_OK)
+            if (Tcl_GetBooleanFromObj(ip, *pobjs, &ival) != TCL_OK)
                 return TCL_ERROR;
         }
         break;
 
     case TA_UINT:
-        for ( ; oP < end; ++oP) {
+        for ( ; pobjs < end; ++pobjs) {
             Tcl_WideInt wide;
-            if (Tcl_GetWideIntFromObj(ip, *oP, &wide) != TCL_OK)
+            if (Tcl_GetWideIntFromObj(ip, *pobjs, &wide) != TCL_OK)
                 return TCL_ERROR;
             if (wide < 0 || wide > 0xFFFFFFFF) {
-                return ta_value_type_error(ip, *oP, tatype);
+                return ta_value_type_error(ip, *pobjs, tatype);
             }
         }
         break;
 
     case TA_INT:
-        for ( ; oP < end; ++oP) {
+        for ( ; pobjs < end; ++pobjs) {
             int ival;
-            if (Tcl_GetIntFromObj(ip, *oP, &ival) != TCL_OK)
+            if (Tcl_GetIntFromObj(ip, *pobjs, &ival) != TCL_OK)
                 return TCL_ERROR;
         }
         break;
 
     case TA_WIDE:
-        for ( ; oP < end; ++oP) {
+        for ( ; pobjs < end; ++pobjs) {
             Tcl_WideInt wide;
-            if (Tcl_GetWideIntFromObj(ip, *oP, &wide) != TCL_OK)
+            if (Tcl_GetWideIntFromObj(ip, *pobjs, &wide) != TCL_OK)
                 return TCL_ERROR;
         }
         break;
 
     case TA_DOUBLE:
-        for ( ; oP < end; ++oP) {
+        for ( ; pobjs < end; ++pobjs) {
             double dval;
-            if (Tcl_GetDoubleFromObj(ip, *oP, &dval) != TCL_OK)
+            if (Tcl_GetDoubleFromObj(ip, *pobjs, &dval) != TCL_OK)
                 return TCL_ERROR;
         }
         break;
 
     case TA_BYTE:
-        for ( ; oP < end; ++oP) {
+        for ( ; pobjs < end; ++pobjs) {
             int ival;
-            if (Tcl_GetIntFromObj(ip, *oP, &ival) != TCL_OK)
+            if (Tcl_GetIntFromObj(ip, *pobjs, &ival) != TCL_OK)
                 return TCL_ERROR;
             if (ival > 255 || ival < 0) {
-                ta_value_type_error(ip, *oP, tatype);
+                ta_value_type_error(ip, *pobjs, tatype);
                 return TCL_ERROR;
             }
         }
@@ -514,17 +514,17 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
 TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP)
 {
     int i, new_size;
-    int *pindex, *endP;
+    int *pindex, *end;
 
     TA_ASSERT(pindices->type == TA_INT);
     TA_ASSERT(thdr_sorted(pindices));
 
     new_size = thdr->used;
     pindex = THDRELEMPTR(pindices, int, 0);
-    endP = THDRELEMPTR(pindices, int, pindices->used);
+    end = THDRELEMPTR(pindices, int, pindices->used);
     if (thdr_sort_order(pindices) > 0) {
         /* Sort order is ascending. Make sure no gaps */
-        while (pindex < endP) {
+        while (pindex < end) {
             i = *pindex++;
             if (i < new_size)
                 continue;
@@ -534,8 +534,8 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         }
     } else {
         /* Sort order is descending. Go in reverse to make sure no gaps */
-        while (pindex < endP) {
-            i = *--endP;
+        while (pindex < end) {
+            i = *--end;
             if (i < new_size)
                 continue;
             if (i > new_size) {
@@ -554,7 +554,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
                       const ta_value_t *ptav, thdr_t *pindices)
 {
     int highest_index;
-    int *pindex, *endP;
+    int *pindex, *end;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
@@ -567,10 +567,10 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
     /* Rest of code assumes > 0 indices */
 
     pindex = THDRELEMPTR(pindices, int, 0);
-    endP = THDRELEMPTR(pindices, int, pindices->used);
+    end = THDRELEMPTR(pindices, int, pindices->used);
 
     /* Caller guarantees room for highest index value */
-    highest_index = thdr_sort_order(pindices) > 0 ? endP[-1] : pindex[0];
+    highest_index = thdr_sort_order(pindices) > 0 ? end[-1] : pindex[0];
     TA_ASSERT(highest_index < thdr->allocated);
 
     thdr_mark_unsorted(thdr);
@@ -578,44 +578,44 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
     case TA_BOOLEAN:
         {
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            while (pindex < endP)
+            while (pindex < end)
                 ba_put(baP, *pindex++, ptav->bval);
         }
         break;
     case TA_INT:
     case TA_UINT:
         {
-            int *iP = THDRELEMPTR(thdr, int, 0);
-            while (pindex < endP)
-                iP[*pindex++] = ptav->ival;
+            int *pint = THDRELEMPTR(thdr, int, 0);
+            while (pindex < end)
+                pint[*pindex++] = ptav->ival;
         }
         break;
     case TA_BYTE:
         {
             unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, 0);
-            while (pindex < endP)
+            while (pindex < end)
                 ucP[*pindex++] = ptav->ucval;
         }
         break;
     case TA_WIDE:
         {
-            Tcl_WideInt *wideP;
-            wideP = THDRELEMPTR(thdr, Tcl_WideInt, 0);
-            while (pindex < endP)
-                wideP[*pindex] = ptav->wval;
+            Tcl_WideInt *pwide;
+            pwide = THDRELEMPTR(thdr, Tcl_WideInt, 0);
+            while (pindex < end)
+                pwide[*pindex] = ptav->wval;
         }
         break;
     case TA_DOUBLE:
         {
-            double *dvalP;
-            dvalP = THDRELEMPTR(thdr, double, 0);
-            while (pindex < endP)
-                dvalP[*pindex] = ptav->dval;
+            double *pdbl;
+            pdbl = THDRELEMPTR(thdr, double, 0);
+            while (pindex < end)
+                pdbl[*pindex] = ptav->dval;
         }
         break;
     case TA_OBJ:
         {
-            Tcl_Obj **oP;
+            Tcl_Obj **pobjs;
 
             /*
              * We have to deal with reference counts here. For the object
@@ -624,12 +624,12 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
              * we need to decrement reference counts. Note that
              * indices may be sorted in either order.
              */
-            oP = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-            while (pindex < endP) {
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+            while (pindex < end) {
                 Tcl_IncrRefCount(ptav->oval);
                 if (*pindex < thdr->used)
-                    Tcl_DecrRefCount(oP[*pindex]);
-                oP[*pindex] = ptav->oval;
+                    Tcl_DecrRefCount(pobjs[*pindex]);
+                pobjs[*pindex] = ptav->oval;
             }
         }
         break;
@@ -648,16 +648,16 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
 {
     register int i;
-    register Tcl_Obj **oP;
+    register Tcl_Obj **pobjs;
 
     if (thdr->type == TA_OBJ) {
         if ((first + count) > thdr->used)
             count = thdr->used - first;
         if (count <= 0)
             return;
-        oP = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (i = 0; i < count; ++i, ++oP) {
-            Tcl_IncrRefCount(*oP);
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+        for (i = 0; i < count; ++i, ++pobjs) {
+            Tcl_IncrRefCount(*pobjs);
         }
     }
 }
@@ -668,16 +668,16 @@ void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
 void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
 {
     register int i;
-    register Tcl_Obj **oP;
+    register Tcl_Obj **pobjs;
 
     if (thdr->type == TA_OBJ) {
         if ((first + count) > thdr->used)
             count = thdr->used - first;
         if (count <= 0)
             return;
-        oP = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (i = 0; i < count; ++i, ++oP) {
-            Tcl_DecrRefCount(*oP);
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+        for (i = 0; i < count; ++i, ++pobjs) {
+            Tcl_DecrRefCount(*pobjs);
         }
     }
 }
@@ -949,9 +949,9 @@ static void ta_type_update_string(Tcl_Obj *o)
             break;
         case TA_WIDE:
             {
-                Tcl_WideInt *wideP = THDRELEMPTR(thdr, Tcl_WideInt, i);
+                Tcl_WideInt *pwide = THDRELEMPTR(thdr, Tcl_WideInt, i);
                 while (i < count && unused >= min_needed) {
-                    n = _snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *wideP++);
+                    n = _snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *pwide++);
                     TA_ASSERT(n > 0 && n < unused);
                     ++i;
                     cP += n;
@@ -965,9 +965,9 @@ static void ta_type_update_string(Tcl_Obj *o)
                it does not include decimal point for whole ints. For
                consistency with Tcl, use Tcl_PrintDouble instead */
             {
-                double *dblP = THDRELEMPTR(thdr, double, i);
+                double *pdbl = THDRELEMPTR(thdr, double, i);
                 while (i < count && unused >= min_needed) {
-                    Tcl_PrintDouble(NULL, *dblP++, cP);
+                    Tcl_PrintDouble(NULL, *pdbl++, cP);
                     n = strlen(cP);
                     ++i;
                     cP += n;
@@ -1124,10 +1124,10 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
 
     case TA_WIDE:
         {
-            register Tcl_WideInt *wideP;
-            wideP = THDRELEMPTR(thdr, Tcl_WideInt, first);
-            for (i = 0; i < nelems; ++i, ++wideP) {
-                if (Tcl_GetWideIntFromObj(ip, elems[i], wideP) != TCL_OK)
+            register Tcl_WideInt *pwide;
+            pwide = THDRELEMPTR(thdr, Tcl_WideInt, first);
+            for (i = 0; i < nelems; ++i, ++pwide) {
+                if (Tcl_GetWideIntFromObj(ip, elems[i], pwide) != TCL_OK)
                     goto convert_error;
             }
         }
@@ -1135,10 +1135,10 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
 
     case TA_DOUBLE:
         {
-            register double *dblP;
-            dblP = THDRELEMPTR(thdr, double, first);
-            for (i = 0; i < nelems; ++i, ++dblP) {
-                if (Tcl_GetDoubleFromObj(ip, elems[i], dblP) != TCL_OK)
+            register double *pdbl;
+            pdbl = THDRELEMPTR(thdr, double, first);
+            for (i = 0; i < nelems; ++i, ++pdbl) {
+                if (Tcl_GetDoubleFromObj(ip, elems[i], pdbl) != TCL_OK)
                     goto convert_error;
             }
         }
@@ -1146,16 +1146,16 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
 
     case TA_OBJ:
         {
-            register Tcl_Obj **oP;
-            oP = THDRELEMPTR(thdr, Tcl_Obj *, first);
-            for (i = 0; i < nelems; ++i, ++oP) {
+            register Tcl_Obj **pobjs;
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+            for (i = 0; i < nelems; ++i, ++pobjs) {
                 /* Careful about the order here! */
                 Tcl_IncrRefCount(elems[i]);
                 if ((first + i) < thdr->used) {
                     /* Deref what was originally in that slot */
-                    Tcl_DecrRefCount(*oP);
+                    Tcl_DecrRefCount(*pobjs);
                 }
-                *oP = elems[i];
+                *pobjs = elems[i];
             }
         }
         break;
@@ -1201,10 +1201,10 @@ TCL_RESULT thdr_place_objs(
                                    must also be present in pindices. Caller
                                    must have checked
                                 */
-    int nvalues,                /* # values in valuesP */
-    Tcl_Obj * const *valuesP)   /* Values to be stored */
+    int nvalues,                /* # values in pvalues */
+    Tcl_Obj * const *pvalues)   /* Values to be stored */
 {
-    int *pindex, *endP;
+    int *pindex, *end;
     int status;
     ta_value_t v;
 
@@ -1228,7 +1228,7 @@ TCL_RESULT thdr_place_objs(
      * holding area for saving old values to be restored in case of errors.
      */
 
-    if ((status = ta_verify_value_objs(ip, thdr->type, nvalues, valuesP))
+    if ((status = ta_verify_value_objs(ip, thdr->type, nvalues, pvalues))
         != TCL_OK)
         return status;
 
@@ -1240,8 +1240,8 @@ TCL_RESULT thdr_place_objs(
 #define PLACEVALUES(type, fn, var) do {                 \
         type *p;                                        \
         p = THDRELEMPTR(thdr, type, 0);             \
-        while (pindex < endP) {                         \
-            status = fn(ip, *valuesP++, &var);      \
+        while (pindex < end) {                         \
+            status = fn(ip, *pvalues++, &var);      \
             TA_ASSERT(status == TCL_OK);                \
             TA_ASSERT(*pindex < thdr->allocated);      \
             TA_ASSERT(*pindex <= thdr->used);          \
@@ -1250,13 +1250,13 @@ TCL_RESULT thdr_place_objs(
     } while (0)
     
     pindex = THDRELEMPTR(pindices, int, 0);
-    endP = pindex + nvalues;
+    end = pindex + nvalues;
     switch (thdr->type) {
     case TA_BOOLEAN:
         {
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            while (pindex < endP) {
-                status = Tcl_GetBooleanFromObj(ip, *valuesP++, &v.ival);
+            while (pindex < end) {
+                status = Tcl_GetBooleanFromObj(ip, *pvalues++, &v.ival);
                 TA_ASSERT(status == TCL_OK); /* Since values are verified */
                 TA_ASSERT(*pindex < thdr->allocated);
                 TA_ASSERT(*pindex <= thdr->used);
@@ -1280,8 +1280,8 @@ TCL_RESULT thdr_place_objs(
     case TA_OBJ:
         {
             int i;
-            Tcl_Obj **oP;
-            oP = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+            Tcl_Obj **pobjs;
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
             /*
              * Reference counts makes this tricky. If replacing an existing
              * index we have to increment the new value's ref and decrement
@@ -1294,13 +1294,13 @@ TCL_RESULT thdr_place_objs(
              * that will be written to mark what is unused.
              */
             for (i = thdr->used; i <= highest_in_indices; ++i)
-                oP[i] = NULL;
-            while (pindex < endP) {
+                pobjs[i] = NULL;
+            while (pindex < end) {
                 /* Careful about the order here! */
-                Tcl_IncrRefCount(*valuesP);
-                if (oP[*pindex] != NULL)
-                    Tcl_DecrRefCount(*oP);/* Deref what was originally in that slot */
-                oP[*pindex] = *valuesP++;
+                Tcl_IncrRefCount(*pvalues);
+                if (pobjs[*pindex] != NULL)
+                    Tcl_DecrRefCount(*pobjs);/* Deref what was originally in that slot */
+                pobjs[*pindex] = *pvalues++;
             }
         }
         break;
@@ -1604,31 +1604,31 @@ void thdr_reverse(thdr_t *thdr)
 
 /* Copies partial content from one thdr_t to another. See asserts below
    for requirements */
-void thdr_copy(thdr_t *dstP, int dst_first,
-                   thdr_t *srcP, int src_first, int count)
+void thdr_copy(thdr_t *pdst, int dst_first,
+                   thdr_t *psrc, int src_first, int count)
 {
     int nbytes;
     void *s, *d;
 
-    TA_ASSERT(dstP != srcP);
-    TA_ASSERT(dstP->type == srcP->type);
-    TA_ASSERT(! thdr_shared(dstP));
+    TA_ASSERT(pdst != psrc);
+    TA_ASSERT(pdst->type == psrc->type);
+    TA_ASSERT(! thdr_shared(pdst));
     TA_ASSERT(src_first >= 0);
 
-    if (src_first >= srcP->used)
+    if (src_first >= psrc->used)
         return;          /* Nothing to be copied */
-    if ((src_first + count) > srcP->used)
-        count = srcP->used - src_first;
+    if ((src_first + count) > psrc->used)
+        count = psrc->used - src_first;
     if (count <= 0)
         return;
-    TA_ASSERT((dst_first + count) <= dstP->allocated);
+    TA_ASSERT((dst_first + count) <= pdst->allocated);
 
     if (dst_first < 0)
         dst_first = 0;
-    else if (dst_first > dstP->used)
-        dst_first = dstP->used;
+    else if (dst_first > pdst->used)
+        dst_first = pdst->used;
 
-    thdr_mark_unsorted(dstP); /* TBD - optimize */
+    thdr_mark_unsorted(pdst); /* TBD - optimize */
 
     /*
      * For all types other than BOOLEAN and OBJ, we can just memcpy
@@ -1636,12 +1636,12 @@ void thdr_copy(thdr_t *dstP, int dst_first,
      * into bytes and the copy may not be aligned on a byte boundary.
      * For OBJ types, we have to deal with reference counts.
      */
-    switch (srcP->type) {
+    switch (psrc->type) {
     case TA_BOOLEAN:
-        ba_copy(THDRELEMPTR(dstP, ba_t, 0), dst_first,
-                THDRELEMPTR(srcP, ba_t, 0), src_first, count);
-        if ((dst_first + count) > dstP->used)
-            dstP->used = dst_first + count;
+        ba_copy(THDRELEMPTR(pdst, ba_t, 0), dst_first,
+                THDRELEMPTR(psrc, ba_t, 0), src_first, count);
+        if ((dst_first + count) > pdst->used)
+            pdst->used = dst_first + count;
         return;
 
     case TA_OBJ:
@@ -1652,83 +1652,83 @@ void thdr_copy(thdr_t *dstP, int dst_first,
          * to decrement reference counts.
          */
 
-        thdr_incr_obj_refs(srcP, src_first, count); /* Do this first */
+        thdr_incr_obj_refs(psrc, src_first, count); /* Do this first */
         /* Note this call take care of the case where count exceeds
-         * actual number in dstP
+         * actual number in pdst
          */
-        thdr_decr_obj_refs(dstP, dst_first, count);
+        thdr_decr_obj_refs(pdst, dst_first, count);
          
         /* Now we can just memcpy like the other types */
         nbytes = count * sizeof(Tcl_Obj *);
-        s = THDRELEMPTR(srcP, Tcl_Obj *, src_first);
-        d = THDRELEMPTR(dstP, Tcl_Obj *, dst_first);
+        s = THDRELEMPTR(psrc, Tcl_Obj *, src_first);
+        d = THDRELEMPTR(pdst, Tcl_Obj *, dst_first);
         break;
 
     case TA_UINT:
     case TA_INT:
         nbytes = count * sizeof(int);
-        s = THDRELEMPTR(srcP, int, src_first);
-        d = THDRELEMPTR(dstP, int, dst_first);
+        s = THDRELEMPTR(psrc, int, src_first);
+        d = THDRELEMPTR(pdst, int, dst_first);
         break;
     case TA_WIDE:
         nbytes = count * sizeof(Tcl_WideInt);
-        s = THDRELEMPTR(srcP, Tcl_WideInt, src_first);
-        d = THDRELEMPTR(dstP, Tcl_WideInt, dst_first);
+        s = THDRELEMPTR(psrc, Tcl_WideInt, src_first);
+        d = THDRELEMPTR(pdst, Tcl_WideInt, dst_first);
         break;
     case TA_DOUBLE:
         nbytes = count * sizeof(double);
-        s = THDRELEMPTR(srcP, double, src_first);
-        d = THDRELEMPTR(dstP, double, dst_first);
+        s = THDRELEMPTR(psrc, double, src_first);
+        d = THDRELEMPTR(pdst, double, dst_first);
         break;
     case TA_BYTE:
         nbytes = count * sizeof(unsigned char);
-        s = THDRELEMPTR(srcP, unsigned char, src_first);
-        d = THDRELEMPTR(dstP, unsigned char, dst_first);
+        s = THDRELEMPTR(psrc, unsigned char, src_first);
+        d = THDRELEMPTR(pdst, unsigned char, dst_first);
         break;
     default:
-        ta_type_panic(srcP->type);
+        ta_type_panic(psrc->type);
     }
 
     memcpy(d, s, nbytes);
 
-    if ((dst_first + count) > dstP->used)
-        dstP->used = dst_first + count;
+    if ((dst_first + count) > pdst->used)
+        pdst->used = dst_first + count;
 
     return;
 }
 
 /* Copies partial content from one thdr_t to another in reverse.
    See asserts below for requirements */
-void thdr_copy_reversed(thdr_t *dstP, int dst_first,
-                       thdr_t *srcP, int src_first, int count)
+void thdr_copy_reversed(thdr_t *pdst, int dst_first,
+                       thdr_t *psrc, int src_first, int count)
 {
-    TA_ASSERT(dstP != srcP);
-    TA_ASSERT(dstP->type == srcP->type);
-    TA_ASSERT(! thdr_shared(dstP));
+    TA_ASSERT(pdst != psrc);
+    TA_ASSERT(pdst->type == psrc->type);
+    TA_ASSERT(! thdr_shared(pdst));
     TA_ASSERT(src_first >= 0);
 
-    if (src_first >= srcP->used)
+    if (src_first >= psrc->used)
         return;          /* Nothing to be copied */
-    if ((src_first + count) > srcP->used)
-        count = srcP->used - src_first;
+    if ((src_first + count) > psrc->used)
+        count = psrc->used - src_first;
     if (count <= 0)
         return;
-    TA_ASSERT((dst_first + count) <= dstP->allocated);
+    TA_ASSERT((dst_first + count) <= pdst->allocated);
 
     if (dst_first < 0)
         dst_first = 0;
-    else if (dst_first > dstP->used)
-        dst_first = dstP->used;
+    else if (dst_first > pdst->used)
+        dst_first = pdst->used;
 
-    thdr_mark_unsorted(dstP); /* TBD - optimize for sorted arrays */
+    thdr_mark_unsorted(pdst); /* TBD - optimize for sorted arrays */
 
-#define COPYREVERSE(type_, dstP_, doff_, srcP_, soff_, count_)          \
+#define COPYREVERSE(type_, pdst_, doff_, psrc_, soff_, count_)          \
     do {                                                                \
         type_ *src;                                                     \
         type_ *dst;                                                     \
         int    i = (count_);                                            \
-        src = THDRELEMPTR((srcP_), type_ , (soff_));                  \
-        dst  = THDRELEMPTR((dstP_), type_ , 0);                       \
+        src = THDRELEMPTR((psrc_), type_ , (soff_));                  \
+        dst  = THDRELEMPTR((pdst_), type_ , 0);                       \
         dst += (doff_ ) + i - 1;                                        \
         while (i--) {                                                   \
             /* Remember caller ensured no overlap between src & dst */  \
@@ -1736,11 +1736,11 @@ void thdr_copy_reversed(thdr_t *dstP, int dst_first,
         }                                                               \
     } while (0)
 
-    switch (srcP->type) {
+    switch (psrc->type) {
     case TA_BOOLEAN:
-        ba_copy(THDRELEMPTR(dstP, ba_t, 0), dst_first,
-                THDRELEMPTR(srcP, ba_t, 0), src_first, count);
-        ba_reverse(THDRELEMPTR(dstP, ba_t, 0), dst_first, count);
+        ba_copy(THDRELEMPTR(pdst, ba_t, 0), dst_first,
+                THDRELEMPTR(psrc, ba_t, 0), src_first, count);
+        ba_reverse(THDRELEMPTR(pdst, ba_t, 0), dst_first, count);
         break;
     case TA_OBJ:
         /*
@@ -1750,73 +1750,73 @@ void thdr_copy_reversed(thdr_t *dstP, int dst_first,
          * to decrement reference counts.
          */
 
-        thdr_incr_obj_refs(srcP, src_first, count); /* Do this first */
+        thdr_incr_obj_refs(psrc, src_first, count); /* Do this first */
         /* Note this call take care of the case where count exceeds
-         * actual number in dstP
+         * actual number in pdst
          */
-        thdr_decr_obj_refs(dstP, dst_first, count);
-        COPYREVERSE(Tcl_Obj*, dstP, dst_first, srcP, src_first, count);
+        thdr_decr_obj_refs(pdst, dst_first, count);
+        COPYREVERSE(Tcl_Obj*, pdst, dst_first, psrc, src_first, count);
         break;
 
     case TA_UINT:
     case TA_INT:
-        COPYREVERSE(int, dstP, dst_first, srcP, src_first, count);
+        COPYREVERSE(int, pdst, dst_first, psrc, src_first, count);
         break;
     case TA_WIDE:
-        COPYREVERSE(Tcl_WideInt, dstP, dst_first, srcP, src_first, count);
+        COPYREVERSE(Tcl_WideInt, pdst, dst_first, psrc, src_first, count);
         break;
     case TA_DOUBLE:
-        COPYREVERSE(double, dstP, dst_first, srcP, src_first, count);
+        COPYREVERSE(double, pdst, dst_first, psrc, src_first, count);
         break;
     case TA_BYTE:
-        COPYREVERSE(unsigned char, dstP, dst_first, srcP, src_first, count);
+        COPYREVERSE(unsigned char, pdst, dst_first, psrc, src_first, count);
         break;
     default:
-        ta_type_panic(srcP->type);
+        ta_type_panic(psrc->type);
     }
 
-    if ((dst_first + count) > dstP->used)
-        dstP->used = dst_first + count;
+    if ((dst_first + count) > pdst->used)
+        pdst->used = dst_first + count;
 
     return;
 }
 
 /* Note: nrefs of cloned array is 0 */
-thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *srcP, int minsize)
+thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize)
 {
     thdr_t *thdr;
 
     if (minsize == 0)
-        minsize = srcP->allocated;
-    else if (minsize < srcP->used)
-        minsize = srcP->used;
+        minsize = psrc->allocated;
+    else if (minsize < psrc->used)
+        minsize = psrc->used;
 
     /* TBD - optimize these two calls */
-    thdr = thdr_alloc(ip, srcP->type, minsize);
+    thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
-        thdr_copy(thdr, 0, srcP, 0, srcP->used);
-        thdr_copy_sort_status(thdr, srcP);
+        thdr_copy(thdr, 0, psrc, 0, psrc->used);
+        thdr_copy_sort_status(thdr, psrc);
     }
     return thdr;
 }
 
 /* Note: nrefs of cloned array is 0 */
-thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *srcP, int minsize)
+thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
 {
     thdr_t *thdr;
     int existing_sort_order;
 
-    existing_sort_order = thdr_sorted(srcP);
+    existing_sort_order = thdr_sorted(psrc);
 
     if (minsize == 0)
-        minsize = srcP->allocated;
-    else if (minsize < srcP->used)
-        minsize = srcP->used;
+        minsize = psrc->allocated;
+    else if (minsize < psrc->used)
+        minsize = psrc->used;
 
     /* TBD - optimize these two calls */
-    thdr = thdr_alloc(ip, srcP->type, minsize);
+    thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
-        thdr_copy_reversed(thdr, 0, srcP, 0, srcP->used);
+        thdr_copy_reversed(thdr, 0, psrc, 0, psrc->used);
         if (existing_sort_order) {
             /* Sort order is not reversed */
             if (existing_sort_order < 0)
@@ -1828,17 +1828,17 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *srcP, int minsize)
     return thdr;
 }
 
-thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *srcP, int low, int count)
+thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
 {
     thdr_t *thdr;
 
     TA_ASSERT(low >= 0);
     TA_ASSERT(count >= 0);
 
-    thdr = thdr_alloc(ip, srcP->type, count);
+    thdr = thdr_alloc(ip, psrc->type, count);
     if (thdr) {
-        thdr_copy(thdr, 0, srcP, low, count);
-        thdr_copy_sort_status(thdr, srcP);
+        thdr_copy(thdr, 0, psrc, low, count);
+        thdr_copy_sort_status(thdr, psrc);
     }
     return thdr;
 }
@@ -1847,30 +1847,30 @@ Tcl_Obj *ta_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
                      int fmt)
 {
     int end;
-    thdr_t *srcP;
+    thdr_t *psrc;
     Tcl_Obj *o;
 
     TA_ASSERT(low >= 0);
     TA_ASSERT(count >= 0);
 
-    srcP = TARRAYHDR(srcObj);
+    psrc = TARRAYHDR(srcObj);
 
     if (fmt == TA_FORMAT_TARRAY) {
-        thdr_t *thdr = thdr_range(ip, srcP, low, count);
+        thdr_t *thdr = thdr_range(ip, psrc, low, count);
         return thdr == NULL ? NULL : tcol_new(thdr);
     }
 
     end = low + count;
-    if (end > srcP->used)
-        end = srcP->used;
+    if (end > psrc->used)
+        end = psrc->used;
 
     /* Even dicts more efficiently built as lists and shimmered as necessary */
     o = Tcl_NewListObj(end-low, NULL);
 
-    switch (srcP->type) {
+    switch (psrc->type) {
     case TA_BOOLEAN:
         {
-            ba_t *baP = THDRELEMPTR(srcP, ba_t, 0);
+            ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);
             while (low < end) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low));
@@ -1882,72 +1882,72 @@ Tcl_Obj *ta_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
         break;
     case TA_UINT:
         {
-            unsigned int *uiP = THDRELEMPTR(srcP, unsigned int, low);
-            unsigned int *uiendP = THDRELEMPTR(srcP, unsigned int, end);
-            while (uiP < uiendP) {
+            unsigned int *pui = THDRELEMPTR(psrc, unsigned int, low);
+            unsigned int *pend = THDRELEMPTR(psrc, unsigned int, end);
+            while (pui < pend) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(*uiP++));
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(*pui++));
             }
         }
         break;
     case TA_INT:
         {
-            int *iP = THDRELEMPTR(srcP, int, low);
-            int *iendP = THDRELEMPTR(srcP, int, end);
-            while (iP < iendP) {
+            int *pint = THDRELEMPTR(psrc, int, low);
+            int *pend = THDRELEMPTR(psrc, int, end);
+            while (pint < pend) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(*iP++));
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(*pint++));
             }
         }
         break;
     case TA_WIDE:
         {
-            Tcl_WideInt *wideP = THDRELEMPTR(srcP, Tcl_WideInt, low);
-            Tcl_WideInt *wideendP = THDRELEMPTR(srcP, Tcl_WideInt, end);
-            while (wideP < wideendP) {
+            Tcl_WideInt *pwide = THDRELEMPTR(psrc, Tcl_WideInt, low);
+            Tcl_WideInt *pend = THDRELEMPTR(psrc, Tcl_WideInt, end);
+            while (pwide < pend) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(*wideP++));
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(*pwide++));
             }
         }
         break;
     case TA_DOUBLE:
         {
-            double *dblP = THDRELEMPTR(srcP, double, low);
-            double *dblendP = THDRELEMPTR(srcP, double, end);
-            while (dblP < dblendP) {
+            double *pdbl = THDRELEMPTR(psrc, double, low);
+            double *pend = THDRELEMPTR(psrc, double, end);
+            while (pdbl < pend) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewDoubleObj(*dblP++));
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewDoubleObj(*pdbl++));
             }
         }
         break;
     case TA_BYTE:
         {
-            unsigned char *ucP = THDRELEMPTR(srcP, unsigned char, low);
-            unsigned char *ucendP = THDRELEMPTR(srcP, unsigned char, end);
-            while (ucP < ucendP) {
+            unsigned char *puch = THDRELEMPTR(psrc, unsigned char, low);
+            unsigned char *pend = THDRELEMPTR(psrc, unsigned char, end);
+            while (puch < pend) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(*ucP++));
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(*puch++));
             }
         }
         break;
     case TA_OBJ:
         {
-            Tcl_Obj **oPP = THDRELEMPTR(srcP, Tcl_Obj *, low);
-            Tcl_Obj **oendPP = THDRELEMPTR(srcP, Tcl_Obj *, end);
-            while (oPP < oendPP) {
+            Tcl_Obj **pobjsP = THDRELEMPTR(psrc, Tcl_Obj *, low);
+            Tcl_Obj **pend = THDRELEMPTR(psrc, Tcl_Obj *, end);
+            while (pobjsP < pend) {
                 if (fmt == TA_FORMAT_DICT)
                     Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, *oPP);
+                Tcl_ListObjAppendElement(ip, o, *pobjsP);
             }
         }
         break;
     default:
-        ta_type_panic(srcP->type);
+        ta_type_panic(psrc->type);
     }
 
     return o;
@@ -2116,26 +2116,26 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
 
 /* Returns a newly allocated thdr_t (with ref count 0) containing the
    values from the specified indices */
-Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *pindices, int fmt)
+Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *psrc, thdr_t *pindices, int fmt)
 {
     thdr_t *thdr;
     int count, index, bound;
-    int *pindex, *endP;
+    int *pindex, *end;
     Tcl_Obj *tcol;
-    void *srcbaseP, *thdrbaseP;
+    void *srcbase, *thdrbase;
 
     TA_ASSERT(pindices->type == TA_INT);
     count = pindices->used;
 
     if (fmt == TA_FORMAT_TARRAY) {
-        thdr = thdr_alloc(ip, srcP->type, count);
+        thdr = thdr_alloc(ip, psrc->type, count);
         if (thdr == NULL)
             return NULL;
-        thdrbaseP = THDRELEMPTR(thdr, unsigned char, 0);
+        thdrbase = THDRELEMPTR(thdr, unsigned char, 0);
         tcol = tcol_new(thdr);
     } else {
         thdr = NULL;
-        thdrbaseP = NULL;
+        thdrbase = NULL;
         tcol = Tcl_NewListObj(fmt == TA_FORMAT_LIST ? count : 2*count, NULL);
     }
     if (count == 0)
@@ -2143,14 +2143,14 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *pindices, int fmt)
 
 #define tcol_get_COPY(type_, objfn_)                                   \
     do {                                                                \
-        type_ *fromP = srcbaseP;                                        \
-        type_ *toP = thdrbaseP;                                         \
-        while (pindex < endP) {                                         \
+        type_ *fromP = srcbase;                                        \
+        type_ *tpobjs = thdrbase;                                         \
+        while (pindex < end) {                                         \
             index = *pindex++;                                          \
             if (index < 0 || index >= bound)                            \
                 goto index_error;                                       \
             if (fmt == TA_FORMAT_TARRAY)                                \
-                *toP++ = fromP[index];                                  \
+                *tpobjs++ = fromP[index];                                  \
             else {                                                      \
                 if (fmt == TA_FORMAT_DICT)                              \
                     Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index)); \
@@ -2164,16 +2164,16 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *pindices, int fmt)
 
 
     pindex = THDRELEMPTR(pindices, int, 0);
-    endP = pindex + count;
-    srcbaseP = THDRELEMPTR(srcP, unsigned char, 0);
-    bound = srcP->used;
-    switch (srcP->type) {
+    end = pindex + count;
+    srcbase = THDRELEMPTR(psrc, unsigned char, 0);
+    bound = psrc->used;
+    switch (psrc->type) {
     case TA_BOOLEAN:
         {
-            ba_t *srcbaP = srcbaseP;
-            ba_t *baP = thdrbaseP;
+            ba_t *srcbaP = srcbase;
+            ba_t *baP = thdrbase;
             int i;
-            for (i = 0; pindex < endP; ++i, ++pindex) {
+            for (i = 0; pindex < end; ++i, ++pindex) {
                 index = *pindex; 
                 if (index < 0 || index >= bound)
                     goto index_error;
@@ -2204,29 +2204,29 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, thdr_t *srcP, thdr_t *pindices, int fmt)
     case TA_OBJ:
         /* Cannot use macro here because of ref counts etc. */
         {
-            Tcl_Obj **objsrcPP = srcbaseP;
-            Tcl_Obj **oP = thdrbaseP;
-            while (pindex < endP) {
+            Tcl_Obj **srcobjs = srcbase;
+            Tcl_Obj **pobjs = thdrbase;
+            while (pindex < end) {
                 index = *pindex++; 
                 if (index < 0 || index >= bound)
                     goto index_error;
                 if (fmt == TA_FORMAT_TARRAY) {
-                    *oP = objsrcPP[index];
-                    Tcl_IncrRefCount(*oP);
-                    ++oP;
+                    *pobjs = srcobjs[index];
+                    Tcl_IncrRefCount(*pobjs);
+                    ++pobjs;
                     thdr->used++; /* Bump as we go along in case tcol has
                                       to be released on error */
                 } else {
                     /* No need to bump ref counts as lists take care of it */
                     if (fmt == TA_FORMAT_DICT)
                         Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
-                    Tcl_ListObjAppendElement(ip, tcol, objsrcPP[index]);
+                    Tcl_ListObjAppendElement(ip, tcol, srcobjs[index]);
                 }
             }
         }
         break;
     default:
-        ta_type_panic(srcP->type);
+        ta_type_panic(psrc->type);
     }
 
     return tcol;
@@ -2242,7 +2242,7 @@ index_error:   /* index should hold the current index in error */
 
 /* See asserts for conditions */
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
-                        Tcl_Obj *indexA, Tcl_Obj *indexB)
+                        Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
     int low, count;
     int status;
@@ -2256,16 +2256,16 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                                   tcol_occupancy(tcol));
     if (status == TCL_OK) {
         thdr_t *thdr = TARRAYHDR(tcol);
-        if (indexB) {
-            status = ta_fix_range_bounds(ip, thdr, indexA,
-                                             indexB, &low, &count);
+        if (indexb) {
+            status = ta_fix_range_bounds(ip, thdr, indexa,
+                                             indexb, &low, &count);
             if (status == TCL_OK)
                 thdr_delete_range(thdr, low, count);
         } else {
             /* Not a range, either a list or single index */
             thdr_t *pindices;
             /* Note status is TCL_OK at this point */
-            switch (tcol_to_indices(ip, indexA, 1, &pindices, &low)) {
+            switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
             case TA_INDEX_TYPE_ERROR:
                 status = TCL_ERROR;
                 break;
@@ -2284,8 +2284,8 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
 }
 
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
-                             Tcl_Obj *valueObj,
-                             Tcl_Obj *indexA, Tcl_Obj *indexB)
+                             Tcl_Obj *ovalue,
+                             Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
     int low, count;
     int status;
@@ -2295,13 +2295,13 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
-    if ((status = ta_value_from_obj(ip, valueObj,
+    if ((status = ta_value_from_obj(ip, ovalue,
                                      tcol_type(tcol), &value)) != TCL_OK)
         return status;
 
-    if (indexB) {
-        status = ta_fix_range_bounds(ip, TARRAYHDR(tcol), indexA,
-                                         indexB, &low, &count);
+    if (indexb) {
+        status = ta_fix_range_bounds(ip, TARRAYHDR(tcol), indexa,
+                                         indexb, &low, &count);
         if (status == TCL_OK && count != 0) {
             status = tcol_make_modifiable(ip, tcol, low+count, 0);
             if (status == TCL_OK)
@@ -2311,7 +2311,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
         /* Not a range, either a list or single index */
         thdr_t *pindices;
         /* Note status is TCL_OK at this point */
-        switch (tcol_to_indices(ip, indexA, 1, &pindices, &low)) {
+        switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
         case TA_INDEX_TYPE_ERROR:
             status = TCL_ERROR;
             break;
@@ -2361,7 +2361,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *srcP, Tcl_Obj *firstObj)
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *ofirst)
 {
     int first, status;
 
@@ -2369,31 +2369,31 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *srcP, Tcl_Obj *
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
-    if (tcol_type(tcol) != srcP->type)
+    if (tcol_type(tcol) != psrc->type)
         return ta_mismatched_types_error(ip);
 
-    status = ta_convert_index(ip, firstObj, &first, tcol_occupancy(tcol),
+    status = ta_convert_index(ip, ofirst, &first, tcol_occupancy(tcol),
                         0, tcol_occupancy(tcol));
-    if (status == TCL_OK && srcP->used) {
-        status = tcol_make_modifiable(ip, tcol, first + srcP->used, 0);
+    if (status == TCL_OK && psrc->used) {
+        status = tcol_make_modifiable(ip, tcol, first + psrc->used, 0);
         if (status == TCL_OK)
-            thdr_copy(TARRAYHDR(tcol), first, srcP, 0, srcP->used); 
+            thdr_copy(TARRAYHDR(tcol), first, psrc, 0, psrc->used); 
     }
     return status;
 }
 
 /* The tarray Tcl_Obj is modified */
 TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
-                             Tcl_Obj *valueListObj, Tcl_Obj *firstObj)
+                             Tcl_Obj *valueListObj, Tcl_Obj *ofirst)
 {
     int status;
-    Tcl_Obj **valueObjs;
+    Tcl_Obj **ovalues;
     int nvalues;
     int first;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
-    status = Tcl_ListObjGetElements(ip, valueListObj, &nvalues, &valueObjs);
+    status = Tcl_ListObjGetElements(ip, valueListObj, &nvalues, &ovalues);
     if (status != TCL_OK)
         return status;
 
@@ -2402,7 +2402,7 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     /* Get the limits of the range to set */
 
-    status = ta_convert_index(ip, firstObj, &first, tcol_occupancy(tcol),
+    status = ta_convert_index(ip, ofirst, &first, tcol_occupancy(tcol),
                         0, tcol_occupancy(tcol));
     if (status == TCL_OK && nvalues) {
         /* Note this also invalidates the string rep as desired */
@@ -2412,7 +2412,7 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
              * and unchanged tcol
              */
             status = thdr_put_objs(ip, TARRAYHDR(tcol),
-                                      first, nvalues, valueObjs);
+                                      first, nvalues, ovalues);
         }
     }
     
@@ -2420,26 +2420,26 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 }
 
 TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
-                               Tcl_Obj *valueListObj,
-                               Tcl_Obj *indicesObj)
+                           Tcl_Obj *ovaluelist,
+                           Tcl_Obj *oindices)
 {
     int new_size;
     int status;
     thdr_t *pindices;
-    Tcl_Obj **valueObjs;
+    Tcl_Obj **ovalues;
     int nvalues;
     thdr_t *psorted;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
-    status = Tcl_ListObjGetElements(ip, valueListObj, &nvalues, &valueObjs);
+    status = Tcl_ListObjGetElements(ip, ovaluelist, &nvalues, &ovalues);
     if (status != TCL_OK)
         return status;
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    if (tcol_to_indices(ip, indicesObj, 0, &pindices, NULL)
+    if (tcol_to_indices(ip, oindices, 0, &pindices, NULL)
         != TA_INDEX_TYPE_thdr_t)
         return TCL_ERROR;
 
@@ -2464,7 +2464,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
         if (status == TCL_OK) {
             status = thdr_place_objs(ip, TARRAYHDR(tcol), pindices,
                                         new_size-1, /* Highest index in pindices */
-                                        nvalues, valueObjs);
+                                        nvalues, ovalues);
         }
     }
     thdr_decr_refs(pindices);
@@ -2476,14 +2476,14 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 /* The grid Tcl_Obj gridObj is modified */
 TCL_RESULT TGridFillFromObjs(
     Tcl_Interp *ip,
-    Tcl_Obj *lowObj, Tcl_Obj *ohigh,
+    Tcl_Obj *olow, Tcl_Obj *ohigh,
     Tcl_Obj *gridObj,
     Tcl_Obj *rowObj)
 {
     int i, low, count, row_width;
     thdr_t *gridHdrP;
     ta_value_t values[32];
-    ta_value_t *valuesP;
+    ta_value_t *pvalues;
     Tcl_Obj **tcolPP;
     int status;
     int new_size;
@@ -2516,10 +2516,10 @@ TCL_RESULT TGridFillFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (lowObj->typePtr == &g_ta_type)
-        lowObj = Tcl_DuplicateObj(lowObj);
+    if (olow->typePtr == &g_ta_type)
+        olow = Tcl_DuplicateObj(olow);
     else
-        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
+        Tcl_IncrRefCount(olow); /* Since we will release at end */
 
     if (ohigh->typePtr == &g_ta_type)
         ohigh = Tcl_DuplicateObj(ohigh);
@@ -2527,9 +2527,9 @@ TCL_RESULT TGridFillFromObjs(
         Tcl_IncrRefCount(ohigh); /* Since we will release at end */
 
     if (row_width > sizeof(values)/sizeof(values[0])) {
-        valuesP = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
+        pvalues = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
     } else {
-        valuesP = values;
+        pvalues = values;
     }
         
     /* Make sure grid object is modifiable */
@@ -2555,7 +2555,7 @@ TCL_RESULT TGridFillFromObjs(
          i < row_width;
          ++i, ++tcolPP) {
         thdr_t *thdr;
-        Tcl_Obj *valueObj;
+        Tcl_Obj *ovalue;
         Tcl_Obj *colObj = *tcolPP;
 
         if ((status = tcol_convert(ip, *tcolPP)) != TCL_OK)
@@ -2565,7 +2565,7 @@ TCL_RESULT TGridFillFromObjs(
         if (i == 0) {
             collength = thdr->used;
             /* Get the limits of the range to set */
-            status = ta_fix_range_bounds(ip, thdr, lowObj, ohigh, &low, &count);
+            status = ta_fix_range_bounds(ip, thdr, olow, ohigh, &low, &count);
             if (status != TCL_OK || count == 0)
                 goto vamoose;   /* Error or nothing to do */
         }
@@ -2591,9 +2591,9 @@ TCL_RESULT TGridFillFromObjs(
         if ((status = tcol_make_modifiable(ip, colObj, low+count, new_size)) != TCL_OK)
             goto vamoose;
 
-        if ((status = Tcl_ListObjIndex(ip, rowObj, i, &valueObj)) != TCL_OK)
+        if ((status = Tcl_ListObjIndex(ip, rowObj, i, &ovalue)) != TCL_OK)
             goto vamoose;
-        status = ta_value_from_obj(ip, valueObj, thdr->type, &valuesP[i]);
+        status = ta_value_from_obj(ip, ovalue, thdr->type, &pvalues[i]);
         if (status != TCL_OK)
             goto vamoose;
     }
@@ -2608,15 +2608,15 @@ TCL_RESULT TGridFillFromObjs(
     for (i = 0, tcolPP = THDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++tcolPP) {
-        thdr_fill_range(ip, TARRAYHDR(*tcolPP), &valuesP[i], low, count);
+        thdr_fill_range(ip, TARRAYHDR(*tcolPP), &pvalues[i], low, count);
     }
     status = TCL_OK;
     
 vamoose:                   /* ip must already hold error message */
-    Tcl_DecrRefCount(lowObj);
+    Tcl_DecrRefCount(olow);
     Tcl_DecrRefCount(ohigh);
-    if (valuesP != values)
-        TA_FREEMEM((char *) valuesP);
+    if (pvalues != values)
+        TA_FREEMEM((char *) pvalues);
 
     return status;
 }
@@ -2881,24 +2881,24 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                 break;
             case TA_WIDE:
                 {
-                    register Tcl_WideInt *wideP;
-                    wideP = THDRELEMPTR(thdr, Tcl_WideInt, first);
-                    for (r = 0; r < nrows; ++r, ++wideP) {
+                    register Tcl_WideInt *pwide;
+                    pwide = THDRELEMPTR(thdr, Tcl_WideInt, first);
+                    for (r = 0; r < nrows; ++r, ++pwide) {
                         Tcl_ListObjIndex(ip, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
-                        if (Tcl_GetWideIntFromObj(ip, valObj, wideP) != TCL_OK)
+                        if (Tcl_GetWideIntFromObj(ip, valObj, pwide) != TCL_OK)
                             goto error_return;
                     }
                 }
                 break;
             case TA_DOUBLE:
                 {
-                    register double *dblP;
-                    dblP = THDRELEMPTR(thdr, double, first);
-                    for (r = 0; r < nrows; ++r, ++dblP) {
+                    register double *pdbl;
+                    pdbl = THDRELEMPTR(thdr, double, first);
+                    for (r = 0; r < nrows; ++r, ++pdbl) {
                         Tcl_ListObjIndex(ip, rows[r], t, &valObj);
                         TA_ASSERT(valObj);
-                        if (Tcl_GetDoubleFromObj(ip, valObj, dblP) != TCL_OK)
+                        if (Tcl_GetDoubleFromObj(ip, valObj, pdbl) != TCL_OK)
                             goto error_return;
                     }
                 }
@@ -2928,22 +2928,22 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
 
     /* Now that no errors are possible, update the TA_OBJ columns */
     for (t=0; t < nthdrs; ++t) {
-        register Tcl_Obj **oP;
+        register Tcl_Obj **pobjs;
         thdr = thdrs[t];
         if (thdr->type != TA_OBJ)
             continue;
         thdr_mark_unsorted(thdr); /* TBD - optimize */
-        oP = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (r = 0; r < nrows ; ++r, ++oP) {
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+        for (r = 0; r < nrows ; ++r, ++pobjs) {
             Tcl_ListObjIndex(ip, rows[r], t, &valObj);
             TA_ASSERT(valObj);
             /* Careful about the order here! */
             Tcl_IncrRefCount(valObj);
             if ((first + r) < thdr->used) {
                 /* Deref what was originally in that slot */
-                Tcl_DecrRefCount(*oP);
+                Tcl_DecrRefCount(*pobjs);
             }
-            *oP = valObj;
+            *pobjs = valObj;
         }
     }
 

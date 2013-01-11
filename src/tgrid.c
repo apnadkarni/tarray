@@ -19,7 +19,7 @@
  * TGrid is a Tcl "type" used for storing arrays of TArrays.
  * Internally it is stored as a thdr_t containing TArrays Tcl_Objs.
  */
-static void TGridTypeDupObj(Tcl_Obj *srcP, Tcl_Obj *dstP);
+static void TGridTypeDupObj(Tcl_Obj *psrc, Tcl_Obj *pdst);
 static void TGridTypeFreeRep(Tcl_Obj *o);
 static void TGridTypeUpdateStringRep(Tcl_Obj *o);
 struct Tcl_ObjType gTGridType = {
@@ -279,14 +279,14 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *ip, Tcl_Obj *gridObj, int minsize, int pr
 
 TCL_RESULT TGridFillFromObjs(
     Tcl_Interp *ip,
-    Tcl_Obj *lowObj, Tcl_Obj *ohigh,
-    Tcl_Obj *const tcols[], Tcl_Obj *const valueObjs[],
+    Tcl_Obj *olow, Tcl_Obj *ohigh,
+    Tcl_Obj *const tcols[], Tcl_Obj *const ovalues[],
     int tuple_width, int flags)
 {
     int i, low, count;
     thdr_t *thdr0P;
     ta_value_t values[32];
-    ta_value_t *valuesP;
+    ta_value_t *pvalues;
     Tcl_Obj *oresults[sizeof(values)/sizeof(values[0])];
     Tcl_Obj **oresultsP;
     int status = TCL_ERROR;
@@ -306,10 +306,10 @@ TCL_RESULT TGridFillFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (lowObj->typePtr == &g_ta_type)
-        lowObj = Tcl_DuplicateObj(lowObj);
+    if (olow->typePtr == &g_ta_type)
+        olow = Tcl_DuplicateObj(olow);
     else
-        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
+        Tcl_IncrRefCount(olow); /* Since we will release at end */
 
     if (ohigh->typePtr == &g_ta_type)
         ohigh = Tcl_DuplicateObj(ohigh);
@@ -317,10 +317,10 @@ TCL_RESULT TGridFillFromObjs(
         Tcl_IncrRefCount(ohigh); /* Since we will release at end */
 
     if (tuple_width > sizeof(values)/sizeof(values[0])) {
-        valuesP = (ta_value_t *) ckalloc(tuple_width * sizeof(ta_value_t));
+        pvalues = (ta_value_t *) ckalloc(tuple_width * sizeof(ta_value_t));
         oresultsP = (Tcl_Obj **)ckalloc(tuple_width * sizeof(Tcl_Obj *));
     } else {
-        valuesP = values;
+        pvalues = values;
         oresultsP = oresults;
     }
         
@@ -339,13 +339,13 @@ TCL_RESULT TGridFillFromObjs(
             Tcl_SetResult(ip, "tarrays have differing number of elements", TCL_STATIC);
             goto vamoose;
         }
-        if (ta_value_from_obj(ip, valueObjs[i], thdr->type, &valuesP[i])
+        if (ta_value_from_obj(ip, ovalues[i], thdr->type, &pvalues[i])
             != TCL_OK)
             goto vamoose;
     }
 
     /* Get the limits of the range to set */
-    if (ta_fix_range_bounds(ip, thdr0P, lowObj, ohigh, &low, &count)
+    if (ta_fix_range_bounds(ip, thdr0P, olow, ohigh, &low, &count)
         != TCL_OK)
         return TCL_ERROR;
 
@@ -384,7 +384,7 @@ TCL_RESULT TGridFillFromObjs(
             TA_ASSERT(tcols[i]->typePtr == &g_ta_type); // Verify no shimmering
             oresultsP[i] = TArrayMakeWritable(tcols[i], low+count, new_size, 0);
             thdr_tFill(ip, TARRAYHDR(oresults[i]),
-                          &valuesP[i], low, count);
+                          &pvalues[i], low, count);
         }
         
         /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */
@@ -397,13 +397,13 @@ TCL_RESULT TGridFillFromObjs(
     status = TCL_OK;
     
 vamoose:                   /* ip must already hold error message */
-    Tcl_DecrRefCount(lowObj);
+    Tcl_DecrRefCount(olow);
     Tcl_DecrRefCount(ohigh);
 
     if (oresultsP != oresults)
         ckfree((char *) oresultsP);
-    if (valuesP != values)
-        ckfree((char *) valuesP);
+    if (pvalues != values)
+        ckfree((char *) pvalues);
 
     return status;
 }
@@ -416,9 +416,9 @@ vamoose:                   /* ip must already hold error message */
  */
 TCL_RESULT TGridSetFromObjs(
     Tcl_Interp *ip,
-    Tcl_Obj *lowObj,
+    Tcl_Obj *olow,
     Tcl_Obj *gridObj,
-    Tcl_Obj *valueObjs, /* List of lists (tuple values) */
+    Tcl_Obj *ovalues, /* List of lists (tuple values) */
     int flags)
 {
     int i, low, count, grid_width;
@@ -434,7 +434,7 @@ TCL_RESULT TGridSetFromObjs(
     TA_ASSERT(! Tcl_IsShared(gridObj));
 
     if (Tcl_ListObjGetElements(ip, gridObj, &grid_width, &tcols) != TCL_OK
-        || Tcl_ListObjLength(ip, valueObjs, &count) != TCL_OK)
+        || Tcl_ListObjLength(ip, ovalues, &count) != TCL_OK)
         return TCL_ERROR;
 
     /* Check for empty tuple or no new values so as to simplify loops below */
@@ -453,10 +453,10 @@ TCL_RESULT TGridSetFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (lowObj->typePtr == &g_ta_type)
-        lowObj = Tcl_DuplicateObj(lowObj);
+    if (olow->typePtr == &g_ta_type)
+        olow = Tcl_DuplicateObj(olow);
     else
-        Tcl_IncrRefCount(lowObj); /* Since we will release at end */
+        Tcl_IncrRefCount(olow); /* Since we will release at end */
 
     if (grid_width > sizeof(oresults)/sizeof(oresults[0])) {
         /* Allocate room for both oresults and thdrs in one shot */
@@ -483,11 +483,11 @@ TCL_RESULT TGridSetFromObjs(
     }
 
     /* Get the start of the range to set */
-    if (ta_convert_index(ip, lowObj, &low, thdr0P->used) != TCL_OK)
+    if (ta_convert_index(ip, olow, &low, thdr0P->used) != TCL_OK)
         goto vamoose;
 
     if (low < 0 || low > thdr0P->used) {
-        ta_index_range_error(ip, lowObj);
+        ta_index_range_error(ip, olow);
         goto vamoose;
     }
 
@@ -522,7 +522,7 @@ TCL_RESULT TGridSetFromObjs(
         thdrsP[i] = TARRAYHDR(oresultsP[i]);
     }
         
-    status = thdr_tSetMultipleFromObjs(ip, thdrsP, grid_width, valueObjs, low);
+    status = thdr_tSetMultipleFromObjs(ip, thdrsP, grid_width, ovalues, low);
 
     if (status == TCL_OK) {
         /* Caller should not set TA_FILL_RETURN_ONE unless single tarray */
@@ -537,7 +537,7 @@ TCL_RESULT TGridSetFromObjs(
         Tcl_DecrRefCount(oresultsP[i]); /* Remove ref added by MakeWritable */
 
 vamoose:                   /* ip must already hold error message */
-    Tcl_DecrRefCount(lowObj);
+    Tcl_DecrRefCount(olow);
 
     if (oresultsP != oresults)
         ckfree((char *) oresultsP);
