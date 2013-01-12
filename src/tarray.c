@@ -350,14 +350,20 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
  * See the asserts below for conditions under which this can be called
  */
 void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
-                   const ta_value_t *ptav, int pos, int count)
+                     const ta_value_t *ptav, int pos, int count, int insert)
 {
     int i;
+    int new_used;
 
     TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT((pos+count) <= thdr->usable);
     TA_ASSERT(pos <= thdr->used);
     TA_ASSERT(thdr->type == ptav->type);
+
+    new_used = thdr_recompute_occupancy(thdr, &pos, count, insert);
+    TA_ASSERT(new_used <= thdr->usable);
+
+    if (insert)
+        thdr_make_room(thdr, pos, count);
 
     thdr_mark_unsorted(thdr);
     switch (thdr->type) {
@@ -2262,9 +2268,8 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
     return status;
 }
 
-TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
-                             Tcl_Obj *ovalue,
-                             Tcl_Obj *indexa, Tcl_Obj *indexb)
+TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                         Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
     int low, count;
     int status;
@@ -2284,7 +2289,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol,
         if (status == TCL_OK && count != 0) {
             status = tcol_make_modifiable(ip, tcol, low+count, 0);
             if (status == TCL_OK)
-                thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, count);
+                thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, count, 0);
         }
     } else {
         /* Not a range, either a list or single index */
