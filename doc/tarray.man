@@ -9,7 +9,7 @@
 
 [section Introduction]
 
-The TArray extension implements typed arrays and associated commands
+The [cmd tarray] extension implements typed arrays and associated commands
 [cmd column] and [cmd grid]. The primary motivation for this extension
 is efficient memory utilization and speed of certain operations in
 applications dealing with very large numbers of elements.
@@ -177,7 +177,7 @@ replaced by the corresponding elements of [arg VALUES].
 [arg VALUES] may be a list of values or a typed column of the same type.
 The command may extend the array if necessary.
 
-[call [cmd "column reverse"] [arg TARRAYCOLUMN]]
+[call [cmd "column reverse"] [arg COLUMN]]
 Returns the typed column with order of elements reversed.
 
 [call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg TARRAYCOLUMN] [arg VALUE]]
@@ -271,6 +271,12 @@ The new value is assigned back to the variable and also returned as the
 result of the command.
 [para]
 See the command [cmd "column put"] for other details.
+
+[call [cmd "column vreverse"] [arg COLUMNVAR]]
+Reverses the order of elements in the 
+typed column in variable [arg COLUMNVAR], stores it back
+into the variable and also returns it.
+
 [list_end]
 
 
