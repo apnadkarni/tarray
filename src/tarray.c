@@ -358,6 +358,10 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(pos <= thdr->used);
     TA_ASSERT(thdr->type == ptav->type);
+    TA_ASSERT(count >= 0);
+
+    if (count == 0)
+        return;
 
     new_used = thdr_recompute_occupancy(thdr, &pos, count, insert);
     TA_ASSERT(new_used <= thdr->usable);
@@ -438,8 +442,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
         ta_type_panic(thdr->type);
     }
 
-    if ((pos + count) > thdr->used)
-        thdr->used = pos + count;
+    thdr->used = new_used;
 }
 
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
@@ -2306,7 +2309,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             } else {
                 status = tcol_make_modifiable(ip, tcol, low+1, 0);
                 if (status == TCL_OK)
-                    thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, 1);
+                    thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, 1, 0);
             }
             break;
         case TA_INDEX_TYPE_thdr_t:
@@ -2592,7 +2595,7 @@ TCL_RESULT TGridFillFromObjs(
     for (i = 0, tcolPP = THDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++tcolPP) {
-        thdr_fill_range(ip, TARRAYHDR(*tcolPP), &pvalues[i], low, count);
+        thdr_fill_range(ip, TARRAYHDR(*tcolPP), &pvalues[i], low, count, 0);
     }
     status = TCL_OK;
     
