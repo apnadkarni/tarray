@@ -46,6 +46,7 @@ namespace eval tarray {
             index index
             insert insert
             put put
+            reverse reverse
             size size
             search search
             sort sort
@@ -54,6 +55,7 @@ namespace eval tarray {
             vfill vfill
             vinsert vinsert
             vput vput
+            vreverse vreverse
         }
     }
 

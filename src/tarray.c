@@ -1573,7 +1573,7 @@ void thdr_reverse(thdr_t *thdr)
             type_ temp;                                                 \
             temp = *front;                                              \
             *front++ = *back;                                           \
-            *back++ = temp;                                             \
+            *back-- = temp;                                             \
         }                                                               \
     } while (0)
 
