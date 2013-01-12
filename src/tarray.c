@@ -1014,16 +1014,18 @@ Tcl_Obj *tcol_new(thdr_t *thdr)
 
 /* thdr must NOT be shared and must have enough slots */
 /* ip may be NULL (only used for errors) */
-TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
-                                 int first, int nelems,
-                                 Tcl_Obj * const elems[])
+TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
+                         int nelems, Tcl_Obj * const elems[], int insert)
 {
     int i, ival;
     Tcl_WideInt wide;
     int status;
+    int new_used;
 
     TA_ASSERT(thdr->nrefs < 2);
-    TA_ASSERT((first + nelems) <= thdr->usable);
+
+    new_used = thdr_recompute_occupancy(thdr, &first, nelems, insert);
+    TA_ASSERT(new_used <= thdr->usable); /* Caller should have ensured */
 
     thdr_mark_unsorted(thdr); /* TBD - optimize */
 
@@ -1036,7 +1038,8 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
      *
      * As a special optimization, when appending to the end, we do
      * not need to first check. We directly store the values and in case
-     * of errors, simply do not update size.
+     * of errors, simply do not update size. Note this works even for
+     * the insertion case.
      */
 
     if (first < thdr->used) {
@@ -1044,6 +1047,10 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
             != TCL_OK)
             return TCL_ERROR;
     }
+
+    /* Make room if necessary */
+    if (insert)
+        thdr_make_room(thdr, first, nelems);
 
     /*
      * Now actually store the values. Note we still have to check
@@ -1053,49 +1060,47 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
 
     switch (thdr->type) {
     case TA_BOOLEAN:
-        {
-            register ba_t *baP;
-            ba_t ba, ba_mask;
-            int off;
+       {
+           register ba_t *baP;
+           ba_t ba, ba_mask;
+           int off;
 
-            /* Take care of the initial condition where the first bit
-               may not be aligned on a boundary */
-            baP = THDRELEMPTR(thdr, ba_t, first / BA_UNIT_SIZE);
-            off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
-            ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
-            if (off != 0) {
-                /*
-                 * Offset is off within a ba_t. Get the ba_t at that location
-                 * preserving the preceding bits within the char.
-                 */
-                ba = *baP & BITPOSMASKLT(off);
-            } else {
-                ba = 0;
-            }
-            for (i = 0; i < nelems; ++i) {
-                if (Tcl_GetBooleanFromObj(ip, elems[i], &ival) != TCL_OK)
-                    goto convert_error;
-                if (ival)
-                    ba |= ba_mask;
-                ba_mask = BITMASKNEXT(ba_mask);
-                if (ba_mask == 0) {
-                    *baP++ = ba;
-                    ba = 0;
-                    ba_mask = BITPOSMASK(0);
-                }
-            }
-            if (ba_mask != BITPOSMASK(0)) {
-                /* We have some leftover bits in ba that need to be stored.
-                 * We need to *merge* these into the corresponding word
-                 * keeping the existing high index bits.
-                 * Note the bit indicated by ba_mask also has to be preserved,
-                 * not overwritten.
-                 */
-                *baP = ba | (*baP & BITMASKGE(ba_mask));
-            }
-        }
-        break;
-
+           /* Take care of the initial condition where the first bit
+              may not be aligned on a boundary */
+           baP = THDRELEMPTR(thdr, ba_t, first / BA_UNIT_SIZE);
+           off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
+           ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
+           if (off != 0) {
+               /*
+                * Offset is off within a ba_t. Get the ba_t at that location
+                * preserving the preceding bits within the char.
+                */
+               ba = *baP & BITPOSMASKLT(off);
+           } else {
+               ba = 0;
+           }
+           for (i = 0; i < nelems; ++i) {
+               if (Tcl_GetBooleanFromObj(ip, elems[i], &ival) != TCL_OK)
+                   goto convert_error;
+               if (ival)
+                   ba |= ba_mask;
+               ba_mask = BITMASKNEXT(ba_mask);
+               if (ba_mask == 0) {
+                   *baP++ = ba;
+                   ba = 0;
+                   ba_mask = BITPOSMASK(0);
+               }
+           }
+           if (ba_mask != BITPOSMASK(0)) {
+               /* We have some leftover bits in ba that need to be stored.
+                * We need to *merge* these into the corresponding word
+                * keeping the existing high index bits.
+                * Note the bit indicated by ba_mask also has to be preserved,
+                * not overwritten.
+                */
+               *baP = ba | (*baP & BITMASKGE(ba_mask));
+           }
+       }
     case TA_UINT:
         {
             register unsigned int *uintP;
@@ -1180,8 +1185,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr,
         ta_type_panic(thdr->type);
     }
 
-    if ((first + nelems) > thdr->used)
-        thdr->used = first + nelems;
+    thdr->used = new_used;
 
     return TCL_OK;
 
@@ -1428,7 +1432,7 @@ thdr_t * thdr_alloc_and_init(Tcl_Interp *ip, unsigned char tatype,
     thdr = thdr_alloc(ip, tatype, init_size);
     if (thdr) {
         if (elems != NULL && nelems != 0) {
-            if (thdr_put_objs(ip, thdr, 0, nelems, elems) != TCL_OK) {
+            if (thdr_put_objs(ip, thdr, 0, nelems, elems, 0) != TCL_OK) {
                 thdr_decr_refs(thdr);
                 thdr = NULL;
             }
@@ -1590,10 +1594,12 @@ void thdr_reverse(thdr_t *thdr)
 /* Copies partial content from one thdr_t to another. See asserts below
    for requirements */
 void thdr_copy(thdr_t *pdst, int dst_first,
-                   thdr_t *psrc, int src_first, int count)
+               thdr_t *psrc, int src_first, int count, int insert)
 {
     int nbytes;
     void *s, *d;
+    int new_used;
+    int elem_size;
 
     TA_ASSERT(pdst != psrc);
     TA_ASSERT(pdst->type == psrc->type);
@@ -1606,12 +1612,9 @@ void thdr_copy(thdr_t *pdst, int dst_first,
         count = psrc->used - src_first;
     if (count <= 0)
         return;
-    TA_ASSERT((dst_first + count) <= pdst->usable);
 
-    if (dst_first < 0)
-        dst_first = 0;
-    else if (dst_first > pdst->used)
-        dst_first = pdst->used;
+    new_used = thdr_recompute_occupancy(pdst, &dst_first, count, insert);
+    TA_ASSERT(new_used <= pdst->usable); /* Caller should have ensured */
 
     thdr_mark_unsorted(pdst); /* TBD - optimize */
 
@@ -1623,11 +1626,14 @@ void thdr_copy(thdr_t *pdst, int dst_first,
      */
     switch (psrc->type) {
     case TA_BOOLEAN:
-        ba_copy(THDRELEMPTR(pdst, ba_t, 0), dst_first,
-                THDRELEMPTR(psrc, ba_t, 0), src_first, count);
-        if ((dst_first + count) > pdst->used)
-            pdst->used = dst_first + count;
-        return;
+        if (insert) {
+            /* First make room by copying bits up */
+            d = THDRELEMPTR(pdst, ba_t, 0);
+            ba_copy(d, dst_first+count, d, dst_first, pdst->used-dst_first);
+        }
+        /* Now insert or overwrite in place */
+        ba_copy(d, dst_first, THDRELEMPTR(psrc, ba_t, 0), src_first, count);
+        break;
 
     case TA_OBJ:
         /*
@@ -1638,48 +1644,36 @@ void thdr_copy(thdr_t *pdst, int dst_first,
          */
 
         thdr_incr_obj_refs(psrc, src_first, count); /* Do this first */
-        /* Note this call take care of the case where count exceeds
-         * actual number in pdst
-         */
-        thdr_decr_obj_refs(pdst, dst_first, count);
-         
-        /* Now we can just memcpy like the other types */
-        nbytes = count * sizeof(Tcl_Obj *);
-        s = THDRELEMPTR(psrc, Tcl_Obj *, src_first);
-        d = THDRELEMPTR(pdst, Tcl_Obj *, dst_first);
-        break;
+        if (! insert) {
+            /*
+             * Overwriting so decr refs of existing elements.
+             * Note this call take care of the case where count exceeds
+             * actual number in pdst
+             */
+            thdr_decr_obj_refs(pdst, dst_first, count);
+        }
 
+        /* FALLTHRU - Now we can just move memory like the other types */
     case TA_UINT:
     case TA_INT:
-        nbytes = count * sizeof(int);
-        s = THDRELEMPTR(psrc, int, src_first);
-        d = THDRELEMPTR(pdst, int, dst_first);
-        break;
     case TA_WIDE:
-        nbytes = count * sizeof(Tcl_WideInt);
-        s = THDRELEMPTR(psrc, Tcl_WideInt, src_first);
-        d = THDRELEMPTR(pdst, Tcl_WideInt, dst_first);
-        break;
     case TA_DOUBLE:
-        nbytes = count * sizeof(double);
-        s = THDRELEMPTR(psrc, double, src_first);
-        d = THDRELEMPTR(pdst, double, dst_first);
-        break;
     case TA_BYTE:
-        nbytes = count * sizeof(unsigned char);
-        s = THDRELEMPTR(psrc, unsigned char, src_first);
-        d = THDRELEMPTR(pdst, unsigned char, dst_first);
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+
+        elem_size = pdst->elem_bits / CHAR_BIT;
+        nbytes = count * elem_size;
+        d = (dst_first * elem_size) + THDRELEMPTR(pdst, char, 0);
+        s = (src_first * elem_size) + THDRELEMPTR(psrc, char, 0);
+        memcpy(d, s, nbytes);
         break;
+
     default:
         ta_type_panic(psrc->type);
     }
 
-    memcpy(d, s, nbytes);
-
-    if ((dst_first + count) > pdst->used)
-        pdst->used = dst_first + count;
-
-    return;
+    pdst->used = new_used;
 }
 
 /* Copies partial content from one thdr_t to another in reverse.
@@ -1779,7 +1773,7 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     /* TBD - optimize these two calls */
     thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
-        thdr_copy(thdr, 0, psrc, 0, psrc->used);
+        thdr_copy(thdr, 0, psrc, 0, psrc->used, 0);
         thdr_copy_sort_status(thdr, psrc);
     }
     return thdr;
@@ -1822,7 +1816,7 @@ thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
 
     thdr = thdr_alloc(ip, psrc->type, count);
     if (thdr) {
-        thdr_copy(thdr, 0, psrc, low, count);
+        thdr_copy(thdr, 0, psrc, low, count, 0);
         thdr_copy_sort_status(thdr, psrc);
     }
     return thdr;
@@ -2346,7 +2340,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *ofirst)
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *ofirst, int insert)
 {
     int first, status;
 
@@ -2362,19 +2356,19 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *
     if (status == TCL_OK && psrc->used) {
         status = tcol_make_modifiable(ip, tcol, first + psrc->used, 0);
         if (status == TCL_OK)
-            thdr_copy(TARRAYHDR(tcol), first, psrc, 0, psrc->used); 
+            thdr_copy(TARRAYHDR(tcol), first, psrc, 0, psrc->used, insert); 
     }
     return status;
 }
 
 /* The tarray Tcl_Obj is modified */
 TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
-                             Tcl_Obj *valueListObj, Tcl_Obj *ofirst)
+                         Tcl_Obj *valueListObj, Tcl_Obj *ofirst, int insert)
 {
     int status;
     Tcl_Obj **ovalues;
     int nvalues;
-    int first;
+    int n;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
@@ -2387,17 +2381,18 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     /* Get the limits of the range to set */
 
-    status = ta_convert_index(ip, ofirst, &first, tcol_occupancy(tcol),
-                        0, tcol_occupancy(tcol));
+    n = tcol_occupancy(tcol);
+    status = ta_convert_index(ip, ofirst, &n, n, 0, n);
+    /* n contains starting offset */
     if (status == TCL_OK && nvalues) {
         /* Note this also invalidates the string rep as desired */
-        status = tcol_make_modifiable(ip, tcol, first + nvalues, 0);
+        status = tcol_make_modifiable(ip, tcol, n + nvalues, 0);
         if (status == TCL_OK) {
             /* Note even on error thdr_put_objs guarantees a consistent 
              * and unchanged tcol
              */
             status = thdr_put_objs(ip, TARRAYHDR(tcol),
-                                      first, nvalues, ovalues);
+                                   n, nvalues, ovalues, insert);
         }
     }
     

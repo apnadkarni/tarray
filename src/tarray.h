@@ -161,7 +161,7 @@ TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
 Tcl_Obj * tcol_new(thdr_t *thdr);
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
 
-TCL_RESULT thdr_put_objs(struct Tcl_Interp *,thdr_t *thdr,int first,int nelems,struct Tcl_Obj *const *elems );
+TCL_RESULT thdr_put_objs(struct Tcl_Interp *,thdr_t *thdr,int first,int nelems,struct Tcl_Obj *const *elems, int insert );
 TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
                               int highest_in_indices,
                               int nvalues, Tcl_Obj * const *pvalues);
@@ -171,7 +171,7 @@ thdr_t *thdr_alloc(Tcl_Interp *, unsigned char tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 void thdr_reverse(thdr_t *tdrhP);
 void thdr_copy_reversed(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
-void thdr_copy(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
+void thdr_copy(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count, int insert);
 void thdr_delete_range(thdr_t *thdr, int first, int count);
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices);
 thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, int init_size);
@@ -194,9 +194,9 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                       Tcl_Obj *indexA, Tcl_Obj *indexB);
 Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj);
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,
-                             Tcl_Obj *valueListObj, Tcl_Obj *firstObj);
+                         Tcl_Obj *valueListObj, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                                Tcl_Obj *valueListObj, Tcl_Obj *indicesObj);
 TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
@@ -299,6 +299,49 @@ TA_INLINE int thdr_compute_move(thdr_t *thdr, int dst_off, int src_off, int coun
     *ppsrc = (src_off * elem_size) + p;
     *ppdst = (dst_off * elem_size) + p;
     return count * elem_size;
+}
+
+/* Sanitize destination offset for writing and also
+ *   Recompute the new value of used slots when writing or inserting
+ */
+TA_INLINE int thdr_recompute_occupancy(thdr_t *thdr, int *poff, int count, int insert)
+{
+    int off = *poff;
+    int occupancy;
+
+    if (off < 0)
+        off = 0;
+    else if (off > thdr->used)
+        off = thdr->used;
+
+    if (insert)
+        occupancy = thdr->used + count;
+    else {
+        /* New utilization depends whether we are extending the array or not */
+        if ((off + count) > thdr->used)
+            occupancy = off + count;
+        else
+            occupancy = thdr->used;
+    }
+
+    *poff = off;
+    return occupancy;
+}
+
+/* Make room for count elements at offset off */
+TA_INLINE thdr_make_room(thdr_t *thdr, int off, int count)
+{
+    void *d, *s;
+    int nbytes;
+
+    if (thdr->type == TA_BOOLEAN) {
+        d = THDRELEMPTR(thdr, char, 0);
+        ba_copy(d, off + count, d, off, thdr->used - off);
+    } else {
+        nbytes = thdr_compute_move(thdr, off + count, off,
+                                   thdr->used - off, &d, &s);
+        memmove(d, s, nbytes); /* Not memcpy, overlapping! */
+    }
 }
 
 #endif
