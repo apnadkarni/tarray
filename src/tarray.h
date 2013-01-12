@@ -147,7 +147,7 @@ TCL_RESULT TGridConvert(Tcl_Interp *, Tcl_Obj *o);
 TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav);
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
-                    const ta_value_t *ptav, int pos, int count);
+                     const ta_value_t *ptav, int pos, int count, int insert);
 void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                             const ta_value_t *ptav, thdr_t *pindices);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
