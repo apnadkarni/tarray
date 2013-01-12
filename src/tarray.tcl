@@ -44,6 +44,7 @@ namespace eval tarray {
             fill fill
             get get
             index index
+            insert insert
             put put
             size size
             search search
@@ -51,6 +52,7 @@ namespace eval tarray {
             type type
             vdelete vdelete
             vfill vfill
+            vinsert vinsert
             vput vput
         }
     }

@@ -148,11 +148,13 @@ as specified in [sectref "Standard Options"].
 Returns the value of the element at the position specified by [arg INDEX]
 which is a single [sectref Indices index].
 
-[call [cmd "column insert"] [arg TARRAYCOLUMN] [arg VALUES] [arg FIRST]]
-Returns a typed column with the specified values inserted
-at index [arg FIRST].
+[call [cmd "column insert"] [arg COLUMN] [arg VALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "column insert"] [arg COLUMN] [arg VALUES] [arg FIRST]]
+In the first form, inserts [arg COUNT] elements with value [arg VALUE]
+at position [arg FIRST] and returns the new column. In the second form,
 [arg VALUES] may be a list of values or a typed column of the same type.
-The command may extend the array if necessary.
+The values are inserted at the specified position.
+In both cases, the command may extend the array if necessary.
 
 [call [cmd "column place"] [arg TARRAYCOLUMN] [arg VALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
@@ -242,6 +244,16 @@ The new value is assigned back to the variable and also returned as the
 result of the command.
 [para]
 See [cmd fill] for more information.
+
+[call [cmd "column vinsert"] [arg COLUMNVAR] [arg VALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "column vinsert"] [arg COLUMNVAR] [arg VALUES] [arg FIRST]]
+In the first form, inserts [arg COUNT] elements with value [arg VALUE]
+at position [arg FIRST] in the type column stored in variable
+[arg COLUMNVAR].
+In the second form,
+[arg VALUES] may be a list of values or a typed column of the same type.
+The values are inserted at the specified position.
+In both cases, the new value is stored back into the variable.
 
 [call [cmd "column vplace"] [arg TCOLUMNVAR] [arg VALUES] [arg INDICES]]
 Modifies a typed column stored in the variable [arg TCOLUMNVAR]
