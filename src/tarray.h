@@ -191,7 +191,7 @@ Tcl_Obj *ta_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
-                      Tcl_Obj *indexA, Tcl_Obj *indexB);
+                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj, int insert);
@@ -308,6 +308,8 @@ TA_INLINE int thdr_recompute_occupancy(thdr_t *thdr, int *poff, int count, int i
 {
     int off = *poff;
     int occupancy;
+
+    TA_ASSERT(count >= 0);
 
     if (off < 0)
         off = 0;

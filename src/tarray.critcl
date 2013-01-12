@@ -447,6 +447,52 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr tcol} ok 
 
 critcl::ccommand tarray::column::search tcol_search_cmd
 
+critcl::ccommand tarray::column::insert {} {
+    Tcl_Obj *tcol;
+    int status;
+
+    if (objc != 4 && objc != 5) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMN (VALUES POSITION | VALUE POSITION COUNT)");
+	return TCL_ERROR;
+    }
+    
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(objv[1]);
+
+    if (objc == 4) {
+        /* Values may be given as a list or a tarray */
+        if ((status = tcol_convert(NULL, objv[2])) == TCL_OK)
+            status = tcol_copy_thdr(interp, tcol, TARRAYHDR(objv[2]), objv[3], 1);
+        else
+            status = tcol_put_objs(interp, tcol, objv[2], objv[3], 1);
+    } else {
+        int pos, count, used;
+        if ((status = Tcl_GetIntFromObj(interp, objv[4], &count)) == TCL_OK &&
+            (status = tcol_convert(interp, tcol)) == TCL_OK) {
+            used = tcol_occupancy(tcol);
+            if (count < 0)
+                count = 0;      /* Should we error instead? */
+            if ((status = tcol_make_modifiable(interp, tcol, count+used, 0)) == TCL_OK &&
+                (status = ta_convert_index(interp, objv[3], &pos, used,
+                                           0, used)) == TCL_OK) {
+                ta_value_t tav;
+                if ((status = ta_value_from_obj(interp, objv[2],
+                                                tcol_type(tcol), &tav)) == TCL_OK)
+                    thdr_fill_range(interp, TARRAYHDR(tcol), &tav, pos, count, 1);
+            }
+        }
+    }
+
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, tcol);
+    else if (tcol != objv[1])
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
+
+    return status;
+}
+
+
 critcl::ccommand tarray::column::put {} {
     Tcl_Obj *tcol;
     int status;
