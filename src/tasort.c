@@ -384,3 +384,197 @@ loop:	SWAPINIT(a, es);
 	}
 /*		qsort(pn - r, r / es, es, cmp);*/
 }
+
+TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
+                                   int objc, Tcl_Obj *const objv[],
+                                   int *pdecreasing, int *preturn_indices)
+{
+    static const char *switches[] = {
+        "-decreasing", "-increasing", "-indices", NULL
+    };
+    enum TArraySortSwitches {
+        TA_SORT_DECREASING, TA_SORT_INCREASING, TA_SORT_INDICES
+    };
+    int i, opt;
+    int decreasing = 0;
+    int return_indices = 0;
+
+    /* Note objv[] is entire command line so last objv[] element is array */
+    for (i = 1; i < objc-1; ++i) {
+	if (Tcl_GetIndexFromObj(ip, objv[i], switches, "option", 0, &opt)
+            != TCL_OK) {
+            return TCL_ERROR;
+	}
+        switch ((enum TArraySortSwitches) opt) {
+        case TA_SORT_DECREASING: decreasing = 1; break;
+        case TA_SORT_INCREASING: decreasing = 0; break;
+        case TA_SORT_INDICES: return_indices = 1; break;
+        }
+    }
+    *pdecreasing = decreasing;
+    *preturn_indices = return_indices;
+    return TCL_OK;
+}
+
+TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol,
+                     int decreasing, int return_indices)
+{
+    int i, n;
+    thdr_t *psrc;
+    thdr_t *psorted;
+    Tcl_Obj *oresult;
+    int (__cdecl *cmpfn)(const void*, const void*);
+    int (__cdecl *cmpindexedfn)(void *, const void*, const void*);
+    int existing_sort_order;
+    int status;
+
+    TA_ASSERT(! Tcl_IsShared(tcol));
+
+    if ((status = tcol_convert(ip, tcol)) != TCL_OK)
+        return status;
+    psrc = TARRAYHDR(tcol);
+
+    existing_sort_order = thdr_sorted(psrc);
+    if (existing_sort_order && ! return_indices) {
+        /* We want contents and input is in sorted... */
+        if ((existing_sort_order < 0 && decreasing) ||
+            (existing_sort_order > 0 && !decreasing))
+            return TCL_OK;        /* Already sorted in desired order */
+    
+        /*
+         * Need to reverse the order. If unshared, we can do this
+         * in place else need to allocate a new object and array
+         */
+        if (thdr_shared(psrc)) {
+            /* Cannot modify in place. Need to dup it */
+            psrc = thdr_clone_reversed(ip, psrc, 0);
+            if (psrc == NULL)
+                return TCL_ERROR;
+            ta_replace_intrep(tcol, psrc);
+            return TCL_OK;
+        } else {
+            /* Reverse in place  */
+            thdr_reverse(psrc);
+            Tcl_InvalidateStringRep(tcol);
+            return TCL_OK;
+        }
+    } else if (return_indices) {
+        /* Caller wants indices to be returned */
+        int *indexP;
+        psorted = thdr_alloc(ip, TA_INT, psrc->used);
+        if (psorted == NULL)
+            return TCL_ERROR;
+        /* Initialize the indexes */
+        psorted->used = psrc->used;
+        indexP = THDRELEMPTR(psorted, int, 0);
+
+        if (existing_sort_order) {
+            /* Input already sorted ... */
+            if ((existing_sort_order < 0 && decreasing) ||
+                (existing_sort_order > 0 && !decreasing)) {
+                /* ...and in the right order! */
+                for (i = 0; i < psrc->used; ++i, ++indexP)
+                    *indexP = i;
+                thdr_mark_sorted_ascending(psorted);
+            } else {
+                /* ...but in reverse order. */
+                for (i = psrc->used; i > 0; ++indexP)
+                    *indexP = --i;
+                thdr_mark_sorted_descending(psorted);
+            }
+        } else {
+            /* Input is not already sorted */
+
+            /* Init the indices array for sorting */
+            for (i = 0; i < psrc->used; ++i, ++indexP)
+                *indexP = i;
+
+            switch (psorted->type) {
+            case TA_BOOLEAN:
+                cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
+                break;
+            case TA_UINT:
+                cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
+                break;
+            case TA_INT:
+                cmpindexedfn = decreasing ? intcmpindexedrev : intcmpindexed;
+                break;
+            case TA_WIDE:
+                cmpindexedfn = decreasing ? widecmpindexedrev : widecmpindexed;
+                break;
+            case TA_DOUBLE:
+                cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
+                break;
+            case TA_OBJ:
+                cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
+                break;
+            default:
+                ta_type_panic(psorted->type);
+            }
+            /* Note the list of indices is NOT sorted, do not mark it as such ! */
+            tarray_qsort_r(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), THDRELEMPTR(psrc, unsigned char, 0), cmpindexedfn);
+        }
+        ta_replace_intrep(tcol, psorted);
+        return TCL_OK;
+    } else {
+        /*
+         * We want sorted contents, not indices. If object is not shared,
+         * we can sort in place, else need to create a new object.
+         */
+        /* Why not using ta_make_modifiable here ? */
+        if (thdr_shared(psrc)) {
+            /* Cannot modify in place. Need to dup it */
+            psorted = thdr_clone(ip, psrc, 0);
+            if (psorted == NULL)
+                return TCL_ERROR;
+            ta_replace_intrep(tcol, psorted);
+        } else {
+            psorted = psrc;
+            Tcl_InvalidateStringRep(tcol);
+        }
+
+        /*
+         * Return sorted contents. Boolean type we treat separately
+         * since we just need to count how many 1's and 0's.
+         */
+        if (psorted->type == TA_BOOLEAN) {
+            ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
+            n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
+            if (decreasing) {
+                ba_fill(baP, 0, n, 1);
+                ba_fill(baP, n, psorted->used - n, 0);
+            } else {
+                ba_fill(baP, 0, psorted->used - n, 0);
+                ba_fill(baP, psorted->used - n, n, 1);
+            }
+        } else {
+            switch (psorted->type) {
+            case TA_UINT:
+                cmpfn = decreasing ? uintcmprev : uintcmp;
+                break;
+            case TA_INT:
+                cmpfn = decreasing ? intcmprev : intcmp;
+                break;
+            case TA_WIDE:
+                cmpfn = decreasing ? widecmprev : widecmp;
+                break;
+            case TA_DOUBLE:
+                cmpfn = decreasing ? doublecmprev : doublecmp;
+                break;
+            case TA_OBJ:
+                cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
+                break;
+            default:
+                ta_type_panic(psorted->type);
+            }
+            qsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
+                  psorted->elem_bits / CHAR_BIT, cmpfn);
+        }
+        if (decreasing)
+            thdr_mark_sorted_descending(psorted);
+        else
+            thdr_mark_sorted_ascending(psorted);
+        return TCL_OK;
+    }
+}
+

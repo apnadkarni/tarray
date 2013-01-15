@@ -1806,7 +1806,6 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     if (thdr) {
         thdr_copy_reversed(thdr, 0, psrc, 0, psrc->used);
         if (existing_sort_order) {
-            /* Sort order is not reversed */
             if (existing_sort_order < 0)
                 thdr_mark_sorted_ascending(thdr);
             else
@@ -1977,10 +1976,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
         thdr = thdr_clone(ip, thdr, prefsize);
         if (thdr == NULL)
             return TCL_ERROR;   /* Note tcol is not changed */
-        thdr_decr_refs(TARRAYHDR(tcol)); /* Release old */
-        TARRAYHDR(tcol) = NULL;
-        ta_set_intrep(tcol, thdr);
-        Tcl_InvalidateStringRep(tcol);
+        ta_replace_intrep(tcol, thdr);
     } else if (thdr->usable < minsize) {
         /* Case (3). Note don't use ta_set_intrep as we are keeping all 
            fields and ref counts the same */
