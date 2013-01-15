@@ -243,193 +243,75 @@ badargs:
 }
 
 critcl::ccommand tarray::column::sort {} {
-    static const char *switches[] = {
-        "-decreasing", "-increasing", "-indices", NULL
-    };
-    enum TArraySortSwitches {
-        TA_SORT_DECREASING, TA_SORT_INCREASING, TA_SORT_INDICES
-    };
-    int decreasing = 0;
-    int return_indices = 0;
-    Tcl_Obj *srcObj;
-    int i, n, opt;
-    thdr_t *psrc;
-    thdr_t *psorted;
-    Tcl_Obj *oresult;
-    int (__cdecl *cmpfn)(const void*, const void*);
-    int (__cdecl *cmpindexedfn)(void *, const void*, const void*);
-    int existing_sort_order;
+    int decreasing;
+    int return_indices;
+    Tcl_Obj *tcol;
+    int status;
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "?options? tarray");
 	return TCL_ERROR;
     }
 
-    srcObj = objv[objc-1];
-    if (tcol_convert(interp, objv[objc-1]) != TCL_OK)
+    if ((status = tcol_parse_sort_options(interp, objc, objv, &decreasing,
+                                          &return_indices)) != TCL_OK)
+        return status;
+
+    tcol = objv[objc-1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
+
+    status = tcol_sort(interp, tcol, decreasing, return_indices);
+    if (status == TCL_OK) {
+        Tcl_SetObjResult(interp, tcol);
+    } else if (tcol != objv[objc-1])
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
+    return status;
+}
+
+critcl::ccommand tarray::column::vsort {} {
+    int decreasing;
+    int return_indices;
+    Tcl_Obj *tcol;
+    Tcl_Obj *ovarvalue;
+    int status;
+
+    if (objc < 2) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "?options? COLUMNVAR");
         return TCL_ERROR;
-    psrc = TARRAYHDR(objv[objc-1]);
-    for (i = 1; i < objc-1; ++i) {
-	if (Tcl_GetIndexFromObj(interp, objv[i], switches, "option", 0, &opt)
-            != TCL_OK) {
-            return TCL_ERROR;
-	}
-        switch ((enum TArraySortSwitches) opt) {
-        case TA_SORT_DECREASING: decreasing = 1; break;
-        case TA_SORT_INCREASING: decreasing = 0; break;
-        case TA_SORT_INDICES: return_indices = 1; break;
-        }
     }
 
-    existing_sort_order = thdr_sorted(psrc);
-    if (existing_sort_order && ! return_indices) {
-        /* We want contents and input is in sorted... */
-        if ((existing_sort_order < 0 && decreasing) ||
-            (existing_sort_order > 0 && !decreasing)) {
-            /* ...in the desired order, no less! */
-            oresult = srcObj;
-        } else {
-            /*
-             * Need to reverse the order. If unshared, we can do this
-             * in place else need to allocate a new object and array
-             */
-            if (Tcl_IsShared(srcObj) || thdr_shared(psrc)) {
-                /* Cannot modify in place. Need to dup it */
-                psorted = thdr_clone_reversed(interp, psrc, 0);
-                if (psorted == NULL)
-                    return TCL_ERROR;
-                oresult = tcol_new(psorted);
-            } else {
-                psorted = psrc;
-                oresult = srcObj;
-                thdr_reverse(psorted);
-                Tcl_InvalidateStringRep(oresult);
-            }
-            if (decreasing)
-                thdr_mark_sorted_descending(psorted);
-            else
-                thdr_mark_sorted_ascending(psorted);
-        }
-    } else if (return_indices) {
-        /* Caller wants indices to be returned */
-        int *indexP;
-        psorted = thdr_alloc(interp, TA_INT, psrc->used);
-        if (psorted == NULL)
-            return TCL_ERROR;
-        oresult = tcol_new(psorted);
-        /* Initialize the indexes */
-        psorted->used = psrc->used;
-        indexP = THDRELEMPTR(psorted, int, 0);
+    if ((status = tcol_parse_sort_options(interp, objc, objv, &decreasing,
+                                          &return_indices)) != TCL_OK)
+        return status;
 
-        if (existing_sort_order) {
-            /* Input already sorted ... */
-            if ((existing_sort_order < 0 && decreasing) ||
-                (existing_sort_order > 0 && !decreasing)) {
-                /* ...and in the right order! */
-                for (i = 0; i < psrc->used; ++i, ++indexP)
-                    *indexP = i;
-                thdr_mark_sorted_ascending(psorted);
-            } else {
-                /* ...but in reverse order. */
-                for (i = psrc->used; i > 0; ++indexP)
-                    *indexP = --i;
-                thdr_mark_sorted_descending(psorted);
-            }
-        } else {
-            /* Input is not already sorted */
+    ovarvalue = Tcl_ObjGetVar2(interp, objv[objc-1], NULL, TCL_LEAVE_ERR_MSG);
+    if (ovarvalue == NULL)
+        return TCL_ERROR;
 
-            /* Init the indices array for sorting */
-            for (i = 0; i < psrc->used; ++i, ++indexP)
-                *indexP = i;
+    tcol = ovarvalue;
+    if (Tcl_IsShared(tcol))
+            tcol = Tcl_DuplicateObj(tcol);
 
-            switch (psorted->type) {
-            case TA_BOOLEAN:
-                cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
-                break;
-            case TA_UINT:
-                cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
-                break;
-            case TA_INT:
-                cmpindexedfn = decreasing ? intcmpindexedrev : intcmpindexed;
-                break;
-            case TA_WIDE:
-                cmpindexedfn = decreasing ? widecmpindexedrev : widecmpindexed;
-                break;
-            case TA_DOUBLE:
-                cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
-                break;
-            case TA_OBJ:
-                cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
-                break;
-            default:
-                ta_type_panic(psorted->type);
-            }
-            /* Note the list of indices is NOT sorted, do not mark it as such ! */
-            tarray_qsort_r(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), THDRELEMPTR(psrc, unsigned char, 0), cmpindexedfn);
-        }
-    } else {
-        /*
-         * We want sorted contents, not indices. If object is not shared,
-         * we can sort in place, else need to create a new object.
+    status = tcol_sort(interp, tcol, decreasing, return_indices);
+    if (status == TCL_OK) {
+        /* Even if we had not duplicated the value in the variable, we
+         * still need to store it back so that traces are triggered. Also,
+         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
+         * ref count 0 on error (currently it frees iff ref == 0) so
+         * do a Incr/Decr
          */
-        /* Why not using ta_make_modifiable here ? */
-        if (Tcl_IsShared(srcObj) || thdr_shared(psrc)) {
-            /* Cannot modify in place. Need to dup it */
-            psorted = thdr_clone(interp, psrc, 0);
-            if (psorted == NULL)
-                return TCL_ERROR;
-            oresult = tcol_new(psorted);
-        } else {
-            psorted = psrc;
-            oresult = srcObj;
-            Tcl_InvalidateStringRep(oresult);
-        }
-
-        /*
-         * Return sorted contents. Boolean type we treat separately
-         * since we just need to count how many 1's and 0's.
-         */
-        if (psorted->type == TA_BOOLEAN) {
-            ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
-            n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
-            if (decreasing) {
-                ba_fill(baP, 0, n, 1);
-                ba_fill(baP, n, psorted->used - n, 0);
-            } else {
-                ba_fill(baP, 0, psorted->used - n, 0);
-                ba_fill(baP, psorted->used - n, n, 1);
-            }
-        } else {
-            switch (psorted->type) {
-            case TA_UINT:
-                cmpfn = decreasing ? uintcmprev : uintcmp;
-                break;
-            case TA_INT:
-                cmpfn = decreasing ? intcmprev : intcmp;
-                break;
-            case TA_WIDE:
-                cmpfn = decreasing ? widecmprev : widecmp;
-                break;
-            case TA_DOUBLE:
-                cmpfn = decreasing ? doublecmprev : doublecmp;
-                break;
-            case TA_OBJ:
-                cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
-                break;
-            default:
-                ta_type_panic(psorted->type);
-            }
-            qsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
-                  psorted->elem_bits / CHAR_BIT, cmpfn);
-        }
-        if (decreasing)
-            thdr_mark_sorted_descending(psorted);
+        Tcl_IncrRefCount(tcol);
+        ovarvalue = Tcl_ObjSetVar2(interp, objv[objc-1], NULL, tcol, TCL_LEAVE_ERR_MSG);
+        Tcl_DecrRefCount(tcol);
+        if (ovarvalue)
+            Tcl_SetObjResult(interp, ovarvalue);
         else
-            thdr_mark_sorted_ascending(psorted);
-    }
+            status = TCL_ERROR;
+    } else if (tcol != ovarvalue)
+        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
-    Tcl_SetObjResult(interp, oresult);
-    return TCL_OK;
+    return status;
 }
 
 critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr tcol} ok {
@@ -458,7 +340,7 @@ critcl::ccommand tarray::column::insert {} {
     
     tcol = objv[1];
     if (Tcl_IsShared(tcol))
-        tcol = Tcl_DuplicateObj(objv[1]);
+        tcol = Tcl_DuplicateObj(tcol);
 
     if (objc == 4) {
         /* Values may be given as a list or a tarray */
@@ -508,7 +390,7 @@ critcl::ccommand tarray::column::vinsert {} {
 
     tcol = ovarvalue;
     if (Tcl_IsShared(tcol))
-        tcol = Tcl_DuplicateObj(objv[1]);
+        tcol = Tcl_DuplicateObj(tcol);
 
     if (objc == 4) {
         /* Values may be given as a list or a tarray */
@@ -748,10 +630,6 @@ critcl::ccommand tarray::column::vfill {} {
         Tcl_DecrRefCount(tcol); /* We allocated it so free it */
 
     return status;
-}
-
-critcl::ccommand tarray::column::rev {} {
-    return TCL_OK;
 }
 
 critcl::cproc tarray::column::reverse {Tcl_Interp* interp Tcl_Obj* tcol} ok {

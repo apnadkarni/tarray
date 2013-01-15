@@ -238,8 +238,12 @@ int bytecmpindexedrev(void *, const void *a, const void *b);
 int tclobjcmpindexed(void *, const void *a, const void *b);
 int tclobjcmpindexedrev(void *, const void *a, const void *b);
 
+TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
+                                   int objc, Tcl_Obj *const objv[],
+                                   int *pdecreasing, int *preturn_indices);
+TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol,
+                     int decreasing, int return_indices);
 
-/* Tcl script level commands */
 TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                                       int objc, Tcl_Obj *const objv[]);
 
@@ -254,14 +258,25 @@ TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 
 /* Sets a Tcl_Obj's internal rep pointer. Assumes the Tcl_Obj int rep is
    invalid / uninitialized */
-TA_INLINE ta_set_intrep(Tcl_Obj *obj, thdr_t *thdr) {
+TA_INLINE ta_set_intrep(Tcl_Obj *o, thdr_t *thdr) {
     thdr_incr_refs(thdr);
-    TARRAYHDR(obj) = thdr;
-    obj->typePtr = &g_ta_type;                 \
+    TARRAYHDR(o) = thdr;
+    o->typePtr = &g_ta_type;                 \
 }
 
-TA_INLINE unsigned char tcol_type(Tcl_Obj *obj) { return TARRAYHDR(obj)->type; }
-TA_INLINE int tcol_occupancy(Tcl_Obj *obj) { return TARRAYHDR(obj)->used; }
+TA_INLINE ta_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
+    TA_ASSERT(o->typePtr == &g_ta_type);
+    TA_ASSERT(! Tcl_IsShared(o));
+    TA_ASSERT(TARRAYHDR(o) != NULL);
+    thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
+    thdr_decr_refs(TARRAYHDR(o));
+    TARRAYHDR(o) = thdr;
+    Tcl_InvalidateStringRep(o);
+}
+
+
+TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return TARRAYHDR(o)->type; }
+TA_INLINE int tcol_occupancy(Tcl_Obj *o) { return TARRAYHDR(o)->used; }
 
 TA_INLINE int thdr_sorted(thdr_t *thdr) {
     return thdr->flags & THDR_F_SORTED;
