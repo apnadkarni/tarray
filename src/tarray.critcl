@@ -243,25 +243,22 @@ badargs:
 }
 
 critcl::ccommand tarray::column::sort {} {
-    int decreasing;
-    int return_indices;
     Tcl_Obj *tcol;
-    int status;
+    int flags, status;
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "?options? tarray");
 	return TCL_ERROR;
     }
 
-    if ((status = tcol_parse_sort_options(interp, objc, objv, &decreasing,
-                                          &return_indices)) != TCL_OK)
+    if ((status = tcol_parse_sort_options(interp, objc, objv, &flags)) != TCL_OK)
         return status;
 
     tcol = objv[objc-1];
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
 
-    status = tcol_sort(interp, tcol, decreasing, return_indices);
+    status = tcol_sort(interp, tcol, flags);
     if (status == TCL_OK) {
         Tcl_SetObjResult(interp, tcol);
     } else if (tcol != objv[objc-1])
@@ -270,19 +267,17 @@ critcl::ccommand tarray::column::sort {} {
 }
 
 critcl::ccommand tarray::column::vsort {} {
-    int decreasing;
-    int return_indices;
     Tcl_Obj *tcol;
     Tcl_Obj *ovarvalue;
     int status;
+    int flags;
 
     if (objc < 2) {
     	Tcl_WrongNumArgs(interp, 1, objv, "?options? COLUMNVAR");
         return TCL_ERROR;
     }
 
-    if ((status = tcol_parse_sort_options(interp, objc, objv, &decreasing,
-                                          &return_indices)) != TCL_OK)
+    if ((status = tcol_parse_sort_options(interp, objc, objv, &flags)) != TCL_OK)
         return status;
 
     ovarvalue = Tcl_ObjGetVar2(interp, objv[objc-1], NULL, TCL_LEAVE_ERR_MSG);
@@ -293,7 +288,7 @@ critcl::ccommand tarray::column::vsort {} {
     if (Tcl_IsShared(tcol))
             tcol = Tcl_DuplicateObj(tcol);
 
-    status = tcol_sort(interp, tcol, decreasing, return_indices);
+    status = tcol_sort(interp, tcol, flags);
     if (status == TCL_OK) {
         /* Even if we had not duplicated the value in the variable, we
          * still need to store it back so that traces are triggered. Also,

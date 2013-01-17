@@ -87,7 +87,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
             ++pos;
         }
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+            thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
         oresult = tcol_new(thdr);
     } else {
         /* Return first found element */
@@ -213,7 +213,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+            thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
         oresult = tcol_new(thdr);
 
     } else {
@@ -315,9 +315,8 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+            thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
         oresult = tcol_new(thdr);
-
     } else {
         /* Return first found element */
         for (offset = start; offset < haystackP->used; ++offset, ++pdbl) {
@@ -443,7 +442,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
         }
 
         if ((flags & TA_SEARCH_INLINE) == 0)
-            thdr_mark_sorted_ascending(thdr); /* indices are naturally sorted */
+            thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
         oresult = tcol_new(thdr);
 
     } else {

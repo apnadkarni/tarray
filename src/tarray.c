@@ -369,7 +369,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     if (insert)
         thdr_make_room(thdr, pos, count);
 
-    thdr_mark_unsorted(thdr);
+    thdr->sort_order = THDR_UNSORTED;
     switch (thdr->type) {
     case TA_BOOLEAN:
         ba_fill(THDRELEMPTR(thdr, ba_t, 0), pos, count, ptav->bval);
@@ -526,13 +526,13 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
     int *pindex, *end;
 
     TA_ASSERT(pindices->type == TA_INT);
-    TA_ASSERT(thdr_sorted(pindices));
+    TA_ASSERT(thdr->sort_order == THDR_SORTED_ASCENDING || thdr->sort_order == THDR_SORTED_DESCENDING);
 
     new_size = thdr->used;
     pindex = THDRELEMPTR(pindices, int, 0);
     end = THDRELEMPTR(pindices, int, pindices->used);
-    if (thdr_sort_order(pindices) > 0) {
-        /* Sort order is ascending. Make sure no gaps */
+    /* Make sure no gaps in indices */
+    if (pindices->sort_order == THDR_SORTED_ASCENDING) {
         while (pindex < end) {
             i = *pindex++;
             if (i < new_size)
@@ -542,7 +542,6 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
             new_size = i+1;       /* Appending without a gap */
         }
     } else {
-        /* Sort order is descending. Go in reverse to make sure no gaps */
         while (pindex < end) {
             i = *--end;
             if (i < new_size)
@@ -568,7 +567,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
     TA_ASSERT(pindices->type == TA_INT);
-    TA_ASSERT(thdr_sorted(pindices));
+    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
 
     if (pindices->used == 0)
         return;          /* Nothing to do */
@@ -579,10 +578,10 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
     end = THDRELEMPTR(pindices, int, pindices->used);
 
     /* Caller guarantees room for highest index value */
-    highest_index = thdr_sort_order(pindices) > 0 ? end[-1] : pindex[0];
+    highest_index = pindices->sort_order > 0 ? end[-1] : pindex[0];
     TA_ASSERT(highest_index < thdr->usable);
 
-    thdr_mark_unsorted(thdr);
+    thdr->sort_order = THDR_UNSORTED;
     switch (thdr->type) {
     case TA_BOOLEAN:
         {
@@ -1036,7 +1035,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
     new_used = thdr_recompute_occupancy(thdr, &first, nelems, insert);
     TA_ASSERT(new_used <= thdr->usable); /* Caller should have ensured */
 
-    thdr_mark_unsorted(thdr); /* TBD - optimize */
+    thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
     /*
      * In case of conversion errors, we have to keep the old values
@@ -1231,7 +1230,7 @@ TCL_RESULT thdr_place_objs(
     if (nvalues == 0)
         return TCL_OK;          /* Nothing to change */
 
-    thdr_mark_unsorted(thdr); /* TBD - optimize */
+    thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
     /*
      * In case of conversion errors, we have to keep the old values
@@ -1412,7 +1411,7 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, unsigned char tatype, int count)
         ta_type_panic(tatype);
     }
     thdr->elem_bits = nbits;
-    thdr->flags = 0;
+    thdr->sort_order = THDR_UNSORTED;
 
     return thdr;
 }
@@ -1470,7 +1469,7 @@ void thdr_delete_range(thdr_t *thdr, int first, int count)
         return;          /* Nothing to be deleted */
 
 #ifdef NOTNEEDED    /* Deletion does not change sort state! */
-    thdr_mark_unsorted(thdr);
+    thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
 #endif
 
     /*
@@ -1526,7 +1525,7 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
      * We have to be careful to delete from back to front so as to not
      * invalidate index positions when earlier ones are deleted
      */
-    TA_ASSERT(thdr_sorted(pindices));
+    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
     
     /*
      * TBD - this will be desperately slow. Fix
@@ -1536,7 +1535,7 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
      * may be presorted in any direction. So check and loop accordingly
      */
     i = pindices->used;
-    if (thdr_sort_order(pindices) > 0) {
+    if (pindices->sort_order == THDR_SORTED_ASCENDING) {
         /* Sort order is ascending so iterate index array back to front */
         pindex = THDRELEMPTR(pindices, int, pindices->used-1 );
         while (i--) {
@@ -1557,11 +1556,12 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
 
 void thdr_reverse(thdr_t *thdr)
 {
-    int existing_sort_order;
+    int orig_order;
+
     if (thdr->used == 0)
         return;
 
-    existing_sort_order = thdr_sorted(thdr);
+    orig_order = thdr->sort_order;
     
 #define SWAPALL(thdr_, type_)                                          \
     do {                                                                \
@@ -1591,11 +1591,11 @@ void thdr_reverse(thdr_t *thdr)
         ta_type_panic(thdr->type);
     }
 
-    if (existing_sort_order) {
-        if (existing_sort_order < 0)
-            thdr_mark_sorted_ascending(thdr);
-        else
-            thdr_mark_sorted_descending(thdr);
+    switch (orig_order) {
+    case THDR_SORTED_ASCENDING: thdr->sort_order = THDR_SORTED_DESCENDING; break;
+    case THDR_SORTED_DESCENDING: thdr->sort_order = THDR_SORTED_ASCENDING; break;
+    case THDR_SORTED_ASCENDING_NOCASE: thdr->sort_order = THDR_SORTED_DESCENDING_NOCASE; break;
+    case THDR_SORTED_DESCENDING_NOCASE: thdr->sort_order = THDR_SORTED_ASCENDING_NOCASE; break;
     }
 }
 
@@ -1625,7 +1625,7 @@ void thdr_copy(thdr_t *pdst, int dst_first,
     new_used = thdr_recompute_occupancy(pdst, &dst_first, count, insert);
     TA_ASSERT(new_used <= pdst->usable); /* Caller should have ensured */
 
-    thdr_mark_unsorted(pdst); /* TBD - optimize */
+    pdst->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
     /*
      * For all types other than BOOLEAN and OBJ, we can just memcpy
@@ -1708,7 +1708,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
     else if (dst_first > pdst->used)
         dst_first = pdst->used;
 
-    thdr_mark_unsorted(pdst); /* TBD - optimize for sorted arrays */
+    pdst->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
 #define COPYREVERSE(type_, pdst_, doff_, psrc_, soff_, count_)          \
     do {                                                                \
@@ -1783,7 +1783,7 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
         thdr_copy(thdr, 0, psrc, 0, psrc->used, 0);
-        thdr_copy_sort_status(thdr, psrc);
+        thdr->sort_order = psrc->sort_order;
     }
     return thdr;
 }
@@ -1792,9 +1792,9 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize)
 thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
 {
     thdr_t *thdr;
-    int existing_sort_order;
+    int orig_order;
 
-    existing_sort_order = thdr_sorted(psrc);
+    orig_order = thdr->sort_order;
 
     if (minsize == 0)
         minsize = psrc->usable;
@@ -1805,11 +1805,11 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
         thdr_copy_reversed(thdr, 0, psrc, 0, psrc->used);
-        if (existing_sort_order) {
-            if (existing_sort_order < 0)
-                thdr_mark_sorted_ascending(thdr);
-            else
-                thdr_mark_sorted_descending(thdr);
+        switch (orig_order) {
+        case THDR_SORTED_ASCENDING: thdr->sort_order = THDR_SORTED_DESCENDING; break;
+        case THDR_SORTED_DESCENDING: thdr->sort_order = THDR_SORTED_ASCENDING; break;
+        case THDR_SORTED_ASCENDING_NOCASE: thdr->sort_order = THDR_SORTED_DESCENDING_NOCASE; break;
+        case THDR_SORTED_DESCENDING_NOCASE: thdr->sort_order = THDR_SORTED_ASCENDING_NOCASE; break;
         }
     }
     return thdr;
@@ -1825,7 +1825,7 @@ thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
     thdr = thdr_alloc(ip, psrc->type, count);
     if (thdr) {
         thdr_copy(thdr, 0, psrc, low, count, 0);
-        thdr_copy_sort_status(thdr, psrc);
+        thdr->sort_order = psrc->sort_order;
     }
     return thdr;
 }
@@ -2053,12 +2053,12 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     if (o->typePtr == &g_ta_type) {
         if (tcol_type(o) == TA_INT) {
             thdr = TARRAYHDR(o);
-            if (want_sorted && ! thdr_sorted(thdr)) {
+            if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
                 thdr = thdr_clone(ip, thdr, thdr->used);
                 if (thdr == NULL)
                     return TA_INDEX_TYPE_ERROR;
                 qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
-                thdr_mark_sorted_ascending(thdr);
+                thdr->sort_order = THDR_SORTED_ASCENDING;
             }
             thdr->nrefs++;
             *thdrP = thdr;
@@ -2089,7 +2089,7 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     if (thdr) {
         if (want_sorted) {
             qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
-            thdr_mark_sorted_ascending(thdr);
+            thdr->sort_order = THDR_SORTED_ASCENDING;
         }
         thdr->nrefs++;
         *thdrP = thdr;
@@ -2432,12 +2432,12 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     /* For verification we will need to sort indices */
     psorted = pindices;
-    if (! thdr_sorted(psorted)) {
+    if (psorted->sort_order == THDR_UNSORTED) {
         psorted = thdr_clone(ip, psorted, 0);
         if (psorted == NULL)
             return TCL_ERROR;
         qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
-        thdr_mark_sorted_ascending(psorted);
+        psorted->sort_order = THDR_SORTED_ASCENDING;
     }
 
     status = thdr_verify_indices(ip, TARRAYHDR(tcol), psorted, &new_size);
@@ -2523,7 +2523,7 @@ TCL_RESULT TGridFillFromObjs(
     gridHdrP = TARRAYHDR(gridObj); /* Might have changed */
 
     /* Grids don't care about sort bits, but nevertheless.. */
-    thdr_mark_unsorted(gridHdrP);
+    gridHdrP->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
     /*
      * Now verify tarrays and values. The latter should be of the
@@ -2786,7 +2786,7 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
             if (thdr->type == TA_OBJ)
                 continue;
 
-            thdr_mark_unsorted(thdr); /* TBD - optimize */
+            thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
             switch (thdrs[t]->type) {
             case TA_BOOLEAN:
                 {
@@ -2915,7 +2915,7 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
         thdr = thdrs[t];
         if (thdr->type != TA_OBJ)
             continue;
-        thdr_mark_unsorted(thdr); /* TBD - optimize */
+        thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
         pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
         for (r = 0; r < nrows ; ++r, ++pobjs) {
             Tcl_ListObjIndex(ip, rows[r], t, &valObj);
