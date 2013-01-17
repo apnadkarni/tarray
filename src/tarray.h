@@ -98,9 +98,12 @@ typedef union thdr_s {
         int used;
         unsigned char type;
         unsigned char elem_bits; /* Size of element in bits */
-        unsigned char flags;
-#define THDR_F_SORTED    0x01
-#define THDR_F_ASCENDING 0x02
+        unsigned char sort_order;
+#define THDR_UNSORTED                 0
+#define THDR_SORTED_ASCENDING         1
+#define THDR_SORTED_DESCENDING        2
+#define THDR_SORTED_ASCENDING_NOCASE  3
+#define THDR_SORTED_DESCENDING_NOCASE 4
     };
 } thdr_t;
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
@@ -224,6 +227,8 @@ int bytecmp(const void *a, const void *b);
 int bytecmprev(const void *a, const void *b);
 int tclobjcmp(const void *a, const void *b);
 int tclobjcmprev(const void *a, const void *b);
+int tclobjcmpnocase(const void *a, const void *b);
+int tclobjcmprevnocase(const void *a, const void *b);
 
 int intcmpindexed(void *, const void *a, const void *b);
 int intcmpindexedrev(void *, const void *a, const void *b);
@@ -237,12 +242,13 @@ int bytecmpindexed(void *, const void *a, const void *b);
 int bytecmpindexedrev(void *, const void *a, const void *b);
 int tclobjcmpindexed(void *, const void *a, const void *b);
 int tclobjcmpindexedrev(void *, const void *a, const void *b);
+int tclobjcmpnocaseindexed(void *, const void *a, const void *b);
+int tclobjcmpnocaseindexedrev(void *, const void *a, const void *b);
 
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
-                                   int *pdecreasing, int *preturn_indices);
-TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol,
-                     int decreasing, int return_indices);
+                                   int *pflags);
+TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
 
 TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                                       int objc, Tcl_Obj *const objv[]);
@@ -278,6 +284,7 @@ TA_INLINE ta_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
 TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return TARRAYHDR(o)->type; }
 TA_INLINE int tcol_occupancy(Tcl_Obj *o) { return TARRAYHDR(o)->used; }
 
+#ifdef OBSOLETE
 TA_INLINE int thdr_sorted(thdr_t *thdr) {
     return thdr->flags & THDR_F_SORTED;
 }
@@ -300,6 +307,7 @@ TA_INLINE void thdr_copy_sort_status(thdr_t *thdr, thdr_t *fromP) {
     thdr->flags &= ~(THDR_F_SORTED | THDR_F_ASCENDING);
     thdr->flags |= fromP->flags & (THDR_F_SORTED | THDR_F_ASCENDING);
 }
+#endif
 
 /*
  * For a given thdr, computes the pointers to a source and destination offset
