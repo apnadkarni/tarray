@@ -731,8 +731,6 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
 }
 
 critcl::ccommand tarray::grid::fill {} {
-    int i, tuple_width;
-    Tcl_Obj **tcols;
     Tcl_Obj *gridObj;
     int we_allocated_gridobj;
     int status;
@@ -762,5 +760,86 @@ critcl::ccommand tarray::grid::fill {} {
     return status;
 }
 
+# If you are new to critcl, note that the order of constructor, insvariable
+# etc. is very important in terms of how initialization and freeing is done.
+critcl::class::define tarray::table {
+    classvariable int dummy_to_prevent_compile_fails_due_to_empty_class_def
+    insvariable Tcl_HashTable column_names {
+        Maps column names to index
+    } {
+        Tcl_InitObjHashTable(&instance->column_names);
+    } {
+        Tcl_DeleteHashTable(&instance->column_names);
+    }
+
+    insvariable thdr_t* columns {
+        Points to a tarray containing the table columns
+    } {
+        instance->columns = NULL;
+    } {
+        if (instance->columns) {
+            thdr_decr_refs(instance->columns);
+            instance->columns = NULL;
+        }
+    }
+
+    constructor {
+        Tcl_Obj **elems;
+        int i, nelems, tatype;
+        thdr_t thdr;
+        
+        /* table new DEFINITION */
+        if (objc != 1) {
+            Tcl_SetResult(interp, "Syntax error", TCL_STATIC);
+            goto error;
+        }
+
+        if (Tcl_ListObjGetElements(interp, objv[0], &nelems, &elems) != TCL_OK)
+            goto error;
+
+        if (nelems == 0 || nelems & 1) {
+            Tcl_SetResult(interp, "Invalid table definition", TCL_STATIC);
+            goto error;
+        }
+
+        instance->columns = thdr_alloc(interp, TA_OBJ, nelems/2);
+        if (instance->columns == NULL)
+            goto error;
+        thdr_incr_refs(instance->columns);
+        /* This loop is structured slightly strange because of how critcl
+           puts together constructor fragments. The constructor
+           alwasy fall through for the success case
+        */
+        for (i = 0; i < nelems-1; i += 2) {
+            Tcl_Obj *tcol;
+            Tcl_HashEntry *he;
+            if (Tcl_GetIndexFromObj(interp, elems[i+1], g_ta_type_tokens, "TArrayType",
+                                    TCL_EXACT, &tatype) == TCL_OK) {
+                tcol = tcol_new(thdr_alloc(interp, tatype, 0));
+                if (tcol && thdr_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
+                    int is_new;
+                    he = Tcl_CreateHashEntry(&instance->column_names, elems[i], &is_new);
+                    if (is_new) {
+                        Tcl_SetHashValue(he, (ClientData) (i/2));
+                        continue; /* Success, go on with next field */
+                    } else {
+                        Tcl_SetObjResult(interp,
+                                         Tcl_ObjPrintf("Duplicate column name %s in table definition", Tcl_GetString(elems[i])));
+                    }
+                }
+            }
+            /* Something or the other failed */
+            thdr_decr_refs(instance->columns);
+            instance->columns = NULL;
+            Tcl_DeleteHashTable(&instance->column_names);
+            goto error;
+        }
+    }
+
+    method_introspection
+}
+
+
 package provide tarray 0.1
+
 

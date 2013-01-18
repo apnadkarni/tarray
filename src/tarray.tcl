@@ -56,6 +56,7 @@ namespace eval tarray {
             vinsert vinsert
             vput vput
             vreverse vreverse
+            vsort vsort
         }
     }
 
