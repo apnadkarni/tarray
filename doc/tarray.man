@@ -104,6 +104,8 @@ appropriate. This is the default if none of the other options is specified.
 
 [section Commands]
 
+Note: All commands are located in the [cmd tarray] namespace.
+
 [list_begin definitions]
 
 [call [cmd "column create"] [arg TYPE] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]

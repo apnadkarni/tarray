@@ -1014,7 +1014,11 @@ static void ta_type_update_string(Tcl_Obj *o)
 
 Tcl_Obj *tcol_new(thdr_t *thdr)
 {
-    Tcl_Obj *o = Tcl_NewObj();
+    Tcl_Obj *o;
+
+    if (thdr == NULL)
+        return NULL;
+    o = Tcl_NewObj();
     Tcl_InvalidateStringRep(o);
     ta_set_intrep(o, thdr);
     return o;
