@@ -210,7 +210,7 @@ critcl::ccommand tarray::column::get {} {
         case TA_INDEX_TYPE_INT:
             Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
-        case TA_INDEX_TYPE_thdr_t:
+        case TA_INDEX_TYPE_THDR:
             tcol = tcol_get(interp, TARRAYHDR(objv[ta_arg]), pindices, fmt);
             thdr_decr_refs(pindices);
             break;

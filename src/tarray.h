@@ -155,9 +155,9 @@ void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                             const ta_value_t *ptav, thdr_t *pindices);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 
-TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *,
-                                    thdr_t * const thdrs[], int nthdrs,
-                                    Tcl_Obj *tuples, int first);
+TCL_RESULT thdrs_set_from_objs(Tcl_Interp *ip,
+                               thdr_t * const thdrs[], int nthdrs,
+                               Tcl_Obj *tuples, int first);
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 
@@ -186,7 +186,7 @@ int tcol_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
                            int want_sorted, thdr_t **thdrP, int *pindex);
 #define TA_INDEX_TYPE_ERROR 0
 #define TA_INDEX_TYPE_INT   1
-#define TA_INDEX_TYPE_thdr_t 2
+#define TA_INDEX_TYPE_THDR 2
 
 thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count);
 Tcl_Obj *ta_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
@@ -205,6 +205,13 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
                       int end_value, int low, int high);
 TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, const thdr_t *thdr, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
+
+TCL_RESULT thdrs_validate_obj_row_widths(Tcl_Interp *ip, int width,
+                                         int nrows, Tcl_Obj * const rows[]);
+TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
+                                   thdr_t *const thdrs[], 
+                                   int nrows, Tcl_Obj * const rows[]);
+
 TCL_RESULT TGridSetFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *gridObj,
     Tcl_Obj *ovalues, /* Each element is a list (tuple value) */
     int flags);
