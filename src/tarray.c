@@ -125,11 +125,11 @@ TCL_RESULT ta_value_type_error(Tcl_Interp *ip, Tcl_Obj *o, int tatype)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_row_width_error(Tcl_Interp *ip, int row_width, int grid_width)
+TCL_RESULT ta_row_width_error(Tcl_Interp *ip, int row_width, int min_width)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Row width %d does not match grid width %d.", row_width, grid_width));
+                         Tcl_ObjPrintf("Row width %d less than minimum %d.", row_width, min_width));
         Tcl_SetErrorCode(ip, "TARRAY", "ROW", "WIDTH", NULL);
     }
     return TCL_ERROR;
@@ -2028,10 +2028,10 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
  * Converts the passed Tcl_Obj o to integer indexes. If a single index
  * stores it in *pindex and returns TA_INDEX_TYPE_INT. If multiple indices,
  * stores a thdr_t of type int containing the indices into *thdrP and
- * returns TA_INDEX_TYPE_thdr_t. The thdr_t's ref count is incremented
+ * returns TA_INDEX_TYPE_THDR. The thdr_t's ref count is incremented
  * so caller should call thdr_decr_refs as appropriate.
  *
- * If pindex is NULL, always returns as TA_INDEX_TYPE_thdr_t.
+ * If pindex is NULL, always returns as TA_INDEX_TYPE_THDR.
  *
  * This facility to return a single int or a index list should only
  * be used by commands where it does not matter whether {1} is treated
@@ -2066,7 +2066,7 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
             }
             thdr->nrefs++;
             *thdrP = thdr;
-            return TA_INDEX_TYPE_thdr_t;
+            return TA_INDEX_TYPE_THDR;
         } else {
             /* TBD - write conversion from other type tarrays */
             ta_indices_error(ip, o);
@@ -2097,7 +2097,7 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         }
         thdr->nrefs++;
         *thdrP = thdr;
-        return TA_INDEX_TYPE_thdr_t;
+        return TA_INDEX_TYPE_THDR;
     } else
         return TA_INDEX_TYPE_ERROR;
 }
@@ -2260,7 +2260,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
             case TA_INDEX_TYPE_INT:
                 thdr_delete_range(thdr, low, 1);
                 break;
-            case TA_INDEX_TYPE_thdr_t:
+            case TA_INDEX_TYPE_THDR:
                 thdr_delete_indices(thdr, pindices);
                 thdr_decr_refs(pindices);
                 break;
@@ -2312,7 +2312,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                     thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, 1, 0);
             }
             break;
-        case TA_INDEX_TYPE_thdr_t:
+        case TA_INDEX_TYPE_THDR:
             status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &count);
             if (status == TCL_OK) {
                 status = tcol_make_modifiable(ip, tcol, count, count); // TBD - count + extra?
@@ -2428,7 +2428,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
         return status;
 
     if (tcol_to_indices(ip, oindices, 0, &pindices, NULL)
-        != TA_INDEX_TYPE_thdr_t)
+        != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
     if (pindices->used == 0)
@@ -2459,7 +2459,6 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     return status;
 }
-
 
 /* The grid Tcl_Obj gridObj is modified */
 TCL_RESULT TGridFillFromObjs(
@@ -2608,6 +2607,103 @@ vamoose:                   /* ip must already hold error message */
     return status;
 }
 
+TCL_RESULT thdrs_validate_obj_row_widths(Tcl_Interp *ip, int width,
+                                   int nrows, Tcl_Obj * const rows[])
+{
+    int r, i;
+    for (r = 0; r < nrows; ++r) {
+        if (Tcl_ListObjLength(ip, rows[r], &i) == TCL_ERROR)
+            return TCL_ERROR;
+        /* Width of row must not be too short, longer is ok */
+        if (i < width)
+            return ta_row_width_error(ip, i, width);
+    }
+    return TCL_OK;
+}
+
+TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
+                                   thdr_t *const thdrs[], 
+                                   int nrows, Tcl_Obj * const rows[])
+{
+    int r, t;
+    ta_value_t v;
+    
+    /*
+     * We could either iterate vertically or horizontally
+     *   for (per thdr)
+     *     switch (thdr->type)
+     *       for (per row)
+     *         field <- Tcl_ListObjIndex
+     *         validate field
+     * or
+     *   for (per row)
+     *     fields <- Tcl_ListObjGetElements
+     *     per field
+     *       switch thdr->type
+     *         validate field
+     *
+     * Not clear which will perform better - first case inner loop has
+     * a call thru a pointer (Tcl_ListObjIndex). Second case inner loop has a
+     * switch, probably faster than an indirect call, so we go with that for
+     * now.
+     * TBD - measure and decide.
+     */
+    for (r = 0; r < nrows; ++r) {
+        Tcl_Obj **fields;
+        int nfields;
+        
+        if (Tcl_ListObjGetElements(ip, rows[r], &nfields, &fields)
+            != TCL_OK)
+            return TCL_ERROR;
+
+        /* Must have sufficient fields, more is ok */
+        if (nfields < nthdrs)
+            return ta_row_width_error(ip, nfields, nthdrs);
+
+        for (t = 0; t < nthdrs; ++t) {
+            switch (thdrs[t]->type) {
+            case TA_BOOLEAN:
+                if (Tcl_GetBooleanFromObj(ip, fields[t], &v.ival) != TCL_OK)
+                    return TCL_ERROR;
+                break;
+            case TA_UINT:
+                if (Tcl_GetWideIntFromObj(ip, fields[t], &v.wval) != TCL_OK)
+                    return TCL_ERROR;
+                if (v.wval < 0 || v.wval > 0xFFFFFFFF) {
+                    ta_value_type_error(ip, fields[t], thdrs[t]->type);
+                    return TCL_ERROR;
+                }
+                break;
+            case TA_INT:
+                if (Tcl_GetIntFromObj(ip, fields[t], &v.ival) != TCL_OK)
+                    return TCL_ERROR;
+                break;
+            case TA_WIDE:
+                if (Tcl_GetWideIntFromObj(ip, fields[t], &v.wval) != TCL_OK)
+                    return TCL_ERROR;
+                break;
+            case TA_DOUBLE:
+                if (Tcl_GetDoubleFromObj(ip, fields[t], &v.dval) != TCL_OK)
+                    return TCL_ERROR;
+                break;
+            case TA_BYTE:
+                if (Tcl_GetIntFromObj(ip, fields[t], &v.ival) != TCL_OK)
+                    return TCL_ERROR;
+                if (v.ival > 255 || v.ival < 0) {
+                    ta_value_type_error(ip, fields[t], thdrs[t]->type);
+                    return TCL_ERROR;
+                }
+                break;
+            case TA_OBJ:
+                break;      /* No validation */
+            default:
+                ta_type_panic(thdrs[t]->type);
+            }
+        }
+    }
+
+    return TCL_OK;
+}
 
 
 /* ip may be NULL (only used for errors) */
@@ -2682,6 +2778,19 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
     } else
         need_data_validation = 1;
        
+
+    if (need_data_validation) {
+        if (thdrs_validate_obj_rows(ip, nthdrs, thdrs, nrows, rows) != TCL_OK)
+            return TCL_ERROR;
+    } else {
+        /*
+         * We are not validating data but then validate row widths 
+         * We are doing this to simplify error rollback for TA_OBJ
+         */
+        if (thdrs_validate_obj_row_widths(ip, nthdrs, nrows, rows) != TCL_OK)
+            return TCL_ERROR;
+    }
+
     /* We could either iterate vertically or horizontally
      *   for (per thdr)
      *     switch (thdr->type)
@@ -2696,8 +2805,8 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
      *         validate field
      *
      * Not clear which will perform better - first case inner loop has
-     * a call (Tcl_ListObjIndex). Second case inner loop has a switch
-     * (probably faster than a call). On the other hand, when actually
+     * a indirect call (Tcl_ListObjIndex). Second case inner loop has a switch
+     * (probably faster than a indirect call). On the other hand, when actually
      * writing out to the array, cache effects might make the former
      * faster (writing consecutive locations).
      *
@@ -2709,73 +2818,6 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
      * of this is more involved using the second scheme and much simpler
      * with the first scheme. Hence we go with that.
      */
-
-    if (need_data_validation) {
-        for (r = 0; r < nrows; ++r) {
-            Tcl_Obj **fields;
-            int nfields;
-        
-            if (Tcl_ListObjGetElements(ip, rows[r], &nfields, &fields)
-                != TCL_OK)
-                goto error_return;
-
-            /* Must have sufficient fields, more is ok */
-            if (nfields < nthdrs)
-                goto width_error;
-
-            for (t = 0; t < nthdrs; ++t) {
-                thdr = thdrs[t];
-                switch (thdr->type) {
-                case TA_BOOLEAN:
-                    if (Tcl_GetBooleanFromObj(ip, fields[t], &ival) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_UINT:
-                    if (Tcl_GetWideIntFromObj(ip, fields[t], &wide) != TCL_OK)
-                        goto error_return;
-                    if (wide < 0 || wide > 0xFFFFFFFF) {
-                        ta_value_type_error(ip, fields[t], thdr->type);
-                        goto error_return;
-                    }
-                    break;
-                case TA_INT:
-                    if (Tcl_GetIntFromObj(ip, fields[t], &ival) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_WIDE:
-                    if (Tcl_GetWideIntFromObj(ip, fields[t], &wide) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_DOUBLE:
-                    if (Tcl_GetDoubleFromObj(ip, fields[t], &dval) != TCL_OK)
-                        goto error_return;
-                    break;
-                case TA_BYTE:
-                    if (Tcl_GetIntFromObj(ip, fields[t], &ival) != TCL_OK)
-                        goto error_return;
-                    if (ival > 255 || ival < 0) {
-                        ta_value_type_error(ip, fields[t], thdr->type);
-                        goto error_return;
-                    }
-                    break;
-                case TA_OBJ:
-                    break;      /* No validation */
-                default:
-                    ta_type_panic(thdrs[t]->type);
-                }
-            }
-        }
-    } else {
-        /* We are not validating data but then validate row widths */
-        /* We are doing this to simplify error rollback for TA_OBJ */
-        for (r = 0; r < nrows; ++r) {
-            if (Tcl_ListObjLength(ip, rows[r], &ival) == TCL_ERROR)
-                goto error_return;
-            /* Width of row must not be too short, longer is ok */
-            if (ival < nthdrs)
-                goto width_error;
-        }
-    }
 
     /*
      * Now actually store the values. Note we still have to check
@@ -2949,3 +2991,27 @@ width_error:
 error_return:                  /* Interp should already contain errors */
     return TCL_ERROR;
 }
+
+
+/* The grid Tcl_Obj gridObj is modified */
+void thdrs_fill(
+    Tcl_Interp *ip,
+    thdr_t * const thdrs[], int nthdrs,
+    ta_value_t *pvalues,
+    int low, int count)
+{
+    int i;
+
+    if (nthdrs == 0)
+        return;
+
+    for (i = 0; i < nthdrs; ++i) {
+        TA_ASSERT(! thdr_shared(thdrs[i]));
+        TA_ASSERT(thdrs[i]->usable >= (low + count));
+    }
+
+    for (i = 0; i < nthdrs; ++i, ++pvalues) {
+        thdr_fill_range(ip, thdrs[i], pvalues, low, count, 0);
+    }
+}
+
