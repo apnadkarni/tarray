@@ -15,13 +15,24 @@
 
 /*
  * TArray is a Tcl "type" used for densely storing arrays of elements
- * of a specific type.
+ * of a specific type. For reasons of efficiency in type checking,
+ * we define two types - tcolumn that holds an array of elements,
+ * and tgrid, which is just a tcolumn (and hence uses the same member
+ * functions) each element of which is a Tcl_Obj
+ * that is itself a tcolumn.
  */
 static void ta_type_dup(Tcl_Obj *psrc, Tcl_Obj *pdst);
 static void ta_type_free_intrep(Tcl_Obj *o);
 static void ta_type_update_string(Tcl_Obj *o);
-struct Tcl_ObjType g_ta_type = {
-    "tarray",
+struct Tcl_ObjType g_tcol_type = {
+    "tcolumn",
+    ta_type_free_intrep,
+    ta_type_dup,
+    ta_type_update_string,
+    NULL,     /* jenglish advises to keep this NULL */
+};
+struct Tcl_ObjType g_tgrid_type = {
+    "tgrid",
     ta_type_free_intrep,
     ta_type_dup,
     ta_type_update_string,
@@ -29,7 +40,7 @@ struct Tcl_ObjType g_ta_type = {
 };
 
 /* Must match definitions in tarray.h ! */
-const char *g_ta_type_tokens[] = {
+const char *g_type_tokens[] = {
     "boolean",
     "uint",
     "int",
@@ -47,8 +58,8 @@ Tcl_ObjType *g_tcl_list_type_ptr;
 
 const char *ta_type_string(int tatype)
 {
-    if (tatype < (sizeof(g_ta_type_tokens)/sizeof(g_ta_type_tokens[0]))) {
-        return g_ta_type_tokens[tatype];
+    if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]))) {
+        return g_type_tokens[tatype];
     } else
         return "<invalid>";
 }
@@ -205,7 +216,7 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
     int val;
 
     /* Do type checks to avoid expensive shimmering in case of errors */
-    if (o->typePtr == &g_ta_type)
+    if (tcol_affirm(o))
         return ta_index_error(ip, o);
 
     if (o->typePtr == g_tcl_list_type_ptr) {
@@ -256,19 +267,16 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, const thdr_t *thdr, Tcl_Obj *olow
     return TCL_OK;
 }
 
-TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o)
+TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     Tcl_Obj **elems;
     int nelems, tatype;
     
-    if (o->typePtr == &g_ta_type)
-        return TCL_OK;
-
     /* See if we can convert it to one based on string representation */
     if (Tcl_ListObjGetElements(NULL, o, &nelems, &elems) == TCL_OK
         && nelems == 3
         && !strcmp(Tcl_GetString(elems[0]), "tarray")
-        && Tcl_GetIndexFromObj(ip, elems[1], g_ta_type_tokens, "TArrayType",
+        && Tcl_GetIndexFromObj(ip, elems[1], g_type_tokens, "TArrayType",
                                TCL_EXACT, &tatype) == TCL_OK) {
         /* So far so good. Try and convert */
         thdr_t *thdr;
@@ -299,6 +307,32 @@ TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o)
                 
     return ta_not_tarray_error(ip);
 }
+
+TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
+{
+    int status;
+    thdr_t *thdr;
+    Tcl_Obj **ptcol;
+    Tcl_Obj **end;
+
+    if ((status = tcol_convert(ip, o)) != TCL_OK)
+        return status;
+    thdr = TARRAYHDR(o);
+    if (thdr->type != TA_OBJ)
+        return ta_bad_type_error(ip, thdr);
+
+    ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    end = thdr->used + ptcol;
+
+    while (ptcol < end) {
+        if ((status = tcol_convert(ip, *ptcol++)) != TCL_OK)
+            return status;
+    }
+    
+    o->typePtr = &g_tgrid_type;
+    return TCL_OK;
+}
+
 
 TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav)
@@ -703,7 +737,7 @@ static void ta_type_free_intrep(Tcl_Obj *o)
 {
     thdr_t *thdr;
 
-    TA_ASSERT(o->typePtr == &g_ta_type);
+    TA_ASSERT(tcol_affirm(o));
 
     thdr = TARRAYHDR(o); 
     TA_ASSERT(thdr);
@@ -713,12 +747,12 @@ static void ta_type_free_intrep(Tcl_Obj *o)
     o->typePtr = NULL;
 }
 
-static void ta_type_dup(Tcl_Obj *srcObj, Tcl_Obj *dstObj)
+static void ta_type_dup(Tcl_Obj *osrc, Tcl_Obj *odst)
 {
-    TA_ASSERT(srcObj->typePtr == &g_ta_type);
-    TA_ASSERT(TARRAYHDR(srcObj) != NULL);
+    TA_ASSERT(tcol_affirm(osrc));
+    TA_ASSERT(TARRAYHDR(osrc) != NULL);
         
-    ta_set_intrep(dstObj, TARRAYHDR(srcObj));
+    ta_set_intrep(odst, TARRAYHDR(osrc));
 }
 
 
@@ -757,7 +791,7 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
         sizeof("tarray ") - 1 /* -1 to exclude the null */
         + sizeof(" {") - 1 /* Start of list minus trailing null */
         + 1               /* Trailing "}" */
-        + strlen(g_ta_type_tokens[TA_OBJ]);
+        + strlen(g_type_tokens[TA_OBJ]);
     for (i = 0; i < objc; i++) {
         /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
         flagPtr[i] = TCL_DONT_QUOTE_HASH;
@@ -781,8 +815,8 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
     dst = o->bytes;
     memcpy(dst, "tarray ", sizeof("tarray ")-1);
     dst += sizeof("tarray ") - 1;
-    strcpy(dst, g_ta_type_tokens[TA_OBJ]);
-    dst += strlen(g_ta_type_tokens[TA_OBJ]);
+    strcpy(dst, g_type_tokens[TA_OBJ]);
+    dst += strlen(g_type_tokens[TA_OBJ]);
     *dst++ = ' ';
     *dst++ = '{';
     /* TBD - handle objc==0 case */
@@ -817,16 +851,16 @@ static void ta_type_update_string(Tcl_Obj *o)
                             either terminating null or space */
     thdr_t *thdr;
         
-    TA_ASSERT(o->typePtr == &g_ta_type);
+    TA_ASSERT(tcol_affirm(o));
 
     thdr = TARRAYHDR(o);
-    TA_ASSERT(thdr->type < sizeof(g_ta_type_tokens)/sizeof(g_ta_type_tokens[0]));
+    TA_ASSERT(thdr->type < sizeof(g_type_tokens)/sizeof(g_type_tokens[0]));
 
     o->bytes = NULL;
 
     prefix_len = 
         sizeof("tarray ") - 1   /* -1 to exclude the null */
-        + strlen(g_ta_type_tokens[thdr->type])
+        + strlen(g_type_tokens[thdr->type])
         + 2;                         /* Start of list " {" */
     min_needed = prefix_len + 1 + 1;            /* Trailing "}" and null */
 
@@ -837,7 +871,7 @@ static void ta_type_update_string(Tcl_Obj *o)
         cP = ckalloc(min_needed);
         o->bytes = cP;
         _snprintf(cP, min_needed, "tarray %s {}",
-                  g_ta_type_tokens[thdr->type]);
+                  g_type_tokens[thdr->type]);
         o->length = min_needed - 1;
         return;
     }
@@ -864,7 +898,7 @@ static void ta_type_update_string(Tcl_Obj *o)
                defined as ckalloc */
             cP = ckalloc(min_needed + 2*count - 1);
             n = _snprintf(cP, min_needed, "tarray %s {",
-                      g_ta_type_tokens[TA_BOOLEAN]);
+                      g_type_tokens[TA_BOOLEAN]);
             TA_ASSERT(n > 0 && n < min_needed);
             o->bytes = cP;
             cP += n;
@@ -921,7 +955,7 @@ static void ta_type_update_string(Tcl_Obj *o)
        defined as ckalloc */
     cP = ckalloc(allocated);
     o->bytes = cP;
-    _snprintf(cP, prefix_len+1, "tarray %s {", g_ta_type_tokens[thdr->type]);
+    _snprintf(cP, prefix_len+1, "tarray %s {", g_type_tokens[thdr->type]);
     TA_ASSERT(strlen(cP) == prefix_len);
     cP += prefix_len;
     min_needed = max_elem_space + 2; /* space or terminating "}" and null */
@@ -1168,9 +1202,12 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
             for (i = 0; i < nelems; ++i, ++pobjs) {
                 /* Careful about the order here! */
                 Tcl_IncrRefCount(elems[i]);
-                if ((first + i) < thdr->used) {
-                    /* Deref what was originally in that slot */
-                    Tcl_DecrRefCount(*pobjs);
+                /* Only release existing elements if we were not inserting */
+                if (!insert) {
+                    if ((first + i) < thdr->used) {
+                        /* Deref what was originally in that slot */
+                        Tcl_DecrRefCount(*pobjs);
+                    }
                 }
                 *pobjs = elems[i];
             }
@@ -1964,7 +2001,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
 {
     thdr_t *thdr;
 
-    TA_ASSERT(tcol->typePtr == &g_ta_type);
+    TA_ASSERT(tcol_affirm(tcol));
     TA_ASSERT(! Tcl_IsShared(tcol));
 
     thdr = TARRAYHDR(tcol);
@@ -1998,6 +2035,45 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
     return TCL_OK;
 }
 
+TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
+                                Tcl_Obj *tgrid,
+                                 int minsize, /* Min *contained* cols */
+                                 int prefsize /* Pref size  *contained* cols */
+    )
+{
+    int i, status;
+    Tcl_Obj **tcols;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK)
+        return status;
+    
+    /*
+     * First make the tgrid object itself modifiable in case its thdr
+     * is shared
+     */
+    if (thdr_shared(TARRAYHDR(tgrid)) &&
+        (status = tcol_make_modifiable(ip, tgrid, 0, 0)) != TCL_OK)
+        return status;
+
+    /* Now make its contained columns modifiable */
+    tcols = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0);
+    i = tcol_occupancy(tgrid);
+    while (i--) {
+        Tcl_Obj *tcol;
+        tcol = tcols[i];
+        if (Tcl_IsShared(tcol)) {
+            tcol = Tcl_DuplicateObj(tcol);
+            Tcl_DecrRefCount(tcols[i]);
+            tcols[i] = tcol;
+        }
+        if ((status = tcol_make_modifiable(ip, tcol, minsize, prefsize)) != TCL_OK)
+            return status;
+    }
+
+    return TCL_OK;
+}
 
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
 Tcl_Obj * thdr_index(thdr_t *thdr, int index)
@@ -2054,7 +2130,7 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
      * For efficiencies sake, we need to avoid shimmering. So we first
      * check for specific types and default to a list otherwise.
      */
-    if (o->typePtr == &g_ta_type) {
+    if (tcol_affirm(o)) {
         if (tcol_type(o) == TA_INT) {
             thdr = TARRAYHDR(o);
             if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
@@ -2369,18 +2445,17 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *
     return status;
 }
 
-/* The tarray Tcl_Obj is modified */
 TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
-                         Tcl_Obj *valueListObj, Tcl_Obj *ofirst, int insert)
+                         Tcl_Obj *ovalues, Tcl_Obj *ofirst, int insert)
 {
     int status;
-    Tcl_Obj **ovalues;
+    Tcl_Obj **values;
     int nvalues;
     int n;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
-    status = Tcl_ListObjGetElements(ip, valueListObj, &nvalues, &ovalues);
+    status = Tcl_ListObjGetElements(ip, ovalues, &nvalues, &values);
     if (status != TCL_OK)
         return status;
 
@@ -2400,7 +2475,7 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
              * and unchanged tcol
              */
             status = thdr_put_objs(ip, TARRAYHDR(tcol),
-                                   n, nvalues, ovalues, insert);
+                                   n, nvalues, values, insert);
         }
     }
     
@@ -2461,7 +2536,123 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 }
 
 /* The grid Tcl_Obj gridObj is modified */
-TCL_RESULT TGridFillFromObjs(
+TCL_RESULT tgrid_fill_obj(
+    Tcl_Interp *ip,
+    Tcl_Obj *tgrid,
+    Tcl_Obj *orow,
+    Tcl_Obj *indexa, Tcl_Obj *indexb)
+{
+    int i, low, count, row_width;
+    ta_value_t values[32];
+    ta_value_t *pvalues;
+    Tcl_Obj **tcolPP;
+    int status;
+    int new_size;
+    int col_len;
+    Tcl_Obj **ovalues;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+
+    if ((status = Tcl_ListObjGetElements(ip, orow, &row_width, &ovalues)) != TCL_OK ||
+        (status = tgrid_convert(ip, tgrid)) != TCL_OK)
+        return status;
+
+    count = tgrid_width(tgrid);
+    if (row_width < count)
+        return ta_row_width_error(ip, row_width, count);
+
+    /* Check for empty tuple so as to simplify loops below */
+    if (row_width == 0)
+        return TCL_OK;          /* Return empty result */
+
+    if (row_width > sizeof(values)/sizeof(values[0])) {
+        pvalues = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
+    } else {
+        pvalues = values;
+    }
+
+    tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0);
+    col_len = tcol_occupancy(*tcolPP); /* #items in first column */
+
+    /* Validate column lengths and value types */
+    for (i = 0; i < row_width; ++i) {
+        if (tcol_occupancy(tcolPP[i]) != col_len) {
+            status = ta_grid_length_error(ip);
+            goto vamoose;
+        }
+        status = ta_value_from_obj(ip, ovalues[i], tcol_type(tcolPP[i]), &pvalues[i]);
+        if (status != TCL_OK)
+            goto vamoose;
+    }
+
+    /*
+     * Ok, now we have validated the columns are the right length and
+     * values are the right type.
+     */
+
+    /* Figure out if we are given a range or a sequence of indices */
+    if (indexb) {
+        /* Given a range */
+        status = ta_fix_range_bounds(ip, TARRAYHDR(tcolPP[0]), indexa,
+                                     indexb, &low, &count);
+        if (status != TCL_OK || count == 0)
+            goto vamoose;      /* Either error or empty range */
+        if ((status = tgrid_make_modifiable(ip, tgrid, low+count, 0)) != TCL_OK)
+            goto vamoose;
+        tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0); /* Might have changed! */
+        for (i = 0; i < row_width; ++i)
+            thdr_fill_range(ip, TARRAYHDR(tcolPP[i]),
+                            &values[i], low, count, 0);
+    } else {
+        /* Not a range, either a list or single index */
+        thdr_t *pindices;
+        /* Note status is TCL_OK at this point */
+        switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
+        case TA_INDEX_TYPE_ERROR:
+            status = TCL_ERROR;
+            break;
+        case TA_INDEX_TYPE_INT:
+            if (low < 0 || low > col_len) {
+                ta_index_range_error(ip, low);
+                status = TCL_ERROR;
+            } else {
+                status = tgrid_make_modifiable(ip, tgrid, low+1, 0);
+                tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0); /* Might have changed! */
+                if (status == TCL_OK) {
+                    for (i = 0; i < row_width; ++i)
+                        thdr_fill_range(ip, TARRAYHDR(tcolPP[i]),
+                                        &values[i], low, 1, 0);
+                }
+            }
+            break;
+        case TA_INDEX_TYPE_THDR:
+            status = thdr_verify_indices(ip, TARRAYHDR(tcolPP[0]), pindices, &count);
+            if (status == TCL_OK) {
+                status = tgrid_make_modifiable(ip, tgrid, count, count); // TBD - count + extra?
+                tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0); /* Might have changed! */
+                if (status == TCL_OK) {
+                    for (i = 0; i < row_width; ++i)
+                        thdr_fill_indices(ip, TARRAYHDR(tcolPP[i]),
+                                          &values[i], pindices);
+                }
+            }
+            thdr_decr_refs(pindices);
+            break;
+        }
+    }
+
+vamoose:
+    /* status contains TCL_OK or other code */
+    /* ip must already hold error message in case of error */
+    if (pvalues != values)
+        TA_FREEMEM((char *) pvalues);
+
+    return status;
+
+}
+
+/* The grid Tcl_Obj gridObj is modified */
+TCL_RESULT OBSOLETETGridFillFromObjs(
     Tcl_Interp *ip,
     Tcl_Obj *olow, Tcl_Obj *ohigh,
     Tcl_Obj *gridObj,
@@ -2503,12 +2694,12 @@ TCL_RESULT TGridFillFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (olow->typePtr == &g_ta_type)
+    if (tcol_affirm(olow))
         olow = Tcl_DuplicateObj(olow);
     else
         Tcl_IncrRefCount(olow); /* Since we will release at end */
 
-    if (ohigh->typePtr == &g_ta_type)
+    if (tcol_affirm(ohigh))
         ohigh = Tcl_DuplicateObj(ohigh);
     else
         Tcl_IncrRefCount(ohigh); /* Since we will release at end */
@@ -2564,7 +2755,7 @@ TCL_RESULT TGridFillFromObjs(
         new_size = low + count + TA_EXTRA(low+count); /* Disregarded if < usable */
 
         /* We have already converted above */
-        TA_ASSERT(colObj->typePtr == &g_ta_type);
+        TA_ASSERT(tcol_affirm(colObj));
         if (Tcl_IsShared(colObj)) {
             colObj = Tcl_DuplicateObj(colObj);
             Tcl_IncrRefCount(colObj);
@@ -2590,7 +2781,6 @@ TCL_RESULT TGridFillFromObjs(
      * allocations are done.
      * NOTE: NO ERRORS ARE EXPECTED BEYOND THIS POINT EXCEPT FATAL ONES
      */
-
     for (i = 0, tcolPP = THDRELEMPTR(gridHdrP, Tcl_Obj *, 0);
          i < row_width;
          ++i, ++tcolPP) {
@@ -2708,9 +2898,9 @@ TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
 
 /* ip may be NULL (only used for errors) */
 /* See asserts in code for prerequisite conditions */
-TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
-                                thdr_t * const thdrs[], int nthdrs,
-                                Tcl_Obj *tuples, int first)
+TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
+                          thdr_t * const thdrs[], int nthdrs,
+                          Tcl_Obj *orows, int first, int insert)
 {
     int t, r, ival;
     Tcl_WideInt wide;
@@ -2720,12 +2910,12 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
     int have_obj_cols;
     int have_other_cols;
     int need_data_validation;
-    Tcl_Obj *valObj;
+    Tcl_Obj *oval;
     thdr_t *thdr;
 
     TA_ASSERT(nthdrs > 0);
 
-    if (Tcl_ListObjGetElements(ip, tuples, &nrows, &rows) != TCL_OK)
+    if (Tcl_ListObjGetElements(ip, orows, &nrows, &rows) != TCL_OK)
         return TCL_ERROR;
 
     if (nrows == 0)
@@ -2832,6 +3022,9 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
             if (thdr->type == TA_OBJ)
                 continue;
 
+            if (insert)
+                thdr_make_room(thdr, first, nrows);
+
             thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
             switch (thdrs[t]->type) {
             case TA_BOOLEAN:
@@ -2854,9 +3047,9 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                     } else
                         ba = 0;
                     for (r = 0; r < nrows; ++r) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetBooleanFromObj(ip, valObj, &ival) != TCL_OK)
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetBooleanFromObj(ip, oval, &ival) != TCL_OK)
                             goto error_return;
                         if (ival)
                             ba |= ba_mask;
@@ -2884,12 +3077,12 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                     register unsigned int *uintP;
                     uintP = THDRELEMPTR(thdr, unsigned int, first);
                     for (r = 0; r < nrows; ++r, ++uintP) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetWideIntFromObj(ip, valObj, &wide) != TCL_OK)
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetWideIntFromObj(ip, oval, &wide) != TCL_OK)
                             goto error_return;
                         if (wide < 0 || wide > 0xFFFFFFFF) {
-                            ta_value_type_error(ip, valObj, thdr->type);
+                            ta_value_type_error(ip, oval, thdr->type);
                             goto error_return;
                         }
                         *uintP = (unsigned int) wide;
@@ -2901,9 +3094,9 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                     register int *intP;
                     intP = THDRELEMPTR(thdr, int, first);
                     for (r = 0; r < nrows; ++r, ++intP) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetIntFromObj(ip, valObj, intP) != TCL_OK)
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetIntFromObj(ip, oval, intP) != TCL_OK)
                             goto error_return;
                     }
                 }
@@ -2913,9 +3106,9 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                     register Tcl_WideInt *pwide;
                     pwide = THDRELEMPTR(thdr, Tcl_WideInt, first);
                     for (r = 0; r < nrows; ++r, ++pwide) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetWideIntFromObj(ip, valObj, pwide) != TCL_OK)
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetWideIntFromObj(ip, oval, pwide) != TCL_OK)
                             goto error_return;
                     }
                 }
@@ -2925,9 +3118,9 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                     register double *pdbl;
                     pdbl = THDRELEMPTR(thdr, double, first);
                     for (r = 0; r < nrows; ++r, ++pdbl) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetDoubleFromObj(ip, valObj, pdbl) != TCL_OK)
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetDoubleFromObj(ip, oval, pdbl) != TCL_OK)
                             goto error_return;
                     }
                 }
@@ -2937,12 +3130,12 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
                     register unsigned char *byteP;
                     byteP = THDRELEMPTR(thdr, unsigned char, first);
                     for (r = 0; r < nrows; ++r, ++byteP) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-                        TA_ASSERT(valObj);
-                        if (Tcl_GetIntFromObj(ip, valObj, &ival) != TCL_OK)
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetIntFromObj(ip, oval, &ival) != TCL_OK)
                             goto error_return;
                         if (ival > 255 || ival < 0) {
-                            ta_value_type_error(ip, valObj, thdr->type);
+                            ta_value_type_error(ip, oval, thdr->type);
                             goto error_return;
                         }
                         *byteP = (unsigned char) ival;
@@ -2961,18 +3154,23 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
         thdr = thdrs[t];
         if (thdr->type != TA_OBJ)
             continue;
+        if (insert)
+            thdr_make_room(thdr, first, nrows);
         thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
         pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
         for (r = 0; r < nrows ; ++r, ++pobjs) {
-            Tcl_ListObjIndex(ip, rows[r], t, &valObj);
-            TA_ASSERT(valObj);
+            Tcl_ListObjIndex(ip, rows[r], t, &oval);
+            TA_ASSERT(oval);
             /* Careful about the order here! */
-            Tcl_IncrRefCount(valObj);
-            if ((first + r) < thdr->used) {
-                /* Deref what was originally in that slot */
-                Tcl_DecrRefCount(*pobjs);
+            Tcl_IncrRefCount(oval);
+            /* Release old elems only if we were not inserting */
+            if (!insert) {
+                if ((first + r) < thdr->used) {
+                    /* Deref what was originally in that slot */
+                    Tcl_DecrRefCount(*pobjs);
+                }
             }
-            *pobjs = valObj;
+            *pobjs = oval;
         }
     }
 
@@ -2984,34 +3182,50 @@ TCL_RESULT thdr_tSetMultipleFromObjs(Tcl_Interp *ip,
 
     return TCL_OK;
 
-width_error:
-    if (ip)
-        Tcl_SetResult(ip, "Not enough elements in row", TCL_STATIC);
-
 error_return:                  /* Interp should already contain errors */
     return TCL_ERROR;
 }
 
-
-/* The grid Tcl_Obj gridObj is modified */
-void thdrs_fill(
-    Tcl_Interp *ip,
-    thdr_t * const thdrs[], int nthdrs,
-    ta_value_t *pvalues,
-    int low, int count)
+#ifdef TBD
+TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                          Tcl_Obj *ovalues, Tcl_Obj *ofirst, int insert)
 {
-    int i;
+    int status;
+    Tcl_Obj **rows;
+    Tcl_Obj *tcol;
+    int nrows;
+    int n;
 
-    if (nthdrs == 0)
-        return;
+    TA_ASSERT(! Tcl_IsShared(tgrid));
 
-    for (i = 0; i < nthdrs; ++i) {
-        TA_ASSERT(! thdr_shared(thdrs[i]));
-        TA_ASSERT(thdrs[i]->usable >= (low + count));
+    status = Tcl_ListObjGetElements(ip, ovalues, &nrows, &rows);
+    if (status != TCL_OK || nrows == 0)
+        return status;          /* Error or nothing to modify */
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK)
+        return status;
+
+    if (tgrid_width(tgrind) == 0)
+        return TCL_OK;          /* No columns to update */
+
+    tcol = tgrid_column(tgrid, 0);
+
+    /* Get the limits of the range to set */
+    n = tcol_occupancy(tcol);
+    status = ta_convert_index(ip, ofirst, &n, n, 0, n);
+    /* n contains starting offset */
+    if (status == TCL_OK && nvalues) {
+        /* Note this also invalidates the string rep as desired */
+        status = tgrid_make_modifiable(ip, tgrid, n + nrows, 0);
+        if (status == TCL_OK) {
+            /* Note even on error thdrs_put_objs guarantees a consistent 
+             * and unchanged tcol
+             */
+            status = thdrs_put_objs(ip, TARRAYHDR(tcol),
+                                   n, nvalues, ovalues, insert);
+        }
     }
-
-    for (i = 0; i < nthdrs; ++i, ++pvalues) {
-        thdr_fill_range(ip, thdrs[i], pvalues, low, count, 0);
-    }
+    
+    return status;
 }
-
+#endif

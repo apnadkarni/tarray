@@ -148,7 +148,7 @@ Tcl_Obj *TGridClone(Tcl_Interp *ip, Tcl_Obj *gridObj, int minsize)
             Tcl_DecrRefCount(listObj);
             return TCL_ERROR;
         }
-        TA_ASSERT(tcols[i]->typePtr == &g_ta_type);
+        TA_ASSERT(tcols[i]->typePtr == &g_tcol_type);
         Tcl_ListObjAppendElement(ip, listObj,
                                  tcol_new(thdr_clone(TARRAYHDR(tcols[i]), minsize)));
     }
@@ -238,7 +238,7 @@ Tcl_Obj *TGridMakeWritable(Tcl_Interp *ip, Tcl_Obj *gridObj, int minsize, int pr
         for (writable = 1, i = 0; i < n; ++i) {
             if (Tcl_ListObjIndex(ip, gridObj, i, &tcol)  != TCL_OK)
                 return NULL;
-            if (tcol->typePtr != &g_ta_type) {
+            if (tcol->typePtr != &g_tcol_type) {
                 ta_not_tarray_error(ip);
                 return NULL;
             }
@@ -306,12 +306,12 @@ TCL_RESULT TGridFillFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (olow->typePtr == &g_ta_type)
+    if (olow->typePtr == &g_tcol_type)
         olow = Tcl_DuplicateObj(olow);
     else
         Tcl_IncrRefCount(olow); /* Since we will release at end */
 
-    if (ohigh->typePtr == &g_ta_type)
+    if (ohigh->typePtr == &g_tcol_type)
         ohigh = Tcl_DuplicateObj(ohigh);
     else
         Tcl_IncrRefCount(ohigh); /* Since we will release at end */
@@ -381,7 +381,7 @@ TCL_RESULT TGridFillFromObjs(
         /* If we have to realloc anyway, we will leave a bit extra room */
         new_size = low + count + TA_EXTRA(low+count);
         for (i = 0; i < tuple_width; ++i) {
-            TA_ASSERT(tcols[i]->typePtr == &g_ta_type); // Verify no shimmering
+            TA_ASSERT(tcols[i]->typePtr == &g_tcol_type); // Verify no shimmering
             oresultsP[i] = TArrayMakeWritable(tcols[i], low+count, new_size, 0);
             thdr_tFill(ip, TARRAYHDR(oresults[i]),
                           &pvalues[i], low, count);
@@ -453,7 +453,7 @@ TCL_RESULT TGridSetFromObjs(
      * So if the index Tcl_Obj's are of tarrays, we dup them.
      */
 
-    if (olow->typePtr == &g_ta_type)
+    if (olow->typePtr == &g_tcol_type)
         olow = Tcl_DuplicateObj(olow);
     else
         Tcl_IncrRefCount(olow); /* Since we will release at end */
@@ -516,7 +516,7 @@ TCL_RESULT TGridSetFromObjs(
     /* If we have to realloc anyway, we will leave a bit extra room */
     new_size = count + TA_EXTRA(count);
     for (i = 0; i < grid_width; ++i) {
-        TA_ASSERT(tcols[i]->typePtr == &g_ta_type); // Verify no shimmering
+        TA_ASSERT(tcols[i]->typePtr == &g_tcol_type); // Verify no shimmering
         oresultsP[i] = TArrayMakeWritable(tcols[i], count,
                                new_size, TA_MAKE_WRITABLE_INCREF);
         thdrsP[i] = TARRAYHDR(oresultsP[i]);

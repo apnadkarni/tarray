@@ -61,7 +61,7 @@ critcl::ccommand tarray::column::create {} {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIndexFromObj(interp, objv[1], g_ta_type_tokens, "TArrayType",
+    if (Tcl_GetIndexFromObj(interp, objv[1], g_type_tokens, "TArrayType",
                             TCL_EXACT, &tatype) != TCL_OK) {
 	return TCL_ERROR;
     }
@@ -185,7 +185,7 @@ critcl::ccommand tarray::column::get {} {
      * In that the string rep will anyways exist and question of shimmering
      * does not arise.
      */
-    if (objv[1]->typePtr == &g_ta_type) {
+    if (tcol_affirm(objv[1])) {
         ta_arg = 1;
     } else {
         /* OK, see if it is an option */
@@ -431,8 +431,6 @@ critcl::ccommand tarray::column::vinsert {} {
     return status;
 }
 
-
-
 critcl::ccommand tarray::column::put {} {
     Tcl_Obj *tcol;
     int status;
@@ -572,7 +570,7 @@ critcl::ccommand tarray::column::fill {} {
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMN VALUE (INDEXLIST | LOW ?HIGH?)");
+	Tcl_WrongNumArgs(interp, 1, objv, "COLUMN VALUE (INDEXLIST | LOW ?HIGH?)");
 	return TCL_ERROR;
     }
 
@@ -705,16 +703,14 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
 }
 
 
-critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
+critcl::cproc tarray::grid::OBSOLETEcreate {Tcl_Interp* interp Tcl_Obj* objP} ok {
     Tcl_Obj **tcols;
     thdr_t *thdrP;
     int i;
     int status;
     
-    if (objP->typePtr != &g_ta_type) {
-        if ((status = tcol_convert(interp, objP) != TCL_OK))
-            return TCL_OK;
-    }            
+    if ((status = tgrid_convert(interp, objP) != TCL_OK))
+        return status;
 
     thdrP = TARRAYHDR(objP);
     if (thdrP->type != TA_OBJ)
@@ -731,31 +727,25 @@ critcl::cproc tarray::grid::create {Tcl_Interp* interp Tcl_Obj* objP} ok {
 }
 
 critcl::ccommand tarray::grid::fill {} {
-    Tcl_Obj *gridObj;
-    int we_allocated_gridobj;
+    Tcl_Obj *tgrid;
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "GRID VALUELIST LOW ?HIGH?");
+	Tcl_WrongNumArgs(interp, 1, objv, "GRID VALUES (INDEXLIST | LOW ?HIGH?");
 	return TCL_ERROR;
     }
 
-    gridObj = objv[1];
-    if (Tcl_IsShared(gridObj)) {
-        gridObj = Tcl_DuplicateObj(gridObj);
-        we_allocated_gridobj = 1;
-    } else
-        we_allocated_gridobj = 0;
+    tgrid = objv[1];
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
 
-    status = TGridFillFromObjs(interp, objv[3], objv[objc == 5 ? 4 : 3],
-                               gridObj, objv[2]);
+    status = tgrid_fill_obj(interp, tgrid, objv[2], objv[3], 
+                               objc == 5 ? objv[4] : NULL);
 
     if (status == TCL_OK)
-        Tcl_SetObjResult(interp, gridObj);
-    else {
-        if (we_allocated_gridobj)
-            Tcl_DecrRefCount(gridObj);
-    }
+        Tcl_SetObjResult(interp, tgrid);
+    else if (tgrid != objv[1])
+        Tcl_DecrRefCount(tgrid);
 
     return status;
 }
@@ -813,12 +803,12 @@ critcl::class::define tarray::table {
         for (i = 0; i < nelems-1; i += 2) {
             Tcl_Obj *tcol;
             Tcl_HashEntry *he;
-            if (Tcl_GetIndexFromObj(interp, elems[i+1], g_ta_type_tokens, "TArrayType",
+            if (Tcl_GetIndexFromObj(interp, elems[i+1], g_type_tokens, "TArrayType",
                                     TCL_EXACT, &tatype) == TCL_OK) {
                 tcol = tcol_new(thdr_alloc(interp, tatype, 0));
                 if (tcol && thdr_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
                     int is_new;
-                    he = Tcl_CreateHashEntry(&instance->column_names, elems[i], &is_new);
+                    he = Tcl_CreateHashEntry(&instance->column_names, (char *)elems[i], &is_new);
                     if (is_new) {
                         Tcl_SetHashValue(he, (ClientData) (i/2));
                         continue; /* Success, go on with next field */
