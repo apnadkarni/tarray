@@ -48,7 +48,7 @@ typedef int TCL_RESULT;
 #define TA_ATTEMPTREALLOCMEM attemptckrealloc
 
 
-/* Must match g_ta_type_tokens definition in tarray.c ! */
+/* Must match g_type_tokens definition in tarray.c ! */
 #define TA_BOOLEAN 0
 #define TA_UINT 1
 #define TA_INT 2
@@ -70,7 +70,7 @@ typedef struct ta_value_s {
     };
 } ta_value_t;
 
-extern const char *g_ta_type_tokens[];
+extern const char *g_type_tokens[];
 
 /* Must match order of gFormatOptions in tarray.critcl ! */
 #define TA_FORMAT_TARRAY 0
@@ -115,9 +115,8 @@ typedef union thdr_s {
 #define TA_EXTRA(n_)  \
     ((n_) < 10 ? 10 : ((n_) < 100 ? (n_) : ((n_) < 800 ? 100 : ((n_)/8))))
 
-extern struct Tcl_ObjType g_ta_type;
-extern struct Tcl_ObjType gTGridType;
-
+extern struct Tcl_ObjType g_tcol_type;
+extern struct Tcl_ObjType g_tgrid_type;
 
 /*
  * Error and panic routines
@@ -141,7 +140,8 @@ TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_free(thdr_t *thdr);
-TCL_RESULT tcol_convert(Tcl_Interp *, Tcl_Obj *o);
+TCL_RESULT tcol_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
+TCL_RESULT tgrid_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
 
 TCL_RESULT TGridVerifyType(Tcl_Interp *, Tcl_Obj *gridObj);
 Tcl_Obj *TGridNewObj(Tcl_Interp *, int nobjs, Tcl_Obj *const tcols[]);
@@ -155,14 +155,16 @@ void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                             const ta_value_t *ptav, thdr_t *pindices);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 
-TCL_RESULT thdrs_set_from_objs(Tcl_Interp *ip,
-                               thdr_t * const thdrs[], int nthdrs,
-                               Tcl_Obj *tuples, int first);
+TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
+                          thdr_t * const thdrs[], int nthdrs,
+                          Tcl_Obj *tuples, int first, int insert);
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 
 Tcl_Obj * tcol_new(thdr_t *thdr);
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
+TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
+                                 Tcl_Obj *tgrid, int minsize, int prefsize);
 
 TCL_RESULT thdr_put_objs(struct Tcl_Interp *,thdr_t *thdr,int first,int nelems,struct Tcl_Obj *const *elems, int insert );
 TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
@@ -195,6 +197,8 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexA, Tcl_Obj *indexB);
+TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb);
+
 Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj, int insert);
@@ -269,16 +273,25 @@ TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
 }
 TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 
+TA_INLINE int tcol_affirm(Tcl_Obj *o)
+{
+    return (o->typePtr == &g_tcol_type || o->typePtr == &g_tgrid_type);
+}
+TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) 
+{
+    return tcol_affirm(o) ? TCL_OK : tcol_convert_from_other(ip, o);
+}
+
 /* Sets a Tcl_Obj's internal rep pointer. Assumes the Tcl_Obj int rep is
    invalid / uninitialized */
 TA_INLINE ta_set_intrep(Tcl_Obj *o, thdr_t *thdr) {
     thdr_incr_refs(thdr);
     TARRAYHDR(o) = thdr;
-    o->typePtr = &g_ta_type;                 \
+    o->typePtr = &g_tcol_type;                 \
 }
 
 TA_INLINE ta_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
-    TA_ASSERT(o->typePtr == &g_ta_type);
+    TA_ASSERT(tcol_affirm(o));
     TA_ASSERT(! Tcl_IsShared(o));
     TA_ASSERT(TARRAYHDR(o) != NULL);
     thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
@@ -374,6 +387,21 @@ TA_INLINE thdr_make_room(thdr_t *thdr, int off, int count)
                                    thdr->used - off, &d, &s);
         memmove(d, s, nbytes); /* Not memcpy, overlapping! */
     }
+}
+
+TA_INLINE TCL_RESULT tgrid_convert(Tcl_Interp *ip, Tcl_Obj *tgrid) 
+{
+    return tgrid->typePtr == &g_tgrid_type ? TCL_OK : tgrid_convert_from_other(ip, tgrid);
+}
+
+TA_INLINE int tgrid_width(Tcl_Obj *tgrid)
+{
+    return tcol_occupancy(tgrid);
+}
+
+TA_INLINE Tcl_Obj *tgrid_column(Tcl_Obj *tgrid, int i)
+{
+    return *THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, i);
 }
 
 #endif
