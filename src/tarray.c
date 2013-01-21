@@ -140,7 +140,7 @@ TCL_RESULT ta_row_width_error(Tcl_Interp *ip, int row_width, int min_width)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Row width %d less than minimum %d.", row_width, min_width));
+                         Tcl_ObjPrintf("Row or grid width %d less than destination width %d.", row_width, min_width));
         Tcl_SetErrorCode(ip, "TARRAY", "ROW", "WIDTH", NULL);
     }
     return TCL_ERROR;
@@ -186,10 +186,11 @@ TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip)
+TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb)
 {
     if (ip) {
-        Tcl_SetResult(ip, "tarray types are not compatible for attempted operation", TCL_STATIC);
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("tarray types %s and %s are not compatible for attempted operation", ta_type_string(typea), ta_type_string(typeb)));
         Tcl_SetErrorCode(ip, "TARRAY", "TYPE", "INCOMPATIBLE", NULL);
     }
 
@@ -314,19 +315,26 @@ TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     thdr_t *thdr;
     Tcl_Obj **ptcol;
     Tcl_Obj **end;
+    int nelems;
 
     if ((status = tcol_convert(ip, o)) != TCL_OK)
         return status;
     thdr = TARRAYHDR(o);
     if (thdr->type != TA_OBJ)
         return ta_bad_type_error(ip, thdr);
+    if (tcol_occupancy(o) == 0)
+        return TCL_OK;
 
     ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    nelems = tcol_occupancy(*ptcol);
     end = thdr->used + ptcol;
-
     while (ptcol < end) {
-        if ((status = tcol_convert(ip, *ptcol++)) != TCL_OK)
+        if ((status = tcol_convert(ip, *ptcol)) != TCL_OK)
             return status;
+        /* All must have same number of elements */
+        if (tcol_occupancy(*ptcol) != nelems)
+            return ta_grid_length_error(ip);
+        ++ptcol;
     }
     
     o->typePtr = &g_tgrid_type;
@@ -2433,7 +2441,7 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
     if (tcol_type(tcol) != psrc->type)
-        return ta_mismatched_types_error(ip);
+        return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
     status = ta_convert_index(ip, ofirst, &first, tcol_occupancy(tcol),
                         0, tcol_occupancy(tcol));
@@ -2547,7 +2555,6 @@ TCL_RESULT tgrid_fill_obj(
     ta_value_t *pvalues;
     Tcl_Obj **tcolPP;
     int status;
-    int new_size;
     int col_len;
     Tcl_Obj **ovalues;
 
@@ -2797,8 +2804,8 @@ vamoose:                   /* ip must already hold error message */
     return status;
 }
 
-TCL_RESULT thdrs_validate_obj_row_widths(Tcl_Interp *ip, int width,
-                                   int nrows, Tcl_Obj * const rows[])
+TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
+                                         int nrows, Tcl_Obj * const rows[])
 {
     int r, i;
     for (r = 0; r < nrows; ++r) {
@@ -2811,8 +2818,8 @@ TCL_RESULT thdrs_validate_obj_row_widths(Tcl_Interp *ip, int width,
     return TCL_OK;
 }
 
-TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
-                                   thdr_t *const thdrs[], 
+TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
+                                   Tcl_Obj * const *tcols,
                                    int nrows, Tcl_Obj * const rows[])
 {
     int r, t;
@@ -2836,7 +2843,7 @@ TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
      * a call thru a pointer (Tcl_ListObjIndex). Second case inner loop has a
      * switch, probably faster than an indirect call, so we go with that for
      * now.
-     * TBD - measure and decide.
+     * TBD - measure and decide if it even matters.
      */
     for (r = 0; r < nrows; ++r) {
         Tcl_Obj **fields;
@@ -2847,11 +2854,12 @@ TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
             return TCL_ERROR;
 
         /* Must have sufficient fields, more is ok */
-        if (nfields < nthdrs)
-            return ta_row_width_error(ip, nfields, nthdrs);
+        if (nfields < ntcols)
+            return ta_row_width_error(ip, nfields, ntcols);
 
-        for (t = 0; t < nthdrs; ++t) {
-            switch (thdrs[t]->type) {
+        for (t = 0; t < ntcols; ++t) {
+            int tatype = TARRAYHDR(tcols[t])->type;
+            switch (tatype) {
             case TA_BOOLEAN:
                 if (Tcl_GetBooleanFromObj(ip, fields[t], &v.ival) != TCL_OK)
                     return TCL_ERROR;
@@ -2860,7 +2868,7 @@ TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
                 if (Tcl_GetWideIntFromObj(ip, fields[t], &v.wval) != TCL_OK)
                     return TCL_ERROR;
                 if (v.wval < 0 || v.wval > 0xFFFFFFFF) {
-                    ta_value_type_error(ip, fields[t], thdrs[t]->type);
+                    ta_value_type_error(ip, fields[t], tatype);
                     return TCL_ERROR;
                 }
                 break;
@@ -2880,14 +2888,14 @@ TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
                 if (Tcl_GetIntFromObj(ip, fields[t], &v.ival) != TCL_OK)
                     return TCL_ERROR;
                 if (v.ival > 255 || v.ival < 0) {
-                    ta_value_type_error(ip, fields[t], thdrs[t]->type);
+                    ta_value_type_error(ip, fields[t], tatype);
                     return TCL_ERROR;
                 }
                 break;
             case TA_OBJ:
                 break;      /* No validation */
             default:
-                ta_type_panic(thdrs[t]->type);
+                ta_type_panic(tatype);
             }
         }
     }
@@ -2898,39 +2906,34 @@ TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
 
 /* ip may be NULL (only used for errors) */
 /* See asserts in code for prerequisite conditions */
-TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
-                          thdr_t * const thdrs[], int nthdrs,
-                          Tcl_Obj *orows, int first, int insert)
+TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
+                          int nrows, Tcl_Obj * const *rows,
+                          int first, int insert)
 {
     int t, r, ival;
     Tcl_WideInt wide;
-    double dval;
-    Tcl_Obj **rows;
-    int nrows;
     int have_obj_cols;
     int have_other_cols;
     int need_data_validation;
     Tcl_Obj *oval;
-    thdr_t *thdr;
+    thdr_t *thdr, *thdr0;
 
-    TA_ASSERT(nthdrs > 0);
 
-    if (Tcl_ListObjGetElements(ip, orows, &nrows, &rows) != TCL_OK)
-        return TCL_ERROR;
-
-    if (nrows == 0)
+    if (ntcols == 0 || nrows == 0)
         return TCL_OK;          /* Nought to do */
 
-    for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < nthdrs; ++t) {
-        TA_ASSERT(thdrs[t]->nrefs < 2); /* Unshared */
-        TA_ASSERT(thdrs[t]->usable >= (first + nrows)); /* 'Nuff space */
-        TA_ASSERT(thdrs[t]->used == thdrs[0]->used); /* All same size */
+    thdr0 = TARRAYHDR(tcols[0]);
+    for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < ntcols; ++t) {
+        thdr = TARRAYHDR(tcols[t]);
+        TA_ASSERT(! Tcl_IsShared(tcols[t]));
+        TA_ASSERT(! thdr_shared(thdr));
+        TA_ASSERT(thdr->usable >= (first + nrows)); /* 'Nuff space */
+        TA_ASSERT(thdr->used == thdr0->used); /* All same size */
 
-        if (thdrs[t]->type == TA_OBJ)
+        if (thdr->type == TA_OBJ)
             have_obj_cols = 1;
         else
             have_other_cols = 1;
-
     }
 
     /*
@@ -2959,7 +2962,7 @@ TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
     if (! have_other_cols) {
         /* Only TA_OBJ columns, data validation is a no-op */
         need_data_validation = 0;
-    } else if (first >= thdrs[0]->used) {
+    } else if (first >= thdr0->used) {
         /*
          * Pure append, not overwriting so rollback becomes easy and
          * no need for prevalidation step.
@@ -2969,15 +2972,23 @@ TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
         need_data_validation = 1;
        
 
+    /*
+     * TBD - optmization. Check which of these alternativs is better
+     *  - current implementation
+     *  - Do not call tcols_validate_obj_row_widths but check
+     *    return of Tcl_ListObjIndex in storage loop
+     *  - always call thdrs_validate_obj_rows (even if appending)
+     *    and dispense with error checking in storage loop.
+     */
     if (need_data_validation) {
-        if (thdrs_validate_obj_rows(ip, nthdrs, thdrs, nrows, rows) != TCL_OK)
+        if (tcols_validate_obj_rows(ip, ntcols, tcols, nrows, rows) != TCL_OK)
             return TCL_ERROR;
     } else {
         /*
          * We are not validating data but then validate row widths 
          * We are doing this to simplify error rollback for TA_OBJ
          */
-        if (thdrs_validate_obj_row_widths(ip, nthdrs, nrows, rows) != TCL_OK)
+        if (tcols_validate_obj_row_widths(ip, ntcols, nrows, rows) != TCL_OK)
             return TCL_ERROR;
     }
 
@@ -3016,9 +3027,9 @@ TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
      * rollback on errors as discussed earlier.
      */
     if (have_other_cols) {
-        for (t=0; t < nthdrs; ++t) {
+        for (t=0; t < ntcols; ++t) {
             /* Skip TA_OBJ on this round, until all other data is stored */
-            thdr = thdrs[t];
+            thdr = TARRAYHDR(tcols[t]);
             if (thdr->type == TA_OBJ)
                 continue;
 
@@ -3026,7 +3037,7 @@ TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
                 thdr_make_room(thdr, first, nrows);
 
             thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
-            switch (thdrs[t]->type) {
+            switch (thdr->type) {
             case TA_BOOLEAN:
                 {
                     register ba_t *baP;
@@ -3149,9 +3160,9 @@ TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
     }
 
     /* Now that no errors are possible, update the TA_OBJ columns */
-    for (t=0; t < nthdrs; ++t) {
+    for (t=0; t < ntcols; ++t) {
         register Tcl_Obj **pobjs;
-        thdr = thdrs[t];
+        thdr = TARRAYHDR(tcols[t]);
         if (thdr->type != TA_OBJ)
             continue;
         if (insert)
@@ -3175,9 +3186,9 @@ TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
     }
 
     /* Now finally, update all the counts */
-    for (t=0; t < nthdrs; ++t) {
-        if ((first + nrows) > thdrs[t]->used)
-            thdrs[t]->used = first + nrows;
+    for (t=0; t < ntcols; ++t) {
+        if ((first + nrows) > TARRAYHDR(tcols[t])->used)
+            TARRAYHDR(tcols[t])->used = first + nrows;
     }
 
     return TCL_OK;
@@ -3186,46 +3197,118 @@ error_return:                  /* Interp should already contain errors */
     return TCL_ERROR;
 }
 
-#ifdef TBD
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
-                          Tcl_Obj *ovalues, Tcl_Obj *ofirst, int insert)
+                          Tcl_Obj *orows, Tcl_Obj *ofirst, int insert)
 {
     int status;
     Tcl_Obj **rows;
-    Tcl_Obj *tcol;
+    Tcl_Obj **tcols;
     int nrows;
     int n;
 
     TA_ASSERT(! Tcl_IsShared(tgrid));
 
-    status = Tcl_ListObjGetElements(ip, ovalues, &nrows, &rows);
+    status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
     if (status != TCL_OK || nrows == 0)
         return status;          /* Error or nothing to modify */
 
     if ((status = tgrid_convert(ip, tgrid)) != TCL_OK)
         return status;
 
-    if (tgrid_width(tgrind) == 0)
+    if (tgrid_width(tgrid) == 0)
         return TCL_OK;          /* No columns to update */
 
-    tcol = tgrid_column(tgrid, 0);
+    tcols = tgrid_columns(tgrid);
 
     /* Get the limits of the range to set */
-    n = tcol_occupancy(tcol);
+    n = tcol_occupancy(tcols[0]);
     status = ta_convert_index(ip, ofirst, &n, n, 0, n);
     /* n contains starting offset */
-    if (status == TCL_OK && nvalues) {
+    if (status == TCL_OK) {
         /* Note this also invalidates the string rep as desired */
         status = tgrid_make_modifiable(ip, tgrid, n + nrows, 0);
         if (status == TCL_OK) {
-            /* Note even on error thdrs_put_objs guarantees a consistent 
-             * and unchanged tcol
+            /* Note even on error tcols_put_objs guarantees a consistent 
+             * and unchanged tcols
              */
-            status = thdrs_put_objs(ip, TARRAYHDR(tcol),
-                                   n, nvalues, ovalues, insert);
+            status = tcols_put_objs(ip, tgrid_width(tgrid), tcols,
+                                    nrows, rows, n, insert);
         }
     }
     
     return status;
 }
-#endif
+
+TCL_RESULT tcols_copy(Tcl_Interp *ip,
+                      int ntcols,
+                      Tcl_Obj * const *dstcols, int dst_elem_first,
+                      Tcl_Obj * const *srccols, int src_elem_first,
+                      int count,
+                      int insert)
+{
+    int i;
+    thdr_t *psrc, *pdst;
+
+    /* First do checks, then the copy so as to not error out half way */
+    for (i = 0; i < ntcols; ++i) {
+        TA_ASSERT(! Tcl_IsShared(dstcols[i]));
+        TA_ASSERT(tcol_affirm(dstcols[i]));
+        TA_ASSERT(tcol_affirm(srccols[i]));
+        TA_ASSERT(tcol_occupancy(dstcols[i]) == tcol_occupancy(dstcols[0]));
+
+        pdst = TARRAYHDR(dstcols[i]);
+        psrc = TARRAYHDR(srccols[i]);
+
+        TA_ASSERT(! thdr_shared(pdst));
+        TA_ASSERT(pdst->usable >= (insert ? pdst->used + count : dst_elem_first + count));
+
+        if (pdst->type != psrc->type)
+            return ta_mismatched_types_error(ip, pdst->type, psrc->type);
+    }
+    
+    /* Now that *all* columns have been checked, do the actual copy */
+    for (i = 0; i < ntcols; ++i) {
+        thdr_copy(TARRAYHDR(dstcols[i]), dst_elem_first,
+                  TARRAYHDR(srccols[i]), src_elem_first, count, insert);
+    }    
+
+    return TCL_OK;
+}
+
+TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Obj *ofirst, int insert)
+{
+    int first, status;
+    Tcl_Obj **dstcols;
+    Tcl_Obj **srccols;
+    int count, new_min_size;
+
+    TA_ASSERT(! Tcl_IsShared(dstgrid));
+
+    if ((status = tgrid_convert(ip, dstgrid)) != TCL_OK ||
+        (status = tgrid_convert(ip, srcgrid)) != TCL_OK)
+        return status;
+
+    if (tgrid_width(dstgrid) > tgrid_width(srcgrid))
+        return ta_row_width_error(ip, tgrid_width(srcgrid), tgrid_width(srcgrid));
+
+    srccols = tgrid_columns(srcgrid);
+    count = tcol_occupancy(srccols[0]);
+    dstcols = tgrid_columns(dstgrid);
+    if (insert)
+        new_min_size = tcol_occupancy(dstcols[0]) + count;
+    else
+        new_min_size = first + count;
+    status = tgrid_make_modifiable(ip, dstgrid, new_min_size, 0);
+    if (status != TCL_OK)
+        return status;
+    dstcols = tgrid_columns(dstgrid); /* Re-init - might have changed */
+
+    status = ta_convert_index(ip, ofirst, &first,
+                              tcol_occupancy(dstcols[0]),
+                              0, tcol_occupancy(dstcols[0]));
+    if (status != TCL_OK)
+        return status;
+
+    return tcols_copy(ip, tgrid_width(dstgrid), dstcols, first,
+                      srccols, 0, count, insert);
+}

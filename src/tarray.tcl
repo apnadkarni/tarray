@@ -4,6 +4,16 @@ namespace eval tarray {
     namespace eval table {}
 }
 
+proc tarray::grid::create {types {initvals {}} {initsize 0}} {
+    set cols {}
+    foreach type $types {
+        lappend cols [tarray::column::create $type {} $initsize]
+    }
+
+    set grid [tarray::column::create tclobj $cols]
+    
+}
+
 proc tarray::grid::delete {tab low {high ""}} {
     if {$high eq ""} {
         set high $low
