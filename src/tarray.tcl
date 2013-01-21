@@ -72,8 +72,10 @@ namespace eval tarray {
 
     namespace eval grid {
         namespace ensemble create -map {
+            create create
             delete delete
             fill fill
+            put put
         }
     }
 

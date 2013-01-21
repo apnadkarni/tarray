@@ -2073,6 +2073,7 @@ TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
         tcol = tcols[i];
         if (Tcl_IsShared(tcol)) {
             tcol = Tcl_DuplicateObj(tcol);
+            Tcl_IncrRefCount(tcol);
             Tcl_DecrRefCount(tcols[i]);
             tcols[i] = tcol;
         }
