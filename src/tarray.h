@@ -135,7 +135,7 @@ TCL_RESULT ta_memory_error(Tcl_Interp *, int size);
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
-TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip);
+TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
@@ -155,9 +155,6 @@ void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                             const ta_value_t *ptav, thdr_t *pindices);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 
-TCL_RESULT thdrs_put_objs(Tcl_Interp *ip,
-                          thdr_t * const thdrs[], int nthdrs,
-                          Tcl_Obj *tuples, int first, int insert);
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
                              Tcl_Obj *gridObj, Tcl_Obj *rowObj);
 
@@ -166,11 +163,14 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int 
 TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
                                  Tcl_Obj *tgrid, int minsize, int prefsize);
 
-TCL_RESULT thdr_put_objs(struct Tcl_Interp *,thdr_t *thdr,int first,int nelems,struct Tcl_Obj *const *elems, int insert );
+TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ncols, Tcl_Obj * const *tcols,
+                          int nrows, Tcl_Obj * const *rows,
+                          int first, int insert);
+
 TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
                               int highest_in_indices,
                               int nvalues, Tcl_Obj * const *pvalues);
-int thdr_required_size(unsigned char tatype,int count);
+int thdr_required_size(unsigned char tatype, int count);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, unsigned char tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
@@ -198,6 +198,8 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb);
+TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                          Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
 
 Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
@@ -210,15 +212,16 @@ TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
                       int end_value, int low, int high);
 TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, const thdr_t *thdr, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
 
-TCL_RESULT thdrs_validate_obj_row_widths(Tcl_Interp *ip, int width,
+TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
                                          int nrows, Tcl_Obj * const rows[]);
-TCL_RESULT thdrs_validate_obj_rows(Tcl_Interp *ip, int nthdrs,
-                                   thdr_t *const thdrs[], 
+TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
+                                   Tcl_Obj * const *tcols,
                                    int nrows, Tcl_Obj * const rows[]);
 
-TCL_RESULT TGridSetFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *gridObj,
-    Tcl_Obj *ovalues, /* Each element is a list (tuple value) */
-    int flags);
+TCL_RESULT tcols_copy(Tcl_Interp *ip, int ntcols,
+                      Tcl_Obj * const *dstcols, int dst_elem_first,
+                      Tcl_Obj * const *srccols, int src_elem_first,
+                      int count, int insert);
 
 /*
  * Search and sort routines
@@ -397,6 +400,11 @@ TA_INLINE TCL_RESULT tgrid_convert(Tcl_Interp *ip, Tcl_Obj *tgrid)
 TA_INLINE int tgrid_width(Tcl_Obj *tgrid)
 {
     return tcol_occupancy(tgrid);
+}
+
+TA_INLINE Tcl_Obj **tgrid_columns(Tcl_Obj *tgrid)
+{
+    return THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0);
 }
 
 TA_INLINE Tcl_Obj *tgrid_column(Tcl_Obj *tgrid, int i)

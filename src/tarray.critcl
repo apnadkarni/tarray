@@ -726,6 +726,35 @@ critcl::cproc tarray::grid::OBSOLETEcreate {Tcl_Interp* interp Tcl_Obj* objP} ok
     return TCL_OK;
 }
 
+critcl::ccommand tarray::grid::put {} {
+    Tcl_Obj *tgrid;
+    int status;
+
+    if (objc != 4) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "GRID VALUES FIRST");
+	return TCL_ERROR;
+    }
+    
+    tgrid = objv[1];
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(objv[1]);
+
+    /* Values may be given as a list or a tarray */
+    if (tgrid_convert(NULL, objv[2]) == TCL_OK) {
+        /* It is a tgrid. Verify the right type */
+        status = tgrid_copy(interp, tgrid, objv[2], objv[3], 0);
+    } else {
+        status = tgrid_put_objs(interp, tgrid, objv[2], objv[3], 0);
+    }
+
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, tgrid);
+    else if (tgrid != objv[1])
+        Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
+
+    return status;
+}
+
 critcl::ccommand tarray::grid::fill {} {
     Tcl_Obj *tgrid;
     int status;
