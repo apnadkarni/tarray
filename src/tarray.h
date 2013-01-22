@@ -137,6 +137,8 @@ TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
+TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue);
+
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_free(thdr_t *thdr);
@@ -200,6 +202,9 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
 TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb);
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
+TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Obj *ofirst, int insert);
+TCL_RESULT tgrid_delete(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                        Tcl_Obj *indexa, Tcl_Obj *indexb);
 
 Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
@@ -280,6 +285,7 @@ TA_INLINE int tcol_affirm(Tcl_Obj *o)
 {
     return (o->typePtr == &g_tcol_type || o->typePtr == &g_tgrid_type);
 }
+
 TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) 
 {
     return tcol_affirm(o) ? TCL_OK : tcol_convert_from_other(ip, o);
@@ -392,6 +398,11 @@ TA_INLINE thdr_make_room(thdr_t *thdr, int off, int count)
     }
 }
 
+TA_INLINE int tgrid_affirm(Tcl_Obj *o)
+{
+    return (o->typePtr == &g_tgrid_type); 
+}
+
 TA_INLINE TCL_RESULT tgrid_convert(Tcl_Interp *ip, Tcl_Obj *tgrid) 
 {
     return tgrid->typePtr == &g_tgrid_type ? TCL_OK : tgrid_convert_from_other(ip, tgrid);
@@ -399,17 +410,27 @@ TA_INLINE TCL_RESULT tgrid_convert(Tcl_Interp *ip, Tcl_Obj *tgrid)
 
 TA_INLINE int tgrid_width(Tcl_Obj *tgrid)
 {
+    TA_ASSERT(tgrid_affirm(tgrid));
     return tcol_occupancy(tgrid);
 }
 
 TA_INLINE Tcl_Obj **tgrid_columns(Tcl_Obj *tgrid)
 {
+    TA_ASSERT(tgrid_affirm(tgrid));
     return THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0);
 }
 
 TA_INLINE Tcl_Obj *tgrid_column(Tcl_Obj *tgrid, int i)
 {
+    TA_ASSERT(tgrid_affirm(tgrid));
     return *THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, i);
 }
+
+TA_INLINE int tgrid_length(Tcl_Obj *tgrid)
+{
+    TA_ASSERT(tgrid_affirm(tgrid));
+    return tgrid_width(tgrid) == 0 ? 0 : tcol_occupancy(tgrid_column(tgrid, 0));
+}
+
 
 #endif

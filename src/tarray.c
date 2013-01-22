@@ -309,6 +309,31 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     return ta_not_tarray_error(ip);
 }
 
+/*
+ * Sets the value of the variable given by ovarname to ovalue and sets the
+ * the interp result to the resulting value of the variable (which may be
+ * different from ovalue because of traces).
+ * 
+ * IMPORTANT: Caller should NOT access ovalue again unless it has protected
+ * it by bumping its ref count.
+ */
+TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue)
+{
+    Tcl_Obj *oresult;
+    Tcl_IncrRefCount(ovalue);
+    if (status == TCL_OK) {
+        oresult = Tcl_ObjSetVar2(ip, ovarname, NULL, ovalue, TCL_LEAVE_ERR_MSG);
+        if (oresult)
+            Tcl_SetObjResult(ip, oresult);
+        else
+            status = TCL_ERROR;
+    }
+    Tcl_DecrRefCount(ovalue);
+
+    return status;
+}
+
+
 TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     int status;
@@ -2325,8 +2350,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    status = tcol_make_modifiable(ip, tcol, tcol_occupancy(tcol),
-                                  tcol_occupancy(tcol));
+    status = tcol_make_modifiable(ip, tcol, tcol_occupancy(tcol), 0);
     if (status == TCL_OK) {
         thdr_t *thdr = TARRAYHDR(tcol);
         if (indexb) {
@@ -3203,26 +3227,21 @@ TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
 {
     int status;
     Tcl_Obj **rows;
-    Tcl_Obj **tcols;
     int nrows;
     int n;
 
     TA_ASSERT(! Tcl_IsShared(tgrid));
 
     status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
-    if (status != TCL_OK || nrows == 0)
-        return status;          /* Error or nothing to modify */
-
-    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK)
-        return status;
-
-    if (tgrid_width(tgrid) == 0)
-        return TCL_OK;          /* No columns to update */
-
-    tcols = tgrid_columns(tgrid);
+    if (status != TCL_OK ||     /* Not a list */
+        nrows == 0 ||           /* Nothing to modify */
+        (status = tgrid_convert(ip, tgrid)) != TCL_OK || /* Not a grid */
+        tgrid_width(tgrid) == 0) /* No columns to update */ {
+        return status;           /* Maybe OK or ERROR */
+    }
 
     /* Get the limits of the range to set */
-    n = tcol_occupancy(tcols[0]);
+    n = tgrid_length(tgrid);
     status = ta_convert_index(ip, ofirst, &n, n, 0, n);
     /* n contains starting offset */
     if (status == TCL_OK) {
@@ -3232,7 +3251,8 @@ TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
             /* Note even on error tcols_put_objs guarantees a consistent 
              * and unchanged tcols
              */
-            status = tcols_put_objs(ip, tgrid_width(tgrid), tcols,
+            status = tcols_put_objs(ip, tgrid_width(tgrid),
+                                    tgrid_columns(tgrid),
                                     nrows, rows, n, insert);
         }
     }
@@ -3312,4 +3332,25 @@ TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Ob
 
     return tcols_copy(ip, tgrid_width(dstgrid), dstcols, first,
                       srccols, 0, count, insert);
+}
+
+TCL_RESULT tgrid_delete(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                        Tcl_Obj *indexa, Tcl_Obj *indexb)
+{
+    int status;
+    int i;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK ||
+        (status = tgrid_make_modifiable(ip, tgrid, tgrid_length(tgrid), 0)) != TCL_OK)
+        return status;
+
+    i = tgrid_width(tgrid);
+    while (i--) {
+        if ((status = tcol_delete(ip, tgrid_column(tgrid, i),
+                                  indexa, indexb)) != TCL_OK)
+            break;
+    }
+    return status;
 }

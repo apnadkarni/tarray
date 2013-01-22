@@ -11,7 +11,7 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-critcl::debug symbols
+#critcl::debug symbols
 #critcl::cflags -std=gnu99 -Winline
 
 critcl::csources tarray.c tasearch.c bitarray.c tasort.c
@@ -126,24 +126,7 @@ critcl::ccommand tarray::column::vdelete {} {
     tcol = Tcl_IsShared(ovalue) ? Tcl_DuplicateObj(ovalue) : ovalue;
 
     status = tcol_delete(interp, tcol, objv[2], objc == 4 ? objv[3] : NULL);
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        ovalue = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (ovalue)
-            Tcl_SetObjResult(interp, ovalue);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != ovalue)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
 critcl::cproc tarray::column::size {Tcl_Interp* interp TArrayObjPtr tcol} int {
@@ -289,24 +272,7 @@ critcl::ccommand tarray::column::vsort {} {
             tcol = Tcl_DuplicateObj(tcol);
 
     status = tcol_sort(interp, tcol, flags);
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        ovarvalue = Tcl_ObjSetVar2(interp, objv[objc-1], NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (ovarvalue)
-            Tcl_SetObjResult(interp, ovarvalue);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != ovarvalue)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 
 critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr tcol} ok {
@@ -411,24 +377,7 @@ critcl::ccommand tarray::column::vinsert {} {
         }
     }
 
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        ovarvalue = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (ovarvalue)
-            Tcl_SetObjResult(interp, ovarvalue);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != ovarvalue)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
 critcl::ccommand tarray::column::put {} {
@@ -462,21 +411,21 @@ critcl::ccommand tarray::column::put {} {
 
 critcl::ccommand tarray::column::vput {} {
     Tcl_Obj *tcol;
-    Tcl_Obj *varValueObj;
+    Tcl_Obj *ovalue;
     int status;
 
     if (objc != 4) {
-	Tcl_WrongNumArgs(interp, 1, objv, "TCOLUMNVAR VALUES FIRST");
+	Tcl_WrongNumArgs(interp, 1, objv, "COLUMNVAR VALUES FIRST");
 	return TCL_ERROR;
     }
     
-    varValueObj = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
-    if (varValueObj == NULL)
+    ovalue = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (ovalue == NULL)
         return TCL_ERROR;
 
-    tcol = varValueObj;
+    tcol = ovalue;
     if (Tcl_IsShared(tcol))
-        tcol = Tcl_DuplicateObj(varValueObj);
+        tcol = Tcl_DuplicateObj(tcol);
 
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, objv[2]) == TCL_OK) {
@@ -485,25 +434,7 @@ critcl::ccommand tarray::column::vput {} {
     } else {
         status = tcol_put_objs(interp, tcol, objv[2], objv[3], 0);
     }
-
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        varValueObj = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (varValueObj)
-            Tcl_SetObjResult(interp, varValueObj);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != varValueObj)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
 critcl::ccommand tarray::column::place {} {
@@ -545,24 +476,7 @@ critcl::ccommand tarray::column::vplace {} {
     tcol = Tcl_IsShared(ovalue) ? Tcl_DuplicateObj(ovalue) : ovalue;
 
     status = tcol_place_objs(interp, tcol, objv[2], objv[3]);
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        ovalue = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (ovalue)
-            Tcl_SetObjResult(interp, ovalue);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != ovalue)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
 critcl::ccommand tarray::column::fill {} {
@@ -605,24 +519,7 @@ critcl::ccommand tarray::column::vfill {} {
     tcol = Tcl_IsShared(ovalue) ? Tcl_DuplicateObj(ovalue) : ovalue;
 
     status = tcol_fill_obj(interp, tcol, objv[2], objv[3], objc == 5 ? objv[4] : NULL);
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        ovalue = Tcl_ObjSetVar2(interp, objv[1], NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (ovalue)
-            Tcl_SetObjResult(interp, ovalue);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != ovalue)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
 critcl::cproc tarray::column::reverse {Tcl_Interp* interp Tcl_Obj* tcol} ok {
@@ -682,49 +579,9 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
         Tcl_InvalidateStringRep(tcol);
     }
     
-    if (status == TCL_OK) {
-        /* Even if we had not duplicated the value in the variable, we
-         * still need to store it back so that traces are triggered. Also,
-         * do not want to rely ObjSetVar2 behaviour w.r.t to Tcl_Obj with
-         * ref count 0 on error (currently it frees iff ref == 0) so
-         * do a Incr/Decr
-         */
-        Tcl_IncrRefCount(tcol);
-        ovalue = Tcl_ObjSetVar2(interp, ovar, NULL, tcol, TCL_LEAVE_ERR_MSG);
-        Tcl_DecrRefCount(tcol);
-        if (ovalue)
-            Tcl_SetObjResult(interp, ovalue);
-        else
-            status = TCL_ERROR;
-    } else if (tcol != ovalue)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_set_var_result(interp, status, ovar, tcol);
 }
 
-
-critcl::cproc tarray::grid::OBSOLETEcreate {Tcl_Interp* interp Tcl_Obj* objP} ok {
-    Tcl_Obj **tcols;
-    thdr_t *thdrP;
-    int i;
-    int status;
-    
-    if ((status = tgrid_convert(interp, objP) != TCL_OK))
-        return status;
-
-    thdrP = TARRAYHDR(objP);
-    if (thdrP->type != TA_OBJ)
-        return ta_bad_type_error(interp, thdrP);
-
-    tcols = THDRELEMPTR(thdrP, Tcl_Obj *, 0);
-    for (i = 0; i < thdrP->used; ++i, ++tcols) {
-        if ((status = tcol_convert(interp, *tcols)) != TCL_OK)
-            return TCL_ERROR;
-    }
-
-    Tcl_SetObjResult(interp, objP);
-    return TCL_OK;
-}
 
 critcl::ccommand tarray::grid::put {} {
     Tcl_Obj *tgrid;
@@ -739,13 +596,11 @@ critcl::ccommand tarray::grid::put {} {
     if (Tcl_IsShared(tgrid))
         tgrid = Tcl_DuplicateObj(objv[1]);
 
-    /* Values may be given as a list or a tarray */
-    if (tgrid_convert(NULL, objv[2]) == TCL_OK) {
-        /* It is a tgrid. Verify the right type */
+    /* Values may be given as a grid or a Tcl list */
+    if (tgrid_convert(NULL, objv[2]) == TCL_OK)
         status = tgrid_copy(interp, tgrid, objv[2], objv[3], 0);
-    } else {
+    else
         status = tgrid_put_objs(interp, tgrid, objv[2], objv[3], 0);
-    }
 
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, tgrid);
@@ -753,6 +608,33 @@ critcl::ccommand tarray::grid::put {} {
         Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
 
     return status;
+}
+
+critcl::ccommand tarray::grid::vput {} {
+    Tcl_Obj *tgrid;
+    Tcl_Obj *ovalue;
+    int status;
+
+    if (objc != 4) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "GRIDVAR VALUES FIRST");
+	return TCL_ERROR;
+    }
+    
+    ovalue = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (ovalue == NULL)
+        return TCL_ERROR;
+
+    tgrid = ovalue;
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+
+    /* Values may be given as a grid or a Tcl list */
+    if (tgrid_convert(NULL, objv[2]) == TCL_OK)
+        status = tgrid_copy(interp, tgrid, objv[2], objv[3], 0);
+    else
+        status = tgrid_put_objs(interp, tgrid, objv[2], objv[3], 0);
+
+    return ta_set_var_result(interp, status, objv[1], tgrid);
 }
 
 critcl::ccommand tarray::grid::fill {} {
@@ -777,6 +659,71 @@ critcl::ccommand tarray::grid::fill {} {
         Tcl_DecrRefCount(tgrid);
 
     return status;
+}
+
+critcl::ccommand tarray::grid::vfill {} {
+    int status;
+    Tcl_Obj *tgrid;
+    Tcl_Obj *ovalue;
+
+    if (objc != 4 && objc != 5) {
+	Tcl_WrongNumArgs(interp, 1, objv, "GRIDVAR VALUES (INDEXLIST | LOW ?HIGH?");
+	return TCL_ERROR;
+    }
+
+    ovalue = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (ovalue == NULL)
+        return TCL_ERROR;
+    tgrid = ovalue;
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+
+    status = tgrid_fill_obj(interp, tgrid, objv[2], objv[3], 
+                               objc == 5 ? objv[4] : NULL);
+    return ta_set_var_result(interp, status, objv[1], tgrid);
+}
+
+critcl::ccommand tarray::grid::delete {} {
+    Tcl_Obj *tgrid;
+    int status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "GRID (INDEXLIST | LOW ?HIGH?)");
+	return TCL_ERROR;
+    }
+    
+    tgrid = objv[1];
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+    status = tgrid_delete(interp, tgrid, objv[2], objc == 4 ? objv[3] : NULL);
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, tgrid);
+    else if (tgrid != objv[1])
+        Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
+
+    return status;
+}
+
+
+critcl::ccommand tarray::grid::vdelete {} {
+    Tcl_Obj *ovalue;
+    Tcl_Obj *tgrid;
+    int status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "GRIDVAR (INDEXLIST | LOW ?HIGH?)");
+	return TCL_ERROR;
+    }
+    
+    ovalue = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (ovalue == NULL)
+        return TCL_ERROR;
+
+    tgrid = ovalue;
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+    status = tgrid_delete(interp, tgrid, objv[2], objc == 4 ? objv[3] : NULL);
+    return ta_set_var_result(interp, status, objv[1], tgrid);
 }
 
 # If you are new to critcl, note that the order of constructor, insvariable
@@ -835,7 +782,7 @@ critcl::class::define tarray::table {
             if (Tcl_GetIndexFromObj(interp, elems[i+1], g_type_tokens, "TArrayType",
                                     TCL_EXACT, &tatype) == TCL_OK) {
                 tcol = tcol_new(thdr_alloc(interp, tatype, 0));
-                if (tcol && thdr_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
+                if (tcol && tcol_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
                     int is_new;
                     he = Tcl_CreateHashEntry(&instance->column_names, (char *)elems[i], &is_new);
                     if (is_new) {
