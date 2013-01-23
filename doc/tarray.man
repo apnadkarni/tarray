@@ -1,6 +1,6 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin "tarray" n ""]
-[copyright "2012 Ashok P. Nadkarni"]
+[copyright "2012-2013 Ashok P. Nadkarni"]
 [moddesc "Typed Arrays"]
 [titledesc "Commands related to typed arrays"]
 [require Tcl 8.5]
@@ -173,11 +173,12 @@ all indices up to the highest index that are not already valid must be
 specified (i.e. there should be no gaps in indexes that are greater than
 the current size).
 
-[call [cmd "column put"] [arg COLUMN] [arg VALUES] [arg FIRST]]
+[call [cmd "column put"] [arg COLUMN] [arg VALUES] [opt [arg FIRST]]]
 Returns a typed column with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg VALUES].
 [arg VALUES] may be a list of values or a typed column of the same type.
-The command may extend the array if necessary.
+The command may extend the array if necessary. If [arg FIRST] is
+not specified the elements are appended to the array.
 
 [call [cmd "column reverse"] [arg COLUMN]]
 Returns the typed column with order of elements reversed.
@@ -271,9 +272,10 @@ See the command [cmd "column place"] for other details.
 [call [cmd "column vput"] [arg COLUMNVAR] [arg VALUES] [arg FIRST]]
 Modifies a variable [arg COLUMNVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
-replaced by the corresponding elements of [arg VALUES].
+replaced by the corresponding elements of [arg VALUES]. If [arg FIRST] is
+not specified the elements are appended to the array.
 The new value is assigned back to the variable and also returned as the
-result of the command.
+result of the command. 
 [para]
 See the command [cmd "column put"] for other details.
 
