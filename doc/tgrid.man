@@ -1,8 +1,8 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin "tarray" n ""]
+[manpage_begin "tarray grid" n ""]
 [copyright "2012-2013 Ashok P. Nadkarni"]
-[moddesc "Typed Arrays"]
-[titledesc "Commands related to typed arrays"]
+[moddesc "Typed Grids"]
+[titledesc "Commands related to typed grids"]
 [require Tcl 8.5]
 [require tarray ?0.1?]
 [description]
@@ -10,42 +10,15 @@
 [section Introduction]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[cmd column] and [cmd grid]. The primary motivation for this extension
-is efficient memory utilization and speed of certain operations in
-applications dealing with very large numbers of elements.
-Typed arrays and grids do not really provide any additional
-capabilities over Tcl's built-in commands, particularly `list` and
-`dict` and the script libraries based on these. Their primary use is
-in applications with large number of data items.
+[cmd column] and [cmd grid]. See [uri tarray.html] for an overview.
 
-[para]
-Also, for applications that do a lot of insertions and deletions, the
-array based storage may not be directly suitable (although on modern processors
-the point at which that happens is quite large). For such
-applications, the package provides sufficient flexibility that more
-suitable structures, such as B-Trees may be easily scripted on top
-without a significant performance penalty.
-
-[para]
-The extension implements [sectref Columns columns],
-which store arrays of values of a single type indexed by integers, and
-[sectref Grids grids], which are arrays of columns. 
-
-[include types.inc]
-
-[section "Columns"] 
-A typed array column contains elements of a single 
-[sectref "Types" type]
-that is specified when it is created. The command tarray can be used
-to create and manipulate typed arrays including searching and sorting
-operations.
-
-[section "Grids"]
-A typed grid is an ordered sequence of typed columns
+This page documents typed grids.
+A typed grid is an ordered sequence of [uri tarray.html "typed columns"]
 of equal size. It can be viewed as an array of records where the
 record fields happen to use column-wise storage. The corresponding
 grid command operates on typed grids.
 
+[include types.inc]
 [include indices.inc]
 [include options.inc]
 
@@ -55,31 +28,40 @@ Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
 
-[call [cmd "column create"] [arg TYPE] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
-Returns a typed array of the type [arg TYPE] which must be one of one
+[call [cmd "grid create"] [arg TYPES] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
+Returns a typed grid containing a sequence of columns whose types 
+are specified by [arg TYPES] which must be a list of
 of valid types described in [sectref "Types"]. If 
 [arg INITIALIZER] is specified, it is the initial content of the typed array 
-and must be a
-list with elements of the appropriate type. For performance reasons,
+and must be either a compatible typed grid or a nested list with sublists
+whose element types are compatible with the corresponding
+column types in [arg TYPES].
+[nl]
+For performance reasons,
 the [arg INITSIZE] argument may be specified to indicate how many slots to
-preallocate for the array. This is only treated as a hint and actual
+preallocate for the grid columns. This is only treated as a hint and actual
 size allocated may differ.
 
-[call [cmd "column delete"] [arg COLUMN] [arg INDEX]]
-[call [cmd "column delete"] [arg COLUMN] [arg INDEXLIST]]
-[call [cmd "column delete"] [arg COLUMN] [arg LOW] [arg HIGH]]
-Returns a typed column with all specified elements deleted. 
-Indices are specified in any of the forms described in [sectref Indices].
+[call [cmd "grid delete"] [arg GRID] [arg INDEX]]
+[call [cmd "grid delete"] [arg GRID] [arg INDEXLIST]
+[call [cmd "grid delete"] [arg GRID] [arg LOW] [arg HIGH]]
+Returns a typed grid with all specified rows deleted. The row
+indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg INDEX]]
-[call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg INDEXLIST]]
-[call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg LOW] [arg HIGH]]
-Returns a typed column with specified indices set to [arg VALUE].
+[call [cmd "grid fill"] [arg GRID] [arg VALUE] [arg INDEX]]
+[call [cmd "grid fill"] [arg GRID] [arg VALUE] [arg INDEXLIST]]
+[call [cmd "grid fill"] [arg GRID] [arg VALUE] [arg LOW] [arg HIGH]]
+Returns a typed grid with specified rows set to [arg VALUE]. 
+Each element from the list [arg VALUE] is assigned to the corresponding
+column of the grid at the specified indices. Any additional elements
+in [arg VALUE] are ignored. An error is generated if any element of
+[arg VALUE] does not match the type of the corresponding column or
+if [arg VALUE] contains fewer elements than the grid width.
 Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg LOW] [arg [opt HIGH]]]
+[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg GRID] [arg INDEXLIST]]
+[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg GRID] [arg LOW] [arg [opt HIGH]]]
 Returns the values from a typed column at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
 The format
@@ -87,19 +69,19 @@ of the returned values is controlled by [arg STANDARDOPTIONS]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
 
-[call [cmd "column index"] [arg COLUMN] [arg INDEX]]
+[call [cmd "column index"] [arg GRID] [arg INDEX]]
 Returns the value of the element at the position specified by [arg INDEX]
 which is a single [sectref Indices index].
 
-[call [cmd "column insert"] [arg COLUMN] [arg VALUE] [arg FIRST] [arg COUNT]]
-[call [cmd "column insert"] [arg COLUMN] [arg VALUES] [arg FIRST]]
+[call [cmd "column insert"] [arg GRID] [arg VALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "column insert"] [arg GRID] [arg VALUES] [arg FIRST]]
 In the first form, inserts [arg COUNT] elements with value [arg VALUE]
 at position [arg FIRST] and returns the new column. In the second form,
 [arg VALUES] may be a list of values or a typed column of the same type.
 The values are inserted at the specified position.
 In both cases, the command may extend the array if necessary.
 
-[call [cmd "column place"] [arg COLUMN] [arg VALUES] [arg INDICES]]
+[call [cmd "column place"] [arg GRID] [arg VALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
 corresponding  indices. The number of values in [arg VALUES] must not
 be less than the number of indices specified in [arg INDICES].
@@ -114,17 +96,17 @@ all indices up to the highest index that are not already valid must be
 specified (i.e. there should be no gaps in indexes that are greater than
 the current size).
 
-[call [cmd "column put"] [arg COLUMN] [arg VALUES] [opt [arg FIRST]]]
+[call [cmd "column put"] [arg GRID] [arg VALUES] [opt [arg FIRST]]]
 Returns a typed column with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg VALUES].
 [arg VALUES] may be a list of values or a typed column of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended to the array.
 
-[call [cmd "column reverse"] [arg COLUMN]]
+[call [cmd "column reverse"] [arg GRID]]
 Returns the typed column with order of elements reversed.
 
-[call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg COLUMN] [arg VALUE]]
+[call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg GRID] [arg VALUE]]
 Searches the specified typed column for a matching value. By default,
 the search starts at index 0 and returns the index of the first match
 found, returning -1 if no matching value is found. The other options
@@ -156,11 +138,11 @@ less than or equal to [arg VALUE]. For case insensitive matching, the
 except type [const any].
 
 
-[call [cmd "column size"] [arg COLUMN]]
+[call [cmd "column size"] [arg GRID]]
 Returns the number of elements in the typed column.
 
-[call [cmd "column sort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg COLUMN]]
-Returns a sorted typed column. [arg COLUMN] is the typed column to
+[call [cmd "column sort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg GRID]]
+Returns a sorted typed column. [arg GRID] is the typed column to
 be sorted. The comparison is done in a column type-specific manner.
 Sorting is sorted in increasing order by default.
 The [option -decreasing] option may be specified to change this. If
@@ -171,47 +153,47 @@ If [option -nocase] is specified, the comparisons are done in
 case-insensitive manner. This option is only applicable when the
 column type is [const tclobj] and is ignored otherwise.
 
-[call [cmd "column type"] [arg COLUMN]]
+[call [cmd "column type"] [arg GRID]]
 Returns the [sectref "Types" type] of the typed column.
 
-[call [cmd "column vdelete"] [arg COLUMNVAR] [arg INDEX]]
-[call [cmd "column vdelete"] [arg COLUMNVAR] [arg INDEXLIST]]
-[call [cmd "column vdelete"] [arg COLUMNVAR] [arg LOW] [arg HIGH]]
-Deletes elements from the typed array column in variable [arg COLUMNVAR].
+[call [cmd "column vdelete"] [arg GRIDVAR] [arg INDEX]]
+[call [cmd "column vdelete"] [arg GRIDVAR] [arg INDEXLIST]]
+[call [cmd "column vdelete"] [arg GRIDVAR] [arg LOW] [arg HIGH]]
+Deletes elements from the typed array column in variable [arg GRIDVAR].
 The new value is assigned back to the variable and also returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "column vfill"] [arg COLUMNVAR] [arg VALUE] [arg INDEX]]
-[call [cmd "column vfill"] [arg COLUMNVAR] [arg VALUE] [arg INDEXLIST]]
-[call [cmd "column vfill"] [arg COLUMNVAR] [arg VALUE] [arg LOW] [arg HIGH]]
-Set the elements of the typed column in variable [arg COLUMNVAR] to
+[call [cmd "column vfill"] [arg GRIDVAR] [arg VALUE] [arg INDEX]]
+[call [cmd "column vfill"] [arg GRIDVAR] [arg VALUE] [arg INDEXLIST]]
+[call [cmd "column vfill"] [arg GRIDVAR] [arg VALUE] [arg LOW] [arg HIGH]]
+Set the elements of the typed column in variable [arg GRIDVAR] to
 [arg VALUE]. 
 The new value is assigned back to the variable and also returned as the
 result of the command.
 [para]
 See [cmd fill] for more information.
 
-[call [cmd "column vinsert"] [arg COLUMNVAR] [arg VALUE] [arg FIRST] [arg COUNT]]
-[call [cmd "column vinsert"] [arg COLUMNVAR] [arg VALUES] [arg FIRST]]
+[call [cmd "column vinsert"] [arg GRIDVAR] [arg VALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "column vinsert"] [arg GRIDVAR] [arg VALUES] [arg FIRST]]
 In the first form, inserts [arg COUNT] elements with value [arg VALUE]
 at position [arg FIRST] in the type column stored in variable
-[arg COLUMNVAR].
+[arg GRIDVAR].
 In the second form,
 [arg VALUES] may be a list of values or a typed column of the same type.
 The values are inserted at the specified position.
 In both cases, the new value is stored back into the variable.
 
-[call [cmd "column vplace"] [arg COLUMNVAR] [arg VALUES] [arg INDICES]]
-Modifies a typed column stored in the variable [arg COLUMNVAR]
+[call [cmd "column vplace"] [arg GRIDVAR] [arg VALUES] [arg INDICES]]
+Modifies a typed column stored in the variable [arg GRIDVAR]
 with the specified values at the 
 corresponding  indices. The new value is assigned back to the variable and 
 also returned as the result of the command.
 [para]
 See the command [cmd "column place"] for other details.
 
-[call [cmd "column vput"] [arg COLUMNVAR] [arg VALUES] [arg FIRST]]
-Modifies a variable [arg COLUMNVAR] containing a typed column.
+[call [cmd "column vput"] [arg GRIDVAR] [arg VALUES] [arg FIRST]]
+Modifies a variable [arg GRIDVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
 replaced by the corresponding elements of [arg VALUES]. If [arg FIRST] is
 not specified the elements are appended to the array.
@@ -220,14 +202,14 @@ result of the command.
 [para]
 See the command [cmd "column put"] for other details.
 
-[call [cmd "column vreverse"] [arg COLUMNVAR]]
+[call [cmd "column vreverse"] [arg GRIDVAR]]
 Reverses the order of elements in the 
-typed column in variable [arg COLUMNVAR], stores it back
+typed column in variable [arg GRIDVAR], stores it back
 into the variable and also returns it.
 
-[call [cmd "column vsort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg COLUMNVAR]]
+[call [cmd "column vsort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg GRIDVAR]]
 Sorts a typed column stored in variable. 
-[arg COLUMNVAR] is variable containing the typed column to
+[arg GRIDVAR] is variable containing the typed column to
 be sorted. The comparison is done in a column type-specific manner.
 Sorting is sorted in increasing order by default.
 The [option -decreasing] option may be specified to change this. If
