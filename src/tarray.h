@@ -199,6 +199,8 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexA, Tcl_Obj *indexB);
+TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                           Tcl_Obj *opos, Tcl_Obj *ocount);
 TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb);
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
@@ -293,13 +295,13 @@ TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o)
 
 /* Sets a Tcl_Obj's internal rep pointer. Assumes the Tcl_Obj int rep is
    invalid / uninitialized */
-TA_INLINE ta_set_intrep(Tcl_Obj *o, thdr_t *thdr) {
+TA_INLINE void ta_set_intrep(Tcl_Obj *o, thdr_t *thdr) {
     thdr_incr_refs(thdr);
     TARRAYHDR(o) = thdr;
     o->typePtr = &g_tcol_type;                 \
 }
 
-TA_INLINE ta_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
+TA_INLINE void ta_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
     TA_ASSERT(tcol_affirm(o));
     TA_ASSERT(! Tcl_IsShared(o));
     TA_ASSERT(TARRAYHDR(o) != NULL);
