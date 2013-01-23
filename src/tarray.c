@@ -2380,6 +2380,39 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
     return status;
 }
 
+TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                           Tcl_Obj *opos, Tcl_Obj *ocount)
+{
+    int status;
+    TA_ASSERT(! Tcl_IsShared(tcol));
+
+    if (ocount == NULL) {
+        /* Values may be given as a column or a list */
+        if ((status = tcol_convert(NULL, ovalue)) == TCL_OK)
+            status = tcol_copy_thdr(ip, tcol, TARRAYHDR(ovalue), opos, 1);
+        else
+            status = tcol_put_objs(ip, tcol, ovalue, opos, 1);
+    } else {
+        int pos, count, used;
+        if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
+            (status = tcol_convert(ip, tcol)) == TCL_OK) {
+            used = tcol_occupancy(tcol);
+            if (count < 0)
+                count = 0;      /* Should we error instead? */
+            if ((status = tcol_make_modifiable(ip, tcol, count+used, 0)) == TCL_OK &&
+                (status = ta_convert_index(ip, opos, &pos, used,
+                                           0, used)) == TCL_OK) {
+                ta_value_t tav;
+                if ((status = ta_value_from_obj(ip, ovalue,
+                                                tcol_type(tcol), &tav)) == TCL_OK)
+                    thdr_fill_range(ip, TARRAYHDR(tcol), &tav, pos, count, 1);
+            }
+        }
+    }
+    return status;
+}
+
+
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
@@ -2434,6 +2467,29 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
     }
 
     return status;
+}
+
+Tcl_Obj *tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
+{
+    thdr_t *thdr;
+    TCL_RESULT status;
+
+    if ((status = tcol_convert(ip, tcol)) != TCL_OK)
+        return status;
+
+    if (Tcl_IsShared(tcol) || thdr_shared(TARRAYHDR(tcol))) {
+        thdr = thdr_clone_reversed(ip, TARRAYHDR(tcol), 0);
+        if (thdr == NULL)
+            return NULL;
+        if (Tcl_IsShared(tcol))
+            return tcol_new(thdr);
+        else
+            ta_replace_intrep(tcol, thdr);
+    } else {
+        thdr_reverse(thdr);
+        Tcl_InvalidateStringRep(tcol);
+    }
+    return tcol;
 }
 
 int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
