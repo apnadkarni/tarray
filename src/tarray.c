@@ -2513,7 +2513,9 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
 }
 
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *ofirst, int insert)
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,
+                          Tcl_Obj *ofirst, /* NULL -> end */
+                          int insert)
 {
     int first, status;
 
@@ -2524,8 +2526,9 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *
     if (tcol_type(tcol) != psrc->type)
         return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
-    status = ta_convert_index(ip, ofirst, &first, tcol_occupancy(tcol),
-                        0, tcol_occupancy(tcol));
+    first = tcol_occupancy(tcol); /* By default, append */
+    if (ofirst)
+        status = ta_convert_index(ip, ofirst, &first, first, 0, first);
     if (status == TCL_OK && psrc->used) {
         status = tcol_make_modifiable(ip, tcol, first + psrc->used, 0);
         if (status == TCL_OK)
@@ -2535,7 +2538,9 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *
 }
 
 TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
-                         Tcl_Obj *ovalues, Tcl_Obj *ofirst, int insert)
+                         Tcl_Obj *ovalues,
+                         Tcl_Obj *ofirst, /* NULL -> end */
+                         int insert)
 {
     int status;
     Tcl_Obj **values;
@@ -2554,7 +2559,8 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
     /* Get the limits of the range to set */
 
     n = tcol_occupancy(tcol);
-    status = ta_convert_index(ip, ofirst, &n, n, 0, n);
+    if (ofirst)
+        status = ta_convert_index(ip, ofirst, &n, n, 0, n);
     /* n contains starting offset */
     if (status == TCL_OK && nvalues) {
         /* Note this also invalidates the string rep as desired */
@@ -3279,7 +3285,9 @@ error_return:                  /* Interp should already contain errors */
 }
 
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
-                          Tcl_Obj *orows, Tcl_Obj *ofirst, int insert)
+                          Tcl_Obj *orows,
+                          Tcl_Obj *ofirst, /* NULL -> end of grid */
+                          int insert)
 {
     int status;
     Tcl_Obj **rows;
@@ -3298,8 +3306,9 @@ TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
 
     /* Get the limits of the range to set */
     n = tgrid_length(tgrid);
-    status = ta_convert_index(ip, ofirst, &n, n, 0, n);
-    /* n contains starting offset */
+    if (ofirst)
+        status = ta_convert_index(ip, ofirst, &n, n, 0, n);
+    /* n contains starting offset (end if not specified) */
     if (status == TCL_OK) {
         /* Note this also invalidates the string rep as desired */
         status = tgrid_make_modifiable(ip, tgrid, n + nrows, 0);
@@ -3352,7 +3361,9 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Obj *ofirst, int insert)
+TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid,
+                      Tcl_Obj *ofirst, /* NULL -> end of grid */
+                      int insert)
 {
     int first, status;
     Tcl_Obj **dstcols;
@@ -3380,9 +3391,10 @@ TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Ob
         return status;
     dstcols = tgrid_columns(dstgrid); /* Re-init - might have changed */
 
-    status = ta_convert_index(ip, ofirst, &first,
-                              tcol_occupancy(dstcols[0]),
-                              0, tcol_occupancy(dstcols[0]));
+    first = tcol_occupancy(dstcols[0]); /* Default is end */
+    if (ofirst)
+        status = ta_convert_index(ip, ofirst, &first, first, 0, first);
+
     if (status != TCL_OK)
         return status;
 
