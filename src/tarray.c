@@ -1923,9 +1923,19 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
     if (end > psrc->used)
         end = psrc->used;
 
+#define tcol_range_COPY(type_, objfn_)                                  \
+    do {                                                                \
+        type_ *p = THDRELEMPTR(psrc, unsigned int, low);                \
+        type_ *pend = THDRELEMPTR(psrc, unsigned int, end);             \
+        while (p < pend) {                                              \
+            if (fmt == TA_FORMAT_DICT)                                  \
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));  \
+            Tcl_ListObjAppendElement(ip, o, objfn_(*p++));              \
+        }                                                               \
+    } while (0)
+
     /* Even dicts more efficiently built as lists and shimmered as necessary */
     o = Tcl_NewListObj(end-low, NULL);
-
     switch (psrc->type) {
     case TA_BOOLEAN:
         {
@@ -1940,70 +1950,22 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
         }
         break;
     case TA_UINT:
-        {
-            unsigned int *pui = THDRELEMPTR(psrc, unsigned int, low);
-            unsigned int *pend = THDRELEMPTR(psrc, unsigned int, end);
-            while (pui < pend) {
-                if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(*pui++));
-            }
-        }
+        tcol_range_COPY(unsigned int, Tcl_NewWideIntObj);
         break;
     case TA_INT:
-        {
-            int *pint = THDRELEMPTR(psrc, int, low);
-            int *pend = THDRELEMPTR(psrc, int, end);
-            while (pint < pend) {
-                if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(*pint++));
-            }
-        }
+        tcol_range_COPY(int, Tcl_NewIntObj);
         break;
     case TA_WIDE:
-        {
-            Tcl_WideInt *pwide = THDRELEMPTR(psrc, Tcl_WideInt, low);
-            Tcl_WideInt *pend = THDRELEMPTR(psrc, Tcl_WideInt, end);
-            while (pwide < pend) {
-                if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(*pwide++));
-            }
-        }
+        tcol_range_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
         break;
     case TA_DOUBLE:
-        {
-            double *pdbl = THDRELEMPTR(psrc, double, low);
-            double *pend = THDRELEMPTR(psrc, double, end);
-            while (pdbl < pend) {
-                if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewDoubleObj(*pdbl++));
-            }
-        }
+        tcol_range_COPY(double, Tcl_NewDoubleObj);
         break;
     case TA_BYTE:
-        {
-            unsigned char *puch = THDRELEMPTR(psrc, unsigned char, low);
-            unsigned char *pend = THDRELEMPTR(psrc, unsigned char, end);
-            while (puch < pend) {
-                if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(*puch++));
-            }
-        }
+        tcol_range_COPY(unsigned char, Tcl_NewIntObj);
         break;
     case TA_OBJ:
-        {
-            Tcl_Obj **pobjsP = THDRELEMPTR(psrc, Tcl_Obj *, low);
-            Tcl_Obj **pend = THDRELEMPTR(psrc, Tcl_Obj *, end);
-            while (pobjsP < pend) {
-                if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));
-                Tcl_ListObjAppendElement(ip, o, *pobjsP);
-            }
-        }
+        tcol_range_COPY(Tcl_Obj*, (Tcl_Obj*)); /* Cast acts as a null function */
         break;
     default:
         ta_type_panic(psrc->type);
