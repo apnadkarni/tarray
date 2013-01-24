@@ -193,7 +193,7 @@ int tcol_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
 #define TA_INDEX_TYPE_THDR 2
 
 thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count);
-Tcl_Obj *ta_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
+Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
@@ -209,8 +209,9 @@ TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
 TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Obj *ofirst, int insert);
 TCL_RESULT tgrid_delete(Tcl_Interp *ip, Tcl_Obj *tgrid,
                         Tcl_Obj *indexa, Tcl_Obj *indexb);
+Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
 
-Tcl_Obj *tcol_get(struct Tcl_Interp *, thdr_t *psrc, thdr_t *pindices, int fmt);
+Tcl_Obj *tcol_get(struct Tcl_Interp *, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,
@@ -219,7 +220,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                                Tcl_Obj *valueListObj, Tcl_Obj *indicesObj);
 TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
                       int end_value, int low, int high);
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, const thdr_t *thdr, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
+TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, int nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
 
 TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
                                          int nrows, Tcl_Obj * const rows[]);
@@ -436,5 +437,15 @@ TA_INLINE int tgrid_length(Tcl_Obj *tgrid)
     return tgrid_width(tgrid) == 0 ? 0 : tcol_occupancy(tgrid_column(tgrid, 0));
 }
 
+/* Assumes properly structured thdr */
+TA_INLINE Tcl_Obj *tgrid_new(thdr_t *thdr)
+{
+    Tcl_Obj *tgrid;
+    TA_ASSERT(thdr->type == TA_OBJ);
+    tgrid = tcol_new(thdr);
+    if (tgrid)
+        tgrid->typePtr = &g_tgrid_type;
+    return tgrid;
+}
 
 #endif
