@@ -11,10 +11,11 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-#critcl::debug symbols
-#critcl::cflags -std=gnu99 -Winline
-
-critcl::csources tarray.c tasearch.c bitarray.c tasort.c
+critcl::debug symbols
+if {[critcl::targetconfig] eq "TBD"} {
+    critcl::cflags -std=gnu99 -Winline
+}
+critcl::csources tarray.c tgrid.c tasearch.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h
 
@@ -193,7 +194,7 @@ critcl::ccommand tarray::column::get {} {
             Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
         case TA_INDEX_TYPE_THDR:
-            tcol = tcol_get(interp, TARRAYHDR(objv[ta_arg]), pindices, fmt);
+            tcol = tcol_get(interp, objv[ta_arg], pindices, fmt);
             thdr_decr_refs(pindices);
             break;
         }
@@ -201,12 +202,12 @@ critcl::ccommand tarray::column::get {} {
     case 2:
         /* Range LOW HIGH */
         /* TBD - reuse the thdr_t if not shared */
-        status = ta_fix_range_bounds(interp, TARRAYHDR(objv[ta_arg]),
+        status = ta_fix_range_bounds(interp, tcol_occupancy(objv[ta_arg]),
                                          objv[ta_arg+1], objv[ta_arg+2],
                                          &low, &count);
         if (status != TCL_OK)
             return TCL_ERROR;
-        tcol = ta_range(interp, objv[ta_arg], low, count, fmt);
+        tcol = tcol_range(interp, objv[ta_arg], low, count, fmt);
         break;
     default:
         goto badargs;
@@ -586,6 +587,85 @@ critcl::ccommand tarray::grid::vdelete {} {
     return ta_set_var_result(interp, status, objv[1], tgrid);
 }
 
+critcl::ccommand tarray::grid::get {} {
+    Tcl_Obj *tgrid;
+    int low, count;
+    int status;
+    int fmt = TA_FORMAT_TARRAY;
+    int ta_arg;
+    thdr_t *pindices;
+
+    if (objc < 3)
+        goto badargs;
+    
+    /*
+     * Parsing is ambiguous. We do not want check if objv[1] is an option
+     * directly because it might shimmer a huge tarray into a string.
+     * So check for options only if not a tarray. Note it is possible that
+     * objv[1] is a tarray even though it's type does not indicate as much.
+     * In that the string rep will anyways exist and question of shimmering
+     * does not arise.
+     */
+    if (tcol_affirm(objv[1])) {
+        /* Note we check for tcol_affirm, not tgrid_affirm */
+        ta_arg = 1;
+    } else {
+        /* OK, see if it is an option */
+        status = Tcl_GetIndexFromObj(NULL, objv[1], gFormatOptions,
+                                     "FORMAT", TCL_EXACT, &fmt);
+        if (status == TCL_OK)
+            ta_arg = 2;
+        else
+            ta_arg = 1;
+    }
+       
+    if ((objc - ta_arg) < 2 || (objc - ta_arg) > 3)
+        goto badargs;
+
+    if ((status = tgrid_convert(interp, objv[ta_arg])) != TCL_OK)
+        return status;
+
+    switch (objc - ta_arg - 1) {
+    case 1:
+        switch (tcol_to_indices(interp, objv[ta_arg+1], 0, &pindices, NULL)) {
+        case TA_INDEX_TYPE_ERROR:
+            return TCL_ERROR;
+        case TA_INDEX_TYPE_INT:
+            Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
+            break;
+        case TA_INDEX_TYPE_THDR:
+            tgrid = tgrid_get(interp, TARRAYHDR(objv[ta_arg]), pindices, fmt);
+            thdr_decr_refs(pindices);
+            break;
+        }
+        break;
+    case 2:
+        /* Range LOW HIGH */
+        status = ta_fix_range_bounds(interp, tgrid_length(objv[ta_arg]),
+                                         objv[ta_arg+1], objv[ta_arg+2],
+                                         &low, &count);
+        if (status != TCL_OK)
+            return TCL_ERROR;
+        tgrid = tgrid_range(interp, objv[ta_arg], low, count, fmt);
+        break;
+    default:
+        goto badargs;
+    }
+
+    if (tgrid) {
+        Tcl_SetObjResult(interp, tgrid);
+        return TCL_OK;
+    } else
+        return TCL_ERROR;
+
+badargs:
+    Tcl_WrongNumArgs(interp, 1, objv, "?OPTIONS? TCOLUMN (LOW ?HIGH? | INDEXLIST)");
+    return TCL_ERROR;
+
+}
+
+
+
 # If you are new to critcl, note that the order of constructor, insvariable
 # etc. is very important in terms of how initialization and freeing is done.
 critcl::class::define tarray::table {
@@ -665,7 +745,6 @@ critcl::class::define tarray::table {
     method_introspection
 }
 
-
 package provide tarray 0.1
 
-
+critcl::load

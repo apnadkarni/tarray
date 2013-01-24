@@ -79,7 +79,7 @@ Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
 [call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg LOW] [arg [opt HIGH]]]
+[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
 Returns the values from a typed column at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
 The format

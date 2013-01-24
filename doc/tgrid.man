@@ -60,12 +60,12 @@ if [arg VALUE] contains fewer elements than the grid width.
 Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg GRID] [arg INDEXLIST]]
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg GRID] [arg LOW] [arg [opt HIGH]]]
-Returns the values from a typed column at the indices specified as
+[call [cmd "grid get"] [arg [opt "STANDARDOPTION"]] [arg GRID] [arg INDEXLIST]]
+[call [cmd "grid get"] [arg [opt "STANDARDOPTION"]] [arg GRID] [arg LOW] [arg [opt HIGH]]]
+Returns the values from a typed grid at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
 The format
-of the returned values is controlled by [arg STANDARDOPTIONS]
+of the returned values is controlled by [arg STANDARDOPTION]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
 

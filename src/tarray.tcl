@@ -14,18 +14,6 @@ proc tarray::grid::create {types {initvals {}} {initsize 0}} {
     
 }
 
-proc tarray::grid::delete {tab low {high ""}} {
-    if {$high eq ""} {
-        set high $low
-    }
-
-    foreach ta $tab[set tab ""] {
-        lappend tab [delete $ta $low $high]
-    }
-
-    return $tab
-}
-
 proc tarray::table::create {def {init {}} {size 0}} {
     variable _tables
     variable _table_ctr
@@ -43,6 +31,7 @@ proc tarray::table::create {def {init {}} {size 0}} {
     set _tables($tok) $table
     return $tok
 }
+
 
 
 namespace eval tarray {
