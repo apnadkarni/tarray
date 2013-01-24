@@ -671,6 +671,9 @@ Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 
     if (tgrid_convert(ip, osrc) != TCL_OK)
         return NULL;
+
+    /* TBD - TA_ASSERT validate grid consistency */
+
     width = tgrid_width(osrc);
     srccols = tgrid_columns(osrc);
 
@@ -680,16 +683,17 @@ Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
         Tcl_Obj **tcols;
         thdr_t *thdr;
 
-        if ((thdr = thdr_alloc(ip, TA_OBJ, tgrid_width(osrc))) == NULL)
+        if ((thdr = thdr_alloc(ip, TA_OBJ, width)) == NULL)
             return NULL;
         tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
         for (i = 0; i < width; ++i) {
             tcols[i] = tcol_get(ip, srccols[i], pindices, TA_FORMAT_TARRAY);
-            if (tcols[i] == NULL) {
+            if (tcols[i])
+                thdr->used++; /* Update as we go so freeing on error simpler */
+            else {
                 thdr_decr_refs(thdr);
                 return NULL;
             }
-            thdr->used++; /* Update as we go so freeing on error is simpler */
         }
         return tgrid_new(thdr);
     }
@@ -795,3 +799,131 @@ index_error:   /* index should hold the current index in error */
         Tcl_DecrRefCount(olist);
     return NULL;
 }
+
+Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
+{
+    int i, width, end;
+    Tcl_Obj **srccols;
+    Tcl_Obj *olist = NULL;
+    Tcl_Obj **olistelems;
+
+    TA_ASSERT(low >= 0);
+    TA_ASSERT(count >= 0);
+
+    /* TBD - TA_ASSERT validate grid consistency */
+
+    if (tgrid_convert(ip, osrc) != TCL_OK)
+        return NULL;
+    width = tgrid_width(osrc);
+    srccols = tgrid_columns(osrc);
+
+    if (fmt == TA_FORMAT_TARRAY) {
+        Tcl_Obj **tcols;
+        thdr_t *thdr;
+
+        if ((thdr = thdr_alloc(ip, TA_OBJ, width)) == NULL)
+            return NULL;
+        tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+        for (i = 0; i < width; ++i) {
+            tcols[i] = tcol_range(ip, srccols[i], low, count, TA_FORMAT_TARRAY);
+            if (tcols[i])
+                thdr->used++; /* Update as we go so freeing on error simpler */
+            else {
+                thdr_decr_refs(thdr);
+                return NULL;
+            }
+        }
+        return tgrid_new(thdr);
+    }
+
+    /*
+     * We have to return as either a list or a dict. To create a list, we
+     * we will preallocate a list of the same size as pindices. We will
+     * the loop through each column appending the value to the corresponding
+     * slot in that list. Dicts are treated the same way except that the
+     * values are alternated with the indices. Note creating a dict as a
+     * list and letting it shimmer when necessary is more efficient than
+     * creating it as a dict.
+     */
+    end = low + count;
+    if (end > tcol_occupancy(srccols[0]))
+        end = tcol_occupancy(srccols[0]);
+    count = end-low;
+        
+    if (fmt == TA_FORMAT_DICT) {
+        olist = Tcl_NewListObj(2*count, NULL);
+        for (i = low; i < end; ++i) {
+            Tcl_ListObjAppendElement(ip, olist, Tcl_NewIntObj(i));
+            Tcl_ListObjAppendElement(ip, olist, Tcl_NewListObj(width, NULL));
+        }        
+    } else {
+        olist = Tcl_NewListObj(count, NULL);
+        i = count;
+        while (i--)
+            Tcl_ListObjAppendElement(ip, olist, Tcl_NewListObj(width, NULL));
+    }
+
+    Tcl_ListObjGetElements(ip, olist, &i, &olistelems); /* i just dummy temp */
+
+#define tgrid_range_COPY(type_, objfn_)                                 \
+    do {                                                                \
+        type_ *p = THDRELEMPTR(TARRAYHDR(srccols[i]), type_, low);      \
+        type_ *pend = p + count;                                    \
+        while (p < pend) {                                              \
+            Tcl_ListObjAppendElement(ip, olistelems[j], objfn_(*p++));  \
+            j += incr;                                                  \
+        }                                                               \
+    } while (0)                                                         \
+
+    for (i = 0; i < width; ++i) {
+        int j, incr;
+
+        if (fmt == TA_FORMAT_DICT) {
+            /* Values are in alternate slots since mixed with indices */
+            j = 1;
+            incr = 2;
+        } else {
+            j = 0;
+            incr = 1;
+        }
+            
+        switch (tcol_type(srccols[i])) {
+        case TA_BOOLEAN:
+            {
+                ba_t *srcbaP = THDRELEMPTR(TARRAYHDR(srccols[i]), ba_t, 0);
+                int k;
+                for (k = low; k < end; j += incr, ++k) {
+                    Tcl_ListObjAppendElement(ip, olistelems[j],
+                                             Tcl_NewIntObj(ba_get(srcbaP, k)));
+                }
+            }
+        case TA_UINT:
+            tgrid_range_COPY(unsigned int, Tcl_NewWideIntObj);
+            break;
+        case TA_INT:
+            tgrid_range_COPY(int, Tcl_NewIntObj);
+            break;
+        case TA_WIDE:
+            tgrid_range_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
+            break;
+        case TA_DOUBLE:
+            tgrid_range_COPY(double, Tcl_NewDoubleObj);
+            break;
+        case TA_BYTE:
+            tgrid_range_COPY(unsigned char, Tcl_NewIntObj);
+            break;
+        case TA_OBJ:
+            /* We can use macro here as well because of ref counts will be
+               taken care of by the lists themselves. The (Tcl_Obj *) is
+               passed as essentially a no-op conversion function
+            */
+            tgrid_range_COPY(Tcl_Obj *, (Tcl_Obj *));
+            break;
+        default:
+            ta_type_panic(tcol_type(srccols[i]));
+        }
+    }
+
+    return olist;
+}
+

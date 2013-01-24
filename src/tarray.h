@@ -210,6 +210,7 @@ TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Ob
 TCL_RESULT tgrid_delete(Tcl_Interp *ip, Tcl_Obj *tgrid,
                         Tcl_Obj *indexa, Tcl_Obj *indexb);
 Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
+Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt);
 
 Tcl_Obj *tcol_get(struct Tcl_Interp *, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);

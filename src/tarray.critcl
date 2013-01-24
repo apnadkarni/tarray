@@ -645,7 +645,7 @@ critcl::ccommand tarray::grid::get {} {
                                          objv[ta_arg+1], objv[ta_arg+2],
                                          &low, &count);
         if (status != TCL_OK)
-            return TCL_ERROR;
+            return status;
         tgrid = tgrid_range(interp, objv[ta_arg], low, count, fmt);
         break;
     default:
