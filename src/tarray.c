@@ -1925,8 +1925,8 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
 
 #define tcol_range_COPY(type_, objfn_)                                  \
     do {                                                                \
-        type_ *p = THDRELEMPTR(psrc, unsigned int, low);                \
-        type_ *pend = THDRELEMPTR(psrc, unsigned int, end);             \
+        type_ *p = THDRELEMPTR(psrc, type_, low);                \
+        type_ *pend = THDRELEMPTR(psrc, type_, end);             \
         while (p < pend) {                                              \
             if (fmt == TA_FORMAT_DICT)                                  \
                 Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));  \
