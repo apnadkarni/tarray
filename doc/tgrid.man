@@ -69,9 +69,8 @@ of the returned values is controlled by [arg STANDARDOPTION]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
 
-[call [cmd "column index"] [arg GRID] [arg INDEX]]
-Returns the value of the element at the position specified by [arg INDEX]
-which is a single [sectref Indices index].
+[call [cmd "grid index"] [arg GRID] [arg INDEX]]
+Returns the value of the row at the position specified by [arg INDEX].
 
 [call [cmd "column insert"] [arg GRID] [arg VALUE] [arg FIRST] [arg COUNT]]
 [call [cmd "column insert"] [arg GRID] [arg VALUES] [arg FIRST]]

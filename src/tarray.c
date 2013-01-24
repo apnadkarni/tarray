@@ -1902,6 +1902,20 @@ thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
     return thdr;
 }
 
+Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
+{
+    thdr_t *thdr;
+
+    if (tcol_convert(ip, tcol) != TCL_OK)
+        return NULL;
+    thdr = TARRAYHDR(tcol);
+    if (index < 0 || index >= thdr->used) {
+        ta_index_range_error(ip, index);
+        return NULL;
+    }
+    return thdr_index(thdr, index);
+}
+
 Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
                      int fmt)
 {
@@ -2452,10 +2466,9 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
 Tcl_Obj *tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
 {
     thdr_t *thdr;
-    TCL_RESULT status;
 
-    if ((status = tcol_convert(ip, tcol)) != TCL_OK)
-        return status;
+    if (tcol_convert(ip, tcol) != TCL_OK)
+        return NULL;
 
     if (Tcl_IsShared(tcol) || thdr_shared(TARRAYHDR(tcol))) {
         thdr = thdr_clone_reversed(ip, TARRAYHDR(tcol), 0);

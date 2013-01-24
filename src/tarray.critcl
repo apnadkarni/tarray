@@ -137,16 +137,18 @@ critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr tcol} "const
     return ta_type_string(tcol_type(tcol));
 }
 
-critcl::cproc tarray::column::index {Tcl_Interp* interp thdr_t* tcolumn Tcl_Obj* index} ok {
+critcl::cproc tarray::column::index {Tcl_Interp* interp TArrayObjPtr COLUMN Tcl_Obj* INDEX} ok {
     int ix;
-    if (ta_convert_index(interp, index, &ix, tcolumn->used-1, 0, tcolumn->used-1) != TCL_OK)
+    Tcl_Obj *o;
+    if (ta_convert_index(interp, INDEX, &ix, tcol_occupancy(COLUMN)-1, 0, tcol_occupancy(COLUMN)-1) != TCL_OK)
         return TCL_ERROR;
-    if (ix < 0 || ix >= tcolumn->used) {
-        ta_index_range_error(interp, ix);
+    
+    o = tcol_index(interp, COLUMN, ix);
+    if (o) {
+        Tcl_SetObjResult(interp, o);
+        return TCL_OK;
+    } else
         return TCL_ERROR;
-    }
-    Tcl_SetObjResult(interp, thdr_index(tcolumn, ix));
-    return TCL_OK;
 }
 
 critcl::ccommand tarray::column::get {} {
@@ -664,7 +666,20 @@ badargs:
 
 }
 
+critcl::cproc tarray::grid::index {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* INDEX} ok {
+    int ix;
+    Tcl_Obj *o;
 
+    if (tgrid_convert(interp, GRID) == TCL_OK &&
+        ta_convert_index(interp, INDEX, &ix, tgrid_length(GRID)-1, 0, tcol_occupancy(GRID)-1) == TCL_OK) {
+        o = tgrid_index(interp, GRID, ix);
+        if (o) {
+            Tcl_SetObjResult(interp, o);
+            return TCL_OK;
+        }
+    }
+    return TCL_ERROR;
+}
 
 # If you are new to critcl, note that the order of constructor, insvariable
 # etc. is very important in terms of how initialization and freeing is done.

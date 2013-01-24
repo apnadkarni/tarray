@@ -864,7 +864,7 @@ Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
     }
 
     Tcl_ListObjGetElements(ip, olist, &i, &olistelems); /* i just dummy temp */
-
+                
 #define tgrid_range_COPY(type_, objfn_)                                 \
     do {                                                                \
         type_ *p = THDRELEMPTR(TARRAYHDR(srccols[i]), type_, low);      \
@@ -927,3 +927,27 @@ Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
     return olist;
 }
 
+Tcl_Obj *tgrid_index(Tcl_Interp *ip, Tcl_Obj *tgrid, int index)
+{
+    int i, width;
+    Tcl_Obj **srccols;
+    Tcl_Obj *olist = NULL;
+    Tcl_Obj *o;
+
+    /* TBD - TA_ASSERT validate grid consistency */
+    if (tgrid_convert(ip, tgrid) != TCL_OK)
+        return NULL;
+    width = tgrid_width(tgrid);
+    srccols = tgrid_columns(tgrid);
+    olist = Tcl_NewListObj(width, NULL);
+    for (i = 0; i < width; ++i) {
+        o = tcol_index(ip, srccols[i], index);
+        if (o)
+            Tcl_ListObjAppendElement(ip, olist, o);
+        else {
+            Tcl_DecrRefCount(olist);
+            return NULL;
+        }
+    }
+    return olist;
+}
