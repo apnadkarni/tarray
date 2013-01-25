@@ -137,7 +137,6 @@ TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
-TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue);
 
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
