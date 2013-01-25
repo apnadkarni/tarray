@@ -519,7 +519,7 @@ critcl::ccommand tarray::grid::fill {} {
         tgrid = Tcl_DuplicateObj(tgrid);
 
     status = tgrid_fill_obj(interp, tgrid, objv[2], objv[3], 
-                               objc == 5 ? objv[4] : NULL);
+                            objc == 5 ? objv[4] : NULL, 0);
 
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, tgrid);
@@ -545,7 +545,7 @@ critcl::ccommand tarray::grid::vfill {} {
         tgrid = Tcl_DuplicateObj(tgrid);
 
     status = tgrid_fill_obj(interp, tgrid, objv[2], objv[3], 
-                               objc == 5 ? objv[4] : NULL);
+                            objc == 5 ? objv[4] : NULL, 0);
     return ta_set_var_result(interp, status, objv[1], tgrid);
 }
 
@@ -636,7 +636,7 @@ critcl::ccommand tarray::grid::get {} {
             Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
         case TA_INDEX_TYPE_THDR:
-            tgrid = tgrid_get(interp, TARRAYHDR(objv[ta_arg]), pindices, fmt);
+            tgrid = tgrid_get(interp, objv[ta_arg], pindices, fmt);
             thdr_decr_refs(pindices);
             break;
         }
@@ -681,6 +681,46 @@ critcl::cproc tarray::grid::index {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* IND
     return TCL_ERROR;
 }
 
+
+critcl::ccommand tarray::grid::insert {} {
+    Tcl_Obj *tgrid;
+    int status;
+
+    if (objc != 4 && objc != 5) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "GRID (VALUES POSITION | VALUE POSITION COUNT)");
+	return TCL_ERROR;
+    }
+    
+    tgrid = objv[1];
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+    status = tgrid_insert_obj(interp, tgrid, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, tgrid);
+    else if (tgrid != objv[1])
+        Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
+
+    return status;
+}
+
+critcl::ccommand tarray::grid::vinsert {} {
+    Tcl_Obj *tgrid;
+    int status;
+
+    if (objc != 4 && objc != 5) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMNVAR (VALUES POSITION | VALUE POSITION COUNT)");
+	return TCL_ERROR;
+    }
+    
+    tgrid = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (tgrid == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+    status = tgrid_insert_obj(interp, tgrid, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    return ta_set_var_result(interp, status, objv[1], tgrid);
+}
+
 # If you are new to critcl, note that the order of constructor, insvariable
 # etc. is very important in terms of how initialization and freeing is done.
 critcl::class::define tarray::table {
@@ -705,6 +745,7 @@ critcl::class::define tarray::table {
     }
 
     constructor {
+
         Tcl_Obj **elems;
         int i, nelems, tatype;
         thdr_t thdr;
@@ -737,7 +778,7 @@ critcl::class::define tarray::table {
             if (Tcl_GetIndexFromObj(interp, elems[i+1], g_type_tokens, "TArrayType",
                                     TCL_EXACT, &tatype) == TCL_OK) {
                 tcol = tcol_new(thdr_alloc(interp, tatype, 0));
-                if (tcol && tcol_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
+                if (tcol && thdr_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
                     int is_new;
                     he = Tcl_CreateHashEntry(&instance->column_names, (char *)elems[i], &is_new);
                     if (is_new) {
