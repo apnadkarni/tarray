@@ -168,9 +168,9 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ncols, Tcl_Obj * const *tcols,
                           int nrows, Tcl_Obj * const *rows,
                           int first, int insert);
 
-TCL_RESULT thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
-                              int highest_in_indices,
-                              int nvalues, Tcl_Obj * const *pvalues);
+void thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
+                     int highest_in_indices,
+                     int nvalues, Tcl_Obj * const *pvalues);
 int thdr_required_size(unsigned char tatype, int count);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, unsigned char tatype, int count);

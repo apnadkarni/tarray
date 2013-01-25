@@ -1253,7 +1253,8 @@ convert_error:                  /* Interp should already contain errors */
 
 }
 
-TCL_RESULT thdr_place_objs(
+/* Caller must have done all the checks in the TA_ASSERTS below ! */
+void thdr_place_objs(
     Tcl_Interp *ip,
     thdr_t *thdr,               /* thdr_t to be modified - must NOT be shared */
     thdr_t *pindices,            /* Contains indices. */
@@ -1262,8 +1263,8 @@ TCL_RESULT thdr_place_objs(
                                    must also be present in pindices. Caller
                                    must have checked
                                 */
-    int nvalues,                /* # values in pvalues */
-    Tcl_Obj * const *pvalues)   /* Values to be stored */
+    int nvalues,                /* # values in ovalues */
+    Tcl_Obj * const *ovalues)   /* Values to be stored, must be type verified */
 {
     int *pindex, *end;
     int status;
@@ -1272,37 +1273,21 @@ TCL_RESULT thdr_place_objs(
     TA_ASSERT(thdr->nrefs < 2);
     TA_ASSERT(pindices->type == TA_INT);
     TA_ASSERT(highest_in_indices < thdr->usable);
-
-    if (pindices->used > nvalues)
-        return ta_indices_count_error(ip, pindices->used, nvalues);
+    TA_ASSERT(pindices->used <= nvalues);
+    TA_ASSERT(ta_verify_value_objs(ip, thdr->type, nvalues, ovalues) == TCL_OK);
 
     if (nvalues == 0)
-        return TCL_OK;          /* Nothing to change */
+        return;          /* Nothing to change */
 
     thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
-    /*
-     * In case of conversion errors, we have to keep the old values
-     * so we loop through first to verify there are no errors and then
-     * a second time to actually store the values. The arrays can be
-     * very large so we do not want to allocate a temporary
-     * holding area for saving old values to be restored in case of errors.
-     */
-
-    if ((status = ta_verify_value_objs(ip, thdr->type, nvalues, pvalues))
-        != TCL_OK)
-        return status;
-
-    /*
-     * Now  store the values. Note we do not have to check
-     * status on any conversion since we did so already.
-     */
+    /* Note we do not check conversion status since caller must check */
 
 #define PLACEVALUES(type, fn, var) do {                 \
         type *p;                                        \
         p = THDRELEMPTR(thdr, type, 0);             \
         while (pindex < end) {                         \
-            status = fn(ip, *pvalues++, &var);      \
+            status = fn(ip, *ovalues++, &var);      \
             TA_ASSERT(status == TCL_OK);                \
             TA_ASSERT(*pindex < thdr->usable);      \
             TA_ASSERT(*pindex <= thdr->used);          \
@@ -1317,7 +1302,7 @@ TCL_RESULT thdr_place_objs(
         {
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
             while (pindex < end) {
-                status = Tcl_GetBooleanFromObj(ip, *pvalues++, &v.ival);
+                status = Tcl_GetBooleanFromObj(ip, *ovalues++, &v.ival);
                 TA_ASSERT(status == TCL_OK); /* Since values are verified */
                 TA_ASSERT(*pindex < thdr->usable);
                 TA_ASSERT(*pindex <= thdr->used);
@@ -1358,10 +1343,10 @@ TCL_RESULT thdr_place_objs(
                 pobjs[i] = NULL;
             while (pindex < end) {
                 /* Careful about the order here! */
-                Tcl_IncrRefCount(*pvalues);
+                Tcl_IncrRefCount(*ovalues);
                 if (pobjs[*pindex] != NULL)
                     Tcl_DecrRefCount(*pobjs);/* Deref what was originally in that slot */
-                pobjs[*pindex] = *pvalues++;
+                pobjs[*pindex] = *ovalues++;
             }
         }
         break;
@@ -1375,8 +1360,6 @@ TCL_RESULT thdr_place_objs(
 
     if (highest_in_indices >= thdr->used)
         thdr->used = highest_in_indices + 1;
-
-    return TCL_OK;
 }
 
 int thdr_required_size(unsigned char tatype, int count)
@@ -2574,6 +2557,13 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
     if (pindices->used == 0)
         return TCL_OK;
 
+    if (pindices->used > nvalues)
+        return ta_indices_count_error(ip, pindices->used, nvalues);
+
+    if ((status = ta_verify_value_objs(ip, tcol_type(tcol), nvalues, ovalues))
+        != TCL_OK)
+        return status;
+
     /* For verification we will need to sort indices */
     psorted = pindices;
     if (psorted->sort_order == THDR_UNSORTED) {
@@ -2589,11 +2579,9 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
         thdr_decr_refs(psorted);
     if (status == TCL_OK) {
         status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
-        if (status == TCL_OK) {
-            status = thdr_place_objs(ip, TARRAYHDR(tcol), pindices,
-                                        new_size-1, /* Highest index in pindices */
-                                        nvalues, ovalues);
-        }
+        thdr_place_objs(ip, TARRAYHDR(tcol), pindices,
+                        new_size-1, /* Highest index in pindices */
+                        nvalues, ovalues);
     }
     thdr_decr_refs(pindices);
 

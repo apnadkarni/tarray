@@ -11,7 +11,7 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-#critcl::debug symbols
+critcl::debug symbols
 if {[critcl::targetconfig] eq "TBD"} {
     critcl::cflags -std=gnu99 -Winline
 }
