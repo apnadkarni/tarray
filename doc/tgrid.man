@@ -48,15 +48,15 @@ size allocated may differ.
 Returns a typed grid with all specified rows deleted. The row
 indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "grid fill"] [arg GRID] [arg VALUE] [arg INDEX]]
-[call [cmd "grid fill"] [arg GRID] [arg VALUE] [arg INDEXLIST]]
-[call [cmd "grid fill"] [arg GRID] [arg VALUE] [arg LOW] [arg HIGH]]
-Returns a typed grid with specified rows set to [arg VALUE]. 
-Each element from the list [arg VALUE] is assigned to the corresponding
+[call [cmd "grid fill"] [arg GRID] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "grid fill"] [arg GRID] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "grid fill"] [arg GRID] [arg ROWVALUE] [arg LOW] [arg HIGH]]
+Returns a typed grid with specified rows set to [arg ROWVALUE]. 
+Each element from the list [arg ROWVALUE] is assigned to the corresponding
 column of the grid at the specified indices. Any additional elements
-in [arg VALUE] are ignored. An error is generated if any element of
-[arg VALUE] does not match the type of the corresponding column or
-if [arg VALUE] contains fewer elements than the grid width.
+in [arg ROWVALUE] are ignored. An error is generated if any element of
+[arg ROWVALUE] does not match the type of the corresponding column or
+if [arg ROWVALUE] contains fewer elements than the grid width.
 Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
@@ -72,21 +72,21 @@ as specified in [sectref "Standard Options"].
 [call [cmd "grid index"] [arg GRID] [arg INDEX]]
 Returns the value of the row at the position specified by [arg INDEX].
 
-[call [cmd "column insert"] [arg GRID] [arg VALUE] [arg FIRST] [arg COUNT]]
-[call [cmd "column insert"] [arg GRID] [arg VALUES] [arg FIRST]]
-In the first form, inserts [arg COUNT] elements with value [arg VALUE]
-at position [arg FIRST] and returns the new column. In the second form,
-[arg VALUES] may be a list of values or a typed column of the same type.
-The values are inserted at the specified position.
+[call [cmd "grid insert"] [arg GRID] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "grid insert"] [arg GRID] [arg ROWVALUES] [arg FIRST]]
+In the first form, inserts [arg COUNT] rows with value [arg ROWVALUE]
+at position [arg FIRST] and returns the new grid. In the second form,
+[arg ROWVALUES] may be a list of row values or a compatible grid.
+The rows are inserted at the specified position.
 In both cases, the command may extend the array if necessary.
 
-[call [cmd "column place"] [arg GRID] [arg VALUES] [arg INDICES]]
+[call [cmd "column place"] [arg GRID] [arg ROWVALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
-corresponding  indices. The number of values in [arg VALUES] must not
+corresponding  indices. The number of values in [arg ROWVALUES] must not
 be less than the number of indices specified in [arg INDICES].
 [arg INDICES] must be a 
 index list in the one of the forms described in [sectref Indices].
-[arg VALUES] may be a list of values or a typed column in the same order.
+[arg ROWVALUES] may be a list of values or a typed column in the same order.
 [para]
 [arg INDICES] need not be in sorted order and may contain duplicates in
 which case the value corresponding to the last occurence of that index
@@ -95,17 +95,17 @@ all indices up to the highest index that are not already valid must be
 specified (i.e. there should be no gaps in indexes that are greater than
 the current size).
 
-[call [cmd "column put"] [arg GRID] [arg VALUES] [opt [arg FIRST]]]
+[call [cmd "column put"] [arg GRID] [arg ROWVALUES] [opt [arg FIRST]]]
 Returns a typed column with the elements starting at index [arg FIRST]
-replaced by the corresponding elements of [arg VALUES].
-[arg VALUES] may be a list of values or a typed column of the same type.
+replaced by the corresponding elements of [arg ROWVALUES].
+[arg ROWVALUES] may be a list of values or a typed column of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended to the array.
 
 [call [cmd "column reverse"] [arg GRID]]
 Returns the typed column with order of elements reversed.
 
-[call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg GRID] [arg VALUE]]
+[call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg GRID] [arg ROWVALUE]]
 Searches the specified typed column for a matching value. By default,
 the search starts at index 0 and returns the index of the first match
 found, returning -1 if no matching value is found. The other options
@@ -120,19 +120,19 @@ command returns the matched value(s) instead of their indices.
 [arg OPER] specifies the comparison operator and must be one of the following:
 [list_begin options]
 [opt_def -eq] Matches when equal to value (default)
-[opt_def -gt] Matches when greater than [arg VALUE]. 
+[opt_def -gt] Matches when greater than [arg ROWVALUE]. 
 Not valid for [const boolean] type.
-[opt_def -lt] Matches when less than [arg VALUE].
+[opt_def -lt] Matches when less than [arg ROWVALUE].
 Not valid for [const boolean] type.
-[opt_def -pat] Matches [arg VALUE] using [cmd "string match"] pattern rules.
+[opt_def -pat] Matches [arg ROWVALUE] using [cmd "string match"] pattern rules.
 Only valid for type [const any].
-[opt_def -re] Matches [arg VALUE] as a regular expression.
+[opt_def -re] Matches [arg ROWVALUE] as a regular expression.
 Only valid for type [const any].
 [list_end]
 
 The sense of the match can be inverted by specifying the [option -not] option
 so for example specifying [option "-not -gt"] will match all elements that are
-less than or equal to [arg VALUE]. For case insensitive matching, the
+less than or equal to [arg ROWVALUE]. For case insensitive matching, the
 [option -nocase] option may be specified. This is ignored for all array types
 except type [const any].
 
@@ -163,27 +163,28 @@ The new value is assigned back to the variable and also returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "column vfill"] [arg GRIDVAR] [arg VALUE] [arg INDEX]]
-[call [cmd "column vfill"] [arg GRIDVAR] [arg VALUE] [arg INDEXLIST]]
-[call [cmd "column vfill"] [arg GRIDVAR] [arg VALUE] [arg LOW] [arg HIGH]]
+[call [cmd "column vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "column vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "column vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
 Set the elements of the typed column in variable [arg GRIDVAR] to
-[arg VALUE]. 
+[arg ROWVALUE]. 
 The new value is assigned back to the variable and also returned as the
 result of the command.
 [para]
 See [cmd fill] for more information.
 
-[call [cmd "column vinsert"] [arg GRIDVAR] [arg VALUE] [arg FIRST] [arg COUNT]]
-[call [cmd "column vinsert"] [arg GRIDVAR] [arg VALUES] [arg FIRST]]
-In the first form, inserts [arg COUNT] elements with value [arg VALUE]
-at position [arg FIRST] in the type column stored in variable
+[call [cmd "grid vinsert"] [arg GRIDVAR] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "grid vinsert"] [arg GRIDVAR] [arg ROWVALUES] [arg FIRST]]
+In the first form, inserts [arg COUNT] rows with value [arg ROWVALUE]
+at position [arg FIRST] in the grid stored in variable
 [arg GRIDVAR].
 In the second form,
-[arg VALUES] may be a list of values or a typed column of the same type.
-The values are inserted at the specified position.
-In both cases, the new value is stored back into the variable.
+[arg ROWVALUES] may be a list of row values or a compatible grid.
+The rows are inserted at the specified position.
+In both cases, the new value is stored back into the variable and returned
+as the result of the command.
 
-[call [cmd "column vplace"] [arg GRIDVAR] [arg VALUES] [arg INDICES]]
+[call [cmd "column vplace"] [arg GRIDVAR] [arg ROWVALUES] [arg INDICES]]
 Modifies a typed column stored in the variable [arg GRIDVAR]
 with the specified values at the 
 corresponding  indices. The new value is assigned back to the variable and 
@@ -191,10 +192,10 @@ also returned as the result of the command.
 [para]
 See the command [cmd "column place"] for other details.
 
-[call [cmd "column vput"] [arg GRIDVAR] [arg VALUES] [arg FIRST]]
+[call [cmd "column vput"] [arg GRIDVAR] [arg ROWVALUES] [arg FIRST]]
 Modifies a variable [arg GRIDVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
-replaced by the corresponding elements of [arg VALUES]. If [arg FIRST] is
+replaced by the corresponding elements of [arg ROWVALUES]. If [arg FIRST] is
 not specified the elements are appended to the array.
 The new value is assigned back to the variable and also returned as the
 result of the command. 

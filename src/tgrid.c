@@ -15,110 +15,50 @@
 #define TA_ENABLE_ASSERT 1
 #include "tarray.h"
 
-/* The grid Tcl_Obj gridObj is modified */
-TCL_RESULT tgrid_fill_obj(
+
+TCL_RESULT tcols_fill_range(
     Tcl_Interp *ip,
-    Tcl_Obj *tgrid,
-    Tcl_Obj *orow,
-    Tcl_Obj *indexa, Tcl_Obj *indexb)
+    int ntcols,
+    Tcl_Obj **tcols,            /* Must be unshared and large enough */
+    Tcl_Obj *orow,              /* Value to fill */
+    int pos,
+    int count,
+    int insert)
 {
-    int i, low, count, row_width;
+    int i, low, row_width, col_len, status;
     ta_value_t values[32];
-    ta_value_t *pvalues;
-    Tcl_Obj **tcolPP;
-    int status;
-    int col_len;
+    ta_value_t *pvalues = values;
     Tcl_Obj **ovalues;
+    
+    if (ntcols == 0 || count == 0)
+        return TCL_OK;
 
-    TA_ASSERT(! Tcl_IsShared(tgrid));
-
-    if ((status = Tcl_ListObjGetElements(ip, orow, &row_width, &ovalues)) != TCL_OK ||
-        (status = tgrid_convert(ip, tgrid)) != TCL_OK)
+    if ((status = Tcl_ListObjGetElements(ip, orow, &row_width, &ovalues)) != TCL_OK)
         return status;
 
-    count = tgrid_width(tgrid);
-    if (row_width < count)
-        return ta_row_width_error(ip, row_width, count);
+    if (row_width < ntcols)
+        return ta_row_width_error(ip, row_width, ntcols);
 
-    /* Check for empty tuple so as to simplify loops below */
-    if (row_width == 0)
-        return TCL_OK;          /* Return empty result */
-
-    if (row_width > sizeof(values)/sizeof(values[0])) {
+    if (row_width > sizeof(values)/sizeof(values[0]))
         pvalues = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
-    } else {
-        pvalues = values;
-    }
 
-    tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0);
-    col_len = tcol_occupancy(*tcolPP); /* #items in first column */
-
+    col_len = tcol_occupancy(tcols[0]); /* #items in first column */
     /* Validate column lengths and value types */
-    for (i = 0; i < row_width; ++i) {
-        if (tcol_occupancy(tcolPP[i]) != col_len) {
+    for (i = 0; i < ntcols; ++i) {
+        if (tcol_occupancy(tcols[i]) != col_len) {
             status = ta_grid_length_error(ip);
             goto vamoose;
         }
-        status = ta_value_from_obj(ip, ovalues[i], tcol_type(tcolPP[i]), &pvalues[i]);
+        status = ta_value_from_obj(ip, ovalues[i], tcol_type(tcols[i]), &pvalues[i]);
         if (status != TCL_OK)
             goto vamoose;
     }
 
-    /*
-     * Ok, now we have validated the columns are the right length and
-     * values are the right type.
-     */
+    for (i = 0; i < ntcols; ++i)
+        thdr_fill_range(ip, TARRAYHDR(tcols[i]),
+                        &values[i], low, count, insert);
 
-    /* Figure out if we are given a range or a sequence of indices */
-    if (indexb) {
-        /* Given a range */
-        status = ta_fix_range_bounds(ip, tcol_occupancy(tcolPP[0]), indexa,
-                                     indexb, &low, &count);
-        if (status != TCL_OK || count == 0)
-            goto vamoose;      /* Either error or empty range */
-        if ((status = tgrid_make_modifiable(ip, tgrid, low+count, 0)) != TCL_OK)
-            goto vamoose;
-        tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0); /* Might have changed! */
-        for (i = 0; i < row_width; ++i)
-            thdr_fill_range(ip, TARRAYHDR(tcolPP[i]),
-                            &values[i], low, count, 0);
-    } else {
-        /* Not a range, either a list or single index */
-        thdr_t *pindices;
-        /* Note status is TCL_OK at this point */
-        switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
-        case TA_INDEX_TYPE_ERROR:
-            status = TCL_ERROR;
-            break;
-        case TA_INDEX_TYPE_INT:
-            if (low < 0 || low > col_len) {
-                ta_index_range_error(ip, low);
-                status = TCL_ERROR;
-            } else {
-                status = tgrid_make_modifiable(ip, tgrid, low+1, 0);
-                tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0); /* Might have changed! */
-                if (status == TCL_OK) {
-                    for (i = 0; i < row_width; ++i)
-                        thdr_fill_range(ip, TARRAYHDR(tcolPP[i]),
-                                        &values[i], low, 1, 0);
-                }
-            }
-            break;
-        case TA_INDEX_TYPE_THDR:
-            status = thdr_verify_indices(ip, TARRAYHDR(tcolPP[0]), pindices, &count);
-            if (status == TCL_OK) {
-                status = tgrid_make_modifiable(ip, tgrid, count, count); // TBD - count + extra?
-                tcolPP = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0); /* Might have changed! */
-                if (status == TCL_OK) {
-                    for (i = 0; i < row_width; ++i)
-                        thdr_fill_indices(ip, TARRAYHDR(tcolPP[i]),
-                                          &values[i], pindices);
-                }
-            }
-            thdr_decr_refs(pindices);
-            break;
-        }
-    }
+    /* status will already contain TCL_OK */
 
 vamoose:
     /* status contains TCL_OK or other code */
@@ -128,6 +68,135 @@ vamoose:
 
     return status;
 
+}
+
+TCL_RESULT tcols_fill_indices(
+    Tcl_Interp *ip,
+    int ntcols,
+    Tcl_Obj **tcols,            /* Must be unshared and large enough */
+    Tcl_Obj *orow,              /* Value to fill */
+    thdr_t *pindices           /* Must be sorted */
+    )
+{
+    int i, row_width, status, col_len;
+    ta_value_t values[32];
+    ta_value_t *pvalues = values;
+    Tcl_Obj **ovalues;
+
+    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
+
+    if (ntcols == 0 || pindices->used == 0)
+        return TCL_OK;          /* Nothing to do */
+
+    if ((status = Tcl_ListObjGetElements(ip, orow, &row_width, &ovalues)) != TCL_OK)
+        return status;
+
+    if (row_width < ntcols)
+        return ta_row_width_error(ip, row_width, ntcols);
+
+    if (row_width > sizeof(values)/sizeof(values[0]))
+        pvalues = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
+
+    /* Validate column lengths and value types */
+    col_len = tcol_occupancy(tcols[0]); /* #items in first column */
+    for (i = 0; i < ntcols; ++i) {
+        if (tcol_occupancy(tcols[i]) != col_len) {
+            status = ta_grid_length_error(ip);
+            goto vamoose;
+        }
+        status = ta_value_from_obj(ip, ovalues[i], tcol_type(tcols[i]), &pvalues[i]);
+        if (status != TCL_OK)
+            goto vamoose;
+    }
+
+    /* Now that verification is complete, go do the actual changes */
+    for (i = 0; i < ntcols; ++i)
+        thdr_fill_indices(ip, TARRAYHDR(tcols[i]), &values[i], pindices);
+    
+    /* status will already be TCL_OK */
+
+vamoose:
+    /* status contains TCL_OK or other code */
+    /* ip must already hold error message in case of error */
+    if (pvalues != values)
+        TA_FREEMEM((char *) pvalues);
+
+    return status;
+
+}
+
+TCL_RESULT tgrid_fill_obj(
+    Tcl_Interp *ip,
+    Tcl_Obj *tgrid,
+    Tcl_Obj *orow,
+    Tcl_Obj *indexa,
+    Tcl_Obj *indexb,             /* Can be NULL */
+    int insert)
+{
+    int low, count;
+    int status;
+    int col_len, ncols;
+    thdr_t *pindices;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK)
+        return status;
+    ncols = tgrid_width(tgrid);
+    col_len = tgrid_length(tgrid);
+    if (indexb) {
+        /* Given a range */
+        status = ta_fix_range_bounds(ip, col_len, indexa, indexb, &low, &count);
+        if (status != TCL_OK || count == 0)
+            return status;
+        if ((status = tgrid_make_modifiable(ip, tgrid,
+                                            (insert ? col_len : low) + count,
+                                            0)) != TCL_OK)
+            return status;
+        return tcols_fill_range(ip, ncols, tgrid_columns(tgrid), orow,
+                                low, count, insert);
+    }
+
+    /* A single index arg, so must be an index or an index column or list */
+
+    /* Note status is TCL_OK at this point */
+    switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
+    case TA_INDEX_TYPE_ERROR:
+        status = TCL_ERROR;
+        break;
+    case TA_INDEX_TYPE_INT:
+        if (low < 0 || low > col_len) {
+            ta_index_range_error(ip, low);
+            status = TCL_ERROR;
+        } else {
+            status = tgrid_make_modifiable(ip, tgrid,
+                                           (insert ? col_len : low) + 1,
+                                           0);
+            if (status == TCL_OK)
+                status = tcols_fill_range(ip, ncols, tgrid_columns(tgrid),
+                                          orow, low, 1, insert);
+        }
+        break;
+    case TA_INDEX_TYPE_THDR:
+        if (insert) {
+            Tcl_SetResult(ip, "Internal error: attempt to use insert mode with index list", TCL_STATIC);
+            return TCL_ERROR;
+
+        }
+        status = thdr_verify_indices(ip, TARRAYHDR(tgrid_column(tgrid, 0)), pindices, &count);
+        if (status == TCL_OK) {
+            status = tgrid_make_modifiable(ip, tgrid, count, count); // TBD - count + extra?
+            status = tcols_fill_indices(ip, ncols, tgrid_columns(tgrid),
+                                        orow, pindices);
+        }
+        thdr_decr_refs(pindices);
+        break;
+    }
+
+    /* status contains TCL_OK or other code */
+    /* ip must already hold error message in case of error */
+    return status;
 }
 
 TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
@@ -253,7 +322,10 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
         thdr = TARRAYHDR(tcols[t]);
         TA_ASSERT(! Tcl_IsShared(tcols[t]));
         TA_ASSERT(! thdr_shared(thdr));
-        TA_ASSERT(thdr->usable >= (first + nrows)); /* 'Nuff space */
+        if (insert)
+            TA_ASSERT(thdr->usable >= (thdr->used + nrows)); /* 'Nuff space */
+        else
+            TA_ASSERT(thdr->usable >= (first + nrows)); /* 'Nuff space */
         TA_ASSERT(thdr->used == thdr0->used); /* All same size */
 
         if (thdr->type == TA_OBJ)
@@ -528,10 +600,8 @@ TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *ofirst, /* NULL -> end of grid */
                           int insert)
 {
-    int status;
+    int off, nrows, old_size, status;
     Tcl_Obj **rows;
-    int nrows;
-    int n;
 
     TA_ASSERT(! Tcl_IsShared(tgrid));
 
@@ -544,20 +614,25 @@ TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
     }
 
     /* Get the limits of the range to set */
-    n = tgrid_length(tgrid);
+    old_size = tgrid_length(tgrid);
+    off = old_size;
     if (ofirst)
-        status = ta_convert_index(ip, ofirst, &n, n, 0, n);
+        status = ta_convert_index(ip, ofirst, &off, old_size, 0, old_size);
+
     /* n contains starting offset (end if not specified) */
     if (status == TCL_OK) {
+
         /* Note this also invalidates the string rep as desired */
-        status = tgrid_make_modifiable(ip, tgrid, n + nrows, 0);
+        status = tgrid_make_modifiable(ip, tgrid,
+                                       (insert ? old_size : off) + nrows,
+                                       0);
         if (status == TCL_OK) {
             /* Note even on error tcols_put_objs guarantees a consistent 
              * and unchanged tcols
              */
             status = tcols_put_objs(ip, tgrid_width(tgrid),
                                     tgrid_columns(tgrid),
-                                    nrows, rows, n, insert);
+                                    nrows, rows, off, insert);
         }
     }
     
@@ -950,4 +1025,38 @@ Tcl_Obj *tgrid_index(Tcl_Interp *ip, Tcl_Obj *tgrid, int index)
         }
     }
     return olist;
+}
+
+TCL_RESULT tgrid_insert_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *ovalue,
+                            Tcl_Obj *opos, Tcl_Obj *ocount)
+{
+    int status;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+    
+    if (ocount == NULL) {
+        /* Values may be given as a column or a list */
+        if ((status = tgrid_convert(NULL, ovalue)) == TCL_OK)
+            status =  tgrid_copy(ip, tgrid, ovalue, opos, 1);
+        else
+            status =  tgrid_put_objs(ip, tgrid, ovalue, opos, 1);
+    } else {
+        int pos, count, col_len;
+        if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
+            (status = tgrid_convert(ip, tgrid)) == TCL_OK) {
+            if (count < 0)
+                count = 0;      /* Should we error instead? */
+            if (count == 0)
+                return TCL_OK;  /* Nothing to do */
+            col_len = tgrid_length(tgrid);
+            if ((status = tgrid_make_modifiable(ip, tgrid, count+col_len, 0)) == TCL_OK &&
+                (status = ta_convert_index(ip, opos, &pos, col_len,
+                                           0, col_len)) == TCL_OK) {
+                status = tcols_fill_range(ip, tgrid_width(tgrid),
+                                          tgrid_columns(tgrid), ovalue,
+                                          pos, count, 1);
+            }
+        }
+    }
+    return status;
 }

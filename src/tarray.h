@@ -203,7 +203,11 @@ TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                            Tcl_Obj *opos, Tcl_Obj *ocount);
 Tcl_Obj *tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol);
 
-TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb);
+TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
+                            Tcl_Obj *orow, int pos, int count, int insert);
+TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
+                              Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices);
+TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
 TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid, Tcl_Obj *ofirst, int insert);
@@ -390,7 +394,7 @@ TA_INLINE int thdr_recompute_occupancy(thdr_t *thdr, int *poff, int count, int i
     return occupancy;
 }
 
-/* Make room for count elements at offset off */
+/* Make room for count elements at offset off. Caller must have ensured allocation */
 TA_INLINE thdr_make_room(thdr_t *thdr, int off, int count)
 {
     void *d, *s;

@@ -598,6 +598,7 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
     end = THDRELEMPTR(pindices, int, pindices->used);
     /* Make sure no gaps in indices */
     if (pindices->sort_order == THDR_SORTED_ASCENDING) {
+        /* TBD - short cut this loop if highest index is less than thdr->used */
         while (pindex < end) {
             i = *pindex++;
             if (i < new_size)
@@ -607,6 +608,7 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
             new_size = i+1;       /* Appending without a gap */
         }
     } else {
+        /* TBD - short cut this loop if highest index is less than thdr->used */
         while (pindex < end) {
             i = *--end;
             if (i < new_size)
