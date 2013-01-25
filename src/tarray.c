@@ -307,31 +307,6 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     return ta_not_tarray_error(ip);
 }
 
-/*
- * Sets the value of the variable given by ovarname to ovalue and sets the
- * the interp result to the resulting value of the variable (which may be
- * different from ovalue because of traces).
- * 
- * IMPORTANT: Caller should NOT access ovalue again unless it has protected
- * it by bumping its ref count.
- */
-TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue)
-{
-    Tcl_Obj *oresult;
-    Tcl_IncrRefCount(ovalue);
-    if (status == TCL_OK) {
-        oresult = Tcl_ObjSetVar2(ip, ovarname, NULL, ovalue, TCL_LEAVE_ERR_MSG);
-        if (oresult)
-            Tcl_SetObjResult(ip, oresult);
-        else
-            status = TCL_ERROR;
-    }
-    Tcl_DecrRefCount(ovalue);
-
-    return status;
-}
-
-
 TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     int status;

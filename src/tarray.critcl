@@ -11,7 +11,7 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-critcl::debug symbols
+#critcl::debug symbols
 if {[critcl::targetconfig] eq "TBD"} {
     critcl::cflags -std=gnu99 -Winline
 }
@@ -30,8 +30,48 @@ critcl::ccode {
         "-dict",
         NULL
     };
-}
 
+    /*
+     * If status is success, sets ip result to ores. Always returns status.
+     * ores might be deallocated unless caller makes sure it is holding a 
+     * ref count. Primary purpose of this trivial routine is to deal
+     * with returning an object that might have been either allocated
+     * or be an existing object passed in the objv[] array to a command.
+     */
+    TA_INLINE TCL_RESULT ta_return_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ores)
+    {
+        Tcl_IncrRefCount(ores);
+        if (status == TCL_OK)
+            Tcl_SetObjResult(ip, ores);
+        Tcl_DecrRefCount(ores);
+        return status;
+    }
+
+    /*
+     * Sets the value of the variable given by ovarname to ovalue and sets the
+     * the interp result to the resulting value of the variable (which may be
+     * different from ovalue because of traces).
+     * 
+     * IMPORTANT: Caller should NOT access ovalue again unless it has protected
+     * it by bumping its ref count.
+     */
+    TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue)
+    {
+        Tcl_Obj *oresult;
+        Tcl_IncrRefCount(ovalue);
+        if (status == TCL_OK) {
+            oresult = Tcl_ObjSetVar2(ip, ovarname, NULL, ovalue, TCL_LEAVE_ERR_MSG);
+            if (oresult)
+                Tcl_SetObjResult(ip, oresult);
+            else
+                status = TCL_ERROR;
+        }
+        Tcl_DecrRefCount(ovalue);
+
+        return status;
+    }
+
+}
 
 critcl::cinit {
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
@@ -102,12 +142,7 @@ critcl::ccommand tarray::column::delete {} {
         tcol = Tcl_DuplicateObj(objv[1]);
 
     status = tcol_delete(interp, tcol, objv[2], objc == 4 ? objv[3] : NULL);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tcol);
-    else if (tcol != objv[1])
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tcol);
 }
 
 critcl::ccommand tarray::column::vdelete {} {
@@ -244,11 +279,7 @@ critcl::ccommand tarray::column::sort {} {
         tcol = Tcl_DuplicateObj(tcol);
 
     status = tcol_sort(interp, tcol, flags);
-    if (status == TCL_OK) {
-        Tcl_SetObjResult(interp, tcol);
-    } else if (tcol != objv[objc-1])
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-    return status;
+    return ta_return_result(interp, status, tcol);
 }
 
 critcl::ccommand tarray::column::vsort {} {
@@ -302,12 +333,7 @@ critcl::ccommand tarray::column::insert {} {
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
     status = tcol_insert_obj(interp, tcol, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tcol);
-    else if (tcol != objv[1])
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tcol);
 }
 
 critcl::ccommand tarray::column::vinsert {} {
@@ -344,12 +370,7 @@ critcl::cproc tarray::column::put {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* V
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
 
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tcol);
-    else if (tcol != COLUMN)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tcol);
 }
 
 critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
@@ -380,12 +401,7 @@ critcl::cproc tarray::column::place {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj*
         tcol = Tcl_DuplicateObj(tcol);
 
     status = tcol_place_objs(interp, tcol, VALUES, INDICES);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tcol);
-    else if (tcol != COLUMN)
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tcol);
 }
 
 critcl::cproc tarray::column::vplace {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
@@ -417,12 +433,7 @@ critcl::ccommand tarray::column::fill {} {
 
     status = tcol_fill_obj(interp, tcol, objv[2], objv[3],
                                objc == 5 ? objv[4] : NULL);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tcol);
-    else if (tcol != objv[1])
-        Tcl_DecrRefCount(tcol); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tcol);
 }
 
 critcl::ccommand tarray::column::vfill {} {
@@ -478,12 +489,7 @@ critcl::cproc tarray::grid::put {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUE
     else
         status = tgrid_put_objs(interp, tgrid, VALUES, FIRST, 0);
 
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tgrid);
-    else if (tgrid != GRID)
-        Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tgrid);
 }
 
 critcl::cproc tarray::grid::vput {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
@@ -521,12 +527,7 @@ critcl::ccommand tarray::grid::fill {} {
     status = tgrid_fill_obj(interp, tgrid, objv[2], objv[3], 
                             objc == 5 ? objv[4] : NULL, 0);
 
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tgrid);
-    else if (tgrid != objv[1])
-        Tcl_DecrRefCount(tgrid);
-
-    return status;
+    return ta_return_result(interp, status, tgrid);
 }
 
 critcl::ccommand tarray::grid::vfill {} {
@@ -562,12 +563,7 @@ critcl::ccommand tarray::grid::delete {} {
     if (Tcl_IsShared(tgrid))
         tgrid = Tcl_DuplicateObj(tgrid);
     status = tgrid_delete(interp, tgrid, objv[2], objc == 4 ? objv[3] : NULL);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tgrid);
-    else if (tgrid != objv[1])
-        Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tgrid);
 }
 
 
@@ -695,12 +691,7 @@ critcl::ccommand tarray::grid::insert {} {
     if (Tcl_IsShared(tgrid))
         tgrid = Tcl_DuplicateObj(tgrid);
     status = tgrid_insert_obj(interp, tgrid, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, tgrid);
-    else if (tgrid != objv[1])
-        Tcl_DecrRefCount(tgrid); /* We allocated it so free it */
-
-    return status;
+    return ta_return_result(interp, status, tgrid);
 }
 
 critcl::ccommand tarray::grid::vinsert {} {
