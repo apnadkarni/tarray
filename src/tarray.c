@@ -208,6 +208,131 @@ TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
     return TCL_ERROR;
 }
 
+/* Increments the ref counts of Tcl_Objs in a tarray making sure not
+   to run past end of array */
+void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
+{
+    register int i;
+    register Tcl_Obj **pobjs;
+
+    if (thdr->type == TA_OBJ) {
+        if ((first + count) > thdr->used)
+            count = thdr->used - first;
+        if (count <= 0)
+            return;
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+        for (i = 0; i < count; ++i, ++pobjs) {
+            Tcl_IncrRefCount(*pobjs);
+        }
+    }
+}
+
+/* Decrements the ref counts of Tcl_Objs in a tarray.
+   Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
+*/
+void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
+{
+    register int i;
+    register Tcl_Obj **pobjs;
+
+    if (thdr->type == TA_OBJ) {
+        if ((first + count) > thdr->used)
+            count = thdr->used - first;
+        if (count <= 0)
+            return;
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+        for (i = 0; i < count; ++i, ++pobjs) {
+            Tcl_DecrRefCount(*pobjs);
+        }
+    }
+}
+
+/*
+ * Updates TA_OBJ elements at the specific indices pindices[].
+ * Also updates thdr->used.
+ */
+void thdr_place_ta_objs(thdr_t *thdr,
+                        thdr_t *pindices,
+                        Tcl_Obj * const *ovalues,
+                        TBD int highest_in_indices /* Highest value in pindices[] */
+    )
+{
+    int i;
+    int *index, *end;
+    Tcl_Obj **pobjs;
+
+    pindex = THDRELEMPTR(pindices, int, 0);
+    end = pindex + pindices->used;
+    pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+
+    /*
+     * Reference counts makes this tricky. If replacing an existing
+     * index we have to increment the new value's ref and decrement
+     * the old value's. If the index points to a previously unused
+     * slot, then the value there is garbage and Tcl_DecrRefCount
+     * should not be called on it. The problem is we cannot distinguish
+     * the cases up front using thdr->used as a threshold because
+     * pindices is in arbitrary order AND indices may be repeated.
+     * Hence what we do is to store NULL first in all unused slots
+     * that will be written to mark what is unused.
+     */
+    for (i = thdr->used; i <= highest_in_indices; ++i)
+        pobjs[i] = NULL;        /* TBD - optimization - memset ? */
+    while (pindex < end) {
+        /* Careful about the order here! */
+        Tcl_IncrRefCount(*ovalues);
+        if (pobjs[*pindex] != NULL)
+            Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
+        pobjs[*pindex] = *ovalues++;
+    }
+
+    if (highest_in_indices >= thdr->used)
+        thdr->used = highest_in_indices + 1;
+}
+
+/*
+ * Fills TA_OBJ elements at the specific indices pindices[].
+ * Also updates thdr->used.
+ */
+void thdr_fill_ta_objs(thdr_t *thdr,
+                       thdr_t *pindices,
+                       Tcl_Obj *oval,
+                       TBD int highest_in_indices /* Highest value in pindices[] */
+    )
+{
+    int i;
+    int *index, *end;
+    Tcl_Obj **pobjs;
+
+    pindex = THDRELEMPTR(pindices, int, 0);
+    end = pindex + pindices->used;
+    pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+
+    /*
+     * Reference counts makes this tricky. If replacing an existing
+     * index we have to increment the new value's ref and decrement
+     * the old value's. If the index points to a previously unused
+     * slot, then the value there is garbage and Tcl_DecrRefCount
+     * should not be called on it. The problem is we cannot distinguish
+     * the cases up front using thdr->used as a threshold because
+     * pindices is in arbitrary order AND indices may be repeated.
+     * Hence what we do is to store NULL first in all unused slots
+     * that will be written to mark what is unused.
+     */
+    for (i = thdr->used; i <= highest_in_indices; ++i)
+        pobjs[i] = NULL;        /* TBD - optimization - memset ? */
+    while (pindex < end) {
+        /* Careful about the order here! */
+        Tcl_IncrRefCount(oval);
+        if (pobjs[*pindex] != NULL)
+            Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
+        pobjs[*pindex] = oval;
+    }
+
+    if (highest_in_indices >= thdr->used)
+        thdr->used = highest_in_indices + 1;
+}
+
 /*
  * Map numeric or string index to numeric integer index.
  */
@@ -558,58 +683,108 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
    We need to verify that the indices
    are not beyond the range. At the same time the indices may
    themselves extend the range. Sort indices to simplify this.
-   Returns new size needed if array has to be grown or -1 on error.
+   Returns new size needed in *new_sizeP
 */
 TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP)
 {
-    int i, new_size;
+    int i, cur, used, highest;
     int *pindex, *end;
+    thdr_t *psorted = NULL;
 
     TA_ASSERT(pindices->type == TA_INT);
-    TA_ASSERT(thdr->sort_order == THDR_SORTED_ASCENDING || thdr->sort_order == THDR_SORTED_DESCENDING);
 
-    new_size = thdr->used;
+    used = thdr->used;
     pindex = THDRELEMPTR(pindices, int, 0);
     end = THDRELEMPTR(pindices, int, pindices->used);
+
+    /* Special cases so we don't go through the long path */
+    if (pindices->used < 2) {
+        /* 0/1 element list is always sorted so mark it as such anyways ! */
+        thdr->sort_order = THDR_SORTED_ASCENDING;
+        if (pindices->used == 0)
+            *new_sizeP = 0;
+        else {
+            /* One index specified */
+            if (*pindex < 0 || *pindex > used)
+                return ta_index_range_error(ip, *pindex);
+            *new_sizeP = used;
+            if (*pindex == used)
+                *new_sizeP = used+1;
+        }
+        return TCL_OK;
+    }    
+
+    /*
+     * If indices are not sorted, we need to sort them to ensure no gaps.
+     * Potentially we could use a bit array to do it differently but...TBD
+     */
+    if (pindices->sort_order == THDR_UNSORTED) {
+        psorted = thdr_clone(ip, pindices, 0);
+        if (psorted == NULL)
+            return TCL_ERROR;
+        qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
+        psorted->sort_order = THDR_SORTED_ASCENDING;
+        pindices = psorted;
+    }
+
     /* Make sure no gaps in indices */
     if (pindices->sort_order == THDR_SORTED_ASCENDING) {
-        /* TBD - short cut this loop if highest index is less than thdr->used */
-        while (pindex < end) {
-            i = *pindex++;
-            if (i < new_size)
-                continue;
-            if (i > new_size)
-                return ta_index_range_error(ip, i);
-            new_size = i+1;       /* Appending without a gap */
+        /*
+         * We will start going backward until we hit a gap in the sequence
+         * and error out at that point. If we reach the current size,
+         * we can stop since any further indices will be within the current
+         * limits.
+         */
+        TA_ASSERT(pindex < end); /* Since we already special cased 0/1 above */
+        cur = *--end;
+        highest = cur;
+        while (pindex < end && cur > used) {
+            --end;
+            /* Sorted, so can only be cur or cur-1 */
+            if (*end != cur && *end != (cur-1))
+                break;          /* Gap! */
+            cur = *end;
         }
     } else {
-        /* TBD - short cut this loop if highest index is less than thdr->used */
-        while (pindex < end) {
-            i = *--end;
-            if (i < new_size)
-                continue;
-            if (i > new_size) {
-                ta_index_range_error(ip, i);
-                return -1;
-            }
-            new_size = i+1;       /* Appending without a gap */
+        /* Same as above loop but in reverse since sorted in reverse order */
+        TA_ASSERT(pindex < end); /* Since we already special cased 0/1 above */
+        cur = *pindex++;
+        highest = cur;
+        while (pindex < end && cur > used) {
+            if (*pindex != cur && *pindex != (cur-1))
+                break;
+            cur = *pindex++;
         }
     }
-    *new_sizeP = new_size;
-    return TCL_OK;
+
+    if (cur <= used) {
+        *new_sizeP = highest >= used ? highest + 1 : used;
+        status = TCL_OK;
+    } else
+        status = ta_index_range_error(ip, TBD);
+
+vamoose:
+    if (psorted)
+        thdr_decr_refs(psorted);
+
+    return status;
+
 }
 
 /* thdr must be large enough for largest index. And see asserts in code */
 void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr, 
-                      const ta_value_t *ptav, thdr_t *pindices)
+                       const ta_value_t *ptav, thdr_t *pindices,
+                       int highest_in_indices /* Highest index in pindices[] */
+    )
 {
-    int highest_index;
     int *pindex, *end;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
     TA_ASSERT(pindices->type == TA_INT);
-    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
+TBD    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
+    /* Caller guarantees room for highest index value */
+    TA_ASSERT(highest_in_indices < thdr->usable);
 
     if (pindices->used == 0)
         return;          /* Nothing to do */
@@ -618,10 +793,6 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
     pindex = THDRELEMPTR(pindices, int, 0);
     end = THDRELEMPTR(pindices, int, pindices->used);
-
-    /* Caller guarantees room for highest index value */
-    highest_index = pindices->sort_order > 0 ? end[-1] : pindex[0];
-    TA_ASSERT(highest_index < thdr->usable);
 
     thdr->sort_order = THDR_UNSORTED;
     switch (thdr->type) {
@@ -664,25 +835,8 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
         }
         break;
     case TA_OBJ:
-        {
-            Tcl_Obj **pobjs;
-
-            /*
-             * We have to deal with reference counts here. For the object
-             * we are copying we need to increment the reference counts
-             * that many times. For objects being overwritten,
-             * we need to decrement reference counts. Note that
-             * indices may be sorted in either order.
-             */
-            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-            while (pindex < end) {
-                Tcl_IncrRefCount(ptav->oval);
-                if (*pindex < thdr->used)
-                    Tcl_DecrRefCount(pobjs[*pindex]);
-                pobjs[*pindex] = ptav->oval;
-            }
-        }
-        break;
+        thdr_fill_ta_objs(thdr, pindices, ptav->oval, highest_in_indices);
+        return;
     default:
         ta_type_panic(thdr->type);
     }
@@ -693,44 +847,6 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
 
 
-/* Increments the ref counts of Tcl_Objs in a tarray making sure not
-   to run past end of array */
-void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
-{
-    register int i;
-    register Tcl_Obj **pobjs;
-
-    if (thdr->type == TA_OBJ) {
-        if ((first + count) > thdr->used)
-            count = thdr->used - first;
-        if (count <= 0)
-            return;
-        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (i = 0; i < count; ++i, ++pobjs) {
-            Tcl_IncrRefCount(*pobjs);
-        }
-    }
-}
-
-/* Decrements the ref counts of Tcl_Objs in a tarray.
-   Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
-*/
-void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
-{
-    register int i;
-    register Tcl_Obj **pobjs;
-
-    if (thdr->type == TA_OBJ) {
-        if ((first + count) > thdr->used)
-            count = thdr->used - first;
-        if (count <= 0)
-            return;
-        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (i = 0; i < count; ++i, ++pobjs) {
-            Tcl_DecrRefCount(*pobjs);
-        }
-    }
-}
 
 void thdr_free(thdr_t *thdr)
 {
@@ -1296,7 +1412,7 @@ void thdr_place_objs(
     } while (0)
     
     pindex = THDRELEMPTR(pindices, int, 0);
-    end = pindex + nvalues;
+    end = pindex + pindices->used;
     switch (thdr->type) {
     case TA_BOOLEAN:
         {
@@ -1324,33 +1440,8 @@ void thdr_place_objs(
         PLACEVALUES(double, Tcl_GetDoubleFromObj, v.dval);
         break;
     case TA_OBJ:
-        {
-            int i;
-            Tcl_Obj **pobjs;
-            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-            /*
-             * Reference counts makes this tricky. If replacing an existing
-             * index we have to increment the new value's ref and decrement
-             * the old value's. If the index points to a previously unused
-             * slot, then the value there is garbage and Tcl_DecrRefCount
-             * should not be called on it. The problem is we cannot distinguish
-             * the cases up front using thdr->used as a threshold because
-             * pindices is in arbitrary order AND indices may be repeated.
-             * Hence what we do is to store NULL first in all unused slots
-             * that will be written to mark what is unused.
-             */
-            for (i = thdr->used; i <= highest_in_indices; ++i)
-                pobjs[i] = NULL;
-            while (pindex < end) {
-                /* Careful about the order here! */
-                Tcl_IncrRefCount(*ovalues);
-                if (pobjs[*pindex] != NULL)
-                    Tcl_DecrRefCount(*pobjs);/* Deref what was originally in that slot */
-                pobjs[*pindex] = *ovalues++;
-            }
-        }
-        break;
-
+        thdr_place_ta_objs(thdr, pindices, ovalues, highest_in_indices);
+        return;
     case TA_BYTE:
         PLACEVALUES(unsigned int, Tcl_GetIntFromObj, v.ival);
         break;
@@ -2410,10 +2501,10 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             break;
         case TA_INDEX_TYPE_THDR:
             status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &count);
-            if (status == TCL_OK) {
+            if (status == TCL_OK && count > 0) {
                 status = tcol_make_modifiable(ip, tcol, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
-                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, pindices);
+                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, pindices, count-1);
             }
             thdr_decr_refs(pindices);
             break;
@@ -2564,19 +2655,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
         != TCL_OK)
         return status;
 
-    /* For verification we will need to sort indices */
-    psorted = pindices;
-    if (psorted->sort_order == THDR_UNSORTED) {
-        psorted = thdr_clone(ip, psorted, 0);
-        if (psorted == NULL)
-            return TCL_ERROR;
-        qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
-        psorted->sort_order = THDR_SORTED_ASCENDING;
-    }
-
-    status = thdr_verify_indices(ip, TARRAYHDR(tcol), psorted, &new_size);
-    if (psorted != pindices)
-        thdr_decr_refs(psorted);
+    status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &new_size);
     if (status == TCL_OK) {
         status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
         thdr_place_objs(ip, TARRAYHDR(tcol), pindices,

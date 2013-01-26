@@ -400,6 +400,7 @@ critcl::cproc tarray::column::place {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj*
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
 
+    // TBD - VALUES may be a COLUMN!
     status = tcol_place_objs(interp, tcol, VALUES, INDICES);
     return ta_return_result(interp, status, tcol);
 }
@@ -413,6 +414,7 @@ critcl::cproc tarray::column::vplace {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
     
+    // TBD - VALUES may be a COLUMN!
     return ta_set_var_result(interp,
                              tcol_place_objs(interp, tcol, VALUES, INDICES),
                              COLUMNVAR, tcol);

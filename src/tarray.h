@@ -152,8 +152,10 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav);
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
                      const ta_value_t *ptav, int pos, int count, int insert);
+void thdr_fill_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj *oval, int highest_in_indices);
+void thdr_place_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj * const *ovalues, int highest_in_indices);
 void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
-                            const ta_value_t *ptav, thdr_t *pindices);
+                       const ta_value_t *ptav, thdr_t *pindices, int highest_index);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 
 TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
@@ -205,7 +207,8 @@ Tcl_Obj *tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol);
 TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
                             Tcl_Obj *orow, int pos, int count, int insert);
 TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
-                              Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices);
+                              Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
+                              int highest_index);
 TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
