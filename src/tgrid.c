@@ -76,7 +76,7 @@ TCL_RESULT tcols_fill_indices(
     Tcl_Obj **tcols,            /* Must be unshared and large enough */
     Tcl_Obj *orow,              /* Value to fill */
     thdr_t *pindices,
-    int highest_index           /* Highest index in pindices */
+    int new_size
     )
 {
     int i, row_width, status, col_len;
@@ -85,7 +85,6 @@ TCL_RESULT tcols_fill_indices(
     Tcl_Obj **ovalues;
 
     TA_ASSERT(pindices->type == TA_INT);
-TBD    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
 
     if (ntcols == 0 || pindices->used == 0)
         return TCL_OK;          /* Nothing to do */
@@ -113,7 +112,7 @@ TBD    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort
 
     /* Now that verification is complete, go do the actual changes */
     for (i = 0; i < ntcols; ++i)
-        thdr_fill_indices(ip, TARRAYHDR(tcols[i]), &values[i], pindices, highest_index);
+        thdr_fill_indices(ip, TARRAYHDR(tcols[i]), &values[i], pindices, new_size);
     
     /* status will already be TCL_OK */
 
@@ -1101,9 +1100,11 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
         if ((status = tcols_validate_obj_rows(ip, ntcols, tcols, nrows, rows)) != TCL_OK)
             return status;
         status = tgrid_make_modifiable(ip, tgrid, new_size, new_size); // TBD - count + extra?
+#if 0
         TBD tcols_place_objs(ip, TARRAYHDR(tcol), pindices,
                         new_size-1, /* Highest index in pindices */
                         nvalues, ovalues);
+#endif
     }
     thdr_decr_refs(pindices);
 

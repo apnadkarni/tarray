@@ -254,11 +254,11 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
 void thdr_place_ta_objs(thdr_t *thdr,
                         thdr_t *pindices,
                         Tcl_Obj * const *ovalues,
-                        TBD int highest_in_indices /* Highest value in pindices[] */
+                        int new_size
     )
 {
     int i;
-    int *index, *end;
+    int *pindex, *end;
     Tcl_Obj **pobjs;
 
     pindex = THDRELEMPTR(pindices, int, 0);
@@ -276,7 +276,7 @@ void thdr_place_ta_objs(thdr_t *thdr,
      * Hence what we do is to store NULL first in all unused slots
      * that will be written to mark what is unused.
      */
-    for (i = thdr->used; i <= highest_in_indices; ++i)
+    for (i = thdr->used; i < new_size; ++i)
         pobjs[i] = NULL;        /* TBD - optimization - memset ? */
     while (pindex < end) {
         /* Careful about the order here! */
@@ -286,8 +286,7 @@ void thdr_place_ta_objs(thdr_t *thdr,
         pobjs[*pindex] = *ovalues++;
     }
 
-    if (highest_in_indices >= thdr->used)
-        thdr->used = highest_in_indices + 1;
+    thdr->used = new_size;
 }
 
 /*
@@ -297,11 +296,11 @@ void thdr_place_ta_objs(thdr_t *thdr,
 void thdr_fill_ta_objs(thdr_t *thdr,
                        thdr_t *pindices,
                        Tcl_Obj *oval,
-                       TBD int highest_in_indices /* Highest value in pindices[] */
+                       int new_size
     )
 {
     int i;
-    int *index, *end;
+    int *pindex, *end;
     Tcl_Obj **pobjs;
 
     pindex = THDRELEMPTR(pindices, int, 0);
@@ -319,7 +318,7 @@ void thdr_fill_ta_objs(thdr_t *thdr,
      * Hence what we do is to store NULL first in all unused slots
      * that will be written to mark what is unused.
      */
-    for (i = thdr->used; i <= highest_in_indices; ++i)
+    for (i = thdr->used; i < new_size; ++i)
         pobjs[i] = NULL;        /* TBD - optimization - memset ? */
     while (pindex < end) {
         /* Careful about the order here! */
@@ -329,8 +328,7 @@ void thdr_fill_ta_objs(thdr_t *thdr,
         pobjs[*pindex] = oval;
     }
 
-    if (highest_in_indices >= thdr->used)
-        thdr->used = highest_in_indices + 1;
+    thdr->used = new_size;
 }
 
 /*
@@ -687,7 +685,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
 */
 TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP)
 {
-    int i, cur, used, highest;
+    int i, cur, used, highest, status;
     int *pindex, *end;
     thdr_t *psorted = NULL;
 
@@ -761,7 +759,7 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         *new_sizeP = highest >= used ? highest + 1 : used;
         status = TCL_OK;
     } else
-        status = ta_index_range_error(ip, TBD);
+        status = ta_index_range_error(ip, *pindex);
 
 vamoose:
     if (psorted)
@@ -774,7 +772,7 @@ vamoose:
 /* thdr must be large enough for largest index. And see asserts in code */
 void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr, 
                        const ta_value_t *ptav, thdr_t *pindices,
-                       int highest_in_indices /* Highest index in pindices[] */
+                       int new_size
     )
 {
     int *pindex, *end;
@@ -782,9 +780,9 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
     TA_ASSERT(pindices->type == TA_INT);
-TBD    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
+
     /* Caller guarantees room for highest index value */
-    TA_ASSERT(highest_in_indices < thdr->usable);
+    TA_ASSERT(new_size <= thdr->usable);
 
     if (pindices->used == 0)
         return;          /* Nothing to do */
@@ -835,18 +833,14 @@ TBD    TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort
         }
         break;
     case TA_OBJ:
-        thdr_fill_ta_objs(thdr, pindices, ptav->oval, highest_in_indices);
+        thdr_fill_ta_objs(thdr, pindices, ptav->oval, new_size);
         return;
     default:
         ta_type_panic(thdr->type);
     }
 
-    if (highest_index >= thdr->used)
-        thdr->used = highest_index + 1;
+    thdr->used = new_size;
 }
-
-
-
 
 void thdr_free(thdr_t *thdr)
 {
@@ -1373,12 +1367,11 @@ convert_error:                  /* Interp should already contain errors */
 void thdr_place_objs(
     Tcl_Interp *ip,
     thdr_t *thdr,               /* thdr_t to be modified - must NOT be shared */
-    thdr_t *pindices,            /* Contains indices. */
-    int highest_in_indices,          /* Highest index in pindices.
-                                   If >= thdr->used, all intermediate indices
-                                   must also be present in pindices. Caller
-                                   must have checked
-                                */
+    thdr_t *pindices,            /* Contains indices. If any >= thdr->used,
+                                    all intermediate indices must also be
+                                    present in pindices. Caller
+                                    must have checked */
+    int new_size,
     int nvalues,                /* # values in ovalues */
     Tcl_Obj * const *ovalues)   /* Values to be stored, must be type verified */
 {
@@ -1388,7 +1381,7 @@ void thdr_place_objs(
 
     TA_ASSERT(thdr->nrefs < 2);
     TA_ASSERT(pindices->type == TA_INT);
-    TA_ASSERT(highest_in_indices < thdr->usable);
+    TA_ASSERT(new_size <= thdr->usable);
     TA_ASSERT(pindices->used <= nvalues);
     TA_ASSERT(ta_verify_value_objs(ip, thdr->type, nvalues, ovalues) == TCL_OK);
 
@@ -1399,16 +1392,16 @@ void thdr_place_objs(
 
     /* Note we do not check conversion status since caller must check */
 
-#define PLACEVALUES(type, fn, var) do {                 \
-        type *p;                                        \
-        p = THDRELEMPTR(thdr, type, 0);             \
-        while (pindex < end) {                         \
-            status = fn(ip, *ovalues++, &var);      \
-            TA_ASSERT(status == TCL_OK);                \
-            TA_ASSERT(*pindex < thdr->usable);      \
-            TA_ASSERT(*pindex <= thdr->used);          \
-            p[*pindex++] = (type) var;                  \
-        }                                               \
+#define PLACEVALUES(type, fn, var) do {         \
+        type *p;                                \
+        p = THDRELEMPTR(thdr, type, 0);         \
+        while (pindex < end) {                  \
+            status = fn(ip, *ovalues++, &var);  \
+            TA_ASSERT(status == TCL_OK);        \
+            TA_ASSERT(*pindex < thdr->usable);  \
+            TA_ASSERT(*pindex <= thdr->used);   \
+            p[*pindex++] = (type) var;          \
+        }                                       \
     } while (0)
     
     pindex = THDRELEMPTR(pindices, int, 0);
@@ -1440,7 +1433,7 @@ void thdr_place_objs(
         PLACEVALUES(double, Tcl_GetDoubleFromObj, v.dval);
         break;
     case TA_OBJ:
-        thdr_place_ta_objs(thdr, pindices, ovalues, highest_in_indices);
+        thdr_place_ta_objs(thdr, pindices, ovalues, new_size);
         return;
     case TA_BYTE:
         PLACEVALUES(unsigned int, Tcl_GetIntFromObj, v.ival);
@@ -1449,8 +1442,7 @@ void thdr_place_objs(
         ta_type_panic(thdr->type);
     }
 
-    if (highest_in_indices >= thdr->used)
-        thdr->used = highest_in_indices + 1;
+    thdr->used = new_size;
 }
 
 int thdr_required_size(unsigned char tatype, int count)
