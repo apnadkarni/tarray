@@ -80,20 +80,15 @@ at position [arg FIRST] and returns the new grid. In the second form,
 The rows are inserted at the specified position.
 In both cases, the command may extend the array if necessary.
 
-[call [cmd "column place"] [arg GRID] [arg ROWVALUES] [arg INDICES]]
-Returns a typed column with the specified values at the 
-corresponding  indices. The number of values in [arg ROWVALUES] must not
-be less than the number of indices specified in [arg INDICES].
+[call [cmd "grid place"] [arg GRID] [arg ROWVALUES] [arg INDICES]]
+Returns a grid with the specified values at the 
+corresponding  indices. The number of rows in [arg ROWVALUES] must not
+be less than the number of indices specified in [arg INDICES] and the width
+of each row must be no smaller than the width of the grid.
 [arg INDICES] must be a 
-index list in the one of the forms described in [sectref Indices].
-[arg ROWVALUES] may be a list of values or a typed column in the same order.
-[para]
-[arg INDICES] need not be in sorted order and may contain duplicates in
-which case the value corresponding to the last occurence of that index
-is stored. The command may extend the array if necessary but in this case
-all indices up to the highest index that are not already valid must be
-specified (i.e. there should be no gaps in indexes that are greater than
-the current size).
+index list in the one of the forms described in [sectref Indices]
+and may extend the column if the condition listed there are satisfied.
+[arg ROWVALUES] may be a list of row values or a compatible grid. 
 
 [call [cmd "column put"] [arg GRID] [arg ROWVALUES] [opt [arg FIRST]]]
 Returns a typed column with the elements starting at index [arg FIRST]

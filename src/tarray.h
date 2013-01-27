@@ -162,6 +162,8 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
                      const ta_value_t *ptav, int pos, int count, int insert);
 void thdr_fill_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj *oval, int highest_in_indices);
+TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
+                         int nelems, Tcl_Obj * const elems[], int insert);
 void thdr_place_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj * const *ovalues, int highest_in_indices);
 void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                        const ta_value_t *ptav, thdr_t *pindices, int highest_index);
@@ -227,6 +229,10 @@ TCL_RESULT tgrid_delete(Tcl_Interp *ip, Tcl_Obj *tgrid,
 Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
 Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt);
 Tcl_Obj *tgrid_index(Tcl_Interp *ip, Tcl_Obj *tgrid, int index);
+TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                            Tcl_Obj *orows, Tcl_Obj *oindices);
+TCL_RESULT tgrid_insert_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *ovalue,
+                            Tcl_Obj *opos, Tcl_Obj *ocount);
 
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index);
 Tcl_Obj *tcol_get(struct Tcl_Interp *, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
