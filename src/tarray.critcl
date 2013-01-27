@@ -395,14 +395,13 @@ critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Ob
 
 critcl::cproc tarray::column::place {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
     int status;
-    Tcl_Obj *tcol = COLUMN;
 
-    if (Tcl_IsShared(tcol))
-        tcol = Tcl_DuplicateObj(tcol);
+    if (Tcl_IsShared(COLUMN))
+        COLUMN = Tcl_DuplicateObj(COLUMN);
 
     // TBD - VALUES may be a COLUMN!
-    status = tcol_place_objs(interp, tcol, VALUES, INDICES);
-    return ta_return_result(interp, status, tcol);
+    status = tcol_place_objs(interp, COLUMN, VALUES, INDICES);
+    return ta_return_result(interp, status, COLUMN);
 }
 
 critcl::cproc tarray::column::vplace {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
@@ -476,6 +475,7 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     tcol = tcol_reverse(interp, tcol);
     return tcol ? ta_set_var_result(interp, TCL_OK, ovar, tcol) : TCL_ERROR;
 }
+
 
 critcl::cproc tarray::grid::put {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
     Tcl_Obj *tgrid;
@@ -713,6 +713,33 @@ critcl::ccommand tarray::grid::vinsert {} {
     status = tgrid_insert_obj(interp, tgrid, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
     return ta_set_var_result(interp, status, objv[1], tgrid);
 }
+
+critcl::cproc tarray::grid::place {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
+    int status;
+
+    if (Tcl_IsShared(GRID))
+        GRID = Tcl_DuplicateObj(GRID);
+
+    // TBD - VALUES may be a GRID!
+    status = tgrid_place_objs(interp, GRID, VALUES, INDICES);
+    return ta_return_result(interp, status, GRID);
+}
+
+critcl::cproc tarray::grid::vplace {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
+    Tcl_Obj *tgrid;
+
+    tgrid = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
+    if (tgrid == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+    
+    // TBD - VALUES may be a GRID!
+    return ta_set_var_result(interp,
+                             tgrid_place_objs(interp, tgrid, VALUES, INDICES),
+                             GRIDVAR, tgrid);
+}
+
 
 # If you are new to critcl, note that the order of constructor, insvariable
 # etc. is very important in terms of how initialization and freeing is done.
