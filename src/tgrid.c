@@ -260,12 +260,8 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
                     return TCL_ERROR;
                 break;
             case TA_UINT:
-                if (Tcl_GetWideIntFromObj(ip, fields[t], &v.wval) != TCL_OK)
+                if (ta_get_uint_from_obj(ip, fields[t], &v.uival) != TCL_OK)
                     return TCL_ERROR;
-                if (v.wval < 0 || v.wval > 0xFFFFFFFF) {
-                    ta_value_type_error(ip, fields[t], tatype);
-                    return TCL_ERROR;
-                }
                 break;
             case TA_INT:
                 if (Tcl_GetIntFromObj(ip, fields[t], &v.ival) != TCL_OK)
@@ -280,12 +276,8 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
                     return TCL_ERROR;
                 break;
             case TA_BYTE:
-                if (Tcl_GetIntFromObj(ip, fields[t], &v.ival) != TCL_OK)
+                if (ta_get_byte_from_obj(ip, fields[t], &v.ucval) != TCL_OK)
                     return TCL_ERROR;
-                if (v.ival > 255 || v.ival < 0) {
-                    ta_value_type_error(ip, fields[t], tatype);
-                    return TCL_ERROR;
-                }
                 break;
             case TA_OBJ:
                 break;      /* No validation */
@@ -424,6 +416,19 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      * to the end, and we have to store TA_OBJ last to facilitate
      * rollback on errors as discussed earlier.
      */
+#define tcols_put_COPY(type, pos, fn)                           \
+    do {                                                        \
+        type *p;                                                \
+        Tcl_Obj *o; \
+        p = THDRELEMPTR(thdr, type, first);                     \
+        for (r = 0; r < nrows; ++r, ++p) {                      \
+            Tcl_ListObjIndex(ip, rows[r], pos, &o);             \
+            TA_ASSERT(o);                                    \
+            if (Tcl_GetIntFromObj(ip, o, p) != TCL_OK)       \
+                goto error_return;                              \
+        }                                                       \
+    } while (0)
+
     if (have_other_cols) {
         for (t=0; t < ntcols; ++t) {
             /* Skip TA_OBJ on this round, until all other data is stored */
@@ -482,75 +487,19 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                 break;
 
             case TA_UINT:
-                {
-                    register unsigned int *uintP;
-                    uintP = THDRELEMPTR(thdr, unsigned int, first);
-                    for (r = 0; r < nrows; ++r, ++uintP) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
-                        TA_ASSERT(oval);
-                        if (Tcl_GetWideIntFromObj(ip, oval, &wide) != TCL_OK)
-                            goto error_return;
-                        if (wide < 0 || wide > 0xFFFFFFFF) {
-                            ta_value_type_error(ip, oval, thdr->type);
-                            goto error_return;
-                        }
-                        *uintP = (unsigned int) wide;
-                    }
-                }
+                tcols_put_COPY(unsigned int, t, ta_get_uint_from_obj);
                 break;
             case TA_INT:
-                {
-                    register int *intP;
-                    intP = THDRELEMPTR(thdr, int, first);
-                    for (r = 0; r < nrows; ++r, ++intP) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
-                        TA_ASSERT(oval);
-                        if (Tcl_GetIntFromObj(ip, oval, intP) != TCL_OK)
-                            goto error_return;
-                    }
-                }
+                tcols_put_COPY(unsigned int, t, Tcl_GetIntFromObj);
                 break;
             case TA_WIDE:
-                {
-                    register Tcl_WideInt *pwide;
-                    pwide = THDRELEMPTR(thdr, Tcl_WideInt, first);
-                    for (r = 0; r < nrows; ++r, ++pwide) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
-                        TA_ASSERT(oval);
-                        if (Tcl_GetWideIntFromObj(ip, oval, pwide) != TCL_OK)
-                            goto error_return;
-                    }
-                }
+                tcols_put_COPY(Tcl_WideInt, t, Tcl_GetWideIntFromObj);
                 break;
             case TA_DOUBLE:
-                {
-                    register double *pdbl;
-                    pdbl = THDRELEMPTR(thdr, double, first);
-                    for (r = 0; r < nrows; ++r, ++pdbl) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
-                        TA_ASSERT(oval);
-                        if (Tcl_GetDoubleFromObj(ip, oval, pdbl) != TCL_OK)
-                            goto error_return;
-                    }
-                }
+                tcols_put_COPY(double, t, Tcl_GetDoubleFromObj);
                 break;
             case TA_BYTE:
-                {
-                    register unsigned char *byteP;
-                    byteP = THDRELEMPTR(thdr, unsigned char, first);
-                    for (r = 0; r < nrows; ++r, ++byteP) {
-                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
-                        TA_ASSERT(oval);
-                        if (Tcl_GetIntFromObj(ip, oval, &ival) != TCL_OK)
-                            goto error_return;
-                        if (ival > 255 || ival < 0) {
-                            ta_value_type_error(ip, oval, thdr->type);
-                            goto error_return;
-                        }
-                        *byteP = (unsigned char) ival;
-                    }
-                }
-                break;
+                tcols_put_COPY(unsigned char, t, ta_get_byte_from_obj);
             default:
                 ta_type_panic(thdr->type);
             }
@@ -594,6 +543,131 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
 error_return:                  /* Interp should already contain errors */
     return TCL_ERROR;
 }
+
+TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
+                            thdr_t *pindices, Tcl_Obj *orows,
+                            int new_size)
+{
+    Tcl_Obj **rows;
+    Tcl_Obj *o;
+    Tcl_Obj **prow;
+    int nrows;
+    int i;
+
+    TA_ASSERT(pindices->type == TA_INT);
+
+    for (i = 0; i < ntcols; ++i) {
+        TA_ASSERT(! Tcl_IsShared(tcols[i]));
+        TA_ASSERT(tcol_affirm(tcols[i]));
+        TA_ASSERT(! thdr_shared(TARRAYHDR(tcols[i])));
+        TA_ASSERT((TARRAYHDR(tcols[i])->usable >= new_size);
+    }
+
+    if (ntcols == 0 || pindices->used == 0)
+        return TCL_OK;          /* Nothing to do */
+    
+    status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
+    if (status != TCL_OK || nrows == 0)
+        return status;          /* Maybe OK or ERROR */
+
+    if (pindices->used > nrows)
+        return ta_indices_count_error(ip, pindices->used, nrows);
+
+    if ((status = tcols_validate_obj_rows(ip, ntcols, tcols, nrows, rows)) != TCL_OK)
+        return status;
+    
+    /* Note we will panic on failures because all validity checks are done */
+#define tcols_place_COPY(type, fn)                                      \
+    do {                                                                \
+        type *p;                                                        \
+        p = THDRELEMPTR(TARRAYHDR(tcols[i]), type, 0);                  \
+        while (pindex < end) {                                          \
+            TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);           \
+            TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);    \
+            TA_ASSERT(o != NULL);                                       \
+            TA_NOFAIL(fn(ip, o, &p[*pindex++]), TCL_OK);                \
+        }                                                               \
+    } while (0)
+
+    for (i = 0; i < ntcols; ++i) {
+        int *pindex, *end;
+
+        TARRAYHDR(tcols[i])->sort_order = THDR_UNSORTED;
+        pindex = THDRELEMPTR(pindices, int, 0);
+        end = pindex + pindices->used;
+        prow = rows;
+        switch (tcol_type(tcols[i])) {
+        case TA_UINT:
+            tcols_place_COPY(unsigned int, ta_get_uint_from_obj);
+            break;
+        case TA_INT:
+            tcols_place_COPY(int, Tcl_GetIntFromObj);
+            break;
+        case TA_WIDE:
+            tcols_place_COPY(Tcl_WideInt, Tcl_GetWideIntFromObj);
+            break;
+        case TA_DOUBLE:
+            tcols_place_COPY(double, Tcl_GetDoubleFromObj);
+            break;
+        case TA_BYTE:
+            tcols_place_COPY(unsigned char, ta_get_byte_from_obj);
+            break;
+        case TA_BOOLEAN:
+            {
+                ba_t *baP = THDRELEMPTR(TARRAYHDR(tcols[i]), ba_t, 0);
+                while (pindex < end) {
+                    int bval;
+                    TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);
+                    TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
+                    TA_ASSERT(o != NULL);
+                    TA_NOFAIL(Tcl_GetBooleanFromObj(ip, o, &bval), TCL_OK);
+                    ba_put(baP, *pindex++, bval);
+                }
+            }
+            break;
+        case TA_OBJ:
+            {
+                Tcl_Obj **pobjs;
+                int j;
+
+                pobjs = THDRELEMPTR(TARRAYHDR(tcols[i]), Tcl_Obj *, 0);
+
+                /*
+                 * Reference counts makes this tricky. If replacing an existing
+                 * index we have to increment the new value's ref and decrement
+                 * the old value's. If the index points to a previously unused
+                 * slot, then the value there is garbage and Tcl_DecrRefCount
+                 * should not be called on it. The problem is we cannot distinguish
+                 * the cases up front using thdr->used as a threshold because
+                 * pindices is in arbitrary order AND indices may be repeated.
+                 * Hence what we do is to store NULL first in all unused slots
+                 * that will be written to mark what is unused.
+                 */
+                for (j = tcol_occupancy(tcols[j]); j < new_size; ++j) {
+                    pobjs[j] = NULL;        /* TBD - optimization - memset ? */
+                    while (pindex < end) {
+                        /* Careful about the order here! */
+                        TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);
+                        TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
+                        TA_ASSERT(o != NULL);
+                        Tcl_IncrRefCount(o);
+                        if (pobjs[*pindex] != NULL)
+                            Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
+                        pobjs[*pindex++] = o;
+                    }
+                }               
+            }
+            break;
+        default:
+            ta_type_panic(tcol_type(tcols[i]));
+        }
+
+        TARRAYHDR(tcols[i])->used = new_size;
+    }
+
+    return TCL_OK;
+}
+
 
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows,
@@ -1066,8 +1140,6 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                            Tcl_Obj *oindices)
 {
     thdr_t *pindices;
-    Tcl_Obj **rows;
-    int nrows;
     Tcl_Obj **tcols;
     int ntcols;
     thdr_t *psorted;
@@ -1076,13 +1148,9 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
 
     TA_ASSERT(! Tcl_IsShared(tgrid));
 
-    status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
-    if (status != TCL_OK ||     /* Not a list */
-        nrows == 0 ||           /* Nothing to modify */
-        (status = tgrid_convert(ip, tgrid)) != TCL_OK || /* Not a grid */
-        (ntcols = tgrid_width(tgrid)) == 0) /* No columns to update */ {
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK || 
+        (ntcols = tgrid_width(tgrid)) == 0) 
         return status;           /* Maybe OK or ERROR */
-    }
 
     tcols = tgrid_columns(tgrid);
 
@@ -1092,19 +1160,11 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
     if (pindices->used == 0)
         return TCL_OK;
 
-    if (pindices->used > nrows)
-        return ta_indices_count_error(ip, pindices->used, nrows);
-
     status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
     if (status == TCL_OK) {
-        if ((status = tcols_validate_obj_rows(ip, ntcols, tcols, nrows, rows)) != TCL_OK)
-            return status;
-        status = tgrid_make_modifiable(ip, tgrid, new_size, new_size); // TBD - count + extra?
-#if 0
-        TBD tcols_place_objs(ip, TARRAYHDR(tcol), pindices,
-                        new_size-1, /* Highest index in pindices */
-                        nvalues, ovalues);
-#endif
+        status = tgrid_make_modifiable(ip, tgrid, new_size, new_size);
+        if (status == TCL_OK)
+            status =  tcols_place_objs(ip, ntcols, tcols, pindices, orows, new_size);
     }
     thdr_decr_refs(pindices);
 
