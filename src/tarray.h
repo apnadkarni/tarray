@@ -38,6 +38,12 @@
 #define TA_ASSERT(bool_) ((void) 0)
 #endif
 
+#if TA_ENABLE_ASSERT
+# define TA_NOFAIL(expr, val) TA_ASSERT((expr) == (val))
+#else
+# define TA_NOFAIL(expr, val) do { (void) (expr) } while (0)
+#endif
+
 typedef int TCL_RESULT;
 
 /* TA_ALLOCMEM and TA_REALLOCMEM call should panic on failure to allocate */
@@ -137,6 +143,9 @@ TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
+
+TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
+TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);

@@ -128,7 +128,7 @@ TCL_RESULT ta_value_type_error(Tcl_Interp *ip, Tcl_Obj *o, int tatype)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Value %s not valid for typed array of type %s.",
+                         Tcl_ObjPrintf("Value %s not valid for type %s.",
                                        Tcl_GetString(o),
                                        ta_type_string(tatype)));
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "TYPE", NULL);
@@ -208,6 +208,29 @@ TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
+{
+    Tcl_WideInt wide;
+    if (Tcl_GetWideIntFromObj(ip, o, &wide) != TCL_OK)
+        return TCL_ERROR;
+    if (wide < 0 || wide > 0xFFFFFFFF)
+        return ta_value_type_error(ip, o, TA_UINT);
+    *pui = (unsigned int) wide;
+    return TCL_OK;
+}
+
+TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
+{
+    int i;
+    if (Tcl_GetIntFromObj(ip, o, &i) != TCL_OK)
+        return TCL_ERROR;
+    if (i < 0 || i > 255)
+        return ta_value_type_error(ip, o, TA_BYTE);
+    *pb = (unsigned char) i;
+    return TCL_OK;
+}
+
+
 /* Increments the ref counts of Tcl_Objs in a tarray making sure not
    to run past end of array */
 void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
@@ -283,7 +306,7 @@ void thdr_place_ta_objs(thdr_t *thdr,
         Tcl_IncrRefCount(*ovalues);
         if (pobjs[*pindex] != NULL)
             Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
-        pobjs[*pindex] = *ovalues++;
+        pobjs[*pindex++] = *ovalues++;
     }
 
     thdr->used = new_size;
@@ -466,46 +489,25 @@ TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav)
 {
-    int i;
+    int i, status;
+
     switch (tatype) {
     case TA_BOOLEAN:
-        if (Tcl_GetBooleanFromObj(ip, o, &i) != TCL_OK)
-            return TCL_ERROR;
-        ptav->bval = (i != 0);
+        if (status = (Tcl_GetBooleanFromObj(ip, o, &i)) == TCL_OK)
+            ptav->bval = (i != 0);
         break;
-    case TA_BYTE:
-    case TA_INT:
-        if (Tcl_GetIntFromObj(ip, o, &ptav->ival) != TCL_OK)
-            return TCL_ERROR;
-        if (tatype == TA_INT)
-            break;
-        if (ptav->ival > 255 || ptav->ival < 0)
-            return ta_value_type_error(ip, o, tatype);
-        ptav->ucval = (unsigned char) ptav->ival;
-        break;
-    case TA_UINT:
-    case TA_WIDE:
-        if (Tcl_GetWideIntFromObj(ip, o, &ptav->wval) != TCL_OK)
-            return TCL_ERROR;
-        if (tatype == TA_WIDE)
-            break;
-        if (ptav->wval < 0 || ptav->wval > 0xFFFFFFFF)
-            return ta_value_type_error(ip, o, tatype);
-        ptav->uival = (unsigned int) ptav->wval;
-        break;
-    case TA_DOUBLE:
-        if (Tcl_GetDoubleFromObj(ip, o, &ptav->dval) != TCL_OK)
-            return TCL_ERROR;
-        break;
-    case TA_OBJ:
-        ptav->oval = o;
-        break;
+    case TA_BYTE: status = ta_get_byte_from_obj(ip, o, &ptav->ucval); break;
+    case TA_INT: status = Tcl_GetIntFromObj(ip, o, &ptav->ival); break;
+    case TA_UINT: status = ta_get_uint_from_obj(ip, o, &ptav->uival); break;
+    case TA_WIDE: status = Tcl_GetWideIntFromObj(ip, o, &ptav->wval); break;
+    case TA_DOUBLE: status = Tcl_GetDoubleFromObj(ip, o, &ptav->dval); break;
+    case TA_OBJ: ptav->oval = o; status = TCL_OK; break;
     default:
         ta_type_panic(tatype);
     }
-
-    ptav->type = tatype;
-    return TCL_OK;
+    if (status == TCL_OK)
+        ptav->type = tatype;
+    return status;
 }
 
 /*
@@ -613,60 +615,34 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
 {
     Tcl_Obj * const *pobjs = elems;
     Tcl_Obj * const *end = elems + nelems;
+
+#define ta_verify_value_LOOP(type, fn)          \
+    do {                                        \
+        for ( ; pobjs < end; ++pobjs) {         \
+            type val;                           \
+            if (fn(ip, *pobjs, &val) != TCL_OK) \
+                return TCL_ERROR;               \
+        }                                       \
+    } while (0)
+        
     switch (tatype) {
     case TA_BOOLEAN:
-        for ( ; pobjs < end; ++pobjs) {
-            int ival;
-            if (Tcl_GetBooleanFromObj(ip, *pobjs, &ival) != TCL_OK)
-                return TCL_ERROR;
-        }
+        ta_verify_value_LOOP(int, Tcl_GetBooleanFromObj);
         break;
-
     case TA_UINT:
-        for ( ; pobjs < end; ++pobjs) {
-            Tcl_WideInt wide;
-            if (Tcl_GetWideIntFromObj(ip, *pobjs, &wide) != TCL_OK)
-                return TCL_ERROR;
-            if (wide < 0 || wide > 0xFFFFFFFF) {
-                return ta_value_type_error(ip, *pobjs, tatype);
-            }
-        }
+        ta_verify_value_LOOP(unsigned int, ta_get_uint_from_obj);
         break;
-
     case TA_INT:
-        for ( ; pobjs < end; ++pobjs) {
-            int ival;
-            if (Tcl_GetIntFromObj(ip, *pobjs, &ival) != TCL_OK)
-                return TCL_ERROR;
-        }
+        ta_verify_value_LOOP(int, Tcl_GetIntFromObj);
         break;
-
     case TA_WIDE:
-        for ( ; pobjs < end; ++pobjs) {
-            Tcl_WideInt wide;
-            if (Tcl_GetWideIntFromObj(ip, *pobjs, &wide) != TCL_OK)
-                return TCL_ERROR;
-        }
+        ta_verify_value_LOOP(Tcl_WideInt, Tcl_GetWideIntFromObj);
         break;
-
     case TA_DOUBLE:
-        for ( ; pobjs < end; ++pobjs) {
-            double dval;
-            if (Tcl_GetDoubleFromObj(ip, *pobjs, &dval) != TCL_OK)
-                return TCL_ERROR;
-        }
+        ta_verify_value_LOOP(double, Tcl_GetDoubleFromObj);
         break;
-
     case TA_BYTE:
-        for ( ; pobjs < end; ++pobjs) {
-            int ival;
-            if (Tcl_GetIntFromObj(ip, *pobjs, &ival) != TCL_OK)
-                return TCL_ERROR;
-            if (ival > 255 || ival < 0) {
-                ta_value_type_error(ip, *pobjs, tatype);
-                return TCL_ERROR;
-            }
-        }
+        ta_verify_value_LOOP(unsigned char, ta_get_byte_from_obj);
         break;
     case TA_OBJ:
         break;                  /* Just pointers, nothing to verify */
@@ -1221,6 +1197,15 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
      * status on conversion since we did not do checks when we are appending
      * to the end.
      */
+#define thdr_put_OBJCOPY(type, fn)              \
+    do {                                        \
+        type *p;                                \
+        p = THDRELEMPTR(thdr, type, first);     \
+        for (i = 0; i < nelems; ++i, ++p) {     \
+            if (fn(ip, elems[i], p) != TCL_OK)  \
+                goto convert_error;             \
+        }                                       \
+    } while (0)
 
     switch (thdr->type) {
     case TA_BOOLEAN:
@@ -1265,54 +1250,11 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
                *baP = ba | (*baP & BITMASKGE(ba_mask));
            }
        }
-    case TA_UINT:
-        {
-            register unsigned int *uintP;
-            uintP = THDRELEMPTR(thdr, unsigned int, first);
-            for (i = 0; i < nelems; ++i, ++uintP) {
-                if (Tcl_GetWideIntFromObj(ip, elems[i], &wide) != TCL_OK)
-                    goto convert_error;
-                if (wide < 0 || wide > 0xFFFFFFFF) {
-                    ta_value_type_error(ip, elems[i], thdr->type);
-                    goto convert_error;
-                }
-                *uintP = (unsigned int) wide;
-            }
-        }
-        break;
-    case TA_INT:
-        {
-            register int *intP;
-            intP = THDRELEMPTR(thdr, int, first);
-            for (i = 0; i < nelems; ++i, ++intP) {
-                if (Tcl_GetIntFromObj(ip, elems[i], intP) != TCL_OK)
-                    goto convert_error;
-            }
-        }
-        break;
-
-    case TA_WIDE:
-        {
-            register Tcl_WideInt *pwide;
-            pwide = THDRELEMPTR(thdr, Tcl_WideInt, first);
-            for (i = 0; i < nelems; ++i, ++pwide) {
-                if (Tcl_GetWideIntFromObj(ip, elems[i], pwide) != TCL_OK)
-                    goto convert_error;
-            }
-        }
-        break;
-
-    case TA_DOUBLE:
-        {
-            register double *pdbl;
-            pdbl = THDRELEMPTR(thdr, double, first);
-            for (i = 0; i < nelems; ++i, ++pdbl) {
-                if (Tcl_GetDoubleFromObj(ip, elems[i], pdbl) != TCL_OK)
-                    goto convert_error;
-            }
-        }
-        break;
-
+    case TA_UINT: thdr_put_OBJCOPY(unsigned int, ta_get_uint_from_obj); break;
+    case TA_INT: thdr_put_OBJCOPY(int, Tcl_GetIntFromObj); break;
+    case TA_WIDE: thdr_put_OBJCOPY(Tcl_WideInt, Tcl_GetWideIntFromObj); break;
+    case TA_DOUBLE:thdr_put_OBJCOPY(double, Tcl_GetDoubleFromObj); break;
+    case TA_BYTE: thdr_put_OBJCOPY(unsigned char, ta_get_byte_from_obj); break;
     case TA_OBJ:
         {
             register Tcl_Obj **pobjs;
@@ -1328,22 +1270,6 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
                     }
                 }
                 *pobjs = elems[i];
-            }
-        }
-        break;
-
-    case TA_BYTE:
-        {
-            register unsigned char *byteP;
-            byteP = THDRELEMPTR(thdr, unsigned char, first);
-            for (i = 0; i < nelems; ++i, ++byteP) {
-                if (Tcl_GetIntFromObj(ip, elems[i], &ival) != TCL_OK)
-                    goto convert_error;
-                if (ival > 255 || ival < 0) {
-                    ta_value_type_error(ip, elems[i], thdr->type);
-                    goto convert_error;
-                }
-                *byteP = (unsigned char) ival;
             }
         }
         break;
@@ -1392,16 +1318,13 @@ void thdr_place_objs(
 
     /* Note we do not check conversion status since caller must check */
 
-#define PLACEVALUES(type, fn, var) do {         \
-        type *p;                                \
-        p = THDRELEMPTR(thdr, type, 0);         \
-        while (pindex < end) {                  \
-            status = fn(ip, *ovalues++, &var);  \
-            TA_ASSERT(status == TCL_OK);        \
-            TA_ASSERT(*pindex < thdr->usable);  \
-            TA_ASSERT(*pindex <= thdr->used);   \
-            p[*pindex++] = (type) var;          \
-        }                                       \
+#define PLACEVALUES(type, fn) do {                                      \
+        type *p;                                                        \
+        p = THDRELEMPTR(thdr, type, 0);                                 \
+        while (pindex < end) {                                          \
+            TA_ASSERT(*pindex < thdr->usable);                          \
+            TA_NOFAIL(fn(ip, *ovalues++, &p[*pindex++]), TCL_OK);       \
+        }                                                               \
     } while (0)
     
     pindex = THDRELEMPTR(pindices, int, 0);
@@ -1411,32 +1334,30 @@ void thdr_place_objs(
         {
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
             while (pindex < end) {
-                status = Tcl_GetBooleanFromObj(ip, *ovalues++, &v.ival);
-                TA_ASSERT(status == TCL_OK); /* Since values are verified */
+                TA_NOFAIL(Tcl_GetBooleanFromObj(ip, *ovalues++, &v.ival), TCL_OK);
                 TA_ASSERT(*pindex < thdr->usable);
-                TA_ASSERT(*pindex <= thdr->used);
                 ba_put(baP, *pindex++, v.ival);
             }
         }
         break;
 
     case TA_UINT:
-        PLACEVALUES(unsigned int, Tcl_GetWideIntFromObj, v.wval);
+        PLACEVALUES(unsigned int, ta_get_uint_from_obj);
         break;
     case TA_INT:
-        PLACEVALUES(int, Tcl_GetIntFromObj, v.ival);
+        PLACEVALUES(int, Tcl_GetIntFromObj);
         break;
     case TA_WIDE:
-        PLACEVALUES(Tcl_WideInt, Tcl_GetWideIntFromObj, v.wval);
+        PLACEVALUES(Tcl_WideInt, Tcl_GetWideIntFromObj);
         break;
     case TA_DOUBLE:
-        PLACEVALUES(double, Tcl_GetDoubleFromObj, v.dval);
+        PLACEVALUES(double, Tcl_GetDoubleFromObj);
         break;
     case TA_OBJ:
         thdr_place_ta_objs(thdr, pindices, ovalues, new_size);
         return;
     case TA_BYTE:
-        PLACEVALUES(unsigned int, Tcl_GetIntFromObj, v.ival);
+        PLACEVALUES(unsigned int, ta_get_byte_from_obj);
         break;
     default:
         ta_type_panic(thdr->type);
