@@ -3,7 +3,7 @@
 # All rights reserved.
 #
 # See the file LICENSE for license
-
+#
 
 package require critcl 3.1
 critcl::buildrequirement {
@@ -385,7 +385,7 @@ critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Ob
 
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, VALUES) == TCL_OK) {
-        /* It is a tarray. Verify the right type */
+        /* It is a tarray */
         status = tcol_copy_thdr(interp, tcol, TARRAYHDR(VALUES), FIRST, 0);
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
@@ -399,13 +399,16 @@ critcl::cproc tarray::column::place {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj*
     if (Tcl_IsShared(COLUMN))
         COLUMN = Tcl_DuplicateObj(COLUMN);
 
-    // TBD - VALUES may be a COLUMN!
-    status = tcol_place_objs(interp, COLUMN, VALUES, INDICES);
+    if (tcol_convert(NULL, VALUES) == TCL_OK)
+        status = tcol_place_indices(interp, COLUMN, VALUES, INDICES);
+    else
+        status = tcol_place_objs(interp, COLUMN, VALUES, INDICES);
     return ta_return_result(interp, status, COLUMN);
 }
 
 critcl::cproc tarray::column::vplace {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
     Tcl_Obj *tcol;
+    int status;
 
     tcol = Tcl_ObjGetVar2(interp, COLUMNVAR, NULL, TCL_LEAVE_ERR_MSG);
     if (tcol == NULL)
@@ -413,10 +416,12 @@ critcl::cproc tarray::column::vplace {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
     
-    // TBD - VALUES may be a COLUMN!
-    return ta_set_var_result(interp,
-                             tcol_place_objs(interp, tcol, VALUES, INDICES),
-                             COLUMNVAR, tcol);
+    if (tcol_convert(NULL, VALUES) == TCL_OK)
+        status = tcol_place_indices(interp, tcol, VALUES, INDICES);
+    else
+        status = tcol_place_objs(interp, tcol, VALUES, INDICES);
+
+    return ta_set_var_result(interp, status, COLUMNVAR, tcol);
 }
 
 critcl::ccommand tarray::column::fill {} {
@@ -720,12 +725,15 @@ critcl::cproc tarray::grid::place {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VAL
     if (Tcl_IsShared(GRID))
         GRID = Tcl_DuplicateObj(GRID);
 
-    // TBD - VALUES may be a GRID!
-    status = tgrid_place_objs(interp, GRID, VALUES, INDICES);
+    if (tgrid_convert(NULL, VALUES) == TCL_OK)
+        status = tgrid_place_indices(interp, GRID, VALUES, INDICES);
+    else
+        status = tgrid_place_objs(interp, GRID, VALUES, INDICES);
     return ta_return_result(interp, status, GRID);
 }
 
 critcl::cproc tarray::grid::vplace {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
+    int status;
     Tcl_Obj *tgrid;
 
     tgrid = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
@@ -734,10 +742,11 @@ critcl::cproc tarray::grid::vplace {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj*
     if (Tcl_IsShared(tgrid))
         tgrid = Tcl_DuplicateObj(tgrid);
     
-    // TBD - VALUES may be a GRID!
-    return ta_set_var_result(interp,
-                             tgrid_place_objs(interp, tgrid, VALUES, INDICES),
-                             GRIDVAR, tgrid);
+    if (tgrid_convert(NULL, VALUES) == TCL_OK)
+        status = tgrid_place_indices(interp, tgrid, VALUES, INDICES);
+    else
+        status = tgrid_place_objs(interp, tgrid, VALUES, INDICES);
+    return ta_set_var_result(interp, status, GRIDVAR, tgrid);
 }
 
 

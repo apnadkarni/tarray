@@ -182,8 +182,10 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ncols, Tcl_Obj * const *tcols,
                           int first, int insert);
 
 void thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
-                     int highest_in_indices,
+                     int new_size,
                      int nvalues, Tcl_Obj * const *pvalues);
+void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pindices, int new_size);
+
 int thdr_required_size(unsigned char tatype, int count);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, unsigned char tatype, int count);
@@ -220,6 +222,11 @@ TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
 TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
+ TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
+                             thdr_t *pindices, Tcl_Obj *orows,
+                             int new_size);
+TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols, Tcl_Obj * const *srccols, thdr_t *pindices, int new_size);
+
 TCL_RESULT tgrid_fill_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
@@ -231,6 +238,8 @@ Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
 Tcl_Obj *tgrid_index(Tcl_Interp *ip, Tcl_Obj *tgrid, int index);
 TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                             Tcl_Obj *orows, Tcl_Obj *oindices);
+TCL_RESULT tgrid_place_indices(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                               Tcl_Obj *psrc, Tcl_Obj *oindices);
 TCL_RESULT tgrid_insert_obj(Tcl_Interp *ip, Tcl_Obj *tgrid, Tcl_Obj *ovalue,
                             Tcl_Obj *opos, Tcl_Obj *ocount);
 
