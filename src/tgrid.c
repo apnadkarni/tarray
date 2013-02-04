@@ -126,6 +126,79 @@ vamoose:
 
 }
 
+TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
+{
+    int status;
+    thdr_t *thdr;
+    Tcl_Obj **ptcol;
+    Tcl_Obj **end;
+    int nelems;
+
+    if ((status = tcol_convert(ip, o)) != TCL_OK)
+        return status;
+    thdr = TARRAYHDR(o);
+    if (thdr->type != TA_OBJ)
+        return ta_bad_type_error(ip, thdr);
+    if (tcol_occupancy(o) == 0)
+        return TCL_OK;
+
+    ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    nelems = tcol_occupancy(*ptcol);
+    end = thdr->used + ptcol;
+    while (ptcol < end) {
+        if ((status = tcol_convert(ip, *ptcol)) != TCL_OK)
+            return status;
+        /* All must have same number of elements */
+        if (tcol_occupancy(*ptcol) != nelems)
+            return ta_grid_length_error(ip);
+        ++ptcol;
+    }
+    
+    o->typePtr = &g_tgrid_type;
+    return TCL_OK;
+}
+
+TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
+                                Tcl_Obj *tgrid,
+                                 int minsize, /* Min *contained* cols */
+                                 int prefsize /* Pref size  *contained* cols */
+    )
+{
+    int i, status;
+    Tcl_Obj **tcols;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK)
+        return status;
+    
+    /*
+     * First make the tgrid object itself modifiable in case its thdr
+     * is shared
+     */
+    if (thdr_shared(TARRAYHDR(tgrid)) &&
+        (status = tcol_make_modifiable(ip, tgrid, 0, 0)) != TCL_OK)
+        return status;
+
+    /* Now make its contained columns modifiable */
+    tcols = THDRELEMPTR(TARRAYHDR(tgrid), Tcl_Obj *, 0);
+    i = tcol_occupancy(tgrid);
+    while (i--) {
+        Tcl_Obj *tcol;
+        tcol = tcols[i];
+        if (Tcl_IsShared(tcol)) {
+            tcol = Tcl_DuplicateObj(tcol);
+            Tcl_IncrRefCount(tcol);
+            Tcl_DecrRefCount(tcols[i]);
+            tcols[i] = tcol;
+        }
+        if ((status = tcol_make_modifiable(ip, tcol, minsize, prefsize)) != TCL_OK)
+            return status;
+    }
+
+    return TCL_OK;
+}
+
 TCL_RESULT tgrid_fill_obj(
     Tcl_Interp *ip,
     Tcl_Obj *tgrid,
@@ -666,6 +739,39 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
     return TCL_OK;
 }
 
+TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols, Tcl_Obj * const *srccols, thdr_t *pindices, int new_size)
+{
+    Tcl_Obj **prow;
+    int i, nrows, status;
+    Tcl_Obj **rows;
+    Tcl_Obj *o;
+
+    TA_ASSERT(pindices->type == TA_INT);
+    
+    if (ntcols == 0 || pindices->used == 0)
+        return TCL_OK;          /* Nothing to do */
+
+    for (i = 0; i < ntcols; ++i) {
+        TA_ASSERT(! Tcl_IsShared(tcols[i]));
+        TA_ASSERT(tcol_affirm(tcols[i]));
+        TA_ASSERT(tcol_affirm(srccols[i]));
+        TA_ASSERT(! thdr_shared(TARRAYHDR(tcols[i])));
+        TA_ASSERT(TARRAYHDR(tcols[i])->usable >= new_size);
+
+        if (tcol_type(tcols[i]) != tcol_type(srccols[i]))
+            return ta_mismatched_types_error(ip, tcol_type(tcols[i]), tcol_type(srccols[i]));
+        if (pindices->used > tcol_occupancy(srccols[i]))
+            return ta_indices_count_error(ip, pindices->used, tcol_occupancy(srccols[i]));
+    }
+
+    /* Now all validation done, do the actual copy */
+    for (i = 0; i < ntcols; ++i) {
+        thdr_place_indices(ip, TARRAYHDR(tcols[i]), TARRAYHDR(srccols[i]),
+                           pindices, new_size);
+    }
+    return TCL_OK;
+}
+
 
 TCL_RESULT tgrid_put_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                           Tcl_Obj *orows,
@@ -1155,16 +1261,56 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
     if (tcol_to_indices(ip, oindices, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
-    if (pindices->used == 0)
-        return TCL_OK;
-
-    status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
-    if (status == TCL_OK) {
-        status = tgrid_make_modifiable(ip, tgrid, new_size, new_size);
-        if (status == TCL_OK)
-            status =  tcols_place_objs(ip, ntcols, tcols, pindices, orows, new_size);
+    status = TCL_OK;
+    if (pindices->used > 0) {
+        status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
+        if (status == TCL_OK) {
+            status = tgrid_make_modifiable(ip, tgrid, new_size, new_size);
+            if (status == TCL_OK)
+                status =  tcols_place_objs(ip, ntcols, tcols, pindices, orows, new_size);
+        }
     }
+    
     thdr_decr_refs(pindices);
+    return status;
+}
 
+
+TCL_RESULT tgrid_place_indices(Tcl_Interp *ip, Tcl_Obj *tgrid,
+                           Tcl_Obj *psrc, Tcl_Obj *oindices)
+{
+    thdr_t *pindices;
+    Tcl_Obj **tcols;
+    int ntcols;
+    thdr_t *psorted;
+    int new_size;
+    int status;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+    TA_ASSERT(tgrid_affirm(psrc));
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK || 
+        (ntcols = tgrid_width(tgrid)) == 0) 
+        return status;           /* Maybe OK or ERROR */
+
+    if (tgrid_width(psrc) < ntcols)
+        return ta_row_width_error(ip, tgrid_width(psrc), ntcols);
+
+
+    if (tcol_to_indices(ip, oindices, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
+        return TCL_ERROR;
+
+    status = TCL_OK;
+    if (pindices->used > 0) {
+        tcols = tgrid_columns(tgrid);
+        status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
+        if (status == TCL_OK) {
+            status = tgrid_make_modifiable(ip, tgrid, new_size, new_size);
+            if (status == TCL_OK)
+                status =  tcols_place_indices(ip, ntcols, tcols, tgrid_columns(psrc), pindices, new_size);
+        }
+    }
+    
+    thdr_decr_refs(pindices);
     return status;
 }

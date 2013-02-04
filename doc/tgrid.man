@@ -36,14 +36,14 @@ of valid types described in [sectref "Types"]. If
 and must be either a compatible typed grid or a nested list with sublists
 whose element types are compatible with the corresponding
 column types in [arg TYPES].
-[nl]
+[para]
 For performance reasons,
 the [arg INITSIZE] argument may be specified to indicate how many slots to
 preallocate for the grid columns. This is only treated as a hint and actual
 size allocated may differ.
 
 [call [cmd "grid delete"] [arg GRID] [arg INDEX]]
-[call [cmd "grid delete"] [arg GRID] [arg INDEXLIST]
+[call [cmd "grid delete"] [arg GRID] [arg INDEXLIST]]
 [call [cmd "grid delete"] [arg GRID] [arg LOW] [arg HIGH]]
 Returns a typed grid with all specified rows deleted. The row
 indices are specified in any of the forms described in [sectref Indices].
@@ -82,18 +82,19 @@ In both cases, the command may extend the array if necessary.
 
 [call [cmd "grid place"] [arg GRID] [arg ROWVALUES] [arg INDICES]]
 Returns a grid with the specified values at the 
-corresponding  indices. The number of rows in [arg ROWVALUES] must not
+corresponding  indices.
+[arg ROWVALUES] may be a list of row values or a compatible grid. 
+The number of rows in [arg ROWVALUES] must not
 be less than the number of indices specified in [arg INDICES] and the width
 of each row must be no smaller than the width of the grid.
 [arg INDICES] must be a 
 index list in the one of the forms described in [sectref Indices]
 and may extend the column if the condition listed there are satisfied.
-[arg ROWVALUES] may be a list of row values or a compatible grid. 
 
 [call [cmd "column put"] [arg GRID] [arg ROWVALUES] [opt [arg FIRST]]]
 Returns a typed column with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg ROWVALUES].
-[arg ROWVALUES] may be a list of values or a typed column of the same type.
+[arg ROWVALUES] may be a list of values or a grid of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended to the array.
 
