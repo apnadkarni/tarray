@@ -83,6 +83,11 @@ extern const char *g_type_tokens[];
 #define TA_FORMAT_LIST 1
 #define TA_FORMAT_DICT 2
 
+/* MUST match order of switches[] in tcol_parse_sort_options */
+#define TA_SORT_DECREASING 1
+#define TA_SORT_INDICES    2
+#define TA_SORT_NOCASE     4
+
 /* Pointers to Tcl's built-in type descriptors */
 extern Tcl_ObjType *g_tcl_list_type_ptr;
 

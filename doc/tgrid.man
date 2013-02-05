@@ -28,6 +28,9 @@ Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
 
+[call [cmd "grid column"] [arg GRID] [arg COLINDEX]]
+Returns a typed column at the specified position in a grid.
+
 [call [cmd "grid create"] [arg TYPES] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
 Returns a typed grid containing a sequence of columns whose types 
 are specified by [arg TYPES] which must be a list of
@@ -101,70 +104,26 @@ not specified the elements are appended.
 [call [cmd "grid reverse"] [arg GRID]]
 Returns the grid with order of elements reversed.
 
-[call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg GRID] [arg ROWVALUE]]
-Searches the specified typed column for a matching value. By default,
-the search starts at index 0 and returns the index of the first match
-found, returning -1 if no matching value is found. The other options
-modify this behaviour. If the option [option -start] is specified, the search
-starts at index [arg STARTINDEX] instead of 0. If [option -all]
-is specified, the
-search does not stop at the first match but instead returns a list
-containing the indices of all matched elements. This may be an empty
-list if no elements matched. If the [option -inline] option is specified, the
-command returns the matched value(s) instead of their indices.
-[para]
-[arg OPER] specifies the comparison operator and must be one of the following:
-[list_begin options]
-[opt_def -eq] Matches when equal to value (default)
-[opt_def -gt] Matches when greater than [arg ROWVALUE]. 
-Not valid for [const boolean] type.
-[opt_def -lt] Matches when less than [arg ROWVALUE].
-Not valid for [const boolean] type.
-[opt_def -pat] Matches [arg ROWVALUE] using [cmd "string match"] pattern rules.
-Only valid for type [const any].
-[opt_def -re] Matches [arg ROWVALUE] as a regular expression.
-Only valid for type [const any].
-[list_end]
+[call [cmd "grid size"] [arg GRID]]
+Returns the number of rows in the grid.
 
-The sense of the match can be inverted by specifying the [option -not] option
-so for example specifying [option "-not -gt"] will match all elements that are
-less than or equal to [arg ROWVALUE]. For case insensitive matching, the
-[option -nocase] option may be specified. This is ignored for all array types
-except type [const any].
-
-
-[call [cmd "column size"] [arg GRID]]
-Returns the number of elements in the typed column.
-
-[call [cmd "column sort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg GRID]]
-Returns a sorted typed column. [arg GRID] is the typed column to
-be sorted. The comparison is done in a column type-specific manner.
-Sorting is sorted in increasing order by default.
-The [option -decreasing] option may be specified to change this. If
-the [option -indices] option is specified, the command returns a typed array
-containing the indices of the sorted values instead of the values
-themselves.
-If [option -nocase] is specified, the comparisons are done in
-case-insensitive manner. This option is only applicable when the
-column type is [const tclobj] and is ignored otherwise.
-
-[call [cmd "column type"] [arg GRID]]
-Returns the [sectref "Types" type] of the typed column.
-
-[call [cmd "column vdelete"] [arg GRIDVAR] [arg INDEX]]
-[call [cmd "column vdelete"] [arg GRIDVAR] [arg INDEXLIST]]
-[call [cmd "column vdelete"] [arg GRIDVAR] [arg LOW] [arg HIGH]]
-Deletes elements from the typed array column in variable [arg GRIDVAR].
-The new value is assigned back to the variable and also returned as the
+[call [cmd "grid vdelete"] [arg GRIDVAR] [arg INDEX]]
+[call [cmd "grid vdelete"] [arg GRIDVAR] [arg INDEXLIST]]
+[call [cmd "grid vdelete"] [arg GRIDVAR] [arg LOW] [arg HIGH]]
+Deletes rows from the grid in variable [arg GRIDVAR].
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "column vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEX]]
-[call [cmd "column vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEXLIST]]
-[call [cmd "column vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
-Set the elements of the typed column in variable [arg GRIDVAR] to
+[call [cmd "grid vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "grid vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "grid vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
+Set the elements of the grid in variable [arg GRIDVAR] at the specified
+indices to
 [arg ROWVALUE]. 
-The new value is assigned back to the variable and also returned as the
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
 result of the command.
 [para]
 See [cmd fill] for more information.
@@ -177,45 +136,36 @@ at position [arg FIRST] in the grid stored in variable
 In the second form,
 [arg ROWVALUES] may be a list of row values or a compatible grid.
 The rows are inserted at the specified position.
-In both cases, the new value is stored back into the variable and returned
-as the result of the command.
+In both cases,
+the new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
 
-[call [cmd "column vplace"] [arg GRIDVAR] [arg ROWVALUES] [arg INDICES]]
-Modifies a typed column stored in the variable [arg GRIDVAR]
-with the specified values at the 
-corresponding  indices. The new value is assigned back to the variable and 
-also returned as the result of the command.
+[call [cmd "grid vplace"] [arg GRIDVAR] [arg ROWVALUES] [arg INDICES]]
+Modifies a grid stored in the variable [arg GRIDVAR]
+with the specified values at the corresponding indices.
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
 [para]
-See the command [cmd "column place"] for other details.
+See the command [cmd "grid place"] for other details.
 
-[call [cmd "column vput"] [arg GRIDVAR] [arg ROWVALUES] [arg FIRST]]
+[call [cmd "grid vput"] [arg GRIDVAR] [arg ROWVALUES] [arg FIRST]]
 Modifies a variable [arg GRIDVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
 replaced by the corresponding elements of [arg ROWVALUES]. If [arg FIRST] is
 not specified the elements are appended to the array.
-The new value is assigned back to the variable and also returned as the
-result of the command. 
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
 [para]
-See the command [cmd "column put"] for other details.
+See the command [cmd "grid put"] for other details.
 
 [call [cmd "grid vreverse"] [arg GRIDVAR]]
 Reverses the order of elements in the 
 grid in variable [arg GRIDVAR], stores it back
 in the variable. The result of the command is the resulting value
 stored in the variable.
-
-[call [cmd "column vsort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg GRIDVAR]]
-Sorts a typed column stored in variable. 
-[arg GRIDVAR] is variable containing the typed column to
-be sorted. The comparison is done in a column type-specific manner.
-Sorting is sorted in increasing order by default.
-The [option -decreasing] option may be specified to change this. If
-the [option -indices] option is specified, the command returns a typed array
-containing the indices of the sorted values instead of the values
-themselves.
-If [option -nocase] is specified, the comparisons are done in
-case-insensitive manner. This option is only applicable when the
-column type is [const tclobj] and is ignored otherwise.
 
 [list_end]
 

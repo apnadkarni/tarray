@@ -173,7 +173,8 @@ Returns the [sectref "Types" type] of the typed column.
 [call [cmd "column vdelete"] [arg COLUMNVAR] [arg INDEXLIST]]
 [call [cmd "column vdelete"] [arg COLUMNVAR] [arg LOW] [arg HIGH]]
 Deletes elements from the typed array column in variable [arg COLUMNVAR].
-The new value is assigned back to the variable and also returned as the
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
@@ -182,7 +183,8 @@ Indices are specified in any of the forms described in [sectref Indices].
 [call [cmd "column vfill"] [arg COLUMNVAR] [arg VALUE] [arg LOW] [arg HIGH]]
 Set the elements of the typed column in variable [arg COLUMNVAR] to
 [arg VALUE]. 
-The new value is assigned back to the variable and also returned as the
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
 result of the command.
 [para]
 See [cmd fill] for more information.
@@ -195,13 +197,18 @@ at position [arg FIRST] in the type column stored in variable
 In the second form,
 [arg VALUES] may be a list of values or a typed column of the same type.
 The values are inserted at the specified position.
-In both cases, the new value is stored back into the variable.
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
 
 [call [cmd "column vplace"] [arg COLUMNVAR] [arg VALUES] [arg INDICES]]
 Modifies a typed column stored in the variable [arg COLUMNVAR]
 with the specified values at the 
-corresponding  indices. The new value is assigned back to the variable and 
-also returned as the result of the command.
+corresponding  indices.
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
+
 [para]
 See the command [cmd "column place"] for other details.
 
@@ -210,25 +217,25 @@ Modifies a variable [arg COLUMNVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
 replaced by the corresponding elements of [arg VALUES]. If [arg FIRST] is
 not specified the elements are appended to the array.
-The new value is assigned back to the variable and also returned as the
-result of the command. 
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
 [para]
 See the command [cmd "column put"] for other details.
 
 [call [cmd "column vreverse"] [arg COLUMNVAR]]
 Reverses the order of elements in the 
-typed column in variable [arg COLUMNVAR], stores it back
-into the variable and also returns it.
+typed column in variable [arg COLUMNVAR].
+The new value is assigned back to the variable. The resulting value
+of the variable (which may differ because of traces) is returned as the
+result of the command.
 
-[call [cmd "column vsort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg COLUMNVAR]]
+[call [cmd "column vsort"] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg COLUMNVAR]]
 Sorts a typed column stored in variable. 
 [arg COLUMNVAR] is variable containing the typed column to
 be sorted. The comparison is done in a column type-specific manner.
 Sorting is sorted in increasing order by default.
-The [option -decreasing] option may be specified to change this. If
-the [option -indices] option is specified, the command returns a typed array
-containing the indices of the sorted values instead of the values
-themselves.
+The [option -decreasing] option may be specified to change this.
 If [option -nocase] is specified, the comparisons are done in
 case-insensitive manner. This option is only applicable when the
 column type is [const tclobj] and is ignored otherwise.

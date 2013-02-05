@@ -433,9 +433,6 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
     static const char *switches[] = {
         "-decreasing", "-increasing", "-indices", "-nocase", NULL
     };
-#define TA_SORT_DECREASING 1
-#define TA_SORT_INDICES    2
-#define TA_SORT_NOCASE     4
     int i, opt;
     int flags = 0;
 
