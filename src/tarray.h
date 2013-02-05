@@ -215,7 +215,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                            Tcl_Obj *opos, Tcl_Obj *ocount);
-Tcl_Obj *tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol);
+TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol);
 
 TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
                             Tcl_Obj *orow, int pos, int count, int insert);
@@ -235,6 +235,7 @@ TCL_RESULT tgrid_delete(Tcl_Interp *ip, Tcl_Obj *tgrid,
                         Tcl_Obj *indexa, Tcl_Obj *indexb);
 Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
 Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt);
+TCL_RESULT tgrid_reverse(Tcl_Interp *interp, Tcl_Obj *tgrid);
 Tcl_Obj *tgrid_index(Tcl_Interp *ip, Tcl_Obj *tgrid, int index);
 TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
                             Tcl_Obj *orows, Tcl_Obj *oindices);
@@ -251,6 +252,8 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,
                          Tcl_Obj *valueListObj, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                                Tcl_Obj *valueListObj, Tcl_Obj *indicesObj);
+TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
+                              Tcl_Obj *oindices);
 TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
                       int end_value, int low, int high);
 TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, int nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
