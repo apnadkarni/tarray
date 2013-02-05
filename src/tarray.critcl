@@ -295,6 +295,11 @@ critcl::ccommand tarray::column::vsort {} {
     if ((status = tcol_parse_sort_options(interp, objc, objv, &flags)) != TCL_OK)
         return status;
 
+    if (flags & TA_SORT_INDICES) {
+        Tcl_SetResult(interp, "Invalid option -indices", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
     tcol = Tcl_ObjGetVar2(interp, objv[objc-1], NULL, TCL_LEAVE_ERR_MSG);
     if (tcol == NULL)
         return TCL_ERROR;

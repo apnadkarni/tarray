@@ -8,7 +8,7 @@ Many commands also allow multiple indices to be specified. These may take one
 of two forms - 
 a [emph range] which includes all indices between a lower and an upper 
 bound (inclusive), and
-an [emph "index list"] which make be a list of integers, or a
+an [emph "index list"] which may be a list of integers, or a
 [const int] [sectref Columns "typed column"]. This latter allows the
 indices returned by commands such as [cmd "column search"] to be 
 efficiently passed to other commands. When indices are specified 

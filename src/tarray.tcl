@@ -14,6 +14,15 @@ proc tarray::grid::create {types {initvals {}} {initsize 0}} {
     
 }
 
+proc tarray::grid::column {grid colnum} {
+    # A grid itself is a column (containing columns)
+    return [tarray::column::index $grid $colnum]
+}
+
+proc tarray::grid::size {grid} {
+    return [tarray::column::size [tarray::grid::column $grid 0]]
+}
+
 proc tarray::table::create {def {init {}} {size 0}} {
     variable _tables
     variable _table_ctr
