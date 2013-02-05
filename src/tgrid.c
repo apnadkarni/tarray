@@ -174,7 +174,7 @@ TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
     
     /*
      * First make the tgrid object itself modifiable in case its thdr
-     * is shared
+     * is shared. Note this also invalidates its string representation.
      */
     if (thdr_shared(TARRAYHDR(tgrid)) &&
         (status = tcol_make_modifiable(ip, tgrid, 0, 0)) != TCL_OK)
@@ -192,8 +192,11 @@ TCL_RESULT tgrid_make_modifiable(Tcl_Interp *ip,
             Tcl_DecrRefCount(tcols[i]);
             tcols[i] = tcol;
         }
-        if ((status = tcol_make_modifiable(ip, tcol, minsize, prefsize)) != TCL_OK)
+        if ((status = tcol_make_modifiable(ip, tcol, minsize, prefsize))
+            != TCL_OK) {
+            /* Note tcol is still valid and consistent though unmodifiable */
             return status;
+        }
     }
 
     return TCL_OK;
@@ -741,10 +744,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
 
 TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols, Tcl_Obj * const *srccols, thdr_t *pindices, int new_size)
 {
-    Tcl_Obj **prow;
-    int i, nrows, status;
-    Tcl_Obj **rows;
-    Tcl_Obj *o;
+    int i;
 
     TA_ASSERT(pindices->type == TA_INT);
     
@@ -1246,7 +1246,6 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
     thdr_t *pindices;
     Tcl_Obj **tcols;
     int ntcols;
-    thdr_t *psorted;
     int new_size;
     int status;
 
@@ -1282,7 +1281,6 @@ TCL_RESULT tgrid_place_indices(Tcl_Interp *ip, Tcl_Obj *tgrid,
     thdr_t *pindices;
     Tcl_Obj **tcols;
     int ntcols;
-    thdr_t *psorted;
     int new_size;
     int status;
 
@@ -1313,4 +1311,22 @@ TCL_RESULT tgrid_place_indices(Tcl_Interp *ip, Tcl_Obj *tgrid,
     
     thdr_decr_refs(pindices);
     return status;
+}
+
+TCL_RESULT tgrid_reverse(Tcl_Interp *ip, Tcl_Obj *tgrid)
+{
+    int i, status;
+
+    TA_ASSERT(! Tcl_IsShared(tgrid));
+
+    if ((status = tgrid_convert(ip, tgrid)) != TCL_OK ||
+        (status = tgrid_make_modifiable(ip, tgrid, 0, 0)) != TCL_OK)
+        return status;
+
+    i = tgrid_width(tgrid);
+    while (i--) {
+        TA_NOFAIL(tcol_reverse(ip, tgrid_column(tgrid, i)), TCL_OK);
+    }
+
+    return TCL_OK;
 }

@@ -91,15 +91,15 @@ of each row must be no smaller than the width of the grid.
 index list in the one of the forms described in [sectref Indices]
 and may extend the column if the condition listed there are satisfied.
 
-[call [cmd "column put"] [arg GRID] [arg ROWVALUES] [opt [arg FIRST]]]
-Returns a typed column with the elements starting at index [arg FIRST]
+[call [cmd "grid put"] [arg GRID] [arg ROWVALUES] [opt [arg FIRST]]]
+Returns a grid with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg ROWVALUES].
 [arg ROWVALUES] may be a list of values or a grid of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
-not specified the elements are appended to the array.
+not specified the elements are appended.
 
-[call [cmd "column reverse"] [arg GRID]]
-Returns the typed column with order of elements reversed.
+[call [cmd "grid reverse"] [arg GRID]]
+Returns the grid with order of elements reversed.
 
 [call [cmd "column search"] [opt "[option -start] [arg STARTINDEX]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg GRID] [arg ROWVALUE]]
 Searches the specified typed column for a matching value. By default,
@@ -198,10 +198,11 @@ result of the command.
 [para]
 See the command [cmd "column put"] for other details.
 
-[call [cmd "column vreverse"] [arg GRIDVAR]]
+[call [cmd "grid vreverse"] [arg GRIDVAR]]
 Reverses the order of elements in the 
-typed column in variable [arg GRIDVAR], stores it back
-into the variable and also returns it.
+grid in variable [arg GRIDVAR], stores it back
+in the variable. The result of the command is the resulting value
+stored in the variable.
 
 [call [cmd "column vsort"] [opt [option -indices]] [opt [option -increasing]] [opt [option -decreasing]] [opt [option -nocase]] [arg GRIDVAR]]
 Sorts a typed column stored in variable. 

@@ -435,7 +435,7 @@ critcl::ccommand tarray::column::fill {} {
 
     tcol = objv[1];
     if (Tcl_IsShared(tcol))
-        tcol = Tcl_DuplicateObj(objv[1]);
+        tcol = Tcl_DuplicateObj(tcol);
 
     status = tcol_fill_obj(interp, tcol, objv[2], objv[3],
                                objc == 5 ? objv[4] : NULL);
@@ -462,12 +462,9 @@ critcl::ccommand tarray::column::vfill {} {
 }
 
 critcl::cproc tarray::column::reverse {Tcl_Interp* interp Tcl_Obj* tcol} ok {
-    tcol = tcol_reverse(interp, tcol);
-    if (tcol) {
-        Tcl_SetObjResult(interp, tcol);
-        return TCL_OK;
-    } else
-        return TCL_ERROR;
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
+    return ta_return_result(interp, tcol_reverse(interp, tcol), tcol);
 }
     
 critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
@@ -476,9 +473,10 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     tcol = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
     if (tcol == NULL)
         return TCL_ERROR;
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
 
-    tcol = tcol_reverse(interp, tcol);
-    return tcol ? ta_set_var_result(interp, TCL_OK, ovar, tcol) : TCL_ERROR;
+    return ta_set_var_result(interp, tcol_reverse(interp, tcol), ovar, tcol);
 }
 
 
@@ -747,6 +745,26 @@ critcl::cproc tarray::grid::vplace {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj*
     else
         status = tgrid_place_objs(interp, tgrid, VALUES, INDICES);
     return ta_set_var_result(interp, status, GRIDVAR, tgrid);
+}
+
+critcl::cproc tarray::grid::reverse {Tcl_Interp* interp Tcl_Obj* tgrid} ok {
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+
+    return ta_return_result(interp, tgrid_reverse(interp, tgrid), tgrid);
+}
+    
+critcl::cproc tarray::tgrid::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
+    Tcl_Obj *tgrid;
+
+    tgrid = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (tgrid == NULL)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(tgrid))
+        tgrid = Tcl_DuplicateObj(tgrid);
+
+    return ta_set_var_result(interp, tgrid_reverse(interp, tgrid), ovar, tgrid);
 }
 
 
