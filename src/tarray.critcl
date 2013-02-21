@@ -815,7 +815,7 @@ critcl::class::define tarray::table {
             goto error;
         }
 
-        instance->columns = thdr_alloc(interp, TA_OBJ, nelems/2);
+        instance->columns = thdr_alloc(interp, TA_ANY, nelems/2);
         if (instance->columns == NULL)
             goto error;
         thdr_incr_refs(instance->columns);

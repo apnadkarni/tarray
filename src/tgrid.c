@@ -137,7 +137,7 @@ TCL_RESULT tgrid_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     if ((status = tcol_convert(ip, o)) != TCL_OK)
         return status;
     thdr = TARRAYHDR(o);
-    if (thdr->type != TA_OBJ)
+    if (thdr->type != TA_ANY)
         return ta_bad_type_error(ip, thdr);
     if (tcol_occupancy(o) == 0)
         return TCL_OK;
@@ -355,7 +355,7 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
                 if (ta_get_byte_from_obj(ip, fields[t], &v.ucval) != TCL_OK)
                     return TCL_ERROR;
                 break;
-            case TA_OBJ:
+            case TA_ANY:
                 break;      /* No validation */
             default:
                 ta_type_panic(tatype);
@@ -395,7 +395,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
              TA_ASSERT(thdr->usable >= (first + nrows)); /* 'Nuff space */
          TA_ASSERT(thdr->used == thdr0->used); /* All same size */
 
-         if (thdr->type == TA_OBJ)
+         if (thdr->type == TA_ANY)
              have_obj_cols = 1;
          else
              have_other_cols = 1;
@@ -417,7 +417,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
       * not need to first check. We directly store the values and in case
       * of errors, simply not update the old size.
       *
-      * TA_OBJ add a complication. They do not need a type check
+      * TA_ANY add a complication. They do not need a type check
       * but because their reference counts have to be managed, it is more
       * complicated to back track on errors when we skip the validation
       * checks in the pure append case. So we update these columns
@@ -425,7 +425,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
       */
 
      if (! have_other_cols) {
-         /* Only TA_OBJ columns, data validation is a no-op */
+         /* Only TA_ANY columns, data validation is a no-op */
          need_data_validation = 0;
      } else if (first >= thdr0->used) {
          /*
@@ -451,7 +451,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      } else {
          /*
           * We are not validating data but then validate row widths 
-          * We are doing this to simplify error rollback for TA_OBJ
+          * We are doing this to simplify error rollback for TA_ANY
           */
          if (tcols_validate_obj_row_widths(ip, ntcols, nrows, rows) != TCL_OK)
              return TCL_ERROR;
@@ -479,7 +479,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
       * As it turns out, we use the first method for a different reason -
       * when we are strictly appending without overwriting, we do not
       * validate since rollback is easy. The complication is that if
-      * any column is of type TA_OBJ, when an error occurs we have to
+      * any column is of type TA_ANY, when an error occurs we have to
       * rollback that column's Tcl_Obj reference counts. Keeping track
       * of this is more involved using the second scheme and much simpler
       * with the first scheme. Hence we go with that.
@@ -488,7 +488,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      /*
       * Now actually store the values. Note we still have to check
       * status on conversion in case we did not do checks when we are appending
-      * to the end, and we have to store TA_OBJ last to facilitate
+      * to the end, and we have to store TA_ANY last to facilitate
       * rollback on errors as discussed earlier.
       */
  #define tcols_put_COPY(type, pos, fn)                           \
@@ -506,9 +506,9 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
 
      if (have_other_cols) {
          for (t=0; t < ntcols; ++t) {
-             /* Skip TA_OBJ on this round, until all other data is stored */
+             /* Skip TA_ANY on this round, until all other data is stored */
              thdr = TARRAYHDR(tcols[t]);
-             if (thdr->type == TA_OBJ)
+             if (thdr->type == TA_ANY)
                  continue;
 
              if (insert)
@@ -581,11 +581,11 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
          }
      }
 
-     /* Now that no errors are possible, update the TA_OBJ columns */
+     /* Now that no errors are possible, update the TA_ANY columns */
      for (t=0; t < ntcols; ++t) {
          register Tcl_Obj **pobjs;
          thdr = TARRAYHDR(tcols[t]);
-         if (thdr->type != TA_OBJ)
+         if (thdr->type != TA_ANY)
              continue;
          if (insert)
              thdr_make_room(thdr, first, nrows);
@@ -699,7 +699,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                 }
             }
             break;
-        case TA_OBJ:
+        case TA_ANY:
             {
                 Tcl_Obj **pobjs;
                 int j;
@@ -936,7 +936,7 @@ Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
         Tcl_Obj **tcols;
         thdr_t *thdr;
 
-        if ((thdr = thdr_alloc(ip, TA_OBJ, width)) == NULL)
+        if ((thdr = thdr_alloc(ip, TA_ANY, width)) == NULL)
             return NULL;
         tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
         for (i = 0; i < width; ++i) {
@@ -1031,7 +1031,7 @@ Tcl_Obj *tgrid_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
         case TA_BYTE:
             tgrid_get_COPY(unsigned char, Tcl_NewIntObj);
             break;
-        case TA_OBJ:
+        case TA_ANY:
             /* We can use macro here as well because of ref counts will be
                taken care of by the lists themselves. The (Tcl_Obj *) is
                passed as essentially a no-op conversion function
@@ -1074,7 +1074,7 @@ Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
         Tcl_Obj **tcols;
         thdr_t *thdr;
 
-        if ((thdr = thdr_alloc(ip, TA_OBJ, width)) == NULL)
+        if ((thdr = thdr_alloc(ip, TA_ANY, width)) == NULL)
             return NULL;
         tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
         for (i = 0; i < width; ++i) {
@@ -1165,7 +1165,7 @@ Tcl_Obj *tgrid_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
         case TA_BYTE:
             tgrid_range_COPY(unsigned char, Tcl_NewIntObj);
             break;
-        case TA_OBJ:
+        case TA_ANY:
             /* We can use macro here as well because of ref counts will be
                taken care of by the lists themselves. The (Tcl_Obj *) is
                passed as essentially a no-op conversion function
