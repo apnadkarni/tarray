@@ -474,10 +474,10 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
     /*
      * If values are already sorted in suitable order, we can make use
-     * of it. For TA_OBJ, we need to check whether sort order was
+     * of it. For TA_ANY, we need to check whether sort order was
      * case sensitive or not
      */
-    if (psrc->type != TA_OBJ) {
+    if (psrc->type != TA_ANY) {
         nocase = 0;             /* Ignored for other types */
         if (psrc->sort_order == THDR_UNSORTED)
             orig_sort_state = 0; /* Can't use sort state */
@@ -558,7 +558,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             case TA_DOUBLE:
                 cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
                 break;
-            case TA_OBJ:
+            case TA_ANY:
                 if (nocase) 
                     cmpindexedfn = decreasing ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
                 else
@@ -645,7 +645,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         case TA_DOUBLE:
             cmpfn = decreasing ? doublecmprev : doublecmp;
             break;
-        case TA_OBJ:
+        case TA_ANY:
             if (nocase)
                 cmpfn = decreasing ? tclobjcmpnocaserev : tclobjcmpnocase;
             else

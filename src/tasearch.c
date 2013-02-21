@@ -355,7 +355,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
     Tcl_RegExp re;
 
     /* TBD - do we need to increment the haystacP ref to guard against shimmering */
-    TA_ASSERT(haystackP->type == TA_OBJ);
+    TA_ASSERT(haystackP->type == TA_ANY);
     
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
     nocase = flags & TA_SEARCH_NOCASE;
@@ -393,7 +393,7 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
         thdr_t *thdr, *newP;
 
         thdr = thdr_alloc(ip,
-                            flags & TA_SEARCH_INLINE ? TA_OBJ : TA_INT,
+                            flags & TA_SEARCH_INLINE ? TA_ANY : TA_INT,
                             10);                /* Assume 10 hits */
         if (thdr == NULL)
             return TCL_ERROR;
@@ -553,7 +553,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         return thdr_search_entier(ip, haystackP, objv[objc-1], start_index, op, flags);
     case TA_DOUBLE:
         return thdr_search_double(ip, haystackP, objv[objc-1], start_index, op, flags);
-    case TA_OBJ:
+    case TA_ANY:
         return thdr_search_obj(ip, haystackP, objv[objc-1], start_index, op, flags);
     default:
         Tcl_SetResult(ip, "Not implemented", TCL_STATIC);

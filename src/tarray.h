@@ -61,7 +61,7 @@ typedef int TCL_RESULT;
 #define TA_WIDE 3
 #define TA_DOUBLE 4
 #define TA_BYTE 5
-#define TA_OBJ 6
+#define TA_ANY 6
 
 typedef struct ta_value_s {
     unsigned char type;
@@ -483,7 +483,7 @@ TA_INLINE int tgrid_length(Tcl_Obj *tgrid)
 TA_INLINE Tcl_Obj *tgrid_new(thdr_t *thdr)
 {
     Tcl_Obj *tgrid;
-    TA_ASSERT(thdr->type == TA_OBJ);
+    TA_ASSERT(thdr->type == TA_ANY);
     tgrid = tcol_new(thdr);
     if (tgrid)
         tgrid->typePtr = &g_tgrid_type;

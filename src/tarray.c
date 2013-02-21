@@ -238,7 +238,7 @@ void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
     register int i;
     register Tcl_Obj **pobjs;
 
-    if (thdr->type == TA_OBJ) {
+    if (thdr->type == TA_ANY) {
         if ((first + count) > thdr->used)
             count = thdr->used - first;
         if (count <= 0)
@@ -258,7 +258,7 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
     register int i;
     register Tcl_Obj **pobjs;
 
-    if (thdr->type == TA_OBJ) {
+    if (thdr->type == TA_ANY) {
         if ((first + count) > thdr->used)
             count = thdr->used - first;
         if (count <= 0)
@@ -271,7 +271,7 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
 }
 
 /*
- * Updates TA_OBJ elements at the specific indices pindices[].
+ * Updates TA_ANY elements at the specific indices pindices[].
  * Also updates thdr->used.
  */
 void thdr_place_ta_objs(thdr_t *thdr,
@@ -313,7 +313,7 @@ void thdr_place_ta_objs(thdr_t *thdr,
 }
 
 /*
- * Fills TA_OBJ elements at the specific indices pindices[].
+ * Fills TA_ANY elements at the specific indices pindices[].
  * Also updates thdr->used.
  */
 void thdr_fill_ta_objs(thdr_t *thdr,
@@ -470,7 +470,7 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
     case TA_UINT: status = ta_get_uint_from_obj(ip, o, &ptav->uival); break;
     case TA_WIDE: status = Tcl_GetWideIntFromObj(ip, o, &ptav->wval); break;
     case TA_DOUBLE: status = Tcl_GetDoubleFromObj(ip, o, &ptav->dval); break;
-    case TA_OBJ: ptav->oval = o; status = TCL_OK; break;
+    case TA_ANY: ptav->oval = o; status = TCL_OK; break;
     default:
         ta_type_panic(tatype);
     }
@@ -542,7 +542,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
                 *pdbl = ptav->dval;
         }
         break;
-    case TA_OBJ:
+    case TA_ANY:
         {
             Tcl_Obj **pobjs;
             int n;
@@ -613,7 +613,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
     case TA_BYTE:
         ta_verify_value_LOOP(unsigned char, ta_get_byte_from_obj);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         break;                  /* Just pointers, nothing to verify */
     default:
         ta_type_panic(tatype);
@@ -776,7 +776,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
                 pdbl[*pindex] = ptav->dval;
         }
         break;
-    case TA_OBJ:
+    case TA_ANY:
         thdr_fill_ta_objs(thdr, pindices, ptav->oval, new_size);
         return;
     default:
@@ -788,7 +788,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
 void thdr_free(thdr_t *thdr)
 {
-    if (thdr->type == TA_OBJ) {
+    if (thdr->type == TA_ANY) {
         thdr_decr_obj_refs(thdr, 0, thdr->used);
     }
     TA_FREEMEM(thdr);
@@ -854,7 +854,7 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
         sizeof("tarray ") - 1 /* -1 to exclude the null */
         + sizeof(" {") - 1 /* Start of list minus trailing null */
         + 1               /* Trailing "}" */
-        + strlen(g_type_tokens[TA_OBJ]);
+        + strlen(g_type_tokens[TA_ANY]);
     for (i = 0; i < objc; i++) {
         /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
         flagPtr[i] = TCL_DONT_QUOTE_HASH;
@@ -878,8 +878,8 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
     dst = o->bytes;
     memcpy(dst, "tarray ", sizeof("tarray ")-1);
     dst += sizeof("tarray ") - 1;
-    strcpy(dst, g_type_tokens[TA_OBJ]);
-    dst += strlen(g_type_tokens[TA_OBJ]);
+    strcpy(dst, g_type_tokens[TA_ANY]);
+    dst += strlen(g_type_tokens[TA_ANY]);
     *dst++ = ' ';
     *dst++ = '{';
     /* TBD - handle objc==0 case */
@@ -986,7 +986,7 @@ static void ta_type_update_string(Tcl_Obj *o)
         }
         return;
                 
-    case TA_OBJ:
+    case TA_ANY:
         ta_type_update_string_for_objtype(o);
         return;
                 
@@ -1223,7 +1223,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
     case TA_WIDE: thdr_put_OBJCOPY(Tcl_WideInt, Tcl_GetWideIntFromObj); break;
     case TA_DOUBLE:thdr_put_OBJCOPY(double, Tcl_GetDoubleFromObj); break;
     case TA_BYTE: thdr_put_OBJCOPY(unsigned char, ta_get_byte_from_obj); break;
-    case TA_OBJ:
+    case TA_ANY:
         {
             register Tcl_Obj **pobjs;
             pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
@@ -1251,7 +1251,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
     return TCL_OK;
 
 convert_error:                  /* Interp should already contain errors */
-    TA_ASSERT(thdr->type != TA_OBJ); /* Else we may need to deal with ref counts */
+    TA_ASSERT(thdr->type != TA_ANY); /* Else we may need to deal with ref counts */
 
     return TCL_ERROR;
 
@@ -1321,7 +1321,7 @@ void thdr_place_objs(
     case TA_DOUBLE:
         PLACEVALUES(double, Tcl_GetDoubleFromObj);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         thdr_place_ta_objs(thdr, pindices, ovalues, new_size);
         return;
     case TA_BYTE:
@@ -1387,7 +1387,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
     case TA_DOUBLE:
         thdr_place_COPYINDICES(double);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         /* Tricky 'cause of ref counts. See comments in thdr_place_ta_objs */
         {
             Tcl_Obj **dst = THDRELEMPTR(thdr, Tcl_Obj *, 0);
@@ -1433,7 +1433,7 @@ int thdr_required_size(int tatype, int count)
     case TA_DOUBLE:
         space = count * sizeof(double);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         space = count * sizeof(Tcl_Obj *);
         break;
     case TA_BYTE:
@@ -1490,7 +1490,7 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
     case TA_INT: nbits = sizeof(int) * CHAR_BIT; break;
     case TA_WIDE: nbits = sizeof(Tcl_WideInt) * CHAR_BIT; break;
     case TA_DOUBLE: nbits = sizeof(double) * CHAR_BIT; break;
-    case TA_OBJ: nbits = sizeof(Tcl_Obj *) * CHAR_BIT; break;
+    case TA_ANY: nbits = sizeof(Tcl_Obj *) * CHAR_BIT; break;
     case TA_BYTE: nbits = sizeof(unsigned char) * CHAR_BIT; break;
     default:
         ta_type_panic(tatype);
@@ -1570,7 +1570,7 @@ void thdr_delete_range(thdr_t *thdr, int first, int count)
                 thdr->used-(first+count));
         break;
 
-    case TA_OBJ:
+    case TA_ANY:
         /*
          * We have to deal with reference counts here. For the objects
          * we are deleting we need to decrement the reference counts.
@@ -1666,7 +1666,7 @@ void thdr_reverse(thdr_t *thdr)
     case TA_BOOLEAN:
         ba_reverse(THDRELEMPTR(thdr, ba_t, 0), 0, thdr->used);
         break;
-    case TA_OBJ:    SWAPALL(thdr, Tcl_Obj*); break;
+    case TA_ANY:    SWAPALL(thdr, Tcl_Obj*); break;
     case TA_UINT:   /* Fall thru */
     case TA_INT:    SWAPALL(thdr, int); break;
     case TA_WIDE:   SWAPALL(thdr, Tcl_WideInt); break;
@@ -1729,7 +1729,7 @@ void thdr_copy(thdr_t *pdst, int dst_first,
         ba_copy(d, dst_first, THDRELEMPTR(psrc, ba_t, 0), src_first, count);
         break;
 
-    case TA_OBJ:
+    case TA_ANY:
         /*
          * We have to deal with reference counts here. For the objects
          * we are copying (source) we need to increment the reference counts.
@@ -1815,7 +1815,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
                 THDRELEMPTR(psrc, ba_t, 0), src_first, count);
         ba_reverse(THDRELEMPTR(pdst, ba_t, 0), dst_first, count);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         /*
          * We have to deal with reference counts here. For the objects
          * we are copying (source) we need to increment the reference counts.
@@ -1991,7 +1991,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
     case TA_BYTE:
         tcol_range_COPY(unsigned char, Tcl_NewIntObj);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         tcol_range_COPY(Tcl_Obj*, (Tcl_Obj*)); /* Cast acts as a null function */
         break;
     default:
@@ -2074,7 +2074,7 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
         return Tcl_NewDoubleObj(*THDRELEMPTR(thdr, double, index));
     case TA_BYTE:
         return Tcl_NewIntObj(*THDRELEMPTR(thdr, unsigned char, index));
-    case TA_OBJ:
+    case TA_ANY:
         return *THDRELEMPTR(thdr, Tcl_Obj *, index);
     default:
         ta_type_panic(thdr->type);
@@ -2268,7 +2268,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
     case TA_BYTE:
         tcol_get_COPY(unsigned char, Tcl_NewIntObj);
         break;
-    case TA_OBJ:
+    case TA_ANY:
         /* Cannot use macro here because of ref counts etc. */
         {
             Tcl_Obj **srcobjs = srcbase;

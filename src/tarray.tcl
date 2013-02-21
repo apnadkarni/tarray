@@ -10,7 +10,7 @@ proc tarray::grid::create {types {initvals {}} {initsize 0}} {
         lappend cols [tarray::column::create $type {} $initsize]
     }
 
-    set grid [tarray::column::create tclobj $cols]
+    set grid [tarray::column::create any $cols]
     
 }
 
