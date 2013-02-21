@@ -1,5 +1,5 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin "tarray grid" n ""]
+[manpage_begin "tarray::grid" n ""]
 [copyright "2012-2013 Ashok P. Nadkarni"]
 [moddesc "Typed Grids"]
 [titledesc "Commands related to typed grids"]
