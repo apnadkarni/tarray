@@ -133,7 +133,7 @@ extern struct Tcl_ObjType g_tgrid_type;
  * Error and panic routines
  */
 const char *ta_type_string(int tatype);
-void ta_type_panic(unsigned char tatype);
+void ta_type_panic(int tatype);
 void ta_shared_panic(const char *where);
 void ta_small_panic(thdr_t *thdr, const char *where);
 TCL_RESULT ta_not_tarray_error(Tcl_Interp *);
@@ -148,6 +148,7 @@ TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
+TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname);
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
@@ -191,10 +192,10 @@ void thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
                      int nvalues, Tcl_Obj * const *pvalues);
 void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pindices, int new_size);
 
-int thdr_required_size(unsigned char tatype, int count);
+int thdr_required_size(int tatype, int count);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
-thdr_t *thdr_alloc(Tcl_Interp *, unsigned char tatype, int count);
-thdr_t *thdr_alloc_and_init(Tcl_Interp *,unsigned char tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+thdr_t *thdr_alloc(Tcl_Interp *, int tatype, int count);
+thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 void thdr_reverse(thdr_t *tdrhP);
 void thdr_copy_reversed(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
 void thdr_copy(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count, int insert);
