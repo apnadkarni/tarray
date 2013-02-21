@@ -13,7 +13,7 @@
 
 static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, int len)
 {
-    ba_t ba, mask;
+    ba_t ba;
     int nbits, ba_len;
 
     BA_ASSERT(to_internal_off < BA_UNIT_MASK);
@@ -75,7 +75,7 @@ static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *
 
 static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, int len)
 {
-    ba_t ba, mask;
+    ba_t ba;
     int nbits, ba_len;
     int off;
 
@@ -134,7 +134,6 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
 {
     const ba_t *from;
     ba_t *to;
-    ba_t mask;
     int from_internal_off, to_internal_off, ba_len;
 
     if (len == 0 || (dst == src && dst_off == src_off))

@@ -47,7 +47,7 @@ const char *g_type_tokens[] = {
     "wide",
     "double",
     "byte",
-    "tclobj",
+    "any",
     NULL
 };    
 
@@ -69,7 +69,7 @@ void ta_string_overflow_panic(const char *where)
     Tcl_Panic("Max size for a Tcl value (%d bytes) exceeded in %s", INT_MAX, where ? where : "unknown function");
 }
 
-void ta_type_panic(unsigned char tatype)
+void ta_type_panic(int tatype)
 {
     Tcl_Panic("Unknown or unexpected tarray type %d", tatype);
 }
@@ -630,7 +630,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
 */
 TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP)
 {
-    int i, cur, used, highest, status;
+    int cur, used, highest, status;
     int *pindex, *end;
     thdr_t *psorted = NULL;
 
@@ -706,7 +706,6 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
     } else
         status = ta_index_range_error(ip, *pindex);
 
-vamoose:
     if (psorted)
         thdr_decr_refs(psorted);
 
@@ -828,7 +827,8 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
     thdr_t *thdr;
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr = NULL;
-    int i, length, bytesNeeded = 0;
+    int i, length;
+    size_t bytesNeeded;
     const char *elem;
     char *dst;
 
@@ -850,7 +850,7 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
         flagPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
     }
 
-    bytesNeeded +=
+    bytesNeeded =
         sizeof("tarray ") - 1 /* -1 to exclude the null */
         + sizeof(" {") - 1 /* Start of list minus trailing null */
         + 1               /* Trailing "}" */
@@ -860,10 +860,10 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
         flagPtr[i] = TCL_DONT_QUOTE_HASH;
         elem = Tcl_GetStringFromObj(objv[i], &length);
         bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
-        if (bytesNeeded < 0)
+        if ((1 << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
             ta_string_overflow_panic("ta_type_update_string_for_objtype");
     }
-    if (bytesNeeded > INT_MAX - objc + 1)
+    if ((bytesNeeded + objc + 1) > INT_MAX)
         ta_string_overflow_panic("ta_type_update_string_for_objtype");
 
     bytesNeeded += objc;        /* For separators and terminating null */
@@ -890,13 +890,13 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
             dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
             *dst++ = ' ';
             /* Assert <, not <= because need to add terminating "}" */
-            TA_ASSERT((dst-o->bytes) < bytesNeeded);
+            TA_ASSERT(dst < (o->bytes + bytesNeeded));
         }
         dst[-1] = '}';
     } else
         *dst++ = '}';
     *dst = '\0';
-    TA_ASSERT((dst-o->bytes) < bytesNeeded);
+    TA_ASSERT(dst < (o->bytes + bytesNeeded));
     o->length = dst - o->bytes;
 
     if (flagPtr != localFlags) {
@@ -1127,7 +1127,6 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
                          int nelems, Tcl_Obj * const elems[], int insert)
 {
     int i, ival;
-    Tcl_WideInt wide;
     int status;
     int new_used;
 
@@ -1272,7 +1271,6 @@ void thdr_place_objs(
     Tcl_Obj * const *ovalues)   /* Values to be stored, must be type verified */
 {
     int *pindex, *end;
-    int status;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(pindices->type == TA_INT);
@@ -1339,7 +1337,7 @@ void thdr_place_objs(
 void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pindices, int new_size)
 {
     int *pindex, *end;
-    int i, status;
+    int i;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(pindices->type == TA_INT);
@@ -1417,7 +1415,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
     thdr->used = new_size;
 }
 
-int thdr_required_size(unsigned char tatype, int count)
+int thdr_required_size(int tatype, int count)
 {
     int space;
 
@@ -1466,7 +1464,7 @@ thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
     return thdr;
 }
 
-thdr_t * thdr_alloc(Tcl_Interp *ip, unsigned char tatype, int count)
+thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
 {
     unsigned char nbits;
     int sz;
@@ -1503,7 +1501,7 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, unsigned char tatype, int count)
     return thdr;
 }
 
-thdr_t * thdr_alloc_and_init(Tcl_Interp *ip, unsigned char tatype,
+thdr_t * thdr_alloc_and_init(Tcl_Interp *ip, int tatype,
                            int nelems, Tcl_Obj * const elems[],
                            int init_size)
 {
@@ -1881,7 +1879,7 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     thdr_t *thdr;
     int orig_order;
 
-    orig_order = thdr->sort_order;
+    orig_order = psrc->sort_order;
 
     if (minsize == 0)
         minsize = psrc->usable;
@@ -2080,6 +2078,7 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
         return *THDRELEMPTR(thdr, Tcl_Obj *, index);
     default:
         ta_type_panic(thdr->type);
+        return NULL;
     }
 }
 
@@ -2178,6 +2177,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
     TA_ASSERT(pindices->type == TA_INT);
     count = pindices->used;
 
+    psrc = TARRAYHDR(osrc);
     if (fmt == TA_FORMAT_TARRAY) {
         thdr = thdr_alloc(ip, psrc->type, count);
         if (thdr == NULL)

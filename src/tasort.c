@@ -458,7 +458,6 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     int i, n;
     thdr_t *psrc;
     thdr_t *psorted;
-    Tcl_Obj *oresult;
     int (__cdecl *cmpfn)(const void*, const void*);
     int (__cdecl *cmpindexedfn)(void *, const void*, const void*);
     int status;

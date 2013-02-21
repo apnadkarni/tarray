@@ -25,7 +25,7 @@ TCL_RESULT tcols_fill_range(
     int count,
     int insert)
 {
-    int i, low, row_width, col_len, status;
+    int i, row_width, col_len, status;
     ta_value_t values[32];
     ta_value_t *pvalues = values;
     Tcl_Obj **ovalues;
@@ -56,7 +56,7 @@ TCL_RESULT tcols_fill_range(
 
     for (i = 0; i < ntcols; ++i)
         thdr_fill_range(ip, TARRAYHDR(tcols[i]),
-                        &values[i], low, count, insert);
+                        &values[i], pos, count, insert);
 
     /* status will already contain TCL_OK */
 
@@ -717,7 +717,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                  * Hence what we do is to store NULL first in all unused slots
                  * that will be written to mark what is unused.
                  */
-                for (j = tcol_occupancy(tcols[j]); j < new_size; ++j) {
+                for (j = tcol_occupancy(tcols[i]); j < new_size; ++j) {
                     pobjs[j] = NULL;        /* TBD - optimization - memset ? */
                     while (pindex < end) {
                         /* Careful about the order here! */
@@ -874,6 +874,12 @@ TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid,
     srccols = tgrid_columns(srcgrid);
     count = tcol_occupancy(srccols[0]);
     dstcols = tgrid_columns(dstgrid);
+    first = tcol_occupancy(dstcols[0]); /* Default is end */
+    if (ofirst)
+        status = ta_convert_index(ip, ofirst, &first, first, 0, first);
+    if (status != TCL_OK)
+        return status;
+
     if (insert)
         new_min_size = tcol_occupancy(dstcols[0]) + count;
     else
@@ -881,14 +887,8 @@ TCL_RESULT tgrid_copy(Tcl_Interp *ip, Tcl_Obj *dstgrid, Tcl_Obj *srcgrid,
     status = tgrid_make_modifiable(ip, dstgrid, new_min_size, 0);
     if (status != TCL_OK)
         return status;
+
     dstcols = tgrid_columns(dstgrid); /* Re-init - might have changed */
-
-    first = tcol_occupancy(dstcols[0]); /* Default is end */
-    if (ofirst)
-        status = ta_convert_index(ip, ofirst, &first, first, 0, first);
-
-    if (status != TCL_OK)
-        return status;
 
     return tcols_copy(ip, tgrid_width(dstgrid), dstcols, first,
                       srccols, 0, count, insert);
