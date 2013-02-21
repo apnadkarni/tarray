@@ -18,10 +18,7 @@ syntax: glob
 temp
 build
 dist
-doc/chm-build
-doc/website-build
-doc/website
-tools/h2c/*
+doc/output
 TAGS
 \#*#
 *.vfs
@@ -32,4 +29,4 @@ Release*/*
 # TEA based intermediate files
 autom4te.cache/*
 config.status
-twapi_entry.tcl
+
