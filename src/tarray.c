@@ -1721,9 +1721,9 @@ void thdr_copy(thdr_t *pdst, int dst_first,
      */
     switch (psrc->type) {
     case TA_BOOLEAN:
+        d = THDRELEMPTR(pdst, ba_t, 0);
         if (insert) {
             /* First make room by copying bits up */
-            d = THDRELEMPTR(pdst, ba_t, 0);
             ba_copy(d, dst_first+count, d, dst_first, pdst->used-dst_first);
         }
         /* Now insert or overwrite in place */
