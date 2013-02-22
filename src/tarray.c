@@ -1218,6 +1218,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
                *baP = ba | (*baP & BITMASKGE(ba_mask));
            }
        }
+       break;
     case TA_UINT: thdr_put_OBJCOPY(unsigned int, ta_get_uint_from_obj); break;
     case TA_INT: thdr_put_OBJCOPY(int, Tcl_GetIntFromObj); break;
     case TA_WIDE: thdr_put_OBJCOPY(Tcl_WideInt, Tcl_GetWideIntFromObj); break;
