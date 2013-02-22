@@ -11,9 +11,10 @@ critcl::buildrequirement {
 }
 critcl::clean_cache
 critcl::tcl 8.5
-if {[critcl::targetconfig] eq "TBD"} {
+if {[string match "*-gcc" [critcl::targetconfig]]} {
     critcl::cflags -std=gnu99 -Winline
 }
+
 critcl::csources tarray.c tgrid.c tasearch.c bitarray.c tasort.c
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h
