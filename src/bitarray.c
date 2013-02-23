@@ -173,10 +173,10 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
          * and end and writing them to the destination after the memmove
          * is done.
          */
+        saved_trailing_partial = from[(from_internal_off + len - 1) / BA_UNIT_SIZE];
         if (to_internal_off) {
             /* We will save the partial bits and write them
                to destination later in case of overlap. */
-            saved_trailing_partial = from[(from_internal_off + len - 1) / BA_UNIT_SIZE];
             leadingP = to;
             if ((len + to_internal_off) >= BA_UNIT_SIZE) {
                 leading_partial_len = BA_UNIT_SIZE - to_internal_off;
@@ -386,15 +386,53 @@ void ba_reverse(ba_t *baP, int off, int len)
     }
 }
 
+/* Simple check against errors in portability between platforms and compilers */
+int ba_sanity_check()
+{
+
+    if (BITPOSMASKGE(BA_UNIT_SIZE-1) != BITPOSMASK(BA_UNIT_SIZE-1))
+        return 1;
+
+    if (BITPOSMASKGE(0) != -1)
+        return 2;
+
+#if BA_UNIT_SIZE == 8    
+    if (BITPOSMASKLT(BA_UNIT_SIZE-1) != CHAR_MAX)
+        return 3;
+#endif
+
+#if BA_UNIT_SIZE == 32
+    if (BITPOSMASKLT(BA_UNIT_SIZE-1) != INT_MAX)
+        return 3;
+#endif
+
+    if (BITPOSMASKLT(0) != 0)
+        return 4;
+
+    if (BITPOSMASKGT(BA_UNIT_SIZE-1) != 0)
+        return 5;
+
+    if (BITPOSMASKGT(0) != (ba_t) ~1)
+        return 6;
+
+    return 0;
+}
+
+
 #ifdef BA_TEST
 int main(int argc, char *argv[])
 {
+    ba_t ba;
     /* Temp means of trying specific tests. Actual test suite is in
        the tarray code */
+    
+
+#if 0
     unsigned char a[] = {0xaa, 0x00, 0xff, 0x55, 0x33};
     ba_copy(a, 12, a, 4, 13);
     printf("%x %x %x %x %x", a[0], a[1], a[2], a[3], a[4]);
     return 0;
+#endif
 }
 
 #endif

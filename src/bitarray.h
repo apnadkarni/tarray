@@ -3,7 +3,7 @@
 
 #include <limits.h>             /* CHAR_BIT etc. */
 
-#ifdef BA_ENABLE_ASSERTS
+#ifdef BA_ENABLE_ASSERT
 # if !defined(BA_ASSERT)
 #  include <assert.h>
 #  define BA_ASSERT assert
@@ -56,17 +56,15 @@
 
 /* Bits are numbered from LSB (0) to MSB */
 
-/* Return a mask containing a 1 at a bit position (MSB being bit 0) 
-   BITPOSMASK(2) -> 00100000 */
-#define BITPOSMASK(pos_) ((ba_t)(((ba_t) 1) << (pos_)))
-#define BITPOSMASKLT(pos_) ((ba_t)(BITPOSMASK(pos_)-1))
-#define BITPOSMASKGE(pos_) ((ba_t) (- (sba_t)BITPOSMASK(pos_)))
-#define BITPOSMASKGT(pos_) ((ba_t)(BITPOSMASKGE(pos_) - BITPOSMASK(pos_)))
-
+#define BITPOSMASK(pos_) ba_position_mask(pos_)
 /*
  * Return a mask where all bit positions up to, but not including pos
  * are 1, remaining are 0. For example, BITMASKLT(2) -> 00000011
  */
+#define BITPOSMASKLT(pos_) ((ba_t)(BITPOSMASK(pos_)-1))
+#define BITPOSMASKGE(pos_) ((ba_t) (- (sba_t)BITPOSMASK(pos_)))
+#define BITPOSMASKGT(pos_) ((ba_t)(BITPOSMASKGE(pos_) - BITPOSMASK(pos_)))
+
 
 /* Mask for next bit */
 #define BITMASKNEXT(mask_) ((ba_t)((mask_) << 1))
@@ -98,6 +96,14 @@
 # define BA_MASK_FF 0x00FF00FF
 # define BA_MASK_FFFF 0x0000FFFF
 #endif
+
+/* Return a mask containing a 1 at a bit position,
+   e.g. BITPOSMASK(2) -> 00100000 */
+BA_INLINE ba_t ba_position_mask(int pos)
+{
+    BA_ASSERT(pos < BA_UNIT_SIZE);
+    return ((ba_t) 1) << pos;
+}
 
 /* Count bits in unit */
 BA_INLINE int ba_count_unit_ones(ba_t ba)
@@ -141,13 +147,16 @@ BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
            off+BA_UNIT_SIZE may not be so do not try to get more bits than
            asked for.
         */
-        n += off; /* n <- high bits to ignore */
+        n += off;
         if (n > BA_UNIT_SIZE) {
             /*  n bits are spread between baP and baP+1 */
             return ((baP[1] & BITPOSMASKLT(n-BA_UNIT_SIZE)) << (BA_UNIT_SIZE - off)) | (baP[0] >> off);
         } else {
             /* Entire range is within one ba_t */
-            return (BITPOSMASKLT(n) & *baP) >> off;
+            if (n < BA_UNIT_SIZE)
+                return (BITPOSMASKLT(n) & *baP) >> off;
+            else
+                return *baP >> off;
         }
     }
 }
@@ -269,5 +278,6 @@ int ba_find(ba_t *baP, int bval, int offset, int count);
 int ba_count_ones(ba_t *baP, int off, int count);
 int ba_count_zeroes(ba_t *baP, int off, int count);
 void ba_reverse(ba_t *baP, int off, int len);
+int ba_sanity_check(void);
 
 #endif
