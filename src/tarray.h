@@ -5,7 +5,6 @@
 #include <stdlib.h>
 
 #include "tcl.h"
-#include "bitarray.h"
 
 #ifndef TA_INLINE
 # ifdef _MSC_VER
@@ -43,6 +42,14 @@
 #else
 # define TA_NOFAIL(expr, val) do { (void) (expr) } while (0)
 #endif
+
+
+#define BA_ASSERT TA_ASSERT
+#if TA_ENABLE_ASSERT
+#define BA_ENABLE_ASSERT 1
+#endif
+#include "bitarray.h"           /* Include AFTER assert definitions */
+
 
 typedef int TCL_RESULT;
 
