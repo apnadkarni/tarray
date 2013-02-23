@@ -74,6 +74,7 @@ critcl::ccode {
 }
 
 critcl::cinit {
+    TA_ASSERT(ba_sanity_check() == 0);
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
 } {
 }
