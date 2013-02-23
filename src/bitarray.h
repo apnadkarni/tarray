@@ -182,7 +182,11 @@ BA_INLINE void ba_putn(ba_t *baP, int off, ba_t ba, int n)
         } else {
             /* Bits fit in one word */
             ba <<= off;
-            *baP = ba_merge_unit(ba, *baP, (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
+            if (n < BA_UNIT_SIZE) {
+                *baP = ba_merge_unit(ba, *baP, (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
+            } else {
+                *baP = ba_merge_unit(ba, *baP, (ba_t) BITPOSMASKLT(off));
+            }
         }
     }
 }
