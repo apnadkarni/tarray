@@ -1,8 +1,9 @@
 [section Indices]
 An index into a typed column or grid can be specified as either an integer
-or the keyword [const end] which specifies the last element in the
-typed array. Unlike the built-in Tcl commands, index arithmetic of
-the form [const end-2] is not supported.
+or the keyword [const end]. As in Tcl's list commands, [const end] specifies
+the index of the last element in the tarray or the index after it, depending
+on the command. Unlike the built-in Tcl commands, index arithmetic of
+the form "[const end-][arg N]" is not supported.
 [para]
 Many commands also allow multiple indices to be specified. These may take one
 of two forms - 
