@@ -56,12 +56,20 @@ namespace eval tarray::test {
     # Define standard data used in tests
 
     #
+    # Common list with known values that can be used for multiple types
+    # used to initialize various tarrays in tests
+    variable known
+    set known [list ]
+    set i -1
+    time {lappend known [incr i]} 256; # 0-255 -> So suitable for byte type
+
+    #
     # Define the valid values
-    variable counts {0 1 2 7 8 15 16 17 31 32 33 63 64 65 1001 32567 32568 100000 100000}
+    variable counts {0 1 2 7 8 15 16 17 31 32 33 63 64 65 1001 32567 32568 100000}
     variable good
     foreach count $counts {
-        # Booleans
-        foreach pat {0 1 01 10 1001 1100 11000011} {
+        # Booleans. Note the unaligned patterns are important
+        foreach pat {0 1 01 10 011 010 1001 1100 11000011 101010101} {
             lappend good(boolean) [lrepeat $count {*}[split $pat ""]]
         }
         # [time] is nothing but a repeat mechanism
@@ -137,6 +145,15 @@ package require tarray
 namespace eval tarray::test {
     namespace import ::tcltest::test
 
+    # Note two general types of tests - via a temp variable and directly
+    # from the create return value. The difference is that in the
+    # former case the value ref count is > 1, and the object needs to
+    # be dup'ed while in the latter the ref count is 1 and the called
+    # command can directly use it
+
+    ################################################################
+    # tarray creation
+
     # Tests for creating empty tarrays
     foreach type {any boolean byte double int uint wide} {
         test column-create-$type-1.0 {
@@ -176,6 +193,61 @@ namespace eval tarray::test {
             } -result * -match glob -returnCodes error
         }
     }
+    
+    ################################################################
+    # Deletion of tarray elements
+
+    foreach type {boolean any byte double int uint wide} {
+        test column-delete-$type-1.0 {
+            Test deletion of first element (shared tclobj)
+        } -body {
+            set ta [tarray::column create $type $known]
+            tarray::column delete $ta 0
+        } -result [rep $type [lrange $known 1 end]] -match tarray
+
+        test column-delete-$type-1.1 {
+            Test deletion of first element (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $known] 0
+        } -result [rep $type [lrange $known 1 end]] -match tarray
+
+        test column-delete-$type-2.0 {
+            Test deletion of last element (shared tclobj)
+        } -body {
+            set ta [tarray::column create $type $known]
+            tarray::column delete $ta [expr {[llength $known]-1}]
+        } -result [rep $type [lrange $known 0 end-1]] -match tarray
+
+        test column-delete-$type-2.1 {
+            Test deletion of last element (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $known] [expr {[llength $known]-1}]
+        } -result [rep $type [lrange $known 0 end-1]] -match tarray
+
+        test column-delete-$type-3.0 {
+            Test deletion of end element (shared tclobj)
+        } -body {
+            set ta [tarray::column create $type $known]
+            tarray::column delete $ta end
+        } -result [rep $type [lrange $known 0 end-1]] -match tarray
+
+        test column-delete-$type-3.1 {
+            Test deletion of end element (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $known] end
+        } -result [rep $type [lrange $known 0 end-1]] -match tarray
+
+        set n -1
+        foreach i {1 7 8 9 31 32 33 63 64 65 254} {
+            test column-delete-$type-4.[incr n] {
+                Test deletion of intermediate element
+            } -body {
+                set ta [tarray::column create $type $known]
+                tarray::column delete $ta $i
+            } -result [rep $type [concat [lrange $known 0 $i-1] [lrange $known $i+1 end]]] -match tarray
+        }
+    }
+
     
 
 }
