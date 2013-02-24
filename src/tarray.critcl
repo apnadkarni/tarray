@@ -225,11 +225,11 @@ critcl::ccommand tarray::column::get {} {
 
     switch (objc - ta_arg - 1) {
     case 1:
-        switch (tcol_to_indices(interp, objv[ta_arg+1], 0, &pindices, NULL)) {
+        switch (ta_obj_to_indices(interp, objv[ta_arg+1], 0, 0, &pindices, NULL)) {
         case TA_INDEX_TYPE_ERROR:
             return TCL_ERROR;
         case TA_INDEX_TYPE_INT:
-            Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
+            Tcl_Panic("ta_obj_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
         case TA_INDEX_TYPE_THDR:
             tcol = tcol_get(interp, objv[ta_arg], pindices, fmt);
@@ -636,11 +636,11 @@ critcl::ccommand tarray::grid::get {} {
 
     switch (objc - ta_arg - 1) {
     case 1:
-        switch (tcol_to_indices(interp, objv[ta_arg+1], 0, &pindices, NULL)) {
+        switch (ta_obj_to_indices(interp, objv[ta_arg+1], 0, 0, &pindices, NULL)) {
         case TA_INDEX_TYPE_ERROR:
             return TCL_ERROR;
         case TA_INDEX_TYPE_INT:
-            Tcl_Panic("tcol_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
+            Tcl_Panic("ta_obj_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
         case TA_INDEX_TYPE_THDR:
             tgrid = tgrid_get(interp, objv[ta_arg], pindices, fmt);

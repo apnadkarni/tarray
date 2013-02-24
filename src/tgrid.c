@@ -237,7 +237,7 @@ TCL_RESULT tgrid_fill_obj(
     /* A single index arg, so must be an index or an index column or list */
 
     /* Note status is TCL_OK at this point */
-    switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
+    switch (ta_obj_to_indices(ip, indexa, 1, col_len - 1, &pindices, &low)) {
     case TA_INDEX_TYPE_ERROR:
         status = TCL_ERROR;
         break;
@@ -1257,7 +1257,7 @@ TCL_RESULT tgrid_place_objs(Tcl_Interp *ip, Tcl_Obj *tgrid,
 
     tcols = tgrid_columns(tgrid);
 
-    if (tcol_to_indices(ip, oindices, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
+    if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
     status = TCL_OK;
@@ -1294,8 +1294,7 @@ TCL_RESULT tgrid_place_indices(Tcl_Interp *ip, Tcl_Obj *tgrid,
     if (tgrid_width(psrc) < ntcols)
         return ta_row_width_error(ip, tgrid_width(psrc), ntcols);
 
-
-    if (tcol_to_indices(ip, oindices, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
+    if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
     status = TCL_OK;
