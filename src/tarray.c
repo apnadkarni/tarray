@@ -372,10 +372,8 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
     }
 
     if (Tcl_GetIntFromObj(NULL, o, &val) != TCL_OK) {
-        s = Tcl_GetString(o);
-        if (strcmp(s, "end")) {
+        if (ta_strequal(Tcl_GetString(o), "end"))
             return ta_index_error(ip, o);
-        }
         val = end_value;
     }
     
@@ -633,6 +631,8 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
     int cur, used, highest, status;
     int *pindex, *end;
     thdr_t *psorted = NULL;
+
+    /* TBD - check for negative indices. Or make indices type UINT */
 
     TA_ASSERT(pindices->type == TA_INT);
 
@@ -954,7 +954,7 @@ static void ta_type_update_string(Tcl_Obj *o)
              * be required 
              */
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            register ba_t ba = *baP;
+            register ba_t ba;
             register ba_t ba_mask;
 
             /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
@@ -967,6 +967,7 @@ static void ta_type_update_string(Tcl_Obj *o)
             cP += n;
             n = count / BA_UNIT_SIZE;
             for (i = 0; i < n; ++i, ++baP) {
+                ba = *baP;
                 for (ba_mask = BITPOSMASK(0); ba_mask ; ba_mask = BITMASKNEXT(ba_mask)) {
                     *cP++ = (ba & ba_mask) ? '1' : '0';
                     *cP++ = ' ';
@@ -2099,10 +2100,12 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
  * not use this to pick whether a single index or a list was specified
  * if it impacts their semantics.
  */
-int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
-                           int want_sorted,
-                           thdr_t **thdrP, /* Cannot be NULL */
-                           int *pindex)    /* Can be NULL */
+int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
+                      int want_sorted,
+                      int end,        /* Value to use for "end",
+                                         ignored if pindex == NULL */
+                      thdr_t **thdrP, /* Cannot be NULL */
+                      int *pindex)    /* Can be NULL */
 {
     thdr_t *thdr;
     Tcl_Obj **elems;
@@ -2140,6 +2143,11 @@ int tcol_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
             *pindex = n;
             return TA_INDEX_TYPE_INT;
         }
+        if (ta_strequal(Tcl_GetString(o), "end")) {
+            *pindex = end;
+            return TA_INDEX_TYPE_INT;
+        }
+
         /* else fall through to try as list */
     }
 
@@ -2332,12 +2340,14 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
             /* Not a range, either a list or single index */
             thdr_t *pindices;
             /* Note status is TCL_OK at this point */
-            switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
+            switch (ta_obj_to_indices(ip, indexa, 1, thdr->used-1,
+                                      &pindices, &low)) {
             case TA_INDEX_TYPE_ERROR:
                 status = TCL_ERROR;
                 break;
             case TA_INDEX_TYPE_INT:
-                thdr_delete_range(thdr, low, 1);
+                if (low >= 0) 
+                    thdr_delete_range(thdr, low, 1);
                 break;
             case TA_INDEX_TYPE_THDR:
                 thdr_delete_indices(thdr, pindices);
@@ -2386,7 +2396,7 @@ TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
-    int low, count;
+    int low, count, nelems;
     int status;
     ta_value_t value;
 
@@ -2398,9 +2408,9 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                                      tcol_type(tcol), &value)) != TCL_OK)
         return status;
 
+    nelems = tcol_occupancy(tcol);
     if (indexb) {
-        status = ta_fix_range_bounds(ip, tcol_occupancy(tcol), indexa,
-                                         indexb, &low, &count);
+        status = ta_fix_range_bounds(ip, nelems, indexa, indexb, &low, &count);
         if (status == TCL_OK && count != 0) {
             status = tcol_make_modifiable(ip, tcol, low+count, 0);
             if (status == TCL_OK)
@@ -2410,12 +2420,12 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
         /* Not a range, either a list or single index */
         thdr_t *pindices;
         /* Note status is TCL_OK at this point */
-        switch (tcol_to_indices(ip, indexa, 1, &pindices, &low)) {
+        switch (ta_obj_to_indices(ip, indexa, 1, nelems-1, &pindices, &low)) {
         case TA_INDEX_TYPE_ERROR:
             status = TCL_ERROR;
             break;
         case TA_INDEX_TYPE_INT:
-            if (low < 0 || low > tcol_occupancy(tcol)) {
+            if (low < 0 || low > nelems) {
                 ta_index_range_error(ip, low);
                 status = TCL_ERROR;
             } else {
@@ -2565,7 +2575,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    if (tcol_to_indices(ip, oindices, 0, &pindices, NULL)
+    if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL)
         != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
@@ -2609,7 +2619,7 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
     if (psrc->type != thdr->type)
         return ta_mismatched_types_error(ip, thdr->type, psrc->type);
 
-    if (tcol_to_indices(ip, oindices, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
+    if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
     status = TCL_OK;

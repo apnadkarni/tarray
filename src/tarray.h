@@ -213,8 +213,8 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, int init_size);
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *intepr, int tatype,
                              int nelems, Tcl_Obj * const elems[]);
 TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP);
-int tcol_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
-                           int want_sorted, thdr_t **thdrP, int *pindex);
+int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
+                      int want_sorted, int end, thdr_t **thdrP, int *pindex);
 #define TA_INDEX_TYPE_ERROR 0
 #define TA_INDEX_TYPE_INT   1
 #define TA_INDEX_TYPE_THDR 2
@@ -329,6 +329,12 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
 /*
  *  Inlined functions
  */
+TA_INLINE int ta_strequal(const char *a, const char *b)
+{
+    /* Note a[0] may be == b[0] == \0 so do not pass a+1, b+1 to strcmp */
+    return a[0] == b[0] && strcmp(a, b) == 0;
+}
+
 TA_INLINE void thdr_incr_refs(thdr_t *thdr)  { thdr->nrefs++; }
 TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
     if (thdr->nrefs-- <= 1) thdr_free(thdr);
