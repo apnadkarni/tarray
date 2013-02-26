@@ -240,14 +240,67 @@ namespace eval tarray::test {
         set n -1
         foreach i {1 7 8 9 31 32 33 63 64 65 254} {
             test column-delete-$type-4.[incr n] {
-                Test deletion of intermediate element
+                Test deletion of intermediate element (shared tclobj)
             } -body {
                 set ta [tarray::column create $type $known]
                 tarray::column delete $ta $i
             } -result [rep $type [concat [lrange $known 0 $i-1] [lrange $known $i+1 end]]] -match tarray
+
+            test column-delete-$type-4.[incr n] {
+                Test deletion of intermediate element (unshared tclobj)
+            } -body {
+                tarray::column delete [tarray::column create $type $known] $i
+            } -result [rep $type [concat [lrange $known 0 $i-1] [lrange $known $i+1 end]]] -match tarray
         }
+
+        test column-delete-$type-5.0 {
+            Test deletion of out-of-range index
+        } -body {
+            tarray::column delete [tarray::column create $type $known] [expr {[llength $known] + 10}]
+        } -result [rep $type $known] -match tarray
+
+        test column-delete-$type-5.1 {
+            Test deletion of out-of-range index (+1)
+        } -body {
+            tarray::column delete [tarray::column create $type $known] [llength $known]
+        } -result [rep $type $known] -match tarray
+
+        test column-delete-$type-5.2 {
+            Test deletion of negative index
+        } -body {
+            tarray::column delete [tarray::column create $type $known] -1
+        } -result [rep $type $known] -match tarray
+
+        test column-delete-$type-5.3 {
+            Test deletion of invalid syntax index
+        } -body {
+            tarray::column delete [tarray::column create $type $known] nonintsyntax
+        } -returnCodes error -match glob -result *
+
+        test column-delete-$type-6.0 {
+            Test deletion of element from single element column (shared)
+        } -body {
+            set ta [tarray::column create $type [lrange $known 0 0]]
+            tarray::column delete $ta 0
+        } -result [rep $type {}] -match tarray
+
+        test column-delete-$type-6.1 {
+            Test deletion of element from single element column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type [lrange $known 0 0]] end
+        } -result [rep $type {}] -match tarray
+
+        test column-delete-$type-7.0 {
+            Test attempt to delete element from empty column (shared)
+        } -body {
+            set ta [tarray::column create $type {}]
+            tarray::column delete $ta 0
+        } -result [rep $type {}] -match tarray
+
+        test column-delete-$type-7.1 {
+            Test deletion of invalid index from empty column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type {}] -1
+        } -result [rep $type {}] -match tarray
     }
-
-    
-
 }
