@@ -1,148 +1,7 @@
 # TBD - shared obj tests should check original object not modified
 # TBD - tests that traces are triggered
-package require Tcl 8.5
-package require platform
-package require tcltest
-namespace eval tarray::test {
-    set topdir [file dirname [file dirname [file normalize [info script]]]]
-    set pkgdir [file join $topdir build lib tarray]
-    if {[file exists [file join $pkgdir pkgIndex.tcl]]} {
-        set auto_path [linsert $auto_path 0 $pkgdir]
-    }
 
-    proc validate {ta} {
-        if {[llength $ta] != 3 ||
-            [lindex $ta 0] ne "tarray" ||
-            [lindex $ta 1] ni {any byte boolean double int uint wide}} {
-            error "Value [string range $ta 0 40]... is not a tarray"
-        }
-    }
-    tcltest::customMatch tarray tarray::test::tarray_compare
-    proc tarray_compare {a b} {
-        validate $a
-        validate $b
-
-        lassign $a _ atype avals
-        lassign $b _ btype bvals
-        if {$atype ne $btype} {
-            error "Tarray types $atype and $btype do not match"
-        }
-
-        if {[llength $avals] != [llength $bvals]} {
-            return 0
-        }
-
-        switch -exact -- $atype {
-            boolean {
-                foreach aval $avals bval $bvals {
-                    if {!$aval != !$bval} { return 0 }
-                }
-            }
-            any {
-                foreach aval $avals bval $bvals {
-                    if {$aval ne $bval} { return 0 }
-                }
-            }
-            default {
-                foreach aval $avals bval $bvals {
-                    if {$aval != $bval} { return 0 }
-                }
-            }
-        }
-
-        return 1
-    }
-
-
-    ################################################################
-    # Define standard data used in tests
-
-    #
-    # Common list with known values that can be used for multiple types
-    # used to initialize various tarrays in tests
-    variable known
-    set known [list ]
-    set i -1
-    time {lappend known [incr i]} 256; # 0-255 -> So suitable for byte type
-
-    #
-    # Define the valid values
-    variable counts {0 1 2 7 8 15 16 17 31 32 33 63 64 65 1001 32567 32568 100000}
-    variable good
-    foreach count $counts {
-        # Booleans. Note the unaligned patterns are important
-        foreach pat {0 1 01 10 011 010 1001 1100 11000011 101010101} {
-            lappend good(boolean) [lrepeat $count {*}[split $pat ""]]
-        }
-        # [time] is nothing but a repeat mechanism
-
-        # doubles
-        set i 0.5
-        set l [list 0.0]
-        time {lappend l $i; set i [expr {$i * -1.0001}]} $count
-        lappend good(double) $l
-        lappend good(any) $l
-        
-        # ints
-        set i 0
-        set l {}
-        time {lappend l [expr {$i & 1 ? -$i : $i}]; incr i} $count
-        lappend good(int) $l
-        lappend good(any) $l
-
-        # uints
-        set i -1
-        set l {}
-        time {lappend l [incr i]} $count
-        lappend good(uint) $l
-        lappend good(any) $l
-
-        # Byte
-        set i -1
-        set l {}
-        time {lappend l [expr {[incr i] & 0xff}]} $count
-        lappend good(byte) $l
-        lappend good(any) $l
-        
-        # wides
-        set i 0
-        set l {}
-        time {lappend l [expr {$i & 1 ? -($i*$i) : ($i*$i)}]; incr i} $count
-        lappend good(wide) $l
-        lappend good(any) $l
-    }
-
-    # Differently formatted valid values
-    lappend good(boolean) {0 1 5 -5 -1 1.0 1e0 -1e2 true false TRUE FALSE t f T F y n Y N yes no YES NO on off ON OFF}
-    lappend good(int) {0 1 -1 0xdef -0xabc  012 -077}
-    lappend good(uint) {0 1 0xdef  0xffffffff 0x80000000 012}
-    lappend good(byte) {0 1 0xff 0x80 012}
-    lappend good(wide) {0 1 -1 0xdef -0xabc  0x1ffffffff -0x1ffffffff 012 -077 }
-    lappend good(double) {0 1 0.0 1.1 0x2 -0x3 011 -022 -1.1 1e10 1e-10 2.2e20 -3.3e-30 Inf -Inf}
-
-    #
-    # Invalid values. Note Unlike the good array, the bad array holds
-    # a single list of bad values as they have to be checked one at a time
-    # Note booleans are anything accepted by Tcl_GetBooleanFromObj which
-    # is different from [string is boolean] which does not accept arbitrary
-    # numerics.
-    variable bad
-    set bad(boolean) {abc}
-    set bad(byte) {abc -1 256 1.0 1e0 true}
-    set bad(int) {abc 1e1 0x1ffffffff false}
-    set bad(uint) {abc -1 0x1ffffffff 1.0 1e0 true}
-    set bad(wide) {abc 18446744073709551616 false}
-    set bad(double) {abc true}
-
-    ################################################################
-    # Utility functions
-
-    proc rep {type values} {
-        return [list tarray $type $values]
-    }
-}
-
-package require tarray
+source testutil.tcl
 
 namespace eval tarray::test {
     namespace import ::tcltest::test
@@ -855,7 +714,6 @@ namespace eval tarray::test {
             tarray::column delete [tarray::column create $type $known] 0 foo
         } -returnCodes error -match glob -result *
 
-
         test column_delete-range-$type-6.0 {
             Test deletion of all indices from column (shared)
         } -body {
@@ -902,4 +760,6 @@ namespace eval tarray::test {
             tarray::column delete [tarray::column create $type $known] 32 32
         } -result [rep $type [concat [lrange $known 0 31] [lrange $known 33 end]]] -match tarray
     }
+
+    ::tcltest::cleanupTests
 }
