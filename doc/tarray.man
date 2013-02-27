@@ -69,7 +69,9 @@ size allocated may differ.
 [call [cmd "column delete"] [arg COLUMN] [arg INDEXLIST]]
 [call [cmd "column delete"] [arg COLUMN] [arg LOW] [arg HIGH]]
 Returns a typed column with all specified elements deleted. 
-Indices are specified in any of the forms described in [sectref Indices].
+Indices are specified in any of the forms described in [sectref Indices]
+and may contain duplicates.
+Out-of-range indices are ignored.
 
 [call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg INDEX]]
 [call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg INDEXLIST]]
@@ -176,7 +178,9 @@ Deletes elements from the typed array column in variable [arg COLUMNVAR].
 The new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
-Indices are specified in any of the forms described in [sectref Indices].
+Indices are specified in any of the forms described in [sectref Indices]
+and may contain duplicates.
+Out-of-range indices are ignored.
 
 [call [cmd "column vfill"] [arg COLUMNVAR] [arg VALUE] [arg INDEX]]
 [call [cmd "column vfill"] [arg COLUMNVAR] [arg VALUE] [arg INDEXLIST]]
