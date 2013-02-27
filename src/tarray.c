@@ -390,17 +390,21 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
  * "end" is treated nelems-1 (ie. last index)
  * high has to be 0-INT_MAX
  * if (high < low) count is returned as 0 (not an error)
+ * Negative indices treated as 0
  */
 TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount)
 {
     int low, high;
 
-    if (ta_convert_index(ip, olow, &low, nelems-1, 0, nelems) != TCL_OK)
+    if (ta_convert_index(ip, olow, &low, nelems-1, INT_MIN, nelems) != TCL_OK)
         return TCL_ERROR;
 
-    if (ta_convert_index(ip, ohigh, &high, nelems-1, 0, INT_MAX) != TCL_OK)
+    /* We allow -1 in case nelems == 0, since 'end' will then return -1 */
+    if (ta_convert_index(ip, ohigh, &high, nelems-1, -1, INT_MAX) != TCL_OK)
         return TCL_ERROR;
 
+    if (low < 0)
+        low = 0;
     *plow = low;
     if (high < low)
         *pcount = 0;            /* This is how lrange behaves */
