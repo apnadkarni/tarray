@@ -400,10 +400,11 @@ namespace eval tarray::test {
         test column_delete-indices-$type-3.2 {
             Test deletion of intermediate (shared tclobj, random order)
         } -body {
+            # Note duplicate
             set indices {1 254 64 33 7 65 8 33 9 31 32 63}
             set l2 $known
-            # Deletion must take place back to front
-            foreach i [lsort -integer -decreasing $indices] {
+            # Deletion must take place back to front. -unique to remove dups
+            foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
             set ta [tarray::column create $type $known]
@@ -444,10 +445,11 @@ namespace eval tarray::test {
         test column_delete-indices-$type-4.2 {
             Test deletion of out-of-range (shared, random indices)
         } -body {
+            # Note duplicate 33
             set indices {1 254 64 33 7 65 8 33 9 31 32 63}
             set l2 $known
             # Deletion must take place back to front
-            foreach i [lsort -integer -decreasing $indices] {
+            foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
             set i [llength $known]
@@ -529,6 +531,6 @@ namespace eval tarray::test {
             Delete duplicate indices (unshared)
         } -body {
             tarray::column delete [tarray::column create $type $known] {4 4}
-        } -result [rep $type [concat [lrange $known 0 3] [lrange $known 4 end]]] -match tarray
+        } -result [rep $type [concat [lrange $known 0 3] [lrange $known 5 end]]] -match tarray
     }
 }
