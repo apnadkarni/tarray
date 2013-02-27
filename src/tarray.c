@@ -1603,8 +1603,8 @@ void thdr_delete_range(thdr_t *thdr, int first, int count)
 
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
 {
-    int i;
-    int *pindex;
+    int prev;
+    int *pindex, *plimit;
 
     TA_ASSERT(pindices->type == TA_INT);
 
@@ -1614,29 +1614,33 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
      */
     TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
     
-    /*
-     * TBD - this will be desperately slow. Fix
-     */
+    /* TBD - this will be desperately slow. Fix */
     
     /* We always want to delete back to front. However the index array
      * may be presorted in any direction. So check and loop accordingly
+     * Because duplicates might be present, we keep track of last deleted
+     * index in variable prev.
      */
-    i = pindices->used;
+    if (pindices->used == 0)
+        return;
     if (pindices->sort_order == THDR_SORTED_ASCENDING) {
         /* Sort order is ascending so iterate index array back to front */
-        pindex = THDRELEMPTR(pindices, int, pindices->used-1 );
-        while (i--) {
-            if (*pindex >= 0 && *pindex < thdr->used)
+        plimit = THDRELEMPTR(pindices, int, 0);
+        pindex = plimit + pindices->used - 1;
+        prev = *pindex + 1;     /* Dummy value for first iteration */
+        for ( ; pindex >= plimit; --pindex) {
+            if (*pindex != prev && *pindex >= 0 && *pindex < thdr->used)
                 thdr_delete_range(thdr, *pindex, 1);
-            --pindex;
+            prev = *pindex;
         }
     } else {
         /* Sort order is descending so iterate index array front to back */
         pindex = THDRELEMPTR(pindices, int, 0);
-        while (i--) {
-            if (*pindex >= 0 && *pindex < thdr->used)
+        prev = *pindex + 1;     /* Dummy value for first iteration */
+        for (plimit = pindex + pindices->used - 1; pindex <= plimit; ++pindex) {
+            if (*pindex != prev && *pindex >= 0 && *pindex < thdr->used)
                 thdr_delete_range(thdr, *pindex, 1);
-            ++pindex;
+            prev = *pindex;
         }
     }
 }
