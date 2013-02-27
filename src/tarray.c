@@ -372,7 +372,7 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
     }
 
     if (Tcl_GetIntFromObj(NULL, o, &val) != TCL_OK) {
-        if (ta_strequal(Tcl_GetString(o), "end"))
+        if (! ta_strequal(Tcl_GetString(o), "end"))
             return ta_index_error(ip, o);
         val = end_value;
     }
