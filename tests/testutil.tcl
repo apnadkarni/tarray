@@ -17,8 +17,10 @@ if {![info exists tarray::test::known]} {
                 error "Value [string range $ta 0 40]... is not a tarray"
             }
         }
-        tcltest::customMatch tarray tarray::test::tarray_compare
-        proc tarray_compare {a b} {
+
+        # Test two columns for equality
+        tcltest::customMatch column tarray::test::cequal
+        proc cequal {a b} {
             validate $a
             validate $b
 
@@ -53,6 +55,10 @@ if {![info exists tarray::test::known]} {
             return 1
         }
 
+        # Compare a column and a list for equality
+        proc clequal {col type l} {
+            return [cequal $col [crep $type $l]]
+        }
 
         ################################################################
         # Define standard data used in tests
@@ -137,7 +143,8 @@ if {![info exists tarray::test::known]} {
         ################################################################
         # Utility functions
 
-        proc rep {type values} {
+        # Manufacture the column-equivalent rep of a list
+        proc crep {type values} {
             return [list tarray $type $values]
         }
     }
