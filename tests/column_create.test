@@ -1,0 +1,50 @@
+# tarray creation
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+
+    # Tests for creating empty tarrays
+    foreach type {any boolean byte double int uint wide} {
+        test column-create-$type-1.0 {
+            Test creation of empty column
+        } -body {
+            tarray::column create $type
+        } -result [rep $type {}]
+        test column-create-$type-1.1 {
+            Test creation of empty column with preallocation
+        } -body {
+            tarray::column create $type {} 1000
+        } -result [rep $type {}]
+    }
+
+    #
+    # Tests for creating various lengths with valid values in standard format
+    foreach {type values} [array get good] {
+        set num -1
+        foreach value $values {
+            test column-create-$type-2.[incr num] {
+                Test creation of column with initializer
+            } -body {
+                tarray::column create $type $value
+            } -result [rep $type $value] -match column
+        }
+    }
+
+    #
+    # Tests for invalid types
+    foreach {type values} [array get bad] {
+        set num -1
+        foreach value $values {
+            test column-create-$type-3.[incr num] {
+                Test invalid values raise error in tarray creation
+            } -body {
+                tarray::column create $type [list $value]
+            } -result * -match glob -returnCodes error
+        }
+    }
+
+    ::tcltest::cleanupTests
+}
