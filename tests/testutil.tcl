@@ -77,7 +77,7 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 1000} {
+            if {$count == 2} {
                 foreach type {any boolean byte double int uint wide} {
                     set sample($type) [lindex $good($type) end]
                 }
