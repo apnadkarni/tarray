@@ -463,7 +463,7 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
 
     switch (tatype) {
     case TA_BOOLEAN:
-        if (status = (Tcl_GetBooleanFromObj(ip, o, &i)) == TCL_OK)
+        if ((status = Tcl_GetBooleanFromObj(ip, o, &i)) == TCL_OK)
             ptav->bval = (i != 0);
         break;
     case TA_BYTE: status = ta_get_byte_from_obj(ip, o, &ptav->ucval); break;
