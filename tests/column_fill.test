@@ -1,0 +1,744 @@
+# column fill tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    # Pick a fill value for each type
+    array set fills {
+        boolean 1
+        int     -2013
+        uint    1729
+        byte    175
+        wide    549755813887
+        double  6.022e23
+        any     "anything at all"
+    }
+
+    proc filltest {type init expected args} {
+        variable fills
+        return [change_and_verify_col $type $init fill [linsert $args 0 $fills($type)] $expected]
+    }
+
+    # Note two general types of tests - via a temp variable and directly
+    # from the create return value. The difference is that in the
+    # former case the value ref count is > 1, and the object needs to
+    # be dup'ed while in the latter the ref count is 1 and the called
+    # command can directly use it.
+    # Also, when modifying a temp variable tests have to confirm that
+    # the original is not modified
+
+    #
+    # column delete index
+
+    foreach type {boolean any byte double int uint wide} {
+
+        test column_fill-index-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            filltest $type {} [list $fills($type)] 0
+        } -result 0
+
+        test column_fill-index-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column fill [tarray::column create $type {}] $fills($type) 0
+        } -result [crep $type [list $fills($type)]] -match column
+
+        test column_fill-index-$type-1.2 {
+            Index end not allowed when column is empty
+        } -body {
+            tarray::column fill [tarray::column create $type {}] $fills($type) end
+        } -result * -match glob -returnCodes error
+
+        test column_fill-index-$type-2.0 {
+            Fill an non-empty column with a single element (shared)
+        } -body {
+            filltest $type $sample($type) [lreplace $sample($type) 0 0 $fills($type)] 0
+        } -result 0
+
+        test column_fill-index-$type-2.1 {
+            Fill non-empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) 0
+        } -result [crep $type [lreplace $sample($type) 0 0 $fills($type)]] -match column
+
+        test column_fill-index-$type-2.2 {
+            Fill end element in non-empty column
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) end
+        } -result [crep $type [lreplace $sample($type) end end $fills($type)]] -match column
+
+        test column_fill-index-$type-2.3 {
+            Extend non-empty column
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) [llength $sample($type)]
+        } -result [crep $type [linsert $sample($type) end $fills($type)]] -match column
+
+        test column_fill-index-$type-2.4 {
+            Negative index end not allowed
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) -1
+        } -result * -match glob -returnCodes error
+
+        test column_fill-index-$type-2.5 {
+            Out of range index end not allowed
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) [expr {[llength $sample($type)]+1}]
+        } -result * -match glob -returnCodes error
+
+        test column_fill-index-$type-2.6 {
+            Fill intermediate element in non-empty column
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) [expr {([llength $sample($type)]+1)/2}]
+        } -result [crep $type [lreplace $sample($type) [expr {([llength $sample($type)]+1)/2}] [expr {([llength $sample($type)]+1)/2}] $fills($type)]] -match column
+
+        test column_fill-index-$type-2.7 {
+            Invalid syntax index not allowed
+        } -body {
+            tarray::column fill [tarray::column create $type $sample($type)] $fills($type) badsyntax
+        } -result * -match glob -returnCodes error
+
+        # TBD - extend size of array
+        # TBD - fill to end should be till last element only
+        # TBD - negative indices
+        # TBD - when extending intermediate indices should also be specified
+        # TBD - 
+        # TBD - 
+        # TBD - 
+        # TBD - 
+        # TBD - 
+        # TBD - 
+        # TBD - 
+
+
+
+        test column_delete-index-$type-5.3 {
+            Test deletion of invalid syntax index
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] nonintsyntax
+        } -returnCodes error -match glob -result *
+
+        test column_delete-index-$type-6.0 {
+            Test deletion of element from single element column (shared)
+        } -body {
+            change_and_verify_col $type [list 100] delete 0 {}
+        } -result 0
+
+        test column_delete-index-$type-6.1 {
+            Test deletion of element from single element column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type [lrange $sample($type) 0 0]] end
+        } -result [crep $type {}] -match column
+
+        test column_delete-index-$type-7.0 {
+            Test attempt to delete element from empty column (shared)
+        } -body {
+            change_and_verify_col $type {} delete 0 {}
+        } -result 0
+
+        test column_delete-index-$type-7.1 {
+            Test deletion of invalid index from empty column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type {}] -1
+        } -result [crep $type {}] -match column
+    }
+
+    #
+    # column delete index list
+
+    foreach type {boolean any byte double int uint wide} {
+
+        test column_delete-indexlist-$type-1.0 {
+            Test deletion of leading elements (shared tclobj)
+        } -body {
+            change_and_verify_col $type $sample($type) delete [list {0 1 2}] [lrange $sample($type) 3 end]
+        } -result 0 
+
+        test column_delete-indexlist-$type-1.1 {
+            Test deletion of leading elements (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] {0 1 2}
+        } -result [crep $type [lrange $sample($type) 3 end]] -match column
+
+        test column_delete-indexlist-$type-1.2 {
+            Test deletion of leading elements (shared tclobj, out of order)
+        } -body {
+            change_and_verify_col $type $sample($type) delete [list {0 2 1 3}] [lrange $sample($type) 4 end]
+        } -result 0
+
+        test column_delete-indexlist-$type-1.3 {
+            Test deletion of leading elements (unshared tclobj, reverse order)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] {2 1 0}
+        } -result [crep $type [lrange $sample($type) 3 end]] -match column
+
+        test column_delete-indexlist-$type-2.0 {
+            Test deletion of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -2
+            change_and_verify_col $type $sample($type) delete [list [list $i [incr i]]] [lrange $sample($type) 0 end-2]
+        } -result 0
+
+        test column_delete-indexlist-$type-2.1 {
+            Test deletion of trailing elements (unshared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -3
+            tarray::column delete [tarray::column create $type $sample($type)] [list $i [incr i] [incr i]] 
+        } -result [crep $type [lrange $sample($type) 0 end-3]] -match column
+
+        test column_delete-indexlist-$type-2.2 {
+            Test deletion of trailing elements (shared tclobj, out of order)
+        } -body {
+            set i [llength $sample($type)]
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [list [incr i -1] [incr i -2] [incr i]]] [lrange $sample($type) 0 end-3]
+        } -result 0
+
+        test column_delete-indexlist-$type-2.3 {
+            Test deletion of trailing elements (unshared tclobj, reverse order)
+        } -body {
+            set i [llength $sample($type)]
+            tarray::column delete [tarray::column create $type $sample($type)] [list [incr i -1] [incr i -1] [incr i -1]]
+        } -result [crep $type [lrange $sample($type) 0 end-3]] -match column
+
+        test column_delete-indexlist-$type-3.0 {
+            Test deletion of intermediate (shared tclobj, ordered)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [lsort -increasing -integer $indices]] $l2
+        } -result 0
+
+        test column_delete-indexlist-$type-3.1 {
+            Test deletion of intermediate (unshared tclobj, reverse order)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] [lsort -decreasing -integer $indices]] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indexlist-$type-3.2 {
+            Test deletion of intermediate (shared tclobj, random order)
+        } -body {
+            # Note duplicate
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            # Deletion must take place back to front. -unique to remove dups
+            foreach i [lsort -integer -decreasing -unique $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list $indices] $l2
+        } -result 0
+
+
+        test column_delete-indexlist-$type-4.0 {
+            Test deletion of out-of-range (unshared, increasing indices)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set i [llength $sample($type)]
+            set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
+            lappend indices -1
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] [lsort -increasing -integer $indices]] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indexlist-$type-4.1 {
+            Test deletion of out-of-range (unshared, reverse indices)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set i [llength $sample($type)]
+            set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
+            lappend indices -1
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] [lsort -decreasing -integer $indices]] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indexlist-$type-4.2 {
+            Test deletion of out-of-range (shared, random indices)
+        } -body {
+            # Note duplicate 33
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing -unique $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set i [llength $sample($type)]
+            set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
+            lappend indices -1
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] $indices] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indexlist-$type-5.0 {
+            Test deletion of invalid syntax indices
+        } -body {
+            set indices {1 notinteger 63}
+            tarray::column delete [tarray::column create $type $sample($type)] $indices
+        } -returnCodes error -match glob -result *
+
+        test column_delete-indexlist-$type-5.1 {
+            Test deletion of end keyword
+        } -body {
+            # Note "end" is invalid in a index list
+            set indices {1 end 63}
+            tarray::column delete [tarray::column create $type $sample($type)] $indices
+        } -returnCodes error -match glob -result *
+
+        test column_delete-indexlist-$type-6.0 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set i -1
+            set indices {}
+            time {lappend indices [incr i]} 256
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l]
+            change_and_verify_col $type $l delete [list $indices] {}
+        } -result 0
+
+        test column_delete-indexlist-$type-6.1 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set i -1
+            set indices {}
+            time {lappend indices [incr i]} 256
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l]
+            change_and_verify_col $type $l delete [list [lsort -integer -decreasing $indices]] {}
+        } -result 0
+
+        test column_delete-indexlist-$type-6.2 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l]
+            change_and_verify_col $type $l delete [list {0 1 2 3}] {}
+        } -result 0
+
+        test column_delete-indexlist-$type-6.3 {
+            Test deletion of all indices from column (unshared, random order)
+        } -body {
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l]
+            change_and_verify_col $type $l delete [list {1 0 3 2}] {}
+        } -result 0
+
+        test column_delete-indexlist-$type-7.0 {
+            Test attempt to delete element from empty column (shared)
+        } -body {
+            set ta [tarray::column create $type {}]
+            change_and_verify_col $type {} delete [list {0 1 2}] {}
+        } -result 0
+
+        test column_delete-indexlist-$type-7.1 {
+            Test attempt to delete element from empty column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type {}] {0 2 1}
+        } -result [crep $type {}] -match column
+
+        test column_delete-indexlist-$type-8.0 {
+            Delete duplicate indices (shared)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list {0 0 1}] [lrange $sample($type) 2 end]
+        } -result 0
+
+        test column_delete-indexlist-$type-8.1 {
+            Delete duplicate indices (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] {4 4}
+        } -result [crep $type [concat [lrange $sample($type) 0 3] [lrange $sample($type) 5 end]]] -match column
+    }
+
+    #
+    # column delete indicesarray
+
+    foreach type {boolean any byte double int uint wide} {
+
+        test column_delete-indices-$type-1.0 {
+            Test deletion of leading elements (shared tclobj)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [tarray::column create int {0 1}]] [lrange $sample($type) 2 end]
+        } -result 0
+
+        test column_delete-indices-$type-1.1 {
+            Test deletion of leading elements (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] [tarray::column create int {0 1 2}]
+        } -result [crep $type [lrange $sample($type) 3 end]] -match column
+
+        test column_delete-indices-$type-1.2 {
+            Test deletion of leading elements (shared tclobj, out of order)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [tarray::column create int {0 2 1 3}]] [lrange $sample($type) 4 end]
+        } -result 0
+
+        test column_delete-indices-$type-1.3 {
+            Test deletion of leading elements (unshared tclobj, reverse order)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] [tarray::column create int {2 1 0}]
+        } -result [crep $type [lrange $sample($type) 3 end]] -match column
+
+        test column_delete-indices-$type-2.0 {
+            Test deletion of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -2
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [tarray::column create int [list $i [incr i]]]] [lrange $sample($type) 0 end-2]
+        } -result 0
+
+        test column_delete-indices-$type-2.1 {
+            Test deletion of trailing elements (unshared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -3
+            tarray::column delete [tarray::column create $type $sample($type)] [tarray::column create int [list $i [incr i] [incr i]] ]
+        } -result [crep $type [lrange $sample($type) 0 end-3]] -match column
+
+        test column_delete-indices-$type-2.2 {
+            Test deletion of trailing elements (shared tclobj, out of order)
+        } -body {
+            set i [llength $sample($type)]
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [tarray::column create int [list [incr i -1] [incr i -2] [incr i]]]] [lrange $sample($type) 0 end-3]
+        } -result 0
+
+        test column_delete-indices-$type-2.3 {
+            Test deletion of trailing elements (unshared tclobj, reverse order)
+        } -body {
+            set i [llength $sample($type)]
+            tarray::column delete [tarray::column create $type $sample($type)] [tarray::column create int [list [incr i -1] [incr i -1] [incr i -1]]]
+        } -result [crep $type [lrange $sample($type) 0 end-3]] -match column
+
+        test column_delete-indices-$type-3.0 {
+            Test deletion of intermediate (shared tclobj, ordered)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set ta [tarray::column create $type $sample($type)]
+            # Explicitly order indices
+            set indices [tarray::column sort [tarray::column create int $indices]]
+            change_and_verify_col $type $sample($type) delete [list $indices] $l2
+        } -result 0
+
+        test column_delete-indices-$type-3.1 {
+            Test deletion of intermediate (unshared tclobj, reverse order)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set indices [tarray::column sort -decreasing [tarray::column create int $indices]]
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] $indices] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indices-$type-3.2 {
+            Test deletion of intermediate (shared tclobj, random order)
+        } -body {
+            # Note duplicate
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            # Deletion must take place back to front. -unique to remove dups
+            foreach i [lsort -integer -decreasing -unique $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [tarray::column create int $indices]] $l2
+        } -result 0
+
+        test column_delete-indices-$type-4.0 {
+            Test deletion of out-of-range (unshared, increasing indices)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set i [llength $sample($type)]
+            set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
+            lappend indices -1
+            set indices [tarray::column sort -increasing [tarray::column create int $indices]]
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] $indices] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indices-$type-4.1 {
+            Test deletion of out-of-range (unshared, reverse indices)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set i [llength $sample($type)]
+            set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
+            lappend indices -1
+            set indices [tarray::column sort -decreasing [tarray::column create int $indices]]
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] $indices] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indices-$type-4.2 {
+            Test deletion of out-of-range (shared, random indices)
+        } -body {
+            # Note duplicate 33
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing -unique $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            set i [llength $sample($type)]
+            set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
+            lappend indices -1
+            cequal [tarray::column delete [tarray::column create $type $sample($type)] $indices] [crep $type $l2]
+        } -result 1
+
+        test column_delete-indices-$type-5.0 {
+            Test deletion of invalid syntax indices
+        } -body {
+            set indices {1 notinteger 63}
+            tarray::column delete [tarray::column create $type $sample($type)] $indices
+        } -returnCodes error -match glob -result *
+
+        test column_delete-indices-$type-5.1 {
+            Test deletion of end keyword
+        } -body {
+            # Note "end" is invalid in a index list
+            set indices {1 end 63}
+            tarray::column delete [tarray::column create $type $sample($type)] $indices
+        } -returnCodes error -match glob -result *
+
+        test column_delete-indices-$type-6.0 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set i -1
+            set indices {}
+            time {lappend indices [incr i]} 256
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l]
+            change_and_verify_col $type $l delete [list $indices] {}
+        } -result 0
+
+        test column_delete-indices-$type-6.1 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set i -1
+            set indices {}
+            time {lappend indices [incr i]} 256
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l]
+            change_and_verify_col $type $l delete [list [lsort -integer -decreasing $indices]] {}
+        } -result 0
+
+        test column_delete-indices-$type-6.2 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set l [lrange $sample($type) 0 3]
+            set ta [tarray::column create $type $l ]
+            change_and_verify_col $type $l delete [list [tarray::column create int {0 1 2 3}]] {}
+        } -result 0
+
+        test column_delete-indices-$type-6.2 {
+            Test deletion of all indices from column (unshared, random order)
+        } -body {
+            tarray::column delete [tarray::column create $type [lrange $sample($type) 0 3]] {1 0 3 2}
+        } -result [crep $type {}] -match column
+
+        test column_delete-indices-$type-7.0 {
+            Test attempt to delete element from empty column (shared)
+        } -body {
+            set ta [tarray::column create $type {}]
+            change_and_verify_col $type {} delete [list [tarray::column create int {0 1 2}]] {}
+        } -result 0
+
+        test column_delete-indices-$type-7.1 {
+            Test attempt to delete element from empty column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type {}] {0 2 1}
+        } -result [crep $type {}] -match column
+
+        test column_delete-indices-$type-8.0 {
+            Delete duplicate indices (shared)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list [tarray::column create int {0 0 1}]] [lrange $sample($type) 2 end]
+        } -result 0
+
+        test column_delete-indices-$type-8.1 {
+            Delete duplicate indices (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] {4 4}
+        } -result [crep $type [concat [lrange $sample($type) 0 3] [lrange $sample($type) 5 end]]] -match column
+    }
+
+
+    #
+    # column delete range
+
+    foreach type {boolean any byte double int uint wide} {
+
+        test column_delete-range-$type-1.0 {
+            Test deletion of leading elements (shared tclobj)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete {0 1} [lrange $sample($type) 2 end]
+        } -result 0
+
+        test column_delete-range-$type-1.1 {
+            Test deletion of leading elements (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] 0 63
+        } -result [crep $type [lrange $sample($type) 64 end]] -match column
+
+        test column_delete-range-$type-2.0 {
+            Test deletion of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -1
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list 127 $i] [lrange $sample($type) 0 126]
+        } -result 0
+
+        test column_delete-range-$type-2.1 {
+            Test deletion of trailing elements (unshared tclobj, using end)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] 129 end
+        } -result [crep $type [lrange $sample($type) 0 128]] -match column
+
+        test column_delete-range-$type-3.0 {
+            Test deletion of intermediate (shared tclobj)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list 63 127] [concat [lrange $sample($type) 0 62] [lrange $sample($type) 128 end]]
+        } -result 0
+
+        test column_delete-range-$type-3.1 {
+            Test deletion of intermediate (unshared tclobj)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] 64 128
+        } -result [crep $type [concat [lrange $sample($type) 0 63] [lrange $sample($type) 129 end]]] -match column
+
+        test column_delete-range-$type-4.0 {
+            Test deletion of out-of-range (unshared)
+        } -body {
+            set i [llength $sample($type)]
+            tarray::column delete [tarray::column create $type $sample($type)] $i [incr i 10]
+        } -result [crep $type $sample($type)] -match column
+
+        test column_delete-range-$type-4.1 {
+            Test deletion of out-of-range (unshared, negative)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] -4 2
+        } -result [crep $type [lrange $sample($type) 3 end]] -match column
+
+        test column_delete-range-$type-4.2 {
+            Test deletion of out-of-range (unshared, partial)
+        } -body {
+            set i [llength $sample($type)]
+            tarray::column delete [tarray::column create $type $sample($type)] 130 [incr i 100]
+        } -result [crep $type [lrange $sample($type) 0 129]] -match column
+
+        test column_delete-range-$type-4.3 {
+            Test deletion of out-of-range (unshared, partial negative)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] -10 0
+        } -result [crep $type [lrange $sample($type) 1 end]] -match column
+
+        test column_delete-range-$type-4.4 {
+            Test deletion of reversed range limits
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] 60 40
+        } -result [crep $type $sample($type)] -match column
+
+        test column_delete-range-$type-5.0 {
+            Test deletion of invalid syntax start index
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] foo 10
+        } -returnCodes error -match glob -result *
+
+        test column_delete-range-$type-5.1 {
+            Test deletion of invalid syntax end index
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] 0 foo
+        } -returnCodes error -match glob -result *
+
+        test column_delete-range-$type-6.0 {
+            Test deletion of all indices from column (shared)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list 0 end] {}
+        } -result 0
+
+        test column_delete-range-$type-6.2 {
+            Test deletion of all indices from column (unshared, random order)
+        } -body {
+            set i [llength $sample($type)]
+            tarray::column delete [tarray::column create $type [lrange $sample($type) 0 3]] 0 [incr i -1]
+        } -result [crep $type {}] -match column
+
+        test column_delete-range-$type-7.0 {
+            Test attempt to delete element from empty column (shared)
+        } -body {
+            set ta [tarray::column create $type {}]
+            change_and_verify_col $type {} delete [list 0 0] {}
+        } -result 0
+
+        test column_delete-range-$type-7.1 {
+            Test attempt to delete element from empty column (unshared)
+        } -body {
+            tarray::column delete [tarray::column create $type {}] 0 end
+        } -result [crep $type {}] -match column
+
+        test column_delete-range-$type-8.0 {
+            Delete single element range (shared, leading)
+        } -body {
+            set ta [tarray::column create $type $sample($type)]
+            change_and_verify_col $type $sample($type) delete [list 0 0] [lrange $sample($type) 1 end]
+        } -result 0
+
+        test column_delete-range-$type-8.1 {
+            Delete single element range (unshared, trailing)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] end end
+        } -result [crep $type [lrange $sample($type) 0 end-1]] -match column
+
+        test column_delete-range-$type-8.1 {
+            Delete single element range (unshared, random)
+        } -body {
+            tarray::column delete [tarray::column create $type $sample($type)] 32 32
+        } -result [crep $type [concat [lrange $sample($type) 0 31] [lrange $sample($type) 33 end]]] -match column
+    }
+
+    ::tcltest::cleanupTests
+}
