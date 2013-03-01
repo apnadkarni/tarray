@@ -60,6 +60,22 @@ if {![info exists tarray::test::known]} {
             return [cequal $col [crep $type $l]]
         }
 
+        # Convenience proc to verify that result is as expected and original
+        # is not changed
+        proc compare_tcols_lists {type args} {
+            foreach {tcol l} $args {
+                if {! [clequal $tcol $type $l]} { return [incr ret] }
+            }
+            return 0
+        }
+
+        proc change_and_verify_col {type init op operands expected} {
+            set tcol [tarray::column create $type $init]
+            # Note we have to do the operation and *then* check that
+            # tcol is unchanged.
+            return [compare_tcols_lists $type [tarray::column $op $tcol {*}$operands] $expected $tcol $init]
+        }
+
         ################################################################
         # Define standard data used in tests
 
