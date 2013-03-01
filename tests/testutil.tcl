@@ -16,64 +16,82 @@ if {![info exists tarray::test::known]} {
         #
         # Common list with known values that can be used for multiple types
         # used to initialize various tarrays in tests
-        variable known
-        set known [list ]
-        set i -1
-        time {lappend known [incr i]} 256; # 0-255 -> So suitable for byte type
+        if {0} {
+            variable known
+            set known [list ]
+            set i -1
+            time {lappend known [incr i]} 256; # 0-255 -> So suitable for byte type
+        }
+
+        # TBD - really need to give more thought to test data sets. It is just
+        # scattershot right now
 
         #
         # Define the valid values
-        variable counts {0 1 2 7 8 15 16 17 31 32 33 63 64 65 1001 32567 32568 100000}
-        variable good
+        variable counts {0 1 2 7 8 15 16 17 31 32 33 63 64 65 256 1000 32567 32568 100000}
+        variable good;   # List of lists of valid values
+        variable sample; # Array indexed by type used in general tests
+        array set sample {}
         foreach count $counts {
             # Booleans. Note the unaligned patterns are important
             foreach pat {0 1 01 10 011 010 1001 1100 11000011 101010101} {
                 lappend good(boolean) [lrepeat $count {*}[split $pat ""]]
             }
+
+            set anyl {}
+
             # [time] is nothing but a repeat mechanism
 
             # doubles
             set i 0.5
             set l [list 0.0]
-            time {lappend l $i; set i [expr {$i * -1.0001}]} $count
+            time {lappend l $i; lappend anyl $i; set i [expr {$i * -1.0001}]} $count
             lappend good(double) $l
-            lappend good(any) $l
             
             # ints
             set i 0
             set l {}
-            time {lappend l [expr {$i & 1 ? -$i : $i}]; incr i} $count
+            time {set si [expr {$i & 1 ? -$i : $i}]; lappend l $si ; lappend anyl $si; incr i} $count
             lappend good(int) $l
-            lappend good(any) $l
 
             # uints
             set i -1
             set l {}
             time {lappend l [incr i]} $count
             lappend good(uint) $l
-            lappend good(any) $l
 
             # Byte
             set i -1
             set l {}
             time {lappend l [expr {[incr i] & 0xff}]} $count
             lappend good(byte) $l
-            lappend good(any) $l
             
             # wides
             set i 0
             set l {}
-            time {lappend l [expr {$i & 1 ? -($i*$i) : ($i*$i)}]; incr i} $count
+            time {set w [expr {$i & 1 ? -($i*$i) : ($i*$i)}] ; lappend l $w ; lappend anyl $w; incr i} $count
             lappend good(wide) $l
-            lappend good(any) $l
+
+            lappend good(any) $anyl
+
+            # Use 1000 value version as the sample values (arbitrary)
+            # Note for booleans this uses the 101010101 unaligned pattern which
+            # is what we want
+            if {$count == 1000} {
+                foreach type {any boolean byte double int uint wide} {
+                    set sample($type) [lindex $good($type) end]
+                }
+            }
         }
+
+
 
         # Differently formatted valid values
         lappend good(boolean) {0 1 5 -5 -1 1.0 1e0 -1e2 true false TRUE FALSE t f T F y n Y N yes no YES NO on off ON OFF}
-        lappend good(int) {0 1 -1 0xdef -0xabc  012 -077}
-        lappend good(uint) {0 1 0xdef  0xffffffff 0x80000000 012}
-        lappend good(byte) {0 1 0xff 0x80 012}
-        lappend good(wide) {0 1 -1 0xdef -0xabc  0x1ffffffff -0x1ffffffff 012 -077 }
+        lappend good(int) {0 1 -1 2147483647 -2147483648 0xdef -0xabc  012 -077}
+        lappend good(uint) {0 1 0xdef  0xffffffff 0x80000000 2147483648 4294967295 012}
+        lappend good(byte) {0 1 0xff 0x80 012 255}
+        lappend good(wide) {0 1 -1 0xdef -0xabc  0x1ffffffff -0x1ffffffff 012 -077 987654321098 -987654321098 9223372036854775807 -9223372036854775808}
         lappend good(double) {0 1 0.0 1.1 0x2 -0x3 011 -022 -1.1 1e10 1e-10 2.2e20 -3.3e-30 Inf -Inf}
 
         #
@@ -85,9 +103,9 @@ if {![info exists tarray::test::known]} {
         variable bad
         set bad(boolean) {abc}
         set bad(byte) {abc -1 256 1.0 1e0 true}
-        set bad(int) {abc 1e1 0x1ffffffff false}
-        set bad(uint) {abc -1 0x1ffffffff 1.0 1e0 true}
-        set bad(wide) {abc 18446744073709551616 false}
+        set bad(int) {abc 1e1 0x1ffffffff 4294967295 false}
+        set bad(uint) {abc -1 0x1ffffffff 987654321098 1.0 1e0 true}
+        set bad(wide) {abc 1e1 1.0 9223372036854775808 -9223372036854775809 false}
         set bad(double) {abc true}
 
         ################################################################
