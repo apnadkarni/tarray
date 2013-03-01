@@ -12,12 +12,12 @@ namespace eval tarray::test {
             Test creation of empty column
         } -body {
             tarray::column create $type
-        } -result [rep $type {}]
+        } -result [crep $type {}]
         test column-create-$type-1.1 {
             Test creation of empty column with preallocation
         } -body {
             tarray::column create $type {} 1000
-        } -result [rep $type {}]
+        } -result [crep $type {}]
     }
 
     #
@@ -29,7 +29,7 @@ namespace eval tarray::test {
                 Test creation of column with initializer
             } -body {
                 tarray::column create $type $value
-            } -result [rep $type $value] -match column
+            } -result [crep $type $value] -match column
         }
     }
 

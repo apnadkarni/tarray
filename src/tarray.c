@@ -359,7 +359,6 @@ void thdr_fill_ta_objs(thdr_t *thdr,
  */
 TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_value, int low, int high)
 {
-    char *s;
     int val;
 
     /* Do type checks to avoid expensive shimmering in case of errors */
@@ -2144,18 +2143,20 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         }
     }
 
-    /* To prevent shimmering, first check known to be a list */
-    if (o->typePtr != g_tcl_list_type_ptr && pindex != NULL) {
-        status = Tcl_GetIntFromObj(NULL, o, &n);
-        if (status == TCL_OK) {
-            *pindex = n;
-            return TA_INDEX_TYPE_INT;
+    /* If pindex is NULL, caller never wants to be treated as a single index */
+    if (pindex != NULL) {
+        /* To prevent shimmering, first check known to be a list */
+        if (o->typePtr != g_tcl_list_type_ptr && pindex != NULL) {
+            status = Tcl_GetIntFromObj(NULL, o, &n);
+            if (status == TCL_OK) {
+                *pindex = n;
+                return TA_INDEX_TYPE_INT;
+            }
+            if (ta_strequal(Tcl_GetString(o), "end")) {
+                *pindex = end;
+                return TA_INDEX_TYPE_INT;
+            }
         }
-        if (ta_strequal(Tcl_GetString(o), "end")) {
-            *pindex = end;
-            return TA_INDEX_TYPE_INT;
-        }
-
         /* else fall through to try as list */
     }
 
@@ -2163,6 +2164,18 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         ta_indices_error(ip, o);
         return TA_INDEX_TYPE_ERROR;
     }
+
+    /* Even as a list, it may be the single element "end". Check for that */
+    if (n == 1) {
+        if (ta_strequal(Tcl_GetString(elems[0]), "end")) {
+            if (pindex != NULL) {
+                *pindex = end;
+                return TA_INDEX_TYPE_INT;
+            }
+        }            
+    }
+    
+
 
     thdr = thdr_alloc_and_init(ip, TA_INT, n, elems, 0);
     if (thdr) {
