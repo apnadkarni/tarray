@@ -247,12 +247,27 @@ void ba_fill(ba_t *baP, int off, int count, int ival)
     baP += off / BA_UNIT_SIZE;
     bitpos = off % BA_UNIT_SIZE; /* Offset of bit within a char */
     if (bitpos != 0) {
-        if (ival)
-            *baP++ |= BITPOSMASKGE(bitpos);
-        else
-            *baP++ &= ~ BITPOSMASKGE(bitpos);
-        count -= (BA_UNIT_SIZE - bitpos);
+        if ((bitpos + count) >= BA_UNIT_SIZE) {
+            if (ival)
+                *baP++ |= BITPOSMASKGE(bitpos);
+            else
+                *baP++ &= ~ BITPOSMASKGE(bitpos);
+            count -= (BA_UNIT_SIZE - bitpos);
+        } else {
+            /* We have to preserve the top bits of this unit */
+            BA_ASSERT((count + bitpos) < BA_UNIT_SIZE); /* Note <, not <= */
+            if (ival) {
+                *baP |= BITPOSMASKGE(bitpos) & BITPOSMASKLT(bitpos+count);
+            } else {
+                *baP &= ~ (BITPOSMASKGE(bitpos) & BITPOSMASKLT(bitpos+count));
+            }
+            return;
+        }
     }
+
+    if (count == 0)
+        return;
+
     /* Now copy full bytes with memset */
     memset(baP, ival ? 0xff : 0, sizeof(ba_t) * (count/BA_UNIT_SIZE));
     baP += count / BA_UNIT_SIZE;
