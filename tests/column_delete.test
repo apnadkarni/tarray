@@ -1,6 +1,4 @@
-# TBD - shared obj tests should check original object not modified AFTER
-# delete code is called! Passing it first to verify_change is no use!
-# TBD - tests that traces are triggered
+# column delete tests
 
 source testutil.tcl
 
@@ -35,7 +33,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-2.0 {
             Test deletion of last element (shared tclobj)
         } -body {
-            change_and_verify_col $type $known delete [expr {[llength $known]-1}] [lrange $known 0 end-1]
+            change_and_verify_col $type $known delete [list [expr {[llength $known]-1}]] [lrange $known 0 end-1]
         } -result 0
 
         test column_delete-index-$type-2.1 {
@@ -47,7 +45,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-3.0 {
             Test deletion of end element (shared tclobj)
         } -body {
-            change_and_verify_col $type $known delete end [lrange $known 0 end-1]
+            change_and_verify_col $type $known delete [list end] [lrange $known 0 end-1]
         } -result 0
 
         test column_delete-index-$type-3.1 {
@@ -61,7 +59,7 @@ namespace eval tarray::test {
             test column_delete-index-$type-4.[incr n] {
                 Test deletion of intermediate element (shared tclobj)
             } -body {
-                change_and_verify_col $type $known delete $i [concat [lrange $known 0 $i-1] [lrange $known $i+1 end]]
+                change_and_verify_col $type $known delete [list $i] [concat [lrange $known 0 $i-1] [lrange $known $i+1 end]]
             } -result 0
 
             test column_delete-index-$type-4.[incr n] {
@@ -98,7 +96,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-6.0 {
             Test deletion of element from single element column (shared)
         } -body {
-            change_and_verify_col $type [list 100] delete 0 {}
+            change_and_verify_col $type [list 100] delete [list 0] {}
         } -result 0
 
         test column_delete-index-$type-6.1 {
@@ -110,7 +108,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            change_and_verify_col $type {} delete 0 {}
+            change_and_verify_col $type {} delete [list 0] {}
         } -result 0
 
         test column_delete-index-$type-7.1 {

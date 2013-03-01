@@ -10,72 +10,6 @@ if {![info exists tarray::test::known]} {
             set auto_path [linsert $auto_path 0 $pkgdir]
         }
 
-        proc validate {ta} {
-            if {[llength $ta] != 3 ||
-                [lindex $ta 0] ne "tarray" ||
-                [lindex $ta 1] ni {any byte boolean double int uint wide}} {
-                error "Value [string range $ta 0 40]... is not a tarray"
-            }
-        }
-
-        # Test two columns for equality
-        tcltest::customMatch column tarray::test::cequal
-        proc cequal {a b} {
-            validate $a
-            validate $b
-
-            lassign $a _ atype avals
-            lassign $b _ btype bvals
-            if {$atype ne $btype} {
-                error "Tarray types $atype and $btype do not match"
-            }
-
-            if {[llength $avals] != [llength $bvals]} {
-                return 0
-            }
-
-            switch -exact -- $atype {
-                boolean {
-                    foreach aval $avals bval $bvals {
-                        if {!$aval != !$bval} { return 0 }
-                    }
-                }
-                any {
-                    foreach aval $avals bval $bvals {
-                        if {$aval ne $bval} { return 0 }
-                    }
-                }
-                default {
-                    foreach aval $avals bval $bvals {
-                        if {$aval != $bval} { return 0 }
-                    }
-                }
-            }
-
-            return 1
-        }
-
-        # Compare a column and a list for equality
-        proc clequal {col type l} {
-            return [cequal $col [crep $type $l]]
-        }
-
-        # Convenience proc to verify that result is as expected and original
-        # is not changed
-        proc compare_tcols_lists {type args} {
-            foreach {tcol l} $args {
-                if {! [clequal $tcol $type $l]} { return [incr ret] }
-            }
-            return 0
-        }
-
-        proc change_and_verify_col {type init op operands expected} {
-            set tcol [tarray::column create $type $init]
-            # Note we have to do the operation and *then* check that
-            # tcol is unchanged.
-            return [compare_tcols_lists $type [tarray::column $op $tcol {*}$operands] $expected $tcol $init]
-        }
-
         ################################################################
         # Define standard data used in tests
 
@@ -162,6 +96,79 @@ if {![info exists tarray::test::known]} {
         # Manufacture the column-equivalent rep of a list
         proc crep {type values} {
             return [list tarray $type $values]
+        }
+
+        proc validate {ta} {
+            if {[llength $ta] != 3 ||
+                [lindex $ta 0] ne "tarray" ||
+                [lindex $ta 1] ni {any byte boolean double int uint wide}} {
+                error "Value [string range $ta 0 40]... is not a tarray"
+            }
+        }
+
+        # Test two columns for equality
+        tcltest::customMatch column tarray::test::cequal
+        proc cequal {a b} {
+            validate $a
+            validate $b
+
+            lassign $a _ atype avals
+            lassign $b _ btype bvals
+            if {$atype ne $btype} {
+                error "Tarray types $atype and $btype do not match"
+            }
+
+            if {[llength $avals] != [llength $bvals]} {
+                return 0
+            }
+
+            switch -exact -- $atype {
+                boolean {
+                    foreach aval $avals bval $bvals {
+                        if {!$aval != !$bval} { return 0 }
+                    }
+                }
+                any {
+                    foreach aval $avals bval $bvals {
+                        if {$aval ne $bval} { return 0 }
+                    }
+                }
+                default {
+                    foreach aval $avals bval $bvals {
+                        if {$aval != $bval} { return 0 }
+                    }
+                }
+            }
+
+            return 1
+        }
+
+        # Compare a column and a list for equality
+        proc clequal {col type l} {
+            return [cequal $col [crep $type $l]]
+        }
+
+        # Convenience proc to verify that result is as expected and original
+        # is not changed
+        proc compare_tcols_lists {type args} {
+            foreach {tcol l} $args {
+                if {! [clequal $tcol $type $l]} { return [incr ret] }
+            }
+            return 0
+        }
+
+        proc change_and_verify_col {type init op operands expected} {
+            set tcol [tarray::column create $type $init]
+            # Note we have to do the operation and *then* check that
+            # tcol is unchanged.
+            return [compare_tcols_lists $type [tarray::column $op $tcol {*}$operands] $expected $tcol $init]
+        }
+
+        proc vchange_and_verify_col {type init vop operands expected} {
+            set tcol [tarray::column create $type $init]
+            # Note we have to do the operation and then check that
+            # tcol also has the new value
+            return [compare_tcols_lists $type [tarray::column $vop $tcol {*}$operands] $expected $tcol $expected]
         }
     }
 
