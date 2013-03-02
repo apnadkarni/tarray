@@ -564,13 +564,13 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
                 /* Be careful of the order */
                 Tcl_IncrRefCount(ptav->oval);
                 Tcl_DecrRefCount(*pobjs);
-                *pobjs = ptav->oval;
+                *pobjs++ = ptav->oval;
             }
 
             /* Now loop over new elements being appended */
             for (; i < pos+count; ++i) {
                 Tcl_IncrRefCount(ptav->oval);
-                *pobjs = ptav->oval;
+                *pobjs++ = ptav->oval;
             }
         }
         break;
@@ -725,7 +725,7 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         *new_sizeP = highest >= used ? highest + 1 : used;
         status = TCL_OK;
     } else
-        status = ta_index_range_error(ip, *pindex);
+        status = ta_index_range_error(ip, cur);
 vamoose:
     if (psorted)
         thdr_decr_refs(psorted);
