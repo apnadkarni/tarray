@@ -348,7 +348,7 @@ void thdr_fill_ta_objs(thdr_t *thdr,
         Tcl_IncrRefCount(oval);
         if (pobjs[*pindex] != NULL)
             Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
-        pobjs[*pindex] = oval;
+        pobjs[*pindex++] = oval;
     }
 
     thdr->used = new_size;
@@ -768,7 +768,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
             Tcl_WideInt *pwide;
             pwide = THDRELEMPTR(thdr, Tcl_WideInt, 0);
             while (pindex < end)
-                pwide[*pindex] = ptav->wval;
+                pwide[*pindex++] = ptav->wval;
         }
         break;
     case TA_DOUBLE:
@@ -776,7 +776,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
             double *pdbl;
             pdbl = THDRELEMPTR(thdr, double, 0);
             while (pindex < end)
-                pdbl[*pindex] = ptav->dval;
+                pdbl[*pindex++] = ptav->dval;
         }
         break;
     case TA_ANY:
@@ -2460,7 +2460,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             if (status == TCL_OK && count > 0) {
                 status = tcol_make_modifiable(ip, tcol, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
-                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, pindices, count-1);
+                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, pindices, count);
             }
             thdr_decr_refs(pindices);
             break;
