@@ -13,16 +13,6 @@ if {![info exists tarray::test::known]} {
         ################################################################
         # Define standard data used in tests
 
-        #
-        # Common list with known values that can be used for multiple types
-        # used to initialize various tarrays in tests
-        if {0} {
-            variable known
-            set known [list ]
-            set i -1
-            time {lappend known [incr i]} 256; # 0-255 -> So suitable for byte type
-        }
-
         # TBD - really need to give more thought to test data sets. It is just
         # scattershot right now
 
@@ -77,7 +67,7 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 2} {
+            if {$count == 1000} {
                 foreach type {any boolean byte double int uint wide} {
                     set sample($type) [lindex $good($type) end]
                 }
@@ -188,6 +178,11 @@ if {![info exists tarray::test::known]} {
             # tcol also has the new value
             return [compare_tcols_lists $type [tarray::column $vop $tcol {*}$operands] $expected $tcol $expected]
         }
+
+        proc indexcolumn {args} {
+            return [tarray::column create int [concat {*}$args]]
+        }
+
     }
 
     package require tarray
