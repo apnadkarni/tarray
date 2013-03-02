@@ -344,6 +344,7 @@ void thdr_fill_ta_objs(thdr_t *thdr,
     for (i = thdr->used; i < new_size; ++i)
         pobjs[i] = NULL;        /* TBD - optimization - memset ? */
     while (pindex < end) {
+        TA_ASSERT(*pindex >= 0);
         /* Careful about the order here! */
         Tcl_IncrRefCount(oval);
         if (pobjs[*pindex] != NULL)
@@ -635,8 +636,6 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
     int *pindex, *end;
     thdr_t *psorted = NULL;
 
-    /* TBD - check for negative indices. Or make indices type UINT */
-
     TA_ASSERT(pindices->type == TA_INT);
 
     used = thdr->used;
@@ -671,10 +670,20 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
         psorted->sort_order = THDR_SORTED_ASCENDING;
         pindices = psorted;
+        pindex = THDRELEMPTR(pindices, int, 0);
+        end = THDRELEMPTR(pindices, int, pindices->used);
     }
 
-    /* Make sure no gaps in indices */
+    /* Make sure no negative indices and no gaps in indices */
     if (pindices->sort_order == THDR_SORTED_ASCENDING) {
+        /* Indices are sorted ascending. So to check for negative indices,
+         * only need to check first entry.
+         */
+        if (*pindex < 0) {
+            status = ta_index_range_error(ip, *pindex);
+            goto vamoose;
+        }
+        
         /*
          * We will start going backward until we hit a gap in the sequence
          * and error out at that point. If we reach the current size,
@@ -692,8 +701,17 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
             cur = *end;
         }
     } else {
-        /* Same as above loop but in reverse since sorted in reverse order */
         TA_ASSERT(pindex < end); /* Since we already special cased 0/1 above */
+
+        /* Indices are sorted descending. So to check for negative indices,
+         * only need to check last entry.
+         */
+        if (end[-1] < 0) {
+            status = ta_index_range_error(ip, *pindex);
+            goto vamoose;
+        }
+
+        /* Same as above loop but in reverse since sorted in reverse order */
         cur = *pindex++;
         highest = cur;
         while (pindex < end && cur > used) {
@@ -708,7 +726,7 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         status = TCL_OK;
     } else
         status = ta_index_range_error(ip, *pindex);
-
+vamoose:
     if (psorted)
         thdr_decr_refs(psorted);
 
@@ -744,39 +762,49 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
     case TA_BOOLEAN:
         {
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            while (pindex < end)
+            while (pindex < end) {
+                TA_ASSERT(*pindex >= 0);
                 ba_put(baP, *pindex++, ptav->bval);
+            }
         }
         break;
     case TA_INT:
     case TA_UINT:
         {
             int *pint = THDRELEMPTR(thdr, int, 0);
-            while (pindex < end)
+            while (pindex < end) {
+                TA_ASSERT(*pindex >= 0);
                 pint[*pindex++] = ptav->ival;
+            }
         }
         break;
     case TA_BYTE:
         {
             unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, 0);
-            while (pindex < end)
+            while (pindex < end) {
+                TA_ASSERT(*pindex >= 0);
                 ucP[*pindex++] = ptav->ucval;
+            }
         }
         break;
     case TA_WIDE:
         {
             Tcl_WideInt *pwide;
             pwide = THDRELEMPTR(thdr, Tcl_WideInt, 0);
-            while (pindex < end)
+            while (pindex < end) {
+                TA_ASSERT(*pindex >= 0);
                 pwide[*pindex++] = ptav->wval;
+            }
         }
         break;
     case TA_DOUBLE:
         {
             double *pdbl;
             pdbl = THDRELEMPTR(thdr, double, 0);
-            while (pindex < end)
+            while (pindex < end) {
+                TA_ASSERT(*pindex >= 0);
                 pdbl[*pindex++] = ptav->dval;
+            }
         }
         break;
     case TA_ANY:
