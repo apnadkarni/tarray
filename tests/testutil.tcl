@@ -114,23 +114,13 @@ if {![info exists tarray::test::known]} {
             }
         }
 
-        # Test two columns for equality
-        tcltest::customMatch column tarray::test::cequal
-        proc cequal {a b} {
-            validate $a
-            validate $b
-
-            lassign $a _ atype avals
-            lassign $b _ btype bvals
-            if {$atype ne $btype} {
-                error "Tarray types $atype and $btype do not match"
-            }
-
+        # Test two lists for equality based on type
+        proc lequal {type avals bvals} {
             if {[llength $avals] != [llength $bvals]} {
                 return 0
             }
 
-            switch -exact -- $atype {
+            switch -exact -- $type {
                 boolean {
                     foreach aval $avals bval $bvals {
                         if {!$aval != !$bval} { return 0 }
@@ -149,6 +139,21 @@ if {![info exists tarray::test::known]} {
             }
 
             return 1
+        }
+
+        # Test two columns for equality
+        tcltest::customMatch column tarray::test::cequal
+        proc cequal {a b} {
+            validate $a
+            validate $b
+
+            lassign $a _ atype avals
+            lassign $b _ btype bvals
+            if {$atype ne $btype} {
+                error "Tarray types $atype and $btype do not match"
+            }
+
+            return [lequal $atype $avals $bvals]
         }
 
         # Compare a column and a list for equality

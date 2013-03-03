@@ -238,7 +238,7 @@ namespace eval tarray::test {
 
 
     #
-    # column delete indicesarray
+    # column fill indicesarray
 
     foreach type {boolean any byte double int uint wide} {
         test column_fill-indices-$type-1.0 {
