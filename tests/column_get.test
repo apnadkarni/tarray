@@ -1,0 +1,771 @@
+# TBD - sorted indices tarray
+# column get tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    # Initialize our own columns for testing so we do not have to create
+    # a new one every time
+    variable cols_for_get
+    foreach type {boolean any byte double int uint wide} {
+        set cols_for_get($type) [tarray::column create $type $sample($type)]
+    }    
+
+    proc cmp_get_indexlist_ascol {type indexlist ta} {
+        variable sample
+
+        if {[lindex $ta 0] ne "tarray"} {
+            return "Return value not a column"
+        }
+        if {[lindex $ta 1] ne $type} {
+            return "Returned type '[lindex $ta 1]' does not match type '$type' of input column"
+        }
+        if {[llength $indexlist] != [llength [lindex $ta 2]]} {
+            return "Length of returned data ([llength [lindex $ta 2]]) != length of index list ([llength $indexlist])"
+        }
+
+        set l {}
+        foreach i $indexlist {
+            lappend l [lindex $sample($type) $i]
+        }
+
+        if {[lequal $type $l [lindex $ta 2]]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+
+    }
+
+    # Tests values passed as list returned as a column
+    proc test_get_indexlist_ascol {type indexlist} {
+        variable cols_for_get
+        return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) $indexlist]]
+    }
+
+    # Test values passed as tarray and returned as a column
+    proc test_get_indices_ascol {type indexlist} {
+        variable cols_for_get
+        return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) [indexcolumn $indexlist]]]
+    }
+
+    proc cmp_get_indexlist_aslist {type indexlist result} {
+        variable sample
+
+        if {[llength $indexlist] != [llength $result]} {
+            return "Length of returned data ([llength $result]) != length of index list ([llength $indexlist])"
+        }
+
+        set l {}
+        foreach i $indexlist {
+            lappend l [lindex $sample($type) $i]
+        }
+
+        if {[lequal $type $l $result]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    # Tests values passed as list returned as a list
+    proc test_get_indexlist_aslist {type indexlist} {
+        variable cols_for_get
+        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) $indexlist]]
+    }
+
+    # Tests values passed as tarray returned as a list
+    proc test_get_indices_aslist {type indexlist} {
+        variable cols_for_get
+        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) [indexcolumn $indexlist]]]
+    }
+
+    proc cmp_get_indexlist_asdict {type indexlist result} {
+        variable sample
+
+        # Note we do not compare lengths of lists since in case of duplicate
+        # indices, they will not be the same. Errors, if any, will caught
+        # when retrieving values below.
+
+        set l1 {}
+        set l2 {}
+        foreach i $indexlist {
+            lappend l1 [lindex $sample($type) $i]
+            lappend l2 [dict get $result $i]
+        }
+
+        if {[lequal $type $l1 $l2]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+
+    }
+
+    # Tests values passed as list returned as a list
+    proc test_get_indexlist_asdict {type indexlist} {
+        variable cols_for_get
+        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $cols_for_get($type) $indexlist]]
+
+    }
+
+    # Tests values passed as list returned as a list
+    proc test_get_indices_asdict {type indexlist} {
+        variable cols_for_get
+        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $cols_for_get($type) [indexcolumn $indexlist]]]
+    }
+
+    proc test_get_range_ascol {type low high} {
+        variable cols_for_get
+        variable sample
+
+        set ta [tarray::column get $cols_for_get($type) $low $high]
+
+        if {[lindex $ta 0] ne "tarray"} {
+            return "Return value not a column"
+        }
+        if {[lindex $ta 1] ne $type} {
+            return "Returned type '[lindex $ta 1]' does not match type '$type' of input column"
+        }
+
+        set max [expr {[llength $sample($type)] - 1}]
+        foreach var {low high} {
+            if {[set $var] eq "end"} { set $var $max }
+            if {[set $var] < 0} {set $var 0}
+            if {[set $var] > $max} {set $var $max}
+        }
+        set n [expr {$high-$low+1}]
+        if {$n < 0} {set n 0}
+        if {$n != [llength [lindex $ta 2]]} {
+            return "Length of returned data ([llength [lindex $ta 2]]) != length of range ($n)"
+        }
+
+        if {[lequal $type [lrange $sample($type) $low $high] [lindex $ta 2]]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    proc test_get_range_aslist {type low high} {
+        variable cols_for_get
+        variable sample
+
+        set result [tarray::column get -list $cols_for_get($type) $low $high]
+
+        set max [expr {[llength $sample($type)] - 1}]
+        foreach var {low high} {
+            if {[set $var] eq "end"} { set $var $max }
+            if {[set $var] < 0} {set $var 0}
+            if {[set $var] > $max} {set $var $max}
+        }
+        set n [expr {$high-$low+1}]
+        if {$n < 0} {set n 0}
+        if {$n != [llength $result]} {
+            return "Length of returned data ([llength $result]) != length of index list ([llength $indexlist])"
+        }
+
+        if {[lequal $type [lrange $sample($type) $low $high] $result]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    proc test_get_range_asdict {type low high} {
+        variable cols_for_get
+        variable sample
+
+        set result [tarray::column get -dict $cols_for_get($type) $low $high]
+        set max [expr {[llength $sample($type)] - 1}]
+        foreach var {low high} {
+            if {[set $var] eq "end"} { set $var $max }
+            if {[set $var] < 0} {set $var 0}
+            if {[set $var] > $max} {set $var $max}
+        }
+
+        # Note we do not compare lengths of lists since in case of duplicate
+        # indices, they will not be the same. Errors, if any, will caught
+        # when retrieving values below.
+
+        set l2 {}
+        for {set i $low} {$i <= $high} {incr i} {
+            lappend l2 [dict get $result $i]
+        }
+
+        if {[lequal $type [lrange $sample($type) $low $high] $l2]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    ################################################################
+    # Tests
+
+    foreach type {boolean any byte double int uint wide} {
+        #
+        # column get indexlist
+
+        test column_get-indexlist-ascol-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] {}
+        } -result [crep $type {}]
+
+        test column_get-indexlist-ascol-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] {0}
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-indexlist-ascol-$type-2.0 {
+            Get the first element
+        } -body { test_get_indexlist_ascol $type 0 }
+
+        test column_get-indexlist-ascol-$type-2.1 {
+            Get empty indexlist
+        } -body { test_get_indexlist_ascol $type {} }
+
+        test column_get-indexlist-ascol-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_get_indexlist_ascol $type [list 0 $n]
+        }
+
+        test column_get-indexlist-ascol-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_get_indexlist_ascol $type {3 4 50 150} }
+
+        test column_get-indexlist-ascol-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_get_indexlist_ascol $type {100 65 30} }
+
+        test column_get-indexlist-ascol-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_get_indexlist_ascol $type {10 0 77 65 82} }
+
+        test column_get-indexlist-ascol-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_get_indexlist_ascol $type {10 0 77 65 82 77 10} }
+
+
+        test column_get-indexlist-ascol-$type-3.0 {
+            Get the end element
+        } -body {
+            test_get_indexlist_ascol $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-indexlist-ascol-$type-3.1 {
+            Get negative index
+        } -body {
+            test_get_indexlist_ascol $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indexlist-ascol-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_get_indexlist_ascol $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indexlist-ascol-$type-4.0 {
+            Get indexlist -tarray option
+        } -body {
+            tarray::column get -tarray [tarray::column create $type {0 1}] {1 0}
+        } -result [crep $type {1 0}] -match column
+
+
+        # get -list indexlist
+
+        test column_get-indexlist-aslist-$type-1.0 {
+            Get an empty index list from empty array
+        } -body { tarray::column get -list [tarray::column create $type {}] {} }
+
+        test column_get-indexlist-aslist-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -list [tarray::column create $type {}] {0}
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-indexlist-aslist-$type-2.0 {
+            Get the first element
+        } -body { test_get_indexlist_aslist $type 0 }
+
+        test column_get-indexlist-aslist-$type-2.1 {
+            Get empty indexlist
+        } -body { test_get_indexlist_aslist $type {} }
+
+        test column_get-indexlist-aslist-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_get_indexlist_aslist $type [list 0 $n]
+        }
+
+        test column_get-indexlist-aslist-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_get_indexlist_aslist $type {3 4 50 150} }
+
+        test column_get-indexlist-aslist-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_get_indexlist_aslist $type {100 65 30} }
+
+        test column_get-indexlist-aslist-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_get_indexlist_aslist $type {10 0 77 65 82} }
+
+        test column_get-indexlist-aslist-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_get_indexlist_aslist $type {10 0 77 65 82 77 10} }
+
+
+        test column_get-indexlist-aslist-$type-3.0 {
+            Get the end element
+        } -body {
+            test_get_indexlist_aslist $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-indexlist-aslist-$type-3.1 {
+            Get negative index
+        } -body {
+            test_get_indexlist_aslist $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indexlist-aslist-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_get_indexlist_aslist $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        #
+        # get -dict indexlist
+
+        test column_get-indexlist-asdict-$type-1.0 {
+            Get an empty index list from empty array
+        } -body { tarray::column get -dict [tarray::column create $type {}] {} }
+
+        test column_get-indexlist-asdict-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -dict [tarray::column create $type {}] {0}
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-indexlist-asdict-$type-2.0 {
+            Get the first element
+        } -body { test_get_indexlist_asdict $type 0 }
+
+        test column_get-indexlist-asdict-$type-2.1 {
+            Get empty indexlist
+        } -body { test_get_indexlist_asdict $type {} }
+
+        test column_get-indexlist-asdict-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_get_indexlist_asdict $type [list 0 $n]
+        }
+
+        test column_get-indexlist-asdict-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_get_indexlist_asdict $type {3 4 50 150} }
+
+        test column_get-indexlist-asdict-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_get_indexlist_asdict $type {100 65 30} }
+
+        test column_get-indexlist-asdict-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_get_indexlist_asdict $type {10 0 77 65 82} }
+
+        test column_get-indexlist-asdict-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_get_indexlist_asdict $type {10 0 77 65 82 77 10} }
+
+        test column_get-indexlist-asdict-$type-3.0 {
+            Get the end element
+        } -body {
+            test_get_indexlist_asdict $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-indexlist-asdict-$type-3.1 {
+            Get negative index
+        } -body {
+            test_get_indexlist_asdict $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indexlist-asdict-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_get_indexlist_asdict $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        # column get indicesarray
+
+        test column_get-indices-ascol-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] [indexcolumn]
+        } -result [crep $type {}]
+
+        test column_get-indices-ascol-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] [indexcolumn {0}]
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-indices-ascol-$type-2.0 {
+            Get the first element
+        } -body { test_get_indices_ascol $type 0 }
+
+        test column_get-indices-ascol-$type-2.1 {
+            Get empty indexlist
+        } -body { test_get_indices_ascol $type {} }
+
+        test column_get-indices-ascol-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_get_indices_ascol $type [list 0 $n]
+        }
+
+        test column_get-indices-ascol-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_get_indices_ascol $type {3 4 50 150} }
+
+        test column_get-indices-ascol-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_get_indices_ascol $type {100 65 30} }
+
+        test column_get-indices-ascol-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_get_indices_ascol $type {10 0 77 65 82} }
+
+        test column_get-indices-ascol-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_get_indices_ascol $type {10 0 77 65 82 77 10} }
+
+        test column_get-indices-ascol-$type-3.0 {
+            Get the end element
+        } -body {
+            test_get_indices_ascol $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-indices-ascol-$type-3.1 {
+            Get negative index
+        } -body {
+            test_get_indices_ascol $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indices-ascol-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_get_indices_ascol $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indices-ascol-$type-4.0 {
+            Get indexlist -tarray option
+        } -body {
+            tarray::column get -tarray [tarray::column create $type {0 1}] {1 0}
+        } -result [crep $type {1 0}] -match column
+
+        #
+        # column get -list indices
+
+        test column_get-indices-aslist-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get -list [tarray::column create $type {}] [indexcolumn]
+        } -result {}
+
+        test column_get-indices-aslist-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] [indexcolumn 0]
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-indices-aslist-$type-2.0 {
+            Get the first element
+        } -body { test_get_indices_aslist $type 0 }
+
+        test column_get-indices-aslist-$type-2.1 {
+            Get empty indexlist
+        } -body { test_get_indices_aslist $type {} }
+
+        test column_get-indices-aslist-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_get_indices_aslist $type [list 0 $n]
+        }
+
+        test column_get-indices-aslist-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_get_indices_aslist $type {3 4 50 150} }
+
+        test column_get-indices-aslist-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_get_indices_aslist $type {100 65 30} }
+
+        test column_get-indices-aslist-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_get_indices_aslist $type {10 0 77 65 82} }
+
+        test column_get-indices-aslist-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_get_indices_aslist $type {10 0 77 65 82 77 10} }
+
+        test column_get-indices-aslist-$type-3.0 {
+            Get the end element
+        } -body {
+            test_get_indices_aslist $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-indices-aslist-$type-3.1 {
+            Get negative index
+        } -body {
+            test_get_indices_aslist $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indices-aslist-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_get_indices_aslist $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        #
+        # column get -dict indices
+
+        test column_get-indices-asdict-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get -dict [tarray::column create $type {}] [indexcolumn]
+        } -result {}
+
+        test column_get-indices-asdict-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] [indexcolumn 0]
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-indices-asdict-$type-2.0 {
+            Get the first element
+        } -body { test_get_indices_asdict $type 0 }
+
+        test column_get-indices-asdict-$type-2.1 {
+            Get empty indexlist
+        } -body { test_get_indices_asdict $type {} }
+
+        test column_get-indices-asdict-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_get_indices_asdict $type [list 0 $n]
+        }
+
+        test column_get-indices-asdict-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_get_indices_asdict $type {3 4 50 150} }
+
+        test column_get-indices-asdict-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_get_indices_asdict $type {100 65 30} }
+
+        test column_get-indices-asdict-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_get_indices_asdict $type {10 0 77 65 82} }
+
+        test column_get-indices-asdict-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_get_indices_asdict $type {10 0 77 65 82 77 10} }
+
+
+        test column_get-indices-asdict-$type-3.0 {
+            Get the end element
+        } -body {
+            test_get_indices_asdict $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-indices-asdict-$type-3.1 {
+            Get negative index
+        } -body {
+            test_get_indices_asdict $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-indices-asdict-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_get_indices_asdict $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+
+        #
+        # column get range
+
+        test column_get-range-ascol-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] 0 end
+        } -result [crep $type {}] -match column
+
+        test column_get-range-ascol-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [tarray::column create $type {}] 0 0
+        } -result [crep $type {}] -match column
+
+        test column_get-range-ascol-$type-2.0 {
+            Get the first element
+        } -body { test_get_range_ascol $type 0 0}
+
+        test column_get-range-ascol-$type-2.1 {
+            Get first to end
+        } -body { test_get_range_ascol $type 0 end }
+
+        test column_get-range-ascol-$type-2.2 {
+            Get first to last 
+        } -body {
+            test_get_range_ascol $type 0 [expr {[llength $sample($type)] -1}]
+        }
+
+        test column_get-range-ascol-$type-2.3 {
+            Get range with negative low
+        } -body { test_get_range_ascol $type -5 100 }
+
+        test column_get-range-ascol-$type-2.4 {
+            Get range with out of bounds high
+        } -body { test_get_range_ascol $type 50 10000}
+
+        test column_get-range-ascol-$type-2.5 {
+            Get range out of bounds on both ends
+        } -body { test_get_range_ascol $type -10 10000 }
+
+        test column_get-range-ascol-$type-2.6 {
+            Get end-end
+        } -body { test_get_range_ascol $type end end }
+
+        test column_get-range-ascol-$type-2.6 {
+            Get end-0
+        } -body { test_get_range_ascol $type end 0 }
+
+        test column_get-range-ascol-$type-4.0 {
+            Get indexlist -tarray option
+        } -body {
+            tarray::column get -tarray [tarray::column create $type {0 1}] 0 1
+        } -result [crep $type {0 1}] -match column
+
+        #
+        # column get -aslist range
+
+        test column_get-range-aslist-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -list [tarray::column create $type {}] 0 end
+        } -result {}
+
+        test column_get-range-aslist-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -list [tarray::column create $type {}] 0 0
+        } -result {}
+
+        test column_get-range-aslist-$type-2.0 {
+            Get the first element
+        } -body { test_get_range_aslist $type 0 0}
+
+        test column_get-range-aslist-$type-2.1 {
+            Get first to end
+        } -body { test_get_range_aslist $type 0 end }
+
+        test column_get-range-aslist-$type-2.2 {
+            Get first to last 
+        } -body {
+            test_get_range_aslist $type 0 [expr {[llength $sample($type)] -1}]
+        }
+
+        test column_get-range-aslist-$type-2.3 {
+            Get range with negative low
+        } -body { test_get_range_aslist $type -5 100 }
+
+        test column_get-range-aslist-$type-2.4 {
+            Get range with out of bounds high
+        } -body { test_get_range_aslist $type 50 10000}
+
+        test column_get-range-aslist-$type-2.5 {
+            Get range out of bounds on both ends
+        } -body { test_get_range_aslist $type -10 10000 }
+
+        test column_get-range-aslist-$type-2.6 {
+            Get end-end
+        } -body { test_get_range_aslist $type end end }
+
+        test column_get-range-aslist-$type-2.6 {
+            Get end-0
+        } -body { test_get_range_aslist $type end 0 }
+
+        #
+        # column get -dict range
+
+        test column_get-range-asdict-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -dict [tarray::column create $type {}] 0 end
+        } -result {}
+
+        test column_get-range-asdict-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -dict [tarray::column create $type {}] 0 0
+        } -result {}
+
+        test column_get-range-asdict-$type-2.0 {
+            Get the first element
+        } -body { test_get_range_asdict $type 0 0}
+
+        test column_get-range-asdict-$type-2.1 {
+            Get first to end
+        } -body { test_get_range_asdict $type 0 end }
+
+        test column_get-range-asdict-$type-2.2 {
+            Get first to last 
+        } -body {
+            test_get_range_asdict $type 0 [expr {[llength $sample($type)] -1}]
+        }
+
+        test column_get-range-asdict-$type-2.3 {
+            Get range with negative low
+        } -body { test_get_range_asdict $type -5 100 }
+
+        test column_get-range-asdict-$type-2.4 {
+            Get range with out of bounds high
+        } -body { test_get_range_asdict $type 50 10000}
+
+        test column_get-range-asdict-$type-2.5 {
+            Get range out of bounds on both ends
+        } -body { test_get_range_asdict $type -10 10000 }
+
+        test column_get-range-asdict-$type-2.6 {
+            Get end-end
+        } -body { test_get_range_asdict $type end end }
+
+        test column_get-range-asdict-$type-2.6 {
+            Get end-0
+        } -body { test_get_range_asdict $type end 0 }
+    }
+
+    #
+    # column get range
+
+    foreach type {boolean any byte double int uint wide} {
+    }
+
+    ::tcltest::cleanupTests
+}
