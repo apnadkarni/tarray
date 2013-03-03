@@ -1,0 +1,64 @@
+# column index tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    ################################################################
+    # Tests
+
+    foreach type {boolean any byte double int uint wide} {
+        #
+        # column get indexlist
+
+        test column_index-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column index [tarray::column create $type {}] 0
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_index-$type-2.0 {
+            Get the first element
+        } -body {
+            tarray::column index [samplecolumn $type] 0
+        } -result [samplevalue $type 0]
+
+        test column_index-$type-2.1 {
+            Get end element
+        } -body {
+            tarray::column index [samplecolumn $type] end
+        } -result [samplevalue $type end]
+
+        test column_index-$type-2.2 {
+            Get random element
+        } -body {
+            tarray::column index [samplecolumn $type] 31
+        } -result [samplevalue $type 31]
+
+        test column_index-$type-2.3 {
+            Get random element
+        } -body {
+            tarray::column index [samplecolumn $type] 32
+        } -result [samplevalue $type 32]
+
+        test column_index-$type-2.4 {
+            Get random element
+        } -body {
+            tarray::column index [samplecolumn $type] 33
+        } -result [samplevalue $type 33]
+
+        test column_index-$type-3.0 {
+            Get negative index
+        } -body {
+            tarray::column index [samplecolumn $type] -1
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_index-$type-3.1 {
+            Get out of bounds index
+        } -body {
+            tarray::column index [samplecolumn $type] 10000
+        } -returnCodes error -result "*out of bounds*" -match glob
+    }
+
+    ::tcltest::cleanupTests
+}

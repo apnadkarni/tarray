@@ -4,13 +4,11 @@
 source testutil.tcl
 
 namespace eval tarray::test {
-    namespace import ::tcltest::test
-
     # Initialize our own columns for testing so we do not have to create
     # a new one every time
     variable cols_for_get
     foreach type {boolean any byte double int uint wide} {
-        set cols_for_get($type) [tarray::column create $type $sample($type)]
+        set cols_for_get($type) [samplecolumn $type]
     }    
 
     proc cmp_get_indexlist_ascol {type indexlist ta} {
@@ -26,12 +24,7 @@ namespace eval tarray::test {
             return "Length of returned data ([llength [lindex $ta 2]]) != length of index list ([llength $indexlist])"
         }
 
-        set l {}
-        foreach i $indexlist {
-            lappend l [lindex $sample($type) $i]
-        }
-
-        if {[lequal $type $l [lindex $ta 2]]} {
+        if {[lequal $type [samplevalues $type $indexlist] [lindex $ta 2]]} {
             return ""
         } else {
             return "Returned values do not match corresponding input elements"
@@ -58,12 +51,7 @@ namespace eval tarray::test {
             return "Length of returned data ([llength $result]) != length of index list ([llength $indexlist])"
         }
 
-        set l {}
-        foreach i $indexlist {
-            lappend l [lindex $sample($type) $i]
-        }
-
-        if {[lequal $type $l $result]} {
+        if {[lequal $type [samplevalues $type $indexlist] $result]} {
             return ""
         } else {
             return "Returned values do not match corresponding input elements"
@@ -759,12 +747,6 @@ namespace eval tarray::test {
         test column_get-range-asdict-$type-2.6 {
             Get end-0
         } -body { test_get_range_asdict $type end 0 }
-    }
-
-    #
-    # column get range
-
-    foreach type {boolean any byte double int uint wide} {
     }
 
     ::tcltest::cleanupTests
