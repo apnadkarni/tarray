@@ -219,6 +219,20 @@ TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
     return TCL_OK;
 }
 
+/* We cannot rely on Tcl_GetIntFromObj because that does not signal an
+   error on signed overflow (i.e. 0x80000000 is treated as a valid integer)
+*/
+TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pi)
+{
+    Tcl_WideInt wide;
+    if (Tcl_GetWideIntFromObj(ip, o, &wide) != TCL_OK)
+        return TCL_ERROR;
+    if (wide < INT_MIN || wide > INT_MAX)
+        return ta_value_type_error(ip, o, TA_INT);
+    *pi = (int) wide;
+    return TCL_OK;
+}
+
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
 {
     int i;
@@ -468,7 +482,7 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
             ptav->bval = (i != 0);
         break;
     case TA_BYTE: status = ta_get_byte_from_obj(ip, o, &ptav->ucval); break;
-    case TA_INT: status = Tcl_GetIntFromObj(ip, o, &ptav->ival); break;
+    case TA_INT: status = ta_get_int_from_obj(ip, o, &ptav->ival); break;
     case TA_UINT: status = ta_get_uint_from_obj(ip, o, &ptav->uival); break;
     case TA_WIDE: status = Tcl_GetWideIntFromObj(ip, o, &ptav->wval); break;
     case TA_DOUBLE: status = Tcl_GetDoubleFromObj(ip, o, &ptav->dval); break;
@@ -604,7 +618,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
         ta_verify_value_LOOP(unsigned int, ta_get_uint_from_obj);
         break;
     case TA_INT:
-        ta_verify_value_LOOP(int, Tcl_GetIntFromObj);
+        ta_verify_value_LOOP(int, ta_get_int_from_obj);
         break;
     case TA_WIDE:
         ta_verify_value_LOOP(Tcl_WideInt, Tcl_GetWideIntFromObj);
@@ -1252,7 +1266,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
        }
        break;
     case TA_UINT: thdr_put_OBJCOPY(unsigned int, ta_get_uint_from_obj); break;
-    case TA_INT: thdr_put_OBJCOPY(int, Tcl_GetIntFromObj); break;
+    case TA_INT: thdr_put_OBJCOPY(int, ta_get_int_from_obj); break;
     case TA_WIDE: thdr_put_OBJCOPY(Tcl_WideInt, Tcl_GetWideIntFromObj); break;
     case TA_DOUBLE:thdr_put_OBJCOPY(double, Tcl_GetDoubleFromObj); break;
     case TA_BYTE: thdr_put_OBJCOPY(unsigned char, ta_get_byte_from_obj); break;
@@ -1346,7 +1360,7 @@ void thdr_place_objs(
         PLACEVALUES(unsigned int, ta_get_uint_from_obj);
         break;
     case TA_INT:
-        PLACEVALUES(int, Tcl_GetIntFromObj);
+        PLACEVALUES(int, ta_get_int_from_obj);
         break;
     case TA_WIDE:
         PLACEVALUES(Tcl_WideInt, Tcl_GetWideIntFromObj);
@@ -2175,7 +2189,7 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     if (pindex != NULL) {
         /* To prevent shimmering, first check known to be a list */
         if (o->typePtr != g_tcl_list_type_ptr && pindex != NULL) {
-            status = Tcl_GetIntFromObj(NULL, o, &n);
+            status = ta_get_int_from_obj(NULL, o, &n);
             if (status == TCL_OK) {
                 *pindex = n;
                 return TA_INDEX_TYPE_INT;
@@ -2429,7 +2443,7 @@ TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             status = tcol_put_objs(ip, tcol, ovalue, opos, 1);
     } else {
         int pos, count, used;
-        if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
+        if ((status = ta_get_int_from_obj(ip, ocount, &count)) == TCL_OK &&
             (status = tcol_convert(ip, tcol)) == TCL_OK) {
             used = tcol_occupancy(tcol);
             if (count < 0)
