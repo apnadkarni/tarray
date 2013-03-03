@@ -4,6 +4,8 @@ package require tcltest
 
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
+        namespace import ::tcltest::test
+
         set topdir [file dirname [file dirname [file normalize [info script]]]]
         set pkgdir [file join $topdir build lib tarray]
         if {[file exists [file join $pkgdir pkgIndex.tcl]]} {
@@ -186,6 +188,27 @@ if {![info exists tarray::test::known]} {
 
         proc indexcolumn {args} {
             return [tarray::column create int [concat {*}$args]]
+        }
+
+        proc samplecolumn {type {low 0} {high end}} {
+            variable sample
+            # NOTE: do NOT replace this with a pre-created sample column as
+            # tests might depend on a unshared column object
+            return [tarray::column create $type [lrange $sample($type) $low $high]]
+        }
+
+        proc samplevalue {type pos} {
+            variable sample
+            return [lindex $sample($type) $pos]
+        }
+
+        proc samplevalues {type indexlist} {
+            variable sample
+            set l {}
+            foreach i $indexlist {
+                lappend l [samplevalue $type $i]
+            }
+            return $l
         }
 
     }

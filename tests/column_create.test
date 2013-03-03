@@ -41,7 +41,6 @@ namespace eval tarray::test {
             test column-create-$type-3.[incr num] {
                 Test invalid values raise error in tarray creation
             } -body {
-                puts $value
                 tarray::column create $type [list $value]
             } -result * -match glob -returnCodes error
         }
