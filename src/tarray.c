@@ -2296,13 +2296,19 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
             ba_t *srcbaP = srcbase;
             ba_t *baP = thdrbase;
             int i;
-            for (i = 0; pindex < end; ++i, ++pindex) {
-                index = *pindex; 
-                if (index < 0 || index >= bound)
-                    goto index_error;
-                if (fmt == TA_FORMAT_TARRAY)
+            if (fmt == TA_FORMAT_TARRAY) {
+                for (i = 0; pindex < end; ++i, ++pindex) {
+                    index = *pindex; 
+                    if (index < 0 || index >= bound)
+                        goto index_error;
                     ba_put(baP, i, ba_get(srcbaP, index));
-                else {
+                }
+                thdr->used = count;             \
+            } else {
+                for (i = 0; pindex < end; ++i, ++pindex) {
+                    index = *pindex; 
+                    if (index < 0 || index >= bound)
+                        goto index_error;
                     if (fmt == TA_FORMAT_DICT)
                         Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
                     Tcl_ListObjAppendElement(ip, tcol,
