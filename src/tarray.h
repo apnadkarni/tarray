@@ -16,8 +16,6 @@
 # endif
 #endif
 
-#define TA_ENABLE_ASSERT 1      /* TBD - remove after development */
-
 /* If building out of twapi pool, use its settings */
 #if defined(TWAPI_ENABLE_ASSERT) && !defined(TA_ENABLE_ASSERT)
 #define TA_ENABLE_ASSERT TWAPI_ENABLE_ASSERT
