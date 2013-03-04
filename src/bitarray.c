@@ -16,8 +16,8 @@ static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *
     ba_t ba;
     int nbits, ba_len;
 
-    BA_ASSERT(to_internal_off < BA_UNIT_MASK);
-    BA_ASSERT(from_internal_off < BA_UNIT_MASK);
+    BA_ASSERT(to_internal_off < BA_UNIT_SIZE);
+    BA_ASSERT(from_internal_off < BA_UNIT_SIZE);
     BA_ASSERT(to_internal_off != from_internal_off); /* Because then should be calling a faster routine */
     BA_ASSERT(from > to || (from == to && from_internal_off > to_internal_off));      /* else should be calling ba_copy_unaligned_downward */
 
@@ -79,8 +79,8 @@ static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t
     int nbits, ba_len;
     int off;
 
-    BA_ASSERT(to_internal_off < BA_UNIT_MASK);
-    BA_ASSERT(from_internal_off < BA_UNIT_MASK);
+    BA_ASSERT(to_internal_off < BA_UNIT_SIZE);
+    BA_ASSERT(from_internal_off < BA_UNIT_SIZE);
     BA_ASSERT(to_internal_off != from_internal_off); /* Because then should be calling a faster routine */
     BA_ASSERT(from < to || (from == to && from_internal_off < to_internal_off));      /* else should be calling ba_copy_unaligned_upward */
 
@@ -91,22 +91,40 @@ static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t
     off = to_internal_off + len - 1; /* Offset of last bit to write to */
     to += off / BA_UNIT_SIZE;        /* to -> last ba_t to be written to */
     nbits = (off % BA_UNIT_SIZE) + 1; /* Number of bits to write in last ba_t */
-    if (nbits > len)
+    if (nbits > len) {
+        /* All bits fit in last ba_t */
+        to_internal_off = nbits - len;
         nbits = len;
+    } else
+        to_internal_off = 0;
 
     off = from_internal_off + len - nbits;
     from += off / BA_UNIT_SIZE;
     from_internal_off = off % BA_UNIT_SIZE;
-    BA_ASSERT(from_internal_off != 0);         /* Since to & from unaligned */
+    BA_ASSERT(from_internal_off != to_internal_off); /* Since to & from unaligned */
 
     /* Start out by writing the partial "left over" bits at end */
+    BA_ASSERT(nbits <= BA_UNIT_SIZE);
     if (nbits < BA_UNIT_SIZE) {
         ba = ba_getn(from, from_internal_off, nbits);
-        ba_putn(to, 0, ba, nbits);
+        ba_putn(to, to_internal_off, ba, nbits);
         len -= nbits;
-        --to;
-        --from; /* Essentially move the source BA_UNIT_SIZE bits for next copy */
+        --to; /* Since we've written whatever was to be written to last ba_t */
+        /*
+         * In loop below, we intend to copy BA_UNIT_SIZE bits at a time
+         * from source to destination. So essentially --from is equivalent
+         * to setting source to the next BA_UNIT_SIZE bits to copy. However,
+         * when there are less than BA_UNIT_SIZE bits left to copy, this
+         * does not hold. This is adjusted for in the last fragment of
+         * this function where we copy the leading bits.
+         */
+        --from;
+    } else {
+        BA_ASSERT(to_internal_off == 0); /* Since nbits == BA_UNIT_SIZE */
     }
+
+    if (len == 0)
+        return;
 
     /* Now we move whole ba_t units into the destination */
     ba_len = len / BA_UNIT_SIZE; /* # whole ba_t units to copy */
@@ -118,12 +136,12 @@ static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t
         *to-- = ba;
         --from;
     }
-            
-    /* Now we have the left over len bits */
+
+    BA_ASSERT(len < BA_UNIT_SIZE);
     if (len == 0)
         return;
 
-    ba = ba_getn(from, from_internal_off, len);
+    ba = ba_getn(from, from_internal_off+BA_UNIT_SIZE-len, len);
     ba_putn(to, BA_UNIT_SIZE - len, ba, len);
 }
 
