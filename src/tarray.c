@@ -323,6 +323,7 @@ void thdr_place_ta_objs(thdr_t *thdr,
         pobjs[*pindex++] = *ovalues++;
     }
 
+    TA_ASSERT(new_size <= thdr->usable);
     thdr->used = new_size;
 }
 
@@ -366,6 +367,7 @@ void thdr_fill_ta_objs(thdr_t *thdr,
         pobjs[*pindex++] = oval;
     }
 
+    TA_ASSERT(new_size <= thdr->usable);
     thdr->used = new_size;
 }
 
@@ -599,6 +601,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
         ta_type_panic(thdr->type);
     }
 
+    TA_ASSERT(new_used <= thdr->usable);
     thdr->used = new_used;
 }
 
@@ -835,6 +838,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
         ta_type_panic(thdr->type);
     }
 
+    TA_ASSERT(new_size <= thdr->usable);
     thdr->used = new_size;
 }
 
@@ -1300,6 +1304,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
         ta_type_panic(thdr->type);
     }
 
+    TA_ASSERT(new_used <= thdr->usable);
     thdr->used = new_used;
 
     return TCL_OK;
@@ -1385,6 +1390,7 @@ void thdr_place_objs(
         ta_type_panic(thdr->type);
     }
 
+    TA_ASSERT(new_size <= thdr->usable);
     thdr->used = new_size;
 }
 
@@ -1466,6 +1472,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
         ta_type_panic(thdr->type);
     }
 
+    TA_ASSERT(new_size <= thdr->usable);
     thdr->used = new_size;
 }
 
@@ -1825,6 +1832,7 @@ void thdr_copy(thdr_t *pdst, int dst_first,
         ta_type_panic(psrc->type);
     }
 
+    TA_ASSERT(new_used <= pdst->usable);
     pdst->used = new_used;
 }
 
@@ -1908,6 +1916,8 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
 
     if ((dst_first + count) > pdst->used)
         pdst->used = dst_first + count;
+
+    TA_ASSERT(pdst->used <= pdst->usable);
 
     return;
 }
@@ -2572,7 +2582,7 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,
                           Tcl_Obj *ofirst, /* NULL -> end */
                           int insert)
 {
-    int first, status;
+    int first, status, cur_used;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
@@ -2581,11 +2591,14 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,
     if (tcol_type(tcol) != psrc->type)
         return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
-    first = tcol_occupancy(tcol); /* By default, append */
+    cur_used = tcol_occupancy(tcol);
+    first = cur_used; /* By default, append */
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &first, first, 0, first);
     if (status == TCL_OK && psrc->used) {
-        status = tcol_make_modifiable(ip, tcol, first + psrc->used, 0);
+        status = tcol_make_modifiable(ip, tcol,
+                                      psrc->used + (insert ? cur_used : first),
+                                      0);
         if (status == TCL_OK)
             thdr_copy(TARRAYHDR(tcol), first, psrc, 0, psrc->used, insert); 
     }
@@ -2600,7 +2613,7 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
     int status;
     Tcl_Obj **values;
     int nvalues;
-    int n;
+    int n, cur_used;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
@@ -2613,13 +2626,16 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     /* Get the limits of the range to set */
 
-    n = tcol_occupancy(tcol);
+    cur_used = tcol_occupancy(tcol);
+    n = cur_used;
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &n, n, 0, n);
     /* n contains starting offset */
     if (status == TCL_OK && nvalues) {
         /* Note this also invalidates the string rep as desired */
-        status = tcol_make_modifiable(ip, tcol, n + nvalues, 0);
+        status = tcol_make_modifiable(ip, tcol,
+                                      nvalues + (insert ? cur_used : n),
+                                      0);
         if (status == TCL_OK) {
             /* Note even on error thdr_put_objs guarantees a consistent 
              * and unchanged tcol
