@@ -3,7 +3,6 @@
 source testutil.tcl
 
 namespace eval tarray::test {
-    namespace import ::tcltest::test
 
     # Note two general types of tests - via a temp variable and directly
     # from the create return value. The difference is that in the
@@ -102,7 +101,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-6.1 {
             Test deletion of element from single element column (unshared)
         } -body {
-            tarray::column delete [tarray::column create $type [lrange $sample($type) 0 0]] end
+            tarray::column delete [newcolumn $type [lrange $sample($type) 0 0]] end
         } -result [crep $type {}] -match column
 
         test column_delete-index-$type-7.0 {
@@ -114,7 +113,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-7.1 {
             Test deletion of invalid index from empty column (unshared)
         } -body {
-            tarray::column delete [tarray::column create $type {}] -1
+            tarray::column delete [newcolumn $type {}] -1
         } -result [crep $type {}] -match column
     }
 
@@ -286,7 +285,7 @@ namespace eval tarray::test {
             set indices {}
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l]
+            set ta [newcolumn $type $l]
             change_and_verify_col $type $l delete [list $indices] {}
         } -result 0
 
@@ -297,7 +296,7 @@ namespace eval tarray::test {
             set indices {}
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l]
+            set ta [newcolumn $type $l]
             change_and_verify_col $type $l delete [list [lsort -integer -decreasing $indices]] {}
         } -result 0
 
@@ -305,7 +304,7 @@ namespace eval tarray::test {
             Test deletion of all indices from column (shared)
         } -body {
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l]
+            set ta [newcolumn $type $l]
             change_and_verify_col $type $l delete [list {0 1 2 3}] {}
         } -result 0
 
@@ -313,21 +312,21 @@ namespace eval tarray::test {
             Test deletion of all indices from column (unshared, random order)
         } -body {
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l]
+            set ta [newcolumn $type $l]
             change_and_verify_col $type $l delete [list {1 0 3 2}] {}
         } -result 0
 
         test column_delete-indexlist-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            set ta [tarray::column create $type {}]
+            set ta [newcolumn $type {}]
             change_and_verify_col $type {} delete [list {0 1 2}] {}
         } -result 0
 
         test column_delete-indexlist-$type-7.1 {
             Test attempt to delete element from empty column (unshared)
         } -body {
-            tarray::column delete [tarray::column create $type {}] {0 2 1}
+            tarray::column delete [newcolumn $type {}] {0 2 1}
         } -result [crep $type {}] -match column
 
         test column_delete-indexlist-$type-8.0 {
@@ -381,7 +380,7 @@ namespace eval tarray::test {
             set i [llength $sample($type)]
             incr i -2
             set ta [samplecolumn $type]
-            change_and_verify_col $type $sample($type) delete [list [tarray::column create int [list $i [incr i]]]] [lrange $sample($type) 0 end-2]
+            change_and_verify_col $type $sample($type) delete [list [newcolumn int [list $i [incr i]]]] [lrange $sample($type) 0 end-2]
         } -result 0
 
         test column_delete-indices-$type-2.1 {
@@ -389,7 +388,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             incr i -3
-            tarray::column delete [samplecolumn $type] [tarray::column create int [list $i [incr i] [incr i]] ]
+            tarray::column delete [samplecolumn $type] [newcolumn int [list $i [incr i] [incr i]] ]
         } -result [crep $type [lrange $sample($type) 0 end-3]] -match column
 
         test column_delete-indices-$type-2.2 {
@@ -494,7 +493,7 @@ namespace eval tarray::test {
             set i [llength $sample($type)]
             set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
             lappend indices -1
-            cequal [tarray::column delete [samplecolumn $type] [indexlist $indices]] [crep $type $l2]
+            cequal [tarray::column delete [samplecolumn $type] [indexcolumn $indices]] [crep $type $l2]
         } -result 1
 
         test column_delete-indices-$type-5.0 {
@@ -519,7 +518,7 @@ namespace eval tarray::test {
             set indices {}
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l]
+            set ta [newcolumn $type $l]
             change_and_verify_col $type $l delete [list [indexcolumn $indices]] {}
         } -result 0
 
@@ -530,7 +529,7 @@ namespace eval tarray::test {
             set indices {}
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l]
+            set ta [newcolumn $type $l]
             change_and_verify_col $type $l delete [list [lsort -integer -decreasing $indices]] {}
         } -result 0
 
@@ -538,27 +537,27 @@ namespace eval tarray::test {
             Test deletion of all indices from column (shared)
         } -body {
             set l [lrange $sample($type) 0 3]
-            set ta [tarray::column create $type $l ]
+            set ta [newcolumn $type $l ]
             change_and_verify_col $type $l delete [list [indexcolumn {0 1 2 3}]] {}
         } -result 0
 
         test column_delete-indices-$type-6.2 {
             Test deletion of all indices from column (unshared, random order)
         } -body {
-            tarray::column delete [tarray::column create $type [lrange $sample($type) 0 3]] [indexcolumn {1 0 3 2}]
+            tarray::column delete [newcolumn $type [lrange $sample($type) 0 3]] [indexcolumn {1 0 3 2}]
         } -result [crep $type {}] -match column
 
         test column_delete-indices-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            set ta [tarray::column create $type {}]
+            set ta [newcolumn $type {}]
             change_and_verify_col $type {} delete [list [indexcolumn {0 1 2}]] {}
         } -result 0
 
         test column_delete-indices-$type-7.1 {
             Test attempt to delete element from empty column (unshared)
         } -body {
-            tarray::column delete [tarray::column create $type {}] [indexcolumn {0 2 1}]
+            tarray::column delete [newcolumn $type {}] [indexcolumn {0 2 1}]
         } -result [crep $type {}] -match column
 
         test column_delete-indices-$type-8.0 {
@@ -677,20 +676,20 @@ namespace eval tarray::test {
             Test deletion of all indices from column (unshared, random order)
         } -body {
             set i [llength $sample($type)]
-            tarray::column delete [tarray::column create $type [lrange $sample($type) 0 3]] 0 [incr i -1]
+            tarray::column delete [newcolumn $type [lrange $sample($type) 0 3]] 0 [incr i -1]
         } -result [crep $type {}] -match column
 
         test column_delete-range-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            set ta [tarray::column create $type {}]
+            set ta [newcolumn $type {}]
             change_and_verify_col $type {} delete [list 0 0] {}
         } -result 0
 
         test column_delete-range-$type-7.1 {
             Test attempt to delete element from empty column (unshared)
         } -body {
-            tarray::column delete [tarray::column create $type {}] 0 end
+            tarray::column delete [newcolumn $type {}] 0 end
         } -result [crep $type {}] -match column
 
         test column_delete-range-$type-8.0 {

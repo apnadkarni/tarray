@@ -77,8 +77,11 @@ Out-of-range indices are ignored.
 [call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg INDEXLIST]]
 [call [cmd "column fill"] [arg COLUMN] [arg VALUE] [arg LOW] [arg HIGH]]
 Returns a typed column with specified indices set to [arg VALUE].
-Indices are specified in any of the forms described in [sectref Indices].
-The size of the array will be extended if necessary.
+Indices are specified in any of the forms described in [sectref Indices]
+and must follow the rules described there. The index keyword [const end]
+refers to the current last occupied position in the column.
+The size of the array will be extended if necessary provided the specified
+indices do not have gaps beyond the current column size.
 
 [call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
 [call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
@@ -98,8 +101,9 @@ which is a single [sectref Indices index].
 In the first form, inserts [arg COUNT] elements with value [arg VALUE]
 at position [arg FIRST] and returns the new column. In the second form,
 [arg VALUES] may be a list of values or a typed column of the same type.
-The values are inserted at the specified position.
-In both cases, the command may extend the array if necessary.
+The values are inserted at the specified position. If [arg FIRST]
+is [const end], the values are appended to the column.
+In all cases, the command may extend the array if necessary.
 
 [call [cmd "column place"] [arg COLUMN] [arg VALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
@@ -109,7 +113,7 @@ The number of values in [arg VALUES] must not
 be less than the number of indices specified in [arg INDICES].
 [arg INDICES] must be a 
 index list in the one of the forms described in [sectref Indices]
-and may extend the column if the condition listed there are satisfied.
+and may extend the column if the conditions listed there are satisfied.
 
 [call [cmd "column put"] [arg COLUMN] [arg VALUES] [opt [arg FIRST]]]
 Returns a typed column with the elements starting at index [arg FIRST]
