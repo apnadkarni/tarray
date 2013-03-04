@@ -200,13 +200,13 @@ namespace eval tarray::test {
         test column_get-indexlist-ascol-$type-1.0 {
             Get an empty index list from empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] {}
+            tarray::column get [newcolumn $type {}] {}
         } -result [crep $type {}]
 
         test column_get-indexlist-ascol-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] {0}
+            tarray::column get [newcolumn $type {}] {0}
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_get-indexlist-ascol-$type-2.0 {
@@ -263,7 +263,7 @@ namespace eval tarray::test {
         test column_get-indexlist-ascol-$type-4.0 {
             Get indexlist -tarray option
         } -body {
-            tarray::column get -tarray [tarray::column create $type {0 1}] {1 0}
+            tarray::column get -tarray [newcolumn $type {0 1}] {1 0}
         } -result [crep $type {1 0}] -match column
 
 
@@ -271,12 +271,12 @@ namespace eval tarray::test {
 
         test column_get-indexlist-aslist-$type-1.0 {
             Get an empty index list from empty array
-        } -body { tarray::column get -list [tarray::column create $type {}] {} }
+        } -body { tarray::column get -list [newcolumn $type {}] {} }
 
         test column_get-indexlist-aslist-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get -list [tarray::column create $type {}] {0}
+            tarray::column get -list [newcolumn $type {}] {0}
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_get-indexlist-aslist-$type-2.0 {
@@ -335,12 +335,12 @@ namespace eval tarray::test {
 
         test column_get-indexlist-asdict-$type-1.0 {
             Get an empty index list from empty array
-        } -body { tarray::column get -dict [tarray::column create $type {}] {} }
+        } -body { tarray::column get -dict [newcolumn $type {}] {} }
 
         test column_get-indexlist-asdict-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get -dict [tarray::column create $type {}] {0}
+            tarray::column get -dict [newcolumn $type {}] {0}
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_get-indexlist-asdict-$type-2.0 {
@@ -398,13 +398,13 @@ namespace eval tarray::test {
         test column_get-indices-ascol-$type-1.0 {
             Get an empty index list from empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] [indexcolumn]
+            tarray::column get [newcolumn $type {}] [indexcolumn]
         } -result [crep $type {}]
 
         test column_get-indices-ascol-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] [indexcolumn {0}]
+            tarray::column get [newcolumn $type {}] [indexcolumn {0}]
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_get-indices-ascol-$type-2.0 {
@@ -460,7 +460,7 @@ namespace eval tarray::test {
         test column_get-indices-ascol-$type-4.0 {
             Get indexlist -tarray option
         } -body {
-            tarray::column get -tarray [tarray::column create $type {0 1}] {1 0}
+            tarray::column get -tarray [newcolumn $type {0 1}] {1 0}
         } -result [crep $type {1 0}] -match column
 
         #
@@ -469,13 +469,13 @@ namespace eval tarray::test {
         test column_get-indices-aslist-$type-1.0 {
             Get an empty index list from empty array
         } -body {
-            tarray::column get -list [tarray::column create $type {}] [indexcolumn]
+            tarray::column get -list [newcolumn $type {}] [indexcolumn]
         } -result {}
 
         test column_get-indices-aslist-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] [indexcolumn 0]
+            tarray::column get [newcolumn $type {}] [indexcolumn 0]
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_get-indices-aslist-$type-2.0 {
@@ -534,13 +534,13 @@ namespace eval tarray::test {
         test column_get-indices-asdict-$type-1.0 {
             Get an empty index list from empty array
         } -body {
-            tarray::column get -dict [tarray::column create $type {}] [indexcolumn]
+            tarray::column get -dict [newcolumn $type {}] [indexcolumn]
         } -result {}
 
         test column_get-indices-asdict-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] [indexcolumn 0]
+            tarray::column get [newcolumn $type {}] [indexcolumn 0]
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_get-indices-asdict-$type-2.0 {
@@ -601,13 +601,13 @@ namespace eval tarray::test {
         test column_get-range-ascol-$type-1.0 {
             Get the first element in empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] 0 end
+            tarray::column get [newcolumn $type {}] 0 end
         } -result [crep $type {}] -match column
 
         test column_get-range-ascol-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get [tarray::column create $type {}] 0 0
+            tarray::column get [newcolumn $type {}] 0 0
         } -result [crep $type {}] -match column
 
         test column_get-range-ascol-$type-2.0 {
@@ -647,7 +647,7 @@ namespace eval tarray::test {
         test column_get-range-ascol-$type-4.0 {
             Get indexlist -tarray option
         } -body {
-            tarray::column get -tarray [tarray::column create $type {0 1}] 0 1
+            tarray::column get -tarray [newcolumn $type {0 1}] 0 1
         } -result [crep $type {0 1}] -match column
 
         #
@@ -656,13 +656,13 @@ namespace eval tarray::test {
         test column_get-range-aslist-$type-1.0 {
             Get the first element in empty array
         } -body {
-            tarray::column get -list [tarray::column create $type {}] 0 end
+            tarray::column get -list [newcolumn $type {}] 0 end
         } -result {}
 
         test column_get-range-aslist-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get -list [tarray::column create $type {}] 0 0
+            tarray::column get -list [newcolumn $type {}] 0 0
         } -result {}
 
         test column_get-range-aslist-$type-2.0 {
@@ -705,13 +705,13 @@ namespace eval tarray::test {
         test column_get-range-asdict-$type-1.0 {
             Get the first element in empty array
         } -body {
-            tarray::column get -dict [tarray::column create $type {}] 0 end
+            tarray::column get -dict [newcolumn $type {}] 0 end
         } -result {}
 
         test column_get-range-asdict-$type-1.1 {
             Get the first element in empty array
         } -body {
-            tarray::column get -dict [tarray::column create $type {}] 0 0
+            tarray::column get -dict [newcolumn $type {}] 0 0
         } -result {}
 
         test column_get-range-asdict-$type-2.0 {

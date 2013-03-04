@@ -14,7 +14,7 @@ namespace eval tarray::test {
         test column_index-$type-1.0 {
             Get the first element in empty array
         } -body {
-            tarray::column index [tarray::column create $type {}] 0
+            tarray::column index [newcolumn $type {}] 0
         } -returnCodes error -result "*index 0 out of bounds" -match glob
 
         test column_index-$type-2.0 {

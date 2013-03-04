@@ -2,6 +2,11 @@ package require Tcl 8.5
 package require platform
 package require tcltest
 
+# TBD - add tests for all commands to insert / delete large amount of data
+# (to make sure thdr_t.used/usable are correctly calculated 
+# TBD - add tests for all commands where source operand is same as dest operand
+# TBD - add tests for all commands where operand is wrong type of column
+
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
         namespace import ::tcltest::test
@@ -124,8 +129,10 @@ if {![info exists tarray::test::known]} {
 
             switch -exact -- $type {
                 boolean {
+                    set i 0
                     foreach aval $avals bval $bvals {
-                        if {!$aval != !$bval} { return 0 }
+                        if {!$aval != !$bval} {puts "$avals != $bvals at position $i" ;  return 0 }
+                        incr i
                     }
                 }
                 any {
@@ -172,6 +179,14 @@ if {![info exists tarray::test::known]} {
             return 0
         }
 
+        proc col_change_and_verify {type init expected op args} {
+            set tcol [tarray::column create $type $init]
+            # Note we have to do the operation and *then* check that
+            # tcol is unchanged.
+            return [compare_tcols_lists $type [tarray::column $op $tcol {*}$args] $expected $tcol $init]
+        }
+
+        # Deprecated - use col_change_and_verify instead, better syntax
         proc change_and_verify_col {type init op operands expected} {
             set tcol [tarray::column create $type $init]
             # Note we have to do the operation and *then* check that
@@ -186,18 +201,27 @@ if {![info exists tarray::test::known]} {
             return [compare_tcols_lists $type [tarray::column $vop $tcol {*}$operands] $expected $tcol $expected]
         }
 
+        proc newcolumn {type {init {}}} {
+            return [tarray::column create $type $init]
+        }
+
         proc indexcolumn {args} {
             return [tarray::column create int [concat {*}$args]]
+        }
+
+        proc samplerange {type {low 0} {high end}} {
+            variable sample
+            return [lrange $sample($type) $low $high]
         }
 
         proc samplecolumn {type {low 0} {high end}} {
             variable sample
             # NOTE: do NOT replace this with a pre-created sample column as
             # tests might depend on a unshared column object
-            return [tarray::column create $type [lrange $sample($type) $low $high]]
+            return [tarray::column create $type [samplerange $type $low $high]]
         }
 
-        proc samplevalue {type pos} {
+        proc samplevalue {type {pos 0}} {
             variable sample
             return [lindex $sample($type) $pos]
         }
@@ -210,6 +234,7 @@ if {![info exists tarray::test::known]} {
             }
             return $l
         }
+
 
     }
 

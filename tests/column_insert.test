@@ -1,0 +1,321 @@
+# column insert tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # Note two general types of tests - via a temp variable and directly
+    # from the create return value. The difference is that in the
+    # former case the value ref count is > 1, and the object needs to
+    # be dup'ed while in the latter the ref count is 1 and the called
+    # command can directly use it.
+    # Also, when modifying a temp variable tests have to confirm that
+    # the original is not modified
+
+    foreach type {boolean any byte double int uint wide } {
+
+        test column_insert-value-$type-1.0 {
+            Insert one element at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 0] insert [samplevalue $type] 0 1
+        } -result 0
+
+        test column_insert-value-$type-1.1 {
+            Insert one element at end of empty column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type] [samplevalue $type] end 1
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_insert-value-$type-2.0 {
+            Insert one element at start of empty column (shared)
+        } -body {
+            set values [samplerange $type 0 100]
+            set val [samplevalue $type end]
+            col_change_and_verify $type $values [linsert $values 0 $val] insert $val 0 1
+        } -result 0
+
+        test column_insert-value-$type-2.1 {
+            Insert multiple element at start of column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type end] 0 10
+        } -result [crep $type [linsert [samplerange $type] 0 {*}[lrepeat 10 [samplevalue $type end]]]] -match column
+
+        test column_insert-value-$type-2.2 {
+            Insert multiple element at start of column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type 0] end 10
+        } -result [crep $type [linsert [samplerange $type] end {*}[lrepeat 10 [samplevalue $type 0]]]] -match column
+
+        test column_insert-value-$type-2.3 {
+            Insert elements at end of column (shared)
+        } -body {
+            set values [samplerange $type 0 100]
+            set val [samplevalue $type 0]
+            col_change_and_verify $type $values [linsert $values end {*}[lrepeat 27 $val]] insert $val end 27
+        } -result 0
+
+        test column_insert-value-$type-2.4 {
+            Insert multiple element in middle (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type 0] 64 7
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[lrepeat 7 [samplevalue $type 0]]]] -match column
+
+        test column_insert-value-$type-2.5 {
+            Insert elements in middle of column (shared)
+        } -body {
+            set values [samplerange $type]
+            set val [samplevalue $type end]
+            col_change_and_verify $type $values [linsert $values 63 {*}[lrepeat  8 $val]] insert $val 63 8
+        } -result 0
+
+        test column_insert-value-$type-2.6 {
+            Insert multiple element in middle extending column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 49]] [samplevalue $type end] 48 4
+        } -result [crep $type [linsert [samplerange $type 0 49] 48 {*}[lrepeat 4 [samplevalue $type end]]]] -match column
+
+        test column_insert-value-$type-2.7 {
+            Insert elements in middle of column extending it (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set val [samplevalue $type end]
+            col_change_and_verify $type $values [linsert $values 30 {*}[lrepeat  8 $val]] insert $val 30 8
+        } -result 0
+
+        test column_insert-value-$type-2.8 {
+            Insert elements after last element (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set val [samplevalue $type end]
+            col_change_and_verify $type $values [linsert $values end {*}[lrepeat  8 $val]] insert $val 32 8
+        } -result 0
+
+        test column_insert-value-$type-3.0 {
+            Insert zero elements (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type end] 10 0
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_insert-value-$type-3.1 {
+            Insert negative number of elements (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set val [samplevalue $type end]
+            col_change_and_verify $type $values $values insert $val 30 0
+        } -result 0
+
+        test column_insert-value-$type-3.2 {
+            Insert elements at negative index (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type end] -1 1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_insert-value-$type-3.3 {
+            Insert elements at out of bounds index (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 10]] [samplevalue $type end] 12 1
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+        test column_insert-list-$type-1.0 {
+            Insert single element list at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 0] insert [samplerange $type 0 0] 0
+        } -result 0
+
+        test column_insert-list-$type-1.1 {
+            Insert list at end of empty column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type] [samplerange $type end end] end
+        } -result [crep $type [samplerange $type end end]] -match column
+
+        test column_insert-list-$type-1.2 {
+            Insert list at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 1] insert [samplerange $type 0 1] 0
+        } -result 0
+
+        test column_insert-list-$type-2.0 {
+            Insert multiple element at start of column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 128]] [samplerange $type 129 end] 0
+        } -result [crep $type [linsert [samplerange $type 0 128] 0 {*}[samplerange $type 129 end]]] -match column
+
+        test column_insert-list-$type-2.1 {
+            Insert multiple element at start of column (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type 32 end]
+            col_change_and_verify $type $values [linsert $values 0 {*}$insertions] insert $insertions 0
+        } -result 0
+
+        test column_insert-list-$type-2.2 {
+            Insert elements after end element (shared)
+        } -body {
+            set values [samplerange $type 0 100]
+            set insertions [samplerange $type 150 end]
+            col_change_and_verify $type $values [linsert $values end {*}$insertions] insert $insertions end
+        } -result 0
+
+        test column_insert-list-$type-2.3 {
+            Insert multiple element at penultimate position (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 128]] [samplerange $type 129 end] 128
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_insert-list-$type-2.4 {
+            Insert multiple elements in middle (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplerange $type 20 40] 64
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[samplerange $type 20 40]]] -match column
+
+        test column_insert-list-$type-2.5 {
+            Insert elements in middle of column (shared)
+        } -body {
+            set values [samplerange $type]
+            set insertions [samplerange $type 100 end]
+            col_change_and_verify $type $values [linsert $values 63 {*}$insertions] insert $insertions 63
+        } -result 0
+
+        test column_insert-list-$type-2.6 {
+            Insert multiple elements in middle extending column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 255]] [samplerange $type 20 40] 250
+        } -result [crep $type [linsert [samplerange $type 0 255] 250 {*}[samplerange $type 20 40]]] -match column
+
+        test column_insert-list-$type-2.7 {
+            Insert elements in middle of column extending it (shared)
+        } -body {
+            set values [samplerange $type 0 16]
+            set insertions [samplerange $type 2 end]
+            col_change_and_verify $type $values [linsert $values 14 {*}$insertions] insert $insertions 14
+        } -result 0
+
+        test column_insert-list-$type-2.8 {
+            Insert elements after last element (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type]
+            col_change_and_verify $type $values [linsert $values end {*}$insertions] insert $insertions 32
+        } -result 0
+
+        test column_insert-list-$type-3.0 {
+            Insert zero elements (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] {} 10
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_insert-list-$type-3.1 {
+            Insert elements at negative index (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplerange $type 0 0] -1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_insert-list-$type-3.2 {
+            Insert elements at out of bounds index (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 10]] [samplerange $type 0 end] 12
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+
+        test column_insert-column-$type-1.0 {
+            Insert single element column at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 0] insert [samplecolumn $type 0 0] 0
+        } -result 0
+
+        test column_insert-column-$type-1.1 {
+            Insert column at end of empty column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type] [samplecolumn $type end end] end
+        } -result [crep $type [samplerange $type end end]] -match column
+
+        test column_insert-column-$type-1.2 {
+            Insert column at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 1] insert [samplecolumn $type 0 1] 0
+        } -result 0
+
+        test column_insert-column-$type-2.0 {
+            Insert multiple element column at start of column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 128]] [samplecolumn $type 129 end] 0
+        } -result [crep $type [linsert [samplerange $type 0 128] 0 {*}[samplerange $type 129 end]]] -match column
+
+        test column_insert-column-$type-2.1 {
+            Insert multiple element column at start of column (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type 32 end]
+            col_change_and_verify $type $values [linsert $values 0 {*}$insertions] insert [newcolumn $type $insertions] 0
+        } -result 0
+
+        test column_insert-column-$type-2.2 {
+            Insert column after end element (shared)
+        } -body {
+            set values [samplerange $type 0 100]
+            set insertions [samplerange $type 150 end]
+            col_change_and_verify $type $values [linsert $values end {*}$insertions] insert [newcolumn $type $insertions] end
+        } -result 0
+
+        test column_insert-column-$type-2.3 {
+            Insert multiple element column at penultimate position (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 128]] [samplecolumn $type 129 end] 128
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_insert-column-$type-2.4 {
+            Insert column in middle (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplecolumn $type 20 40] 64
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[samplerange $type 20 40]]] -match column
+
+        test column_insert-column-$type-2.5 {
+            Insert column in middle of column (shared)
+        } -body {
+            set values [samplerange $type]
+            set insertions [samplerange $type 100 end]
+            col_change_and_verify $type $values [linsert $values 63 {*}$insertions] insert [newcolumn $type $insertions] 63
+        } -result 0
+
+        test column_insert-column-$type-2.6 {
+            Insert column in middle extending column (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 255]] [samplecolumn $type 20 40] 250
+        } -result [crep $type [linsert [samplerange $type 0 255] 250 {*}[samplerange $type 20 40]]] -match column
+
+        test column_insert-column-$type-2.7 {
+            Insert column in middle of column extending it (shared)
+        } -body {
+            set values [samplerange $type 0 16]
+            set insertions [samplerange $type 2 end]
+            col_change_and_verify $type $values [linsert $values 14 {*}$insertions] insert [newcolumn $type $insertions] 14
+        } -result 0
+
+        test column_insert-column-$type-2.8 {
+            Insert column after last element (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type]
+            col_change_and_verify $type $values [linsert $values end {*}$insertions] insert [newcolumn $type $insertions] 32
+        } -result 0
+
+        test column_insert-column-$type-3.0 {
+            Insert zero elements (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [newcolumn $type] 10
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_insert-column-$type-3.1 {
+            Insert column at negative index (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplecolumn $type 0 0] -1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_insert-column-$type-3.2 {
+            Insert column at out of bounds index (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 10]] [samplecolumn $type 0 end] 12
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+    }
+    ::tcltest::cleanupTests
+}
