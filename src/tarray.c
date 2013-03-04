@@ -519,6 +519,9 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     if (insert)
         thdr_make_room(thdr, pos, count);
 
+    /* NOTE in insert mode, thdr is in inconsistent state as intermediate
+       slots are uninitialized. This is specially relevant for TA_ANY */
+
     thdr->sort_order = THDR_UNSORTED;
     switch (thdr->type) {
     case TA_BOOLEAN:
@@ -567,18 +570,22 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
              * We have to deal with reference counts here. For the object
              * we are copying we need to increment the reference counts
              * that many times. For objects being overwritten,
-             * we need to decrement reference counts.
+             * we need to decrement reference counts. Note when inserting
+             * no decrements are to be done.
              */
-            /* First loop overwriting existing elements */
-            n = pos + count;
-            if (n > thdr->used)
-                n = thdr->used;
+            i = pos;    /* Starting position to write */
             pobjs = THDRELEMPTR(thdr, Tcl_Obj *, pos);
-            for (i = pos; i < n; ++i) {
-                /* Be careful of the order */
-                Tcl_IncrRefCount(ptav->oval);
-                Tcl_DecrRefCount(*pobjs);
-                *pobjs++ = ptav->oval;
+            if (! insert) {
+                /* First loop overwriting existing elements */
+                n = pos + count;
+                if (n > thdr->used)
+                    n = thdr->used;
+                for (; i < n; ++i) {
+                    /* Be careful of the order */
+                    Tcl_IncrRefCount(ptav->oval);
+                    Tcl_DecrRefCount(*pobjs);
+                    *pobjs++ = ptav->oval;
+                }
             }
 
             /* Now loop over new elements being appended */
