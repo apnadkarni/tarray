@@ -3,8 +3,6 @@
 
 #include <limits.h>             /* CHAR_BIT etc. */
 
-#define BA_ENABLE_ASSERT 1      /* TBD - remove */
-
 #ifdef BA_ENABLE_ASSERT
 # if !defined(BA_ASSERT)
 #  include <assert.h>
