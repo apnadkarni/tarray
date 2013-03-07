@@ -53,6 +53,7 @@ namespace eval tarray {
             get get
             index index
             insert insert
+            place place
             put put
             reverse reverse
             size size
@@ -62,6 +63,7 @@ namespace eval tarray {
             vdelete vdelete
             vfill vfill
             vinsert vinsert
+            vplace vplace
             vput vput
             vreverse vreverse
             vsort vsort
