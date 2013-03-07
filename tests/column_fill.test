@@ -1,4 +1,3 @@
-# TBD - special tests to stress boolean types
 # column fill tests
 
 source testutil.tcl
