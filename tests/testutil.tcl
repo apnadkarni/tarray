@@ -2,6 +2,7 @@ package require Tcl 8.5
 package require platform
 package require tcltest
 
+# TBD - special tests to stress boolean types
 # TBD - add tests for all commands to insert / delete large amount of data
 # (to make sure thdr_t.used/usable are correctly calculated 
 # TBD - add tests for all commands where source operand is same as dest operand
@@ -205,6 +206,14 @@ if {![info exists tarray::test::known]} {
             return [tarray::column create $type $init]
         }
 
+        proc indices {low high} {
+            set l {}
+            while {$low <= $high} {
+                lappend l $low
+                incr low
+            }
+        }
+
         proc indexcolumn {args} {
             return [tarray::column create int [concat {*}$args]]
         }
@@ -235,6 +244,10 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
+        proc badvalues {type} {
+            variable bad
+            return $bad($type); # Note will fail for type 'any'
+        }
 
     }
 
