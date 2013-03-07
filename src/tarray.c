@@ -1464,7 +1464,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
             }
 
         }
-        return;
+        break;
     case TA_BYTE:
         thdr_place_COPYINDICES(unsigned char);
         break;
@@ -2698,7 +2698,7 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
 {
     int new_size;
     int status;
-    thdr_t *pindices, *psrc, *thdr;
+    thdr_t *pindices, *psrc;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
     TA_ASSERT(osrc->typePtr == &g_tcol_type);
@@ -2706,10 +2706,9 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    thdr = TARRAYHDR(tcol);
     psrc = TARRAYHDR(osrc);
-    if (psrc->type != thdr->type)
-        return ta_mismatched_types_error(ip, thdr->type, psrc->type);
+    if (psrc->type != tcol_type(tcol))
+        return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
     if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
@@ -2719,10 +2718,10 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
         if (pindices->used > psrc->used)
             status = ta_indices_count_error(ip, pindices->used, psrc->used);
         else {
-            status = thdr_verify_indices(ip, thdr, pindices, &new_size);
+            status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &new_size);
             if (status == TCL_OK) {
                 status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
-                thdr_place_indices(ip, thdr, psrc, pindices, new_size-1);
+                thdr_place_indices(ip, TARRAYHDR(tcol), psrc, pindices, new_size);
             }
         }
     }
