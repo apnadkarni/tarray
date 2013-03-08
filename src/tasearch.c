@@ -71,13 +71,14 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
         pos = start;
         while ((pos = ba_find(baP, bval, pos, thdr->used)) != -1) {
             /* Ensure enough space in target array */
-            if (thdr->used >= thdr->usable)
+            if (thdr->used >= thdr->usable) {
                 newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
-            if (newP)
-                thdr = newP;
-            else {
-                thdr_decr_refs(thdr);
-                return TCL_ERROR;
+                if (newP)
+                    thdr = newP;
+                else {
+                    thdr_decr_refs(thdr);
+                    return TCL_ERROR;
+                }
             }
             if (flags & TA_SEARCH_INLINE)
                 ba_put(THDRELEMPTR(thdr, ba_t, 0), thdr->used, bval);
@@ -92,9 +93,10 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
     } else {
         /* Return first found element */
         pos = ba_find(baP, bval, start, haystackP->used);
-        oresult = pos == -1 ?
-            Tcl_NewObj() :
-            Tcl_NewIntObj((flags & TA_SEARCH_INLINE) ? bval : pos);
+        if (flags & TA_SEARCH_INLINE)
+            oresult = pos == -1 ? Tcl_NewObj() : Tcl_NewIntObj(bval);
+        else
+            oresult = Tcl_NewIntObj(pos);
     }
 
     Tcl_SetObjResult(ip, oresult);
@@ -190,13 +192,14 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdr->used >= thdr->usable)
+                if (thdr->used >= thdr->usable) {
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
-                if (newP)
-                    thdr = newP;
-                else {
-                    thdr_decr_refs(thdr);
-                    return TCL_ERROR;
+                    if (newP)
+                        thdr = newP;
+                    else {
+                        thdr_decr_refs(thdr);
+                        return TCL_ERROR;
+                    }
                 }
                 if (flags & TA_SEARCH_INLINE) {
                     switch (thdr->type) {
@@ -234,15 +237,10 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted)
                 break;
         }
-        if (offset >= haystackP->used) {
-            /* No match */
-            oresult = Tcl_NewObj();
-        } else {
-            if (flags & TA_SEARCH_INLINE)
-                oresult = Tcl_NewWideIntObj(elem);
-            else
-                oresult = Tcl_NewIntObj(offset);
-        }
+        if (flags & TA_SEARCH_INLINE)
+            oresult = offset >= haystackP->used ? Tcl_NewObj() : Tcl_NewWideIntObj(elem);
+        else
+            oresult = Tcl_NewIntObj(offset >= haystackP->used ? -1 : offset);
     }
 
     Tcl_SetObjResult(ip, oresult);
@@ -297,13 +295,14 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdr->used >= thdr->usable)
+                if (thdr->used >= thdr->usable) {
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
-                if (newP)
-                    thdr = newP;
-                else {
-                    thdr_decr_refs(thdr);
-                    return TCL_ERROR;
+                    if (newP)
+                        thdr = newP;
+                    else {
+                        thdr_decr_refs(thdr);
+                        return TCL_ERROR;
+                    }
                 }
                 if (flags & TA_SEARCH_INLINE) {
                     *THDRELEMPTR(thdr, double, thdr->used) = *pdbl;
@@ -328,15 +327,10 @@ static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted)
                 break;
         }
-        if (offset >= haystackP->used) {
-            /* No match */
-            oresult = Tcl_NewObj();
-        } else {
-            if (flags & TA_SEARCH_INLINE)
-                oresult = Tcl_NewDoubleObj(*pdbl);
-            else
-                oresult = Tcl_NewIntObj(offset);
-        }
+        if (flags & TA_SEARCH_INLINE)
+            oresult = offset >= haystackP->used ? Tcl_NewObj() : Tcl_NewDoubleObj(*pdbl);
+        else
+            oresult = Tcl_NewIntObj(offset >= haystackP->used ? -1 : offset);
     }
 
     Tcl_SetObjResult(ip, oresult);
@@ -423,13 +417,14 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted) {
                 /* Have a match */
                 /* Ensure enough space in target array */
-                if (thdr->used >= thdr->usable)
+                if (thdr->used >= thdr->usable) {
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
-                if (newP)
-                    thdr = newP;
-                else {
-                    thdr_decr_refs(thdr);
-                    return TCL_ERROR;
+                    if (newP)
+                        thdr = newP;
+                    else {
+                        thdr_decr_refs(thdr);
+                        return TCL_ERROR;
+                    }
                 }
                 if (flags & TA_SEARCH_INLINE) {
                     Tcl_IncrRefCount(*pobjs);
@@ -470,15 +465,12 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
             if (compare_result == compare_wanted)
                 break;
         }
-        if (offset >= haystackP->used) {
-            /* No match */
-            oresult = Tcl_NewObj();
-        } else {
-            if (flags & TA_SEARCH_INLINE)
-                oresult = *pobjs; /* No need to incr ref, the SetObjResult does it */
-            else
-                oresult = Tcl_NewIntObj(offset);
-        }
+
+        if (flags & TA_SEARCH_INLINE) {
+            /* No need to incr ref for *pobjs, the SetObjResult does it */
+            oresult = offset >= haystackP->used ? Tcl_NewObj() : *pobjs;
+        } else
+            oresult = Tcl_NewIntObj(offset >= haystackP->used ? -1 : offset);
     }
 
     Tcl_SetObjResult(ip, oresult);
