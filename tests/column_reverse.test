@@ -1,0 +1,41 @@
+# column reverse tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    foreach type {boolean any byte double int uint wide} {
+        test column_reverse-$type-1.0 {
+            Reverse an empty column (shared)
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column reverse $ta
+        } -result [crep $type {}] -match column
+
+        test column_reverse-$type-1.1 {
+            Reverse an empty column (unshared)
+        } -body {
+            tarray::column reverse [newcolumn $type]
+        } -result [crep $type {}] -match column
+
+        test column_reverse-$type-1.2 {
+            Reverse a one element column (unshared)
+        } -body {
+            tarray::column reverse [samplecolumn $type 0 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_reverse-$type-2.0 {
+            Reverse a column (unshared)
+        } -body {
+            tarray::column reverse [samplecolumn $type]
+        } -result [crep $type [lreverse [samplerange $type]]] -match column
+
+        test column_reverse-$type-2.1 {
+            Reverse a column (shared)
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column reverse $ta
+        } -result [crep $type [lreverse [samplerange $type]]] -match column
+    }    
+}
+
+::tcltest::cleanupTests
