@@ -153,7 +153,12 @@ BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
         } else {
             /* Entire range is within one ba_t */
             BA_ASSERT(n < BA_UNIT_SIZE); /* If == would have hit one of the cases above */
-            return (BITPOSMASKLT(n) & *baP) >> off;
+            n += off;
+            BA_ASSERT(n <= BA_UNIT_SIZE);
+            if (n == BA_UNIT_SIZE)
+                return *baP >> off;
+            else 
+                return (BITPOSMASKLT(n) & *baP) >> off;
         }
     }
 }
@@ -182,7 +187,7 @@ BA_INLINE void ba_putn(ba_t *baP, int off, ba_t ba, int n)
             n += off;
             BA_ASSERT(n <= BA_UNIT_SIZE);
             if (n == BA_UNIT_SIZE) {
-                *baP = ba | *baP;
+                *baP = ba_merge_unit(*baP, ba, BITPOSMASKGE(off));
             } else
                 *baP = ba_merge_unit(ba,
                                      *baP,
