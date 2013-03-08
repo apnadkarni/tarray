@@ -141,22 +141,19 @@ BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
     if (off == 0)
-        return (*baP & BITPOSMASKLT(n));
+        return (n == BA_UNIT_SIZE ? *baP : (*baP & BITPOSMASKLT(n)));
     else {
         /* We have to be careful here that though off + n may be valid,
            off+BA_UNIT_SIZE may not be so do not try to get more bits than
            asked for.
         */
-        n += off;
-        if (n > BA_UNIT_SIZE) {
+        if ((off+n) > BA_UNIT_SIZE) {
             /*  n bits are spread between baP and baP+1 */
-            return ((baP[1] & BITPOSMASKLT(n-BA_UNIT_SIZE)) << (BA_UNIT_SIZE - off)) | (baP[0] >> off);
+            return ((baP[1] & BITPOSMASKLT(off+n-BA_UNIT_SIZE)) << (BA_UNIT_SIZE - off)) | (baP[0] >> off);
         } else {
             /* Entire range is within one ba_t */
-            if (n < BA_UNIT_SIZE)
-                return (BITPOSMASKLT(n) & *baP) >> off;
-            else
-                return *baP >> off;
+            BA_ASSERT(n < BA_UNIT_SIZE); /* If == would have hit one of the cases above */
+            return (BITPOSMASKLT(n) & *baP) >> off;
         }
     }
 }
@@ -170,23 +167,26 @@ BA_INLINE void ba_putn(ba_t *baP, int off, ba_t ba, int n)
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
     if (off == 0)
-        *baP = ba_merge_unit(ba, *baP, BITPOSMASKGE(n));
+        *baP = (n == BA_UNIT_SIZE ? ba : ba_merge_unit(ba, *baP, BITPOSMASKGE(n)));
     else {
-        n += off;
-        if (n > BA_UNIT_SIZE) {
+        if ((n+off) > BA_UNIT_SIZE) {
             /* bits are spread across two ba_t units */
             baP[0] = ba_merge_unit(baP[0], (ba_t)(ba << off), BITPOSMASKGE(off));
-            n -= BA_UNIT_SIZE;  /* # bits to store in top word */
-            baP[1] = ba_merge_unit((ba_t)(ba >> (BA_UNIT_SIZE - off)), baP[1],
+            n = off + n - BA_UNIT_SIZE;  /* # bits to store in top word */
+            baP[1] = ba_merge_unit(baP[1], (ba_t)(ba >> (BA_UNIT_SIZE - off)),
                                    BITPOSMASKLT(n));
         } else {
             /* Bits fit in one word */
+            BA_ASSERT(n < BA_UNIT_SIZE); /* If == would have hit one of the cases above */
             ba <<= off;
-            if (n < BA_UNIT_SIZE) {
-                *baP = ba_merge_unit(ba, *baP, (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
-            } else {
-                *baP = ba_merge_unit(ba, *baP, (ba_t) BITPOSMASKLT(off));
-            }
+            n += off;
+            BA_ASSERT(n <= BA_UNIT_SIZE);
+            if (n == BA_UNIT_SIZE) {
+                *baP = ba | *baP;
+            } else
+                *baP = ba_merge_unit(ba,
+                                     *baP,
+                                     (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
         }
     }
 }
