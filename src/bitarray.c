@@ -302,7 +302,6 @@ void ba_fill(ba_t *baP, int off, int count, int ival)
 int ba_find(ba_t *baP, int bval, int off, int count)
 {
     ba_t ba, skip, ba_mask;
-    int pos = -1;
 
     if (count <= off)
         return -1;
@@ -337,9 +336,9 @@ int ba_find(ba_t *baP, int bval, int off, int count)
                 if ((bval && (ba_mask & ba)) ||
                     !(bval || (ba_mask & ba))) {
                     /* Match but note this may be beyond count */
-                    return pos >= count ? -1 : pos;
+                    return off >= count ? -1 : off;
                 }
-                ba_mask >>= 1;
+                ba_mask <<= 1;
                 ++off;
             }
     }
