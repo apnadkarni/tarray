@@ -916,7 +916,7 @@ static void ta_type_update_string_for_objtype(Tcl_Obj *o)
         flagPtr[i] = TCL_DONT_QUOTE_HASH;
         elem = Tcl_GetStringFromObj(objv[i], &length);
         bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
-        if ((1 << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
+        if ((((size_t)1) << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
             ta_string_overflow_panic("ta_type_update_string_for_objtype");
     }
     if ((bytesNeeded + objc + 1) > INT_MAX)
