@@ -398,6 +398,34 @@ void ba_reverse(ba_t *baP, int off, int len)
     int end_off;
 
     /* TBD - optimize by aligning front or back */
+#if 1
+    /*
+     * We swap units between the front and the back so we don't need
+     * additional storage
+     */
+    end_off = off + len;
+    while (end_off > (off + BA_UNIT_SIZE)) {
+        /* Still have at least BA_UNIT_SIZE bits to swap */
+        end_off -= BA_UNIT_SIZE; /* Point to start of trailing unit */
+        front = ba_reverse_unit(ba_get_unit(baP, off));
+        end = ba_reverse_unit(ba_get_unit(baP, end_off));
+        /* Note front and end may contain overlapping bits. No matter */
+        ba_put_unit(baP, off, end);
+        ba_put_unit(baP, end_off, front);
+        off += BA_UNIT_SIZE;
+    }
+
+    if (end_off > off) {
+        /* Swap remaining left over bits. */
+        len = end_off - off;
+        front = ba_getn(baP, off, len); /* Get the left over bits */
+        /* Reverse the bits and shift into position */
+        front = ba_reverse_unit(front) >> (BA_UNIT_SIZE-len);
+        ba_putn(baP, off, front, len);
+    }
+
+#else
+    /* BUGGY */
     end_off = off + len - BA_UNIT_SIZE;
     /* We will loop until there is overlap */
     while (end_off >= (off + BA_UNIT_SIZE)) {
@@ -410,13 +438,15 @@ void ba_reverse(ba_t *baP, int off, int len)
     }
     /* Now we have to do the overlapping bits */
     len = end_off + BA_UNIT_SIZE - off;
-    BA_ASSERT(len >= 0 && len < BA_UNIT_SIZE);
+    BA_ASSERT(len >= 0 && len < (2*BA_UNIT_SIZE));
     if (len) {
+        BUGGY - might be an extra BA_UNIT_SIZE bits to reverse
         front = ba_getn(baP, off, len); /* Get the overlapping bits */
         /* Reverse the bits and shift into position */
-        end = ba_reverse_unit(front) >> (BA_UNIT_SIZE-len);
+        front = ba_reverse_unit(front) >> (BA_UNIT_SIZE-len);
         ba_putn(baP, off, front, len);
     }
+#endif
 }
 
 /* Simple check against errors in portability between platforms and compilers */
