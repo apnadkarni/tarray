@@ -46,26 +46,29 @@ if {![info exists tarray::test::known]} {
             time {lappend l $i; lappend anyl $i; set i [expr {$i * -1.0001}]} $count
             lappend good(double) $l
             
+            # Note integers are started from arbitrary offsets so that they
+            # do not match up with their index position (important when
+            # testing search -inline etc.)
             # ints
-            set i 0
+            set i 100
             set l {}
             time {set si [expr {$i & 1 ? -$i : $i}]; lappend l $si ; lappend anyl $si; incr i} $count
             lappend good(int) $l
 
             # uints
-            set i -1
+            set i 1001
             set l {}
             time {lappend l [incr i]} $count
             lappend good(uint) $l
 
             # Byte
-            set i -1
+            set i 128
             set l {}
             time {lappend l [expr {[incr i] & 0xff}]} $count
             lappend good(byte) $l
             
             # wides
-            set i 0
+            set i 100000
             set l {}
             time {set w [expr {$i & 1 ? -($i*$i) : ($i*$i)}] ; lappend l $w ; lappend anyl $w; incr i} $count
             lappend good(wide) $l
@@ -75,14 +78,12 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 1000} {
+            if {$count == 2} {
                 foreach type {any boolean byte double int uint wide} {
                     set sample($type) [lindex $good($type) end]
                 }
             }
         }
-
-
 
         # Differently formatted valid values
         lappend good(boolean) {0 1 5 -5 -1 1.0 1e0 -1e2 true false TRUE FALSE t f T F y n Y N yes no YES NO on off ON OFF}
@@ -244,9 +245,43 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
+        proc samplemax {type} {
+            variable sample
+            if {$type eq "boolean"} { return 1 }
+            set max [lindex $sample($type) 0]
+            foreach val [lrange $sample($type) 1 end] {
+                if {$val > $max} {set max $val}
+            }
+            return $max
+        }
+
+        proc samplemin {type} {
+            variable sample
+            if {$type eq "boolean"} { return 0 }
+            set min [lindex $sample($type) 0]
+            foreach val [lrange $sample($type) 1 end] {
+                if {$val < $min} {set min $val}
+            }
+            return $min
+        }
+
+        proc samplesize {type} {
+            variable sample
+            return [llength $sample($type)]
+        }
+
         proc badvalues {type} {
             variable bad
             return $bad($type); # Note will fail for type 'any'
+        }
+
+        proc samplefilter {type args} {
+            variable sample
+            set l $sample($type)
+            foreach arg $args {
+                set l [lsearch -inline -exact -not -all $l[set l {}] $arg]
+            }
+            return $l
         }
 
     }
