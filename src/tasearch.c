@@ -535,6 +535,9 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         }
     }
 
+    if (start_index < 0)
+        start_index = 0;
+
     switch (haystackP->type) {
     case TA_BOOLEAN:
         return thdr_search_boolean(ip, haystackP, objv[objc-1], start_index,op,flags);
