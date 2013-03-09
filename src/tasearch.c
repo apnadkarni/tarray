@@ -69,7 +69,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
         if (thdr == NULL)
             return TCL_ERROR;
         pos = start;
-        while ((pos = ba_find(baP, bval, pos, thdr->used)) != -1) {
+        while ((pos = ba_find(baP, bval, pos, haystackP->used)) != -1) {
             /* Ensure enough space in target array */
             if (thdr->used >= thdr->usable) {
                 newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
