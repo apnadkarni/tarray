@@ -245,24 +245,38 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
-        proc samplemax {type} {
-            variable sample
-            if {$type eq "boolean"} { return 1 }
-            set max [lindex $sample($type) 0]
-            foreach val [lrange $sample($type) 1 end] {
+        proc lmax {l} {
+            set max [lindex $l 0]
+            foreach val [lrange $l 1 end] {
                 if {$val > $max} {set max $val}
             }
             return $max
         }
 
-        proc samplemin {type} {
-            variable sample
-            if {$type eq "boolean"} { return 0 }
-            set min [lindex $sample($type) 0]
-            foreach val [lrange $sample($type) 1 end] {
+        proc lmin {l} {
+            set min [lindex $l 0]
+            foreach val [lrange $l 1 end] {
                 if {$val < $min} {set min $val}
             }
             return $min
+        }
+
+        proc samplemax {type} {
+            variable sample
+            if {$type eq "boolean"} { return 1 }
+            return [lmax $sample($type)]
+        }
+
+        proc samplemin {type} {
+            variable sample
+            if {$type eq "boolean"} { return 1 }
+            return [lmin $sample($type)]
+        }
+
+        proc samplemin {type} {
+            variable sample
+            if {$type eq "boolean"} { return 0 }
+            return [lmin $sample($type)]
         }
 
         proc samplesize {type} {
@@ -282,6 +296,19 @@ if {![info exists tarray::test::known]} {
                 set l [lsearch -inline -exact -not -all $l[set l {}] $arg]
             }
             return $l
+        }
+
+        proc lambda {arglist body {ns {}}} {
+            list ::apply [list $arglist $body $ns]
+        }
+
+        proc lverify {l lambda} {
+            foreach val $l {
+                if {![{*}$lambda $val]} {
+                    return 0
+                }
+            }
+            return 1
         }
 
     }
