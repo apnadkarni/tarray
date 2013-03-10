@@ -152,6 +152,12 @@ if {![info exists tarray::test::known]} {
             return 1
         }
 
+        # Numeric match so 10 == 10.0
+        tcltest::customMatch numeric tarray::test::nequal
+        proc nequal {a b} {
+            return [expr {$a == $b}]
+        }
+
         # Test two columns for equality
         tcltest::customMatch column tarray::test::cequal
         proc cequal {a b} {
