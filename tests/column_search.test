@@ -4,6 +4,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
+
     foreach type {any boolean byte double int uint wide} {
 
         test column_search-$type-eq-1.0 {
@@ -236,11 +237,14 @@ namespace eval tarray::test {
             tarray::column search -eq -all -inline [newcolumn $type [samplefilter $type $val]] $val
         } -result [crep $type {}]
         
+    }
 
-        if {$type eq "boolean"} continue; # Remaining tests not valid for bools
+    # NOTE remaining tests are not valid for booleans. And type "any"
+    # are tested separately later. Using the sample data for non-equality 
+    # searches is not convenient so we have to list test data separately.
 
+    foreach type {byte double int uint wide} {
         foreach op {-gt -lt} {
-
             test column_search-$type$op-1.0 {
                 Search an empty column
             } -body {
@@ -282,209 +286,286 @@ namespace eval tarray::test {
             } -body {
                 tarray::column search $op -not -all -inline [newcolumn $type] [samplevalue $type]
             } -result [crep $type {}] -match column
-
-
-            test column_search-$type$op-2.0 {
-                Match on first element
-            } -body {
-                set val [expr {$op eq "-lt" ? [samplemax $type] : [samplemin $type]}]
-                set l [samplefilter $type $val]
-                tarray::column search $op [newcolumn $type $l] $val
-            } -result 0
-
-            test column_search-$type$op-2.1 {
-                Match on any element
-            } -body {
-                set val [expr {$op eq "-lt" ? [samplemax $type] : [samplemin $type]}]
-                set l [linsert [samplefilter $type $val] 0 {*}[lrepeat 50 $val]]
-                tarray::column search $op [newcolumn $type $l] $val
-            } -result 50
-
-            test column_search-$type$op-2.2 {
-                Match $op -inline
-            } -body {
-                set val [expr {$op eq "-lt" ? [samplemax $type] : [samplemin $type]}]
-                set l [linsert [samplefilter $type $val] 0 {*}[lrepeat 50 $val]]
-                expr {[tarray::column search $op -inline [newcolumn $type $l] $val] == [lindex $l 50]}
-            } -result 1
-
-            test column_search-$type$op-2.3 {
-                Match $op -all
-            } -body {
-                set val [expr {$op eq "-lt" ? [samplemax $type] : [samplemin $type]}]
-                tarray::column search -all $op [samplecolumn $type] [samplevalue $type 0]
-            } -result [crep int [lsearch -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
-
-            test column_search-$type$op-2.4 {
-                Match $op -all (ensure duplicates)
-            } -body {
-                set val [samplevalue $type 0]
-                set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
-                lappend l $val
-                clequal [tarray::column search -all $op [newcolumn $type $l] $val] int [lsearch -exact -all $l $val]
-            } -result 1
-
-            test column_search-$type$op-2.5 {
-                Match $op -all -inline (ensure duplicates)
-            } -body {
-                set val [samplevalue $type 0]
-                set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
-                lappend l $val
-                clequal [tarray::column search -all -inline $op [newcolumn $type $l] $val] $type [lsearch -exact -all -inline $l $val]
-            } -result 1
-
-            test column_search-$type$op-2.6 {
-                Match $op -not
-            } -body {
-                tarray::column search $op -not [newcolumn $type {0 0 0 0 1 0 0}] 0
-            } -result 4
-
-            test column_search-$type$op-2.7 {
-                Match $op -not -inline
-            } -body {
-                tarray::column search $op -not -inline [samplecolumn $type] [samplevalue $type 0]
-            } -result [samplevalue $type 1]
-
-            test column_search-$type$op-2.8 {
-                Match $op -not -all (ensure duplicates)
-            } -body {
-                set val [samplevalue $type 0]
-                set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
-                lappend l $val
-                clequal [tarray::column search -all -not $op [newcolumn $type $l] $val] int [lsearch -exact -all -not $l $val]
-            } -result 1
-            
-            test column_search-$type$op-2.9 {
-                Match $op -not -all -inline (ensure duplicates)
-            } -body {
-                set val [samplevalue $type 0]
-                set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
-                lappend l $val
-                clequal [tarray::column search -inline -all -not $op [newcolumn $type $l] $val] $type [lsearch -exact -all -not -inline $l $val]
-            } -result 1
-            
-            test column_search-$type$op-2.10 {
-                Match $op -all -start
-            } -body {
-                tarray::column search -start 1 -all $op [samplecolumn $type] [samplevalue $type 0]
-            } -result [crep int [lsearch -start 1 -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
-
-            test column_search-$type$op-2.11 {
-                Match $op -all -start (ensure duplicates)
-            } -body {
-                set val [samplevalue $type 0]
-                set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
-                lappend l $val
-                clequal [tarray::column search -all $op -start 10 [newcolumn $type $l] $val] int [lsearch -exact -all -start 10 $l $val]
-            } -result 1
-
-            test column_search-$type$op-2.12 {
-                Match $op -all -inline -start (ensure duplicates)
-            } -body {
-                set val [samplevalue $type 0]
-                set l [linsert [linsert [samplerange $type] 3 $val] end-5 $val]
-                lappend l $val
-                clequal [tarray::column search -all -inline -start 4 $op [newcolumn $type $l] $val] $type [lsearch -exact -all -inline -start 4 $l $val]
-            } -result 1
-
-            test column_search-$type$op-2.13 {
-                Match $op -not -start
-            } -body {
-                tarray::column search $op -not -start 4 [newcolumn $type {0 0 0 1 0 0 1 0}] 0
-            } -result 6
-
-            test column_search-$type$op-2.14 {
-                Match $op -not -start -inline
-            } -body {
-                tarray::column search $op -not -inline -start 4 [newcolumn $type {0 0 0 1 0 0  0}] 0
-            } -result ""
-
-            test column_search-$type$op-2.15 {
-                Match $op -not -inline -start -all
-            } -body {
-                set val [samplemax $type]
-                set l [linsert [samplerange $type] 0 $val]
-                lappend l $val
-                set notval [samplemin $type]
-                clequal [tarray::column search $op  -all -not -inline -start 1 [newcolumn $type $l] $notval] $type [lsearch -exact -all -not -inline -start 1 $l $notval]
-            } -result 1
-            
-            test column_search-$type$op-2.16 {
-                Match -start -1
-            } -body {
-                tarray::column search $op -start -1 [samplecolumn $type] [samplevalue $type 0]
-            } -result 0
-
-            test column_search-$type$op-2.17 {
-                Match -start out of bounds
-            } -body {
-                tarray::column search $op -start 10000000 [samplecolumn $type] [samplevalue $type 0]
-            } -result -1
-
-            test column_search-$type$op-2.18 {
-                Match -start out of bounds
-            } -body {
-                tarray::column search $op -inline -all -start 10000000 [samplecolumn $type] [samplevalue $type 0]
-            } -result [crep $type {}] -match column
-
-            test column_search-$type$op-4.0 {
-                Verify that $op is default operation
-            } -body {
-                tarray::column search [samplecolumn $type] [samplevalue $type 0]
-            } -result 0
-
-            test column_search-$type$op-3.0 {
-                Match -start end
-            } -body {
-                tarray::column search $op -start end [newcolumn $type {0 0 0 0 1}] 1
-            } -returnCodes error -result "*expected*but got*" -match glob
-
-            if {$type ne "any"} {
-                test column_search-$type$op-3.1 {
-                    Match invalid value
-                } -body {
-                    tarray::column search $op [samplecolumn $type] [lindex [badvalues $type] 0]
-                } -returnCodes error -result "*expected*but got*" -match glob
-            }            
-
-            test column_search-$type$op-5.0 {
-                Match missing element
-            } -body {
-                set val [samplemax $type]
-                tarray::column search $op [newcolumn $type [samplefilter $type $val]] $val
-            } -result -1
-
-            test column_search-$type$op-5.1 {
-                Match missing element -inline
-            } -body {
-                set val [samplemax $type]
-                tarray::column search $op -inline [newcolumn $type [samplefilter $type $val]] $val
-            } -result ""
-
-            test column_search-$type$op-5.2 {
-                Match missing element -all
-            } -body {
-                set val [samplemax $type]
-                tarray::column search $op -all [newcolumn $type [samplefilter $type $val]] $val
-            } -result [crep int {}]
-
-
-            test column_search-$type$op-5.3 {
-                Match missing element -all
-            } -body {
-                set val [samplemax $type]
-                tarray::column search $op -all -inline [newcolumn $type [samplefilter $type $val]] $val
-            } -result [crep $type {}]
-
         }
 
-        if {$type ne "any"} continue; # Remaining tests only valid for "any"
+        test column_search-$type-lt-2.0 {
+            Match on first element
+        } -body {
+            tarray::column search -lt [newcolumn $type {5 10 128 255}] 100
+        } -result 0
 
-        # -pat
-        # -re
-        # -nocase
+        test column_search-$type-lt-2.1 {
+            Match on last element
+        } -body {
+            tarray::column search -lt [newcolumn $type {100 101 102 99}] 100
+        } -result 3
+
+        test column_search-$type-lt-2.2 {
+            Match in middle, unsorted list
+        } -body {
+            tarray::column search -lt [newcolumn $type {
+                128 180 75 75 10 230 250
+            }] 100
+        } -result 2
+
+        test column_search-$type-lt-2.3 {
+            Match -inline
+        } -body {
+            tarray::column search -lt -inline [newcolumn $type {
+                128 180 75 75 10 230 250
+            }] 75
+        } -result 10
+
+        test column_search-$type-lt-2.3 {
+            Match -all (one element)
+        } -body {
+            tarray::column search -lt -all [newcolumn $type {
+                128 180 70 75 128 230 128
+            }] 75
+        } -result [crep int {2}] -match column
+
+        test column_search-$type-lt-2.4 {
+            Match -all
+        } -body {
+            tarray::column search -lt -all [newcolumn $type {
+                128 180 75 75 128 230 128
+            }] 180
+        } -result [crep int {0 2 3 4 6}] -match column
+
+        test column_search-$type-lt-2.5 {
+            Match -all -inline
+        } -body {
+            tarray::column search -lt -all -inline [newcolumn $type {
+                28 180 75 75 128 230 128
+            }] 128
+        } -result [crep $type {28 75 75}] -match column
+
+        test column_search-$type-lt-3.0 {
+            Match on first element -not (when equal)
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {
+                100 5 10 128 255
+            }] 100
+        } -result 0
+
+        test column_search-$type-lt-3.1 {
+            Match on first element -not (when greater)
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {
+                110 5 10 128 255
+            }] 100
+        } -result 0
+
+        test column_search-$type-lt-3.2 {
+            Match on last element -not (when equal)
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {5 10 128 254}] 254
+        } -result 3
+
+        test column_search-$type-lt-3.3 {
+            Match on last element -not (when greater)
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {5 10 128 255}] 254
+        } -result 3
+
+        test column_search-$type-lt-3.4 {
+            Match in middle -not (equal)
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {
+                128 180 75 75 10 230 250
+            }] 230
+        } -result 5
+
+        test column_search-$type-lt-3.5 {
+            Match in middle -not (equal)
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {
+                128 180 75 75 10 230 250
+            }] 150
+        } -result 1
+
+        test column_search-$type-lt-3.6 {
+            Match -not -inline (equal)
+        } -body {
+            tarray::column search -lt -not -inline [newcolumn $type {
+                28 18 100 100 75 10 230 250
+            }] 100
+        } -result 100
+
+        test column_search-$type-lt-3.7 {
+            Match -not -inline (greater)
+        } -body {
+            tarray::column search -lt -not -inline [newcolumn $type {
+                28 18 110 75 10 230 250
+            }] 100
+        } -result 110
+
+        test column_search-$type-lt-3.8 {
+            Match -not -all (one element)
+        } -body {
+            tarray::column search -lt -not -all [newcolumn $type {
+                28 180 70 75 128 230 128
+            }] 230
+        } -result [crep int {5}] -match column
+
+        test column_search-$type-lt-3.9 {
+            Match -all -not
+        } -body {
+            tarray::column search -lt -not -all [newcolumn $type {
+                128 180 75 75 128 230 128
+            }] 128
+        } -result [crep int {0 1 4 5 6}] -match column
+
+        test column_search-$type-lt-3.10 {
+            Match -not -all -inline
+        } -body {
+            tarray::column search -lt -not -inline -all [newcolumn $type {
+                28 180 75 75 128 230 128
+            }] 128
+        } -result [crep $type {180 128 230 128}] -match column
+
+        test column_search-$type-lt-4.0 {
+            Match on element -start
+        } -body {
+            tarray::column search -lt -start 1 [newcolumn $type {5 128 10 255}] 200
+        } -result 1
+
+        test column_search-$type-lt-4.1 {
+            Match fail -start
+        } -body {
+            tarray::column search -lt -start 2 [newcolumn $type {5 10 128 254}] 50
+        } -result -1
+
+        test column_search-$type-lt-4.2 {
+            Match -inline -start
+        } -body {
+            tarray::column search -lt -inline -start 3 [newcolumn $type {
+                128 180 75 175 10 230 250
+            }] 100
+        } -result 10
+
+        test column_search-$type-lt-4.3 {
+            Match -all -start (one element)
+        } -body {
+            tarray::column search -lt -all -start 3 [newcolumn $type {
+                128 180 70 125 128 20
+            }] 100
+        } -result [crep int {5}] -match column
+
+        test column_search-$type-lt-4.4 {
+            Match -all -start
+        } -body {
+            tarray::column search -lt -all -start 3 [newcolumn $type {
+                128 180 75 75 128 230 128
+            }] 180
+        } -result [crep int {3 4 6}] -match column
+
+        test column_search-$type-lt-4.5 {
+            Match -all -inline -start
+        } -body {
+            tarray::column search -lt -all -inline -start 3 [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result [crep $type {75 30}] -match column
+
+        test column_search-$type-lt-4.6 {
+            Match -start -not
+        } -body {
+            tarray::column search -not -lt -start 3 [newcolumn $type {
+                128 180 75 175 10 230 250
+            }] 175
+        } -result 3
+
+        test column_search-$type-lt-4.7 {
+            Match -inline -start -not -all
+        } -body {
+            tarray::column search -not -lt -all -inline -start 3 [newcolumn $type {
+                128 180 75 175 10 230 250
+            }] 200
+        } -result [crep $type {230 250}] -match column
+
+        test column_search-$type-lt-4.8 {
+            Match -all -inline -start -1
+        } -body {
+            tarray::column search -lt -all -inline -start -1 [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result [crep $type {28 75 75 30}] -match column
+
+        test column_search-$type-lt-4.9 {
+            Match -all -inline -start out of bounds
+        } -body {
+            tarray::column search -lt -all -inline -start 100 [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result [crep $type {}] -match column
+
+        test column_search-$type-lt-5.0 {
+            Match -start end
+        } -body {
+            tarray::column search -lt -all -inline -start end [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -returnCodes error -result "*expected*but got*" -match glob
+
+        test column_search-$type-5.1 {
+            Match invalid value
+        } -body {
+            tarray::column search -lt [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] nota$type
+        } -returnCodes error -result "*expected*but got*" -match glob
+
+        test column_search-$type-5.2 {
+            Match out of range  value
+        } -body {
+            tarray::column search -lt [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 256
+        } -returnCodes error -result "*expected*but got*" -match glob
+
+
+        test column_search-$type-lot-6.0 {
+            Match missing element
+        } -body {
+            tarray::column search -lt [newcolumn $type {10 11 12}] 1
+        } -result -1
+
+        test column_search-$type-lot-6.1 {
+            Match missing element -inline
+        } -body {
+            tarray::column search -lt -inline [newcolumn $type {10 11 12}] 1
+        } -result ""
+
+        test column_search-$type-lt-6.2 {
+            Match missing element -all
+        } -body {
+            tarray::column search -lt -all [newcolumn $type {10 11 12}] 1
+        } -result [crep int {}] -match column
+
+        test column_search-$type-lt-6.3 {
+            Match missing element -not
+        } -body {
+            tarray::column search -lt -not [newcolumn $type {0 1 2}] 10
+        } -result -1
+
+        test column_search-$type-lt-6.4 {
+            Match missing element -not -inline -all
+        } -body {
+            tarray::column search -not -lt -inline -all [newcolumn $type {0 1 2}] 111
+        } -result [crep $type {}] -match column
 
     }
+
+    # TBD - special tests for int, uint, wide that test value (e.g. range,
+    # sign etc.)
+
+    # TBD - any, double
+    # -pat
+    # -re
+    # -nocase
+
+
 }
 
 ::tcltest::cleanupTests
