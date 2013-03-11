@@ -5,6 +5,8 @@
  * See the file LICENSE for license
  */
 
+// TBD - use binary search for sorted lists
+
 #include "tarray.h"
 
 /*
@@ -159,9 +161,7 @@ static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
     }
 
     if (needle > max_val || needle < min_val) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Integer \"%s\" type mismatch for typearray (type %d).", Tcl_GetString(needleObj), haystackP->type));
-        return TCL_ERROR;
+        return ta_value_type_error(ip, needleObj, haystackP->type);
     }
 
     compare_wanted = flags & TA_SEARCH_INVERT ? 0 : 1;
