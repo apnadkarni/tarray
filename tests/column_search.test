@@ -545,17 +545,276 @@ namespace eval tarray::test {
         } -body {
             tarray::column search -not -lt -inline -all [newcolumn $type {0 1 2}] 111
         } -result [crep $type {}] -match column
+
+        test column_search-$type-gt-2.0 {
+            Match on first element
+        } -body {
+            tarray::column search -gt [newcolumn $type {5 10 128 255}] 0
+        } -result 0
+
+        test column_search-$type-gt-2.1 {
+            Match on last element
+        } -body {
+            tarray::column search -gt [newcolumn $type {10 11 12 99}] 50
+        } -result 3
+
+        test column_search-$type-gt-2.2 {
+            Match in middle, unsorted list
+        } -body {
+            tarray::column search -gt [newcolumn $type {
+                28 80 75 75 10 230 250
+            }] 100
+        } -result 5
+
+        test column_search-$type-gt-2.3 {
+            Match -inline
+        } -body {
+            tarray::column search -gt -inline [newcolumn $type {
+                28 18 75 75 10 230 250
+            }] 75
+        } -result 230 -match numeric
+
+        test column_search-$type-gt-2.3 {
+            Match -all (one element)
+        } -body {
+            tarray::column search -gt -all [newcolumn $type {
+                128 180 70 75 128 230 128
+            }] 200
+        } -result [crep int {5}] -match column
+
+        test column_search-$type-gt-2.4 {
+            Match -all
+        } -body {
+            tarray::column search -gt -all [newcolumn $type {
+                128 180 75 75 128 230 228
+            }] 150
+        } -result [crep int {1 5 6}] -match column
+
+        test column_search-$type-gt-2.5 {
+            Match -all -inline
+        } -body {
+            tarray::column search -gt -all -inline [newcolumn $type {
+                28 180 75 75 128 230 255
+            }] 128
+        } -result [crep $type {180 230 255}] -match column
+
+        test column_search-$type-gt-3.0 {
+            Match on first element -not (when equal)
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {
+                100 5 10 128 255
+            }] 100
+        } -result 0
+
+        test column_search-$type-gt-3.1 {
+            Match on first element -not (when less)
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {
+                110 5 10 128 255
+            }] 120
+        } -result 0
+
+        test column_search-$type-gt-3.2 {
+            Match on last element -not (when equal)
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {5 10 128 1}] 1
+        } -result 3
+
+        test column_search-$type-gt-3.3 {
+            Match on last element -not (when smaller)
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {128 255 101 99}] 100
+        } -result 3
+
+        test column_search-$type-gt-3.4 {
+            Match in middle -not (equal)
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {
+                128 180 75 75 10 230 250
+            }] 75
+        } -result 2
+
+        test column_search-$type-gt-3.5 {
+            Match in middle -not (smaller)
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {
+                128 180 75 75 10 230 250
+            }] 100
+        } -result 2
+
+        test column_search-$type-gt-3.6 {
+            Match -not -inline (equal)
+        } -body {
+            tarray::column search -gt -not -inline [newcolumn $type {
+                128 118 100 100 75 10 230 250
+            }] 100
+        } -result 100 -match numeric
+
+        test column_search-$type-gt-3.7 {
+            Match -not -inline (smaller)
+        } -body {
+            tarray::column search -gt -not -inline [newcolumn $type {
+                128 118 110 75 10 230 250
+            }] 100
+        } -result 75 -match numeric
+
+        test column_search-$type-gt-3.8 {
+            Match -not -all (one element)
+        } -body {
+            tarray::column search -gt -not -all [newcolumn $type {
+                180 170 75 128 230 128
+            }] 75
+        } -result [crep int {2}] -match column
+
+        test column_search-$type-gt-3.9 {
+            Match -all -not
+        } -body {
+            tarray::column search -gt -not -all [newcolumn $type {
+                128 180 75 75 128 230 128
+            }] 128
+        } -result [crep int {0 2 3 4 6}] -match column
+
+        test column_search-$type-gt-3.10 {
+            Match -not -all -inline
+        } -body {
+            tarray::column search -gt -not -inline -all [newcolumn $type {
+                28 180 75 75 128 230 128
+            }] 128
+        } -result [crep $type {28 75 75 128 128}] -match column
+
+        test column_search-$type-gt-4.0 {
+            Match on element -start
+        } -body {
+            tarray::column search -gt -start 2 [newcolumn $type {5 128 10 255}] 100
+        } -result 3
+
+        test column_search-$type-gt-4.1 {
+            Match fail -start
+        } -body {
+            tarray::column search -gt -start 2 [newcolumn $type {51 100 128 25}] 150
+        } -result -1
+
+        test column_search-$type-gt-4.2 {
+            Match -inline -start
+        } -body {
+            tarray::column search -gt -inline -start 2 [newcolumn $type {
+                28 80 75 175 10 230 250
+            }] 75
+        } -result 175 -match numeric
+
+        test column_search-$type-gt-4.3 {
+            Match -all -start (one element)
+        } -body {
+            tarray::column search -gt -all -start 3 [newcolumn $type {
+                128 180 225 70 128 201
+            }] 200
+        } -result [crep int {5}] -match column
+
+        test column_search-$type-gt-4.4 {
+            Match -all -start
+        } -body {
+            tarray::column search -gt -all -start 2 [newcolumn $type {
+                128 180 75 75 128 230 128
+            }] 75
+        } -result [crep int {4 5 6}] -match column
+
+        test column_search-$type-gt-4.5 {
+            Match -all -inline -start
+        } -body {
+            tarray::column search -gt -all -inline -start 2 [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 75
+        } -result [crep $type {128 128}] -match column
+
+        test column_search-$type-gt-4.6 {
+            Match -start -not
+        } -body {
+            tarray::column search -not -gt -start 3 [newcolumn $type {
+                128 180 75 175 10 30 250
+            }] 175
+        } -result 3
+
+        test column_search-$type-gt-4.7 {
+            Match -inline -start -not -all
+        } -body {
+            tarray::column search -not -gt -all -inline -start 2 [newcolumn $type {
+                128 80 75 175 10 30 250
+            }] 100
+        } -result [crep $type {75 10 30}] -match column
+
+        test column_search-$type-gt-4.8 {
+            Match -all -inline -start -1
+        } -body {
+            tarray::column search -gt -all -inline -start -1 [newcolumn $type {
+                28 180 75 75 128 30 129
+            }] 128
+        } -result [crep $type {180 129}] -match column
+
+        test column_search-$type-gt-4.9 {
+            Match -all -inline -start out of bounds
+        } -body {
+            tarray::column search -gt -all -inline -start 100 [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result [crep $type {}] -match column
+
+        test column_search-$type-gt-5.0 {
+            Match -start end
+        } -body {
+            tarray::column search -gt -all -inline -start end [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -returnCodes error -result "*expected*but got*" -match glob
+
+        test column_search-$type-gt-5.1 {
+            Match invalid value
+        } -body {
+            tarray::column search -gt [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] nota$type
+        } -returnCodes error -result "*expected*but got*" -match glob
+
+        test column_search-$type-gt-6.0 {
+            Match missing element
+        } -body {
+            tarray::column search -gt [newcolumn $type {10 11 12}] 100
+        } -result -1
+
+        test column_search-$type-gt-6.1 {
+            Match missing element -inline
+        } -body {
+            tarray::column search -gt -inline [newcolumn $type {10 11 12}] 100
+        } -result ""
+
+        test column_search-$type-gt-6.2 {
+            Match missing element -all
+        } -body {
+            tarray::column search -gt -all [newcolumn $type {10 11 12}] 100
+        } -result [crep int {}] -match column
+
+        test column_search-$type-gt-6.3 {
+            Match missing element -not
+        } -body {
+            tarray::column search -gt -not [newcolumn $type {100 101 102}] 10
+        } -result -1
+
+        test column_search-$type-gt-6.4 {
+            Match missing element -not -inline -all
+        } -body {
+            tarray::column search -not -gt -inline -all [newcolumn $type {100 101 102}] 10
+        } -result [crep $type {}] -match column
     }
 
     # Above tests use values common to all integeral types. Add some tests
     # that use type specific values
+
     test column_search-byte-lt-7.0 {
         Match out of range  value
     } -body {
         tarray::column search -lt [newcolumn byte {
             28 180 75 75 128 30 128
         }] 256
-    } -returnCodes error -result "*expected*but got*" -match glob
+    } -returnCodes error -result "Value 256 not valid for type byte*" -match glob
 
     test column_search-uint-lt-7.0 {
         Match UINT_MAX (verifying comparisons are unsigned)
@@ -575,8 +834,8 @@ namespace eval tarray::test {
         Match out of range value
     } -body {
         tarray::column search -lt [newcolumn uint {
-            28 180 75 75 128 30 128 0x100000000
-        }] 256
+            28 180 75 75 128 30 128 
+        }] 0x100000000
     } -returnCodes error -result "*0x100000000 not valid for type uint*" -match glob
 
     test column_search-int-lt-7.0 {
@@ -595,7 +854,7 @@ namespace eval tarray::test {
         Match out of range value
     } -body {
         tarray::column search -lt -inline -all [newcolumn int {0 -1 2 -2147483648}] -549755813888
-    } -returnCodes error -result "*0x100000000 not valid for type uint*" -match glob
+    } -returnCodes error -result "Value -549755813888 not valid for type int*" -match glob
 
     test column_search-wide-lt-7.0 {
         Match verifying comparisons are signed
@@ -615,12 +874,103 @@ namespace eval tarray::test {
         tarray::column search -lt -inline -all [newcolumn wide {0 -1 2 -2147483648}] 5497558138884584564356934856358
     } -returnCodes error -result "*too large*" -match glob
 
+    test column_search-double-lt-7.0 {
+        Match using exponent notation
+    } -body {
+        tarray::column search -lt -all -inline [newcolumn double {0 -1e-10 2.0 5e5 10.0e3}] 1e5
+    } -result [crep double {0.0 -1e-10 2.0 10000.0}] -match column
+
+    test column_search-double-lt-7.1 {
+        Match using exponent notation
+    } -body {
+        tarray::column search -lt -all -not -inline [newcolumn double {0 -1e-10 2.0 5e5 1.0e3 5e20 5e-20}] 1e3
+    } -result [crep double {500000.0 1000.0 5e+20}] -match column
+
+    test column_search-byte-gt-7.0 {
+        Match out of range  value
+    } -body {
+        tarray::column search -gt [newcolumn byte {
+            28 180 75 75 128 30 128
+        }] 256
+    } -returnCodes error -result "Value 256 not valid for type byte*" -match glob
+
+    test column_search-uint-gt-7.0 {
+        Match UINT_MAX (verifying comparisons are unsigned)
+    } -body {
+        # Make sure 0x80000000 is treated as unsigned and not as -1
+        tarray::column search -gt -all [newcolumn uint {0 0x80000000 100}] 10 
+    } -result [crep int {1 2}] -match column
+
+    test column_search-uint-gt-7.1 {
+        Match UINT_MAX (verifying comparisons are unsigned)
+    } -body {
+        # Make sure 0x80000000 is treated as unsigned and not as -1
+        tarray::column search -gt -not -inline [newcolumn uint {0x80000000 2}] 0x7fffffff
+    } -result 2
+
+    test column_search-uint-gt-7.2 {
+        Match out of range value
+    } -body {
+        tarray::column search -gt [newcolumn uint {
+            28 180 75 75 128 30 128 
+        }] 0x100000000
+    } -returnCodes error -result "*0x100000000 not valid for type uint*" -match glob
+
+    test column_search-int-gt-7.0 {
+        Match verifying comparisons are signed
+    } -body {
+        tarray::column search -gt -all -not [newcolumn int {0 -10 2 -2147483648}] -10
+    } -result [crep int {1 3}] -match column
+
+    test column_search-int-gt-7.1 {
+        Match verifying comparisons are signed
+    } -body {
+        tarray::column search -gt -inline -all [newcolumn int {10 -1 2 -2147483648}] 0
+    } -result [crep int {10 2}] -match column
+
+    test column_search-int-gt-7.2 {
+        Match out of range value
+    } -body {
+        tarray::column search -gt -inline -all [newcolumn int {0 -1 2 -2147483648}] -549755813888
+    } -returnCodes error -result "Value -549755813888 not valid for type int*" -match glob
+
+    test column_search-wide-gt-7.0 {
+        Match verifying comparisons are signed
+    } -body {
+        tarray::column search -gt -all -not [newcolumn wide {0 -1 2 -2147483648 549755813888 -549755813888}] 0
+    } -result [crep int {0 1 3 5}] -match column
+
+    test column_search-wide-gt-7.1 {
+        Match verifying comparisons are signed
+    } -body {
+        tarray::column search -gt -inline -all [newcolumn wide {0 -1 2 -2147483648 549755813888 -549755813888}] -2147483648
+    } -result [crep wide {0 -1 2 549755813888}] -match column
+
+    test column_search-wide-gt-7.2 {
+        Match out of range value
+    } -body {
+        tarray::column search -gt -inline -all [newcolumn wide {0 -1 2 -2147483648}] 5497558138884584564356934856358
+    } -returnCodes error -result "*too large*" -match glob
+
+    test column_search-double-gt-7.0 {
+        Match using exponent notation
+    } -body {
+        tarray::column search -gt -all -inline [newcolumn double {0 -1e-10 2.0 5e5 10.0e3}] 2.0
+    } -result [crep double {5e5 10.0e3}] -match column
+
+    test column_search-double-gt-7.1 {
+        Match using exponent notation
+    } -body {
+        tarray::column search -gt -all -not -inline [newcolumn double {0 -1e-10 2.0 5e5 1.0e3 5e20 5e-20}] 1e3
+    } -result [crep double {0.0 -1e-10 2.0 1000.0 5e-20}] -match column
+
+    #
+    # Now do the "any" type
 
 
-    # TBD - special tests for int, uint, wide that test value (e.g. range,
-    # sign etc.)
 
-    # TBD - any, double
+
+    # TBD - any
     # -pat
     # -re
     # -nocase
