@@ -239,11 +239,11 @@ namespace eval tarray::test {
         
     }
 
-    # NOTE remaining tests are not valid for booleans. And type "any"
-    # are tested separately later. Using the sample data for non-equality 
+    # NOTE remaining tests are not valid for booleans.
+    # Using the sample data for non-equality 
     # searches is not convenient so we have to list test data separately.
 
-    foreach type {byte double int uint wide} {
+    foreach type {any byte double int uint wide} {
         foreach op {-gt -lt} {
             test column_search-$type$op-1.0 {
                 Search an empty column
@@ -287,7 +287,11 @@ namespace eval tarray::test {
                 tarray::column search $op -not -all -inline [newcolumn $type] [samplevalue $type]
             } -result [crep $type {}] -match column
         }
-
+    }
+        
+    #
+    # Numeric types
+    foreach type {byte double int uint wide} {
         test column_search-$type-lt-2.0 {
             Match on first element
         } -body {
@@ -965,9 +969,381 @@ namespace eval tarray::test {
     } -result [crep double {0.0 -1e-10 2.0 1000.0 5e-20}] -match column
 
     #
-    # Now do the "any" type
+    # Now do the "any" type, not -eq we have already done. Need to do the
+    # other operators
 
+    test column_search-any-lt-2.0 {
+        Find first match
+    } -body {
+        tarray::column search -lt [newcolumn any {first {with spaces} { leading space} UPPERCASE 10 5.0e5}] abc
+    } -result 2
 
+    test column_search-any-lt-2.1 {
+        Match on last element
+    } -body {
+        tarray::column search -lt [newcolumn any {first {with spaces} AAA { leading space} AAA 5.0e5}] ABC
+    } -result 2
+
+    test column_search-any-lt-2.2 {
+        Match -inline
+    } -body {
+        tarray::column search -lt -inline [newcolumn any {
+            first {with spaces} { leading space} AAA 5.0e5
+        }] abc
+    } -result { leading space}
+
+    test column_search-any-lt-2.3 {
+        Match -all (one element)
+    } -body {
+        tarray::column search -lt -all [newcolumn any {
+            first {with spaces} { leading space} " AAA" zzz
+        }] " aaa"
+    } -result [crep int {3}] -match column
+
+    test column_search-any-lt-2.4 {
+        Match -all
+    } -body {
+        tarray::column search -lt -all [newcolumn any {
+            first { leading space} {with spaces} AAA 5.0e5
+        }] aaa
+    } -result [crep int {1 3 4}] -match column
+    
+    test column_search-any-lt-2.5 {
+        Match -all -inline
+    } -body {
+        tarray::column search -lt -all -inline [newcolumn any {
+            first { leading space} {with spaces} AAA 5.0e5
+        }] AAA
+    } -result [crep any {{ leading space} 5.0e5}] -match column
+
+    test column_search-any-lt-2.6 {
+        Verify comparisons are strings, not numeric
+    } -body {
+        tarray::column search -lt [newcolumn any {010 1}] 2
+    } -result 0
+
+    test column_search-any-lt-3.0 {
+        Match -not (equal)
+    } -body {
+        tarray::column search -not -lt [newcolumn any {ABC second {with spaces} AAA { leading space} AAA 5.0e5}] ABC
+    } -result 0
+
+    test column_search-any-lt-3.1 {
+        Match on element -not -inline (when greater)
+    } -body {
+        tarray::column search -not -lt -inline [newcolumn any {{with spaces} ABA { leading space} AAA 5.0e5}] ABC
+    } -result {with spaces}
+
+    test column_search-any-lt-3.2 {
+        Match on last element -not (when equal)
+    } -body {
+        tarray::column search -not -lt [newcolumn any {{with spaces} ABA { leading space} AAA 5.0e5 zzz}] zzz
+    } -result 5
+
+    test column_search-any-lt-3.3 {
+        Match on element -not
+    } -body {
+        tarray::column search -not -lt [newcolumn any {{with spaces} ABA { leading space} AAA 5.0e5 zzz}] zzz
+    } -result 5
+
+    test column_search-any-lt-3.4 {
+        Match in middle -not -all
+    } -body {
+        tarray::column search -not -lt -all [newcolumn any {{with spaces} aaa ABA { leading space} AAA 5.0e5 zzz}] aaa
+    } -result [crep int {0 1 6}] -match column
+
+    test column_search-any-lt-3.5 {
+        Match in middle -not -inline -all
+    } -body {
+        tarray::column search -not -lt -inline -all [newcolumn any {{with spaces} aaa ABA { leading space} AAA 5.0e5 zzz}] aaa
+    } -result [crep any {{with spaces} aaa zzz}] -match column
+
+    test column_search-any-lt-3.6 {
+        Verify comparisons are strings, not numeric (-not -inline)
+    } -body {
+        tarray::column search -not -lt -inline -all [newcolumn any {010 1 0 10}] 00
+    } -result [crep any {010 1 10}] -match column
+
+    test column_search-any-lt-4.0 {
+        Match on element -start
+    } -body {
+        tarray::column search -lt -start 1 [newcolumn any {aaa zzz bbb ccc ddd}] zzz
+    } -result 2
+
+    test column_search-any-lt-4.1 {
+        Match fail -start
+    } -body {
+        tarray::column search -lt -start 1 [newcolumn any {aaa zzz bbb ccc ddd}] bbb
+    } -result -1
+
+    test column_search-any-lt-4.2 {
+        Match -inline -start
+    } -body {
+        tarray::column search -lt -start 1 -inline [newcolumn any {aaa zzz bbb ccc ddd}] zzz
+    } -result bbb
+
+    test column_search-any-lt-4.3 {
+        Match -all -start (one element)
+    } -body {
+        tarray::column search -lt -start 1 -all [newcolumn any {aaa zzz bbb ccc ddd}] ccc
+    } -result [crep int {2}] -match column
+
+    test column_search-any-lt-4.4 {
+        Match -all -start
+    } -body {
+        tarray::column search -lt -start 2 -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ddd
+    } -result [crep int {2 4}] -match column
+
+    test column_search-any-lt-4.5 {
+        Match -all -inline -start
+    } -body {
+        tarray::column search -lt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ddd
+    } -result [crep any {bbb ccc}] -match column
+
+    test column_search-any-lt-4.6 {
+        Match -start -not
+    } -body {
+        tarray::column search -not -lt -start 2 [newcolumn any {aaa zzz bbb eee ccc ddd}] bbb
+    } -result 2
+
+    test column_search-any-lt-4.7 {
+        Match -inline -start -not -all
+    } -body {
+        tarray::column search -not -lt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+    } -result [crep any {eee ccc ddd}] -match column
+
+    test column_search-any-lt-4.8 {
+        Match -all -inline -start -1
+    } -body {
+        tarray::column search -lt -start -1 -inline -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+    } -result [crep any {aaa bbb}] -match column
+
+    test column_search-any-lt-4.9 {
+        Match -all -inline -start out of bounds
+    } -body {
+        tarray::column search -lt -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] ccc
+    } -result [crep any {}] -match column
+
+    test column_search-any-lt-4.10 {
+        Match -start end
+    } -body {
+        tarray::column search -lt -start end -inline [newcolumn any {aaa zzz bbb eee ccc}] ccc
+    } -returnCodes error -result "*expected*but got*" -match glob
+
+    test column_search-any-lt-6.0 {
+        Match missing element
+    } -body {
+        tarray::column search -lt [newcolumn any {aaa zzz bbb eee ccc}] aaa
+    } -result -1
+
+    test column_search-any-lt-6.1 {
+        Match missing element -inline
+    } -body {
+        tarray::column search -lt -inline [newcolumn any {aaa zzz bbb eee ccc}] aaa
+    } -result ""
+
+    test column_search-any-lt-6.2 {
+        Match missing element -all
+    } -body {
+        tarray::column search -lt -all [newcolumn any {aaa zzz bbb eee ccc}] aaa
+    } -result [crep int {}] -match column
+
+    test column_search-any-lt-6.3 {
+        Match missing element -not
+    } -body {
+        tarray::column search -lt -not [newcolumn any {aaa bbb eee ccc}] zzz
+    } -result -1
+
+    test column_search-any-lt-6.4 {
+        Match missing element -not -inline -all
+    } -body {
+        tarray::column search -lt -not -inline -all [newcolumn any {aaa bbb eee ccc}] zzz
+    } -result [crep any {}] -match column
+
+    #
+    # -gt
+
+    test column_search-any-gt-2.0 {
+        Find first match
+    } -body {
+        tarray::column search -gt [newcolumn any {first {with spaces} { leading space} UPPERCASE 10 5.0e5}] abc
+    } -result 0
+
+    test column_search-any-gt-2.1 {
+        Match on last element
+    } -body {
+        tarray::column search -gt [newcolumn any {first {with spaces} AAA { leading space} AAA 5.0e5 zzz}] yyy
+    } -result 6
+
+    test column_search-any-gt-2.2 {
+        Match -inline
+    } -body {
+        tarray::column search -gt -inline [newcolumn any {
+            abc {with spaces} { leading space} AAA 5.0e5
+        }] abc
+    } -result {with spaces}
+
+    test column_search-any-gt-2.3 {
+        Match -all (one element)
+    } -body {
+        tarray::column search -gt -all [newcolumn any {
+            first {with spaces} { leading space} " AAA" xxx
+        }] w
+    } -result [crep int {1}] -match column
+
+    test column_search-any-gt-2.4 {
+        Match -all
+    } -body {
+        tarray::column search -gt -all [newcolumn any {
+            first { leading space} {with spaces} AAA 5.0e5
+        }] aaa
+    } -result [crep int {0 2}] -match column
+    
+    test column_search-any-gt-2.5 {
+        Match -all -inline
+    } -body {
+        tarray::column search -gt -all -inline [newcolumn any {
+            first { leading space} {with spaces} AAA 5.0e5
+        }] AAA
+    } -result [crep any {first { leading space} {with spaces}}] -match column
+
+    test column_search-any-gt-2.6 {
+        Verify comparisons are strings, not numeric
+    } -body {
+        tarray::column search -gt [newcolumn any {21 1}] 200
+    } -result 0
+
+    test column_search-any-gt-3.0 {
+        Match -not (equal)
+    } -body {
+        tarray::column search -not -gt [newcolumn any {ABC second {with spaces} AAA { leading space} AAA 5.0e5}] ABC
+    } -result 0
+
+    test column_search-any-gt-3.1 {
+        Match on element -not -inline (when greater)
+    } -body {
+        tarray::column search -not -gt -inline [newcolumn any {{with spaces} ABA { leading space} AAA 5.0e5}] ABC
+    } -result {ABA}
+
+    test column_search-any-gt-3.2 {
+        Match on last element -not (when equal)
+    } -body {
+        tarray::column search -not -gt [newcolumn any {{with spaces} ABA { leading space} AAA 5.0e5}] 5.0e5
+    } -result 4
+
+    test column_search-any-gt-3.4 {
+        Match in middle -not -all
+    } -body {
+        tarray::column search -not -gt -all [newcolumn any {{with spaces} aaa ABA { leading space} AAA 5.0e5 zzz}] aaa
+    } -result [crep int {1 2 3 4 5}] -match column
+
+    test column_search-any-gt-3.5 {
+        Match in middle -not -inline -all
+    } -body {
+        tarray::column search -not -gt -inline -all [newcolumn any {{with spaces} aaa ABA { leading space} AAA 5.0e5 zzz}] aaa
+    } -result [crep any {aaa ABA { leading space} AAA 5.0e5}] -match column
+
+    test column_search-any-gt-3.6 {
+        Verify comparisons are strings, not numeric (-not -inline)
+    } -body {
+        tarray::column search -not -gt -inline -all [newcolumn any {010 1 0}] 1
+    } -result [crep any {010 1 0}] -match column
+
+    test column_search-any-gt-4.0 {
+        Match on element -start
+    } -body {
+        tarray::column search -gt -start 1 [newcolumn any {aaa zzz bbb ccc ddd}] aaa
+    } -result 2
+
+    test column_search-any-gt-4.1 {
+        Match fail -start
+    } -body {
+        tarray::column search -gt -start 1 [newcolumn any {zzz bbb ccc ddd}] ddd
+    } -result -1
+
+    test column_search-any-gt-4.2 {
+        Match -inline -start
+    } -body {
+        tarray::column search -gt -start 2 -inline [newcolumn any {aaa zzz bbb ccc ddd}] ccc
+    } -result ddd
+
+    test column_search-any-gt-4.3 {
+        Match -all -start (one element)
+    } -body {
+        tarray::column search -gt -start 2 -all [newcolumn any {aaa zzz bbb ccc ddd}] ccc
+    } -result [crep int {4}] -match column
+
+    test column_search-any-gt-4.4 {
+        Match -all -start
+    } -body {
+        tarray::column search -gt -start 2 -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+    } -result [crep int {3 5}] -match column
+
+    test column_search-any-gt-4.5 {
+        Match -all -inline -start
+    } -body {
+        tarray::column search -gt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+    } -result [crep any {eee ddd}] -match column
+
+    test column_search-any-gt-4.6 {
+        Match -start -not
+    } -body {
+        tarray::column search -not -gt -start 1 [newcolumn any {aaa zzz bbb eee ccc ddd}] bbb
+    } -result 2
+
+    test column_search-any-gt-4.7 {
+        Match -inline -start -not -all
+    } -body {
+        tarray::column search -not -gt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+    } -result [crep any {bbb ccc}] -match column
+
+    test column_search-any-gt-4.8 {
+        Match -all -inline -start -1
+    } -body {
+        tarray::column search -gt -start -1 -inline -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+    } -result [crep any {zzz eee ddd}] -match column
+
+    test column_search-any-gt-4.9 {
+        Match -all -inline -start out of bounds
+    } -body {
+        tarray::column search -gt -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] ccc
+    } -result [crep any {}] -match column
+
+    test column_search-any-gt-4.10 {
+        Match -start end
+    } -body {
+        tarray::column search -gt -start end -inline [newcolumn any {aaa zzz bbb eee ccc}] ccc
+    } -returnCodes error -result "*expected*but got*" -match glob
+
+    test column_search-any-gt-6.0 {
+        Match missing element
+    } -body {
+        tarray::column search -gt [newcolumn any {aaa zzz bbb eee ccc}] aaa
+    } -result -1
+
+    test column_search-any-gt-6.1 {
+        Match missing element -inline
+    } -body {
+        tarray::column search -gt -inline [newcolumn any {aaa zzz bbb eee ccc}] zzz
+    } -result ""
+
+    test column_search-any-gt-6.2 {
+        Match missing element -all
+    } -body {
+        tarray::column search -gt -all [newcolumn any {aaa zzz bbb eee ccc}] zzz
+    } -result [crep int {}] -match column
+
+    test column_search-any-gt-6.3 {
+        Match missing element -not
+    } -body {
+        tarray::column search -gt -not [newcolumn any {zzz bbb eee ccc}] aaa
+    } -result -1
+
+    test column_search-any-gt-6.4 {
+        Match missing element -not -inline -all
+    } -body {
+        tarray::column search -gt -not -inline -all [newcolumn any {zzz bbb eee ccc}] aaa
+    } -result [crep any {}] -match column
 
 
     # TBD - any
