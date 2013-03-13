@@ -1,0 +1,22 @@
+# column size tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    foreach type {boolean any byte double int uint wide} {
+        test column_size-$type-1.0 {
+            Size of empty column
+        } -body {
+            tarray::column size [newcolumn $type]
+        } -result 0
+
+        test column_size-$type-2.0 {
+            Size of non-empty column
+        } -body {
+            tarray::column size [newcolumn $type [samplerange $type]]
+        } -result [llength [samplerange $type]]
+    }
+}
+
+::tcltest::cleanupTests

@@ -749,5 +749,6 @@ namespace eval tarray::test {
         } -body { test_get_range_asdict $type end 0 }
     }
 
-    ::tcltest::cleanupTests
 }
+
+::tcltest::cleanupTests
