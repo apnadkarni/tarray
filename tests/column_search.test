@@ -1187,7 +1187,7 @@ namespace eval tarray::test {
         Match -all (one element)
     } -body {
         tarray::column search -gt -all [newcolumn any {
-            first {with spaces} { leading space} " AAA" xxx
+            first {with spaces} { leading space} " AAA"
         }] w
     } -result [crep int {1}] -match column
 
@@ -1205,7 +1205,7 @@ namespace eval tarray::test {
         tarray::column search -gt -all -inline [newcolumn any {
             first { leading space} {with spaces} AAA 5.0e5
         }] AAA
-    } -result [crep any {first { leading space} {with spaces}}] -match column
+    } -result [crep any {first {with spaces}}] -match column
 
     test column_search-any-gt-2.6 {
         Verify comparisons are strings, not numeric
@@ -1228,7 +1228,7 @@ namespace eval tarray::test {
     test column_search-any-gt-3.2 {
         Match on last element -not (when equal)
     } -body {
-        tarray::column search -not -gt [newcolumn any {{with spaces} ABA { leading space} AAA 5.0e5}] 5.0e5
+        tarray::column search -not -gt [newcolumn any {first {with spaces} ABA AAA 5.0e5}] 5.0e5
     } -result 4
 
     test column_search-any-gt-3.4 {
@@ -1252,7 +1252,7 @@ namespace eval tarray::test {
     test column_search-any-gt-4.0 {
         Match on element -start
     } -body {
-        tarray::column search -gt -start 1 [newcolumn any {aaa zzz bbb ccc ddd}] aaa
+        tarray::column search -gt -start 1 [newcolumn any {aaa bbb ccc ddd}] bbb
     } -result 2
 
     test column_search-any-gt-4.1 {
@@ -1318,7 +1318,7 @@ namespace eval tarray::test {
     test column_search-any-gt-6.0 {
         Match missing element
     } -body {
-        tarray::column search -gt [newcolumn any {aaa zzz bbb eee ccc}] aaa
+        tarray::column search -gt [newcolumn any {aaa bbb eee ccc}] xxx
     } -result -1
 
     test column_search-any-gt-6.1 {
@@ -1688,13 +1688,128 @@ namespace eval tarray::test {
         tarray::column search -re -not -inline -all [newcolumn any {abc aaa a12}] a
     } -result [crep any {}] -match column
 
-
-
-
-    # TBD - any
-    # -re
+    #
     # -nocase
 
+    test column_search-any-eq-nocase-1.0 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -eq [newcolumn any {aaa AAA aaa AAA}] AAA
+    } -result 1
+
+    test column_search-any-eq-nocase-1.1 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -eq -start 1 [newcolumn any {aaa AAA aaa AAA}] aaa
+    } -result 2
+
+    test column_search-any-eq-nocase-2.0 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -eq -nocase [newcolumn any {aaa AAA aaa AAA}] AAA
+    } -result 0
+
+    test column_search-any-eq-nocase-2.1 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -eq -nocase -start 1 [newcolumn any {aaa AAA aaa AAA}] aaa
+    } -result 1
+
+    test column_search-any-pat-nocase-1.0 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -pat [newcolumn any {aaa AAA aaa AAA}] A*
+    } -result 1
+
+    test column_search-any-pat-nocase-1.1 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -pat -start 1 [newcolumn any {aaa AAA aaa AAA}] a*
+    } -result 2
+
+    test column_search-any-pat-nocase-2.0 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -pat -nocase [newcolumn any {aaa AAA aaa AAA}] A*
+    } -result 0
+
+    test column_search-any-pat-nocase-2.1 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -pat -nocase -start 1 [newcolumn any {aaa AAA aaa AAA}] a*
+    } -result 1
+
+    test column_search-any-re-nocase-1.0 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -re [newcolumn any {aaa AAA aaa AAA}] A
+    } -result 1
+
+    test column_search-any-re-nocase-1.1 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -re -start 1 [newcolumn any {aaa AAA aaa AAA}] a
+    } -result 2
+
+    test column_search-any-re-nocase-2.0 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -re -nocase [newcolumn any {aaa AAA aaa AAA}] A
+    } -result 0
+
+    test column_search-any-re-nocase-2.1 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -re -nocase -start 1 [newcolumn any {aaa AAA aaa AAA}] a
+    } -result 1
+
+    test column_search-any-lt-nocase-1.0 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -lt [newcolumn any {aBd aba}] abc
+    } -result 0
+
+    test column_search-any-lt-nocase-1.1 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -lt [newcolumn any {aBd aba}] Abc
+    } -result -1
+
+    test column_search-any-lt-nocase-2.0 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -lt -nocase [newcolumn any {aBd aba}] abc
+    } -result 1
+
+    test column_search-any-lt-nocase-2.1 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -lt -nocase [newcolumn any {abd aba}] Abc
+    } -result 1
+
+    test column_search-any-gt-nocase-1.0 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -gt [newcolumn any {aBd abe}] abc
+    } -result 1
+
+    test column_search-any-gt-nocase-1.1 {
+        Verify case sensitivity without -nocase
+    } -body {
+        tarray::column search -gt [newcolumn any {aBb aba}] Abc
+    } -result 0
+
+    test column_search-any-gt-nocase-2.0 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -gt -nocase [newcolumn any {aBd abe}] abc
+    } -result 0
+
+    test column_search-any-gt-nocase-2.1 {
+        Verify case insensitivity with -nocase
+    } -body {
+        tarray::column search -gt -nocase [newcolumn any {aba abd}] Abc
+    } -result 1
 
 }
 

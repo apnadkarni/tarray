@@ -2570,6 +2570,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 
     len = alen < blen ? alen : blen; /* len is the shorter length */
     
+    /* TBD - maybe check first letter before calling ? */
     comparison = (ignorecase ? Tcl_UtfNcasecmp : Tcl_UtfNcmp)(a, b, len);
 
     if (comparison == 0) {
