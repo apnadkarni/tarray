@@ -1,18 +1,17 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin "tarray::grid" n ""]
 [copyright "2012-2013 Ashok P. Nadkarni"]
-[moddesc "Typed Grids"]
-[titledesc "Commands related to typed grids"]
+[moddesc "Typed Array Grids"]
+[titledesc "Commands related to typed array grids"]
 [require Tcl 8.5]
 [require tarray ?0.1?]
+
 [description]
 
-[section Introduction]
-
 The [cmd tarray] extension implements typed arrays and associated commands
-[cmd column] and [cmd grid]. See [uri tarray.html] for an overview.
-
-This page documents typed grids.
+[cmd column] and [cmd grid]. This page documents typed grids.
+See [uri tarray.html] for an overview.
+[para]
 A typed grid is an ordered sequence of [uri tarray.html "typed columns"]
 of equal size. It can be viewed as an array of records where the
 record fields happen to use column-wise storage. The corresponding
