@@ -1345,6 +1345,180 @@ namespace eval tarray::test {
         tarray::column search -gt -not -inline -all [newcolumn any {zzz bbb eee ccc}] aaa
     } -result [crep any {}] -match column
 
+    #
+    # -pat
+
+    test column_search-any-pat-1.0 {
+        Search empty column
+    } -body {
+        tarray::column search -pat [newcolumn any {}] *
+    } -result -1
+
+    test column_search-any-pat-1.1 {
+        Search empty column
+    } -body {
+        tarray::column search -pat -inline [newcolumn any {}] *
+    } -result {}
+
+    test column_search-any-pat-2.0 {
+        Match on first element
+    } -body {
+        tarray::column search -pat [newcolumn any {abc def hij}] *
+    } -result 0
+
+    test column_search-any-pat-2.1 {
+        Match on first element -inline 
+    } -body {
+        tarray::column search -inline -pat [newcolumn any {abc def hij}] *
+    } -result abc
+
+    test column_search-any-pat-2.2 {
+        Match on last element 
+    } -body {
+        tarray::column search -pat [newcolumn any {abc def hij}] h*
+    } -result 2
+
+    test column_search-any-pat-2.2 {
+        Match on last element 
+    } -body {
+        tarray::column search -pat -inline [newcolumn any {abc def hij}] *j
+    } -result hij
+
+    test column_search-any-pat-2.3 {
+        Match -all (one element)
+    } -body {
+        tarray::column search -pat -all [newcolumn any {
+            first {with spaces} { leading space} " AAA" 
+        }] *A*
+    } -result [crep int {3}] -match column
+
+    test column_search-any-pat-2.4 {
+        Match -all
+    } -body {
+        tarray::column search -pat -all [newcolumn any {
+            first { leading space} {with spaces} AAA 5.0e5
+        }] "* *"
+    } -result [crep int {1 2}] -match column
+    
+    test column_search-any-pat-2.5 {
+        Match -all -inline
+    } -body {
+        tarray::column search -pat -all -inline [newcolumn any {
+            first { leading space} {with spaces} AAA 5.0e5
+        }] *s*
+    } -result [crep any {first { leading space} {with spaces}}] -match column
+
+    test column_search-any-pat-3.0 {
+        Match -not
+    } -body {
+        tarray::column search -not -pat [newcolumn any {aaa bbb ccc ddd eee}] a*
+    } -result 1
+
+    test column_search-any-pat-3.1 {
+        Match on element -not -inline
+    } -body {
+        tarray::column search -not -pat -inline [newcolumn any {abc acb bca bac cab cba}] *c
+    } -result acb
+
+    test column_search-any-pat-3.2 {
+        Match on element -not -all
+    } -body {
+        tarray::column search -not -pat -all [newcolumn any {abc acb bca bac cab cba}] *c
+    } -result [crep int {1 2 4 5}] -match column
+
+    test column_search-any-pat-3.3 {
+        Match on element -not -all -inline
+    } -body {
+        tarray::column search -not -pat -all -inline [newcolumn any {abc acb bca bac cab cba}] *c
+    } -result [crep any {acb bca cab cba}] -match column
+
+    test column_search-any-pat-4.0 {
+        Match on element -start
+    } -body {
+        tarray::column search -pat -start 2 [newcolumn any {abc acb bca bac cab cba}] *c
+    } -result 3
+
+    test column_search-any-pat-4.1 {
+        Match fail -start
+    } -body {
+        tarray::column search -pat -start 1 [newcolumn any {zzz bbb ccc ddd}] a*
+    } -result -1
+
+    test column_search-any-pat-4.2 {
+        Match -inline -start
+    } -body {
+        tarray::column search -pat -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c
+    } -result bac
+
+    test column_search-any-pat-4.3 {
+        Match -all -start
+    } -body {
+        tarray::column search -all -pat -start 2 [newcolumn any {abc acb bca bac cab cba dcb}] *c?
+    } -result [crep int {2 6}] -match column
+
+    test column_search-any-pat-4.4 {
+        Match -all -inline -start
+    } -body {
+        tarray::column search -all -pat -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
+    } -result [crep any {bca}] -match column
+
+    test column_search-any-pat-4.5 {
+        Match -start -not
+    } -body {
+        tarray::column search -not -pat -start 2 [newcolumn any {abc acb bca bac cab cba}] *c?
+    } -result 3
+
+    test column_search-any-pat-4.6 {
+        Match -inline -start -not -all
+    } -body {
+        tarray::column search -not -all -pat -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
+    } -result [crep any {bac cab cba}] -match column
+
+    test column_search-any-pat-4.7 {
+        Match -all -inline -start -1
+    } -body {
+        tarray::column search -all -pat -start -1 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
+    } -result [crep any {acb bca}] -match column
+
+    test column_search-any-pat-4.8 {
+        Match -all -inline -start out of bounds
+    } -body {
+        tarray::column search -gt -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] c*
+    } -result [crep any {}] -match column
+
+    test column_search-any-pat-5.0 {
+        Match missing element
+    } -body {
+        tarray::column search -pat [newcolumn any {aaa zzz bbb eee ccc}] s*
+    } -result -1
+
+    test column_search-any-pat-5.1 {
+        Match missing element -inline
+    } -body {
+        tarray::column search -pat -inline [newcolumn any {aaa zzz bbb eee ccc}] x*
+    } -result ""
+
+    test column_search-any-pat-5.2 {
+        Match missing element -all
+    } -body {
+        tarray::column search -pat -all [newcolumn any {aaa zzz bbb eee ccc}] *x
+    } -result [crep int {}] -match column
+
+    test column_search-any-pat-5.3 {
+        Match missing element -not
+    } -body {
+        tarray::column search -pat -not [newcolumn any {abc aaa a12}] a*
+    } -result -1
+
+    test column_search-any-gt-5.4 {
+        Match missing element -not -inline -all
+    } -body {
+        tarray::column search -pat -not -inline -all [newcolumn any {abc aaa a12}] a*
+    } -result [crep any {}] -match column
+
+
+
+
 
     # TBD - any
     # -pat
