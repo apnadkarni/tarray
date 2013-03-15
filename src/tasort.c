@@ -51,7 +51,7 @@ int widecmp(const void *a, const void *b) { RETCMP(a,b,Tcl_WideInt); }
 int widecmprev(const void *a, const void *b) { RETCMPREV(a,b,Tcl_WideInt); }
 int doublecmp(const void *a, const void *b) { RETCMP(a,b,double); }
 int doublecmprev(const void *a, const void *b) { RETCMPREV(a,b,double); }
-int bytecmp(const void *a, const void *b) { RETCMPREV(a,b,unsigned char); }
+int bytecmp(const void *a, const void *b) { RETCMP(a,b,unsigned char); }
 int bytecmprev(const void *a, const void *b) { RETCMPREV(a,b,unsigned char); }
 int tclobjcmp(const void *a, const void *b)
 {
@@ -100,8 +100,8 @@ int tclobjcmpnocaserev(const void *a, const void *b)
  */
 #define RETCMPINDEXED(ai_, bi_, t_, v_)                 \
     do {                                                \
-        t_ a_ = *(*(int*)(ai_) + (t_ *)v_); \
-        t_ b_ = *(*(int*)(bi_) + (t_ *)v_);             \
+        t_ a_ = *((*(int*)(ai_)) + (t_ *)v_);           \
+        t_ b_ = *((*(int*)(bi_)) + (t_ *)v_);           \
         if (a_ < b_)                                    \
             return -1;                                  \
         else if (a_ > b_)                               \
@@ -135,7 +135,7 @@ int widecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,
 int widecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,Tcl_WideInt, ctx); }
 int doublecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,double, ctx); }
 int doublecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,double, ctx); }
-int bytecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,unsigned char, ctx); }
+int bytecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,unsigned char, ctx); }
 int bytecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,unsigned char, ctx); }
 int tclobjcmpindexed(void *ctx, const void *ai, const void *bi)
 {
@@ -484,8 +484,12 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         else if ((decreasing && psrc->sort_order == THDR_SORTED_DESCENDING) ||
                  ((!decreasing) && psrc->sort_order == THDR_SORTED_ASCENDING))
             orig_sort_state = 1; /* Sort state matches what's specified now */
-        else
-            orig_sort_state = -1; /* Sorted but in reverse order */
+        else {
+            if (return_indices || psrc->type != TA_BOOLEAN)
+                orig_sort_state = -1; /* Sorted but in reverse order */
+            else
+                orig_sort_state = 0; /* For BOOLEAN, faster to explictly sort */
+        }
     }
     else {
         switch (psrc->sort_order) {
@@ -525,26 +529,35 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         psorted->used = psrc->used;
         indexP = THDRELEMPTR(psorted, int, 0);
 
+        /* TBD - just reversing the order of a presorted array is no good
+           since the sort will not be a stable sort. So for now dump that
+           idea. */
+        if (orig_sort_state < 0)
+            orig_sort_state = 0;
+
         if (orig_sort_state > 0) {
             /* Input already sorted in right order */
-            for (i = 0; i < psrc->used; ++i, ++indexP)
+            for (i = 0; i < psorted->used; ++i, ++indexP)
                 *indexP = i;
             psorted->sort_order = THDR_SORTED_ASCENDING; /* indices order */
         } else if (orig_sort_state < 0) {
             /* Sorted but in reverse order. */
-            for (i = psrc->used; i > 0; ++indexP)
+            for (i = psorted->used; i > 0; ++indexP)
                 *indexP = --i;
             psorted->sort_order = THDR_SORTED_DESCENDING; /* indices order */
         } else {
             /* Input is not already sorted */
 
             /* Init the indices array for sorting */
-            for (i = 0; i < psrc->used; ++i, ++indexP)
+            for (i = 0; i < psorted->used; ++i, ++indexP)
                 *indexP = i;
 
-            switch (psorted->type) {
+            switch (psrc->type) {
+            case TA_BYTE:
+                cmpindexedfn = decreasing ? bytecmpindexedrev : bytecmpindexed;
+                break;
             case TA_BOOLEAN:
-                cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
+                cmpindexedfn = decreasing ? booleancmpindexedrev : booleancmpindexed;
                 break;
             case TA_UINT:
                 cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
@@ -580,7 +593,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     if (orig_sort_state > 0)
         return TCL_OK;        /* Already sorted in desired order */
     
-    if (orig_sort_state < 1) {
+    if (orig_sort_state < 0) {
         /*
          * Need to reverse the order. If thdr is also unshared, we can do this
          * in place else need to allocate a new object and array
@@ -633,6 +646,9 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         }
     } else {
         switch (psorted->type) {
+        case TA_BYTE:
+            cmpfn = decreasing ? bytecmprev : bytecmp;
+            break;
         case TA_UINT:
             cmpfn = decreasing ? uintcmprev : uintcmp;
             break;

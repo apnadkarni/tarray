@@ -1,0 +1,237 @@
+# column size tests
+# TBD - test sort is stable
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc lsort_cmp {type} {
+        switch -exact -- $type {
+            any { return -ascii }
+            wide -
+            double {return -real }
+            byte -
+            int -
+            uint -
+            boolean { return -integer }
+        }            
+    }
+
+    # args is any combination of -nocase, -increasing, -decreasing
+    proc sort_verify_shared {type args} {
+        set l [lshuffle [samplerange $type]]
+        return [col_change_and_verify $type $l [lsort [lsort_cmp $type] {*}$args $l] [linsert $args 0 sort]]
+    }
+
+    # args is any combination of -nocase, -increasing, -decreasing
+    proc sort_verify_unshared {type args} {
+        set l [lshuffle [samplerange $type]]
+        if {[clequal [tarray::column {*}[linsert $args 0 sort] [tarray::column create $type $l]] $type [lsort [lsort_cmp $type] {*}$args $l]]} {
+            return 0
+        } else {
+            return 1
+        }
+    }
+
+    # args is any combination of -nocase, -increasing, -decreasing
+    proc sort_verify_indices {type args} {
+        set l [lshuffle [samplerange $type]]
+        if {[clequal [tarray::column {*}[linsert $args 0 sort -indices] [tarray::column create $type $l]] int [lsort [lsort_cmp $type] -indices {*}$args $l]]} {
+            return 0
+        } else {
+            return 1
+        }
+    }
+
+    # Verify that presorted tarrays are sorted correctly
+    proc sort_verify_presorted {type presort_args args} {
+        set l [lshuffle [samplerange $type]]
+        set ta [tarray::column create $type $l]
+
+        lassign [time {set sorted_ta [tarray::column sort {*}$presort_args $ta]}] unsorted_time
+
+        lassign [time {set resorted_ta [tarray::column sort {*}$args $sorted_ta]}] presorted_time
+        if {[clequal $resorted_ta $type [lsort [lsort_cmp $type] {*}$args $l]]} {
+            if {[llength $l] > 100} {
+                # For Booleans not much difference in time */
+                if {$type ne "boolean"} {
+                    if {$unsorted_time < ($presorted_time * 5)} {
+                        puts "Presorted time (type $type, length [llength $l]) $presorted_time not much smaller than unsorted time $unsorted_time"
+                    }
+                } else {
+                    if {$unsorted_time < $presorted_time} {
+                        puts "Presorted time (type $type, length [llength $l]) $presorted_time greater than unsorted time $unsorted_time"
+                    }
+                }
+            }
+            return 0
+        } else {
+            return 1
+        }
+    }
+
+    # Verify that presorted tarrays are sorted correctly (indices)
+    proc sort_verify_indices_presorted {type presort_args args} {
+        set l [lsort [lsort_cmp $type] {*}$presort_args [samplerange $type]]
+        set ta [tarray::column create $type $l]
+        set sorted_ta [tarray::column sort {*}$presort_args $ta]
+
+        set indices [tarray::column sort -indices {*}$args $sorted_ta]
+        if {[clequal $indices int [lsort -indices [lsort_cmp $type] {*}$args $l]]} {
+            return 0
+        } else {
+            #puts $indices
+            #puts [lsort -indices [lsort_cmp $type] {*}$args $l]
+            return 1
+        }
+    }
+
+
+    foreach type {boolean any byte double int uint wide} {
+        test column_sort-$type-1.0 {
+            Sort empty column (unshared)
+        } -body {
+            tarray::column sort [newcolumn $type]
+        } -result [crep $type {}] -match column
+
+        test column_sort-$type-1.1 {
+            Sort empty column (shared)
+        } -body {
+            col_change_and_verify $type {} {} sort
+        } -result 0
+
+        test column_sort-$type-1.2 {
+            Sort empty column -indices (unshared)
+        } -body {
+            tarray::column sort -indices [newcolumn $type]
+        } -result [crep int {}] -match column
+
+        test column_sort-$type-1.3 {
+            Sort empty column -indices (shared)
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column sort -indices $ta
+        } -result [crep int {}] -match column
+
+        test column_sort-$type-1.4 {
+            Sort empty column -increasing (unshared)
+        } -body {
+            tarray::column sort -increasing [newcolumn $type]
+        } -result [crep $type {}] -match column
+
+        test column_sort-$type-1.5 {
+            Sort empty column -decreasing (shared)
+        } -body {
+            col_change_and_verify $type {} {} {sort -decreasing}
+        } -result 0
+
+        test column_sort-$type-2.0 {
+            Sort column (shared)
+        } -body {
+            sort_verify_shared $type
+        } -result 0
+
+        test column_sort-$type-2.1 {
+            Sort column (unshared)
+        } -body {
+            sort_verify_unshared $type
+        } -result 0
+
+        test column_sort-$type-2.2 {
+            Sort column -indices
+        } -body {
+            sort_verify_indices $type
+        } -result 0
+
+        test column_sort-$type-3.0 {
+            Sort column (shared) -increasing
+        } -body {
+            sort_verify_shared $type -increasing
+        } -result 0
+
+        test column_sort-$type-3.1 {
+            Sort column (unshared) -increasing
+        } -body {
+            sort_verify_unshared $type -increasing
+        } -result 0
+
+        test column_sort-$type-3.2 {
+            Sort column -increasing -indices
+        } -body {
+            sort_verify_indices $type -increasing -indices
+        } -result 0
+
+        test column_sort-$type-4.0 {
+            Sort column (shared) -decreasing
+        } -body {
+            sort_verify_shared $type -decreasing
+        } -result 0
+
+        test column_sort-$type-4.1 {
+            Sort column (unshared) -decreasing
+        } -body {
+            sort_verify_unshared $type -decreasing
+        } -result 0
+
+        test column_sort-$type-4.2 {
+            Sort column -decreasing -indices
+        } -body {
+            sort_verify_indices $type -decreasing -indices
+        } -result 0
+
+        test column_sort-$type-5.0 {
+            Sort presorted column -increasing -increasing
+        } -body {
+            sort_verify_presorted $type -increasing -increasing
+        } -result 0
+
+        test column_sort-$type-5.1 {
+            Sort presorted column -increasing -decreasing
+        } -body {
+            sort_verify_presorted $type -increasing -decreasing
+        } -result 0
+
+        test column_sort-$type-5.2 {
+            Sort presorted column -decreasing -decreasing
+        } -body {
+            sort_verify_presorted $type -decreasing -decreasing
+        } -result 0
+
+        test column_sort-$type-5.3 {
+            Sort presorted column -decreasing -increasing 
+        } -body {
+            sort_verify_presorted $type -decreasing -increasing
+        } -result 0
+
+        test column_sort-$type-5.4 {
+            Sort presorted column -indices -increasing -increasing
+        } -body {
+            sort_verify_indices_presorted $type -increasing -increasing
+        } -result 0
+
+        test column_sort-$type-5.5 {
+            Sort presorted column -indices -increasing -decreasing
+        } -body {
+            sort_verify_indices_presorted $type -increasing -decreasing
+        } -result 0
+
+        test column_sort-$type-5.6 {
+            Sort presorted column -indices -decreasing -decreasing
+        } -body {
+            sort_verify_indices_presorted $type -decreasing -decreasing
+        } -result 0
+
+        test column_sort-$type-5.7 {
+            Sort presorted column -indices -decreasing -increasing
+        } -body {
+            sort_verify_indices_presorted $type -decreasing -increasing
+        } -result 0
+
+    }
+
+    # TBD - nocase tests
+
+
+}
+
+::tcltest::cleanupTests
