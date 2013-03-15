@@ -370,13 +370,13 @@ int ba_count_ones(ba_t *baP, int off, int count)
     n = ((count + off) / BA_UNIT_SIZE) * BA_UNIT_SIZE;
     /* At this point,
      * baP points to ba_t containing first bit of interest
-     * ba contains *baP with bits not of interest masked off
+     * ba contains *baP with top bits not of interest masked off
      * n is count minus the partial bits in the last ba_t
      */
     while (off < n) {
         /* At top of loop ba contains the bits to count */
         nbits += ba_count_unit_ones(ba);
-        ba = *baP++;
+        ba = *++baP;
         off += BA_UNIT_SIZE;
     }
 

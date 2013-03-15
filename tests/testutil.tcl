@@ -7,6 +7,8 @@ package require tcltest
 # (to make sure thdr_t.used/usable are correctly calculated 
 # TBD - add tests for all commands where source operand is same as dest operand
 # TBD - add tests for all commands where operand is wrong type of column
+# TBD - add duplicates to sample data to ensure correct behaviour with
+#   stable sorts
 
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
@@ -26,7 +28,7 @@ if {![info exists tarray::test::known]} {
 
         #
         # Define the valid values
-        variable counts {0 1 2 7 8 15 16 17 31 32 33 63 64 65 256 1000 32567 32568 100000}
+        variable counts {0 1 2 7 8 9 31 32 33 63 64 65 127 128 129 255 256 257 1000 32567 32568 100000}
         variable good;   # List of lists of valid values
         variable sample; # Array indexed by type used in general tests
         array set sample {}
@@ -62,7 +64,7 @@ if {![info exists tarray::test::known]} {
             lappend good(uint) $l
 
             # Byte
-            set i 128
+            set i -1
             set l {}
             time {lappend l [expr {[incr i] & 0xff}]} $count
             lappend good(byte) $l
@@ -78,7 +80,7 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 2} {
+            if {$count == 1000} {
                 foreach type {any boolean byte double int uint wide} {
                     set sample($type) [lindex $good($type) end]
                 }
@@ -125,26 +127,38 @@ if {![info exists tarray::test::known]} {
 
         # Test two lists for equality based on type
         proc lequal {type avals bvals} {
+            #puts a:$avals
+            #puts b:$bvals
             if {[llength $avals] != [llength $bvals]} {
                 return 0
             }
-
+            set i 0
             switch -exact -- $type {
                 boolean {
-                    set i 0
                     foreach aval $avals bval $bvals {
-                        if {!$aval != !$bval} {puts "$avals != $bvals at position $i" ;  return 0 }
+                        if {!$aval != !$bval} {
+                            puts "Mismatch at position $i"
+                            return 0
+                        }
                         incr i
                     }
                 }
                 any {
                     foreach aval $avals bval $bvals {
-                        if {$aval ne $bval} { return 0 }
+                        if {$aval ne $bval} {
+                            puts "Mismatch at position $i"
+                            return 0
+                        }
+                        incr i
                     }
                 }
                 default {
                     foreach aval $avals bval $bvals {
-                        if {$aval != $bval} { return 0 }
+                        if {$aval != $bval} {
+                            puts "Mismatch at position $i"
+                            return 0
+                        }
+                        incr i
                     }
                 }
             }
@@ -191,7 +205,7 @@ if {![info exists tarray::test::known]} {
             set tcol [tarray::column create $type $init]
             # Note we have to do the operation and *then* check that
             # tcol is unchanged.
-            return [compare_tcols_lists $type [tarray::column $op $tcol {*}$args] $expected $tcol $init]
+            return [compare_tcols_lists $type [tarray::column {*}$op $tcol {*}$args] $expected $tcol $init]
         }
 
         # Deprecated - use col_change_and_verify instead, better syntax
@@ -317,6 +331,17 @@ if {![info exists tarray::test::known]} {
             return 1
         }
 
+        # shuffle10a from the Tcl wiki
+        proc lshuffle list {
+            set len [llength $list]
+            while {$len} {
+                set n [expr {int($len*rand())}]
+                set tmp [lindex $list $n]
+                lset list $n [lindex $list [incr len -1]]
+                lset list $len $tmp
+            }
+            return $list
+        }
     }
 
     package require tarray
