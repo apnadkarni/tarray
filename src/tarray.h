@@ -38,7 +38,7 @@
 #if TA_ENABLE_ASSERT
 # define TA_NOFAIL(expr, val) TA_ASSERT((expr) == (val))
 #else
-# define TA_NOFAIL(expr, val) do { (void) (expr) } while (0)
+# define TA_NOFAIL(expr, val) do { (void) (expr) ; } while (0)
 #endif
 
 
@@ -47,7 +47,7 @@
 #define BA_ENABLE_ASSERT 1
 #endif
 #include "bitarray.h"           /* Include AFTER assert definitions */
-
+#include "timsort.h"
 
 typedef int TCL_RESULT;
 
