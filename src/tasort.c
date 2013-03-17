@@ -1,100 +1,36 @@
 #include "tcl.h"
 #include "tarray.h"
 
-/*
- * Comparison functions for qsort. For a stable sort, if two items are
- * equal, we compare the addresses. Note expression is a bit more complicated
- * because we cannot just return result of a subtraction when the type
- * is wider than an int.
- */
-#define RETCMP(a_, b_, t_)                              \
-    do {                                                \
-        if (*(t_*)(a_) > *(t_*)(b_))                    \
-            return 1;                                   \
-        else if (*(t_*)(a_) < *(t_*)(b_))               \
-            return -1;                                  \
-        else {                                          \
-            if ((char *)(a_) == (char *)(b_))           \
-                return 0;                               \
-            else if ((char *)(a_) > (char *)(b_))       \
-                return 1;                               \
-            else                                        \
-                return -1;                              \
-        }                                               \
-    } while (0)
-
-/* Compare in reverse (for decreasing order). Note we cannot just
-   reverse arguments to RETCMP since we are also comparing actual
-   addresses and the sense for those should be fixed.
-*/
-#define RETCMPREV(a_, b_, t_)                           \
-    do {                                                \
-        if (*(t_*)(a_) > *(t_*)(b_))                    \
-            return -1;                                  \
-        else if (*(t_*)(a_) < *(t_*)(b_))               \
-            return 1;                                   \
-        else {                                          \
-            if ((char *)(a_) == (char *)(b_))           \
-                return 0;                               \
-            else if ((char *)(a_) > (char *)(b_))       \
-                return 1;                               \
-            else                                        \
-                return -1;                              \
-        }                                               \
-    } while (0)
-
-int intcmp(const void *a, const void *b) { RETCMP(a,b,int); }
-int intcmprev(const void *a, const void *b) { RETCMPREV(a,b,int); }
-int uintcmp(const void *a, const void *b) { RETCMP(a,b,unsigned int); }
-int uintcmprev(const void *a, const void *b) { RETCMPREV(a,b,unsigned int); }
-int widecmp(const void *a, const void *b) { RETCMP(a,b,Tcl_WideInt); }
-int widecmprev(const void *a, const void *b) { RETCMPREV(a,b,Tcl_WideInt); }
-int doublecmp(const void *a, const void *b) { RETCMP(a,b,double); }
-int doublecmprev(const void *a, const void *b) { RETCMPREV(a,b,double); }
-int bytecmp(const void *a, const void *b) { RETCMP(a,b,unsigned char); }
-int bytecmprev(const void *a, const void *b) { RETCMPREV(a,b,unsigned char); }
-int tclobjcmp(const void *a, const void *b)
-{
-    int n;
-    n = ta_obj_compare(*(Tcl_Obj **)a, *(Tcl_Obj **)b, 0);
-    if (n)
-        return n;
-    else
-        return a > b ? 1 : (a < b ? -1 : 0);
+/* Comparison functions for sorting */
+#define RETCMP(a_, b_, t_)                      \
+    return ((*(t_ *)(a_)) > (*(t_ *)(b_)) ? 1 : ( (*(t_ *)(a_)) == (*(t_ *)(b_)) ? 0 : -1))
+int intcmp(const void *a, const void *b) { return *(int*)a-*(int*)b; }
+int intcmprev(const void *a, const void *b) { return *(int*)b-*(int*)a; }
+/* Note for doubles, wides, unsigned int etc, (*a-*b) won't do */
+int bytecmp(const void *a, const void *b) { RETCMP(a, b, unsigned char); }
+int bytecmprev(const void *a, const void *b) { RETCMP(b, a, unsigned char); }
+int uintcmp(const void *a, const void *b) { RETCMP(a, b, unsigned int); }
+int uintcmprev(const void *a, const void *b) { RETCMP(b, a, unsigned int); }
+int widecmp(const void *a, const void *b) { RETCMP(a, b, Tcl_WideInt); }
+int widecmprev(const void *a, const void *b) { RETCMP(b, a, Tcl_WideInt); }
+int doublecmp(const void *a, const void *b) { RETCMP(a, b, double); }
+int doublecmprev(const void *a, const void *b) { RETCMP(b, a, double); }
+int tclobjcmp(const void *a, const void *b) {
+    return ta_obj_compare(*(Tcl_Obj **)a, *(Tcl_Obj **)b, 0);
 }
-int tclobjcmprev(const void *a, const void *b)
-{
-    int n;
-    n = ta_obj_compare(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 0);
-    if (n)
-        return n;
-    else
-        return a > b ? 1 : (a < b ? -1 : 0);
+int tclobjcmprev(const void *a, const void *b) {
+    return ta_obj_compare(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 0);
 }
-int tclobjcmpnocase(const void *a, const void *b)
-{
-    int n;
-    n = ta_obj_compare(*(Tcl_Obj **)a, *(Tcl_Obj **)b, 1);
-    if (n)
-        return n;
-    else
-        return a > b ? 1 : (a < b ? -1 : 0);
+int tclobjcmpnocase(const void *a, const void *b) {
+    return ta_obj_compare(*(Tcl_Obj **)a, *(Tcl_Obj **)b, 1);
 }
-int tclobjcmpnocaserev(const void *a, const void *b)
-{
-    int n;
-    n = ta_obj_compare(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 1);
-    if (n)
-        return n;
-    else
-        return a > b ? 1 : (a < b ? -1 : 0);
+int tclobjcmpnocaserev(const void *a, const void *b) {
+    return  ta_obj_compare(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 1);
 }
 
 /*
- * Comparison functions for tarray_qsort_r. 
- * The passed values are integer indexes into a TArrayHdr
- * For a stable sort, if two items are
- * equal, we compare the indexes.
+ * Comparison functions for sorting when the passed values are integer
+ * indexes into a TArrayHdr.
  * ai_ and bi_ are pointers to int indexes into the TArrayHdr
  * pointed to by v_ which is of type t_
  */
@@ -107,25 +43,21 @@ int tclobjcmpnocaserev(const void *a, const void *b)
         else if (a_ > b_)                               \
             return 1;                                   \
         else                                            \
-            return *(int *)(ai_) - *(int *)(bi_);       \
+            return 0; \
     } while (0)
 
-
-/* Compare in reverse (for decreasing order). Note we cannot just
-   reverse arguments to RETCMPINDEXED since we are also comparing actual
-   addresses and the sense for those should be fixed.
-*/
-#define RETCMPINDEXEDREV(ai_, bi_, t_, v_)              \
+#define RETCMPINDEXEDREV(ai_, bi_, t_, v_)                 \
     do {                                                \
-        t_ a_ = *(*(int*)(ai_) + (t_ *)v_); \
-        t_ b_ = *(*(int*)(bi_) + (t_ *)v_);             \
+        t_ a_ = *((*(int*)(ai_)) + (t_ *)v_);           \
+        t_ b_ = *((*(int*)(bi_)) + (t_ *)v_);           \
         if (a_ < b_)                                    \
-            return 1;                                   \
+            return 1;                                  \
         else if (a_ > b_)                               \
-            return -1;                                  \
+            return -1;                                   \
         else                                            \
-            return *(int *)(ai_) - *(int *)(bi_);       \
+            return 0; \
     } while (0)
+
 
 int intcmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,int, ctx); }
 int intcmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,int, ctx); }
@@ -137,83 +69,40 @@ int doublecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,
 int doublecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,double, ctx); }
 int bytecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,unsigned char, ctx); }
 int bytecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,unsigned char, ctx); }
-int tclobjcmpindexed(void *ctx, const void *ai, const void *bi)
-{
-    int n;
+int tclobjcmpindexed(void *ctx, const void *ai, const void *bi) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
-    n = ta_obj_compare(a, b, 0);
-    if (n)
-        return n;
-    else
-        return *(int *)ai - *(int *)bi;
+    return ta_obj_compare(a, b, 0);
 }
-int tclobjcmpindexedrev(void *ctx, const void *ai, const void *bi)
-{
-    int n;
+int tclobjcmpindexedrev(void *ctx, const void *ai, const void *bi) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
-    n = ta_obj_compare(b, a, 0);
-    if (n)
-        return n;
-    else
-        return *(int *)ai - *(int *)bi;
+    return ta_obj_compare(b, a, 0);
 }
-int tclobjcmpnocaseindexed(void *ctx, const void *ai, const void *bi)
-{
-    int n;
+int tclobjcmpnocaseindexed(void *ctx, const void *ai, const void *bi) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
-    n = ta_obj_compare(a, b, 1);
-    if (n)
-        return n;
-    else
-        return *(int *)ai - *(int *)bi;
+    return ta_obj_compare(a, b, 1);
 }
-int tclobjcmpnocaseindexedrev(void *ctx, const void *ai, const void *bi)
-{
-    int n;
+int tclobjcmpnocaseindexedrev(void *ctx, const void *ai, const void *bi) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
-    n = ta_obj_compare(b, a, 1);
-    if (n)
-        return n;
-    else
-        return *(int *)ai - *(int *)bi;
+    return ta_obj_compare(b, a, 1);
 }
-
-int booleancmpindexed(void *ctx, const void *ai, const void *bi)
-{
+int booleancmpindexed(void *ctx, const void *ai, const void *bi) {
     unsigned char uca, ucb;
-
     uca = ba_get((ba_t *)ctx, *(int *)ai);
     ucb = ba_get((ba_t *)ctx, *(int *)bi);
-    if (uca == ucb) {
-        /* Both bits set or unset, use index position to differentiate */
-        return *(int *)ai - *(int *)bi;
-    } else if (uca)
-        return 1;
-    else
-        return -1;
+    return uca == ucb ? 0 : (uca ? 1 : -1);
 }
-
-int booleancmpindexedrev(void *ctx, const void *ai, const void *bi)
-{
+int booleancmpindexedrev(void *ctx, const void *ai, const void *bi) {
     unsigned char uca, ucb;
-
     uca = ba_get((ba_t *)ctx, *(int *)ai);
     ucb = ba_get((ba_t *)ctx, *(int *)bi);
-
-    if (uca == ucb) {
-        /* Both bits set or unset, use index position to differentiate */
-        return *(int *)ai - *(int *)bi;
-    } else if (uca)
-        return -1;
-    else
-        return 1;
+    return uca == ucb ? 0 : (uca ? -1 : 1);
 }
 
-
+#ifdef USE_QSORT
 
 /*
  * qsort code - from BSD via speedtables
@@ -426,6 +315,8 @@ loop:	SWAPINIT(a, es);
 /*		qsort(pn - r, r / es, es, cmp);*/
 }
 
+#endif // USE_QSORT
+
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
                                    int *pflags)
@@ -581,9 +472,15 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                 ta_type_panic(psorted->type);
             }
             /* Note list of indices is NOT sorted, do not mark it as such ! */
+#ifdef USE_QSORT
             tarray_qsort_r(THDRELEMPTR(psorted, int, 0), psorted->used,
                            sizeof(int), THDRELEMPTR(psrc, unsigned char, 0),
                            cmpindexedfn);
+#else
+            timsort_arg(THDRELEMPTR(psorted, int, 0),
+                        psorted->used, sizeof(int),
+                        cmpindexedfn, THDRELEMPTR(psrc, unsigned char, 0));
+#endif
         }
         ta_replace_intrep(tcol, psorted);
         return TCL_OK;
@@ -670,8 +567,13 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         default:
             ta_type_panic(psorted->type);
         }
+#ifdef USE_QSORT
         qsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
               psorted->elem_bits / CHAR_BIT, cmpfn);
+#else
+        timsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
+                psorted->elem_bits / CHAR_BIT, cmpfn);
+#endif
     }
 
     if (decreasing) {
