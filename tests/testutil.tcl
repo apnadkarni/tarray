@@ -147,7 +147,7 @@ if {![info exists tarray::test::known]} {
                 any {
                     foreach aval $avals bval $bvals {
                         if {$aval ne $bval} {
-                            puts "Mismatch at position $i"
+                            puts "Mismatch at position $i ($aval != $bval)"
                             return 0
                         }
                         incr i
@@ -190,8 +190,8 @@ if {![info exists tarray::test::known]} {
 
         # Compare a column and a list for equality
         proc clequal {col type l} {
-            puts col:$col
-            puts l:$l
+            #puts col:$col
+            #puts l:$l
             return [cequal $col [crep $type $l]]
         }
 
