@@ -3,13 +3,13 @@
 
 #include <limits.h>             /* CHAR_BIT etc. */
 
-#ifdef BA_ENABLE_ASSERT
-# if !defined(BA_ASSERT)
+#if !defined(BA_ASSERT)
+# ifdef BA_ENABLE_ASSERT
 #  include <assert.h>
 #  define BA_ASSERT assert
+# else
+#  define BA_ASSERT(bool_) ((void) 0)
 # endif
-#else
-# define BA_ASSERT(bool_) ((void) 0)
 #endif
 
 #ifdef _MSC_VER
