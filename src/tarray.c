@@ -222,7 +222,7 @@ TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
 /* We cannot rely on Tcl_GetIntFromObj because that does not signal an
    error on signed overflow (i.e. 0x80000000 is treated as a valid integer)
 */
-TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pi)
+TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 {
     Tcl_WideInt wide;
     if (Tcl_GetWideIntFromObj(ip, o, &wide) != TCL_OK)
