@@ -2576,7 +2576,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     if (comparison == 0) {
         comparison = alen-blen;
     }
-    return (comparison > 0) ? 1 : (comparison < 0) ? -1 : 0;
+    return (comparison > 0) ? 1 : ((comparison < 0) ? -1 : 0);
 }
 
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,

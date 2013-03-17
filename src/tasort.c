@@ -446,7 +446,7 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
         case 0: flags |= TA_SORT_DECREASING; break;
         case 1: flags &= ~TA_SORT_DECREASING; break;
         case 2: flags |= TA_SORT_INDICES; break;
-        case 4: flags |= TA_SORT_NOCASE;
+        case 3: flags |= TA_SORT_NOCASE;
         }
     }
     *pflags = flags;
