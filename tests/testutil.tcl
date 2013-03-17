@@ -75,6 +75,7 @@ if {![info exists tarray::test::known]} {
             time {set w [expr {$i & 1 ? -($i*$i) : ($i*$i)}] ; lappend l $w ; lappend anyl $w; incr i} $count
             lappend good(wide) $l
 
+            lappend anyl lower UPPER duplicate _ DUPLICATE MIXED MiXeD mixed
             lappend good(any) $anyl
 
             # Use 1000 value version as the sample values (arbitrary)
@@ -189,6 +190,8 @@ if {![info exists tarray::test::known]} {
 
         # Compare a column and a list for equality
         proc clequal {col type l} {
+            puts col:$col
+            puts l:$l
             return [cequal $col [crep $type $l]]
         }
 
