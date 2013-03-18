@@ -477,7 +477,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                            sizeof(int), THDRELEMPTR(psrc, unsigned char, 0),
                            cmpindexedfn);
 #else
-            timsort_arg(THDRELEMPTR(psorted, int, 0),
+            timsort_r(THDRELEMPTR(psorted, int, 0),
                         psorted->used, sizeof(int),
                         cmpindexedfn, THDRELEMPTR(psrc, unsigned char, 0));
 #endif

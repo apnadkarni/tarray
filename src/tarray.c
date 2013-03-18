@@ -5,7 +5,6 @@
  * See the file LICENSE for license
  */
 
-#include <string.h>
 #if __GNUC__ && !__GNUC_STDC_INLINE__
 /* Force generation of code for inline - older gnu compilers */
 #define TA_INLINE

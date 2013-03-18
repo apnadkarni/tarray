@@ -1,5 +1,4 @@
 # column size tests
-# TBD - test sort is stable
 
 source testutil.tcl
 
@@ -341,11 +340,11 @@ namespace eval tarray::test {
     test column_sort-nocase-5.0 {
         Sort presorted column -increasing -increasing -nocase
     } -body {
-        sort_verify_presorted any {-nocase -increasing} -increasing -nocase
+        sort_verify_presorted any  -increasing -increasing -nocase
     } -result 0
 
     test column_sort-nocase-5.1 {
-        Sort presorted column {-increasing -nocase} -decreasing -nocase
+        Sort presorted column -increasing -decreasing -nocase
     } -body {
         sort_verify_presorted any -increasing -decreasing -nocase
     } -result 0
