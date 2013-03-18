@@ -1,0 +1,22 @@
+# column type tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    foreach type {boolean any byte double int uint wide} {
+        test column_type-$type-1.0 {
+            Type of empty column
+        } -body {
+            tarray::column type [newcolumn $type]
+        } -result $type
+
+        test column_type-$type-2.0 {
+            Type of column
+        } -body {
+            tarray::column type [samplecolumn $type]
+        } -result $type
+    }
+}
+
+::tcltest::cleanupTests
