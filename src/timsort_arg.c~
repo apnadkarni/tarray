@@ -1,2 +1,0 @@
-#define USE_CMP_ARG 1
-#include "timsort.c"
