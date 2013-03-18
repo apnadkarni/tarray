@@ -1,7 +1,10 @@
 #ifndef TA_H
 #define TA_H
 
+#define _CRT_SECURE_NO_WARNINGS /* Disable Visual C++ snprintf security warnings */
+
 #include <limits.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include "tcl.h"

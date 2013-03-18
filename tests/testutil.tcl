@@ -7,8 +7,6 @@ package require tcltest
 # (to make sure thdr_t.used/usable are correctly calculated 
 # TBD - add tests for all commands where source operand is same as dest operand
 # TBD - add tests for all commands where operand is wrong type of column
-# TBD - add duplicates to sample data to ensure correct behaviour with
-#   stable sorts
 
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {

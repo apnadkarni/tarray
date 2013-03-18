@@ -15,7 +15,7 @@ if {[string match "*-gcc" [critcl::targetconfig]]} {
     critcl::cflags -std=gnu99 -Winline
 }
 
-critcl::csources tarray.c tgrid.c tasearch.c bitarray.c tasort.c timsort.c timsort_arg.c
+critcl::csources tarray.c tgrid.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h timsort-impl.h
 
