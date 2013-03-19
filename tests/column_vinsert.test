@@ -1,0 +1,350 @@
+# column insert tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    foreach type {boolean any byte double int uint wide } {
+
+        test column_vinsert-value-$type-1.0 {
+            Insert one element at start of empty column
+        } -body {
+            vcol_change_and_verify $type {} [samplerange $type 0 0] vinsert [samplevalue $type] 0 1
+        } -result 0
+
+        test column_vinsert-value-$type-1.1 {
+           vinsert one element at end of empty column
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vinsert ta [samplevalue $type] end 1
+            set ta
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_vinsert-value-$type-2.0 {
+            vinsert one element at start of empty column
+        } -body {
+            set values [samplerange $type 0 100]
+            set val [samplevalue $type end]
+            vcol_change_and_verify $type $values [linsert $values 0 $val] vinsert $val 0 1
+        } -result 0
+
+        test column_vinsert-value-$type-2.1 {
+            vinsert multiple element at start of column
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplevalue $type end] 0 10
+            set ta
+        } -result [crep $type [linsert [samplerange $type] 0 {*}[lrepeat 10 [samplevalue $type end]]]] -match column
+
+        test column_vinsert-value-$type-2.2 {
+            vinsert multiple element at start of column
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplevalue $type 0] end 10
+        } -result [crep $type [linsert [samplerange $type] end {*}[lrepeat 10 [samplevalue $type 0]]]] -match column
+
+        test column_vinsert-value-$type-2.3 {
+            vinsert elements at end of column
+        } -body {
+            set values [samplerange $type 0 100]
+            set val [samplevalue $type 0]
+            vcol_change_and_verify $type $values [linsert $values end {*}[lrepeat 27 $val]] vinsert $val end 27
+        } -result 0
+
+        test column_vinsert-value-$type-2.4 {
+            vinsert multiple element in middle
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplevalue $type 0] 64 7
+            set ta
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[lrepeat 7 [samplevalue $type 0]]]] -match column
+
+        test column_vinsert-value-$type-2.5 {
+            vinsert elements in middle of column
+        } -body {
+            set values [samplerange $type]
+            set val [samplevalue $type end]
+            vcol_change_and_verify $type $values [linsert $values 63 {*}[lrepeat  8 $val]] vinsert $val 63 8
+        } -result 0
+
+        test column_vinsert-value-$type-2.6 {
+            vinsert multiple element in middle extending column
+        } -body {
+            set ta [samplecolumn $type 0 49]
+            tarray::column vinsert ta [samplevalue $type end] 48 4
+            set ta
+        } -result [crep $type [linsert [samplerange $type 0 49] 48 {*}[lrepeat 4 [samplevalue $type end]]]] -match column
+
+        test column_vinsert-value-$type-2.7 {
+            vinsert elements in middle of column extending it
+        } -body {
+            set values [samplerange $type 0 31]
+            set val [samplevalue $type end]
+            vcol_change_and_verify $type $values [linsert $values 30 {*}[lrepeat  8 $val]] vinsert $val 30 8
+        } -result 0
+
+        test column_vinsert-value-$type-2.8 {
+            vinsert elements after last element
+        } -body {
+            set values [samplerange $type 0 31]
+            set val [samplevalue $type end]
+            vcol_change_and_verify $type $values [linsert $values end {*}[lrepeat  8 $val]] vinsert $val 32 8
+        } -result 0
+
+        test column_vinsert-value-$type-3.0 {
+            vinsert zero elements
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplevalue $type end] 10 0
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_vinsert-value-$type-3.1 {
+            vinsert negative number of elements
+        } -body {
+            set values [samplerange $type 0 31]
+            set val [samplevalue $type end]
+            vcol_change_and_verify $type $values $values vinsert $val 30 0
+        } -result 0
+
+        test column_vinsert-value-$type-3.2 {
+            vinsert elements at negative index
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplevalue $type end] -1 1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_vinsert-value-$type-3.3 {
+            vinsert elements at out of bounds index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vinsert ta [samplevalue $type end] 12 1
+            set ta
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+        test column_vinsert-list-$type-1.0 {
+            vinsert single element list at start of empty column
+        } -body {
+            vcol_change_and_verify $type {} [samplerange $type 0 0] vinsert [samplerange $type 0 0] 0
+        } -result 0
+
+        test column_vinsert-list-$type-1.1 {
+            vinsert list at end of empty column
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vinsert ta [samplerange $type end end] end
+            set ta
+        } -result [crep $type [samplerange $type end end]] -match column
+
+        test column_vinsert-list-$type-1.2 {
+            vinsert list at start of empty column
+        } -body {
+            vcol_change_and_verify $type {} [samplerange $type 0 1] vinsert [samplerange $type 0 1] 0
+        } -result 0
+
+        test column_vinsert-list-$type-2.0 {
+            vinsert multiple element at start of column
+        } -body {
+            set ta [samplecolumn $type 0 128]
+            tarray::column vinsert ta [samplerange $type 129 end] 0
+            set ta
+        } -result [crep $type [linsert [samplerange $type 0 128] 0 {*}[samplerange $type 129 end]]] -match column
+
+        test column_vinsert-list-$type-2.1 {
+            vinsert multiple element at start of column
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type 32 end]
+            vcol_change_and_verify $type $values [linsert $values 0 {*}$insertions] vinsert $insertions 0
+        } -result 0
+
+        test column_vinsert-list-$type-2.2 {
+            vinsert elements after end element
+        } -body {
+            set values [samplerange $type 0 100]
+            set insertions [samplerange $type 150 end]
+            vcol_change_and_verify $type $values [linsert $values end {*}$insertions] vinsert $insertions end
+        } -result 0
+
+        test column_vinsert-list-$type-2.3 {
+            vinsert multiple element at penultimate position
+        } -body {
+            set ta [samplecolumn $type 0 128]
+            tarray::column vinsert ta [samplerange $type 129 end] 128
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_vinsert-list-$type-2.4 {
+            vinsert multiple elements in middle
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplerange $type 20 40] 64
+            set ta
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[samplerange $type 20 40]]] -match column
+
+        test column_vinsert-list-$type-2.5 {
+            vinsert elements in middle of column
+        } -body {
+            set values [samplerange $type]
+            set insertions [samplerange $type 100 end]
+            vcol_change_and_verify $type $values [linsert $values 63 {*}$insertions] vinsert $insertions 63
+        } -result 0
+
+        test column_vinsert-list-$type-2.6 {
+            vinsert multiple elements in middle extending column
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vinsert ta [samplerange $type 20 40] 250
+            set ta
+        } -result [crep $type [linsert [samplerange $type 0 255] 250 {*}[samplerange $type 20 40]]] -match column
+
+        test column_vinsert-list-$type-2.7 {
+            vinsert elements in middle of column extending it
+        } -body {
+            set values [samplerange $type 0 16]
+            set insertions [samplerange $type 2 end]
+            vcol_change_and_verify $type $values [linsert $values 14 {*}$insertions] vinsert $insertions 14
+        } -result 0
+
+        test column_vinsert-list-$type-2.8 {
+            vinsert elements after last element
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type]
+            vcol_change_and_verify $type $values [linsert $values end {*}$insertions] vinsert $insertions 32
+        } -result 0
+
+        test column_vinsert-list-$type-3.0 {
+            vinsert zero elements
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta {} 10
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_vinsert-list-$type-3.1 {
+            vinsert elements at negative index
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplerange $type 0 0] -1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_vinsert-list-$type-3.2 {
+            vinsert elements at out of bounds index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vinsert ta [samplerange $type 0 end] 12
+            set ta
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+        test column_vinsert-column-$type-1.0 {
+            vinsert single element column at start of empty column
+        } -body {
+            vcol_change_and_verify $type {} [samplerange $type 0 0] vinsert [samplecolumn $type 0 0] 0
+        } -result 0
+
+        test column_vinsert-column-$type-1.1 {
+            vinsert column at end of empty column
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vinsert ta [samplecolumn $type end end] end
+        } -result [crep $type [samplerange $type end end]] -match column
+
+        test column_vinsert-column-$type-1.2 {
+            vinsert column at start of empty column
+        } -body {
+            vcol_change_and_verify $type {} [samplerange $type 0 1] vinsert [samplecolumn $type 0 1] 0
+        } -result 0
+
+        test column_vinsert-column-$type-2.0 {
+            vinsert multiple element column at start of column
+        } -body {
+            set ta [samplecolumn $type 0 128]
+            tarray::column vinsert ta [samplecolumn $type 129 end] 0
+            set ta
+        } -result [crep $type [linsert [samplerange $type 0 128] 0 {*}[samplerange $type 129 end]]] -match column
+
+        test column_vinsert-column-$type-2.1 {
+            vinsert multiple element column at start of column
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type 32 end]
+            vcol_change_and_verify $type $values [linsert $values 0 {*}$insertions] vinsert [newcolumn $type $insertions] 0
+        } -result 0
+
+        test column_vinsert-column-$type-2.2 {
+            vinsert column after end element
+        } -body {
+            set values [samplerange $type 0 100]
+            set insertions [samplerange $type 150 end]
+            vcol_change_and_verify $type $values [linsert $values end {*}$insertions] vinsert [newcolumn $type $insertions] end
+        } -result 0
+
+        test column_vinsert-column-$type-2.3 {
+            vinsert multiple element column at penultimate position
+        } -body {
+            set ta [samplecolumn $type 0 128]
+            tarray::column vinsert ta [samplecolumn $type 129 end] 128
+            set ta
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_vinsert-column-$type-2.4 {
+            vinsert column in middle
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplecolumn $type 20 40] 64
+            set ta
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[samplerange $type 20 40]]] -match column
+
+        test column_vinsert-column-$type-2.5 {
+            vinsert column in middle of column
+        } -body {
+            set values [samplerange $type]
+            set insertions [samplerange $type 100 end]
+            vcol_change_and_verify $type $values [linsert $values 63 {*}$insertions] vinsert [newcolumn $type $insertions] 63
+        } -result 0
+
+        test column_vinsert-column-$type-2.6 {
+            vinsert column in middle extending column
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vinsert ta [samplecolumn $type 20 40] 250
+            set ta
+        } -result [crep $type [linsert [samplerange $type 0 255] 250 {*}[samplerange $type 20 40]]] -match column
+
+        test column_vinsert-column-$type-2.7 {
+            vinsert column in middle of column extending it
+        } -body {
+            set values [samplerange $type 0 16]
+            set insertions [samplerange $type 2 end]
+            vcol_change_and_verify $type $values [linsert $values 14 {*}$insertions] vinsert [newcolumn $type $insertions] 14
+        } -result 0
+
+        test column_vinsert-column-$type-2.8 {
+            vinsert column after last element
+        } -body {
+            set values [samplerange $type 0 31]
+            set insertions [samplerange $type]
+            vcol_change_and_verify $type $values [linsert $values end {*}$insertions] vinsert [newcolumn $type $insertions] 32
+        } -result 0
+
+        test column_vinsert-column-$type-3.0 {
+            vinsert zero elements
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [newcolumn $type] 10
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_vinsert-column-$type-3.1 {
+            vinsert column at negative index
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vinsert ta [samplecolumn $type 0 0] -1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_vinsert-column-$type-3.2 {
+            vinsert column at out of bounds index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vinsert ta [samplecolumn $type 0 end] 12
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+    }
+    ::tcltest::cleanupTests
+}
