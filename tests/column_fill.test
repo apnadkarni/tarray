@@ -165,7 +165,6 @@ namespace eval tarray::test {
             foreach i $indices {
                 set l2 [lreplace $l2 $i $i $fills($type)]
             }
-            set ta [newcolumn $type $sample($type)]
             filltest $type $sample($type) $l2 [lsort -increasing -integer $indices]
         } -result 0
 
@@ -299,7 +298,6 @@ namespace eval tarray::test {
             foreach i $indices {
                 set l2 [lreplace $l2 $i $i $fills($type)]
             }
-            set ta [newcolumn $type $sample($type)]
             filltest $type $sample($type) $l2 [indexcolumn [lsort -increasing -integer $indices]]
         } -result 0
 
@@ -312,7 +310,6 @@ namespace eval tarray::test {
             foreach i $indices {
                 set l2 [lreplace $l2 $i $i $fills($type)]
             }
-            set ta [newcolumn $type $sample($type)]
             filltest $type $sample($type) $l2 [tarray::column sort -decreasing [indexcolumn $indices]]
         } -result 0
 
@@ -374,13 +371,13 @@ namespace eval tarray::test {
         } -result [crep $type [list $fills($type)]] -match column
 
         test column_fill-range-$type-1.2 {
-            Index end not allowed when column is empty
+            Index end when column is empty
         } -body {
             tarray::column fill [newcolumn $type {}] $fills($type) 0 end
         } -result [crep $type {}] -match column
 
         test column_fill-range-$type-1.3 {
-            Index end not allowed when column is empty
+            Index end when column is empty
         } -body {
             tarray::column fill [newcolumn $type {}] $fills($type) end end
         } -result [crep $type {}] -match column
