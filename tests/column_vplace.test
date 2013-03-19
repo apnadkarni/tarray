@@ -1,0 +1,484 @@
+# column vplace tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc vplacetest {type indexlist_or_indexarray pass_values_as_list args} {
+        variable sample
+
+        if {[catch {tarray::column size $indexlist_or_indexarray} n]} {
+            # Not an column so assume a list
+            set indexlist $indexlist_or_indexarray
+            set n [llength $indexlist]
+        } else {
+            set indexlist [tarray::column get -list $indexlist_or_indexarray 0 end]
+        }
+        incr n -1
+        if {[llength $args]} {
+            set values [lindex $args 0]
+        } else {
+            set values [lrange $sample($type) 0 end]
+        }
+        set changes [lrange $sample($type) end-$n end]
+        set expected $values
+        # We have to order indices else lset will fail with gaps
+        set ordered {}
+        foreach i $indexlist val $changes {
+            lappend ordered $i $val
+        }
+        foreach {i val} [lsort -integer -stride 2 $ordered] {
+            lset expected $i $val
+        }
+        if {$pass_values_as_list} {
+            return [vcol_change_and_verify $type $values $expected vplace $changes $indexlist_or_indexarray]
+        } else {
+            return [vcol_change_and_verify $type $values $expected vplace [tarray::column create $type $changes] $indexlist_or_indexarray]
+        }
+    }
+
+    proc vplacetest_valuelist {type indexlist_or_indexarray args} {
+        return [vplacetest $type $indexlist_or_indexarray 1 {*}$args]
+    }
+
+    proc vplacetest_valuecolumn {type indexlist_or_indexarray args} {
+        return [vplacetest $type $indexlist_or_indexarray 0 {*}$args]
+    }
+
+
+    foreach type {boolean any byte double int uint wide} {
+        
+        #
+        # column vplace valuelist indexlist
+
+        test column_vplace-list-indexlist-$type-1.0 {
+            Fill an empty column with a single element
+        } -body {
+            vplacetest_valuelist $type {0}
+        } -result 0
+        
+        test column_vplace-list-indexlist-$type-2.0 {
+            Test storing of leading elements
+        } -body {
+            vplacetest_valuelist $type [indices 0 100]
+        } -result 0 
+
+        test column_vplace-list-indexlist-$type-2.1 {
+            Test storing of leading elements reverse order
+        } -body {
+            vplacetest_valuelist $type [lsort -integer -decreasing [indices 0 50]]
+        } -result 0 
+
+        test column_vplace-list-indexlist-$type-2.2 {
+            Test storing of leading elements random order
+        } -body {
+            vplacetest_valuelist $type {3 1 2 0} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indexlist-$type-2.3 {
+            Test storing of trailing elements
+        } -body {
+            vplacetest_valuelist $type {100 101 102 103} [samplerange $type 0 103]
+        } -result 0 
+
+        test column_vplace-list-indexlist-$type-2.4 {
+            Test storing of trailing elements reverse order
+        } -body {
+            vplacetest_valuelist $type {128 127 126 125} [samplerange $type 0 128]
+        } -result 0 
+
+        test column_vplace-list-indexlist-$type-2.5 {
+            Test storing of trailing elements random order
+        } -body {
+            vplacetest_valuelist $type {31 28 30 29} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indexlist-$type-2.6 {
+            Test storing of middle elements
+        } -body {
+            vplacetest_valuelist $type {2 31 64 100}
+        } -result 0 
+
+        test column_vplace-list-indexlist-$type-2.7 {
+            Test storing of middle elements reverse order
+        } -body {
+            vplacetest_valuelist $type {128 127 1 0}
+        } -result 0 
+
+        test column_vplace-list-indexlist-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuelist $type {60 16 100 15}
+        } -result 0
+
+        test column_vplace-list-indexlist-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuelist $type {60 16 100 15}
+        } -result 0
+
+        test column_vplace-list-indexlist-$type-2.9 {
+            Test extending
+        } -body {
+            vplacetest_valuelist $type {34 1 10 33 32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indexlist-$type-2.10 {
+            Test extending single element
+        } -body {
+            vplacetest_valuelist $type {32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indexlist-$type-3.0 {
+            Test gap in indices
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplerange $type 0 2] {12 13}
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_vplace-list-indexlist-$type-3.1 {
+            Test negative index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplerange $type 0 2] {-1}
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        test column_vplace-list-indexlist-$type-3.2 {
+            Test use of index end
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplerange $type 0 2] {end}
+        } -result {*expected integer*} -returnCodes error -match glob
+
+        if {$type ne "any"} {
+            test column_vplace-list-indexlist-$type-3.3 {
+                Test invalid values
+            } -body {
+                set ta [samplecolumn $type 0]                
+                tarray::column vplace ta [badvalues $type] {0}
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+
+        #
+        # column vplace valuelist indices
+        
+        test column_vplace-list-indices-$type-1.0 {
+            Fill an empty column with a single element
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 0]
+        } -result 0
+        
+        test column_vplace-list-indices-$type-2.0 {
+            Test storing of leading elements
+        } -body {
+            vplacetest_valuelist $type [indexcolumn [indices 0 100]]
+        } -result 0 
+
+        test column_vplace-list-indices-$type-2.1 {
+            Test storing of leading elements reverse order
+        } -body {
+            vplacetest_valuelist $type [tarray::column sort -decreasing [indexcolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_vplace-list-indices-$type-2.2 {
+            Test storing of leading elements random order
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indices-$type-2.3 {
+            Test storing of trailing elements
+        } -body {
+            vplacetest_valuelist $type [tarray::column sort [indexcolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_vplace-list-indices-$type-2.4 {
+            Test storing of trailing elements reverse order
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_vplace-list-indices-$type-2.5 {
+            Test storing of trailing elements random order
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indices-$type-2.6 {
+            Test storing of middle elements
+        } -body {
+            vplacetest_valuelist $type [tarray::column sort [indexcolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_vplace-list-indices-$type-2.7 {
+            Test storing of middle elements reverse order
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 128 127 1 0]
+        } -result 0 
+
+        test column_vplace-list-indices-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_vplace-list-indices-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_vplace-list-indices-$type-2.9 {
+            Test extending
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indices-$type-2.10 {
+            Test extending single element
+        } -body {
+            vplacetest_valuelist $type [indexcolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-list-indices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplerange $type 0 2] [indexcolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_vplace-list-indices-$type-3.1 {
+            Test negative index
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vplace ta [samplerange $type 0 2] [indexcolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any"} {
+            test column_vplace-list-indexlist-$type-3.2 {
+                Test invalid values
+            } -body {
+                set ta [samplecolumn $type 0 10]
+                tarray::column vplace ta [badvalues $type] [indexcolumn 0]
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+        #
+        # column vplace valuecolumn indexlist
+
+        test column_vplace-column-indexlist-$type-1.0 {
+            Fill an empty column with a single element
+        } -body {
+            vplacetest_valuecolumn $type {0}
+        } -result 0
+        
+        test column_vplace-column-indexlist-$type-2.0 {
+            Test storing of leading elements
+        } -body {
+            vplacetest_valuecolumn $type [indices 0 100]
+        } -result 0 
+
+        test column_vplace-column-indexlist-$type-2.1 {
+            Test storing of leading elements reverse order
+        } -body {
+            vplacetest_valuecolumn $type [lsort -integer -decreasing [indices 0 50]]
+        } -result 0 
+
+        test column_vplace-column-indexlist-$type-2.2 {
+            Test storing of leading elements random order
+        } -body {
+            vplacetest_valuecolumn $type {3 1 2 0} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indexlist-$type-2.3 {
+            Test storing of trailing elements
+        } -body {
+            vplacetest_valuecolumn $type {100 101 102 103} [samplerange $type 0 103]
+        } -result 0 
+
+        test column_vplace-column-indexlist-$type-2.4 {
+            Test storing of trailing elements reverse order
+        } -body {
+            vplacetest_valuecolumn $type {128 127 126 125} [samplerange $type 0 128]
+        } -result 0 
+
+        test column_vplace-column-indexlist-$type-2.5 {
+            Test storing of trailing elements random order
+        } -body {
+            vplacetest_valuecolumn $type {31 28 30 29} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indexlist-$type-2.6 {
+            Test storing of middle elements
+        } -body {
+            vplacetest_valuecolumn $type {2 31 64 100}
+        } -result 0 
+
+        test column_vplace-column-indexlist-$type-2.7 {
+            Test storing of middle elements reverse order
+        } -body {
+            vplacetest_valuecolumn $type {128 127 1 0}
+        } -result 0 
+
+        test column_vplace-column-indexlist-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuecolumn $type {60 16 100 15}
+        } -result 0
+
+        test column_vplace-column-indexlist-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuecolumn $type {60 16 100 15}
+        } -result 0
+
+        test column_vplace-column-indexlist-$type-2.9 {
+            Test extending
+        } -body {
+            vplacetest_valuecolumn $type {34 1 10 33 32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indexlist-$type-2.10 {
+            Test extending single element
+        } -body {
+            vplacetest_valuecolumn $type {32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indexlist-$type-3.0 {
+            Test gap in indices
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplecolumn $type 0 2] {12 13}
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_vplace-column-indexlist-$type-3.1 {
+            Test negative index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplecolumn $type 0 2] {-1}
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        test column_vplace-column-indexlist-$type-3.2 {
+            Test use of index end
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplecolumn $type 0 2] {end}
+        } -result {*expected integer*} -returnCodes error -match glob
+
+        if {$type ne "any"} {
+            test column_vplace-column-indexlist-$type-3.3 {
+                Test invalid values
+            } -body {
+                set ta [samplecolumn $type 0 10]
+                tarray::column vplace ta [tarray::column create any {badvalues}] {0}
+            } -result {*not compatible*} -returnCodes error -match glob
+        }
+
+        #
+        # column vplace valuecolumn indices
+        
+        test column_vplace-column-indices-$type-1.0 {
+            Fill an empty column with a single element
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 0]
+        } -result 0
+        
+        test column_vplace-column-indices-$type-2.0 {
+            Test storing of leading elements
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn [indices 0 100]]
+        } -result 0 
+
+        test column_vplace-column-indices-$type-2.1 {
+            Test storing of leading elements reverse order
+        } -body {
+            vplacetest_valuecolumn $type [tarray::column sort -decreasing [indexcolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_vplace-column-indices-$type-2.2 {
+            Test storing of leading elements random order
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indices-$type-2.3 {
+            Test storing of trailing elements
+        } -body {
+            vplacetest_valuecolumn $type [tarray::column sort [indexcolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_vplace-column-indices-$type-2.4 {
+            Test storing of trailing elements reverse order
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_vplace-column-indices-$type-2.5 {
+            Test storing of trailing elements random order
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indices-$type-2.6 {
+            Test storing of middle elements
+        } -body {
+            vplacetest_valuecolumn $type [tarray::column sort [indexcolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_vplace-column-indices-$type-2.7 {
+            Test storing of middle elements reverse order
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 128 127 1 0]
+        } -result 0 
+
+        test column_vplace-column-indices-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_vplace-column-indices-$type-2.8 {
+            Test storing of middle elements random order
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_vplace-column-indices-$type-2.9 {
+            Test extending
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indices-$type-2.10 {
+            Test extending single element
+        } -body {
+            vplacetest_valuecolumn $type [indexcolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_vplace-column-indices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplerange $type 0 2] [indexcolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_vplace-column-indices-$type-3.1 {
+            Test negative index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vplace ta [samplerange $type 0 2] [indexcolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any"} {
+            test column_vplace-column-indexlist-$type-3.2 {
+                Test invalid values
+            } -body {
+                set ta [samplecolumn $type 0 10]
+                tarray::column vplace ta [tarray::column create any {badvalues}] [indexcolumn 0]
+            } -result {*not compatible*} -returnCodes error -match glob
+        }
+    }
+
+    ::tcltest::cleanupTests
+}
