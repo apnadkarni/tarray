@@ -1,0 +1,463 @@
+# column vfill tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # Pick a fill value for each type
+    array set vfills {
+        boolean 1
+        int     -2013
+        uint    1729
+        byte    175
+        wide    549755813887
+        double  6.022e23
+        any     "anything at all"
+    }
+
+    proc vfilltest {type init expected args} {
+        variable vfills
+        return [vchange_and_verify_col $type $init vfill [linsert $args 0 $vfills($type)] $expected]
+    }
+
+    #
+    # column fill index
+
+    foreach type {boolean any byte double int uint wide} {
+
+        test column_vfill-index-$type-1.0 {
+            Fill an empty column with a single element
+        } -body {
+            vfilltest $type {} [list $vfills($type)] 0
+        } -result 0
+
+        test column_vfill-index-$type-1.1 {
+            Index end not allowed when column is empty
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vfill ta $vfills($type) end
+        } -result * -match glob -returnCodes error
+
+        test column_vfill-index-$type-2.0 {
+            Fill an non-empty column with a single element
+        } -body {
+            vfilltest $type $sample($type) [lreplace $sample($type) 0 0 $vfills($type)] 0
+        } -result 0
+
+        test column_vfill-index-$type-2.1 {
+            Fill end element in non-empty column
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) end
+            set ta
+        } -result [crep $type [lreplace $sample($type) end end $vfills($type)]] -match column
+
+        test column_vfill-index-$type-2.2 {
+            Extend non-empty column
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) [llength $sample($type)]
+            set ta
+        } -result [crep $type [linsert $sample($type) end $vfills($type)]] -match column
+
+        test column_vfill-index-$type-2.3 {
+            Negative index end not allowed
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) -1
+        } -result "*out of bounds*" -match glob -returnCodes error
+
+        test column_vfill-index-$type-2.4 {
+            Out of range index end not allowed
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) [expr {[llength $sample($type)]+1}]
+        } -result "*out of bounds*" -match glob -returnCodes error
+
+        test column_vfill-index-$type-2.5 {
+            Fill intermediate element in non-empty column
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) [expr {([llength $sample($type)]+1)/2}]
+            set ta
+        } -result [crep $type [lreplace $sample($type) [expr {([llength $sample($type)]+1)/2}] [expr {([llength $sample($type)]+1)/2}] $vfills($type)]] -match column
+
+        test column_vfill-index-$type-2.6 {
+            Invalid syntax index not allowed
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) badsyntax
+        } -result "*expected integer*" -match glob -returnCodes error
+
+    }
+
+    #
+    # column fill indexlist
+
+    foreach type {boolean any byte double int uint wide} {
+        test column_vfill-indexlist-$type-1.0 {
+            Fill an empty column
+        } -body {
+            vfilltest $type {} [lrepeat 3 $vfills($type)] {0 1 2}
+        } -result 0
+
+        test column_vfill-indexlist-$type-2.0 {
+            Test filling of leading elements
+        } -body {
+            vfilltest $type $sample($type) [lreplace $sample($type) 0 2 $vfills($type) $vfills($type) $vfills($type)] {0 1 2}
+        } -result 0 
+
+        test column_vfill-indexlist-$type-2.1 {
+            Test filling of leading elements out of order
+        } -body {
+            vfilltest $type $sample($type) [lreplace $sample($type) 0 2 $vfills($type) $vfills($type) $vfills($type)] {2 0 1}
+        } -result 0 
+
+        test column_vfill-indexlist-$type-2.2 {
+            Test filling of trailing elements
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-2 end $vfills($type) $vfills($type) $vfills($type)] [list [incr i -3] [incr i] [incr i]]
+        } -result 0 
+
+        test column_vfill-indexlist-$type-2.3 {
+            Test extending column in order
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [list [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+        } -result 0 
+
+        test column_vfill-indexlist-$type-2.4 {
+            Test extending column reverse order
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+        } -result 0 
+
+        test column_vfill-indexlist-$type-2.5 {
+            Test extending column out of order
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [list [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+        } -result 0 
+
+        test column_vfill-indexlist-$type-3.0 {
+            Test filling of intermediate (ordered)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $vfills($type)]
+            }
+            vfilltest $type $sample($type) $l2 [lsort -increasing -integer $indices]
+        } -result 0
+
+        test column_vfill-indexlist-$type-3.1 {
+            Test filling of intermediate (reverse ordered)
+        } -body {
+            # Note duplicate
+            set indices {1 7 8 9 31 32 33 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $vfills($type)]
+            }
+            vfilltest $type $sample($type) $l2 [lsort -decreasing -integer $indices]
+        } -result 0
+
+        test column_vfill-indexlist-$type-3.2 {
+            Test filling of intermediate (random order)
+        } -body {
+            # Note duplicate
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $vfills($type)]
+            }
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) $indices
+            cequal $ta [crep $type $l2]
+        } -result 1
+
+        test column_vfill-indexlist-$type-3.3 {
+            Test filling of all (random order)
+        } -body {
+            set indices {0 9 3 8 6 4 2 5 7 1}
+            set ta [samplecolumn $type 0 9]
+            tarray::column vfill ta $vfills($type) $indices
+            cequal $ta [crep $type [lrepeat 10 $vfills($type)]]
+        } -result 1
+
+        test column_vfill-indexlist-$type-4.0 {
+            Test filling out-of-range (increasing indices)
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vfill ta $vfills($type) [lsort -increasing -integer {63 64 65 254 260}]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_vfill-indexlist-$type-4.1 {
+            Test filling out-of-range (decreasing index list)
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vfill ta $vfills($type) [lsort -decreasing -integer {63 64 65 254 260}]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_vfill-indexlist-$type-4.2 {
+            Test filling out-of-range (unordered index list)
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vfill ta $vfills($type) {255 260 254 256 258}
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_vfill-indexlist-$type-4.3 {
+            Test filling with invalid syntax (index list)
+        } -body {
+            set ta [newcolumn $type $sample($type)]
+            tarray::column vfill ta $vfills($type) {0 badsyntax}
+        } -result "*expected integer*" -match glob -returnCodes error
+
+        test column_vfill-indexlist-$type-4.4 {
+            Test filling with index list containing end
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) {0 end}
+        } -result "*expected integer*" -match glob -returnCodes error
+    }
+
+
+    #
+    # column vfill indicesarray
+
+    foreach type {boolean any byte double int uint wide} {
+        test column_vfill-indices-$type-1.0 {
+            vfill an empty column (shared)
+        } -body {
+            vfilltest $type {} [lrepeat 3 $vfills($type)] [indexcolumn 0 1 2]
+        } -result 0
+
+        test column_vfill-indices-$type-1.1 {
+            vfill empty column with a single element
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vfill ta $vfills($type) [indexcolumn 0 1 2 3]
+            set ta
+        } -result [crep $type [lrepeat 4 $vfills($type)]] -match column
+
+        test column_vfill-indices-$type-2.0 {
+            Test filling of leading elements (shared tclobj)
+        } -body {
+            vfilltest $type $sample($type) [lreplace $sample($type) 0 2 $vfills($type) $vfills($type) $vfills($type)] [indexcolumn 0 1 2]
+        } -result 0 
+
+        test column_vfill-indices-$type-2.1 {
+            Test filling of leading elements out of order
+        } -body {
+            vfilltest $type $sample($type) [lreplace $sample($type) 0 2 $vfills($type) $vfills($type) $vfills($type)] [indexcolumn 2 0 1]
+        } -result 0 
+
+        test column_vfill-indices-$type-2.2 {
+            Test filling of trailing elements
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-2 end $vfills($type) $vfills($type) $vfills($type)] [indexcolumn [incr i -3] [incr i] [incr i]]
+        } -result 0 
+
+        test column_vfill-indices-$type-2.3 {
+            Test extending column in order
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [indexcolumn [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+        } -result 0 
+
+        test column_vfill-indices-$type-2.4 {
+            Test extending column reverse order
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [indexcolumn [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+        } -result 0 
+
+        test column_vfill-indices-$type-2.5 {
+            Test extending column out of order
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [indexcolumn [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+        } -result 0 
+
+        test column_vfill-indices-$type-3.0 {
+            Test filling of intermediate (ordered)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $vfills($type)]
+            }
+            vfilltest $type $sample($type) $l2 [indexcolumn [lsort -increasing -integer $indices]]
+        } -result 0
+
+        test column_vfill-indices-$type-3.1 {
+            Test filling of intermediate (reverse ordered)
+        } -body {
+            # Note duplicate
+            set indices {1 7 8 9 31 32 33 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $vfills($type)]
+            }
+            set ta [newcolumn $type $sample($type)]
+            vfilltest $type $sample($type) $l2 [tarray::column sort -decreasing [indexcolumn $indices]]
+        } -result 0
+
+        test column_vfill-indices-$type-3.2 {
+            Test filling of intermediate (random order)
+        } -body {
+            # Note duplicate
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $vfills($type)]
+            }
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) [indexcolumn $indices]
+            cequal $ta [crep $type $l2]
+        } -result 1
+
+        test column_vfill-indices-$type-3.3 {
+            Test filling of all (random order)
+        } -body {
+            set indices {0 9 3 8 6 4 2 5 7 1}
+            set ta [samplecolumn $type 0 9]
+            tarray::column vfill ta $vfills($type) [indexcolumn $indices]
+            cequal $ta [crep $type [lrepeat 10 $vfills($type)]]
+        } -result 1
+
+        test column_vfill-indices-$type-4.0 {
+            Test filling out-of-range (increasing indices)
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vfill ta $vfills($type) [tarray::column sort -increasing [indexcolumn {63 64 65 254 260}]]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_vfill-indices-$type-4.1 {
+            Test filling out-of-range (unshared, decreasing index list)
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vfill ta $vfills($type) [tarray::column sort -decreasing [indexcolumn 63 64 65 254 260]]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_vfill-indices-$type-4.2 {
+            Test filling out-of-range (shared, unordered index list)
+        } -body {
+            set ta [newcolumn $type [lrange $sample($type) 0 255]]
+            tarray::column vfill ta $vfills($type) [indexcolumn {255 260 254 256 258}]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+    }
+
+
+    #
+    # column vfill range
+
+    foreach type {boolean any byte double int uint wide} {
+
+        test column_vfill-range-$type-1.0 {
+            vfill an empty column with a single element (shared)
+        } -body {
+            vfilltest $type {} [list $vfills($type)] 0 0
+        } -result 0
+
+        test column_vfill-range-$type-1.1 {
+            vfill empty column with a single element
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vfill ta $vfills($type) 0 0
+            set ta
+        } -result [crep $type [list $vfills($type)]] -match column
+
+        test column_vfill-range-$type-1.2 {
+            Index end when column is empty
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vfill ta $vfills($type) 0 end
+            set ta
+        } -result [crep $type {}] -match column
+
+        test column_vfill-range-$type-1.3 {
+            Index end when column is empty
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vfill ta  $vfills($type) end end
+        } -result [crep $type {}] -match column
+
+        test column_vfill-range-$type-2.0 {
+            Test filling of leading elements
+        } -body {
+            vfilltest $type $sample($type) [lreplace $sample($type) 0 2 $vfills($type) $vfills($type) $vfills($type)] 0 2
+        } -result 0 
+
+        test column_vfill-range-$type-2.1 {
+            Test filling of trailing elements
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[lrepeat 6 $vfills($type)]] [expr {$i-6}] [expr {$i-1}]
+        } -result 0 
+
+        test column_vfill-range-$type-2.2 {
+            Test filling of trailing elements
+        } -body {
+            set i [llength $sample($type)]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[lrepeat 6 $vfills($type)]] [expr {$i-6}] end
+        } -result 0 
+
+        test column_vfill-range-$type-2.3 {
+            Test filling of entire array
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) 0 end
+            set ta
+        } -result [crep $type [lrepeat [llength $sample($type)] $vfills($type)]] -match column
+
+        test column_vfill-range-$type-2.3 {
+            Test filling of intermediate array
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) 50 100
+        } -match column -result [crep $type [concat [lrange $sample($type) 0 49] [lrepeat 51 $vfills($type)] [lrange $sample($type) 101 end]]]
+
+        test column_vfill-range-$type-3.0 {
+            Test filling with reversed range elements
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) 10 0
+        } -result [crep $type $sample($type)] -match column
+
+        test column_vfill-range-$type-3.1 {
+            Test filling with reversed range elements
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vfill ta $vfills($type) end 0
+            set ta
+        } -result [crep $type $sample($type)] -match column
+
+        test column_vfill-range-$type-4.0 {
+            Test filling beyond last
+        } -body {
+            set ta [samplecolumn $type 0 100]
+            tarray::column vfill ta $vfills($type) 101 200
+            set ta
+        } -result [crep $type [concat [lrange $sample($type) 0 100] [lrepeat 100 $vfills($type)]]] -match column
+
+        test column_vfill-range-$type-4.1 {
+            Test filling extending (shared)
+        } -body {
+            set ta [samplecolumn $type 0 31]
+            tarray::column vfill ta $vfills($type) 25 50
+        } -result [crep $type [concat [lrange $sample($type) 0 24] [lrepeat 26 $vfills($type)]]] -match column
+
+        test column_vfill-range-$type-4.2 {
+            Test filling out-of-range (unshared)
+        } -body {
+            set ta [samplecolumn $type 0 255]
+            tarray::column vfill ta $vfills($type) 257 300
+        } -result "*257*out of bounds" -match glob -returnCodes error
+    }
+
+    ::tcltest::cleanupTests
+}

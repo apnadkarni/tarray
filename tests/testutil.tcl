@@ -209,7 +209,14 @@ if {![info exists tarray::test::known]} {
             return [compare_tcols_lists $type [tarray::column {*}$op $tcol {*}$args] $expected $tcol $init]
         }
 
-        # Deprecated - use col_change_and_verify instead, better syntax
+        proc vcol_change_and_verify {type init expected op args} {
+            set tcol [tarray::column create $type $init]
+            # Note we have to do the operation and then check that
+            # tcol also has the new value
+            return [compare_tcols_lists $type [tarray::column {*}$vop tcol {*}$args] $expected $tcol $expected]
+        }
+
+        # DEPRECATED - use col_change_and_verify instead, better syntax
         proc change_and_verify_col {type init op operands expected} {
             set tcol [tarray::column create $type $init]
             # Note we have to do the operation and *then* check that
@@ -217,7 +224,7 @@ if {![info exists tarray::test::known]} {
             return [compare_tcols_lists $type [tarray::column $op $tcol {*}$operands] $expected $tcol $init]
         }
 
-        # Deprecated - use vcol_change_and_verify instead, better syntax
+        # DEPRECATED - use vcol_change_and_verify instead, better syntax
         proc vchange_and_verify_col {type init vop operands expected} {
             set tcol [tarray::column create $type $init]
             # Note we have to do the operation and then check that
