@@ -217,11 +217,12 @@ if {![info exists tarray::test::known]} {
             return [compare_tcols_lists $type [tarray::column $op $tcol {*}$operands] $expected $tcol $init]
         }
 
+        # Deprecated - use vcol_change_and_verify instead, better syntax
         proc vchange_and_verify_col {type init vop operands expected} {
             set tcol [tarray::column create $type $init]
             # Note we have to do the operation and then check that
             # tcol also has the new value
-            return [compare_tcols_lists $type [tarray::column $vop $tcol {*}$operands] $expected $tcol $expected]
+            return [compare_tcols_lists $type [tarray::column $vop tcol {*}$operands] $expected $tcol $expected]
         }
 
         proc newcolumn {type {init {}}} {
