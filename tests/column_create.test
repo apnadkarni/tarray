@@ -1,4 +1,4 @@
-# tarray creation
+# tarray column create
 
 source testutil.tcl
 
@@ -46,5 +46,5 @@ namespace eval tarray::test {
         }
     }
 
-    ::tcltest::cleanupTests
 }
+::tcltest::cleanupTests

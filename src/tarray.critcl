@@ -776,7 +776,7 @@ critcl::cproc tarray::ttable::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
 
 # If you are new to critcl, note that the order of constructor, insvariable
 # etc. is very important in terms of how initialization and freeing is done.
-critcl::class::define tarray::table {
+critcl::class::define tarray::db {
     classvariable int dummy_to_prevent_compile_fails_due_to_empty_class_def
     insvariable Tcl_HashTable column_names {
         Maps column names to index

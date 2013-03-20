@@ -8,6 +8,8 @@ package require tcltest
 # TBD - add tests for all commands where source operand is same as dest operand
 # TBD - add tests for all commands where operand is wrong type of column
 # TBD - on error case tests, verify that variable is not modified
+# TBD - make sure when columns are shared between tables, modifying one
+# does not modify the other
 
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
@@ -288,6 +290,19 @@ if {![info exists tarray::test::known]} {
                 lappend l [samplevalue $type $i]
             }
             return $l
+        }
+
+        proc sampletable {{low 0} {high end}} {
+            tarray::table create {
+                any boolean byte double int uint wide
+            } [list \
+                   [samplecolumn any $low $high] \
+                   [samplecolumn boolean $low $high] \
+                   [samplecolumn byte $low $high] \
+                   [samplecolumn double $low $high] \
+                   [samplecolumn int $low $high] \
+                   [samplecolumn uint $low $high] \
+                   [samplecolumn wide $low $high]]
         }
 
         proc lmax {l} {
