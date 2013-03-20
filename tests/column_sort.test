@@ -4,18 +4,6 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    proc lsort_cmp {type} {
-        switch -exact -- $type {
-            any { return -ascii }
-            wide -
-            double {return -real }
-            byte -
-            int -
-            uint -
-            boolean { return -integer }
-        }            
-    }
-
     # args is any combination of -nocase, -increasing, -decreasing
     proc sort_verify_shared {type args} {
         set l [lshuffle [samplerange $type]]

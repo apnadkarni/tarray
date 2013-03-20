@@ -112,6 +112,20 @@ if {![info exists tarray::test::known]} {
         ################################################################
         # Utility functions
 
+        # lsort option corresponding to a tarray type
+        proc lsort_cmp {type} {
+            switch -exact -- $type {
+                any { return -ascii }
+                wide -
+                double {return -real }
+                byte -
+                int -
+                uint -
+                boolean { return -integer }
+            }         
+        }
+
+
         # Manufacture the column-equivalent rep of a list
         proc crep {type values} {
             return [list tarray $type $values]
@@ -189,16 +203,17 @@ if {![info exists tarray::test::known]} {
 
         # Compare a column and a list for equality
         proc clequal {col type l} {
-            #puts col:$col
-            #puts l:$l
             return [cequal $col [crep $type $l]]
         }
 
         # Convenience proc to verify that result is as expected and original
         # is not changed
         proc compare_tcols_lists {type args} {
+            set ret -1
             foreach {tcol l} $args {
-                if {! [clequal $tcol $type $l]} { return [incr ret] }
+                if {! [clequal $tcol $type $l]} {
+                    return [incr ret]
+                }
             }
             return 0
         }
