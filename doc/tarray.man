@@ -8,11 +8,11 @@
 [description]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[uri tcolumn.html [cmd column]] and [uri tgrid.html [cmd grid]].
+[uri tcolumn.html [cmd column]] and [uri ttable.html [cmd table]].
 The primary motivation for this extension
 is efficient memory utilization and speed of certain operations in
 applications dealing with very large numbers of elements.
-Typed arrays and grids do not really provide any additional
+Typed arrays and tables do not really provide any additional
 capabilities over Tcl's built-in commands, particularly `list` and
 `dict` and the script libraries based on these. Their primary use is
 in applications with large number of data items.
@@ -28,7 +28,7 @@ without a significant performance penalty.
 [para]
 The extension implements [sectref Columns columns],
 which store arrays of values of a single type indexed by integers, and
-[sectref Grids grids], which are arrays of columns. 
+[sectref Grids tables], which are arrays of columns. 
 
 [include types.inc]
 
@@ -40,10 +40,10 @@ to create and manipulate typed arrays including searching and sorting
 operations.
 
 [section "Grids"]
-A typed grid is an ordered sequence of typed columns
+A typed table is an ordered sequence of typed columns
 of equal size. It can be viewed as an array of records where the
 record fields happen to use column-wise storage. The corresponding
-grid command operates on typed grids.
+table command operates on typed tables.
 
 [include indices.inc]
 [include options.inc]

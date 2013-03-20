@@ -16,7 +16,7 @@
  * TArray is a Tcl "type" used for densely storing arrays of elements
  * of a specific type. For reasons of efficiency in type checking,
  * we define two types - tcolumn that holds an array of elements,
- * and tgrid, which is just a tcolumn (and hence uses the same member
+ * and ttable, which is just a tcolumn (and hence uses the same member
  * functions) each element of which is a Tcl_Obj
  * that is itself a tcolumn.
  */
@@ -30,8 +30,8 @@ struct Tcl_ObjType g_tcol_type = {
     ta_type_update_string,
     NULL,     /* jenglish advises to keep this NULL */
 };
-struct Tcl_ObjType g_tgrid_type = {
-    "tgrid",
+struct Tcl_ObjType g_ttable_type = {
+    "ttable",
     ta_type_free_intrep,
     ta_type_dup,
     ta_type_update_string,
@@ -139,17 +139,17 @@ TCL_RESULT ta_row_width_error(Tcl_Interp *ip, int row_width, int min_width)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Row or grid width %d less than destination width %d.", row_width, min_width));
+                         Tcl_ObjPrintf("Row or table width %d less than destination width %d.", row_width, min_width));
         Tcl_SetErrorCode(ip, "TARRAY", "ROW", "WIDTH", NULL);
     }
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_grid_length_error(Tcl_Interp *ip)
+TCL_RESULT ta_table_length_error(Tcl_Interp *ip)
 {
     if (ip) {
         Tcl_SetResult(ip,
-                      "Columns in tarray grid have differing lengths.",
+                      "Columns in tarray table have differing lengths.",
                       TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "GRID", "LENGTH", NULL);
     }
