@@ -9,7 +9,7 @@
 [description]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[cmd column] and [cmd grid]. This page documents typed columns.
+[cmd column] and [cmd table]. This page documents typed columns.
 See [uri tarray.html] for an overview.
 [para]
 
@@ -23,7 +23,7 @@ can be used
 to create and manipulate typed columns including searching and sorting
 operations.
 [para]
-Related to columns are [uri tgrid.html grids] which are ordered
+Related to columns are [uri ttable.html tables] which are ordered
 sequences of typed columns.
 
 [include indices.inc]
