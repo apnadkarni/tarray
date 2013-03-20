@@ -23,7 +23,7 @@ proc tarray::table::size {table} {
     return [tarray::column::size [tarray::table::column $table 0]]
 }
 
-proc tarray::table::create {def {init {}} {size 0}} {
+proc tarray::db::create {def {init {}} {size 0}} {
     variable _tables
     variable _table_ctr
 
