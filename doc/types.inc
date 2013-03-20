@@ -5,7 +5,7 @@ The extension supports the following element types for typed arrays:
 [opt_def [option boolean]] A boolean value
 [opt_def [option byte]] Unsigned 8-bit integer
 [opt_def [option double]] Floating point value
-[opt_def [option int]]| Signed 32-bit integer
+[opt_def [option int]] Signed 32-bit integer
 [opt_def [option uint]] Unsigned 32-bit integer
 [opt_def [option wide]] Signed 64-bit integer
 [list_end]

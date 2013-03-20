@@ -230,7 +230,4 @@ column type is [const any] and is ignored otherwise.
 
 [list_end]
 
-
-[keywords column grid]
-
 [manpage_end]

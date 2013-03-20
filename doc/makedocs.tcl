@@ -4,6 +4,9 @@ set dtplite [file join [file dirname [info nameofexecutable]] dtplite.tcl]
 if {! [file exists $dtplite]} {
     set dtplite [auto_execok dtplite.tcl]
     if {! [file exists $dtplite]} {
+        set dtplite c:/tcl/apps/dtplite
+    }
+    if {! [file exists $dtplite]} {
         set dtplite c:/tcl/apps/dtplite.tcl
     }
     if {! [file exists $dtplite]} {
@@ -17,4 +20,4 @@ lassign $argv output_dir
 if {$output_dir eq ""} {
     set output_dir [file join [file dirname [info script]] output]
 }
-exec [info nameofexecutable] $dtplite -o $output_dir html [file dirname [ info script]]
+exec [info nameofexecutable] $dtplite -toc tarray.tocdoc -o $output_dir html [file dirname [ info script]]
