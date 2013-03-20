@@ -1,0 +1,229 @@
+# column vput tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # args - position init
+    proc vputtest {type pass_as_list nvalues args} {
+        variable sample
+
+        if {[llength $args]} {
+            set pos [lindex $args 0]
+            set posargs [list $pos]
+            
+            if {[llength $args] > 1} {
+                set init [lindex $args 1]
+            } else {
+                set init [samplerange $type]
+            }
+        } else {
+            set pos end
+            set posargs [list ]
+            set init [samplerange $type]
+        }
+
+        if {$pos eq "end"} {
+            set lpos [llength $init]; # NOT same as "end" index for lrange
+        } else {
+            set lpos $pos
+        }
+
+        set changes [lrange $sample($type) end-[expr {$nvalues-1}] end]
+        if {$lpos == [llength $init]} {
+            set expected [concat $init $changes]
+        } else {
+            set expected [lreplace $init $lpos [expr {$lpos+[llength $changes]-1}] {*}$changes]
+        }
+        if {$pass_as_list} {
+            return [vcol_change_and_verify $type $init $expected vput $changes {*}$posargs]
+        } else {
+            return [vcol_change_and_verify $type $init $expected vput [tarray::column create $type $changes] {*}$posargs]
+        }
+    }
+
+    proc vputtest_valuelist {type args} {
+        return [vputtest $type 1 {*}$args]
+    }
+
+    proc vputtest_valuecolumn {type args} {
+        return [vputtest $type 0 {*}$args]
+    }
+
+    foreach type {boolean any byte double int uint wide} {
+        
+        #
+        # column vput valuelist pos
+
+        test column_vput-list-$type-1.0 {
+            vput a single value into an empty column 
+        } -body {
+            vputtest_valuelist $type 1 0 {}
+        } -result 0
+        
+        test column_vput-list-$type-1.1 {
+            vput a single value into an empty column (default position)
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vput ta [samplerange $type 0 0] 
+            set ta
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_vput-list-$type-2.0 {
+            Test storing of leading elements
+        } -body {
+            vputtest_valuelist $type 100 0
+        } -result 0 
+
+        test column_vput-list-$type-2.1 {
+            Test storing of trailing elements
+        } -body {
+            vputtest_valuelist $type 10 63 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_vput-list-$type-2.2 {
+            Test storing of trailing elements 
+        } -body {
+            vputtest_valuelist $type 10 64 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_vput-list-$type-2.3 {
+            Test storing of trailing elements (default end)
+        } -body {
+            vputtest_valuelist $type 1
+        } -result 0 
+
+        test column_vput-list-$type-2.4 {
+            Test storing of trailing elements (specified end)
+        } -body {
+            vputtest_valuelist $type 20 end
+        } -result 0 
+
+        test column_vput-list-$type-2.5 {
+            Test storing of middle elements
+        } -body {
+            vputtest_valuelist $type 10 127
+        } -result 0 
+
+        test column_vput-list-$type-2.6 {
+            Test storing of middle elements (extend length)
+        } -body {
+            vputtest_valuelist $type 500 400 [samplerange $type 0 450]
+        } -result 0 
+
+        test column_vput-list-$type-3.0 {
+            Test out of bound index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vput ta [samplerange $type 0 2] 12
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_vput-list-$type-3.1 {
+            Test negative index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vput ta [samplerange $type 0 2] -1
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any"} {
+            test column_vput-list-$type-3.3 {
+                Test invalid values
+            } -body {
+                set ta [samplecolumn $type 0 10]
+                tarray::column vput ta [badvalues $type] 0
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+        
+        #
+        # column vput valuecolumn pos
+
+        test column_vput-column-$type-1.0 {
+            vput a single value into an empty column 
+        } -body {
+            vputtest_valuecolumn $type 1 0 {}
+        } -result 0
+        
+        test column_vput-column-$type-1.1 {
+            vput a single value into an empty column (default position)
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vput ta [samplevalue $type]
+            set ta
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_vput-column-$type-2.0 {
+            Test storing of leading elements
+        } -body {
+            vputtest_valuecolumn $type 100 0
+        } -result 0 
+
+        test column_vput-column-$type-2.1 {
+            Test storing of leading elements
+        } -body {
+            vputtest_valuecolumn $type 128 0
+        } -result 0 
+
+        test column_vput-column-$type-2.2 {
+            Test storing of trailing elements
+        } -body {
+            vputtest_valuecolumn $type 10 63 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_vput-column-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            vputtest_valuecolumn $type 10 64 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_vput-column-$type-2.4 {
+            Test storing of trailing elements (default end)
+        } -body {
+            vputtest_valuecolumn $type 1
+        } -result 0 
+
+        test column_vput-column-$type-2.5 {
+            Test storing of trailing elements (specified end)
+        } -body {
+            vputtest_valuecolumn $type 20 end
+        } -result 0 
+
+        test column_vput-column-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            vputtest_valuecolumn $type 10 127
+        } -result 0 
+
+        test column_vput-column-$type-2.7 {
+            Test storing of middle elements (shared tclobj, extend length)
+        } -body {
+            vputtest_valuecolumn $type 500 400 [samplerange $type 0 450]
+        } -result 0 
+
+        test column_vput-column-$type-3.0 {
+            Test out of bound index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vput ta [samplecolumn $type 0 2] 12
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_vput-column-$type-3.1 {
+            Test negative index
+        } -body {
+            set ta [samplecolumn $type 0 10]
+            tarray::column vput ta [samplecolumn $type 0 2] -1
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any"} {
+            test column_vput-column-$type-3.3 {
+                Test invalid values
+            } -body {
+                set ta [samplecolumn $type 0 10]
+                tarray::column vput ta [newcolumn $type [badvalues $type]] 0
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+    }
+
+    ::tcltest::cleanupTests
+}
