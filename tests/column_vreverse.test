@@ -1,0 +1,34 @@
+# column vreverse tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    foreach type {boolean any byte double int uint wide} {
+        test column_vreverse-$type-1.0 {
+            Vreverse an empty column
+        } -body {
+            set ta [newcolumn $type]
+            tarray::column vreverse ta
+            set ta
+        } -result [crep $type {}] -match column
+
+        test column_vreverse-$type-1.2 {
+            Vreverse a one element column
+        } -body {
+            set ta  [samplecolumn $type 0 0]
+            tarray::column vreverse ta
+            set ta
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_vreverse-$type-2.0 {
+            Vreverse a column
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column vreverse ta
+            set ta
+        } -result [crep $type [lreverse [samplerange $type]]] -match column
+
+    }    
+}
+
+::tcltest::cleanupTests
