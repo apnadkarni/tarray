@@ -8,7 +8,8 @@
 [description]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[cmd column] and [cmd grid]. The primary motivation for this extension
+[uri tcolumn.html [cmd column]] and [uri tgrid.html [cmd grid]].
+The primary motivation for this extension
 is efficient memory utilization and speed of certain operations in
 applications dealing with very large numbers of elements.
 Typed arrays and grids do not really provide any additional
@@ -46,8 +47,5 @@ grid command operates on typed grids.
 
 [include indices.inc]
 [include options.inc]
-
-
-[keywords column grid]
 
 [manpage_end]
