@@ -34,15 +34,14 @@ Returns a typed column at the specified position in a table.
 [call [cmd "table create"] [arg TYPES] [arg INITIALIZER] [arg [opt INITSIZE]]]
 Returns a typed table containing a sequence of columns.
 In the first form, [arg COLUMNLIST] is a list of typed array columns.
+[para]
 In the second form, [arg TYPES] is a list
 of valid types described in [sectref "Types"].
 [arg INITIALIZER] is the initial content of the typed array specified
 as a nested list with sublists
 whose element types are compatible with the corresponding
 column types in [arg TYPES].
-[para]
-For performance reasons, in the second form
-the [arg INITSIZE] argument may be specified to indicate how many slots to
+[arg INITSIZE] argument may be specified to indicate how many slots to
 preallocate for the table columns. This is only treated as a hint and actual
 size allocated may differ.
 
