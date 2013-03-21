@@ -702,6 +702,6 @@ namespace eval tarray::test {
             tarray::column delete [samplecolumn $type] 32 32
         } -result [crep $type [concat [lrange $sample($type) 0 31] [lrange $sample($type) 33 end]]] -match column
     }
-
-    ::tcltest::cleanupTests
 }
+
+::tcltest::cleanupTests

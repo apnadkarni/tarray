@@ -82,7 +82,7 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 8} {
+            if {$count == 1000} {
                 foreach type {any boolean byte double int uint wide} {
                     set sample($type) [lindex $good($type) end]
                 }
@@ -205,11 +205,15 @@ if {![info exists tarray::test::known]} {
 
         # Compare a column and a list for equality
         proc clequal {col type l} {
+            # TBD - may be also force getting internal rep of column
+            # in case string rep is ok but internal rep is not ?
             return [cequal $col [crep $type $l]]
         }
 
         # Compare a table and a list of lists for equality
         proc tlequal {tab types ll} {
+            #puts tab:$tab
+            #puts ll:$ll
             foreach col [lindex $tab 2] type $types l $ll {
                 if {![clequal $col $type $l]} { return 0 }
             }
@@ -256,6 +260,28 @@ if {![info exists tarray::test::known]} {
             return [compare_tcols_lists $type [tarray::column $vop tcol {*}$operands] $expected $tcol $expected]
         }
 
+        proc tab_change_and_verify {types init expected op args} {
+            set tab [tarray::table create $types $init]
+            if {![tlequal [tarray::table {*}$op $tab {*}$args] $types $expected]} {
+                return 1
+            }
+            # Verify original is unchanged
+            if {![tlequal $tab $types $init]} {
+                return 2
+            }
+            return 0
+        }
+
+        # Unshared version of above
+        proc tab_change_and_verify_u {types init expected op args} {
+            if {![tlequal [tarray::table {*}$op [tarray::table create $types $init] {*}$args] $types $expected]} {
+                # Note for compatibility with other routines, success is 0
+                return 1
+            } else {
+                return 0
+            }
+        }
+
         proc newcolumn {type {init {}}} {
             return [tarray::column create $type $init]
         }
@@ -298,15 +324,33 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
+        proc samplelistofcolumnvalues {{types {}} args} {
+            if {[llength $types] == 0} {
+                set types { any boolean byte double int uint wide }
+            }
+            if {[llength $args] == 0} {
+                set args {0 end}
+            } else {
+                if {[llength $args] & 1} {
+                    error "Odd number of range specifiers."
+                }
+            }
+            set l [list ]
+            foreach type $types {
+                set col {}
+                foreach {low high} $args {
+                    lappend col {*}[samplerange $type $low $high]
+                }
+                lappend l $col
+            }
+            return $l
+        }
+
         proc sampletable {{types {}} {low 0} {high end}} {
             if {[llength $types] == 0} {
                 set types { any boolean byte double int uint wide }
             }
-            set l [list ]
-            foreach type $types {
-                lappend l [samplerange $type $low $high]
-            }
-            return [tarray::table create $types $l]
+            return [tarray::table create $types [samplelistofcolumnvalues $types $low $high]]
         }
 
         proc lmax {l} {
