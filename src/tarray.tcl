@@ -88,10 +88,22 @@ namespace eval tarray {
 
     namespace eval table {
         namespace ensemble create -map {
+            column column
             create create
             delete delete
             fill fill
+            get get
+            index index
+            place place
             put put
+            reverse reverse
+            size size
+            vdelete vdelete
+            vfill vfill
+            vinsert vinsert
+            vplace vplace
+            vput vput
+            vreverse vreverse
         }
     }
 
