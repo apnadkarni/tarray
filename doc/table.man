@@ -1,7 +1,7 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin "tarray::table" n ""]
 [copyright "2012-2013 Ashok P. Nadkarni"]
-[moddesc "Typed Array Grids"]
+[moddesc "Typed Array Tables"]
 [titledesc "Commands related to typed array tables"]
 [require Tcl 8.5]
 [require tarray ?0.1?]
@@ -27,32 +27,34 @@ Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
 
-[call [cmd "table column"] [arg GRID] [arg COLINDEX]]
+[call [cmd "table column"] [arg TABLE] [arg COLINDEX]]
 Returns a typed column at the specified position in a table.
 
-[call [cmd "table create"] [arg TYPES] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
-Returns a typed table containing a sequence of columns whose types 
-are specified by [arg TYPES] which must be a list of
-of valid types described in [sectref "Types"]. If 
-[arg INITIALIZER] is specified, it is the initial content of the typed array 
-and must be either a compatible typed table or a nested list with sublists
+[call [cmd "table create"] [arg COLUMNLIST]]
+[call [cmd "table create"] [arg TYPES] [arg INITIALIZER] [arg [opt INITSIZE]]]
+Returns a typed table containing a sequence of columns.
+In the first form, [arg COLUMNLIST] is a list of typed array columns.
+In the second form, [arg TYPES] is a list
+of valid types described in [sectref "Types"].
+[arg INITIALIZER] is the initial content of the typed array specified
+as a nested list with sublists
 whose element types are compatible with the corresponding
 column types in [arg TYPES].
 [para]
-For performance reasons,
+For performance reasons, in the second form
 the [arg INITSIZE] argument may be specified to indicate how many slots to
 preallocate for the table columns. This is only treated as a hint and actual
 size allocated may differ.
 
-[call [cmd "table delete"] [arg GRID] [arg INDEX]]
-[call [cmd "table delete"] [arg GRID] [arg INDEXLIST]]
-[call [cmd "table delete"] [arg GRID] [arg LOW] [arg HIGH]]
+[call [cmd "table delete"] [arg TABLE] [arg INDEX]]
+[call [cmd "table delete"] [arg TABLE] [arg INDEXLIST]]
+[call [cmd "table delete"] [arg TABLE] [arg LOW] [arg HIGH]]
 Returns a typed table with all specified rows deleted. The row
 indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "table fill"] [arg GRID] [arg ROWVALUE] [arg INDEX]]
-[call [cmd "table fill"] [arg GRID] [arg ROWVALUE] [arg INDEXLIST]]
-[call [cmd "table fill"] [arg GRID] [arg ROWVALUE] [arg LOW] [arg HIGH]]
+[call [cmd "table fill"] [arg TABLE] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "table fill"] [arg TABLE] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "table fill"] [arg TABLE] [arg ROWVALUE] [arg LOW] [arg HIGH]]
 Returns a typed table with specified rows set to [arg ROWVALUE]. 
 Each element from the list [arg ROWVALUE] is assigned to the corresponding
 column of the table at the specified indices. Any additional elements
@@ -62,8 +64,8 @@ if [arg ROWVALUE] contains fewer elements than the table width.
 Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
-[call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg GRID] [arg INDEXLIST]]
-[call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg GRID] [arg LOW] [arg [opt HIGH]]]
+[call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg TABLE] [arg INDEXLIST]]
+[call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
 Returns the values from a typed table at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
 The format
@@ -71,18 +73,18 @@ of the returned values is controlled by [arg STANDARDOPTION]
 which may be any of the options controlling returned formats
 as specified in [sectref "Standard Options"].
 
-[call [cmd "table index"] [arg GRID] [arg INDEX]]
+[call [cmd "table index"] [arg TABLE] [arg INDEX]]
 Returns the value of the row at the position specified by [arg INDEX].
 
-[call [cmd "table insert"] [arg GRID] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
-[call [cmd "table insert"] [arg GRID] [arg ROWVALUES] [arg FIRST]]
+[call [cmd "table insert"] [arg TABLE] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "table insert"] [arg TABLE] [arg ROWVALUES] [arg FIRST]]
 In the first form, inserts [arg COUNT] rows with value [arg ROWVALUE]
 at position [arg FIRST] and returns the new table. In the second form,
 [arg ROWVALUES] may be a list of row values or a compatible table.
 The rows are inserted at the specified position.
 In both cases, the command may extend the array if necessary.
 
-[call [cmd "table place"] [arg GRID] [arg ROWVALUES] [arg INDICES]]
+[call [cmd "table place"] [arg TABLE] [arg ROWVALUES] [arg INDICES]]
 Returns a table with the specified values at the 
 corresponding  indices.
 [arg ROWVALUES] may be a list of row values or a compatible table. 
@@ -93,32 +95,32 @@ of each row must be no smaller than the width of the table.
 index list in the one of the forms described in [sectref Indices]
 and may extend the column if the condition listed there are satisfied.
 
-[call [cmd "table put"] [arg GRID] [arg ROWVALUES] [opt [arg FIRST]]]
+[call [cmd "table put"] [arg TABLE] [arg ROWVALUES] [opt [arg FIRST]]]
 Returns a table with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg ROWVALUES].
 [arg ROWVALUES] may be a list of values or a table of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended.
 
-[call [cmd "table reverse"] [arg GRID]]
+[call [cmd "table reverse"] [arg TABLE]]
 Returns the table with order of elements reversed.
 
-[call [cmd "table size"] [arg GRID]]
+[call [cmd "table size"] [arg TABLE]]
 Returns the number of rows in the table.
 
-[call [cmd "table vdelete"] [arg GRIDVAR] [arg INDEX]]
-[call [cmd "table vdelete"] [arg GRIDVAR] [arg INDEXLIST]]
-[call [cmd "table vdelete"] [arg GRIDVAR] [arg LOW] [arg HIGH]]
-Deletes rows from the table in variable [arg GRIDVAR].
+[call [cmd "table vdelete"] [arg TABLEVAR] [arg INDEX]]
+[call [cmd "table vdelete"] [arg TABLEVAR] [arg INDEXLIST]]
+[call [cmd "table vdelete"] [arg TABLEVAR] [arg LOW] [arg HIGH]]
+Deletes rows from the table in variable [arg TABLEVAR].
 The new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "table vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEX]]
-[call [cmd "table vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg INDEXLIST]]
-[call [cmd "table vfill"] [arg GRIDVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
-Set the elements of the table in variable [arg GRIDVAR] at the specified
+[call [cmd "table vfill"] [arg TABLEVAR] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "table vfill"] [arg TABLEVAR] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "table vfill"] [arg TABLEVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
+Set the elements of the table in variable [arg TABLEVAR] at the specified
 indices to
 [arg ROWVALUE]. 
 The new value is assigned back to the variable. The resulting value
@@ -127,11 +129,11 @@ result of the command.
 [para]
 See [cmd fill] for more information.
 
-[call [cmd "table vinsert"] [arg GRIDVAR] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
-[call [cmd "table vinsert"] [arg GRIDVAR] [arg ROWVALUES] [arg FIRST]]
+[call [cmd "table vinsert"] [arg TABLEVAR] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "table vinsert"] [arg TABLEVAR] [arg ROWVALUES] [arg FIRST]]
 In the first form, inserts [arg COUNT] rows with value [arg ROWVALUE]
 at position [arg FIRST] in the table stored in variable
-[arg GRIDVAR].
+[arg TABLEVAR].
 In the second form,
 [arg ROWVALUES] may be a list of row values or a compatible table.
 The rows are inserted at the specified position.
@@ -140,8 +142,8 @@ the new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
 
-[call [cmd "table vplace"] [arg GRIDVAR] [arg ROWVALUES] [arg INDICES]]
-Modifies a table stored in the variable [arg GRIDVAR]
+[call [cmd "table vplace"] [arg TABLEVAR] [arg ROWVALUES] [arg INDICES]]
+Modifies a table stored in the variable [arg TABLEVAR]
 with the specified values at the corresponding indices.
 The new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
@@ -149,8 +151,8 @@ result of the command.
 [para]
 See the command [cmd "table place"] for other details.
 
-[call [cmd "table vput"] [arg GRIDVAR] [arg ROWVALUES] [arg FIRST]]
-Modifies a variable [arg GRIDVAR] containing a typed column.
+[call [cmd "table vput"] [arg TABLEVAR] [arg ROWVALUES] [arg FIRST]]
+Modifies a variable [arg TABLEVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
 replaced by the corresponding elements of [arg ROWVALUES]. If [arg FIRST] is
 not specified the elements are appended to the array.
@@ -160,9 +162,9 @@ result of the command.
 [para]
 See the command [cmd "table put"] for other details.
 
-[call [cmd "table vreverse"] [arg GRIDVAR]]
+[call [cmd "table vreverse"] [arg TABLEVAR]]
 Reverses the order of elements in the 
-table in variable [arg GRIDVAR], stores it back
+table in variable [arg TABLEVAR], stores it back
 in the variable. The result of the command is the resulting value
 stored in the variable.
 

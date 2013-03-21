@@ -82,7 +82,7 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 1000} {
+            if {$count == 8} {
                 foreach type {any boolean byte double int uint wide} {
                     set sample($type) [lindex $good($type) end]
                 }
@@ -208,14 +208,20 @@ if {![info exists tarray::test::known]} {
             return [cequal $col [crep $type $l]]
         }
 
+        # Compare a table and a list of lists for equality
+        proc tlequal {tab types ll} {
+            foreach col [lindex $tab 2] type $types l $ll {
+                if {![clequal $col $type $l]} { return 0 }
+            }
+            return 1
+        }
+
         # Convenience proc to verify that result is as expected and original
         # is not changed
         proc compare_tcols_lists {type args} {
-            set ret -1
             foreach {tcol l} $args {
-                if {! [clequal $tcol $type $l]} {
-                    return [incr ret]
-                }
+                if {! [clequal $tcol $type $l]} { return [incr ret] }
+                incr ret
             }
             return 0
         }
@@ -292,17 +298,15 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
-        proc sampletable {{low 0} {high end}} {
-            tarray::table create {
-                any boolean byte double int uint wide
-            } [list \
-                   [samplecolumn any $low $high] \
-                   [samplecolumn boolean $low $high] \
-                   [samplecolumn byte $low $high] \
-                   [samplecolumn double $low $high] \
-                   [samplecolumn int $low $high] \
-                   [samplecolumn uint $low $high] \
-                   [samplecolumn wide $low $high]]
+        proc sampletable {{types {}} {low 0} {high end}} {
+            if {[llength $types] == 0} {
+                set types { any boolean byte double int uint wide }
+            }
+            set l [list ]
+            foreach type $types {
+                lappend l [samplerange $type $low $high]
+            }
+            return [tarray::table create $types $l]
         }
 
         proc lmax {l} {

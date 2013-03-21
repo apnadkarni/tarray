@@ -1,17 +1,33 @@
 namespace eval tarray {
     namespace eval column {}
     namespace eval table {}
-    namespace eval table {}
+    namespace eval db {}
 }
 
-proc tarray::table::create {types {initvals {}} {initsize 0}} {
-    set cols {}
-    foreach type $types {
-        lappend cols [tarray::column::create $type {} $initsize]
+proc tarray::table::create {args} {
+    if {[llength $args] == 0} {
+        return [tarray::column::create any {}]
     }
+    if {[llength $args] == 1} {
+        # Verify each element is a column
+        set cols {}
+        foreach col [lindex $args 0] {
+            tarray::column::size $col
+            lappend cols $col
+        }
+        return [tarray::column::create any $cols]
+    } else {
+        # Separate proc for argument error messages
+        return [_create_from_list  {*}$args]
+    }
+}
 
-    set table [tarray::column::create any $cols]
-    
+proc tarray::table::_create_from_list {types initvals {initsize 0}} {
+    set cols {}
+    foreach type $types init $initvals {
+        lappend cols [tarray::column::create $type $init $initsize]
+    }
+    return [tarray::column::create any $cols]
 }
 
 proc tarray::table::column {table colnum} {

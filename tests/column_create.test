@@ -5,7 +5,6 @@ source testutil.tcl
 namespace eval tarray::test {
     namespace import ::tcltest::test
 
-
     # Tests for creating empty tarrays
     foreach type {any boolean byte double int uint wide} {
         test column-create-$type-1.0 {
