@@ -1,0 +1,45 @@
+# tarray column create
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test table-column-1.0 {
+        Get first column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table column $tab 0
+    } -result [samplecolumn any] -match column
+
+    test table-column-1.1 {
+        Get last column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table column $tab 3
+    } -result [samplecolumn wide] -match column
+
+    test table-column-1.2 {
+        Get middle column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table column $tab 1
+    } -result [samplecolumn boolean] -match column
+
+    test table-column-2.0 {
+        Attempt to get out of bounds column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table column $tab  4
+    } -result "*index 4 out of bounds*" -returnCodes error -match glob
+
+    test table-column-2.1 {
+        Attempt to get negative index column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table column $tab -1
+    } -result "*index -1 out of bounds*" -returnCodes error -match glob
+
+
+}
+::tcltest::cleanupTests
