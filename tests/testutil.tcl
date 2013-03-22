@@ -33,6 +33,7 @@ if {![info exists tarray::test::known]} {
         variable good;   # List of lists of valid values
         variable sample; # Array indexed by type used in general tests
         array set sample {}
+        set sample_size 8
         foreach count $counts {
             # Booleans. Note the unaligned patterns are important
             foreach pat {0 1 01 10 011 010 1001 1100 11000011 101010101} {
@@ -82,9 +83,9 @@ if {![info exists tarray::test::known]} {
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
-            if {$count == 1000} {
+            if {$count == $sample_size} {
                 foreach type {any boolean byte double int uint wide} {
-                    set sample($type) [lindex $good($type) end]
+                    set sample($type) [lrange [lindex $good($type) end] 0 $sample_size-1]
                 }
             }
         }
@@ -212,8 +213,6 @@ if {![info exists tarray::test::known]} {
 
         # Compare a table and a list of lists for equality
         proc tlequal {tab types ll} {
-            #puts tab:$tab
-            #puts ll:$ll
             foreach col [lindex $tab 2] type $types l $ll {
                 if {![clequal $col $type $l]} { return 0 }
             }
@@ -261,7 +260,11 @@ if {![info exists tarray::test::known]} {
         }
 
         proc tab_change_and_verify {types init expected op args} {
-            set tab [tarray::table create $types $init]
+            set cols {}
+            foreach type $types initcol $init {
+                lappend cols [tarray::column create $type $initcol]
+            }
+            set tab [tarray::table create $cols]
             if {![tlequal [tarray::table {*}$op $tab {*}$args] $types $expected]} {
                 return 1
             }
@@ -274,7 +277,13 @@ if {![info exists tarray::test::known]} {
 
         # Unshared version of above
         proc tab_change_and_verify_u {types init expected op args} {
-            if {![tlequal [tarray::table {*}$op [tarray::table create $types $init] {*}$args] $types $expected]} {
+            set cols {}
+            foreach type $types initcol $init {
+                lappend cols [tarray::column create $type $initcol]
+            }
+            set tab [tarray::table create $cols]
+            # The [set tab ""] is to make the table unshared
+            if {![tlequal [tarray::table {*}$op $tab[set tab ""] {*}$args] $types $expected]} {
                 # Note for compatibility with other routines, success is 0
                 return 1
             } else {
@@ -286,6 +295,10 @@ if {![info exists tarray::test::known]} {
             return [tarray::column create $type $init]
         }
 
+        proc newtable {types {init {}}} {
+            return [tarray::table create $types $init]
+        }
+        
         proc indices {low high} {
             set l {}
             while {$low <= $high} {
@@ -344,6 +357,34 @@ if {![info exists tarray::test::known]} {
                 lappend l $col
             }
             return $l
+        }
+
+        proc samplerows {{types {}} args} {
+            if {[llength $types] == 0} {
+                set types { any boolean byte double int uint wide }
+            }
+            if {[llength $args] == 0} {
+                set args {0 end}
+            } else {
+                if {[llength $args] & 1} {
+                    error "Odd number of range specifiers."
+                }
+            }
+            set rows {}
+            set cindex 0
+            foreach type $types {
+                set rindex 0
+                foreach {low high} $args {
+                    set r $rindex
+                    foreach val [samplerange $type $low $high] {
+                        lset rows $r $cindex $val
+                        incr r
+                    }
+                    incr rindex
+                }
+                incr cindex
+            }
+            return $rows
         }
 
         proc sampletable {{types {}} {low 0} {high end}} {

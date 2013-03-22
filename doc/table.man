@@ -31,14 +31,14 @@ Note: All commands are located in the [cmd tarray] namespace.
 Returns a typed column at the specified position in a table.
 
 [call [cmd "table create"] [arg COLUMNLIST]]
-[call [cmd "table create"] [arg TYPES] [arg INITIALIZER] [arg [opt INITSIZE]]]
+[call [cmd "table create"] [arg TYPES] [arg ROWVALUES] [arg [opt INITSIZE]]]
 Returns a typed table containing a sequence of columns.
 In the first form, [arg COLUMNLIST] is a list of typed array columns.
 [para]
 In the second form, [arg TYPES] is a list
 of valid types described in [sectref "Types"].
-[arg INITIALIZER] is the initial content of the typed array specified
-as a nested list with sublists
+[arg ROWVALUES] is the initial content of the table array specified
+as a nested list with each sublist being a row
 whose element types are compatible with the corresponding
 column types in [arg TYPES].
 [arg INITSIZE] argument may be specified to indicate how many slots to

@@ -5,21 +5,37 @@ namespace eval tarray {
 }
 
 proc tarray::table::create {args} {
-    if {[llength $args] == 0} {
-        return [tarray::column::create any {}]
-    }
-    if {[llength $args] == 1} {
-        # Verify each element is a column
-        set cols {}
-        foreach col [lindex $args 0] {
-            tarray::column::size $col
-            lappend cols $col
+    set cols {}
+    switch -exact -- [llength $args] {
+        1 {
+            # Verify each element is a column
+            foreach col [lindex $args 0] {
+                tarray::column::size $col
+                lappend cols $col
+            }
+            return [tarray::column::create any $cols]
         }
-        return [tarray::column::create any $cols]
-    } else {
-        # Separate proc for argument error messages
-        return [_create_from_list  {*}$args]
+        2 -
+        3 {
+            set initsize 0
+            if {[llength $args] == 3} {
+                set initsize [lindex $args 2]
+            }
+            foreach type [lindex $args 0] {
+                lappend cols [tarray::column::create $type {} $initsize]
+            }
+            set tab [tarray::column::create any $cols]
+            tarray::table::vput tab [lindex $args 1]
+            return $tab
+        }
+        0 {
+            return [tarray::column::create any {}]
+        }
+        default {
+            return -level 1 -code error "wrong # args:"
+        }
     }
+
 }
 
 proc tarray::table::_create_from_list {types initvals {initsize 0}} {

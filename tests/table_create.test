@@ -8,45 +8,45 @@ namespace eval tarray::test {
     #
     # Tests for creating single column tables
     foreach type {any boolean byte double int uint wide} {
-        test table-create-$type-1.0 {
+        test table_create-$type-1.0 {
             Test creation of empty table
         } -body {
             tarray::table create [list $type] {}
         } -result [crep any [list [crep $type {}]]]
 
-        test table-create-$type-1.1 {
+        test table_create-$type-1.1 {
             Test creation of empty table with preallocation
         } -body {
             tarray::table create [list $type] {} 1000
         } -result [crep any [list [crep $type {}]]]
 
-        test table-create-$type-2.0 {
+        test table_create-$type-2.0 {
             Test creation of table with initial column
         } -body {
             tarray::table create [list [samplecolumn $type]]
         } -result [crep any [list [crep $type [samplerange $type]]]]
 
-        test table-create-$type-2.1 {
+        test table_create-$type-2.1 {
             Test creation of table with initial list
         } -body {
-            tarray::table create [list $type] [list [samplerange $type]]
+            tarray::table create [list $type] [samplerows $type]
         } -result [crep any [list [crep $type [samplerange $type]]]]
     }
 
-    test table-create-1.0 {
+    test table_create-1.0 {
         Test creation of null columns
     } -body {
         tarray::table create {}
     } -result [crep any {}]
 
-    test table-create-1.1 {
+    test table_create-1.1 {
         Test creation of null lists
     } -body {
         tarray::table create {} {}
     } -result [crep any {}]
     
-    test table-create-2.0 {
-        Test creation column of each type as column
+    test table_create-2.0 {
+        Test creation table using columns
     } -body {
         set types { any boolean byte double int uint wide }
         set tab [tarray::table create \
@@ -68,19 +68,11 @@ namespace eval tarray::test {
                           [samplerange wide ]]
     } -result 1
 
-    test table-create-2.1 {
-        Test creation column of each type as list
+    test table_create-2.1 {
+        Test creation table using rows
     } -body {
         set types { any boolean byte double int uint wide }
-        set tab [tarray::table create $types \
-                     [list \
-                          [samplerange any ] \
-                          [samplerange boolean ] \
-                          [samplerange byte ] \
-                          [samplerange double ] \
-                          [samplerange int ] \
-                          [samplerange uint ] \
-                          [samplerange wide ]]]
+        set tab [tarray::table create $types [samplerows $types]]
         tlequal $tab $types [list \
                           [samplerange any ] \
                           [samplerange boolean ] \
@@ -91,13 +83,13 @@ namespace eval tarray::test {
                           [samplerange wide ]]
     } -result 1
 
-    test table-create-3.0 {
+    test table_create-3.0 {
         Test creation with invalid column
     } -body {
         tarray::table::create {this is not a column}
     } -result "*is not a TArray*" -returnCodes error -match glob
 
-    test table-create-3.1 {
+    test table_create-3.1 {
         Test creation with invalid list
     } -body {
         tarray::table::create [list int] {{notanint}}

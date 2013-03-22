@@ -575,6 +575,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                  break;
              case TA_BYTE:
                  tcols_put_COPY(unsigned char, t, ta_get_byte_from_obj);
+                 break;
              default:
                  ta_type_panic(thdr->type);
              }
