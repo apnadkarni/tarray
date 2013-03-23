@@ -33,7 +33,7 @@ if {![info exists tarray::test::known]} {
         variable good;   # List of lists of valid values
         variable sample; # Array indexed by type used in general tests
         array set sample {}
-        set sample_size 8
+        set sample_size 1000
         foreach count $counts {
             # Booleans. Note the unaligned patterns are important
             foreach pat {0 1 01 10 011 010 1001 1100 11000011 101010101} {
@@ -259,7 +259,31 @@ if {![info exists tarray::test::known]} {
             return [compare_tcols_lists $type [tarray::column $vop tcol {*}$operands] $expected $tcol $expected]
         }
 
-        proc tab_change_and_verify {types init expected op args} {
+        proc rows2cols {rows} {
+            set ll {}
+            set r 0
+            foreach row $rows {
+                set c 0
+                foreach val $row {
+                    lset ll $c $r $val
+                    incr c
+                }
+                incr r
+            }
+            return $ll
+        }
+
+        # Compare a table and row values
+        proc trequal {tab types rows} {
+            foreach tcol [lindex $tab 2] type $types col [rows2cols $rows] {
+                if {![clequal $tcol $type $col]} {
+                    return 0
+                }
+            }
+            return 1
+        }
+
+        proc OBSOLETEtab_change_and_verify {types init expected op args} {
             set cols {}
             foreach type $types initcol $init {
                 lappend cols [tarray::column create $type $initcol]
@@ -275,8 +299,27 @@ if {![info exists tarray::test::known]} {
             return 0
         }
 
+        proc tab_change_and_verify {types initrows expected op args} {
+            set tab [tarray::table create $types $initrows]
+            if {![trequal [tarray::table {*}$op $tab {*}$args] $types $expected]} {
+                return 1
+            }
+            # Verify original is unchanged
+            if {![trequal $tab $types $initrows]} {
+                return 2
+            }
+            return 0
+        }
+
         # Unshared version of above
-        proc tab_change_and_verify_u {types init expected op args} {
+        proc tab_change_and_verify_u {types initrows expected op args} {
+            if {![trequal [tarray::table {*}$op [tarray::table create $types $initrows] {*}$args] $types $expected]} {
+                # Note for compatibility with other routines, success is 0
+                return 1
+            }
+            return 0
+        }
+        proc OBSOLETEtab_change_and_verify_u {types init expected op args} {
             set cols {}
             foreach type $types initcol $init {
                 lappend cols [tarray::column create $type $initcol]
@@ -371,18 +414,18 @@ if {![info exists tarray::test::known]} {
                 }
             }
             set rows {}
-            set cindex 0
-            foreach type $types {
-                set rindex 0
-                foreach {low high} $args {
+            set rindex 0
+            foreach {low high} $args {
+                set c 0
+                foreach type $types {
                     set r $rindex
                     foreach val [samplerange $type $low $high] {
-                        lset rows $r $cindex $val
+                        lset rows $r $c $val
                         incr r
                     }
-                    incr rindex
+                    incr c
                 }
-                incr cindex
+                set rindex $r
             }
             return $rows
         }
