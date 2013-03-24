@@ -139,21 +139,20 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     thdr = TARRAYHDR(o);
     if (thdr->type != TA_ANY)
         return ta_bad_type_error(ip, thdr);
-    if (tcol_occupancy(o) == 0)
-        return TCL_OK;
-
-    ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-    nelems = tcol_occupancy(*ptcol);
-    end = thdr->used + ptcol;
-    while (ptcol < end) {
-        if ((status = tcol_convert(ip, *ptcol)) != TCL_OK)
-            return status;
-        /* All must have same number of elements */
-        if (tcol_occupancy(*ptcol) != nelems)
-            return ta_table_length_error(ip);
-        ++ptcol;
+    if (tcol_occupancy(o) != 0) {
+        ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+        nelems = tcol_occupancy(*ptcol);
+        end = thdr->used + ptcol;
+        while (ptcol < end) {
+            if ((status = tcol_convert(ip, *ptcol)) != TCL_OK)
+                return status;
+            /* All must have same number of elements */
+            if (tcol_occupancy(*ptcol) != nelems)
+                return ta_table_length_error(ip);
+            ++ptcol;
+        }
     }
-    
+
     o->typePtr = &g_table_type;
     return TCL_OK;
 }
@@ -933,6 +932,12 @@ Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 
     TA_ASSERT(pindices->type == TA_INT);
 
+    /* Special case when no columns are defined for the table but indices are specified */
+    if (width == 0 && pindices->used) {
+        index = *THDRELEMPTR(pindices, int, 0);
+        goto index_error;
+    }
+
     if (fmt == TA_FORMAT_TARRAY) {
         Tcl_Obj **tcols;
         thdr_t *thdr;
@@ -982,6 +987,7 @@ Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
     do {                                                                \
         type_ *from = srcbase;                                          \
         for (; pindex < end; j += incr, ++pindex) {                     \
+            index = *pindex;    /* Should hold index in error */ \
             if (index < 0 || index >= bound)                            \
                 goto index_error;                                       \
             Tcl_ListObjAppendElement(ip, olistelems[j], objfn_(from[index])); \
@@ -1010,7 +1016,7 @@ Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
             {
                 ba_t *srcbaP = srcbase;
                 for (; pindex < end; j += incr, ++pindex) {
-                    index = *pindex; 
+                    index = *pindex;
                     if (index < 0 || index >= bound)
                         goto index_error;
                     Tcl_ListObjAppendElement(ip, olistelems[j],
