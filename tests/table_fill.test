@@ -1,0 +1,466 @@
+# table fill tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # Note two general types of tests - via a temp variable and directly
+    # from the create return value. The difference is that in the
+    # former case the value ref count is > 1, and the object needs to
+    # be dup'ed while in the latter the ref count is 1 and the called
+    # command can directly use it.
+    # Also, when modifying a temp variable tests have to confirm that
+    # the original is not modified
+
+    #
+    # table fill index
+
+    test table_fill-index-1.0 {
+        Fill an empty table with a single element (shared)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [list [samplerow $types]] fill [samplerow $types] 0
+    } -result 0
+
+    test table_fill-index-1.1 {
+        Fill empty table with a single element (unshared tclobj)
+    } -body {
+        set types {boolean wide uint}
+        tab_change_and_verify_u $types {} [list [samplerow $types 1]] fill [samplerow $types 1] 0
+    } -result 0
+
+    test table_fill-index-1.2 {
+        Index end not allowed when table is empty
+    } -body {
+        set types {boolean wide uint}
+        tab_change_and_verify_u $types {} [list [samplerow $types 1]] fill [samplerow $types 1] end
+    } -result * -match glob -returnCodes error
+
+    test table_fill-index-2.0 {
+        Fill first in an non-empty table with a single element (shared)
+    } -body {
+        set types {boolean int any byte}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types 3 3 1 end] fill [samplerow $types 3] 0
+    } -result 0
+
+    test table_fill-index-2.1 {
+        Fill first in non-empty table with a single element (unshared tclobj)
+    } -body {
+        set types {boolean int any byte}
+        tab_change_and_verify_u $types [samplerows $types] [samplerows $types 3 3 1 end] fill [samplerow $types 3] 0
+    } -result 0
+
+    test table_fill-index-2.2 {
+        Fill end element in non-empty table
+    } -body {
+        set types {boolean int any byte}
+        tab_change_and_verify_u $types [samplerows $types] [lreplace [samplerows $types] end end [samplerow $types]] fill [samplerow $types 0] end
+    } -result 0
+
+    test table_fill-index-2.3 {
+        Extend non-empty table by one
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types]
+        tab_change_and_verify $types $rows [samplerows $types 0 end 0 0] fill [samplerow $types] [llength $rows]
+    } -result 0
+
+    test table_fill-index-2.4 {
+        Negative index end not allowed
+    } -body {
+        set types {boolean int any byte}
+        tab_change_and_verify_u $types [samplerows $types] [samplerows $types] fill [samplerow $types 0] -1
+    } -result * -match glob -returnCodes error
+
+    test table_fill-index-2.5 {
+        Out of range index end not allowed
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types 0 10]
+        tab_change_and_verify $types $rows $rows fill [samplerow $types] 12
+    } -result "*index 12 out of bounds*" -match glob -returnCodes error
+
+    test table_fill-index-2.6 {
+        Fill intermediate element in non-empty table
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types 0 100]
+        tab_change_and_verify $types $rows [samplerows $types 0 49 0 0 51 100] fill [samplerow $types] 50
+    } -result 0
+
+    test table_fill-index-2.7 {
+        Invalid syntax index not allowed
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types 0 10]
+        tab_change_and_verify $types $rows $rows fill [samplerow $types] badsyntax
+    } -result "expected integer but got \"badsyntax\"" -match glob -returnCodes error
+
+    #
+    # table fill indexlist
+
+    test table_fill-indexlist-1.0 {
+        Fill an empty table (shared)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] {0 1 2}
+    } -result 0
+
+    test table_fill-indexlist-1.1 {
+        Fill empty table with a single element (unshared tclobj)
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        tab_change_and_verify_u $types {} [lrepeat 1000 [samplerow $types]] fill [samplerow $types] $indices
+    } -result 0
+
+    test table_fill-indexlist-2.0 {
+        Test filling of leading elements (shared tclobj)
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        tab_change_and_verify $types [samplerows $types 0 500] [lrepeat 1000 [samplerow $types]] fill [samplerow $types] $indices
+    } -result 0
+
+    test table_fill-indexlist-2.1 {
+        Test filling of leading elements out of order (shared tclobj)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] {2 0 1}
+    } -result 0
+
+    test table_fill-indexlist-2.2 {
+        Test filling of trailing elements (shared tclobj)
+    } -body {
+        set types {boolean int any wide any}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] fill [samplerow $types] {49 50 48}
+    } -result 0 
+
+    test table_fill-indexlist-2.3 {
+        Test extending table in order (unshared tclobj)
+    } -body {
+        set types {boolean int any wide any}
+        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] {48 49 50 51 52 53 54 55}
+    } -result 0
+
+    test table_fill-indexlist-2.4 {
+        Test extending table reverse order (shared tclobj)
+    } -body {
+        set types {any boolean}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
+    } -result 0
+
+    test table_fill-indexlist-2.5 {
+        Test extending table out of order (shared tclobj)
+    } -body {
+        set types {any boolean}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] {51 52 54 55 48 49 50 53}
+    } -result 0
+
+    test table_fill-indexlist-3.0 {
+        Test filling of intermediate (shared tclobj, ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] fill [samplerow $types] $indices
+    } -result 0
+
+    test table_fill-indexlist-3.1 {
+        Test filling of intermediate (shared tclobj, reverse ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] fill [samplerow $types] [lsort -integer -decreasing $indices]
+    } -result 0
+
+
+    test table_fill-indexlist-3.2 {
+        Test filling of intermediate (unshared tclobj, random order)
+    } -body {
+        # Note duplicate
+        set indices {63 254 254 32 65 1 7 33 8 9 31 33 64 63 1}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] fill [samplerow $types] $indices
+    } -result 0
+
+    test table_fill-indexlist-3.3 {
+        Test filling of all (unshared tclobj, random order)
+    } -body {
+        set indices {0 9 3 8 6 4 2 5 7 1}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types 0 9] [lrepeat 10 [samplerow $types end]] fill [samplerow $types end] $indices
+    } -result 0
+
+    test table_fill-indexlist-4.0 {
+        Test filling out-of-range (unshared, increasing indices)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  {5 7 9 11}
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_fill-indexlist-4.1 {
+        Test filling out-of-range (unshared, decreasing index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [lsort -integer -decreasing {5 7 9 11}]
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_fill-indexlist-4.2 {
+        Test filling out-of-range (shared, unordered index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  {9 11 13 8}
+    } -result "*out of bounds" -match glob -returnCodes error
+
+    test table_fill-indexlist-4.3 {
+        Test filling with invalid syntax (shared, index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types] fill [samplerow $types end]  [lsort -integer -decreasing {0 badsyntax}]
+    } -result "*expected integer*" -match glob -returnCodes error
+
+    test table_fill-indexlist-4.4 {
+        Test filling with index list containing end
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types] fill [samplerow $types end]  [lsort -integer -decreasing {0 end}]
+    } -result "*expected integer*" -match glob -returnCodes error
+
+
+    #
+    # table fill indicesarray
+
+    test table_fill-indices-1.0 {
+        Fill an empty table (shared)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] [indexcolumn {0 1 2}]
+    } -result 0
+
+    test table_fill-indices-1.1 {
+        Fill empty table with a single element (unshared tclobj)
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        tab_change_and_verify_u $types {} [lrepeat 1000 [samplerow $types]] fill [samplerow $types] [indexcolumn $indices]
+    } -result 0
+
+    test table_fill-indices-2.0 {
+        Test filling of leading elements (shared tclobj)
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        tab_change_and_verify $types [samplerows $types 0 500] [lrepeat 1000 [samplerow $types]] fill [samplerow $types] [indexcolumn $indices]
+    } -result 0
+
+    test table_fill-indices-2.1 {
+        Test filling of leading elements out of order (shared tclobj)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] [indexcolumn {2 0 1}]
+    } -result 0
+
+    test table_fill-indices-2.2 {
+        Test filling of trailing elements (shared tclobj)
+    } -body {
+        set types {boolean int any wide any}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] fill [samplerow $types] {49 50 48}
+    } -result 0 
+
+    test table_fill-indices-2.3 {
+        Test extending table in order (unshared tclobj)
+    } -body {
+        set types {boolean int any wide any}
+        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [indexcolumn {48 49 50 51 52 53 54 55}]
+    } -result 0
+
+    test table_fill-indices-2.4 {
+        Test extending table reverse order (shared tclobj)
+    } -body {
+        set types {any boolean}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
+    } -result 0
+
+    test table_fill-indices-2.5 {
+        Test extending table out of order (shared tclobj)
+    } -body {
+        set types {any boolean}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [indexcolumn {51 52 54 55 48 49 50 53}]
+    } -result 0
+
+    test table_fill-indices-3.0 {
+        Test filling of intermediate (shared tclobj, ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] fill [samplerow $types] [tarray::column sort -increasing [indexcolumn $indices]]
+    } -result 0
+
+    test table_fill-indices-3.1 {
+        Test filling of intermediate (shared tclobj, reverse ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] fill [samplerow $types] [tarray::column sort -decreasing [indexcolumn $indices]]
+    } -result 0 
+
+    test table_fill-indices-3.2 {
+        Test filling of intermediate (unshared tclobj, random order)
+    } -body {
+        # Note duplicate
+        set indices {63 254 254 32 65 1 7 33 8 9 31 33 64 63 1}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] fill [samplerow $types] [indexcolumn $indices]
+    } -result 0
+
+    test table_fill-indices-3.3 {
+        Test filling of all (unshared tclobj, random order)
+    } -body {
+        set indices {0 9 3 8 6 4 2 5 7 1}
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types 0 9] [lrepeat 10 [samplerow $types end]] fill [samplerow $types end] [indexcolumn $indices]
+    } -result 0
+
+    test table_fill-indices-4.0 {
+        Test filling out-of-range (unshared, increasing indices)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [tarray::column sort -increasing [indexcolumn {5 7 9 11}]]
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_fill-indices-4.1 {
+        Test filling out-of-range (unshared, decreasing index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [indexcolumn {5 7 9 11}]
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_fill-indices-4.2 {
+        Test filling out-of-range (shared, unordered index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [indexcolumn {9 11 13 8}]
+    } -result "*out of bounds" -match glob -returnCodes error
+
+
+    #
+    # table fill range
+
+    test table_fill-range-1.0 {
+        Fill an empty table with a single element (shared)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [list [samplerow $types]] fill [samplerow $types] 0 0
+    } -result 0
+    test table_fill-range-1.1 {
+        Fill empty table with a single element (unshared tclobj)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify_u $types {} [list [samplerow $types]] fill [samplerow $types] 0 0
+    } -result 0
+
+    test table_fill-range-1.2 {
+        Index end when table is empty
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify_u $types {} {} fill [samplerow $types] 0 end
+    } -result 0
+
+    test table_fill-range-1.3 {
+        Index end when table is empty
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify_u $types {} {} fill [samplerow $types] end end
+    } -result 0
+
+
+    test table_fill-range-2.0 {
+        Test filling of leading elements (shared tclobj)
+    } -body {
+        set types {boolean int any}
+        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] 0 2
+    } -result 0
+
+    test table_fill-range-2.1 {
+        Test filling of trailing elements (shared tclobj)
+    } -body {
+        set types {boolean int any wide any}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] fill [samplerow $types] 48 50
+    } -result 0 
+
+    test table_fill-range-2.2 {
+        Test filling of trailing elements (unshared tclobj, end)
+    } -body {
+        set types {boolean int any wide any}
+        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 40] [lrepeat 10 [samplerow $types]]] fill [samplerow $types] 41 end
+    } -result 0 
+
+    test table_fill-range-2.3 {
+        Test filling of entire array (unshared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        tab_change_and_verify_u $types $rows [lrepeat [llength $rows] [samplerow $types]] fill [samplerow $types] 0 end
+    } -result 0
+
+    test table_fill-range-2.4 {
+        Test filling of intermediate array (unshared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        tab_change_and_verify_u $types $rows [samplerows $types 0 50 0 0 0 0 0 0 0 0 55 end] fill [samplerow $types] 51 54
+    } -result 0
+
+    test table_fill-range-3.0 {
+        Test filling with reversed range elements (unshared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        # Should be no change
+        tab_change_and_verify_u $types $rows $rows fill [samplerow $types] 10 0
+    } -result 0
+
+    test table_fill-range-3.1 {
+        Test filling with reversed range elements (shared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        # Should be no change
+        tab_change_and_verify $types $rows $rows fill [samplerow $types] end 0
+    } -result 0
+
+    test table_fill-range-4.0 {
+        Test filling beyond last (unshared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types 0 100]
+        tab_change_and_verify_u $types $rows [concat $rows [lrepeat 100 [samplerow $types]]] fill [samplerow $types] 101 200
+    } -result 0
+
+    test table_fill-range-4.1 {
+        Test filling beyond last (shared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types 0 100]
+        tab_change_and_verify $types [samplerows $types 0 100] [concat [samplerows $types 0 50] [lrepeat 100 [samplerow $types]]] fill [samplerow $types] 51 150
+    } -result 0
+
+    test table_fill-range-4.2 {
+        Test filling out-of-range (unshared)
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types 0 100]
+        tab_change_and_verify_u $types $rows [concat $rows [lrepeat 100 [samplerow $types]]] fill [samplerow $types] 102 200
+    } -result "*102*out of bounds" -match glob -returnCodes error
+
+}
+
+::tcltest::cleanupTests
