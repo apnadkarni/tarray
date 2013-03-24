@@ -487,43 +487,43 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
 
 
 critcl::cproc tarray::table::put {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
-    ttable = GRID;
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+    table = GRID;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
 
     /* Values may be given as a table or a Tcl list */
-    if (ttable_convert(NULL, VALUES) == TCL_OK)
-        status = ttable_copy(interp, ttable, VALUES, FIRST, 0);
+    if (table_convert(NULL, VALUES) == TCL_OK)
+        status = table_copy(interp, table, VALUES, FIRST, 0);
     else
-        status = ttable_put_objs(interp, ttable, VALUES, FIRST, 0);
+        status = table_put_objs(interp, table, VALUES, FIRST, 0);
 
-    return ta_return_result(interp, status, ttable);
+    return ta_return_result(interp, status, table);
 }
 
 critcl::cproc tarray::table::vput {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
-    ttable = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
-    if (ttable == NULL)
+    table = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
         return TCL_ERROR;
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
 
     /* Values may be given as a table or a Tcl list */
-    if (ttable_convert(NULL, VALUES) == TCL_OK)
-        status = ttable_copy(interp, ttable, VALUES, FIRST, 0);
+    if (table_convert(NULL, VALUES) == TCL_OK)
+        status = table_copy(interp, table, VALUES, FIRST, 0);
     else
-        status = ttable_put_objs(interp, ttable, VALUES, FIRST, 0);
+        status = table_put_objs(interp, table, VALUES, FIRST, 0);
 
-    return ta_set_var_result(interp, status, GRIDVAR, ttable);
+    return ta_set_var_result(interp, status, GRIDVAR, table);
 }
 
 critcl::ccommand tarray::table::fill {} {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
     if (objc != 4 && objc != 5) {
@@ -531,38 +531,38 @@ critcl::ccommand tarray::table::fill {} {
 	return TCL_ERROR;
     }
 
-    ttable = objv[1];
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+    table = objv[1];
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
 
-    status = ttable_fill_obj(interp, ttable, objv[2], objv[3], 
+    status = table_fill_obj(interp, table, objv[2], objv[3], 
                             objc == 5 ? objv[4] : NULL, 0);
 
-    return ta_return_result(interp, status, ttable);
+    return ta_return_result(interp, status, table);
 }
 
 critcl::ccommand tarray::table::vfill {} {
     int status;
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
 
     if (objc != 4 && objc != 5) {
 	Tcl_WrongNumArgs(interp, 1, objv, "GRIDVAR VALUES (INDEXLIST | LOW ?HIGH?");
 	return TCL_ERROR;
     }
 
-    ttable = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
-    if (ttable == NULL)
+    table = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
         return TCL_ERROR;
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
 
-    status = ttable_fill_obj(interp, ttable, objv[2], objv[3], 
+    status = table_fill_obj(interp, table, objv[2], objv[3], 
                             objc == 5 ? objv[4] : NULL, 0);
-    return ta_set_var_result(interp, status, objv[1], ttable);
+    return ta_set_var_result(interp, status, objv[1], table);
 }
 
 critcl::ccommand tarray::table::delete {} {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
     if (objc != 3 && objc != 4) {
@@ -570,16 +570,16 @@ critcl::ccommand tarray::table::delete {} {
 	return TCL_ERROR;
     }
     
-    ttable = objv[1];
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
-    status = ttable_delete(interp, ttable, objv[2], objc == 4 ? objv[3] : NULL);
-    return ta_return_result(interp, status, ttable);
+    table = objv[1];
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_delete(interp, table, objv[2], objc == 4 ? objv[3] : NULL);
+    return ta_return_result(interp, status, table);
 }
 
 
 critcl::ccommand tarray::table::vdelete {} {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
     if (objc != 3 && objc != 4) {
@@ -587,17 +587,17 @@ critcl::ccommand tarray::table::vdelete {} {
 	return TCL_ERROR;
     }
     
-    ttable = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
-    if (ttable == NULL)
+    table = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
         return TCL_ERROR;
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
-    status = ttable_delete(interp, ttable, objv[2], objc == 4 ? objv[3] : NULL);
-    return ta_set_var_result(interp, status, objv[1], ttable);
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_delete(interp, table, objv[2], objc == 4 ? objv[3] : NULL);
+    return ta_set_var_result(interp, status, objv[1], table);
 }
 
 critcl::ccommand tarray::table::get {} {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int low, count;
     int status;
     int fmt = TA_FORMAT_TARRAY;
@@ -616,7 +616,7 @@ critcl::ccommand tarray::table::get {} {
      * does not arise.
      */
     if (tcol_affirm(objv[1])) {
-        /* Note we check for tcol_affirm, not ttable_affirm */
+        /* Note we check for tcol_affirm, not table_affirm */
         ta_arg = 1;
     } else {
         /* OK, see if it is an option */
@@ -631,7 +631,7 @@ critcl::ccommand tarray::table::get {} {
     if ((objc - ta_arg) < 2 || (objc - ta_arg) > 3)
         goto badargs;
 
-    if ((status = ttable_convert(interp, objv[ta_arg])) != TCL_OK)
+    if ((status = table_convert(interp, objv[ta_arg])) != TCL_OK)
         return status;
 
     switch (objc - ta_arg - 1) {
@@ -643,26 +643,26 @@ critcl::ccommand tarray::table::get {} {
             Tcl_Panic("ta_obj_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
             break;
         case TA_INDEX_TYPE_THDR:
-            ttable = ttable_get(interp, objv[ta_arg], pindices, fmt);
+            table = table_get(interp, objv[ta_arg], pindices, fmt);
             thdr_decr_refs(pindices);
             break;
         }
         break;
     case 2:
         /* Range LOW HIGH */
-        status = ta_fix_range_bounds(interp, ttable_length(objv[ta_arg]),
+        status = ta_fix_range_bounds(interp, table_length(objv[ta_arg]),
                                          objv[ta_arg+1], objv[ta_arg+2],
                                          &low, &count);
         if (status != TCL_OK)
             return status;
-        ttable = ttable_range(interp, objv[ta_arg], low, count, fmt);
+        table = table_range(interp, objv[ta_arg], low, count, fmt);
         break;
     default:
         goto badargs;
     }
 
-    if (ttable) {
-        Tcl_SetObjResult(interp, ttable);
+    if (table) {
+        Tcl_SetObjResult(interp, table);
         return TCL_OK;
     } else
         return TCL_ERROR;
@@ -677,9 +677,9 @@ critcl::cproc tarray::table::index {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* IN
     int ix;
     Tcl_Obj *o;
 
-    if (ttable_convert(interp, GRID) == TCL_OK &&
-        ta_convert_index(interp, INDEX, &ix, ttable_length(GRID)-1, 0, tcol_occupancy(GRID)-1) == TCL_OK) {
-        o = ttable_index(interp, GRID, ix);
+    if (table_convert(interp, GRID) == TCL_OK &&
+        ta_convert_index(interp, INDEX, &ix, table_length(GRID)-1, 0, tcol_occupancy(GRID)-1) == TCL_OK) {
+        o = table_index(interp, GRID, ix);
         if (o) {
             Tcl_SetObjResult(interp, o);
             return TCL_OK;
@@ -690,7 +690,7 @@ critcl::cproc tarray::table::index {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* IN
 
 
 critcl::ccommand tarray::table::insert {} {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
     if (objc != 4 && objc != 5) {
@@ -698,15 +698,15 @@ critcl::ccommand tarray::table::insert {} {
 	return TCL_ERROR;
     }
     
-    ttable = objv[1];
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
-    status = ttable_insert_obj(interp, ttable, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
-    return ta_return_result(interp, status, ttable);
+    table = objv[1];
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_insert_obj(interp, table, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    return ta_return_result(interp, status, table);
 }
 
 critcl::ccommand tarray::table::vinsert {} {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     int status;
 
     if (objc != 4 && objc != 5) {
@@ -714,13 +714,13 @@ critcl::ccommand tarray::table::vinsert {} {
 	return TCL_ERROR;
     }
     
-    ttable = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
-    if (ttable == NULL)
+    table = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
         return TCL_ERROR;
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
-    status = ttable_insert_obj(interp, ttable, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
-    return ta_set_var_result(interp, status, objv[1], ttable);
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_insert_obj(interp, table, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    return ta_set_var_result(interp, status, objv[1], table);
 }
 
 critcl::cproc tarray::table::place {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
@@ -729,48 +729,48 @@ critcl::cproc tarray::table::place {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VA
     if (Tcl_IsShared(GRID))
         GRID = Tcl_DuplicateObj(GRID);
 
-    if (ttable_convert(NULL, VALUES) == TCL_OK)
-        status = ttable_place_indices(interp, GRID, VALUES, INDICES);
+    if (table_convert(NULL, VALUES) == TCL_OK)
+        status = table_place_indices(interp, GRID, VALUES, INDICES);
     else
-        status = ttable_place_objs(interp, GRID, VALUES, INDICES);
+        status = table_place_objs(interp, GRID, VALUES, INDICES);
     return ta_return_result(interp, status, GRID);
 }
 
 critcl::cproc tarray::table::vplace {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
     int status;
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
 
-    ttable = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
-    if (ttable == NULL)
+    table = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
         return TCL_ERROR;
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
     
-    if (ttable_convert(NULL, VALUES) == TCL_OK)
-        status = ttable_place_indices(interp, ttable, VALUES, INDICES);
+    if (table_convert(NULL, VALUES) == TCL_OK)
+        status = table_place_indices(interp, table, VALUES, INDICES);
     else
-        status = ttable_place_objs(interp, ttable, VALUES, INDICES);
-    return ta_set_var_result(interp, status, GRIDVAR, ttable);
+        status = table_place_objs(interp, table, VALUES, INDICES);
+    return ta_set_var_result(interp, status, GRIDVAR, table);
 }
 
-critcl::cproc tarray::table::reverse {Tcl_Interp* interp Tcl_Obj* ttable} ok {
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+critcl::cproc tarray::table::reverse {Tcl_Interp* interp Tcl_Obj* table} ok {
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
 
-    return ta_return_result(interp, ttable_reverse(interp, ttable), ttable);
+    return ta_return_result(interp, table_reverse(interp, table), table);
 }
     
-critcl::cproc tarray::ttable::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
-    Tcl_Obj *ttable;
+critcl::cproc tarray::table::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
+    Tcl_Obj *table;
 
-    ttable = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
-    if (ttable == NULL)
+    table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
         return TCL_ERROR;
 
-    if (Tcl_IsShared(ttable))
-        ttable = Tcl_DuplicateObj(ttable);
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
 
-    return ta_set_var_result(interp, ttable_reverse(interp, ttable), ovar, ttable);
+    return ta_set_var_result(interp, table_reverse(interp, table), ovar, table);
 }
 
 

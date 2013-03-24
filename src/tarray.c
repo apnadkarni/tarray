@@ -16,7 +16,7 @@
  * TArray is a Tcl "type" used for densely storing arrays of elements
  * of a specific type. For reasons of efficiency in type checking,
  * we define two types - tcolumn that holds an array of elements,
- * and ttable, which is just a tcolumn (and hence uses the same member
+ * and table, which is just a tcolumn (and hence uses the same member
  * functions) each element of which is a Tcl_Obj
  * that is itself a tcolumn.
  */
@@ -30,8 +30,8 @@ struct Tcl_ObjType g_tcol_type = {
     ta_type_update_string,
     NULL,     /* jenglish advises to keep this NULL */
 };
-struct Tcl_ObjType g_ttable_type = {
-    "ttable",
+struct Tcl_ObjType g_table_type = {
+    "table",
     ta_type_free_intrep,
     ta_type_dup,
     ta_type_update_string,
