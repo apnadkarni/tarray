@@ -126,7 +126,7 @@ vamoose:
 
 }
 
-TCL_RESULT ttable_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
+TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     int status;
     thdr_t *thdr;
@@ -154,12 +154,12 @@ TCL_RESULT ttable_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
         ++ptcol;
     }
     
-    o->typePtr = &g_ttable_type;
+    o->typePtr = &g_table_type;
     return TCL_OK;
 }
 
-TCL_RESULT ttable_make_modifiable(Tcl_Interp *ip,
-                                Tcl_Obj *ttable,
+TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
+                                Tcl_Obj *table,
                                  int minsize, /* Min *contained* cols */
                                  int prefsize /* Pref size  *contained* cols */
     )
@@ -167,22 +167,22 @@ TCL_RESULT ttable_make_modifiable(Tcl_Interp *ip,
     int i, status;
     Tcl_Obj **tcols;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
 
-    if ((status = ttable_convert(ip, ttable)) != TCL_OK)
+    if ((status = table_convert(ip, table)) != TCL_OK)
         return status;
     
     /*
-     * First make the ttable object itself modifiable in case its thdr
+     * First make the table object itself modifiable in case its thdr
      * is shared. Note this also invalidates its string representation.
      */
-    if (thdr_shared(TARRAYHDR(ttable)) &&
-        (status = tcol_make_modifiable(ip, ttable, 0, 0)) != TCL_OK)
+    if (thdr_shared(TARRAYHDR(table)) &&
+        (status = tcol_make_modifiable(ip, table, 0, 0)) != TCL_OK)
         return status;
 
     /* Now make its contained columns modifiable */
-    tcols = THDRELEMPTR(TARRAYHDR(ttable), Tcl_Obj *, 0);
-    i = tcol_occupancy(ttable);
+    tcols = THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, 0);
+    i = tcol_occupancy(table);
     while (i--) {
         Tcl_Obj *tcol;
         tcol = tcols[i];
@@ -202,9 +202,9 @@ TCL_RESULT ttable_make_modifiable(Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT ttable_fill_obj(
+TCL_RESULT table_fill_obj(
     Tcl_Interp *ip,
-    Tcl_Obj *ttable,
+    Tcl_Obj *table,
     Tcl_Obj *orow,
     Tcl_Obj *indexa,
     Tcl_Obj *indexb,             /* Can be NULL */
@@ -215,22 +215,22 @@ TCL_RESULT ttable_fill_obj(
     int col_len, ncols;
     thdr_t *pindices;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
 
-    if ((status = ttable_convert(ip, ttable)) != TCL_OK)
+    if ((status = table_convert(ip, table)) != TCL_OK)
         return status;
-    ncols = ttable_width(ttable);
-    col_len = ttable_length(ttable);
+    ncols = table_width(table);
+    col_len = table_length(table);
     if (indexb) {
         /* Given a range */
         status = ta_fix_range_bounds(ip, col_len, indexa, indexb, &low, &count);
         if (status != TCL_OK || count == 0)
             return status;
-        if ((status = ttable_make_modifiable(ip, ttable,
+        if ((status = table_make_modifiable(ip, table,
                                             (insert ? col_len : low) + count,
                                             0)) != TCL_OK)
             return status;
-        return tcols_fill_range(ip, ncols, ttable_columns(ttable), orow,
+        return tcols_fill_range(ip, ncols, table_columns(table), orow,
                                 low, count, insert);
     }
 
@@ -246,11 +246,11 @@ TCL_RESULT ttable_fill_obj(
             ta_index_range_error(ip, low);
             status = TCL_ERROR;
         } else {
-            status = ttable_make_modifiable(ip, ttable,
+            status = table_make_modifiable(ip, table,
                                            (insert ? col_len : low) + 1,
                                            0);
             if (status == TCL_OK)
-                status = tcols_fill_range(ip, ncols, ttable_columns(ttable),
+                status = tcols_fill_range(ip, ncols, table_columns(table),
                                           orow, low, 1, insert);
         }
         break;
@@ -260,11 +260,11 @@ TCL_RESULT ttable_fill_obj(
             return TCL_ERROR;
 
         }
-        status = thdr_verify_indices(ip, TARRAYHDR(ttable_column(ttable, 0)), pindices, &count);
+        status = thdr_verify_indices(ip, TARRAYHDR(table_column(table, 0)), pindices, &count);
         if (status == TCL_OK && count > 0) {
-            status = ttable_make_modifiable(ip, ttable, count, count); // TBD - count + extra?
-            status = tcols_fill_indices(ip, ncols, ttable_columns(ttable),
-                                        orow, pindices, count-1);
+            status = table_make_modifiable(ip, table, count, count); // TBD - count + extra?
+            status = tcols_fill_indices(ip, ncols, table_columns(table),
+                                        orow, pindices, count);
         }
         thdr_decr_refs(pindices);
         break;
@@ -774,7 +774,7 @@ TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcol
 }
 
 
-TCL_RESULT ttable_put_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
                           Tcl_Obj *orows,
                           Tcl_Obj *ofirst, /* NULL -> end of table */
                           int insert)
@@ -782,18 +782,18 @@ TCL_RESULT ttable_put_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
     int off, nrows, old_size, status;
     Tcl_Obj **rows;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
 
     status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
     if (status != TCL_OK ||     /* Not a list */
         nrows == 0 ||           /* Nothing to modify */
-        (status = ttable_convert(ip, ttable)) != TCL_OK || /* Not a table */
-        ttable_width(ttable) == 0) /* No columns to update */ {
+        (status = table_convert(ip, table)) != TCL_OK || /* Not a table */
+        table_width(table) == 0) /* No columns to update */ {
         return status;           /* Maybe OK or ERROR */
     }
 
     /* Get the limits of the range to set */
-    old_size = ttable_length(ttable);
+    old_size = table_length(table);
     off = old_size;
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &off, old_size, 0, old_size);
@@ -802,15 +802,15 @@ TCL_RESULT ttable_put_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
     if (status == TCL_OK) {
 
         /* Note this also invalidates the string rep as desired */
-        status = ttable_make_modifiable(ip, ttable,
+        status = table_make_modifiable(ip, table,
                                        (insert ? old_size : off) + nrows,
                                        0);
         if (status == TCL_OK) {
             /* Note even on error tcols_put_objs guarantees a consistent 
              * and unchanged tcols
              */
-            status = tcols_put_objs(ip, ttable_width(ttable),
-                                    ttable_columns(ttable),
+            status = tcols_put_objs(ip, table_width(table),
+                                    table_columns(table),
                                     nrows, rows, off, insert);
         }
     }
@@ -854,7 +854,7 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT ttable_copy(Tcl_Interp *ip, Tcl_Obj *dsttable, Tcl_Obj *srctable,
+TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable,
                       Tcl_Obj *ofirst, /* NULL -> end of table */
                       int insert)
 {
@@ -863,18 +863,18 @@ TCL_RESULT ttable_copy(Tcl_Interp *ip, Tcl_Obj *dsttable, Tcl_Obj *srctable,
     Tcl_Obj **srccols;
     int count, new_min_size;
 
-    TA_ASSERT(! Tcl_IsShared(dsttable));
+    TA_ASSERT(! Tcl_IsShared(dstable));
 
-    if ((status = ttable_convert(ip, dsttable)) != TCL_OK ||
-        (status = ttable_convert(ip, srctable)) != TCL_OK)
+    if ((status = table_convert(ip, dstable)) != TCL_OK ||
+        (status = table_convert(ip, srctable)) != TCL_OK)
         return status;
 
-    if (ttable_width(dsttable) > ttable_width(srctable))
-        return ta_row_width_error(ip, ttable_width(srctable), ttable_width(srctable));
+    if (table_width(dstable) > table_width(srctable))
+        return ta_row_width_error(ip, table_width(srctable), table_width(srctable));
 
-    srccols = ttable_columns(srctable);
+    srccols = table_columns(srctable);
     count = tcol_occupancy(srccols[0]);
-    dstcols = ttable_columns(dsttable);
+    dstcols = table_columns(dstable);
     first = tcol_occupancy(dstcols[0]); /* Default is end */
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &first, first, 0, first);
@@ -885,51 +885,51 @@ TCL_RESULT ttable_copy(Tcl_Interp *ip, Tcl_Obj *dsttable, Tcl_Obj *srctable,
         new_min_size = tcol_occupancy(dstcols[0]) + count;
     else
         new_min_size = first + count;
-    status = ttable_make_modifiable(ip, dsttable, new_min_size, 0);
+    status = table_make_modifiable(ip, dstable, new_min_size, 0);
     if (status != TCL_OK)
         return status;
 
-    dstcols = ttable_columns(dsttable); /* Re-init - might have changed */
+    dstcols = table_columns(dstable); /* Re-init - might have changed */
 
-    return tcols_copy(ip, ttable_width(dsttable), dstcols, first,
+    return tcols_copy(ip, table_width(dstable), dstcols, first,
                       srccols, 0, count, insert);
 }
 
-TCL_RESULT ttable_delete(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
                         Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
     int status;
     int i;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
 
-    if ((status = ttable_convert(ip, ttable)) != TCL_OK ||
-        (status = ttable_make_modifiable(ip, ttable, ttable_length(ttable), 0)) != TCL_OK)
+    if ((status = table_convert(ip, table)) != TCL_OK ||
+        (status = table_make_modifiable(ip, table, table_length(table), 0)) != TCL_OK)
         return status;
 
-    i = ttable_width(ttable);
+    i = table_width(table);
     while (i--) {
-        if ((status = tcol_delete(ip, ttable_column(ttable, i),
+        if ((status = tcol_delete(ip, table_column(table, i),
                                   indexa, indexb)) != TCL_OK)
             break;
     }
     return status;
 }
 
-Tcl_Obj *ttable_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
+Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 {
     int i, width, *pindex, *end, index;
     Tcl_Obj **srccols;
     Tcl_Obj *olist = NULL;
     Tcl_Obj **olistelems;
 
-    if (ttable_convert(ip, osrc) != TCL_OK)
+    if (table_convert(ip, osrc) != TCL_OK)
         return NULL;
 
     /* TBD - TA_ASSERT validate table consistency */
 
-    width = ttable_width(osrc);
-    srccols = ttable_columns(osrc);
+    width = table_width(osrc);
+    srccols = table_columns(osrc);
 
     TA_ASSERT(pindices->type == TA_INT);
 
@@ -949,7 +949,7 @@ Tcl_Obj *ttable_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 return NULL;
             }
         }
-        return ttable_new(thdr);
+        return table_new(thdr);
     }
 
     /*
@@ -978,7 +978,7 @@ Tcl_Obj *ttable_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 
     Tcl_ListObjGetElements(ip, olist, &i, &olistelems); /* i just dummy temp */
 
-#define ttable_get_COPY(type_, objfn_)                                   \
+#define table_get_COPY(type_, objfn_)                                   \
     do {                                                                \
         type_ *from = srcbase;                                          \
         for (; pindex < end; j += incr, ++pindex) {                     \
@@ -1018,26 +1018,26 @@ Tcl_Obj *ttable_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 }
             }
         case TA_UINT:
-            ttable_get_COPY(unsigned int, Tcl_NewWideIntObj);
+            table_get_COPY(unsigned int, Tcl_NewWideIntObj);
             break;
         case TA_INT:
-            ttable_get_COPY(int, Tcl_NewIntObj);
+            table_get_COPY(int, Tcl_NewIntObj);
             break;
         case TA_WIDE:
-            ttable_get_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
+            table_get_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
             break;
         case TA_DOUBLE:
-            ttable_get_COPY(double, Tcl_NewDoubleObj);
+            table_get_COPY(double, Tcl_NewDoubleObj);
             break;
         case TA_BYTE:
-            ttable_get_COPY(unsigned char, Tcl_NewIntObj);
+            table_get_COPY(unsigned char, Tcl_NewIntObj);
             break;
         case TA_ANY:
             /* We can use macro here as well because of ref counts will be
                taken care of by the lists themselves. The (Tcl_Obj *) is
                passed as essentially a no-op conversion function
             */
-            ttable_get_COPY(Tcl_Obj *, (Tcl_Obj *));
+            table_get_COPY(Tcl_Obj *, (Tcl_Obj *));
             break;
         default:
             ta_type_panic(tcol_type(srccols[i]));
@@ -1054,7 +1054,7 @@ index_error:   /* index should hold the current index in error */
     return NULL;
 }
 
-Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
+Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
 {
     int i, width, end;
     Tcl_Obj **srccols;
@@ -1066,10 +1066,10 @@ Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt
 
     /* TBD - TA_ASSERT validate table consistency */
 
-    if (ttable_convert(ip, osrc) != TCL_OK)
+    if (table_convert(ip, osrc) != TCL_OK)
         return NULL;
-    width = ttable_width(osrc);
-    srccols = ttable_columns(osrc);
+    width = table_width(osrc);
+    srccols = table_columns(osrc);
 
     if (fmt == TA_FORMAT_TARRAY) {
         Tcl_Obj **tcols;
@@ -1087,7 +1087,7 @@ Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt
                 return NULL;
             }
         }
-        return ttable_new(thdr);
+        return table_new(thdr);
     }
 
     /*
@@ -1119,7 +1119,7 @@ Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt
 
     Tcl_ListObjGetElements(ip, olist, &i, &olistelems); /* i just dummy temp */
                 
-#define ttable_range_COPY(type_, objfn_)                                 \
+#define table_range_COPY(type_, objfn_)                                 \
     do {                                                                \
         type_ *p = THDRELEMPTR(TARRAYHDR(srccols[i]), type_, low);      \
         type_ *pend = p + count;                                    \
@@ -1152,26 +1152,26 @@ Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt
                 }
             }
         case TA_UINT:
-            ttable_range_COPY(unsigned int, Tcl_NewWideIntObj);
+            table_range_COPY(unsigned int, Tcl_NewWideIntObj);
             break;
         case TA_INT:
-            ttable_range_COPY(int, Tcl_NewIntObj);
+            table_range_COPY(int, Tcl_NewIntObj);
             break;
         case TA_WIDE:
-            ttable_range_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
+            table_range_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
             break;
         case TA_DOUBLE:
-            ttable_range_COPY(double, Tcl_NewDoubleObj);
+            table_range_COPY(double, Tcl_NewDoubleObj);
             break;
         case TA_BYTE:
-            ttable_range_COPY(unsigned char, Tcl_NewIntObj);
+            table_range_COPY(unsigned char, Tcl_NewIntObj);
             break;
         case TA_ANY:
             /* We can use macro here as well because of ref counts will be
                taken care of by the lists themselves. The (Tcl_Obj *) is
                passed as essentially a no-op conversion function
             */
-            ttable_range_COPY(Tcl_Obj *, (Tcl_Obj *));
+            table_range_COPY(Tcl_Obj *, (Tcl_Obj *));
             break;
         default:
             ta_type_panic(tcol_type(srccols[i]));
@@ -1181,7 +1181,7 @@ Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt
     return olist;
 }
 
-Tcl_Obj *ttable_index(Tcl_Interp *ip, Tcl_Obj *ttable, int index)
+Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index)
 {
     int i, width;
     Tcl_Obj **srccols;
@@ -1189,10 +1189,10 @@ Tcl_Obj *ttable_index(Tcl_Interp *ip, Tcl_Obj *ttable, int index)
     Tcl_Obj *o;
 
     /* TBD - TA_ASSERT validate table consistency */
-    if (ttable_convert(ip, ttable) != TCL_OK)
+    if (table_convert(ip, table) != TCL_OK)
         return NULL;
-    width = ttable_width(ttable);
-    srccols = ttable_columns(ttable);
+    width = table_width(table);
+    srccols = table_columns(table);
     olist = Tcl_NewListObj(width, NULL);
     for (i = 0; i < width; ++i) {
         o = tcol_index(ip, srccols[i], index);
@@ -1206,33 +1206,33 @@ Tcl_Obj *ttable_index(Tcl_Interp *ip, Tcl_Obj *ttable, int index)
     return olist;
 }
 
-TCL_RESULT ttable_insert_obj(Tcl_Interp *ip, Tcl_Obj *ttable, Tcl_Obj *ovalue,
+TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
                             Tcl_Obj *opos, Tcl_Obj *ocount)
 {
     int status;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
     
     if (ocount == NULL) {
         /* Values may be given as a column or a list */
-        if ((status = ttable_convert(NULL, ovalue)) == TCL_OK)
-            status =  ttable_copy(ip, ttable, ovalue, opos, 1);
+        if ((status = table_convert(NULL, ovalue)) == TCL_OK)
+            status =  table_copy(ip, table, ovalue, opos, 1);
         else
-            status =  ttable_put_objs(ip, ttable, ovalue, opos, 1);
+            status =  table_put_objs(ip, table, ovalue, opos, 1);
     } else {
         int pos, count, col_len;
         if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
-            (status = ttable_convert(ip, ttable)) == TCL_OK) {
+            (status = table_convert(ip, table)) == TCL_OK) {
             if (count < 0)
                 count = 0;      /* Should we error instead? */
             if (count == 0)
                 return TCL_OK;  /* Nothing to do */
-            col_len = ttable_length(ttable);
-            if ((status = ttable_make_modifiable(ip, ttable, count+col_len, 0)) == TCL_OK &&
+            col_len = table_length(table);
+            if ((status = table_make_modifiable(ip, table, count+col_len, 0)) == TCL_OK &&
                 (status = ta_convert_index(ip, opos, &pos, col_len,
                                            0, col_len)) == TCL_OK) {
-                status = tcols_fill_range(ip, ttable_width(ttable),
-                                          ttable_columns(ttable), ovalue,
+                status = tcols_fill_range(ip, table_width(table),
+                                          table_columns(table), ovalue,
                                           pos, count, 1);
             }
         }
@@ -1240,7 +1240,7 @@ TCL_RESULT ttable_insert_obj(Tcl_Interp *ip, Tcl_Obj *ttable, Tcl_Obj *ovalue,
     return status;
 }
 
-TCL_RESULT ttable_place_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
                            Tcl_Obj *orows,
                            Tcl_Obj *oindices)
 {
@@ -1250,13 +1250,13 @@ TCL_RESULT ttable_place_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
     int new_size;
     int status;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
 
-    if ((status = ttable_convert(ip, ttable)) != TCL_OK || 
-        (ntcols = ttable_width(ttable)) == 0) 
+    if ((status = table_convert(ip, table)) != TCL_OK || 
+        (ntcols = table_width(table)) == 0) 
         return status;           /* Maybe OK or ERROR */
 
-    tcols = ttable_columns(ttable);
+    tcols = table_columns(table);
 
     if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
@@ -1265,7 +1265,7 @@ TCL_RESULT ttable_place_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
     if (pindices->used > 0) {
         status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
         if (status == TCL_OK) {
-            status = ttable_make_modifiable(ip, ttable, new_size, new_size);
+            status = table_make_modifiable(ip, table, new_size, new_size);
             if (status == TCL_OK)
                 status =  tcols_place_objs(ip, ntcols, tcols, pindices, orows, new_size);
         }
@@ -1276,7 +1276,7 @@ TCL_RESULT ttable_place_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
 }
 
 
-TCL_RESULT ttable_place_indices(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table,
                            Tcl_Obj *psrc, Tcl_Obj *oindices)
 {
     thdr_t *pindices;
@@ -1285,27 +1285,27 @@ TCL_RESULT ttable_place_indices(Tcl_Interp *ip, Tcl_Obj *ttable,
     int new_size;
     int status;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
-    TA_ASSERT(ttable_affirm(psrc));
+    TA_ASSERT(! Tcl_IsShared(table));
+    TA_ASSERT(table_affirm(psrc));
 
-    if ((status = ttable_convert(ip, ttable)) != TCL_OK || 
-        (ntcols = ttable_width(ttable)) == 0) 
+    if ((status = table_convert(ip, table)) != TCL_OK || 
+        (ntcols = table_width(table)) == 0) 
         return status;           /* Maybe OK or ERROR */
 
-    if (ttable_width(psrc) < ntcols)
-        return ta_row_width_error(ip, ttable_width(psrc), ntcols);
+    if (table_width(psrc) < ntcols)
+        return ta_row_width_error(ip, table_width(psrc), ntcols);
 
     if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
     status = TCL_OK;
     if (pindices->used > 0) {
-        tcols = ttable_columns(ttable);
+        tcols = table_columns(table);
         status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
         if (status == TCL_OK) {
-            status = ttable_make_modifiable(ip, ttable, new_size, new_size);
+            status = table_make_modifiable(ip, table, new_size, new_size);
             if (status == TCL_OK)
-                status =  tcols_place_indices(ip, ntcols, tcols, ttable_columns(psrc), pindices, new_size);
+                status =  tcols_place_indices(ip, ntcols, tcols, table_columns(psrc), pindices, new_size);
         }
     }
     
@@ -1313,19 +1313,19 @@ TCL_RESULT ttable_place_indices(Tcl_Interp *ip, Tcl_Obj *ttable,
     return status;
 }
 
-TCL_RESULT ttable_reverse(Tcl_Interp *ip, Tcl_Obj *ttable)
+TCL_RESULT table_reverse(Tcl_Interp *ip, Tcl_Obj *table)
 {
     int i, status;
 
-    TA_ASSERT(! Tcl_IsShared(ttable));
+    TA_ASSERT(! Tcl_IsShared(table));
 
-    if ((status = ttable_convert(ip, ttable)) != TCL_OK ||
-        (status = ttable_make_modifiable(ip, ttable, 0, 0)) != TCL_OK)
+    if ((status = table_convert(ip, table)) != TCL_OK ||
+        (status = table_make_modifiable(ip, table, 0, 0)) != TCL_OK)
         return status;
 
-    i = ttable_width(ttable);
+    i = table_width(table);
     while (i--) {
-        TA_NOFAIL(tcol_reverse(ip, ttable_column(ttable, i)), TCL_OK);
+        TA_NOFAIL(tcol_reverse(ip, table_column(table, i)), TCL_OK);
     }
 
     return TCL_OK;

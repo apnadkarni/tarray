@@ -123,6 +123,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column ttable
+    namespace export column table
 }
 

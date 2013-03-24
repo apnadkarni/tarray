@@ -135,7 +135,7 @@ typedef union thdr_s {
     ((n_) < 10 ? 10 : ((n_) < 100 ? (n_) : ((n_) < 800 ? 100 : ((n_)/8))))
 
 extern struct Tcl_ObjType g_tcol_type;
-extern struct Tcl_ObjType g_ttable_type;
+extern struct Tcl_ObjType g_table_type;
 
 /*
  * Error and panic routines
@@ -166,7 +166,7 @@ void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_free(thdr_t *thdr);
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
-TCL_RESULT ttable_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
+TCL_RESULT table_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
 
 TCL_RESULT TGridVerifyType(Tcl_Interp *, Tcl_Obj *tableObj);
 Tcl_Obj *TGridNewObj(Tcl_Interp *, int nobjs, Tcl_Obj *const tcols[]);
@@ -189,8 +189,8 @@ TCL_RESULT TGridFillFromObjs(Tcl_Interp *, Tcl_Obj *olow, Tcl_Obj *ohigh,
 
 Tcl_Obj * tcol_new(thdr_t *thdr);
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
-TCL_RESULT ttable_make_modifiable(Tcl_Interp *ip,
-                                 Tcl_Obj *ttable, int minsize, int prefsize);
+TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
+                                 Tcl_Obj *table, int minsize, int prefsize);
 
 TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ncols, Tcl_Obj * const *tcols,
                           int nrows, Tcl_Obj * const *rows,
@@ -242,21 +242,21 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                              int new_size);
 TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols, Tcl_Obj * const *srccols, thdr_t *pindices, int new_size);
 
-TCL_RESULT ttable_fill_obj(Tcl_Interp *ip, Tcl_Obj *ttable, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
-TCL_RESULT ttable_put_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
+TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
-TCL_RESULT ttable_copy(Tcl_Interp *ip, Tcl_Obj *dsttable, Tcl_Obj *srctable, Tcl_Obj *ofirst, int insert);
-TCL_RESULT ttable_delete(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable, Tcl_Obj *ofirst, int insert);
+TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
                         Tcl_Obj *indexa, Tcl_Obj *indexb);
-Tcl_Obj *ttable_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
-Tcl_Obj *ttable_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt);
-TCL_RESULT ttable_reverse(Tcl_Interp *interp, Tcl_Obj *ttable);
-Tcl_Obj *ttable_index(Tcl_Interp *ip, Tcl_Obj *ttable, int index);
-TCL_RESULT ttable_place_objs(Tcl_Interp *ip, Tcl_Obj *ttable,
+Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
+Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt);
+TCL_RESULT table_reverse(Tcl_Interp *interp, Tcl_Obj *table);
+Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index);
+TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
                             Tcl_Obj *orows, Tcl_Obj *oindices);
-TCL_RESULT ttable_place_indices(Tcl_Interp *ip, Tcl_Obj *ttable,
+TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table,
                                Tcl_Obj *psrc, Tcl_Obj *oindices);
-TCL_RESULT ttable_insert_obj(Tcl_Interp *ip, Tcl_Obj *ttable, Tcl_Obj *ovalue,
+TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
                             Tcl_Obj *opos, Tcl_Obj *ocount);
 
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index);
@@ -345,7 +345,7 @@ TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 
 TA_INLINE int tcol_affirm(Tcl_Obj *o)
 {
-    return (o->typePtr == &g_tcol_type || o->typePtr == &g_ttable_type);
+    return (o->typePtr == &g_tcol_type || o->typePtr == &g_table_type);
 }
 
 TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) 
@@ -460,49 +460,49 @@ TA_INLINE thdr_make_room(thdr_t *thdr, int off, int count)
     }
 }
 
-TA_INLINE int ttable_affirm(Tcl_Obj *o)
+TA_INLINE int table_affirm(Tcl_Obj *o)
 {
-    return (o->typePtr == &g_ttable_type); 
+    return (o->typePtr == &g_table_type); 
 }
 
-TA_INLINE TCL_RESULT ttable_convert(Tcl_Interp *ip, Tcl_Obj *ttable) 
+TA_INLINE TCL_RESULT table_convert(Tcl_Interp *ip, Tcl_Obj *table) 
 {
-    return ttable->typePtr == &g_ttable_type ? TCL_OK : ttable_convert_from_other(ip, ttable);
+    return table->typePtr == &g_table_type ? TCL_OK : table_convert_from_other(ip, table);
 }
 
-TA_INLINE int ttable_width(Tcl_Obj *ttable)
+TA_INLINE int table_width(Tcl_Obj *table)
 {
-    TA_ASSERT(ttable_affirm(ttable));
-    return tcol_occupancy(ttable);
+    TA_ASSERT(table_affirm(table));
+    return tcol_occupancy(table);
 }
 
-TA_INLINE Tcl_Obj **ttable_columns(Tcl_Obj *ttable)
+TA_INLINE Tcl_Obj **table_columns(Tcl_Obj *table)
 {
-    TA_ASSERT(ttable_affirm(ttable));
-    return THDRELEMPTR(TARRAYHDR(ttable), Tcl_Obj *, 0);
+    TA_ASSERT(table_affirm(table));
+    return THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, 0);
 }
 
-TA_INLINE Tcl_Obj *ttable_column(Tcl_Obj *ttable, int i)
+TA_INLINE Tcl_Obj *table_column(Tcl_Obj *table, int i)
 {
-    TA_ASSERT(ttable_affirm(ttable));
-    return *THDRELEMPTR(TARRAYHDR(ttable), Tcl_Obj *, i);
+    TA_ASSERT(table_affirm(table));
+    return *THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, i);
 }
 
-TA_INLINE int ttable_length(Tcl_Obj *ttable)
+TA_INLINE int table_length(Tcl_Obj *table)
 {
-    TA_ASSERT(ttable_affirm(ttable));
-    return ttable_width(ttable) == 0 ? 0 : tcol_occupancy(ttable_column(ttable, 0));
+    TA_ASSERT(table_affirm(table));
+    return table_width(table) == 0 ? 0 : tcol_occupancy(table_column(table, 0));
 }
 
 /* Assumes properly structured thdr */
-TA_INLINE Tcl_Obj *ttable_new(thdr_t *thdr)
+TA_INLINE Tcl_Obj *table_new(thdr_t *thdr)
 {
-    Tcl_Obj *ttable;
+    Tcl_Obj *table;
     TA_ASSERT(thdr->type == TA_ANY);
-    ttable = tcol_new(thdr);
-    if (ttable)
-        ttable->typePtr = &g_ttable_type;
-    return ttable;
+    table = tcol_new(thdr);
+    if (table)
+        table->typePtr = &g_table_type;
+    return table;
 }
 
 #endif
