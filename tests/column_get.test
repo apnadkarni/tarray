@@ -84,6 +84,11 @@ namespace eval tarray::test {
             lappend l2 [dict get $result $i]
         }
 
+        # Make sure there are no additional indices in result
+        if {![lequal int [lsort -unique -integer $indexlist] [lsort -unique -integer [dict keys $result]]]} {
+            return "Result contains extra indices"
+        }
+
         if {[lequal $type $l1 $l2]} {
             return ""
         } else {

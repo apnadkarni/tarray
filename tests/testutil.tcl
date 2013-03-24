@@ -33,6 +33,7 @@ if {![info exists tarray::test::known]} {
         variable good;   # List of lists of valid values
         variable sample; # Array indexed by type used in general tests
         array set sample {}
+        variable sample_size
         set sample_size 1000
         foreach count $counts {
             # Booleans. Note the unaligned patterns are important
@@ -130,7 +131,7 @@ if {![info exists tarray::test::known]} {
 
 
         # Manufacture the column-equivalent rep of a list
-        proc crep {type values} {
+        proc crep {type {values {}}} {
             return [list tarray $type $values]
         }
 
@@ -180,6 +181,13 @@ if {![info exists tarray::test::known]} {
                 }
             }
 
+            return 1
+        }
+
+        proc llequal {types ll1 ll2} {
+            foreach type $types l1 $ll1 l2 $ll2 {
+                if {![lequal $type $l1 $l2]} {return 0}
+            }
             return 1
         }
 
@@ -388,11 +396,23 @@ if {![info exists tarray::test::known]} {
             }
             if {[llength $args] == 0} {
                 set args {0 end}
-            } else {
-                if {[llength $args] & 1} {
-                    error "Odd number of range specifiers."
+            } elseif {[llength $args] == 1} {
+                # [lindex $args 0] is a list of indices
+                set rows {}
+                set rindex 0
+                foreach r [lindex $args 0] {
+                    set c 0
+                    foreach type $types {
+                        lset rows $rindex $c [samplevalue $type $r]
+                        incr c
+                    }
+                    incr rindex
                 }
+                return $rows
+            } elseif {[llength $args] & 1} {
+                error "Odd number of range specifiers."
             }
+            # args is a list of low high low high ....
             set rows {}
             set rindex 0
             foreach {low high} $args {
@@ -451,9 +471,9 @@ if {![info exists tarray::test::known]} {
             return [lmin $sample($type)]
         }
 
-        proc samplesize {type} {
-            variable sample
-            return [llength $sample($type)]
+        proc samplesize {} {
+            variable sample_size
+            return $sample_size
         }
 
         proc badvalues {type} {
