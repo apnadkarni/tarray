@@ -285,22 +285,6 @@ if {![info exists tarray::test::known]} {
             return 1
         }
 
-        proc OBSOLETEtab_change_and_verify {types init expected op args} {
-            set cols {}
-            foreach type $types initcol $init {
-                lappend cols [tarray::column create $type $initcol]
-            }
-            set tab [tarray::table create $cols]
-            if {![tlequal [tarray::table {*}$op $tab {*}$args] $types $expected]} {
-                return 1
-            }
-            # Verify original is unchanged
-            if {![tlequal $tab $types $init]} {
-                return 2
-            }
-            return 0
-        }
-
         proc tab_change_and_verify {types initrows expected op args} {
             set tab [tarray::table create $types $initrows]
             if {![trequal [tarray::table {*}$op $tab {*}$args] $types $expected]} {
@@ -320,20 +304,6 @@ if {![info exists tarray::test::known]} {
                 return 1
             }
             return 0
-        }
-        proc OBSOLETEtab_change_and_verify_u {types init expected op args} {
-            set cols {}
-            foreach type $types initcol $init {
-                lappend cols [tarray::column create $type $initcol]
-            }
-            set tab [tarray::table create $cols]
-            # The [set tab ""] is to make the table unshared
-            if {![tlequal [tarray::table {*}$op $tab[set tab ""] {*}$args] $types $expected]} {
-                # Note for compatibility with other routines, success is 0
-                return 1
-            } else {
-                return 0
-            }
         }
 
         proc newcolumn {type {init {}}} {
