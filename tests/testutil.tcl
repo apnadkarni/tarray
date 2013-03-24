@@ -275,6 +275,8 @@ if {![info exists tarray::test::known]} {
 
         # Compare a table and row values
         proc trequal {tab types rows} {
+            #puts tab:$tab
+            #puts rows:$rows
             foreach tcol [lindex $tab 2] type $types col [rows2cols $rows] {
                 if {![clequal $tcol $type $col]} {
                     return 0
@@ -402,6 +404,14 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
+        proc samplerow {types {rindex 0}} {
+            set row {}
+            foreach type $types {
+                lappend row [samplevalue $type $rindex]
+            }
+            return $row
+        }
+
         proc samplerows {{types {}} args} {
             if {[llength $types] == 0} {
                 set types { any boolean byte double int uint wide }
@@ -434,7 +444,7 @@ if {![info exists tarray::test::known]} {
             if {[llength $types] == 0} {
                 set types { any boolean byte double int uint wide }
             }
-            return [tarray::table create $types [samplelistofcolumnvalues $types $low $high]]
+            return [tarray::table create $types [samplerows $types $low $high]]
         }
 
         proc lmax {l} {
