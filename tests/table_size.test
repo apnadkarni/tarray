@@ -1,0 +1,27 @@
+# table size tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    test table_size-1.0 {
+        Size of empty table
+    } -body {
+        tarray::table size [tarray::table create {}]
+    } -result 0
+
+    test table_size-1.1 {
+        Size of empty table
+    } -body {
+        tarray::table size [newtable {boolean wide any}]
+    } -result 0
+
+    test table_size-2.0 {
+        Size of non-empty table
+    } -body {
+        tarray::table size [sampletable]
+    } -result [samplesize]
+
+}
+
+::tcltest::cleanupTests

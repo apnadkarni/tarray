@@ -11,6 +11,7 @@ package require tcltest
 # TBD - make sure when columns are shared between tables, modifying one
 # does not modify the other
 # TBD - add tests that extend by sufficient amount to cause additional allocation
+# TBD - add tests to all commands to check if a non-table / non-column is passed
 
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {

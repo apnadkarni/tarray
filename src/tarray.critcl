@@ -775,6 +775,22 @@ critcl::cproc tarray::table::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     return ta_set_var_result(interp, table_reverse(interp, table), ovar, table);
 }
 
+# TBD - document and test
+critcl::cproc tarray::table::width {Tcl_Interp* interp Tcl_Obj* TABLE} ok {
+    TCL_RESULT status;
+    status = table_convert(interp, TABLE);
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, Tcl_NewIntObj(table_width(TABLE)));
+    return status;
+}
+
+critcl::cproc tarray::table::size {Tcl_Interp* interp Tcl_Obj* TABLE} ok {
+    TCL_RESULT status;
+    status = table_convert(interp, TABLE);
+    if (status == TCL_OK)
+        Tcl_SetObjResult(interp, Tcl_NewIntObj(table_length(TABLE)));
+    return status;
+}
 
 # If you are new to critcl, note that the order of constructor, insvariable
 # etc. is very important in terms of how initialization and freeing is done.
