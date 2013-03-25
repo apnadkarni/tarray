@@ -10,6 +10,7 @@ package require tcltest
 # TBD - on error case tests, verify that variable is not modified
 # TBD - make sure when columns are shared between tables, modifying one
 # does not modify the other
+# TBD - add tests that extend by sufficient amount to cause additional allocation
 
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {

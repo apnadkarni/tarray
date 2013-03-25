@@ -110,6 +110,7 @@ namespace eval tarray {
             fill fill
             get get
             index index
+            insert insert
             place place
             put put
             reverse reverse

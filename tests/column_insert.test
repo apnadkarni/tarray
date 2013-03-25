@@ -27,7 +27,7 @@ namespace eval tarray::test {
         } -result [crep $type [samplerange $type 0 0]] -match column
 
         test column_insert-value-$type-2.0 {
-            Insert one element at start of empty column (shared)
+            Insert one element at start of column (shared)
         } -body {
             set values [samplerange $type 0 100]
             set val [samplevalue $type end]
@@ -101,8 +101,8 @@ namespace eval tarray::test {
         } -body {
             set values [samplerange $type 0 31]
             set val [samplevalue $type end]
-            col_change_and_verify $type $values $values insert $val 30 0
-        } -result 0
+            col_change_and_verify $type $values $values insert $val 30 -1
+        } -result "Invalid count -1*" -returnCodes error -match glob
 
         test column_insert-value-$type-3.2 {
             Insert elements at negative index (unshared)
