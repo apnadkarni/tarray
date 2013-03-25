@@ -1075,7 +1075,7 @@ Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
     if (table_convert(ip, osrc) != TCL_OK)
         return NULL;
     width = table_width(osrc);
-    srccols = table_columns(osrc);
+    srccols = table_columns(osrc); /* Note srccols[0] invalid if width == 0 ! */
 
     if (fmt == TA_FORMAT_TARRAY) {
         Tcl_Obj **tcols;
@@ -1105,6 +1105,8 @@ Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
      * list and letting it shimmer when necessary is more efficient than
      * creating it as a dict.
      */
+    if (width == 0)
+        return Tcl_NewListObj(0, NULL); /* Table has no columns */
     end = low + count;
     if (end > tcol_occupancy(srccols[0]))
         end = tcol_occupancy(srccols[0]);
@@ -1157,6 +1159,7 @@ Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
                                              Tcl_NewIntObj(ba_get(srcbaP, k)));
                 }
             }
+            break;
         case TA_UINT:
             table_range_COPY(unsigned int, Tcl_NewWideIntObj);
             break;
