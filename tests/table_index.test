@@ -1,0 +1,66 @@
+# table index tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    #
+    # table get indexlist
+
+    test table_index-1.0 {
+        Get the first element in empty array
+    } -body {
+        tarray::table index [newtable {}] 0
+    } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+    test table_index-1.1 {
+        Get the first element in empty array
+    } -body {
+        tarray::table index [newtable {boolean any}] 0
+    } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+    test table_index-2.0 {
+        Get the first element
+    } -body {
+        tarray::table index [sampletable {boolean any int}] 0
+    } -result [samplerow {boolean any int} 0]
+
+    test table_index-2.1 {
+        Get end element
+    } -body {
+        tarray::table index [sampletable {uint double int any}] end
+    } -result [samplerow {uint double int any} end]
+
+    test table_index-2.2 {
+        Get random element
+    } -body {
+        tarray::table index [sampletable {any boolean byte double int uint wide}] 31
+    } -result [samplerow {any boolean byte double int uint wide} 31]
+
+    test table_index-2.3 {
+        Get random element
+    } -body {
+        tarray::table index [sampletable {boolean}] 32
+    } -result [samplerow {boolean} 32]
+
+    test table_index-2.4 {
+        Get random element
+    } -body {
+        tarray::table index [sampletable {boolean any}] 33
+    } -result [samplerow {boolean any} 33]
+
+    test table_index-3.0 {
+        Get negative index
+    } -body {
+        tarray::table index [sampletable] -1
+    } -returnCodes error -result "*out of bounds*" -match glob
+
+    test table_index-3.1 {
+        Get out of bounds index
+    } -body {
+        tarray::table index [sampletable] 10000
+    } -returnCodes error -result "*out of bounds*" -match glob
+
+}
+
+::tcltest::cleanupTests

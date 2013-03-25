@@ -1201,6 +1201,11 @@ Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index)
     if (table_convert(ip, table) != TCL_OK)
         return NULL;
     width = table_width(table);
+    if (width == 0) {
+        ta_index_range_error(ip, index);
+        return NULL;
+    }
+
     srccols = table_columns(table);
     olist = Tcl_NewListObj(width, NULL);
     for (i = 0; i < width; ++i) {
