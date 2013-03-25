@@ -609,10 +609,14 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
 
      /* Now finally, update all the counts */
      for (t=0; t < ntcols; ++t) {
-         if ((first + nrows) > TARRAYHDR(tcols[t])->used)
-             TARRAYHDR(tcols[t])->used = first + nrows;
+         if (insert) {
+             TARRAYHDR(tcols[t])->used += nrows;
+         } else {
+             if ((first + nrows) > TARRAYHDR(tcols[t])->used)
+                 TARRAYHDR(tcols[t])->used = first + nrows;
+         }
      }
-
+     
      return TCL_OK;
 
  error_return:                  /* Interp should already contain errors */
@@ -1237,17 +1241,22 @@ TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
         int pos, count, col_len;
         if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
             (status = table_convert(ip, table)) == TCL_OK) {
-            if (count < 0)
-                count = 0;      /* Should we error instead? */
+
             if (count == 0)
                 return TCL_OK;  /* Nothing to do */
-            col_len = table_length(table);
-            if ((status = table_make_modifiable(ip, table, count+col_len, 0)) == TCL_OK &&
-                (status = ta_convert_index(ip, opos, &pos, col_len,
-                                           0, col_len)) == TCL_OK) {
-                status = tcols_fill_range(ip, table_width(table),
-                                          table_columns(table), ovalue,
-                                          pos, count, 1);
+            if (count > 0) {
+                col_len = table_length(table);
+                if ((status = table_make_modifiable(ip, table, count+col_len, 0)) == TCL_OK &&
+                    (status = ta_convert_index(ip, opos, &pos, col_len,
+                                               0, col_len)) == TCL_OK) {
+                    status = tcols_fill_range(ip, table_width(table),
+                                              table_columns(table), ovalue,
+                                              pos, count, 1);
+                }
+            } else if (count < 0) {
+                status = ta_bad_count_error(ip, count);
+            } else {
+                status = TCL_OK; /* count == 0, nothing to do */
             }
         }
     }

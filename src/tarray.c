@@ -123,6 +123,16 @@ TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Invalid count %d", count));
+        Tcl_SetErrorCode(ip, "TARRAY", "COUNT", "RANGE", NULL);
+    }
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_value_type_error(Tcl_Interp *ip, Tcl_Obj *o, int tatype)
 {
     if (ip) {
@@ -2462,15 +2472,19 @@ TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
         if ((status = ta_get_int_from_obj(ip, ocount, &count)) == TCL_OK &&
             (status = tcol_convert(ip, tcol)) == TCL_OK) {
             used = tcol_occupancy(tcol);
-            if (count < 0)
-                count = 0;      /* Should we error instead? */
-            if ((status = tcol_make_modifiable(ip, tcol, count+used, 0)) == TCL_OK &&
-                (status = ta_convert_index(ip, opos, &pos, used,
+            if (count > 0) {
+                if ((status = tcol_make_modifiable(ip, tcol, count+used, 0)) == TCL_OK &&
+                    (status = ta_convert_index(ip, opos, &pos, used,
                                            0, used)) == TCL_OK) {
-                ta_value_t tav;
-                if ((status = ta_value_from_obj(ip, ovalue,
-                                                tcol_type(tcol), &tav)) == TCL_OK)
-                    thdr_fill_range(ip, TARRAYHDR(tcol), &tav, pos, count, 1);
+                    ta_value_t tav;
+                    if ((status = ta_value_from_obj(ip, ovalue,
+                                                    tcol_type(tcol), &tav)) == TCL_OK)
+                        thdr_fill_range(ip, TARRAYHDR(tcol), &tav, pos, count, 1);
+                }
+            } else if (count < 0) {
+                status = ta_bad_count_error(ip, count);
+            } else {
+                status = TCL_OK; /* count == 0, nothing to do */
             }
         }
     }
