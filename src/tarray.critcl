@@ -677,12 +677,14 @@ critcl::cproc tarray::table::index {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* IN
     int ix;
     Tcl_Obj *o;
 
-    if (table_convert(interp, GRID) == TCL_OK &&
-        ta_convert_index(interp, INDEX, &ix, table_length(GRID)-1, 0, tcol_occupancy(GRID)-1) == TCL_OK) {
-        o = table_index(interp, GRID, ix);
-        if (o) {
-            Tcl_SetObjResult(interp, o);
-            return TCL_OK;
+    if (table_convert(interp, GRID) == TCL_OK) {
+        int end = table_length(GRID) - 1;
+	if (ta_convert_index(interp, INDEX, &ix, end, 0, end) == TCL_OK) {
+            o = table_index(interp, GRID, ix);
+            if (o) {
+                Tcl_SetObjResult(interp, o);
+                return TCL_OK;
+            }
         }
     }
     return TCL_ERROR;
