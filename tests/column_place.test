@@ -175,12 +175,6 @@ namespace eval tarray::test {
             placetest_valuelist $type {60 16 100 15}
         } -result 0
 
-        test column_place-list-indexlist-$type-2.8 {
-            Test storing of middle elements random order (shared tclobj)
-        } -body {
-            placetest_valuelist $type {60 16 100 15}
-        } -result 0
-
         test column_place-list-indexlist-$type-2.9 {
             Test extending (unshared tclobj)
         } -body {
