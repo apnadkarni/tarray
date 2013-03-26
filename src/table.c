@@ -721,18 +721,17 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                  * Hence what we do is to store NULL first in all unused slots
                  * that will be written to mark what is unused.
                  */
-                for (j = tcol_occupancy(tcols[i]); j < new_size; ++j) {
+                for (j = tcol_occupancy(tcols[i]); j < new_size; ++j)
                     pobjs[j] = NULL;        /* TBD - optimization - memset ? */
-                    while (pindex < end) {
-                        /* Careful about the order here! */
-                        TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);
-                        TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
-                        TA_ASSERT(o != NULL);
-                        Tcl_IncrRefCount(o);
-                        if (pobjs[*pindex] != NULL)
-                            Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
-                        pobjs[*pindex++] = o;
-                    }
+                while (pindex < end) {
+                    /* Careful about the order here! */
+                    TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);
+                    TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
+                    TA_ASSERT(o != NULL);
+                    Tcl_IncrRefCount(o);
+                    if (pobjs[*pindex] != NULL)
+                        Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
+                    pobjs[*pindex++] = o;
                 }               
             }
             break;
@@ -1289,8 +1288,10 @@ TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
         status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
         if (status == TCL_OK) {
             status = table_make_modifiable(ip, table, new_size, new_size);
-            if (status == TCL_OK)
+            if (status == TCL_OK) {
+                tcols = table_columns(table); /* (table_make_modifiable) */
                 status =  tcols_place_objs(ip, ntcols, tcols, pindices, orows, new_size);
+            }
         }
     }
     
@@ -1327,8 +1328,10 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table,
         status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
         if (status == TCL_OK) {
             status = table_make_modifiable(ip, table, new_size, new_size);
-            if (status == TCL_OK)
+            if (status == TCL_OK) {
+                tcols = table_columns(table); /* (table_make_modifiable) */
                 status =  tcols_place_indices(ip, ntcols, tcols, table_columns(psrc), pindices, new_size);
+            }
         }
     }
     

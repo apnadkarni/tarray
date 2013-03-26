@@ -12,7 +12,8 @@ package require tcltest
 # does not modify the other
 # TBD - add tests that extend by sufficient amount to cause additional allocation
 # TBD - add tests to all commands to check if a non-table / non-column is passed
-
+# for the table/column argument
+# TBD - ditto for passing wrong type of value
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
         namespace import ::tcltest::test
