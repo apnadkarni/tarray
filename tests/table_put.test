@@ -1,0 +1,305 @@
+# table put tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # args - position init
+    proc tputtest {type pass_as_list nvalues args} {
+        variable sample
+
+        if {[llength $args]} {
+            set pos [lindex $args 0]
+            set posargs [list $pos]
+            
+            if {[llength $args] > 1} {
+                set init [lindex $args 1]
+            } else {
+                set init [samplerows $type]
+            }
+        } else {
+            set pos end
+            set posargs [list ]
+            set init [samplerows $type]
+        }
+
+        if {$pos eq "end"} {
+            set lpos [llength $init]; # NOT same as "end" index for lrange
+        } else {
+            set lpos $pos
+        }
+
+        set changes [lrange [samplerows $type] end-[expr {$nvalues-1}] end]
+        if {$lpos == [llength $init]} {
+            set expected [concat $init $changes]
+        } else {
+            set expected [lreplace $init $lpos [expr {$lpos+[llength $changes]-1}] {*}$changes]
+        }
+        if {$pass_as_list} {
+            return [tab_change_and_verify $type $init $expected put $changes {*}$posargs]
+        } else {
+            return [tab_change_and_verify $type $init $expected put [tarray::table create $type $changes] {*}$posargs]
+        }
+    }
+
+    # Unshared object version of above (TBD - why the heck are not the two combined?
+    # args - position init
+    proc tputtest_u {type pass_as_list nvalues args} {
+        variable sample
+
+        if {[llength $args]} {
+            set pos [lindex $args 0]
+            set posargs [list $pos]
+            
+            if {[llength $args] > 1} {
+                set init [lindex $args 1]
+            } else {
+                set init [samplerows $type]
+            }
+        } else {
+            set pos end
+            set posargs [list ]
+            set init [samplerows $type]
+        }
+
+        if {$pos eq "end"} {
+            set lpos [llength $init]; # NOT same as "end" index for lrange
+        } else {
+            set lpos $pos
+        }
+
+        set changes [lrange [samplerows $type] end-[expr {$nvalues-1}] end]
+        if {$lpos == [llength $init]} {
+            set expected [concat $init $changes]
+        } else {
+            set expected [lreplace $init $lpos [expr {$lpos+[llength $changes]-1}] {*}$changes]
+        }
+        if {$pass_as_list} {
+            return [tab_change_and_verify_u $type $init $expected put $changes {*}$posargs]
+        } else {
+            return [tab_change_and_verify_u $type $init $expected put [tarray::table create $type $changes] {*}$posargs]
+        }
+    }
+
+    proc tputtest_valuelist {type args} {
+        return [tputtest $type 1 {*}$args]
+    }
+
+    # Unshared object version of above
+    proc tputtest_valuelist_u {type args} {
+        return [tputtest_u $type 1 {*}$args]
+    }
+
+    proc tputtest_valuetable  {type args} {
+        return  [tputtest $type 0 {*}$args] }
+
+    # Unshared object version of above
+    proc tputtest_valuetable_u {type args} {
+        return [tputtest_u $type 0 {*}$args]
+    }
+
+    #
+    # table put valuelist pos
+
+    test table_put-list-1.0 {
+        Put a single value into an empty table (shared)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist $type 1 0 {}
+    } -result 0
+        
+    test table_put-list-1.1 {
+        Put a single value into an empty table (unshared tclobj, default position)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist_u $type 1 0 {}
+    } -result 0
+
+    test table_put-list-2.0 {
+        Test storing of leading elements (shared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist $type 100 0
+    } -result 0 
+
+    test table_put-list-2.1 {
+        Test storing of leading elements (unshared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist_u $type 128 0
+    } -result 0 
+
+    test table_put-list-2.2 {
+        Test storing of trailing elements (shared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist $type 10 63 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_put-list-2.3 {
+        Test storing of trailing elements (shared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist $type 10 64 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_put-list-2.4 {
+        Test storing of trailing elements (unshared tclobj, default end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist_u $type 1
+    } -result 0 
+
+    test table_put-list-2.5 {
+        Test storing of trailing elements (unshared tclobj, specified end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist_u $type 20 end
+    } -result 0 
+
+    test table_put-list-2.6 {
+        Test storing of middle elements (unshared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist_u $type 10 127
+    } -result 0 
+
+    test table_put-list-2.7 {
+        Test storing of middle elements (shared tclobj, extend length)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuelist_u $type 500 400 [samplerows $type 0 450]
+    } -result 0 
+
+    test table_put-list-3.0 {
+        Test out of bound index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] [samplerows $type 0 2] 12
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_put-list-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] [samplerows $type 0 2] -1
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_put-list-3.2 {
+        Test invalid values
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] {{anyvalue 0 0 0 0 1.0 0}} 0
+    } -result {*expected*but got*} -returnCodes error -match glob
+
+    test table_put-list-3.3 {
+        Test invalid values (wrong table width)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] {{anyvalue 0 0 0 0 0}} 0
+    } -result {*width 6 less than*} -returnCodes error -match glob
+
+    #
+    # table put valuecolumn pos
+
+    test table_put-table-1.0 {
+        Put a single value into an empty table (shared)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable $type 1 0 {}
+    } -result 0
+        
+    test table_put-table-1.1 {
+        Put a single value into an empty table (unshared tclobj, default position)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable_u $type 1 0 {}
+    } -result 0
+
+    test table_put-table-2.0 {
+        Test storing of leading elements (shared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable $type 100 0
+    } -result 0 
+
+    test table_put-table-2.1 {
+        Test storing of leading elements (unshared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable_u $type 128 0
+    } -result 0 
+
+    test table_put-table-2.2 {
+        Test storing of trailing elements (shared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable $type 10 63 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_put-table-2.3 {
+        Test storing of trailing elements (shared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable $type 10 64 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_put-table-2.4 {
+        Test storing of trailing elements (unshared tclobj, default end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable_u $type 1
+    } -result 0 
+
+    test table_put-table-2.5 {
+        Test storing of trailing elements (unshared tclobj, specified end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable_u $type 20 end
+    } -result 0 
+
+    test table_put-table-2.6 {
+        Test storing of middle elements (unshared tclobj)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable_u $type 10 127
+    } -result 0 
+
+    test table_put-table-2.7 {
+        Test storing of middle elements (shared tclobj, extend length)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tputtest_valuetable_u $type 500 400 [samplerows $type 0 450]
+    } -result 0 
+
+    test table_put-table-3.0 {
+        Test out of bound index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] [sampletable $type 0 2] 12
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_put-table-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] [sampletable $type 0 2] -1
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_put-table-3.2 {
+        Test invalid values (table type)
+    } -body {
+        set type {uint byte}
+        tarray::table put [sampletable $type 0 10] [sampletable {any int}] 0
+    } -result {*types*are not compatible*} -returnCodes error -match glob
+
+    test table_put-table-3.3 {
+        Test invalid values (wrong table width)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] [sampletable {any boolean byte double int uint}] 0
+    } -result {*width 6 less than*} -returnCodes error -match glob
+
+}
+
+::tcltest::cleanupTests
