@@ -80,12 +80,12 @@ namespace eval tarray::test {
         return [tplacetest_u $type $indexlist_or_indexarray 1 {*}$args]
     }
 
-    proc tplacetest_valuecolumn {type indexlist_or_indexarray args} {
+    proc tplacetest_valuetable {type indexlist_or_indexarray args} {
         return [tplacetest $type $indexlist_or_indexarray 0 {*}$args]
     }
 
     # Unshared object version of above
-    proc tplacetest_valuecolumn_u {type indexlist_or_indexarray args} {
+    proc tplacetest_valuetable_u {type indexlist_or_indexarray args} {
         return [tplacetest_u $type $indexlist_or_indexarray 0 {*}$args]
     }
 
@@ -370,104 +370,104 @@ namespace eval tarray::test {
         Fill an empty table with a single element (shared)
     } -body {
         set type {uint}
-        tplacetest_valuecolumn $type {0}
+        tplacetest_valuetable $type {0}
     } -result 0
 
     test table_place-column-indexlist-1.1 {
         Fill empty column with a single element (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type {0}
+        tplacetest_valuetable_u $type {0}
     } -result 0
 
     test table_place-column-indexlist-2.0 {
         Test storing of leading elements (shared tclobj)
     } -body {
         set type {uint wide boolean any}
-        tplacetest_valuecolumn $type [indices 0 100]
+        tplacetest_valuetable $type [indices 0 100]
     } -result 0 
 
     test table_place-column-indexlist-2.1 {
         Test storing of leading elements reverse order (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [lsort -integer -decreasing [indices 0 50]]
+        tplacetest_valuetable $type [lsort -integer -decreasing [indices 0 50]]
     } -result 0 
 
     test table_place-column-indexlist-2.2 {
         Test storing of leading elements random order (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type {3 1 2 0} [samplerows $type 0 31]
+        tplacetest_valuetable_u $type {3 1 2 0} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type {100 101 102 103} [samplerows $type 0 103]
+        tplacetest_valuetable $type {100 101 102 103} [samplerows $type 0 103]
     } -result 0 
 
     test table_place-column-indexlist-2.4 {
         Test storing of trailing elements reverse order (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type {128 127 126 125} [samplerows $type 0 128]
+        tplacetest_valuetable_u $type {128 127 126 125} [samplerows $type 0 128]
     } -result 0 
 
     test table_place-column-indexlist-2.5 {
         Test storing of trailing elements random order (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type {31 28 30 29} [samplerows $type 0 31]
+        tplacetest_valuetable_u $type {31 28 30 29} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-2.6 {
         Test storing of middle elements (unshared tclobj)
     } -body {
-        tplacetest_valuecolumn_u $type {2 31 64 100}
+        tplacetest_valuetable_u $type {2 31 64 100}
     } -result 0 
 
     test table_place-column-indexlist-2.7 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
         set type {any}
-        tplacetest_valuecolumn $type {128 127 1 0}
+        tplacetest_valuetable $type {128 127 1 0}
     } -result 0 
 
     test table_place-column-indexlist-2.8 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type {128 127 1 0}
+        tplacetest_valuetable $type {128 127 1 0}
     } -result 0 
 
     test table_place-column-indexlist-2.9 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
         set type {boolean}
-        tplacetest_valuecolumn $type {60 16 100 15}
+        tplacetest_valuetable $type {60 16 100 15}
     } -result 0
 
     test table_place-column-indexlist-2.10 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type {60 16 100 15}
+        tplacetest_valuetable $type {60 16 100 15}
     } -result 0
 
     test table_place-column-indexlist-2.11 {
         Test extending (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type {34 1 10 33 32} [samplerows $type 0 31]
+        tplacetest_valuetable_u $type {34 1 10 33 32} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-2.12 {
         Test extending single element (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type {32} [samplerows $type 0 31]
+        tplacetest_valuetable $type {32} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-3.0 {
@@ -508,104 +508,104 @@ namespace eval tarray::test {
         Fill an empty table with a single element (shared)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [indexcolumn 0]
+        tplacetest_valuetable $type [indexcolumn 0]
     } -result 0
         
     test table_place-column-indices-1.1 {
         Fill empty column with a single element (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type [indexcolumn 0]
+        tplacetest_valuetable_u $type [indexcolumn 0]
     } -result 0
 
     test table_place-column-indices-2.0 {
         Test storing of leading elements (shared tclobj)
     } -body {
         set type {uint wide boolean any}
-        tplacetest_valuecolumn $type [indices 0 100]
+        tplacetest_valuetable $type [indices 0 100]
     } -result 0 
 
     test table_place-column-indices-2.1 {
         Test storing of leading elements reverse order (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [lsort -integer -decreasing [indices 0 50]]
+        tplacetest_valuetable $type [lsort -integer -decreasing [indices 0 50]]
     } -result 0 
 
     test table_place-column-indices-2.2 {
         Test storing of leading elements random order (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type [indexcolumn {3 1 2 0}] [samplerows $type 0 31]
+        tplacetest_valuetable_u $type [indexcolumn {3 1 2 0}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [indexcolumn {100 101 102 103}] [samplerows $type 0 103]
+        tplacetest_valuetable $type [indexcolumn {100 101 102 103}] [samplerows $type 0 103]
     } -result 0 
 
     test table_place-column-indices-2.4 {
         Test storing of trailing elements reverse order (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type [indexcolumn {128 127 126 125}] [samplerows $type 0 128]
+        tplacetest_valuetable_u $type [indexcolumn {128 127 126 125}] [samplerows $type 0 128]
     } -result 0 
 
     test table_place-column-indices-2.5 {
         Test storing of trailing elements random order (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type [indexcolumn {31 28 30 29}] [samplerows $type 0 31]
+        tplacetest_valuetable_u $type [indexcolumn {31 28 30 29}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-2.6 {
         Test storing of middle elements (unshared tclobj)
     } -body {
-        tplacetest_valuecolumn_u $type [indexcolumn {2 31 64 100}]
+        tplacetest_valuetable_u $type [indexcolumn {2 31 64 100}]
     } -result 0 
 
     test table_place-column-indices-2.7 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
         set type {any}
-        tplacetest_valuecolumn $type [indexcolumn {128 127 1 0}]
+        tplacetest_valuetable $type [indexcolumn {128 127 1 0}]
     } -result 0 
 
     test table_place-column-indices-2.8 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [indexcolumn {128 127 1 0}]
+        tplacetest_valuetable $type [indexcolumn {128 127 1 0}]
     } -result 0 
 
     test table_place-column-indices-2.9 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
         set type {boolean}
-        tplacetest_valuecolumn $type [indexcolumn {60 16 100 15}]
+        tplacetest_valuetable $type [indexcolumn {60 16 100 15}]
     } -result 0
 
     test table_place-column-indices-2.10 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [indexcolumn {60 16 100 15}]
+        tplacetest_valuetable $type [indexcolumn {60 16 100 15}]
     } -result 0
 
     test table_place-column-indices-2.11 {
         Test extending (unshared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn_u $type [indexcolumn {34 1 10 33 32}] [samplerows $type 0 31]
+        tplacetest_valuetable_u $type [indexcolumn {34 1 10 33 32}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-2.12 {
         Test extending single element (shared tclobj)
     } -body {
         set type {any boolean byte double int uint wide}
-        tplacetest_valuecolumn $type [indexcolumn {32}] [samplerows $type 0 31]
+        tplacetest_valuetable $type [indexcolumn {32}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-3.0 {
