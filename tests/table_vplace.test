@@ -1,0 +1,617 @@
+# table vplace tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc tvplacetest {types indexlist_or_indexarray pass_values_as_list args} {
+        variable sample
+
+        if {[catch {tarray::column size $indexlist_or_indexarray} n]} {
+            # Not an column so assume a list
+            set indexlist $indexlist_or_indexarray
+            set n [llength $indexlist]
+        } else {
+            set indexlist [tarray::column get -list $indexlist_or_indexarray 0 end]
+        }
+        incr n -1
+        if {[llength $args]} {
+            set values [lindex $args 0]
+        } else {
+            set values [samplerows $types]
+        }
+        set changes [lrange [samplerows $types] end-$n end]
+        set expected $values
+        # We have to order indices else lset will fail with gaps
+        set ordered {}
+        foreach i $indexlist val $changes {
+            lappend ordered $i $val
+        }
+        foreach {i val} [lsort -integer -stride 2 $ordered] {
+            lset expected $i $val
+        }
+        if {$pass_values_as_list} {
+            return [vtab_change_and_verify $types $values $expected vplace $changes $indexlist_or_indexarray]
+        } else {
+            return [vtab_change_and_verify $types $values $expected vplace [tarray::table create $types $changes] $indexlist_or_indexarray]
+        }
+    }
+
+    proc tvplacetest_valuelist {type indexlist_or_indexarray args} {
+        return [tvplacetest $type $indexlist_or_indexarray 1 {*}$args]
+    }
+
+    proc tvplacetest_valuetable {type indexlist_or_indexarray args} {
+        return [tvplacetest $type $indexlist_or_indexarray 0 {*}$args]
+    }
+
+
+    #
+    # table vplace valuelist indexlist
+
+    test table_vplace-list-indexlist-1.0 {
+        Fill an empty table with a single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {0}
+    } -result 0
+
+    test table_vplace-list-indexlist-1.1 {
+        Fill empty column with a single element
+    } -body {
+        set type {any}
+        tvplacetest_valuelist $type {0}
+    } -result 0
+
+    test table_vplace-list-indexlist-2.0 {
+        Test storing of leading elements
+    } -body {
+        set type {uint wide boolean any}
+        tvplacetest_valuelist $type [indices 0 100]
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.1 {
+        Test storing of leading elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [lsort -integer -decreasing [indices 0 50]]
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.2 {
+        Test storing of leading elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {3 1 2 0} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indexlist-2.3 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {100 101 102 103} [samplerows $type 0 103]
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.4 {
+        Test storing of trailing elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {128 127 126 125} [samplerows $type 0 128]
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.5 {
+        Test storing of trailing elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {31 28 30 29} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indexlist-2.6 {
+        Test storing of middle elements
+    } -body {
+        tvplacetest_valuelist $type {2 31 64 100}
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.7 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any}
+        tvplacetest_valuelist $type {128 127 1 0}
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.8 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {128 127 1 0}
+    } -result 0 
+
+    test table_vplace-list-indexlist-2.9 {
+        Test storing of middle elements random order
+    } -body {
+        set type {boolean}
+        tvplacetest_valuelist $type {60 16 100 15}
+    } -result 0
+
+    test table_vplace-list-indexlist-2.10 {
+        Test storing of middle elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {60 16 100 15}
+    } -result 0
+
+    test table_vplace-list-indexlist-2.11 {
+        Test extending
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {34 1 10 33 32} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indexlist-2.12 {
+        Test extending single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type {32} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indexlist-3.0 {
+        Test gap in indices
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [samplerows $type 0 2] {12 13}
+    } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-list-indexlist-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [samplerows $type 0 2] {-1}
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-list-indexlist-3.2 {
+        Test use of index end
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [samplerows $type 0 2] {end}
+    } -result {*expected integer*} -returnCodes error -match glob
+
+    test table_vplace-list-indexlist-3.3 {
+        Test invalid values
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta {{anyvalue 1 256 0 0 0 0}} {0}
+    } -result {Value 256 not valid for type byte.} -returnCodes error -match glob
+    test table_vplace-list-indexlist-3.4 {
+        Test invalid values (row of different widths)
+    } -body {
+        set type {any double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta {{anyvalue 1.0 0 0}} {0}
+    } -result {*width 4 less than**} -returnCodes error -match glob
+
+    #
+    # table vplace valuelist indices
+        
+    test table_vplace-list-indices-1.0 {
+        Fill an empty table with a single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn 0]
+    } -result 0
+        
+    test table_vplace-list-indices-1.1 {
+        Fill empty column with a single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn 0]
+    } -result 0
+
+    test table_vplace-list-indices-2.0 {
+        Test storing of leading elements
+    } -body {
+        set type {uint wide boolean any}
+        tvplacetest_valuelist $type [indices 0 100]
+    } -result 0 
+
+    test table_vplace-list-indices-2.1 {
+        Test storing of leading elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [lsort -integer -decreasing [indices 0 50]]
+    } -result 0 
+
+    test table_vplace-list-indices-2.2 {
+        Test storing of leading elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {3 1 2 0}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indices-2.3 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {100 101 102 103}] [samplerows $type 0 103]
+    } -result 0 
+
+    test table_vplace-list-indices-2.4 {
+        Test storing of trailing elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {128 127 126 125}] [samplerows $type 0 128]
+    } -result 0 
+
+    test table_vplace-list-indices-2.5 {
+        Test storing of trailing elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {31 28 30 29}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indices-2.6 {
+        Test storing of middle elements
+    } -body {
+        tvplacetest_valuelist $type [indexcolumn {2 31 64 100}]
+    } -result 0 
+
+    test table_vplace-list-indices-2.7 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any}
+        tvplacetest_valuelist $type [indexcolumn {128 127 1 0}]
+    } -result 0 
+
+    test table_vplace-list-indices-2.8 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {128 127 1 0}]
+    } -result 0 
+
+    test table_vplace-list-indices-2.9 {
+        Test storing of middle elements random order
+    } -body {
+        set type {boolean}
+        tvplacetest_valuelist $type [indexcolumn {60 16 100 15}]
+    } -result 0
+
+    test table_vplace-list-indices-2.10 {
+        Test storing of middle elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {60 16 100 15}]
+    } -result 0
+
+    test table_vplace-list-indices-2.11 {
+        Test extending
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {34 1 10 33 32}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indices-2.12 {
+        Test extending single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuelist $type [indexcolumn {32}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-list-indices-3.0 {
+        Test gap in indices
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [samplerows $type 0 2] [indexcolumn {12 13}]
+    } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-list-indices-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [samplerows $type 0 2] {-1}
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-list-indices-3.3 {
+        Test invalid values
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta {{anyvalue 1 256 0 0 0 0}} [indexcolumn {0}]
+    } -result {Value 256 not valid for type byte.} -returnCodes error -match glob
+    test table_vplace-list-indexlist-3.4 {
+        Test invalid values (row of different widths)
+    } -body {
+        set type {any double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta {{anyvalue 1.0 0 0}} [indexcolumn 0]
+    } -result {*width 4 less than**} -returnCodes error -match glob
+
+    #
+    # table vplace COLUMN indexlist
+    test table_vplace-table-indexlist-1.0 {
+        Fill an empty table with a single element
+    } -body {
+        set type {uint}
+        tvplacetest_valuetable $type {0}
+    } -result 0
+
+    test table_vplace-table-indexlist-1.1 {
+        Fill empty column with a single element
+    } -body {
+        set type {any }
+        tvplacetest_valuetable $type {0}
+    } -result 0
+
+    test table_vplace-table-indexlist-2.0 {
+        Test storing of leading elements
+    } -body {
+        set type {uint wide boolean any}
+        tvplacetest_valuetable $type [indices 0 100]
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.1 {
+        Test storing of leading elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [lsort -integer -decreasing [indices 0 50]]
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.2 {
+        Test storing of leading elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {3 1 2 0} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indexlist-2.3 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {100 101 102 103} [samplerows $type 0 103]
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.4 {
+        Test storing of trailing elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {128 127 126 125} [samplerows $type 0 128]
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.5 {
+        Test storing of trailing elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {31 28 30 29} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indexlist-2.6 {
+        Test storing of middle elements
+    } -body {
+        tvplacetest_valuetable $type {2 31 64 100}
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.7 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any}
+        tvplacetest_valuetable $type {128 127 1 0}
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.8 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {128 127 1 0}
+    } -result 0 
+
+    test table_vplace-table-indexlist-2.9 {
+        Test storing of middle elements random order
+    } -body {
+        set type {boolean}
+        tvplacetest_valuetable $type {60 16 100 15}
+    } -result 0
+
+    test table_vplace-table-indexlist-2.10 {
+        Test storing of middle elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {60 16 100 15}
+    } -result 0
+
+    test table_vplace-table-indexlist-2.11 {
+        Test extending
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {34 1 10 33 32} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indexlist-2.12 {
+        Test extending single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type {32} [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indexlist-3.0 {
+        Test gap in indices
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable $type 0 2] {12 13}
+    } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-table-indexlist-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable $type 0 2] {-1}
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-table-indexlist-3.2 {
+        Test use of index end
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable $type 0 2] {end}
+    } -result {*expected integer*} -returnCodes error -match glob
+
+    test table_vplace-table-indexlist-3.3 {
+        Test invalid values (table of different type)
+    } -body {
+        set type {any double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable {int double uint wide byte}] {0}
+    } -result {*types any and int are not compatible*} -returnCodes error -match glob
+
+    test table_vplace-table-indexlist-3.4 {
+        Test invalid values (table of different widths)
+    } -body {
+        set type {any double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable {any double int uint}] {0}
+    } -result {*width 4 less than**} -returnCodes error -match glob
+
+    test table_vplace-table-indices-1.0 {
+        Fill an empty table with a single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn 0]
+    } -result 0
+        
+    test table_vplace-table-indices-1.1 {
+        Fill empty column with a single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn 0]
+    } -result 0
+
+    test table_vplace-table-indices-2.0 {
+        Test storing of leading elements
+    } -body {
+        set type {uint wide boolean any}
+        tvplacetest_valuetable $type [indices 0 100]
+    } -result 0 
+
+    test table_vplace-table-indices-2.1 {
+        Test storing of leading elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [lsort -integer -decreasing [indices 0 50]]
+    } -result 0 
+
+    test table_vplace-table-indices-2.2 {
+        Test storing of leading elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {3 1 2 0}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indices-2.3 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {100 101 102 103}] [samplerows $type 0 103]
+    } -result 0 
+
+    test table_vplace-table-indices-2.4 {
+        Test storing of trailing elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {128 127 126 125}] [samplerows $type 0 128]
+    } -result 0 
+
+    test table_vplace-table-indices-2.5 {
+        Test storing of trailing elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {31 28 30 29}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indices-2.6 {
+        Test storing of middle elements
+    } -body {
+        tvplacetest_valuetable $type [indexcolumn {2 31 64 100}]
+    } -result 0 
+
+    test table_vplace-table-indices-2.7 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any}
+        tvplacetest_valuetable $type [indexcolumn {128 127 1 0}]
+    } -result 0 
+
+    test table_vplace-table-indices-2.8 {
+        Test storing of middle elements reverse order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {128 127 1 0}]
+    } -result 0 
+
+    test table_vplace-table-indices-2.9 {
+        Test storing of middle elements random order
+    } -body {
+        set type {boolean}
+        tvplacetest_valuetable $type [indexcolumn {60 16 100 15}]
+    } -result 0
+
+    test table_vplace-table-indices-2.10 {
+        Test storing of middle elements random order
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {60 16 100 15}]
+    } -result 0
+
+    test table_vplace-table-indices-2.11 {
+        Test extending
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {34 1 10 33 32}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indices-2.12 {
+        Test extending single element
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvplacetest_valuetable $type [indexcolumn {32}] [samplerows $type 0 31]
+    } -result 0
+
+    test table_vplace-table-indices-3.0 {
+        Test gap in indices
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable $type 0 2] [indexcolumn 12 13]
+    } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-table-indices-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable $type 0 2] [indexcolumn -1]
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_vplace-table-indices-3.2 {
+        Test invalid values (table of different type)
+    } -body {
+        set type {any double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable {int double uint wide byte}] [indexcolumn 0]
+    } -result {*types any and int are not compatible*} -returnCodes error -match glob
+
+    test table_vplace-table-indices-3.4 {
+        Test invalid values (table of different widths)
+    } -body {
+        set type {any double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vplace ta [sampletable {any double int uint}] [indexcolumn 0]
+    } -result {*width 4 less than**} -returnCodes error -match glob
+
+}
+
+::tcltest::cleanupTests

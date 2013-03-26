@@ -1,0 +1,451 @@
+# table vfill tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    #
+    # table vfill index
+
+    test table_vfill-index-1.0 {
+        Vfill an empty table with a single element
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [list [samplerow $types]] vfill [samplerow $types] 0
+    } -result 0
+
+    test table_vfill-index-1.1 {
+        Vfill empty table with a single element
+    } -body {
+        set types {boolean wide uint}
+        vtab_change_and_verify $types {} [list [samplerow $types 1]] vfill [samplerow $types 1] 0
+    } -result 0
+
+    test table_vfill-index-1.2 {
+        Index end not allowed when table is empty
+    } -body {
+        set types {boolean wide uint}
+        vtab_change_and_verify $types {} [list [samplerow $types 1]] vfill [samplerow $types 1] end
+    } -result * -match glob -returnCodes error
+
+    test table_vfill-index-2.0 {
+        Vfill first in an non-empty table with a single element
+    } -body {
+        set types {boolean int any byte}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 3 3 1 end] vfill [samplerow $types 3] 0
+    } -result 0
+
+    test table_vfill-index-2.1 {
+        Vfill end element in non-empty table
+    } -body {
+        set types {boolean int any byte}
+        vtab_change_and_verify $types [samplerows $types] [lreplace [samplerows $types] end end [samplerow $types]] vfill [samplerow $types 0] end
+    } -result 0
+
+    test table_vfill-index-2.2 {
+        Extend non-empty table by one
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types]
+        vtab_change_and_verify $types $rows [samplerows $types 0 end 0 0] vfill [samplerow $types] [llength $rows]
+    } -result 0
+
+    test table_vfill-index-2.3 {
+        Negative index not allowed
+    } -body {
+        set types {boolean int any byte}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vfill [samplerow $types 0] -1
+    } -result * -match glob -returnCodes error
+
+    test table_vfill-index-2.4 {
+        Out of range index not allowed
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types 0 10]
+        vtab_change_and_verify $types $rows $rows vfill [samplerow $types] 12
+    } -result "*index 12 out of bounds*" -match glob -returnCodes error
+
+    test table_vfill-index-2.5 {
+        Vfill intermediate element in non-empty table
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types 0 100]
+        vtab_change_and_verify $types $rows [samplerows $types 0 49 0 0 51 100] vfill [samplerow $types] 50
+    } -result 0
+
+    test table_vfill-index-2.6 {
+        Invalid syntax index not allowed
+    } -body {
+        set types {wide boolean uint any}
+        set rows [samplerows $types 0 10]
+        vtab_change_and_verify $types $rows $rows vfill [samplerow $types] badsyntax
+    } -result "expected integer but got \"badsyntax\"" -match glob -returnCodes error
+
+    #
+    # table vfill indexlist
+
+    test table_vfill-indexlist-1.0 {
+        Vfill an empty table
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] vfill [samplerow $types] {0 1 2}
+    } -result 0
+
+    test table_vfill-indexlist-1.1 {
+        Vfill empty table with a single element
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        vtab_change_and_verify $types {} [lrepeat 1000 [samplerow $types]] vfill [samplerow $types] $indices
+    } -result 0
+
+    test table_vfill-indexlist-2.0 {
+        Test vfilling of leading elements
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        vtab_change_and_verify $types [samplerows $types 0 500] [lrepeat 1000 [samplerow $types]] vfill [samplerow $types] $indices
+    } -result 0
+
+    test table_vfill-indexlist-2.1 {
+        Test vfilling of leading elements out of order
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] vfill [samplerow $types] {2 0 1}
+    } -result 0
+
+    test table_vfill-indexlist-2.2 {
+        Test vfilling of trailing elements
+    } -body {
+        set types {boolean int any wide any}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] vfill [samplerow $types] {49 50 48}
+    } -result 0 
+
+    test table_vfill-indexlist-2.3 {
+        Test extending table in order
+    } -body {
+        set types {boolean int any wide any}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] vfill [samplerow $types] {48 49 50 51 52 53 54 55}
+    } -result 0
+
+    test table_vfill-indexlist-2.4 {
+        Test extending table reverse order
+    } -body {
+        set types {any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] vfill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
+    } -result 0
+
+    test table_vfill-indexlist-2.5 {
+        Test extending table out of order
+    } -body {
+        set types {any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] vfill [samplerow $types] {51 52 54 55 48 49 50 53}
+    } -result 0
+
+    test table_vfill-indexlist-3.0 {
+        Test vfilling of intermediate (ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] $indices
+    } -result 0
+
+    test table_vfill-indexlist-3.1 {
+        Test vfilling of intermediate (reverse ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [lsort -integer -decreasing $indices]
+    } -result 0
+
+
+    test table_vfill-indexlist-3.2 {
+        Test vfilling of intermediate (random order)
+    } -body {
+        # Note duplicate
+        set indices {63 254 254 32 65 1 7 33 8 9 31 33 64 63 1}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] $indices
+    } -result 0
+
+    test table_vfill-indexlist-3.3 {
+        Test vfilling of all (random order)
+    } -body {
+        set indices {0 9 3 8 6 4 2 5 7 1}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [lrepeat 10 [samplerow $types end]] vfill [samplerow $types end] $indices
+    } -result 0
+
+    test table_vfill-indexlist-4.0 {
+        Test vfilling out-of-range (increasing indices)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  {5 7 9 11}
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_vfill-indexlist-4.1 {
+        Test vfilling out-of-range (decreasing index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [lsort -integer -decreasing {5 7 9 11}]
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_vfill-indexlist-4.2 {
+        Test vfilling out-of-range (unordered index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  {9 11 13 8}
+    } -result "*out of bounds" -match glob -returnCodes error
+
+    test table_vfill-indexlist-4.3 {
+        Test vfilling with invalid syntax (index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vfill [samplerow $types end]  [lsort -integer -decreasing {0 badsyntax}]
+    } -result "*expected integer*" -match glob -returnCodes error
+
+    test table_vfill-indexlist-4.4 {
+        Test vfilling with index list containing end
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vfill [samplerow $types end]  [lsort -integer -decreasing {0 end}]
+    } -result "*expected integer*" -match glob -returnCodes error
+
+
+    #
+    # table vfill indicesarray
+
+    test table_vfill-indices-1.0 {
+        Vfill an empty table
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] vfill [samplerow $types] [indexcolumn {0 1 2}]
+    } -result 0
+
+    test table_vfill-indices-1.1 {
+        Vfill empty table with a single element
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        vtab_change_and_verify $types {} [lrepeat 1000 [samplerow $types]] vfill [samplerow $types] [indexcolumn $indices]
+    } -result 0
+
+    test table_vfill-indices-2.0 {
+        Test vfilling of leading elements
+    } -body {
+        set types {boolean int any wide byte uint double}
+        set indices {}
+        set i -1
+        time {lappend indices [incr i]} 1000
+        vtab_change_and_verify $types [samplerows $types 0 500] [lrepeat 1000 [samplerow $types]] vfill [samplerow $types] [indexcolumn $indices]
+    } -result 0
+
+    test table_vfill-indices-2.1 {
+        Test vfilling of leading elements out of order
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] vfill [samplerow $types] [indexcolumn {2 0 1}]
+    } -result 0
+
+    test table_vfill-indices-2.2 {
+        Test vfilling of trailing elements
+    } -body {
+        set types {boolean int any wide any}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] vfill [samplerow $types] {49 50 48}
+    } -result 0 
+
+    test table_vfill-indices-2.3 {
+        Test extending table in order
+    } -body {
+        set types {boolean int any wide any}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] vfill [samplerow $types] [indexcolumn {48 49 50 51 52 53 54 55}]
+    } -result 0
+
+    test table_vfill-indices-2.4 {
+        Test extending table reverse order
+    } -body {
+        set types {any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] vfill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
+    } -result 0
+
+    test table_vfill-indices-2.5 {
+        Test extending table out of order
+    } -body {
+        set types {any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] vfill [samplerow $types] [indexcolumn {51 52 54 55 48 49 50 53}]
+    } -result 0
+
+    test table_vfill-indices-3.0 {
+        Test vfilling of intermediate (ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [tarray::column sort -increasing [indexcolumn $indices]]
+    } -result 0
+
+    test table_vfill-indices-3.1 {
+        Test vfilling of intermediate (reverse ordered)
+    } -body {
+        set indices {1 7 8 9 31 32 33 63 64 65 254}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [tarray::column sort -decreasing [indexcolumn $indices]]
+    } -result 0 
+
+    test table_vfill-indices-3.2 {
+        Test vfilling of intermediate (random order)
+    } -body {
+        # Note duplicate
+        set indices {63 254 254 32 65 1 7 33 8 9 31 33 64 63 1}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [indexcolumn $indices]
+    } -result 0
+
+    test table_vfill-indices-3.3 {
+        Test vfilling of all (random order)
+    } -body {
+        set indices {0 9 3 8 6 4 2 5 7 1}
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [lrepeat 10 [samplerow $types end]] vfill [samplerow $types end] [indexcolumn $indices]
+    } -result 0
+
+    test table_vfill-indices-4.0 {
+        Test vfilling out-of-range (increasing indices)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [tarray::column sort -increasing [indexcolumn {5 7 9 11}]]
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_vfill-indices-4.1 {
+        Test vfilling out-of-range (decreasing index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [indexcolumn {5 7 9 11}]
+    } -result "*11*out of bounds" -match glob -returnCodes error
+
+    test table_vfill-indices-4.2 {
+        Test vfilling out-of-range (unordered index list)
+    } -body {
+        set types {any boolean wide int uint byte double}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [indexcolumn {9 11 13 8}]
+    } -result "*out of bounds" -match glob -returnCodes error
+
+
+    #
+    # table vfill range
+
+    test table_vfill-range-1.0 {
+        Vfill an empty table with a single element
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [list [samplerow $types]] vfill [samplerow $types] 0 0
+    } -result 0
+    test table_vfill-range-1.1 {
+        Vfill empty table with a single element
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [list [samplerow $types]] vfill [samplerow $types] 0 0
+    } -result 0
+
+    test table_vfill-range-1.2 {
+        Index end when table is empty
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} {} vfill [samplerow $types] 0 end
+    } -result 0
+
+    test table_vfill-range-1.3 {
+        Index end when table is empty
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} {} vfill [samplerow $types] end end
+    } -result 0
+
+
+    test table_vfill-range-2.0 {
+        Test vfilling of leading elements
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] vfill [samplerow $types] 0 2
+    } -result 0
+
+    test table_vfill-range-2.1 {
+        Test vfilling of trailing elements
+    } -body {
+        set types {boolean int any wide any}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] vfill [samplerow $types] 48 50
+    } -result 0 
+
+    test table_vfill-range-2.2 {
+        Test vfilling of trailing elements (end)
+    } -body {
+        set types {boolean int any wide any}
+        vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 40] [lrepeat 10 [samplerow $types]]] vfill [samplerow $types] 41 end
+    } -result 0 
+
+    test table_vfill-range-2.3 {
+        Test vfilling of entire array
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        vtab_change_and_verify $types $rows [lrepeat [llength $rows] [samplerow $types]] vfill [samplerow $types] 0 end
+    } -result 0
+
+    test table_vfill-range-2.4 {
+        Test vfilling of intermediate array
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        vtab_change_and_verify $types $rows [samplerows $types 0 50 0 0 0 0 0 0 0 0 55 end] vfill [samplerow $types] 51 54
+    } -result 0
+
+    test table_vfill-range-3.0 {
+        Test vfilling with reversed range elements
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        # Should be no change
+        vtab_change_and_verify $types $rows $rows vfill [samplerow $types] 10 0
+    } -result 0
+
+    test table_vfill-range-3.1 {
+        Test vfilling with reversed range elements
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types]
+        # Should be no change
+        vtab_change_and_verify $types $rows $rows vfill [samplerow $types] end 0
+    } -result 0
+
+    test table_vfill-range-4.0 {
+        Test vfilling beyond last
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types 0 100]
+        vtab_change_and_verify $types $rows [concat $rows [lrepeat 100 [samplerow $types]]] vfill [samplerow $types] 101 200
+    } -result 0
+
+    test table_vfill-range-4.1 {
+        Test vfilling beyond last
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types 0 100]
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat [samplerows $types 0 50] [lrepeat 100 [samplerow $types]]] vfill [samplerow $types] 51 150
+    } -result 0
+
+    test table_vfill-range-4.2 {
+        Test vfilling out-of-range
+    } -body {
+        set types {boolean int any wide any byte uint}
+        set rows [samplerows $types 0 100]
+        vtab_change_and_verify $types $rows [concat $rows [lrepeat 100 [samplerow $types]]] vfill [samplerow $types] 102 200
+    } -result "*102*out of bounds" -match glob -returnCodes error
+
+}
+
+::tcltest::cleanupTests

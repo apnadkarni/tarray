@@ -317,6 +317,18 @@ if {![info exists tarray::test::known]} {
             return 0
         }
 
+        proc vtab_change_and_verify {types initrows expected vop args} {
+            set tab [tarray::table create $types $initrows]
+            if {![trequal [tarray::table {*}$vop tab {*}$args] $types $expected]} {
+                return 1
+            }
+            # Verify variable is also changed
+            if {![trequal $tab $types $expected]} {
+                return 2
+            }
+            return 0
+        }
+
         proc newcolumn {type {init {}}} {
             return [tarray::column create $type $init]
         }

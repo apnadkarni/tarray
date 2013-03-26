@@ -1,0 +1,540 @@
+# table vdelete tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    #
+    # table vdelete index
+    test table_vdelete-index-1.0 {
+        Test deletion of first element
+    } -body {
+        set types {int any byte}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 1 9] vdelete 0
+    } -result 0
+
+    test table_vdelete-index-2.0 {
+        Test deletion of last element
+    } -body {
+        set types {uint int any}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 8] vdelete end
+    } -result 0
+
+    set n -1
+    foreach i {1 7 8 9 31 32 33 63 64 65 254} {
+        test table_vdelete-index-3.[incr n] {
+            Test deletion of intermediate element
+        } -body {
+            set types {any boolean byte double int uint wide}
+            vtab_change_and_verify $types \
+                [samplerows $types 0 255] \
+                [samplerows $types 0 [expr {$i-1}] [expr {$i+1}] 255] \
+                vdelete $i
+        } -result 0
+    }
+
+    test table_vdelete-index-5.0 {
+        Test deletion of out-of-range index
+    } -body {
+        set types {int byte boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete 100
+    } -result 0
+
+    test table_vdelete-index-5.1 {
+        Test deletion of out-of-range index
+    } -body {
+        set types {boolean boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete 101
+    } -result 0
+
+    test table_vdelete-index-5.2 {
+        Test deletion of out-of-range index
+    } -body {
+        set types {any any}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete -1
+    } -result 0
+
+    test table_vdelete-index-5.3 {
+        Test deletion of invalid syntax index
+    } -body {
+        set types {int any}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vdelete badindex
+    } -returnCodes error -match glob -result "*expected integer*badindex*"
+
+    test table_vdelete-index-6.0 {
+        Test deletion of element from single element grid
+    } -body {
+        set types {boolean int any}
+        vtab_change_and_verify $types [samplerows $types 0 0] [samplerows $types 0 -1] vdelete 0
+    } -result 0
+
+    test table_vdelete-index-7.0 {
+        Test attempt to vdelete element from empty table
+    } -body {
+        set types {int uint any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete 0
+    } -result 0
+
+    test table_vdelete-index-7.1 {
+        Test attempt to vdelete invalid index from empty table
+    } -body {
+        set types {any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete -1
+    } -result 0
+    
+
+    #
+    # table vdelete index list
+
+    test table_vdelete-indexlist-1.0 {
+        Test deletion of leading elements
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete [list 0 1 2]
+    } -result 0 
+
+    test table_vdelete-indexlist-1.1 {
+        Test deletion of leading elements (dup indices)
+    } -body {
+        set types {wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 257] [samplerows $types 4 257] vdelete [list 0 1 1 2 3 3]
+    } -result 0
+
+    test table_vdelete-indexlist-1.2 {
+        Test deletion of leading elements
+    } -body {
+        set types {wide byte boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 4 99] vdelete [list 1 0 3 1 2]
+    } -result 0
+
+    test table_vdelete-indexlist-1.3 {
+        Test deletion of leading elements
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 5 99] vdelete [list 4 3 3 2 1 0]
+    } -result 0
+
+    test table_vdelete-indexlist-2.0 {
+        Test deletion of trailing elements
+    } -body {
+        set types {wide byte any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 258] [samplerows $types 0 255] vdelete [list 256 257 258]
+    } -result 0
+
+    test table_vdelete-indexlist-2.1 {
+        Test deletion of trailing elements (dup indices)
+    } -body {
+        set types {boolean byte wide}
+        vtab_change_and_verify $types [samplerows $types 0 258] [samplerows $types 0 256] vdelete [list 257 257 258 258]
+    } -result 0
+
+    test table_vdelete-indexlist-2.2 {
+        Test deletion of trailing elements (out of order)
+    } -body {
+        set types {wide byte any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 255] [samplerows $types 0 251] vdelete [list 255 252 254 253 255 252]
+    } -result 0
+
+    test table_vdelete-indexlist-2.3 {
+        Test deletion of trailing elements (reverse order)
+    } -body {
+        set types {wide any double boolean}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 95] vdelete [list 100 99 98 97 96]
+    } -result 0
+
+    test table_vdelete-indexlist-3.0 {
+        Test deletion of intermediate (ordered)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 255] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
+            vdelete {1 7 8 9 31 32 33 63 64 65 254}
+    } -result 0
+
+    test table_vdelete-indexlist-3.1 {
+        Test deletion of intermediate (reverse order)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 255] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 254] \
+            vdelete [lsort -decreasing -integer {1 7 8 9 31 32 33 63 64 65 255}]
+    } -result 0
+
+    test table_vdelete-indexlist-3.2 {
+        Test deletion of intermediate (random order)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 255] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
+            vdelete {1 254 64 33 7 65 8 33 9 31 32 63 254 1 65}
+    } -result 0
+
+    test table_vdelete-indexlist-4.0 {
+        Test deletion of out-of-range (increasing indices)
+    } -body {
+        set types {boolean byte wide any}
+        vtab_change_and_verify $types [samplerows $types 0 255] [samplerows $types 0 253] vdelete [list 254 255 256 257 258]
+    } -result 0
+
+    test table_vdelete-indexlist-4.1 {
+        Test deletion of out-of-range (reverse indices)
+    } -body {
+        set types {boolean byte wide}
+        vtab_change_and_verify $types [samplerows $types 0 98] [samplerows $types 0 96] vdelete [list 100 99 98 97]
+    } -result 0
+
+    test table_vdelete-indexlist-4.2 {
+        Test deletion of out-of-range (random indices)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 100] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 100] \
+            vdelete {1 254 64 33 7 65 8 33 9 31 32 63 254 1 65}
+    } -result 0
+
+    test table_vdelete-indexlist-5.0 {
+        Test deletion of invalid syntax indices
+    } -body {
+        set types {int any}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 1 9] vdelete {1 notinteger 63}
+    } -returnCodes error -match glob -result "expected integer but got \"notinteger\""
+
+    test table_vdelete-indexlist-5.1 {
+        Test deletion of invalid syntax indices
+    } -body {
+        set types {int any}
+        vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 1 9] vdelete {1 end 63}
+    } -returnCodes error -match glob -result "expected integer but got \"end\""
+
+    test table_vdelete-indexlist-6.0 {
+        Test deletion of all indices from table
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [list 0 1 2 3 4 5 6 7 8 9 10]
+    } -result 0
+
+    test table_vdelete-indexlist-6.0 {
+        Test deletion of all indices from table (reverse)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [list 10 9 8 7 6 5 4 3 2 1 0]
+    } -result 0
+
+    test table_vdelete-indexlist-6.3 {
+        Test deletion of all indices from table (random order)
+    } -body {
+        set types {int wide uint any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [list 9 8 10 3 6 4 7 5 2 1 0]
+    } -result 0
+
+    test table_vdelete-indexlist-6.4 {
+        Test deletion of all indices from table (random order, dups)
+    } -body {
+        set types {uint boolean any}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [list 9 8 9 10 3 6 4 0 7 5 2 1 1 0 10]
+    } -result 0
+
+    test table_vdelete-indexlist-7.0 {
+        Test attempt to vdelete element from empty column
+    } -body {
+        set types {int uint any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete {0 1 2}
+    } -result 0
+
+    test table_vdelete-indexlist-7.1 {
+        Test attempt to vdelete element from empty column
+    } -body {
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete {0 2 1}
+    } -result 0
+
+    #
+    # column vdelete indicesarray
+
+    test table_vdelete-indices-1.0 {
+        Test deletion of leading elements
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete [indexcolumn 0 1 2]
+    } -result 0 
+
+    test table_vdelete-indices-1.1 {
+        Test deletion of leading elements (dup indices)
+    } -body {
+        set types {wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 257] [samplerows $types 4 257] vdelete [indexcolumn 0 1 1 2 3 3]
+    } -result 0
+
+    test table_vdelete-indices-1.2 {
+        Test deletion of leading elements (out of order)
+    } -body {
+        set types {wide byte boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 4 99] vdelete [indexcolumn 1 0 3 1 2 3 0]
+    } -result 0
+
+    test table_vdelete-indices-1.3 {
+        Test deletion of leading elements (reverse order)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 5 99] vdelete [indexcolumn 4 3 3 2 1 0]
+    } -result 0
+
+    test table_vdelete-indices-2.0 {
+        Test deletion of trailing elements
+    } -body {
+        set types {wide byte}
+        vtab_change_and_verify $types [samplerows $types 0 258] [samplerows $types 0 255] vdelete [indexcolumn 256 257 258]
+    } -result 0
+
+    test table_vdelete-indices-2.1 {
+        Test deletion of trailing elements (dup indices)
+    } -body {
+        set types {boolean byte wide}
+        vtab_change_and_verify $types [samplerows $types 0 258] [samplerows $types 0 256] vdelete [indexcolumn 257 257 258 258]
+    } -result 0
+
+    test table_vdelete-indices-2.2 {
+        Test deletion of trailing elements (out of order)
+    } -body {
+        set types {wide byte}
+        vtab_change_and_verify $types [samplerows $types 0 255] [samplerows $types 0 251] vdelete [indexcolumn 255 252 254 253 255 252]
+    } -result 0
+
+    test table_vdelete-indices-2.3 {
+        Test deletion of trailing elements (reverse order)
+    } -body {
+        set types {wide any double}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 95] vdelete [indexcolumn 100 99 98 97 96]
+    } -result 0
+
+    test table_vdelete-indices-3.0 {
+        Test deletion of intermediate (ordered)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 255] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
+            vdelete [indexcolumn 1 7 8 9 31 32 33 63 64 65 254]
+    } -result 0
+
+    test table_vdelete-indices-3.1 {
+        Test deletion of intermediate (reverse order)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 255] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 254] \
+            vdelete [tarray::column sort -decreasing [indexcolumn 1 7 8 9 31 32 33 63 64 65 255]]
+    } -result 0
+
+    test table_vdelete-indices-3.2 {
+        Test deletion of intermediate (random order)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 255] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
+            vdelete [indexcolumn 1 254 64 33 7 65 8 33 9 31 32 63 254 1 65]
+    } -result 0
+
+    test table_vdelete-indices-4.0 {
+        Test deletion of out-of-range (increasing indices)
+    } -body {
+        set types {boolean byte wide}
+        vtab_change_and_verify $types [samplerows $types 0 255] [samplerows $types 0 253] vdelete [indexcolumn 254 255 256 257 258]
+    } -result 0
+
+    test table_vdelete-indices-4.1 {
+        Test deletion of out-of-range (reverse indices)
+    } -body {
+        set types {boolean byte wide}
+        vtab_change_and_verify $types [samplerows $types 0 98] [samplerows $types 0 96] vdelete [indexcolumn 100 99 98 97]
+    } -result 0
+
+    test table_vdelete-indices-4.2 {
+        Test deletion of out-of-range (random indices)
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types \
+            [samplerows $types 0 100] \
+            [samplerows $types 0 0 2 6 10 30 34 62 66 100] \
+            vdelete [indexcolumn 1 254 64 33 7 65 8 33 9 31 32 63 254 1 65]
+    } -result 0
+
+    test table_vdelete-indices-6.0 {
+        Test deletion of all indices from table
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [indexcolumn 0 1 2 3 4 5 6 7 8 9 10]
+    } -result 0
+
+    test table_vdelete-indices-6.0 {
+        Test deletion of all indices from table (reverse)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [indexcolumn 10 9 8 7 6 5 4 3 2 1 0]
+    } -result 0
+
+    test table_vdelete-indices-6.3 {
+        Test deletion of all indices from table (random order)
+    } -body {
+        set types {int wide uint}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [indexcolumn 9 8 10 3 6 4 7 5 2 1 0]
+    } -result 0
+
+    test table_vdelete-indices-6.4 {
+        Test deletion of all indices from table (random order, dups)
+    } -body {
+        set types {uint boolean any}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [indexcolumn 9 8 9 10 3 6 4 0 7 5 2 1 1 0 10]
+    } -result 0
+
+    test table_vdelete-indices-7.0 {
+        Test attempt to vdelete element from empty column
+    } -body {
+        set types {int uint}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete [indexcolumn 0 1 2]
+    } -result 0
+
+    test table_vdelete-indices-7.1 {
+        Test attempt to vdelete element from empty column (unordered)
+    } -body {
+        set types {int boolean wide}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete [indexcolumn 0 2 1]
+    } -result 0
+
+    #
+    # table vdelete range
+    test table_vdelete-range-1.0 {
+        Test deletion of leading elements
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete 0 2
+    } -result 0
+
+    test table_vdelete-range-1.1 {
+        Test deletion of leading elements
+    } -body {
+        set types {wide any double}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 99 99] vdelete 0 98
+    } -result 0
+
+    test table_vdelete-range-2.0 {
+        Test deletion of trailing elements
+    } -body {
+        set types {boolean any uint}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 90] vdelete 91 99
+    } -result 0
+
+    test table_vdelete-range-2.1 {
+        Test deletion of trailing elements (using end)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 49] vdelete 50 end
+    } -result 0
+
+    test table_vdelete-range-3.0 {
+        Test deletion of intermediate
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 59 81 99] vdelete 60 80
+    } -result 0
+
+    test table_vdelete-range-3.1 {
+        Test deletion of intermediate
+    } -body {
+        set types {any boolean wide}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 0 99 99] vdelete 1 98
+    } -result 0
+
+    test table_vdelete-range-4.0 {
+        Test deletion of out-of-range
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete 100 110
+    } -result 0
+
+    test table_vdelete-range-4.1 {
+        Test deletion of out-of-range (negative)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete 100 110
+    } -result 0
+
+    test table_vdelete-range-4.2 {
+        Test deletion of out-of-range (partial)
+    } -body {
+        set types {double any boolean uint}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 89] vdelete 90 110
+    } -result 0
+
+    test table_vdelete-range-4.3 {
+        Test deletion of out-of-range (partial)
+    } -body {
+        set types {double any boolean uint}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 6 99] vdelete -5 5
+    } -result 0
+
+    test table_vdelete-range-4.4 {
+        Test deletion of reversed range limits
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete 60 40
+    } -result 0
+
+    test table_vdelete-range-5.0 {
+        Test deletion of invalid syntax start index
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete foo 10
+    } -returnCodes error -match glob -result "Invalid index 'foo'. Must be an integer or the keyword 'end'."
+
+    test table_vdelete-range-5.1 {
+        Test deletion of invalid syntax end index
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete 0 foo
+    } -returnCodes error -match glob -result "Invalid index 'foo'. Must be an integer or the keyword 'end'."
+
+    test table_vdelete-range-6.0 {
+        Test deletion of all indices from column
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 -1] vdelete 0 99
+    } -result 0
+
+    test table_vdelete-range-7.0 {
+        Test attempt to vdelete element from empty column
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete 0 end
+    } -result 0
+
+    test table_vdelete-range-7.1 {
+        Test attempt to vdelete element from empty column
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete 0 0
+    } -result 0
+
+    test table_vdelete-range-8.0 {
+        Vdelete single element range (leading)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 1 99] vdelete 0 0 
+    } -result 0
+
+    test table_vdelete-range-8.1 {
+        Vdelete single element range (trailing)
+    } -body {
+        set types {int any boolean}
+        vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 98] vdelete end end
+    } -result 0
+
+}
+
+::tcltest::cleanupTests
+

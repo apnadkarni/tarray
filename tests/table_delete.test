@@ -1,4 +1,4 @@
-# column delete tests
+# table delete tests
 
 source testutil.tcl
 
@@ -55,7 +55,7 @@ namespace eval tarray::test {
         } -result 0
 
         test table_delete-index-3.[incr n] {
-            Test deletion of intermediate element (shared tclobj)
+            Test deletion of intermediate element (unshared tclobj)
         } -body {
             set types {any boolean byte double int uint wide}
             tab_change_and_verify_u $types \
@@ -247,7 +247,6 @@ namespace eval tarray::test {
     } -body {
         set types {int any}
         tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 1 9] delete {1 notinteger 63}
-        tarray::column delete [samplecolumn $type] $indices
     } -returnCodes error -match glob -result "expected integer but got \"notinteger\""
 
     test table_delete-indexlist-5.1 {
