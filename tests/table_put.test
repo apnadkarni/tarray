@@ -112,8 +112,8 @@ namespace eval tarray::test {
         Put a single value into an empty table (unshared tclobj, default position)
     } -body {
         set type {any boolean byte double int uint wide}
-        tputtest_valuelist_u $type 1 0 {}
-    } -result 0
+        tarray::table put [tarray::table create {any boolean int} {}] {{anything true 99}}
+    } -result {tarray any {{tarray any {anything}} {tarray boolean {1}} {tarray int {99}}}}
 
     test table_put-list-2.0 {
         Test storing of leading elements (shared tclobj)
@@ -213,8 +213,8 @@ namespace eval tarray::test {
         Put a single value into an empty table (unshared tclobj, default position)
     } -body {
         set type {any boolean byte double int uint wide}
-        tputtest_valuetable_u $type 1 0 {}
-    } -result 0
+        tarray::table put [tarray::table create {any boolean int} {}] [tarray::table create {any boolean int} {{anything true 99}}]
+    } -result {tarray any {{tarray any {anything}} {tarray boolean {1}} {tarray int {99}}}}
 
     test table_put-table-2.0 {
         Test storing of leading elements (shared tclobj)

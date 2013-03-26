@@ -1,0 +1,312 @@
+# column vinsert tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    test table_vinsert-value-1.0 {
+        Vinsert one element at start of empty table
+    } -body {
+        set types {boolean any double}
+        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [samplerow $types] 0 1
+    } -result 0
+
+    test table_vinsert-value-1.1 {
+        Vinsert one element at end of empty table
+    } -body {
+        set types {any wide boolean }
+        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [samplerow $types] end 1
+    } -result 0
+
+    test table_vinsert-value-2.0 {
+        Vinsert one element at start of table
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types end end 0 100] vinsert [samplerow $types end] 0 1
+    } -result 0
+
+    test table_vinsert-value-2.1 {
+        Vinsert multiple element at start of table
+    } -body {
+        set types {any boolean byte double int uint wide}
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat [lrepeat 10 [samplerow $types end]] [samplerows $types 0 100]] vinsert [samplerow $types end] 0 10
+    } -result 0
+
+    test table_vinsert-value-2.2 {
+        Vinsert multiple element at end of table
+    } -body {
+        set types {any boolean byte}
+        vtab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [lrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] end 10
+    } -result 0
+
+    test table_vinsert-value-2.3 {
+        Vinsert multiple element at end of table
+    } -body {
+        set types {boolean}
+        vtab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [lrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] end 10
+    } -result 0
+
+    test table_vinsert-value-2.4 {
+        Vinsert multiple element in middle
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [lrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] vinsert [samplerow $types end] 50 10
+    } -result 0
+
+    test table_vinsert-value-2.5 {
+        Vinsert multiple element in middle
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [lrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] vinsert [samplerow $types end] 50 10
+    } -result 0
+
+    test table_vinsert-value-2.6 {
+        Vinsert elements after last element
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 100] [lrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] 101 10
+    } -result 0
+
+    test table_vinsert-value-3.0 {
+        Vinsert zero elements
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [samplerow $types 0] 10 0
+    } -result 0
+
+    test table_vinsert-value-3.1 {
+        Vinsert zero elements
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [samplerow $types 0] 10 -1
+    } -result "Invalid count -1*" -returnCodes error -match glob
+
+    test table_vinsert-value-3.2 {
+        Vinsert elements at negative index
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [samplerow $types 0] -1 1
+    } -result "*index -1 out of bounds*" -returnCodes error -match glob
+
+    test table_vinsert-value-3.3 {
+        Vinsert elements at out of bounds index
+    } -body {
+        set types {any boolean uint}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 10] vinsert [samplerow $types end] 12 1
+    } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+
+    test table_vinsert-list-1.0 {
+        Vinsert single element list at start of empty table
+    } -body { 
+        set types {any boolean uint}
+        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [samplerows $types 0 0] 0
+    } -result 0
+
+    test table_vinsert-list-1.1 {
+        Vinsert single element list at end of empty table
+    } -body { 
+        set types {boolean any int wide}
+        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [samplerows $types 0 0] end
+    } -result 0
+
+    test table_vinsert-list-1.2 {
+        Vinsert list at start of empty column
+    } -body {
+        set types {boolean any int wide}
+        vtab_change_and_verify $types {} [samplerows $types 0 1] vinsert [samplerows $types 0 1] 0
+    } -result 0
+
+    test table_vinsert-list-2.0 {
+        Vinsert multiple element at start of table
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [samplerows $types 11 15] 0
+    } -result 0
+
+    test table_vinsert-list-2.1 {
+        Vinsert multiple element at start of table
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [samplerows $types 11 15] 0
+    } -result 0
+
+    test table_vinsert-list-2.2 {
+        Vinsert multiple element at end of table
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 11 15] vinsert [samplerows $types 11 15] end
+    } -result 0
+
+    test table_vinsert-list-2.3 {
+        Vinsert multiple element at penultimate position
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 99 11 15 100 100] vinsert [samplerows $types 11 15] 100
+    } -result 0
+
+    test table_vinsert-list-2.4 {
+        Vinsert multiple elements in middle
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 50 11 15 51 100] vinsert [samplerows $types 11 15] 51
+    } -result 0
+
+    test table_vinsert-list-2.5 {
+        Vinsert elements in middle of column
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 9 0 9 10 100] vinsert [samplerows $types 0 9] 10
+    } -result 0
+
+    test table_vinsert-list-2.6 {
+        Vinsert multiple elements in middle extending column
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 10 19 95 100] vinsert [samplerows $types 10 19] 95
+    } -result 0
+
+    test table_vinsert-list-2.7 {
+        Vinsert multiple elements in middle extending column
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 0 100 95 100] vinsert [samplerows $types 0 100] 95
+    } -result 0
+
+    test table_vinsert-list-2.8 {
+        Vinsert elements after last element
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 0 100] vinsert [samplerows $types 0 100] 101
+    } -result 0
+
+    test table_vinsert-list-3.0 {
+        Vinsert zero elements
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert {} 100
+    } -result 0
+
+    test table_vinsert-list-3.1 {
+        Vinsert elements at negative index
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [samplerows $types 0 1] -1
+    } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+    test table_vinsert-list-3.2 {
+        Vinsert elements at out of bounds index
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100] vinsert [samplerows $types 0 1] 102
+    } -result "*index 102*out of bounds*" -match glob -returnCodes error
+
+
+    test table_vinsert-table-1.0 {
+        Vinsert single element table at start of empty table
+    } -body { 
+        set types {any boolean uint}
+        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [sampletable $types 0 0] 0
+    } -result 0
+
+    test table_vinsert-table-1.1 {
+        Vinsert single element table at end of empty table
+    } -body { 
+        set types {boolean any int wide}
+        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [sampletable $types 0 0] end
+    } -result 0
+
+    test table_vinsert-table-1.2 {
+        Vinsert table at start of empty column
+    } -body {
+        set types {boolean any int wide}
+        vtab_change_and_verify $types {} [samplerows $types 0 1] vinsert [sampletable $types 0 1] 0
+    } -result 0
+
+    test table_vinsert-table-2.0 {
+        Vinsert multiple element at start of table
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [sampletable $types 11 15] 0
+    } -result 0
+
+    test table_vinsert-table-2.1 {
+        Vinsert multiple element at start of table
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [sampletable $types 11 15] 0
+    } -result 0
+
+    test table_vinsert-table-2.2 {
+        Vinsert multiple element at end of table
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 11 15] vinsert [sampletable $types 11 15] end
+    } -result 0
+
+    test table_vinsert-table-2.3 {
+        Vinsert multiple element at penultimate position
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 99 11 15 100 100] vinsert [sampletable $types 11 15] 100
+    } -result 0
+
+    test table_vinsert-table-2.4 {
+        Vinsert multiple elements in middle
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 50 11 15 51 100] vinsert [sampletable $types 11 15] 51
+    } -result 0
+
+    test table_vinsert-table-2.5 {
+        Vinsert elements in middle of column
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 9 0 9 10 100] vinsert [sampletable $types 0 9] 10
+    } -result 0
+
+    test table_vinsert-table-2.6 {
+        Vinsert multiple elements in middle extending column
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 10 19 95 100] vinsert [sampletable $types 10 19] 95
+    } -result 0
+
+    test table_vinsert-table-2.7 {
+        Vinsert multiple elements in middle extending column
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 0 100 95 100] vinsert [sampletable $types 0 100] 95
+    } -result 0
+
+    test table_vinsert-table-2.8 {
+        Vinsert elements after last element
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 0 100] vinsert [sampletable $types 0 100] 101
+    } -result 0
+
+    test table_vinsert-table-3.0 {
+        Vinsert zero elements
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [newtable $types {}] 100
+    } -result 0
+
+    test table_vinsert-table-3.1 {
+        Vinsert elements at negative index
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [sampletable $types 0 1] -1
+    } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+    test table_vinsert-table-3.2 {
+        Vinsert elements at out of bounds index
+    } -body {
+        set types {boolean any int wide double byte uint}
+        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100] vinsert [sampletable $types 0 1] 102
+    } -result "*index 102*out of bounds*" -match glob -returnCodes error
+
+}
+
+::tcltest::cleanupTests

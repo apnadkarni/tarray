@@ -487,6 +487,7 @@ namespace eval tarray::test {
     test table_place-column-indexlist-3.2 {
         Test use of index end
     } -body {
+        set type {any boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable $type 0 2] {end}
     } -result {*expected integer*} -returnCodes error -match glob
 

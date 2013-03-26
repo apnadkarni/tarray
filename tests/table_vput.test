@@ -1,0 +1,251 @@
+# table vput tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # args - position init
+    proc tvputtest {type pass_as_list nvalues args} {
+        variable sample
+
+        if {[llength $args]} {
+            set pos [lindex $args 0]
+            set posargs [list $pos]
+            
+            if {[llength $args] > 1} {
+                set init [lindex $args 1]
+            } else {
+                set init [samplerows $type]
+            }
+        } else {
+            set pos end
+            set posargs [list ]
+            set init [samplerows $type]
+        }
+
+        if {$pos eq "end"} {
+            set lpos [llength $init]; # NOT same as "end" index for lrange
+        } else {
+            set lpos $pos
+        }
+
+        set changes [lrange [samplerows $type] end-[expr {$nvalues-1}] end]
+        if {$lpos == [llength $init]} {
+            set expected [concat $init $changes]
+        } else {
+            set expected [lreplace $init $lpos [expr {$lpos+[llength $changes]-1}] {*}$changes]
+        }
+        if {$pass_as_list} {
+            return [vtab_change_and_verify $type $init $expected vput $changes {*}$posargs]
+        } else {
+            return [vtab_change_and_verify $type $init $expected vput [tarray::table create $type $changes] {*}$posargs]
+        }
+    }
+
+    proc tvputtest_valuelist {type args} {
+        return [tvputtest $type 1 {*}$args]
+    }
+
+    proc tvputtest_valuetable  {type args} {
+        return  [tvputtest $type 0 {*}$args] }
+
+
+    #
+    # table vput valuelist pos
+
+    test table_vput-list-1.0 {
+        Vput a single value into an empty table
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 1 0 {}
+    } -result 0
+        
+    test table_vput-list-2.0 {
+        Test storing of leading elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 100 0
+    } -result 0 
+
+    test table_vput-list-2.1 {
+        Test storing of leading elements
+    } -body {
+        set type {any}
+        tvputtest_valuelist $type 128 0
+    } -result 0 
+
+    test table_vput-list-2.2 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 10 63 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_vput-list-2.3 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 10 64 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_vput-list-2.4 {
+        Test storing of trailing elements (default end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 1
+    } -result 0 
+
+    test table_vput-list-2.5 {
+        Test storing of trailing elements (specified end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 20 end
+    } -result 0 
+
+    test table_vput-list-2.6 {
+        Test storing of middle elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 10 127
+    } -result 0 
+
+    test table_vput-list-2.7 {
+        Test storing of middle elements (extend length)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuelist $type 500 400 [samplerows $type 0 450]
+    } -result 0 
+
+    test table_vput-list-3.0 {
+        Test out of bound index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta [samplerows $type 0 2] 12
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_vput-list-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta [samplerows $type 0 2] -1
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_vput-list-3.2 {
+        Test invalid values
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta {{anyvalue 0 0 0 0 1.0 0}} 0
+    } -result {*expected*but got*} -returnCodes error -match glob
+
+    test table_vput-list-3.3 {
+        Test invalid values (wrong table width)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta {{anyvalue 0 0 0 0 0}} 0
+    } -result {*width 6 less than*} -returnCodes error -match glob
+
+    #
+    # table vput valuecolumn pos
+
+    test table_vput-table-1.0 {
+        Vput a single value into an empty table
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 1 0 {}
+    } -result 0
+        
+    test table_vput-table-2.0 {
+        Test storing of leading elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 100 0
+    } -result 0 
+
+    test table_vput-table-2.1 {
+        Test storing of leading elements
+    } -body {
+        set type {any}
+        tvputtest_valuetable $type 128 0
+    } -result 0 
+
+    test table_vput-table-2.2 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 10 63 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_vput-table-2.3 {
+        Test storing of trailing elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 10 64 [samplerows $type 0 63]
+    } -result 0 
+
+    test table_vput-table-2.4 {
+        Test storing of trailing elements (default end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 1
+    } -result 0 
+
+    test table_vput-table-2.5 {
+        Test storing of trailing elements (specified end)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 20 end
+    } -result 0 
+
+    test table_vput-table-2.6 {
+        Test storing of middle elements
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 10 127
+    } -result 0 
+
+    test table_vput-table-2.7 {
+        Test storing of middle elements (shared tclobj, extend length)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        tvputtest_valuetable $type 500 400 [samplerows $type 0 450]
+    } -result 0 
+
+    test table_vput-table-3.0 {
+        Test out of bound index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta [sampletable $type 0 2] 12
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+    test table_vput-table-3.1 {
+        Test negative index
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta [sampletable $type 0 2] -1
+    } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+    test table_vput-table-3.2 {
+        Test invalid values (table type)
+    } -body {
+        set type {uint byte}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta [sampletable {any int}] 0
+    } -result {*types*are not compatible*} -returnCodes error -match glob
+
+    test table_vput-table-3.3 {
+        Test invalid values (wrong table width)
+    } -body {
+        set type {any boolean byte double int uint wide}
+        set ta [sampletable $type 0 10]
+        tarray::table vput ta [sampletable {any boolean byte double int uint}] 0
+    } -result {*width 6 less than*} -returnCodes error -match glob
+
+}
+
+::tcltest::cleanupTests
