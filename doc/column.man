@@ -9,7 +9,7 @@
 [description]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[cmd column] and [cmd table]. This page documents typed columns.
+[cmd column] and [uri table.html [cmd table]]. This page documents typed columns.
 See [uri tarray.html] for an overview.
 [para]
 

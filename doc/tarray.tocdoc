@@ -1,4 +1,4 @@
-[toc_begin {Table Of Contents} {Typed Arrays}]
+[toc_begin {Typed Arrays} {}]
 [item files/tarray.html  tarray         {Introduction to typed arrays}]
 [item files/column.html tarray::column {Typed array column reference}]
 [item files/table.html   tarray::table   {Typed array table reference}]
