@@ -54,6 +54,11 @@
 
 typedef int TCL_RESULT;
 
+/* Various portability defines */
+#ifdef _MSC_VER
+# define snprintf _snprintf
+#endif
+
 /* TA_ALLOCMEM and TA_REALLOCMEM call should panic on failure to allocate */
 #define TA_ALLOCMEM ckalloc
 #define TA_FREEMEM(p_) if (p_) ckfree((char *)p_)
@@ -446,7 +451,7 @@ TA_INLINE int thdr_recompute_occupancy(thdr_t *thdr, int *poff, int count, int i
 }
 
 /* Make room for count elements at offset off. Caller must have ensured allocation */
-TA_INLINE thdr_make_room(thdr_t *thdr, int off, int count)
+TA_INLINE void thdr_make_room(thdr_t *thdr, int off, int count)
 {
     void *d, *s;
     int nbytes;
