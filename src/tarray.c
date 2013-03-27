@@ -998,7 +998,7 @@ static void ta_type_update_string(Tcl_Obj *o)
            defined as ckalloc */
         cP = ckalloc(min_needed);
         o->bytes = cP;
-        _snprintf(cP, min_needed, "tarray %s {}",
+        snprintf(cP, min_needed, "tarray %s {}",
                   g_type_tokens[thdr->type]);
         o->length = min_needed - 1;
         return;
@@ -1025,7 +1025,7 @@ static void ta_type_update_string(Tcl_Obj *o)
             /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
                defined as ckalloc */
             cP = ckalloc(min_needed + 2*count - 1);
-            n = _snprintf(cP, min_needed, "tarray %s {",
+            n = snprintf(cP, min_needed, "tarray %s {",
                       g_type_tokens[TA_BOOLEAN]);
             TA_ASSERT(n > 0 && n < min_needed);
             o->bytes = cP;
@@ -1084,7 +1084,7 @@ static void ta_type_update_string(Tcl_Obj *o)
        defined as ckalloc */
     cP = ckalloc(allocated);
     o->bytes = cP;
-    _snprintf(cP, prefix_len+1, "tarray %s {", g_type_tokens[thdr->type]);
+    snprintf(cP, prefix_len+1, "tarray %s {", g_type_tokens[thdr->type]);
     TA_ASSERT(strlen(cP) == prefix_len);
     cP += prefix_len;
     min_needed = max_elem_space + 2; /* space or terminating "}" and null */
@@ -1109,7 +1109,7 @@ static void ta_type_update_string(Tcl_Obj *o)
                 int *intP = THDRELEMPTR(thdr, int, i);
                 char *fmt = thdr->type == TA_UINT ? "%u" : "%d";
                 while (i < count && unused >= min_needed) {
-                    n = _snprintf(cP, unused, fmt, *intP++);
+                    n = snprintf(cP, unused, fmt, *intP++);
                     TA_ASSERT(n > 0 && n < unused);
                     ++i;
                     cP += n;
@@ -1122,7 +1122,7 @@ static void ta_type_update_string(Tcl_Obj *o)
             {
                 Tcl_WideInt *pwide = THDRELEMPTR(thdr, Tcl_WideInt, i);
                 while (i < count && unused >= min_needed) {
-                    n = _snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *pwide++);
+                    n = snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *pwide++);
                     TA_ASSERT(n > 0 && n < unused);
                     ++i;
                     cP += n;
@@ -1132,7 +1132,7 @@ static void ta_type_update_string(Tcl_Obj *o)
             }
             break;
         case TA_DOUBLE:
-            /* Do not use _snprintf because of slight difference
+            /* Do not use snprintf because of slight difference
                it does not include decimal point for whole ints. For
                consistency with Tcl, use Tcl_PrintDouble instead */
             {
@@ -1151,7 +1151,7 @@ static void ta_type_update_string(Tcl_Obj *o)
             {
                 unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, i);
                 while (i < count && unused >= min_needed) {
-                    n = _snprintf(cP, unused, "%u", *ucP++);
+                    n = snprintf(cP, unused, "%u", *ucP++);
                     TA_ASSERT(n > 0 && n < unused);
                     ++i;
                     cP += n;
