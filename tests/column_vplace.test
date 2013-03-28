@@ -22,13 +22,13 @@ namespace eval tarray::test {
         }
         set changes [lrange $sample($type) end-$n end]
         set expected $values
-        # We have to order indices else lset will fail with gaps
+        # We have to order indices else listset will fail with gaps
         set ordered {}
         foreach i $indexlist val $changes {
-            lappend ordered $i $val
+            lappend ordered [list $i $val]
         }
-        foreach {i val} [lsort -integer -stride 2 $ordered] {
-            lset expected $i $val
+        foreach pos_and_val [lsort -integer -index 0 $ordered] {
+            listset expected {*}$pos_and_val
         }
         if {$pass_values_as_list} {
             return [vcol_change_and_verify $type $values $expected vplace $changes $indexlist_or_indexarray]
