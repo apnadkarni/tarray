@@ -28,7 +28,7 @@ without a significant performance penalty.
 [para]
 The extension implements [sectref Columns columns],
 which store arrays of values of a single type indexed by integers, and
-[sectref Grids tables], which are arrays of columns. 
+[sectref Tables tables], which are arrays of columns. 
 
 [include types.inc]
 
@@ -39,7 +39,7 @@ that is specified when it is created. The command tarray can be used
 to create and manipulate typed arrays including searching and sorting
 operations.
 
-[section "Grids"]
+[section "Tables"]
 A typed table is an ordered sequence of typed columns
 of equal size. It can be viewed as an array of records where the
 record fields happen to use column-wise storage. The corresponding

@@ -12,5 +12,5 @@ package require platform
 set buildarea [file normalize [file join [pwd] .. build]]
 
 # Note argv will override -target, -pkg and -libdir options if specified
-critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] -config tarray.cfg -keep {*}$argv tarray tarray.critcl]
+critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] {*}$argv tarray tarray.critcl]
 

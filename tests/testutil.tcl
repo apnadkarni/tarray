@@ -15,7 +15,7 @@ package require tcltest
 # for the table/column argument
 # TBD - ditto for passing wrong type of value
 
-if {$tcl_version eq "8.7"} {
+if {$tcl_version eq "8.6"} {
     interp alias {} ::listset {} ::lset
     interp alias {} ::listrepeat {} ::lrepeat
 } else {
@@ -65,7 +65,7 @@ if {$tcl_version eq "8.7"} {
                         if { [string is integer -strict $index] && ($index == $theLength) } {
                             lappend theList $theValue
                         } else {
-                            set theList [lreplace $theList $index $index $theValue]
+                            set theList [lreplace $theList[set theList ""] $index $index $theValue]
                         }
                     }
                     
@@ -73,7 +73,11 @@ if {$tcl_version eq "8.7"} {
                         # lset v {i j k} x  (set the k'th element of the j'th element of the i'th element of v to x)
                         set subList [lindex $theList $index]
                         set subList [listset subList [lrange $indexList 1 end] $theValue]
-                        set theList [lreplace $theList $index $index $subList]
+                        if { [llength $theList] == $index} {
+                            lappend theList $subList
+                        } else {
+                            set theList [lreplace $theList[set theList ""] $index $index $subList]
+                        }
                     }
                 }
             }
