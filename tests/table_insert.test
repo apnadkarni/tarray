@@ -1,4 +1,4 @@
-# column insert tests
+# table insert tests
 
 source testutil.tcl
 
@@ -29,42 +29,42 @@ namespace eval tarray::test {
         Insert multiple element at start of table (unshared)
     } -body {
         set types {any boolean byte double int uint wide}
-        tab_change_and_verify $types [samplerows $types 0 100] [concat [lrepeat 10 [samplerow $types end]] [samplerows $types 0 100]] insert [samplerow $types end] 0 10
+        tab_change_and_verify $types [samplerows $types 0 100] [concat [listrepeat 10 [samplerow $types end]] [samplerows $types 0 100]] insert [samplerow $types end] 0 10
     } -result 0
 
     test table_insert-value-2.2 {
         Insert multiple element at end of table (unshared)
     } -body {
         set types {any boolean byte}
-        tab_change_and_verify_u $types [samplerows $types] [concat  [samplerows $types] [lrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] end 10
+        tab_change_and_verify_u $types [samplerows $types] [concat  [samplerows $types] [listrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] end 10
     } -result 0
 
     test table_insert-value-2.3 {
         Insert multiple element at end of table (shared)
     } -body {
         set types {boolean}
-        tab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [lrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] end 10
+        tab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [listrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] end 10
     } -result 0
 
     test table_insert-value-2.4 {
         Insert multiple element in middle (unshared)
     } -body {
         set types {any boolean uint}
-        tab_change_and_verify_u $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [lrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] insert [samplerow $types end] 50 10
+        tab_change_and_verify_u $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [listrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] insert [samplerow $types end] 50 10
     } -result 0
 
     test table_insert-value-2.5 {
         Insert multiple element in middle (shared)
     } -body {
         set types {any boolean uint}
-        tab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [lrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] insert [samplerow $types end] 50 10
+        tab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [listrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] insert [samplerow $types end] 50 10
     } -result 0
 
     test table_insert-value-2.6 {
         Insert elements after last element (shared)
     } -body {
         set types {any boolean uint}
-        tab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 100] [lrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] 101 10
+        tab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 100] [listrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] 101 10
     } -result 0
 
     test table_insert-value-3.0 {

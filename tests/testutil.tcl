@@ -14,6 +14,78 @@ package require tcltest
 # TBD - add tests to all commands to check if a non-table / non-column is passed
 # for the table/column argument
 # TBD - ditto for passing wrong type of value
+
+if {$tcl_version eq "8.6"} {
+    interp alias {} ::listset {} ::lset
+    interp alias {} ::listrepeat {} ::lrepeat
+} else {
+    # 8.5 lrepeat barfs on 0 count
+    proc listrepeat {count args} {
+        if {$count == 0} {
+            return {}
+        } else {
+            return [lrepeat $count {*}$args]
+        }
+    }
+
+    # 8.5 lset cannot append elements so use this version from
+    # the wiki
+    proc listset { varName args } {
+        upvar 1 $varName theList
+        
+        set theValue  [lindex $args end]
+        switch -exact [llength $args] {
+            0 {
+                # lset v (do nothing)
+            }
+            
+            1 {
+                # lset v x (copy x to v)
+                set theList $theValue
+            }
+            
+            2 {
+                # lset v i x        (set the i'th element of v to x)
+                # lset v {} x       (set v to x)
+                # lset v {i j k} x  (set the k'th element of the j'th element of the i'th element of v to x)
+                set indexList [lindex  $args 0]
+                set index     [lindex  $indexList 0]
+                set theLength [llength $theList]
+                switch -exact [llength $indexList] {
+                    0 {
+                        # lset v {} x   (set v to x)
+                        set theList $theValue
+                    }
+                    
+                    1 {
+                        # lset v i x    (set the i'th element of v to x)
+                        if { [string is integer -strict $index] && ($index >= $theLength) } {
+                            error "list index out of range: $index >= $theLength"
+                        }
+                        set theList [lreplace $theList $index $index $theValue]
+                    }
+                    
+                    default {
+                        # lset v {i j k} x  (set the k'th element of the j'th element of the i'th element of v to x)
+                        set subList [lindex $theList $index]
+                        set subList [lset subList [lrange $indexList 1 end] $theValue]
+                        set theList [lreplace $theList $index $index $subList]
+                    }
+                }
+            }
+            
+            default {
+                # lset v i j k x    (set the k'th element of the j'th element of the i'th element of v to x)
+                set indexList [lrange $args 0 end-1]
+                set theList   [lset theList $indexList $theValue]
+            }
+        }
+        
+        return $theList
+    }
+}
+
+
 if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
         namespace import ::tcltest::test
@@ -41,7 +113,7 @@ if {![info exists tarray::test::known]} {
         foreach count $counts {
             # Booleans. Note the unaligned patterns are important
             foreach pat {0 1 01 10 011 010 1001 1100 11000011 101010101} {
-                lappend good(boolean) [lrepeat $count {*}[split $pat ""]]
+                lappend good(boolean) [listrepeat $count {*}[split $pat ""]]
             }
 
             set anyl {}
@@ -118,6 +190,7 @@ if {![info exists tarray::test::known]} {
 
         ################################################################
         # Utility functions
+
 
         # lsort option corresponding to a tarray type
         proc lsort_cmp {type} {
@@ -276,7 +349,7 @@ if {![info exists tarray::test::known]} {
             foreach row $rows {
                 set c 0
                 foreach val $row {
-                    lset ll $c $r $val
+                    listset ll $c $r $val
                     incr c
                 }
                 incr r
@@ -418,7 +491,7 @@ if {![info exists tarray::test::known]} {
                 foreach r [lindex $args 0] {
                     set c 0
                     foreach type $types {
-                        lset rows $rindex $c [samplevalue $type $r]
+                        listset rows $rindex $c [samplevalue $type $r]
                         incr c
                     }
                     incr rindex
@@ -435,7 +508,7 @@ if {![info exists tarray::test::known]} {
                 foreach type $types {
                     set r $rindex
                     foreach val [samplerange $type $low $high] {
-                        lset rows $r $c $val
+                        listset rows $r $c $val
                         incr r
                     }
                     incr c
@@ -524,8 +597,8 @@ if {![info exists tarray::test::known]} {
             while {$len} {
                 set n [expr {int($len*rand())}]
                 set tmp [lindex $list $n]
-                lset list $n [lindex $list [incr len -1]]
-                lset list $len $tmp
+                listset list $n [lindex $list [incr len -1]]
+                listset list $len $tmp
             }
             return $list
         }
