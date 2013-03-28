@@ -29,42 +29,42 @@ namespace eval tarray::test {
         Vinsert multiple element at start of table
     } -body {
         set types {any boolean byte double int uint wide}
-        vtab_change_and_verify $types [samplerows $types 0 100] [concat [lrepeat 10 [samplerow $types end]] [samplerows $types 0 100]] vinsert [samplerow $types end] 0 10
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat [listrepeat 10 [samplerow $types end]] [samplerows $types 0 100]] vinsert [samplerow $types end] 0 10
     } -result 0
 
     test table_vinsert-value-2.2 {
         Vinsert multiple element at end of table
     } -body {
         set types {any boolean byte}
-        vtab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [lrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] end 10
+        vtab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [listrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] end 10
     } -result 0
 
     test table_vinsert-value-2.3 {
         Vinsert multiple element at end of table
     } -body {
         set types {boolean}
-        vtab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [lrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] end 10
+        vtab_change_and_verify $types [samplerows $types] [concat  [samplerows $types] [listrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] end 10
     } -result 0
 
     test table_vinsert-value-2.4 {
         Vinsert multiple element in middle
     } -body {
         set types {any boolean uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [lrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] vinsert [samplerow $types end] 50 10
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [listrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] vinsert [samplerow $types end] 50 10
     } -result 0
 
     test table_vinsert-value-2.5 {
         Vinsert multiple element in middle
     } -body {
         set types {any boolean uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [lrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] vinsert [samplerow $types end] 50 10
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [listrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] vinsert [samplerow $types end] 50 10
     } -result 0
 
     test table_vinsert-value-2.6 {
         Vinsert elements after last element
     } -body {
         set types {any boolean uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 100] [lrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] 101 10
+        vtab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 100] [listrepeat 10 [samplerow $types 0]]] vinsert [samplerow $types 0] 101 10
     } -result 0
 
     test table_vinsert-value-3.0 {

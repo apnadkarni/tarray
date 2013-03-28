@@ -103,7 +103,7 @@ namespace eval tarray::test {
         Fill an empty table (shared)
     } -body {
         set types {boolean int any}
-        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] {0 1 2}
+        tab_change_and_verify $types {} [listrepeat 3 [samplerow $types]] fill [samplerow $types] {0 1 2}
     } -result 0
 
     test table_fill-indexlist-1.1 {
@@ -113,7 +113,7 @@ namespace eval tarray::test {
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
-        tab_change_and_verify_u $types {} [lrepeat 1000 [samplerow $types]] fill [samplerow $types] $indices
+        tab_change_and_verify_u $types {} [listrepeat 1000 [samplerow $types]] fill [samplerow $types] $indices
     } -result 0
 
     test table_fill-indexlist-2.0 {
@@ -123,42 +123,42 @@ namespace eval tarray::test {
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
-        tab_change_and_verify $types [samplerows $types 0 500] [lrepeat 1000 [samplerow $types]] fill [samplerow $types] $indices
+        tab_change_and_verify $types [samplerows $types 0 500] [listrepeat 1000 [samplerow $types]] fill [samplerow $types] $indices
     } -result 0
 
     test table_fill-indexlist-2.1 {
         Test filling of leading elements out of order (shared tclobj)
     } -body {
         set types {boolean int any}
-        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] {2 0 1}
+        tab_change_and_verify $types {} [listrepeat 3 [samplerow $types]] fill [samplerow $types] {2 0 1}
     } -result 0
 
     test table_fill-indexlist-2.2 {
         Test filling of trailing elements (shared tclobj)
     } -body {
         set types {boolean int any wide any}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] fill [samplerow $types] {49 50 48}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 3 [samplerow $types]]] fill [samplerow $types] {49 50 48}
     } -result 0 
 
     test table_fill-indexlist-2.3 {
         Test extending table in order (unshared tclobj)
     } -body {
         set types {boolean int any wide any}
-        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] {48 49 50 51 52 53 54 55}
+        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] fill [samplerow $types] {48 49 50 51 52 53 54 55}
     } -result 0
 
     test table_fill-indexlist-2.4 {
         Test extending table reverse order (shared tclobj)
     } -body {
         set types {any boolean}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] fill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
     } -result 0
 
     test table_fill-indexlist-2.5 {
         Test extending table out of order (shared tclobj)
     } -body {
         set types {any boolean}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] {51 52 54 55 48 49 50 53}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] fill [samplerow $types] {51 52 54 55 48 49 50 53}
     } -result 0
 
     test table_fill-indexlist-3.0 {
@@ -192,7 +192,7 @@ namespace eval tarray::test {
     } -body {
         set indices {0 9 3 8 6 4 2 5 7 1}
         set types {any boolean wide int uint byte double}
-        tab_change_and_verify_u $types [samplerows $types 0 9] [lrepeat 10 [samplerow $types end]] fill [samplerow $types end] $indices
+        tab_change_and_verify_u $types [samplerows $types 0 9] [listrepeat 10 [samplerow $types end]] fill [samplerow $types end] $indices
     } -result 0
 
     test table_fill-indexlist-4.0 {
@@ -238,7 +238,7 @@ namespace eval tarray::test {
         Fill an empty table (shared)
     } -body {
         set types {boolean int any}
-        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] [indexcolumn {0 1 2}]
+        tab_change_and_verify $types {} [listrepeat 3 [samplerow $types]] fill [samplerow $types] [indexcolumn {0 1 2}]
     } -result 0
 
     test table_fill-indices-1.1 {
@@ -248,7 +248,7 @@ namespace eval tarray::test {
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
-        tab_change_and_verify_u $types {} [lrepeat 1000 [samplerow $types]] fill [samplerow $types] [indexcolumn $indices]
+        tab_change_and_verify_u $types {} [listrepeat 1000 [samplerow $types]] fill [samplerow $types] [indexcolumn $indices]
     } -result 0
 
     test table_fill-indices-2.0 {
@@ -258,42 +258,42 @@ namespace eval tarray::test {
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
-        tab_change_and_verify $types [samplerows $types 0 500] [lrepeat 1000 [samplerow $types]] fill [samplerow $types] [indexcolumn $indices]
+        tab_change_and_verify $types [samplerows $types 0 500] [listrepeat 1000 [samplerow $types]] fill [samplerow $types] [indexcolumn $indices]
     } -result 0
 
     test table_fill-indices-2.1 {
         Test filling of leading elements out of order (shared tclobj)
     } -body {
         set types {boolean int any}
-        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] [indexcolumn {2 0 1}]
+        tab_change_and_verify $types {} [listrepeat 3 [samplerow $types]] fill [samplerow $types] [indexcolumn {2 0 1}]
     } -result 0
 
     test table_fill-indices-2.2 {
         Test filling of trailing elements (shared tclobj)
     } -body {
         set types {boolean int any wide any}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] fill [samplerow $types] {49 50 48}
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 3 [samplerow $types]]] fill [samplerow $types] {49 50 48}
     } -result 0 
 
     test table_fill-indices-2.3 {
         Test extending table in order (unshared tclobj)
     } -body {
         set types {boolean int any wide any}
-        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [indexcolumn {48 49 50 51 52 53 54 55}]
+        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] fill [samplerow $types] [indexcolumn {48 49 50 51 52 53 54 55}]
     } -result 0
 
     test table_fill-indices-2.4 {
         Test extending table reverse order (shared tclobj)
     } -body {
         set types {any boolean}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] fill [samplerow $types] [lsort -integer -decreasing {48 49 50 51 52 53 54 55}]
     } -result 0
 
     test table_fill-indices-2.5 {
         Test extending table out of order (shared tclobj)
     } -body {
         set types {any boolean}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 8 [samplerow $types]]] fill [samplerow $types] [indexcolumn {51 52 54 55 48 49 50 53}]
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] fill [samplerow $types] [indexcolumn {51 52 54 55 48 49 50 53}]
     } -result 0
 
     test table_fill-indices-3.0 {
@@ -326,7 +326,7 @@ namespace eval tarray::test {
     } -body {
         set indices {0 9 3 8 6 4 2 5 7 1}
         set types {any boolean wide int uint byte double}
-        tab_change_and_verify_u $types [samplerows $types 0 9] [lrepeat 10 [samplerow $types end]] fill [samplerow $types end] [indexcolumn $indices]
+        tab_change_and_verify_u $types [samplerows $types 0 9] [listrepeat 10 [samplerow $types end]] fill [samplerow $types end] [indexcolumn $indices]
     } -result 0
 
     test table_fill-indices-4.0 {
@@ -386,21 +386,21 @@ namespace eval tarray::test {
         Test filling of leading elements (shared tclobj)
     } -body {
         set types {boolean int any}
-        tab_change_and_verify $types {} [lrepeat 3 [samplerow $types]] fill [samplerow $types] 0 2
+        tab_change_and_verify $types {} [listrepeat 3 [samplerow $types]] fill [samplerow $types] 0 2
     } -result 0
 
     test table_fill-range-2.1 {
         Test filling of trailing elements (shared tclobj)
     } -body {
         set types {boolean int any wide any}
-        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [lrepeat 3 [samplerow $types]]] fill [samplerow $types] 48 50
+        tab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 3 [samplerow $types]]] fill [samplerow $types] 48 50
     } -result 0 
 
     test table_fill-range-2.2 {
         Test filling of trailing elements (unshared tclobj, end)
     } -body {
         set types {boolean int any wide any}
-        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 40] [lrepeat 10 [samplerow $types]]] fill [samplerow $types] 41 end
+        tab_change_and_verify_u $types [samplerows $types 0 50] [concat [samplerows $types 0 40] [listrepeat 10 [samplerow $types]]] fill [samplerow $types] 41 end
     } -result 0 
 
     test table_fill-range-2.3 {
@@ -408,7 +408,7 @@ namespace eval tarray::test {
     } -body {
         set types {boolean int any wide any byte uint}
         set rows [samplerows $types]
-        tab_change_and_verify_u $types $rows [lrepeat [llength $rows] [samplerow $types]] fill [samplerow $types] 0 end
+        tab_change_and_verify_u $types $rows [listrepeat [llength $rows] [samplerow $types]] fill [samplerow $types] 0 end
     } -result 0
 
     test table_fill-range-2.4 {
@@ -442,7 +442,7 @@ namespace eval tarray::test {
     } -body {
         set types {boolean int any wide any byte uint}
         set rows [samplerows $types 0 100]
-        tab_change_and_verify_u $types $rows [concat $rows [lrepeat 100 [samplerow $types]]] fill [samplerow $types] 101 200
+        tab_change_and_verify_u $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] fill [samplerow $types] 101 200
     } -result 0
 
     test table_fill-range-4.1 {
@@ -450,7 +450,7 @@ namespace eval tarray::test {
     } -body {
         set types {boolean int any wide any byte uint}
         set rows [samplerows $types 0 100]
-        tab_change_and_verify $types [samplerows $types 0 100] [concat [samplerows $types 0 50] [lrepeat 100 [samplerow $types]]] fill [samplerow $types] 51 150
+        tab_change_and_verify $types [samplerows $types 0 100] [concat [samplerows $types 0 50] [listrepeat 100 [samplerow $types]]] fill [samplerow $types] 51 150
     } -result 0
 
     test table_fill-range-4.2 {
@@ -458,7 +458,7 @@ namespace eval tarray::test {
     } -body {
         set types {boolean int any wide any byte uint}
         set rows [samplerows $types 0 100]
-        tab_change_and_verify_u $types $rows [concat $rows [lrepeat 100 [samplerow $types]]] fill [samplerow $types] 102 200
+        tab_change_and_verify_u $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] fill [samplerow $types] 102 200
     } -result "*102*out of bounds" -match glob -returnCodes error
 
 }

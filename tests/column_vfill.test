@@ -98,7 +98,7 @@ namespace eval tarray::test {
         test column_vfill-indexlist-$type-1.0 {
             Fill an empty column
         } -body {
-            vfilltest $type {} [lrepeat 3 $vfills($type)] {0 1 2}
+            vfilltest $type {} [listrepeat 3 $vfills($type)] {0 1 2}
         } -result 0
 
         test column_vfill-indexlist-$type-2.0 {
@@ -124,21 +124,21 @@ namespace eval tarray::test {
             Test extending column in order
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [list [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $vfills($type)]] [list [incr i -2] [incr i] [incr i] [incr i] [incr i]]
         } -result 0 
 
         test column_vfill-indexlist-$type-2.4 {
             Test extending column reverse order
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $vfills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
         } -result 0 
 
         test column_vfill-indexlist-$type-2.5 {
             Test extending column out of order
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [list [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $vfills($type)]] [list [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
         } -result 0 
 
         test column_vfill-indexlist-$type-3.0 {
@@ -184,7 +184,7 @@ namespace eval tarray::test {
             set indices {0 9 3 8 6 4 2 5 7 1}
             set ta [samplecolumn $type 0 9]
             tarray::column vfill ta $vfills($type) $indices
-            cequal $ta [crep $type [lrepeat 10 $vfills($type)]]
+            cequal $ta [crep $type [listrepeat 10 $vfills($type)]]
         } -result 1
 
         test column_vfill-indexlist-$type-4.0 {
@@ -231,7 +231,7 @@ namespace eval tarray::test {
         test column_vfill-indices-$type-1.0 {
             vfill an empty column (shared)
         } -body {
-            vfilltest $type {} [lrepeat 3 $vfills($type)] [indexcolumn 0 1 2]
+            vfilltest $type {} [listrepeat 3 $vfills($type)] [indexcolumn 0 1 2]
         } -result 0
 
         test column_vfill-indices-$type-1.1 {
@@ -240,7 +240,7 @@ namespace eval tarray::test {
             set ta [newcolumn $type]
             tarray::column vfill ta $vfills($type) [indexcolumn 0 1 2 3]
             set ta
-        } -result [crep $type [lrepeat 4 $vfills($type)]] -match column
+        } -result [crep $type [listrepeat 4 $vfills($type)]] -match column
 
         test column_vfill-indices-$type-2.0 {
             Test filling of leading elements (shared tclobj)
@@ -265,21 +265,21 @@ namespace eval tarray::test {
             Test extending column in order
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [indexcolumn [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $vfills($type)]] [indexcolumn [incr i -2] [incr i] [incr i] [incr i] [incr i]]
         } -result 0 
 
         test column_vfill-indices-$type-2.4 {
             Test extending column reverse order
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [indexcolumn [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $vfills($type)]] [indexcolumn [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
         } -result 0 
 
         test column_vfill-indices-$type-2.5 {
             Test extending column out of order
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $vfills($type)]] [indexcolumn [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $vfills($type)]] [indexcolumn [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
         } -result 0 
 
         test column_vfill-indices-$type-3.0 {
@@ -326,7 +326,7 @@ namespace eval tarray::test {
             set indices {0 9 3 8 6 4 2 5 7 1}
             set ta [samplecolumn $type 0 9]
             tarray::column vfill ta $vfills($type) [indexcolumn $indices]
-            cequal $ta [crep $type [lrepeat 10 $vfills($type)]]
+            cequal $ta [crep $type [listrepeat 10 $vfills($type)]]
         } -result 1
 
         test column_vfill-indices-$type-4.0 {
@@ -396,14 +396,14 @@ namespace eval tarray::test {
             Test filling of trailing elements
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[lrepeat 6 $vfills($type)]] [expr {$i-6}] [expr {$i-1}]
+            vfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $vfills($type)]] [expr {$i-6}] [expr {$i-1}]
         } -result 0 
 
         test column_vfill-range-$type-2.2 {
             Test filling of trailing elements
         } -body {
             set i [llength $sample($type)]
-            vfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[lrepeat 6 $vfills($type)]] [expr {$i-6}] end
+            vfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $vfills($type)]] [expr {$i-6}] end
         } -result 0 
 
         test column_vfill-range-$type-2.3 {
@@ -412,14 +412,14 @@ namespace eval tarray::test {
             set ta [samplecolumn $type]
             tarray::column vfill ta $vfills($type) 0 end
             set ta
-        } -result [crep $type [lrepeat [llength $sample($type)] $vfills($type)]] -match column
+        } -result [crep $type [listrepeat [llength $sample($type)] $vfills($type)]] -match column
 
         test column_vfill-range-$type-2.3 {
             Test filling of intermediate array
         } -body {
             set ta [samplecolumn $type]
             tarray::column vfill ta $vfills($type) 50 100
-        } -match column -result [crep $type [concat [lrange $sample($type) 0 49] [lrepeat 51 $vfills($type)] [lrange $sample($type) 101 end]]]
+        } -match column -result [crep $type [concat [lrange $sample($type) 0 49] [listrepeat 51 $vfills($type)] [lrange $sample($type) 101 end]]]
 
         test column_vfill-range-$type-3.0 {
             Test filling with reversed range elements
@@ -442,14 +442,14 @@ namespace eval tarray::test {
             set ta [samplecolumn $type 0 100]
             tarray::column vfill ta $vfills($type) 101 200
             set ta
-        } -result [crep $type [concat [lrange $sample($type) 0 100] [lrepeat 100 $vfills($type)]]] -match column
+        } -result [crep $type [concat [lrange $sample($type) 0 100] [listrepeat 100 $vfills($type)]]] -match column
 
         test column_vfill-range-$type-4.1 {
             Test filling extending (shared)
         } -body {
             set ta [samplecolumn $type 0 31]
             tarray::column vfill ta $vfills($type) 25 50
-        } -result [crep $type [concat [lrange $sample($type) 0 24] [lrepeat 26 $vfills($type)]]] -match column
+        } -result [crep $type [concat [lrange $sample($type) 0 24] [listrepeat 26 $vfills($type)]]] -match column
 
         test column_vfill-range-$type-4.2 {
             Test filling out-of-range (unshared)

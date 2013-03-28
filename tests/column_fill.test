@@ -108,14 +108,14 @@ namespace eval tarray::test {
         test column_fill-indexlist-$type-1.0 {
             Fill an empty column (shared)
         } -body {
-            filltest $type {} [lrepeat 3 $fills($type)] {0 1 2}
+            filltest $type {} [listrepeat 3 $fills($type)] {0 1 2}
         } -result 0
 
         test column_fill-indexlist-$type-1.1 {
             Fill empty column with a single element (unshared tclobj)
         } -body {
             tarray::column fill [newcolumn $type {}] $fills($type) {0 1 2 3}
-        } -result [crep $type [lrepeat 4 $fills($type)]] -match column
+        } -result [crep $type [listrepeat 4 $fills($type)]] -match column
 
         test column_fill-indexlist-$type-2.0 {
             Test filling of leading elements (shared tclobj)
@@ -140,21 +140,21 @@ namespace eval tarray::test {
             Test extending column in order (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $fills($type)]] [list [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i -2] [incr i] [incr i] [incr i] [incr i]]
         } -result 0 
 
         test column_fill-indexlist-$type-2.4 {
             Test extending column reverse order (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $fills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
         } -result 0 
 
         test column_fill-indexlist-$type-2.5 {
             Test extending column out of order (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $fills($type)]] [list [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
         } -result 0 
 
         test column_fill-indexlist-$type-3.0 {
@@ -197,7 +197,7 @@ namespace eval tarray::test {
             Test filling of all (unshared tclobj, random order)
         } -body {
             set indices {0 9 3 8 6 4 2 5 7 1}
-            cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) $indices] [crep $type [lrepeat 10 $fills($type)]]
+            cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) $indices] [crep $type [listrepeat 10 $fills($type)]]
         } -result 1
 
         test column_fill-indexlist-$type-4.0 {
@@ -241,14 +241,14 @@ namespace eval tarray::test {
         test column_fill-indices-$type-1.0 {
             Fill an empty column (shared)
         } -body {
-            filltest $type {} [lrepeat 3 $fills($type)] [indexcolumn 0 1 2]
+            filltest $type {} [listrepeat 3 $fills($type)] [indexcolumn 0 1 2]
         } -result 0
 
         test column_fill-indices-$type-1.1 {
             Fill empty column with a single element (unshared tclobj)
         } -body {
             tarray::column fill [newcolumn $type {}] $fills($type) [indexcolumn 0 1 2 3]
-        } -result [crep $type [lrepeat 4 $fills($type)]] -match column
+        } -result [crep $type [listrepeat 4 $fills($type)]] -match column
 
         test column_fill-indices-$type-2.0 {
             Test filling of leading elements (shared tclobj)
@@ -273,21 +273,21 @@ namespace eval tarray::test {
             Test extending column in order (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $fills($type)]] [indexcolumn [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [indexcolumn [incr i -2] [incr i] [incr i] [incr i] [incr i]]
         } -result 0 
 
         test column_fill-indices-$type-2.4 {
             Test extending column reverse order (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $fills($type)]] [indexcolumn [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [indexcolumn [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
         } -result 0 
 
         test column_fill-indices-$type-2.5 {
             Test extending column out of order (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[lrepeat 5 $fills($type)]] [indexcolumn [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [indexcolumn [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
         } -result 0 
 
         test column_fill-indices-$type-3.0 {
@@ -329,7 +329,7 @@ namespace eval tarray::test {
             Test filling of all (unshared tclobj, random order)
         } -body {
             set indices {0 9 3 8 6 4 2 5 7 1}
-            cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) [indexcolumn $indices]] [crep $type [lrepeat 10 $fills($type)]]
+            cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) [indexcolumn $indices]] [crep $type [listrepeat 10 $fills($type)]]
         } -result 1
 
         test column_fill-indices-$type-4.0 {
@@ -392,27 +392,27 @@ namespace eval tarray::test {
             Test filling of trailing elements (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[lrepeat 6 $fills($type)]] [expr {$i-6}] [expr {$i-1}]
+            filltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $fills($type)]] [expr {$i-6}] [expr {$i-1}]
         } -result 0 
 
         test column_fill-range-$type-2.2 {
             Test filling of trailing elements (shared tclobj)
         } -body {
             set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[lrepeat 6 $fills($type)]] [expr {$i-6}] end
+            filltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $fills($type)]] [expr {$i-6}] end
         } -result 0 
 
         test column_fill-range-$type-2.3 {
             Test filling of entire array (unshared)
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) 0 end
-        } -result [crep $type [lrepeat [llength $sample($type)] $fills($type)]] -match column
+        } -result [crep $type [listrepeat [llength $sample($type)] $fills($type)]] -match column
 
         test column_fill-range-$type-2.3 {
             Test filling of intermediate array (unshared)
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) 50 100
-        } -match column -result [crep $type [concat [lrange $sample($type) 0 49] [lrepeat 51 $fills($type)] [lrange $sample($type) 101 end]]]
+        } -match column -result [crep $type [concat [lrange $sample($type) 0 49] [listrepeat 51 $fills($type)] [lrange $sample($type) 101 end]]]
 
         test column_fill-range-$type-3.0 {
             Test filling with reversed range elements (unshared)
@@ -430,14 +430,14 @@ namespace eval tarray::test {
             Test filling beyond last (unshared)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 100]] $fills($type) 101 200
-        } -result [crep $type [concat [lrange $sample($type) 0 100] [lrepeat 100 $fills($type)]]] -match column
+        } -result [crep $type [concat [lrange $sample($type) 0 100] [listrepeat 100 $fills($type)]]] -match column
 
         test column_fill-range-$type-4.1 {
             Test filling extending (shared)
         } -body {
             set ta [newcolumn $type [lrange $sample($type) 0 31]]
             tarray::column fill $ta $fills($type) 25 50
-        } -result [crep $type [concat [lrange $sample($type) 0 24] [lrepeat 26 $fills($type)]]] -match column
+        } -result [crep $type [concat [lrange $sample($type) 0 24] [listrepeat 26 $fills($type)]]] -match column
 
         test column_fill-range-$type-4.2 {
             Test filling out-of-range (unshared)
