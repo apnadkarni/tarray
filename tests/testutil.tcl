@@ -15,7 +15,7 @@ package require tcltest
 # for the table/column argument
 # TBD - ditto for passing wrong type of value
 
-if {$tcl_version eq "8.6"} {
+if {$tcl_version eq "8.7"} {
     interp alias {} ::listset {} ::lset
     interp alias {} ::listrepeat {} ::lrepeat
 } else {
@@ -59,16 +59,20 @@ if {$tcl_version eq "8.6"} {
                     
                     1 {
                         # lset v i x    (set the i'th element of v to x)
-                        if { [string is integer -strict $index] && ($index >= $theLength) } {
-                            error "list index out of range: $index >= $theLength"
+                        if { [string is integer -strict $index] && ($index > $theLength) } {
+                            error "list index out of range: $index > $theLength"
                         }
-                        set theList [lreplace $theList $index $index $theValue]
+                        if { [string is integer -strict $index] && ($index == $theLength) } {
+                            lappend theList $theValue
+                        } else {
+                            set theList [lreplace $theList $index $index $theValue]
+                        }
                     }
                     
                     default {
                         # lset v {i j k} x  (set the k'th element of the j'th element of the i'th element of v to x)
                         set subList [lindex $theList $index]
-                        set subList [lset subList [lrange $indexList 1 end] $theValue]
+                        set subList [listset subList [lrange $indexList 1 end] $theValue]
                         set theList [lreplace $theList $index $index $subList]
                     }
                 }
@@ -77,7 +81,7 @@ if {$tcl_version eq "8.6"} {
             default {
                 # lset v i j k x    (set the k'th element of the j'th element of the i'th element of v to x)
                 set indexList [lrange $args 0 end-1]
-                set theList   [lset theList $indexList $theValue]
+                set theList   [listset theList $indexList $theValue]
             }
         }
         
