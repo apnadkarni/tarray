@@ -223,7 +223,7 @@ namespace eval tarray::test {
         test column_sort-$type-6.0 {
             Verify memcpy bug fixed
         } -body {
-            tarray::column sort -decreasing [tarray::create $type {25 16 30 5 28 27 9 13 23 26 2 29 3 11 17 7 0 21 19 24 4 8 22 12 10 18 15 20 14 6 1 31}]
+            tarray::column sort -decreasing [tarray::column create $type {25 16 30 5 28 27 9 13 23 26 2 29 3 11 17 7 0 21 19 24 4 8 22 12 10 18 15 20 14 6 1 31}]
         } -result {31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0}
 
     }
