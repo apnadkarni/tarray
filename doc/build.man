@@ -1,0 +1,33 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin "tarray_build" n ""]
+[copyright "2012-2013 Ashok P. Nadkarni"]
+[moddesc "Typed Array extension"]
+[titledesc "Building the tarray extension"]
+
+[description]
+
+The [cmd tarray] extension is a cross platform extension built using
+the [uri http://andreas-kupries.github.com/critcl/ Critcl] package.
+The [package Critcl] package allows for an extension to be built in several
+forms. This document only summarizes building the [package tarray]
+extension as a binary package.
+
+[list_begin enumerated]
+[enum] Download and install the [package Critcl] package (3.1 or later)
+as described
+in [uri http://andreas-kupries.github.com/critcl/doc/files/critcl_installer.html].
+[enum] Set up your compiler environment, for example, running the vcvars.bat
+file on Windows.
+[enum] Change to the [file src] directory in the [package tarray]
+source distribution and run a command of the form:
+[example_begin]
+tclsh build.tcl -target TARGETNAME
+[example_end]
+where TARGETNAME is one of the [package Critcl] build targets. This will
+create a [package tarray] package under the [file build] directory
+in your [package tarray] source tree.
+[list_end]
+You can of course create your own build scripts with different [package Critcl]
+options using the [file build.tcl] file as a template.
+
+[manpage_end]
