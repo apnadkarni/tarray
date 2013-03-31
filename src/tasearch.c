@@ -5,8 +5,6 @@
  * See the file LICENSE for license
  */
 
-// TBD - use binary search for sorted lists
-
 #include "tarray.h"
 
 /*
