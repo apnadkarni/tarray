@@ -7,7 +7,7 @@
 
 package require critcl 3.1
 
-critcl::license "Ashok P. Nadkarni"
+critcl::license "Ashok P. Nadkarni" license.terms
 critcl::summary "Tcl Typed Array Extension"
 critcl::description {
     Implements the tarray::column and tarray::table commands providing 
