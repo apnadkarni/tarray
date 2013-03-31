@@ -1,5 +1,5 @@
-#ifndef _TIMSORT_H
-#define _TIMSORT_H
+#ifndef TIMSORT_H
+#define TIMSORT_H
 /*
  * Copyright (C) 2011 Patrick O. Perry
  * Copyright (C) 2008 The Android Open Source Project
@@ -58,7 +58,7 @@
 int timsort(void *base, size_t nel, size_t width,
 	    int (*compar) (const void *, const void *));
 
-int timsort_r(void *base, size_t nel, size_t width,
-                int (*compar) (void *context, const void *, const void *), void *context);
+int timsort_r(void *base, size_t nel, size_t width, void *thunk,
+                int (*compar) (void *, const void *, const void *));
 
-#endif /* _TIMSORT_H */
+#endif /* TIMSORT_H */

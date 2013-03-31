@@ -14,17 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- * Visual C++ does not support arrays with runtime size. See end of this
- * file for how and when MAX_WIDTH is defined.
- */
-#undef TEMP_STORAGE /* To allow multiple includs with different configs */
-#ifdef MAX_WIDTH
-#define TEMP_STORAGE(temp) char temp[MAX_WIDTH]
-#else
-#define TEMP_STORAGE(temp) char temp[WIDTH]
-#endif
-
 
 static void NAME(binarySort) (void *a, size_t hi, size_t start,
 			      CMPPARAMS(compare, carg), size_t width);
@@ -45,7 +34,7 @@ static int NAME(mergeLo) (struct timsort * ts, void *base1, size_t len1,
 			  void *base2, size_t len2, size_t width);
 static int NAME(mergeHi) (struct timsort * ts, void *base1, size_t len1,
 			  void *base2, size_t len2, size_t width);
-			 
+
 static int NAME(timsort) (void *a, size_t nel, size_t width, CMPPARAMS(c, carg))
 {
 	int err = SUCCESS;
@@ -543,7 +532,7 @@ static int NAME(mergeLo) (struct timsort * ts, void *base1, size_t len1,
 	char *cursor2;
 	char *dest;
 	comparator compare;	// Use local variable for performance
-#ifdef USE_CMP_ARG
+#ifdef IS_TIMSORT_R
 	void *carg;		// Use local variable for performance
 #endif
 	size_t minGallop;	//  "    "       "     "      "
@@ -554,6 +543,7 @@ static int NAME(mergeLo) (struct timsort * ts, void *base1, size_t len1,
 
 	// System.arraycopy(a, base1, tmp, 0, len1);
 	memcpy(tmp, base1, LEN(len1)); // POP: can't overlap
+
 	cursor1 = tmp;		// Indexes into tmp array
 	cursor2 = base2;	// Indexes int a
 	dest = base1;		// Indexes int a
@@ -570,13 +560,14 @@ static int NAME(mergeLo) (struct timsort * ts, void *base1, size_t len1,
 	}
 	if (len1 == 1) {
 		memmove(dest, cursor2, LEN(len2)); // POP: overlaps
+
 		// a[dest + len2] = tmp[cursor1]; // Last elt of run 1 to end of merge
 		ASSIGN(ELEM(dest, len2), cursor1);
 		return SUCCESS;
 	}
 
 	compare = ts->c;	// Use local variable for performance
-#ifdef USE_CMP_ARG
+#ifdef IS_TIMSORT_R
 	carg = ts->carg;	// Use local variable for performance
 #endif
 	minGallop = ts->minGallop;	//  "    "       "     "      "
@@ -698,7 +689,7 @@ static int NAME(mergeHi) (struct timsort * ts, void *base1, size_t len1,
 	char *cursor2;	// Indexes into tmp array
 	char *dest;	// Indexes into a
 	comparator compare;	// Use local variable for performance
-#ifdef USE_CMP_ARG
+#ifdef IS_TIMSORT_R
 	void *carg;		//  "    "       "     "      "
 #endif
 	size_t minGallop;	//  "    "       "     "      "
@@ -708,6 +699,7 @@ static int NAME(mergeHi) (struct timsort * ts, void *base1, size_t len1,
 		return FAILURE;
 
 	memcpy(tmp, base2, LEN(len2)); // POP: can't overlap
+
 	cursor1 = ELEM(base1, len1 - 1);// Indexes into a
 	cursor2 = ELEM(tmp, len2 - 1);	// Indexes into tmp array
 	dest = ELEM(base2, len2 - 1);	// Indexes into a
@@ -731,7 +723,7 @@ static int NAME(mergeHi) (struct timsort * ts, void *base1, size_t len1,
 	}
 
 	compare = ts->c;		// Use local variable for performance
-#ifdef USE_CMP_ARG
+#ifdef IS_TIMSORT_R
 	carg = ts->carg;		// Use local variable for performance
 #endif
 	minGallop = ts->minGallop;	//  "    "       "     "      "
