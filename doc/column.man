@@ -23,7 +23,7 @@ can be used
 to create and manipulate typed columns including searching and sorting
 operations.
 [para]
-Related to columns are [uri ttable.html tables] which are ordered
+Related to columns are [uri table.html tables] which are ordered
 sequences of typed columns.
 
 [include indices.inc]

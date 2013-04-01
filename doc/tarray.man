@@ -3,49 +3,69 @@
 [copyright "2012-2013 Ashok P. Nadkarni"]
 [moddesc "Typed Arrays"]
 [titledesc "Commands related to typed arrays"]
-[require Tcl 8.5]
-[require tarray ?0.1?]
+
 [description]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[uri tcolumn.html [cmd column]] and [uri ttable.html [cmd table]].
+[uri tcolumn.html [cmd column]] and [uri table.html [cmd table]].
 The primary motivation for this extension
 is efficient memory utilization and speed of certain operations in
 applications dealing with very large numbers of elements.
 Typed arrays and tables do not really provide any additional
-capabilities over Tcl's built-in commands, particularly `list` and
-`dict` and the script libraries based on these. Their primary use is
+capabilities over Tcl's built-in commands, particularly [cmd list] and
+[cmd dict] and the script libraries based on these. Their primary use is
 in applications with large number of data items.
 
+[section Installation]
+Binary packages for some platforms are available from the
+[uri http://www.sourceforge.net/projects/tarray "SourceForge Tarray download"]
+area. See [uri build.html "Building tarray"] for instructions to
+build the extension for other platforms.
+
+[section Usage]
+
 [para]
-Also, for applications that do a lot of insertions and deletions, the
-array based storage may not be directly suitable (although on modern processors
-the point at which that happens is quite large). For such
+The extension implements two data types - [uri column.html columns]
+and [uri table.html tables]. The general term [emph "typed array"]
+is used to refer to either of these.
+
+A typed column is an array containing elements of a single 
+[sectref "Types" type]
+that is specified when the column is created. The command 
+[uri column.html [cmd tarray::column]] can be used
+to create and manipulate typed columns.
+operations.
+[para]
+A typed table is an ordered sequence of typed columns
+of equal size. It can be also be viewed as an array of records where the
+record fields happen to use column-wise storage. The corresponding
+[uri table.html [cmd tarray::table]] command operates on typed tables.
+
+[para]
+Typed arrays can be used either by themselves or as building blocks for more
+sophisticated data structures. At the most basic level, typed arrays
+provide memory dense storage; for example, at one extreme, typed 
+arrays of booleans occupy two orders of magnitude less storage than the 
+equivalent Tcl boolean values.
+[para]
+This basic usage also brings performance benefits from several sources.
+The compact memory storage of typed values means better cache and 
+working set utilization when working with large amounts of data. Native
+format storage means sorting and searching operations are faster.
+
+[para]
+In addition, typed arrays may be used as building blocks for more
+sophisticated data structures. For example, the
+array based storage may not be directly suitable for 
+applications that do a lot of insertions and deletions 
+(although on modern processors
+the point at which that happens is quite large).
+For such
 applications, the package provides sufficient flexibility that more
 suitable structures, such as B-Trees may be easily scripted on top
 without a significant performance penalty.
 
-[para]
-The extension implements [sectref Columns columns],
-which store arrays of values of a single type indexed by integers, and
-[sectref Tables tables], which are arrays of columns. 
-
 [include types.inc]
 
-[section "Columns"] 
-A typed array column contains elements of a single 
-[sectref "Types" type]
-that is specified when it is created. The command tarray can be used
-to create and manipulate typed arrays including searching and sorting
-operations.
-
-[section "Tables"]
-A typed table is an ordered sequence of typed columns
-of equal size. It can be viewed as an array of records where the
-record fields happen to use column-wise storage. The corresponding
-table command operates on typed tables.
-
 [include indices.inc]
-[include options.inc]
-
 [manpage_end]

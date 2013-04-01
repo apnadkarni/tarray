@@ -1,5 +1,6 @@
 [section "Types"]
-The extension supports the following element types for typed arrays:
+All elements in a typed column must be of the type specified when
+the column is created. The following element types are available:
 [list_begin options]
 [opt_def [option any]] Any Tcl value
 [opt_def [option boolean]] A boolean value
