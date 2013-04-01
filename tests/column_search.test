@@ -125,74 +125,74 @@ namespace eval tarray::test {
         } -result 1
             
         test column_search-$type-eq-2.10 {
-            Match -eq -all -start
+            Match -eq -all -range
         } -body {
-            tarray::column search -start 1 -all -eq [samplecolumn $type] [samplevalue $type 0]
+            tarray::column search -range 1 -all -eq [samplecolumn $type] [samplevalue $type 0]
         } -result [crep int [lsearch -start 1 -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
 
         test column_search-$type-eq-2.11 {
-            Match -eq -all -start (ensure duplicates)
+            Match -eq -all -range (ensure duplicates)
         } -body {
             set val [samplevalue $type 0]
             set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
             lappend l $val
-            clequal [tarray::column search -all -eq -start 10 [newcolumn $type $l] $val] int [lsearch -exact -all -start 10 $l $val]
+            clequal [tarray::column search -all -eq -range 10 [newcolumn $type $l] $val] int [lsearch -exact -all -start 10 $l $val]
         } -result 1
 
         test column_search-$type-eq-2.12 {
-            Match -eq -all -inline -start (ensure duplicates)
+            Match -eq -all -inline -range (ensure duplicates)
         } -body {
             set val [samplevalue $type 0]
             set l [linsert [linsert [samplerange $type] 3 $val] end-5 $val]
             lappend l $val
-            clequal [tarray::column search -all -inline -start 4 -eq [newcolumn $type $l] $val] $type [lsearch -exact -all -inline -start 4 $l $val]
+            clequal [tarray::column search -all -inline -range 4 -eq [newcolumn $type $l] $val] $type [lsearch -exact -all -inline -start 4 $l $val]
         } -result 1
 
         test column_search-$type-eq-2.13 {
-            Match -eq -not -start
+            Match -eq -not -range
         } -body {
-            tarray::column search -eq -not -start 4 [newcolumn $type {0 0 0 1 0 0 1 0}] 0
+            tarray::column search -eq -not -range 4 [newcolumn $type {0 0 0 1 0 0 1 0}] 0
         } -result 6
 
         test column_search-$type-eq-2.14 {
-            Match -eq -not -start -inline
+            Match -eq -not -range -inline
         } -body {
-            tarray::column search -eq -not -inline -start 4 [newcolumn $type {0 0 0 1 0 0  0}] 0
+            tarray::column search -eq -not -inline -range 4 [newcolumn $type {0 0 0 1 0 0  0}] 0
         } -result ""
 
         test column_search-$type-eq-2.15 {
-            Match -eq -not -inline -start -all
+            Match -eq -not -inline -range -all
         } -body {
             set val [samplemax $type]
             set l [linsert [samplerange $type] 0 $val]
             lappend l $val
             set notval [samplemin $type]
-            clequal [tarray::column search -eq  -all -not -inline -start 1 [newcolumn $type $l] $notval] $type [lsearch -exact -all -not -inline -start 1 $l $notval]
+            clequal [tarray::column search -eq  -all -not -inline -range 1 [newcolumn $type $l] $notval] $type [lsearch -exact -all -not -inline -start 1 $l $notval]
         } -result 1
             
         test column_search-$type-eq-2.16 {
-            Match -start -1
+            Match -range 0
         } -body {
-            tarray::column search -eq -start -1 [samplecolumn $type] [samplevalue $type 0]
-        } -result 0
+            tarray::column search -eq -range -1 [samplecolumn $type] [samplevalue $type 0]
+        } -returnCodes error -result "Invalid index range*" -match glob
 
         test column_search-$type-eq-2.17 {
-            Match -start out of bounds
+            Match -range out of bounds
         } -body {
-            tarray::column search -eq -start 10000000 [samplecolumn $type] [samplevalue $type 0]
+            tarray::column search -eq -range 10000000 [samplecolumn $type] [samplevalue $type 0]
         } -result -1
 
         test column_search-$type-eq-2.18 {
-            Match -start out of bounds
+            Match -range out of bounds
         } -body {
-            tarray::column search -eq -inline -all -start 10000000 [samplecolumn $type] [samplevalue $type 0]
+            tarray::column search -eq -inline -all -range 10000000 [samplecolumn $type] [samplevalue $type 0]
         } -result [crep $type {}] -match column
 
         test column_search-$type-eq-3.0 {
-            Match -start end
+            Match -range end
         } -body {
-            tarray::column search -eq -start end [newcolumn $type {0 0 0 0 1}] 1
-        } -returnCodes error -result "*expected*but got*" -match glob
+            tarray::column search -eq -range end [newcolumn $type {0 0 0 0 1}] 1
+        } -result 4
 
         if {$type ne "any"} {
             test column_search-$type-eq-3.1 {
@@ -429,90 +429,98 @@ namespace eval tarray::test {
         } -result [crep $type {180 128 230 128}] -match column
 
         test column_search-$type-lt-4.0 {
-            Match on element -start
+            Match on element -range
         } -body {
-            tarray::column search -lt -start 1 [newcolumn $type {5 128 10 255}] 200
+            tarray::column search -lt -range 1 [newcolumn $type {5 128 10 255}] 200
         } -result 1
 
         test column_search-$type-lt-4.1 {
-            Match fail -start
+            Match fail -range
         } -body {
-            tarray::column search -lt -start 2 [newcolumn $type {5 10 128 254}] 50
+            tarray::column search -lt -range 2 [newcolumn $type {5 10 128 254}] 50
         } -result -1
 
         test column_search-$type-lt-4.2 {
-            Match -inline -start
+            Match -inline -range
         } -body {
-            tarray::column search -lt -inline -start 3 [newcolumn $type {
+            tarray::column search -lt -inline -range 3 [newcolumn $type {
                 128 180 75 175 10 230 250
             }] 100
         } -result 10 -match numeric
 
         test column_search-$type-lt-4.3 {
-            Match -all -start (one element)
+            Match -all -range (one element)
         } -body {
-            tarray::column search -lt -all -start 3 [newcolumn $type {
+            tarray::column search -lt -all -range 3 [newcolumn $type {
                 128 180 70 125 128 20
             }] 100
         } -result [crep int {5}] -match column
 
         test column_search-$type-lt-4.4 {
-            Match -all -start
+            Match -all -range
         } -body {
-            tarray::column search -lt -all -start 3 [newcolumn $type {
+            tarray::column search -lt -all -range 3 [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 180
         } -result [crep int {3 4 6}] -match column
 
         test column_search-$type-lt-4.5 {
-            Match -all -inline -start
+            Match -all -inline -range
         } -body {
-            tarray::column search -lt -all -inline -start 3 [newcolumn $type {
+            tarray::column search -lt -all -inline -range 3 [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 128
         } -result [crep $type {75 30}] -match column
 
         test column_search-$type-lt-4.6 {
-            Match -start -not
+            Match -range -not
         } -body {
-            tarray::column search -not -lt -start 3 [newcolumn $type {
+            tarray::column search -not -lt -range 3 [newcolumn $type {
                 128 180 75 175 10 230 250
             }] 175
         } -result 3
 
         test column_search-$type-lt-4.7 {
-            Match -inline -start -not -all
+            Match -inline -range -not -all
         } -body {
-            tarray::column search -not -lt -all -inline -start 3 [newcolumn $type {
+            tarray::column search -not -lt -all -inline -range 3 [newcolumn $type {
                 128 180 75 175 10 230 250
             }] 200
         } -result [crep $type {230 250}] -match column
 
         test column_search-$type-lt-4.8 {
-            Match -all -inline -start -1
+            Match -all -inline -range 0
         } -body {
-            tarray::column search -lt -all -inline -start -1 [newcolumn $type {
+            tarray::column search -lt -all -inline -range 0 [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 128
         } -result [crep $type {28 75 75 30}] -match column
 
         test column_search-$type-lt-4.9 {
-            Match -all -inline -start out of bounds
+            Match -all -inline -range out of bounds
         } -body {
-            tarray::column search -lt -all -inline -start 100 [newcolumn $type {
+            tarray::column search -lt -all -inline -range 100 [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 128
         } -result [crep $type {}] -match column
 
-        test column_search-$type-lt-5.0 {
-            Match -start end
+        test column_search-$type-lt-4.10 {
+            Match -range end
         } -body {
-            tarray::column search -lt -all -inline -start end [newcolumn $type {
+            tarray::column search -lt -all -inline -range end [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 128
-        } -returnCodes error -result "*expected*but got*" -match glob
+        } -result [crep $type {}] -match column
 
-        test column_search-$type-lt-5.1 {
+        test column_search-$type-lt-4.11 {
+            Match -range end
+        } -body {
+            tarray::column search -lt -all -inline -range end [newcolumn $type {
+                28 180 75 75 128 30 127
+            }] 128
+        } -result [crep $type {127}] -match column
+
+        test column_search-$type-lt-5.0 {
             Match invalid value
         } -body {
             tarray::column search -lt [newcolumn $type {
@@ -687,90 +695,98 @@ namespace eval tarray::test {
         } -result [crep $type {28 75 75 128 128}] -match column
 
         test column_search-$type-gt-4.0 {
-            Match on element -start
+            Match on element -range
         } -body {
-            tarray::column search -gt -start 2 [newcolumn $type {5 128 10 255}] 100
+            tarray::column search -gt -range 2 [newcolumn $type {5 128 10 255}] 100
         } -result 3
 
         test column_search-$type-gt-4.1 {
-            Match fail -start
+            Match fail -range
         } -body {
-            tarray::column search -gt -start 2 [newcolumn $type {51 100 128 25}] 150
+            tarray::column search -gt -range 2 [newcolumn $type {51 100 128 25}] 150
         } -result -1
 
         test column_search-$type-gt-4.2 {
-            Match -inline -start
+            Match -inline -range
         } -body {
-            tarray::column search -gt -inline -start 2 [newcolumn $type {
+            tarray::column search -gt -inline -range 2 [newcolumn $type {
                 28 80 75 175 10 230 250
             }] 75
         } -result 175 -match numeric
 
         test column_search-$type-gt-4.3 {
-            Match -all -start (one element)
+            Match -all -range (one element)
         } -body {
-            tarray::column search -gt -all -start 3 [newcolumn $type {
+            tarray::column search -gt -all -range 3 [newcolumn $type {
                 128 180 225 70 128 201
             }] 200
         } -result [crep int {5}] -match column
 
         test column_search-$type-gt-4.4 {
-            Match -all -start
+            Match -all -range
         } -body {
-            tarray::column search -gt -all -start 2 [newcolumn $type {
+            tarray::column search -gt -all -range 2 [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 75
         } -result [crep int {4 5 6}] -match column
 
         test column_search-$type-gt-4.5 {
-            Match -all -inline -start
+            Match -all -inline -range
         } -body {
-            tarray::column search -gt -all -inline -start 2 [newcolumn $type {
+            tarray::column search -gt -all -inline -range 2 [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 75
         } -result [crep $type {128 128}] -match column
 
         test column_search-$type-gt-4.6 {
-            Match -start -not
+            Match -range -not
         } -body {
-            tarray::column search -not -gt -start 3 [newcolumn $type {
+            tarray::column search -not -gt -range 3 [newcolumn $type {
                 128 180 75 175 10 30 250
             }] 175
         } -result 3
 
         test column_search-$type-gt-4.7 {
-            Match -inline -start -not -all
+            Match -inline -range -not -all
         } -body {
-            tarray::column search -not -gt -all -inline -start 2 [newcolumn $type {
+            tarray::column search -not -gt -all -inline -range 2 [newcolumn $type {
                 128 80 75 175 10 30 250
             }] 100
         } -result [crep $type {75 10 30}] -match column
 
         test column_search-$type-gt-4.8 {
-            Match -all -inline -start -1
+            Match -all -inline -range 0
         } -body {
-            tarray::column search -gt -all -inline -start -1 [newcolumn $type {
+            tarray::column search -gt -all -inline -range 0 [newcolumn $type {
                 28 180 75 75 128 30 129
             }] 128
         } -result [crep $type {180 129}] -match column
 
         test column_search-$type-gt-4.9 {
-            Match -all -inline -start out of bounds
+            Match -all -inline -range out of bounds
         } -body {
-            tarray::column search -gt -all -inline -start 100 [newcolumn $type {
+            tarray::column search -gt -all -inline -range 100 [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 128
         } -result [crep $type {}] -match column
 
-        test column_search-$type-gt-5.0 {
-            Match -start end
+        test column_search-$type-gt-4.10 {
+            Match -range end
         } -body {
-            tarray::column search -gt -all -inline -start end [newcolumn $type {
+            tarray::column search -gt -all -inline -range end [newcolumn $type {
                 28 180 75 75 128 30 128
             }] 128
-        } -returnCodes error -result "*expected*but got*" -match glob
+        } -result [crep $type {}] -match column
 
-        test column_search-$type-gt-5.1 {
+        test column_search-$type-gt-4.11 {
+            Match -range end
+        } -body {
+            tarray::column search -gt -all -inline -range end [newcolumn $type {
+                28 180 75 75 128 30 128
+            }] 127
+        } -result [crep $type {128}] -match column
+
+        test column_search-$type-gt-5.0 {
             Match invalid value
         } -body {
             tarray::column search -gt [newcolumn $type {
@@ -1065,70 +1081,70 @@ namespace eval tarray::test {
     } -result [crep any {010 1 10}] -match column
 
     test column_search-any-lt-4.0 {
-        Match on element -start
+        Match on element -range
     } -body {
-        tarray::column search -lt -start 1 [newcolumn any {aaa zzz bbb ccc ddd}] zzz
+        tarray::column search -lt -range 1 [newcolumn any {aaa zzz bbb ccc ddd}] zzz
     } -result 2
 
     test column_search-any-lt-4.1 {
-        Match fail -start
+        Match fail -range
     } -body {
-        tarray::column search -lt -start 1 [newcolumn any {aaa zzz bbb ccc ddd}] bbb
+        tarray::column search -lt -range 1 [newcolumn any {aaa zzz bbb ccc ddd}] bbb
     } -result -1
 
     test column_search-any-lt-4.2 {
-        Match -inline -start
+        Match -inline -range
     } -body {
-        tarray::column search -lt -start 1 -inline [newcolumn any {aaa zzz bbb ccc ddd}] zzz
+        tarray::column search -lt -range 1 -inline [newcolumn any {aaa zzz bbb ccc ddd}] zzz
     } -result bbb
 
     test column_search-any-lt-4.3 {
-        Match -all -start (one element)
+        Match -all -range (one element)
     } -body {
-        tarray::column search -lt -start 1 -all [newcolumn any {aaa zzz bbb ccc ddd}] ccc
+        tarray::column search -lt -range 1 -all [newcolumn any {aaa zzz bbb ccc ddd}] ccc
     } -result [crep int {2}] -match column
 
     test column_search-any-lt-4.4 {
-        Match -all -start
+        Match -all -range
     } -body {
-        tarray::column search -lt -start 2 -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ddd
+        tarray::column search -lt -range 2 -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ddd
     } -result [crep int {2 4}] -match column
 
     test column_search-any-lt-4.5 {
-        Match -all -inline -start
+        Match -all -inline -range
     } -body {
-        tarray::column search -lt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ddd
+        tarray::column search -lt -range 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ddd
     } -result [crep any {bbb ccc}] -match column
 
     test column_search-any-lt-4.6 {
-        Match -start -not
+        Match -range -not
     } -body {
-        tarray::column search -not -lt -start 2 [newcolumn any {aaa zzz bbb eee ccc ddd}] bbb
+        tarray::column search -not -lt -range 2 [newcolumn any {aaa zzz bbb eee ccc ddd}] bbb
     } -result 2
 
     test column_search-any-lt-4.7 {
-        Match -inline -start -not -all
+        Match -inline -range -not -all
     } -body {
-        tarray::column search -not -lt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+        tarray::column search -not -lt -range 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
     } -result [crep any {eee ccc ddd}] -match column
 
     test column_search-any-lt-4.8 {
-        Match -all -inline -start -1
+        Match -all -inline -range 
     } -body {
-        tarray::column search -lt -start -1 -inline -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+        tarray::column search -lt -range 0 -inline -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
     } -result [crep any {aaa bbb}] -match column
 
     test column_search-any-lt-4.9 {
-        Match -all -inline -start out of bounds
+        Match -all -inline -range out of bounds
     } -body {
-        tarray::column search -lt -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] ccc
+        tarray::column search -lt -range 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] ccc
     } -result [crep any {}] -match column
 
     test column_search-any-lt-4.10 {
-        Match -start end
+        Match -range end
     } -body {
-        tarray::column search -lt -start end -inline [newcolumn any {aaa zzz bbb eee ccc}] ccc
-    } -returnCodes error -result "*expected*but got*" -match glob
+        tarray::column search -lt -range end -inline [newcolumn any {aaa zzz bbb eee ccc}] ccc
+    } -result {}
 
     test column_search-any-lt-6.0 {
         Match missing element
@@ -1250,70 +1266,70 @@ namespace eval tarray::test {
     } -result [crep any {010 1 0}] -match column
 
     test column_search-any-gt-4.0 {
-        Match on element -start
+        Match on element -range
     } -body {
-        tarray::column search -gt -start 1 [newcolumn any {aaa bbb ccc ddd}] bbb
+        tarray::column search -gt -range 1 [newcolumn any {aaa bbb ccc ddd}] bbb
     } -result 2
 
     test column_search-any-gt-4.1 {
-        Match fail -start
+        Match fail -range
     } -body {
-        tarray::column search -gt -start 1 [newcolumn any {zzz bbb ccc ddd}] ddd
+        tarray::column search -gt -range 1 [newcolumn any {zzz bbb ccc ddd}] ddd
     } -result -1
 
     test column_search-any-gt-4.2 {
-        Match -inline -start
+        Match -inline -range
     } -body {
-        tarray::column search -gt -start 2 -inline [newcolumn any {aaa zzz bbb ccc ddd}] ccc
+        tarray::column search -gt -range 2 -inline [newcolumn any {aaa zzz bbb ccc ddd}] ccc
     } -result ddd
 
     test column_search-any-gt-4.3 {
-        Match -all -start (one element)
+        Match -all -range (one element)
     } -body {
-        tarray::column search -gt -start 2 -all [newcolumn any {aaa zzz bbb ccc ddd}] ccc
+        tarray::column search -gt -range 2 -all [newcolumn any {aaa zzz bbb ccc ddd}] ccc
     } -result [crep int {4}] -match column
 
     test column_search-any-gt-4.4 {
-        Match -all -start
+        Match -all -range
     } -body {
-        tarray::column search -gt -start 2 -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+        tarray::column search -gt -range 2 -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
     } -result [crep int {3 5}] -match column
 
     test column_search-any-gt-4.5 {
-        Match -all -inline -start
+        Match -all -inline -range
     } -body {
-        tarray::column search -gt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+        tarray::column search -gt -range 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
     } -result [crep any {eee ddd}] -match column
 
     test column_search-any-gt-4.6 {
-        Match -start -not
+        Match -range -not
     } -body {
-        tarray::column search -not -gt -start 1 [newcolumn any {aaa zzz bbb eee ccc ddd}] bbb
+        tarray::column search -not -gt -range 1 [newcolumn any {aaa zzz bbb eee ccc ddd}] bbb
     } -result 2
 
     test column_search-any-gt-4.7 {
-        Match -inline -start -not -all
+        Match -inline -range -not -all
     } -body {
-        tarray::column search -not -gt -start 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+        tarray::column search -not -gt -range 2 -all -inline [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
     } -result [crep any {bbb ccc}] -match column
 
     test column_search-any-gt-4.8 {
-        Match -all -inline -start -1
+        Match -all -inline -range 0
     } -body {
-        tarray::column search -gt -start -1 -inline -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
+        tarray::column search -gt -range 0 -inline -all [newcolumn any {aaa zzz bbb eee ccc ddd}] ccc
     } -result [crep any {zzz eee ddd}] -match column
 
     test column_search-any-gt-4.9 {
-        Match -all -inline -start out of bounds
+        Match -all -inline -range out of bounds
     } -body {
-        tarray::column search -gt -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] ccc
+        tarray::column search -gt -range 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] ccc
     } -result [crep any {}] -match column
 
     test column_search-any-gt-4.10 {
-        Match -start end
+        Match -range end
     } -body {
-        tarray::column search -gt -start end -inline [newcolumn any {aaa zzz bbb eee ccc}] ccc
-    } -returnCodes error -result "*expected*but got*" -match glob
+        tarray::column search -gt -range end -inline [newcolumn any {aaa zzz bbb eee ccc}] ccc
+    } -result {}
 
     test column_search-any-gt-6.0 {
         Match missing element
@@ -1433,57 +1449,57 @@ namespace eval tarray::test {
     } -result [crep any {acb bca cab cba}] -match column
 
     test column_search-any-pat-4.0 {
-        Match on element -start
+        Match on element -range
     } -body {
-        tarray::column search -pat -start 2 [newcolumn any {abc acb bca bac cab cba}] *c
+        tarray::column search -pat -range 2 [newcolumn any {abc acb bca bac cab cba}] *c
     } -result 3
 
     test column_search-any-pat-4.1 {
-        Match fail -start
+        Match fail -range
     } -body {
-        tarray::column search -pat -start 1 [newcolumn any {zzz bbb ccc ddd}] a*
+        tarray::column search -pat -range 1 [newcolumn any {zzz bbb ccc ddd}] a*
     } -result -1
 
     test column_search-any-pat-4.2 {
-        Match -inline -start
+        Match -inline -range
     } -body {
-        tarray::column search -pat -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c
+        tarray::column search -pat -range 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c
     } -result bac
 
     test column_search-any-pat-4.3 {
-        Match -all -start
+        Match -all -range
     } -body {
-        tarray::column search -all -pat -start 2 [newcolumn any {abc acb bca bac cab cba dcb}] *c?
+        tarray::column search -all -pat -range 2 [newcolumn any {abc acb bca bac cab cba dcb}] *c?
     } -result [crep int {2 6}] -match column
 
     test column_search-any-pat-4.4 {
-        Match -all -inline -start
+        Match -all -inline -range
     } -body {
-        tarray::column search -all -pat -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
+        tarray::column search -all -pat -range 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
     } -result [crep any {bca}] -match column
 
     test column_search-any-pat-4.5 {
-        Match -start -not
+        Match -range -not
     } -body {
-        tarray::column search -not -pat -start 2 [newcolumn any {abc acb bca bac cab cba}] *c?
+        tarray::column search -not -pat -range 2 [newcolumn any {abc acb bca bac cab cba}] *c?
     } -result 3
 
     test column_search-any-pat-4.6 {
-        Match -inline -start -not -all
+        Match -inline -range -not -all
     } -body {
-        tarray::column search -not -all -pat -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
+        tarray::column search -not -all -pat -range 2 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
     } -result [crep any {bac cab cba}] -match column
 
     test column_search-any-pat-4.7 {
-        Match -all -inline -start -1
+        Match -all -inline -range 0
     } -body {
-        tarray::column search -all -pat -start -1 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
+        tarray::column search -all -pat -range 0 -inline [newcolumn any {abc acb bca bac cab cba}] *c?
     } -result [crep any {acb bca}] -match column
 
     test column_search-any-pat-4.8 {
-        Match -all -inline -start out of bounds
+        Match -all -inline -range out of bounds
     } -body {
-        tarray::column search -pat -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] c*
+        tarray::column search -pat -range 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] c*
     } -result [crep any {}] -match column
 
     test column_search-any-pat-5.0 {
@@ -1605,57 +1621,57 @@ namespace eval tarray::test {
     } -result [crep any {abc acb bca bac}] -match column
 
     test column_search-any-re-4.0 {
-        Match on element -start
+        Match on element -range
     } -body {
-        tarray::column search -re -start 2 [newcolumn any {abc acb bca bac cab cba}] ..c
+        tarray::column search -re -range 2 [newcolumn any {abc acb bca bac cab cba}] ..c
     } -result 3
 
     test column_search-any-re-4.1 {
-        Match fail -start
+        Match fail -range
     } -body {
-        tarray::column search -re -start 1 [newcolumn any {zzz bbb ccc ddd}] a
+        tarray::column search -re -range 1 [newcolumn any {zzz bbb ccc ddd}] a
     } -result -1
 
     test column_search-any-re-4.2 {
-        Match -inline -start
+        Match -inline -range
     } -body {
-        tarray::column search -re -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] ..c
+        tarray::column search -re -range 2 -inline [newcolumn any {abc acb bca bac cab cba}] ..c
     } -result bac
 
     test column_search-any-re-4.3 {
-        Match -all -start
+        Match -all -range
     } -body {
-        tarray::column search -all -re -start 2 [newcolumn any {abc acb bca bac cab cba dcb}] c.
+        tarray::column search -all -re -range 2 [newcolumn any {abc acb bca bac cab cba dcb}] c.
     } -result [crep int {2 4 5 6}] -match column
 
     test column_search-any-re-4.4 {
-        Match -all -inline -start
+        Match -all -inline -range
     } -body {
-        tarray::column search -all -re -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] ac
+        tarray::column search -all -re -range 2 -inline [newcolumn any {abc acb bca bac cab cba}] ac
     } -result [crep any {bac}] -match column
 
     test column_search-any-re-4.5 {
-        Match -start -not
+        Match -range -not
     } -body {
-        tarray::column search -not -re -start 2 [newcolumn any {abc acb bca bac cab cba}] b.*c
+        tarray::column search -not -re -range 2 [newcolumn any {abc acb bca bac cab cba}] b.*c
     } -result 4
 
     test column_search-any-re-4.6 {
-        Match -inline -start -not -all
+        Match -inline -range -not -all
     } -body {
-        tarray::column search -not -all -re -start 2 -inline [newcolumn any {abc acb bca bac cab cba}] b.
+        tarray::column search -not -all -re -range 2 -inline [newcolumn any {abc acb bca bac cab cba}] b.
     } -result [crep any {cab}] -match column
 
     test column_search-any-re-4.7 {
-        Match -all -inline -start -1
+        Match -all -inline -range 0
     } -body {
-        tarray::column search -all -re -start -1 -inline [newcolumn any {abc acb bca bac cab cba}] c.
+        tarray::column search -all -re -range 0 -inline [newcolumn any {abc acb bca bac cab cba}] c.
     } -result [crep any {acb bca cab cba}] -match column
 
     test column_search-any-re-4.8 {
-        Match -all -inline -start out of bounds
+        Match -all -inline -range out of bounds
     } -body {
-        tarray::column search -re -start 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] c
+        tarray::column search -re -range 10 -inline -all [newcolumn any {aaa zzz bbb eee ccc}] c
     } -result [crep any {}] -match column
 
     test column_search-any-re-5.0 {
@@ -1700,7 +1716,7 @@ namespace eval tarray::test {
     test column_search-any-eq-nocase-1.1 {
         Verify case sensitivity without -nocase
     } -body {
-        tarray::column search -eq -start 1 [newcolumn any {aaa AAA aaa AAA}] aaa
+        tarray::column search -eq -range 1 [newcolumn any {aaa AAA aaa AAA}] aaa
     } -result 2
 
     test column_search-any-eq-nocase-2.0 {
@@ -1712,7 +1728,7 @@ namespace eval tarray::test {
     test column_search-any-eq-nocase-2.1 {
         Verify case insensitivity with -nocase
     } -body {
-        tarray::column search -eq -nocase -start 1 [newcolumn any {aaa AAA aaa AAA}] aaa
+        tarray::column search -eq -nocase -range 1 [newcolumn any {aaa AAA aaa AAA}] aaa
     } -result 1
 
     test column_search-any-pat-nocase-1.0 {
@@ -1724,7 +1740,7 @@ namespace eval tarray::test {
     test column_search-any-pat-nocase-1.1 {
         Verify case sensitivity without -nocase
     } -body {
-        tarray::column search -pat -start 1 [newcolumn any {aaa AAA aaa AAA}] a*
+        tarray::column search -pat -range 1 [newcolumn any {aaa AAA aaa AAA}] a*
     } -result 2
 
     test column_search-any-pat-nocase-2.0 {
@@ -1736,7 +1752,7 @@ namespace eval tarray::test {
     test column_search-any-pat-nocase-2.1 {
         Verify case insensitivity with -nocase
     } -body {
-        tarray::column search -pat -nocase -start 1 [newcolumn any {aaa AAA aaa AAA}] a*
+        tarray::column search -pat -nocase -range 1 [newcolumn any {aaa AAA aaa AAA}] a*
     } -result 1
 
     test column_search-any-re-nocase-1.0 {
@@ -1748,7 +1764,7 @@ namespace eval tarray::test {
     test column_search-any-re-nocase-1.1 {
         Verify case sensitivity without -nocase
     } -body {
-        tarray::column search -re -start 1 [newcolumn any {aaa AAA aaa AAA}] a
+        tarray::column search -re -range 1 [newcolumn any {aaa AAA aaa AAA}] a
     } -result 2
 
     test column_search-any-re-nocase-2.0 {
@@ -1760,7 +1776,7 @@ namespace eval tarray::test {
     test column_search-any-re-nocase-2.1 {
         Verify case insensitivity with -nocase
     } -body {
-        tarray::column search -re -nocase -start 1 [newcolumn any {aaa AAA aaa AAA}] a
+        tarray::column search -re -nocase -range 1 [newcolumn any {aaa AAA aaa AAA}] a
     } -result 1
 
     test column_search-any-lt-nocase-1.0 {
