@@ -20,4 +20,5 @@ lassign $argv output_dir
 if {$output_dir eq ""} {
     set output_dir [file join [file dirname [info script]] output]
 }
-exec [info nameofexecutable] $dtplite -postnav Introduction files/tarray.html -postnav "Column Reference" files/column.html -postnav "Table Reference" files/table.html -toc tarray.tocdoc -o $output_dir html [file dirname [ info script]]
+
+exec [info nameofexecutable] $dtplite -postnav Introduction files/tarray.html -postnav "Column Reference" files/column.html -postnav "Table Reference" files/table.html -postnav "Building Tarray" files/build.html -toc tarray.tocdoc -o $output_dir html [file dirname [ info script]]
