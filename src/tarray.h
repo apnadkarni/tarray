@@ -159,6 +159,7 @@ TCL_RESULT ta_memory_error(Tcl_Interp *, int size);
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
+TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *);
 TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);

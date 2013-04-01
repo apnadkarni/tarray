@@ -217,6 +217,18 @@ TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *o)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Invalid index range specification '%s'.",
+                                       Tcl_GetString(o)));
+        Tcl_SetErrorCode(ip, "TARRAY", "RANGE", "VALUE", NULL);
+    }
+    return TCL_ERROR;
+}
+
+
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
 {
     Tcl_WideInt wide;
