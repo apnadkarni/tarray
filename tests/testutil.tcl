@@ -430,16 +430,27 @@ if {![info exists tarray::test::known]} {
             return [tarray::column create int [concat {*}$args]]
         }
 
-        proc samplerange {type {low 0} {high end}} {
+        proc samplerange {type args} {
             variable sample
-            return [lrange $sample($type) $low $high]
+            if {[llength $args] == 0} {
+                set args {0 end}
+            }
+            if {[llength $args] & 1} {
+                # Odd number of indices, repeat last
+                lappend args [lindex $args end]
+            }
+            set l {}
+            foreach {low high} $args {
+                lappend l {*}[lrange $sample($type) $low $high]
+            }
+            return $l
         }
 
-        proc samplecolumn {type {low 0} {high end}} {
+        proc samplecolumn {type args} {
             variable sample
             # NOTE: do NOT replace this with a pre-created sample column as
             # tests might depend on a unshared column object
-            return [tarray::column create $type [samplerange $type $low $high]]
+            return [tarray::column create $type [samplerange $type {*}$args]]
         }
 
         proc samplevalue {type {pos 0}} {
