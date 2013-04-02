@@ -665,9 +665,9 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (n > 2
                 || (n > 0
                     &&
-                    (ta_convert_index(ip, range[0], &search.lower, endval, 0, INT_MAX) != TCL_OK
+                    (ta_convert_index(ip, range[0], &search.lower, endval, INT_MIN, INT_MAX) != TCL_OK
                      || (n > 1
-                         && ta_convert_index(ip, range[1], &search.upper, endval, 0, INT_MAX) != TCL_OK)))) {
+                         && ta_convert_index(ip, range[1], &search.upper, endval, INT_MIN, INT_MAX) != TCL_OK)))) {
                 ta_invalid_range_error(ip, orange);
                 Tcl_DecrRefCount(orange);
                 return TCL_ERROR;
