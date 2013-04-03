@@ -3103,6 +3103,130 @@ namespace eval tarray::test {
         tarray::column search -re -range {3 1} -inline -all [newcolumn any {aaa zzz bbb eee ccc}] .
     } -result [crep any {}] -match column
 
+    test column_search-any-re-4.19 {
+        Match on element -indices
+    } -body {
+        tarray::column search -re -indices {1 3 4} [newcolumn any {
+            aaa bbb aaa abc def a
+        }] a.*
+    } -result 3
+
+    test column_search-any-re-4.20 {
+        Match on element -indices (fail)
+    } -body {
+        tarray::column search -re -indices {1 3 4} [newcolumn any {
+            aaa bbb aaa bc def a
+        }] a.*
+    } -result -1
+
+    test column_search-any-re-4.21 {
+        Match -inline -indices
+    } -body {
+        tarray::column search -re -inline -indices {1 3 4 7} [newcolumn any {
+            a b ab abc abd
+        }] a.*
+    } -result abc
+
+    test column_search-any-re-4.22 {
+        Match -indices out of order indices
+    } -body {
+        tarray::column search -nocase -re -indices {1 4 3 7} [newcolumn any {
+            a b ab abc ABC a a
+        }] a.*
+    } -result 4
+
+    test column_search-any-re-4.23 {
+        Match -all -indices (negative and out of bounds indices)
+    } -body {
+        tarray::column search -re -all -indices {-1 3 5 7} [newcolumn any {
+            ab A c A ab ad a b
+        }] a.*
+    } -result [crep int {5}] -match column
+
+    test column_search-any-re-4.24 {
+        Match -not -all -indices -inline (negative and out of bounds indices)
+    } -body {
+        tarray::column search -inline -nocase -not -re -all -indices {-1 3 5 6 7} [newcolumn any {
+            a b x X e f g x
+        }] x.*
+    } -result [crep any {f g}] -match column
+
+    test column_search-any-re-4.25 {
+        Match -indices -range -all
+    } -body {
+        tarray::column search -nocase -re -all -range {1 5} -indices {0 5 7 5 4} [newcolumn any {
+            a xy xy xy XY xy xy xy
+        }] x.*
+    } -result [crep int {5 5 4}] -match column
+
+    test column_search-any-re-4.26 {
+        Match -indices -range -inline -all -not
+    } -body {
+        tarray::column search -not -re -inline -all -range {1 5} -indices {0 5 7 5 4} [newcolumn any {
+            a x x e X f g x
+        }] x.*
+    } -result [crep any {f f X}] -match column
+
+    test column_search-any-re-4.27 {
+        Match -indices -range
+    } -body {
+        tarray::column search -nocase -re -range {1 5} -indices {0 5 7 5 4} [newcolumn any {
+            a x x x x X x
+        }] x.*
+    } -result 5
+
+    test column_search-any-re-4.28 {
+        Match -indices -range -inline -not
+    } -body {
+        tarray::column search -inline -not -re -range {1 5} -indices {0 4 5 7 } [newcolumn any {
+            a b c d a f g
+        }] a.*
+    } -result f
+
+    test column_search-any-re-4.29 {
+        Match -indices (empty)
+    } -body {
+        tarray::column search -re -indices {0 1} [newcolumn any {}] x.*
+    } -result -1
+
+    test column_search-any-re-4.30 {
+        Match -indices -inline (empty)
+    } -body {
+        tarray::column search -inline -re -indices {0} [newcolumn any {}] x.*
+    } -result {}
+
+    test column_search-any-re-4.31 {
+        Match -indices -range reversed
+    } -body {
+        tarray::column search -re -range {5 0} -indices {0 1 2 3 4 5 6} [newcolumn any {
+            x x x x
+        }] x.*
+    } -result -1
+
+    test column_search-any-re-4.32 {
+        Match -indices empty
+    } -body {
+        tarray::column search -re -indices {} [newcolumn any {
+            x x x x x
+        }] x
+    } -result -1
+
+    test column_search-any-re-4.33 {
+        Match -indices -inline empty
+    } -body {
+        tarray::column search -inline -re -indices {} [newcolumn any {
+            x x x x x
+        }] x
+    } -result {}
+
+    test column_search-any-re-4.34 {
+        Match -indices -all empty
+    } -body {
+        tarray::column search -all -re -indices {} [newcolumn any {
+            x x x x x
+        }] x
+    } -result [crep int {}] -match column
+
     test column_search-any-re-5.0 {
         Match missing element
     } -body {
