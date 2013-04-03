@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2012, Ashok P. Nadkarni
+ * Copyright (c) 2012-2013, Ashok P. Nadkarni
  * All rights reserved.
  *
- * See the file LICENSE for license
+ * See the file license.terms for license
  */
 
 #include "tarray.h"
@@ -11,10 +11,10 @@
  * Options for 'tarray search'
  */
 static const char *ta_search_switches_e[] = {
-    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", NULL
+    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-indices", NULL
 };
 enum ta_search_switches_e {
-    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE
+    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_INDICES
 };
 /* Search flags */
 #define TA_SEARCH_INLINE 1  /* Return values, not indices */
@@ -619,6 +619,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     ta_search_t search;
     Tcl_Obj *orange;
     Tcl_Obj **range;
+    TCL_RESULT status;
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "?options? tarray pattern");
@@ -635,18 +636,41 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     search.upper = haystackP->used - 1;
     search.op = TA_SEARCH_OPT_EQ;
     for (i = 1; i < objc-2; ++i) {
-	if (Tcl_GetIndexFromObj(ip, objv[i], ta_search_switches_e, "option", 0, &opt)
-            != TCL_OK) {
-            return TCL_ERROR;
-	}
+	status = Tcl_GetIndexFromObj(ip, objv[i], ta_search_switches_e, "option", 0, &opt);
+        if (status != TCL_OK)
+            goto vamoose;
+
         switch ((enum ta_search_switches_e) opt) {
         case TA_SEARCH_OPT_ALL: search.flags |= TA_SEARCH_ALL; break;
         case TA_SEARCH_OPT_INLINE: search.flags |= TA_SEARCH_INLINE; break;
         case TA_SEARCH_OPT_INVERT: search.flags |= TA_SEARCH_INVERT; break;
         case TA_SEARCH_OPT_NOCASE: search.flags |= TA_SEARCH_NOCASE; break;
+        case TA_SEARCH_OPT_INDICES:
+            if (search.indices) {
+                thdr_decr_refs(search.indices);
+                search.indices = NULL;
+            }
+            if (i > objc-4) {
+                status = ta_missing_arg_error(ip, "-indices");
+                goto vamoose;
+            }
+            ++i;
+            switch (ta_obj_to_indices(ip, objv[i], 0, 0, &search.indices, NULL)) {
+            case TA_INDEX_TYPE_ERROR:
+                status = TCL_ERROR;
+                goto vamoose;
+            case TA_INDEX_TYPE_INT:
+                Tcl_Panic("ta_obj_to_indices returned TA_INDEX_TYPE_INT when passed NULL pointer");
+                break;
+            case TA_INDEX_TYPE_THDR:
+                break;
+            }
+            break;
         case TA_SEARCH_OPT_RANGE:
-            if (i > objc-4)
-                return ta_missing_arg_error(ip, "-start");
+            if (i > objc-4) {
+                status = ta_missing_arg_error(ip, "-range");
+                goto vamoose;
+            }
             ++i;
             /*
              * To prevent shimmering, check if the index object is same
@@ -658,8 +682,9 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                 orange = objv[i];
                 Tcl_IncrRefCount(orange);
             }
-            if (Tcl_ListObjGetElements(ip, orange, &n, &range) != TCL_OK)
-                return TCL_ERROR;
+            status = Tcl_ListObjGetElements(ip, orange, &n, &range);
+            if (status != TCL_OK)
+                goto vamoose;
             /* Note if # elements (n) is 0, the defaults are used */
             endval = haystackP->used - 1;
             if (n > 2
@@ -668,9 +693,9 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                     (ta_convert_index(ip, range[0], &search.lower, endval, INT_MIN, INT_MAX) != TCL_OK
                      || (n > 1
                          && ta_convert_index(ip, range[1], &search.upper, endval, INT_MIN, INT_MAX) != TCL_OK)))) {
-                ta_invalid_range_error(ip, orange);
+                status = ta_invalid_range_error(ip, orange);
                 Tcl_DecrRefCount(orange);
-                return TCL_ERROR;
+                goto vamoose;
             }
             Tcl_DecrRefCount(orange);
             break;
@@ -694,18 +719,28 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     switch (haystackP->type) {
     case TA_BOOLEAN:
-        return thdr_search_boolean(ip, haystackP, objv[objc-1], &search);
+        status = thdr_search_boolean(ip, haystackP, objv[objc-1], &search);
+        break;
     case TA_INT:
     case TA_UINT:
     case TA_BYTE:
     case TA_WIDE:
-        return thdr_search_entier(ip, haystackP, objv[objc-1], &search);
+        status = thdr_search_entier(ip, haystackP, objv[objc-1], &search);
+        break;
     case TA_DOUBLE:
-        return thdr_search_double(ip, haystackP, objv[objc-1], &search);
+        status = thdr_search_double(ip, haystackP, objv[objc-1], &search);
+        break;
     case TA_ANY:
-        return thdr_search_obj(ip, haystackP, objv[objc-1], &search);
+        status = thdr_search_obj(ip, haystackP, objv[objc-1], &search);
+        break;
     default:
         ta_type_panic(haystackP->type);
         return TCL_ERROR;       /* To avoid compiler warning about return */
     }
+
+vamoose:
+    if (search.indices)
+        thdr_decr_refs(search.indices);
+
+    return status;
 }
