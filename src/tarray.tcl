@@ -8,9 +8,11 @@ proc tarray::table::create {args} {
     set cols {}
     switch -exact -- [llength $args] {
         1 {
-            # Verify each element is a column
+            # Verify each element is a column and of the correct size
             foreach col [lindex $args 0] {
-                tarray::column::size $col
+                if {[tarray::column::size $col] != [tarray::column::size [lindex $args 0 0]]} {
+                    error "Columns in table initializer are not the same size."
+                }
                 lappend cols $col
             }
             return [tarray::column::create any $cols]
