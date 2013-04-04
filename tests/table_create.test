@@ -95,6 +95,11 @@ namespace eval tarray::test {
         tarray::table::create [list int] {{notanint}}
     } -result "*expected integer*" -returnCodes error -match glob
 
+    test table_create-3.2 {
+        Test creation with mismatched column sizes
+    } -body {
+        tarray::table::create [list [samplecolumn int 0 10] [samplecolumn int 0 9]]
+    } -result "Columns*not the same size." -returnCodes error -match glob
 
 }
 ::tcltest::cleanupTests
