@@ -1,4 +1,4 @@
-[section "Standard Options"]
+[subsection "Standard Options"]
 Many commands take standard options which are described here.
 [para]
 Commands returning values from typed columns and tables take the following

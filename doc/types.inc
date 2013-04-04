@@ -1,4 +1,4 @@
-[section "Types"]
+[subsection "Types"]
 All elements in a typed column must be of the type specified when
 the column is created. The following element types are available:
 [list_begin options]

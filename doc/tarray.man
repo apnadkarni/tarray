@@ -2,70 +2,43 @@
 [manpage_begin "tarray" n ""]
 [copyright "2012-2013 Ashok P. Nadkarni"]
 [moddesc "Typed Arrays"]
-[titledesc "Commands related to typed arrays"]
+[titledesc "Introduction to typed arrays"]
 
 [description]
 
-The [cmd tarray] extension implements typed arrays and associated commands
-[uri tcolumn.html [cmd column]] and [uri table.html [cmd table]].
+The [cmd tarray] extension implements a new Tcl collection data
+type - typed array - and associated commands
+[uri column.html [cmd column]] and [uri table.html [cmd table]].
+A typed array stores elements of a specific data type in native format.
 The primary motivation for this extension
 is efficient memory utilization and speed of certain operations in
 applications dealing with very large numbers of elements.
-Typed arrays and tables do not really provide any additional
+Typed columns and tables do not really provide any additional
 capabilities over Tcl's built-in commands, particularly [cmd list] and
 [cmd dict] and the script libraries based on these. Their primary use is
-in applications with large number of data items.
-
-[section Installation]
-Binary packages for some platforms are available from the
-[uri http://www.sourceforge.net/projects/tarray "SourceForge Tarray download"]
-area. See [uri build.html "Building tarray"] for instructions to
-build the extension for other platforms.
-
-[section Usage]
+in applications with large number of data items where memory consumption
+and cost of operations, such as searching and sorting, is greatly
+reduced.
 
 [para]
-The extension implements two data types - [uri column.html columns]
-and [uri table.html tables]. The general term [emph "typed array"]
-is used to refer to either of these.
-
-A typed column is an array containing elements of a single 
-[sectref "Types" type]
-that is specified when the column is created. The command 
-[uri column.html [cmd tarray::column]] can be used
-to create and manipulate typed columns.
-operations.
-[para]
-A typed table is an ordered sequence of typed columns
-of equal size. It can be also be viewed as an array of records where the
-record fields happen to use column-wise storage. The corresponding
-[uri table.html [cmd tarray::table]] command operates on typed tables.
+The [cmd tarray] extension was inspired in part by
+[uri http://flightaware.github.com/speedtables/ Speedtables] and to 
+a lesser extent by [uri http://tclral.sourceforge.net/ TclRal].
 
 [para]
-Typed arrays can be used either by themselves or as building blocks for more
-sophisticated data structures. At the most basic level, typed arrays
-provide memory dense storage; for example, at one extreme, typed 
-arrays of booleans occupy two orders of magnitude less storage than the 
-equivalent Tcl boolean values.
-[para]
-This basic usage also brings performance benefits from several sources.
-The compact memory storage of typed values means better cache and 
-working set utilization when working with large amounts of data. Native
-format storage means sorting and searching operations are faster.
+The philosophy behind [cmd tarray] is to provide efficient facilities 
+on top of which more sophisticated data structures, possibly customized
+for specific applications, can be easily scripted and experimented with.
+Therefore, unlike
+[uri http://flightaware.github.com/speedtables/ Speedtables], [cmd tarray]
+does not require creation and recompilation of a new extension for
+each table definition. Moreover, [cmd tarray] provides value-based
+semantics so that columns and tables can be used as basic building blocks.
+[cmd tarray] expects additional facilities that Speedtables provides,
+like remote access, will be done at the script level.
 
 [para]
-In addition, typed arrays may be used as building blocks for more
-sophisticated data structures. For example, the
-array based storage may not be directly suitable for 
-applications that do a lot of insertions and deletions 
-(although on modern processors
-the point at which that happens is quite large).
-For such
-applications, the package provides sufficient flexibility that more
-suitable structures, such as B-Trees may be easily scripted on top
-without a significant performance penalty.
+How well this works in practice remains to be seen
+and hence [cmd tarray] is still deemed experimental.
 
-[include types.inc]
-
-[include indices.inc]
 [manpage_end]
