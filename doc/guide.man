@@ -1,0 +1,68 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin "tarray_guide" n ""]
+[copyright "2012-2013 Ashok P. Nadkarni"]
+[moddesc "Typed Arrays"]
+[titledesc "Typed Arrays Programmer's Guide"]
+
+[description]
+This document is a programmer's guide for installing and using the
+[cmd tarray] extension from Tcl.
+
+[section Installation]
+Binary packages for some platforms are available from the
+[uri http://www.sourceforge.net/projects/tarray "SourceForge Tarray download"]
+area. See [uri build.html "Building tarray"] for instructions to
+build the extension for other platforms.
+[para]
+To install the extension,
+extract the files from the distribution to any directory that is included
+in your Tcl installation's [var auto_path] variable.
+
+[section Concepts]
+
+
+The extension implements two data types - [uri column.html columns]
+and [uri table.html tables]. The general term [emph "typed array"]
+is used to refer to either of these.
+
+A typed column is an array containing elements of a single 
+[sectref "Types" type]
+that is specified when the column is created. The command 
+[uri column.html [cmd tarray::column]] can be used
+to create and manipulate typed columns.
+operations.
+[para]
+A typed table is an ordered sequence of typed columns
+of equal size. It can be also be viewed as an array of records where the
+record fields happen to use column-wise storage. The corresponding
+[uri table.html [cmd tarray::table]] command operates on typed tables.
+
+[para]
+Typed arrays can be used either by themselves or as building blocks for more
+sophisticated data structures. At the most basic level, typed arrays
+provide memory dense storage; for example, at one extreme, typed 
+arrays of booleans occupy two orders of magnitude less storage than the 
+equivalent Tcl boolean values.
+[para]
+This basic usage also brings performance benefits from several sources.
+The compact memory storage of typed values means better cache and 
+working set utilization when working with large amounts of data. Native
+format storage means sorting and searching operations are faster.
+
+[para]
+In addition, typed arrays may be used as building blocks for more
+sophisticated data structures. For example, the
+array based storage may not be directly suitable for 
+applications that do a lot of insertions and deletions 
+(although on modern processors
+the point at which that happens is quite large).
+For such
+applications, the package provides sufficient flexibility that more
+suitable structures, such as B-Trees may be easily scripted on top
+without a significant performance penalty.
+
+[include types.inc]
+
+[include indices.inc]
+
+[manpage_end]

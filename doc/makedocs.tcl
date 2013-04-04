@@ -21,4 +21,9 @@ if {$output_dir eq ""} {
     set output_dir [file join [file dirname [info script]] output]
 }
 
-exec [info nameofexecutable] $dtplite -postnav Introduction files/tarray.html -postnav "Column Reference" files/column.html -postnav "Table Reference" files/table.html -postnav "Building Tarray" files/build.html -toc tarray.tocdoc -o $output_dir html [file dirname [ info script]]
+if {1} {
+    exec [info nameofexecutable] $dtplite -postnav Introduction files/tarray.html -postnav "Programmmer's Guide" files/guide.html -postnav "Column Reference" files/column.html -postnav "Table Reference" files/table.html -postnav "Building Tarray" files/build.html -toc tarray.tocdoc -o $output_dir html [file dirname [ info script]]
+} else {
+    # Merge version for testing dtplite
+    exec [info nameofexecutable] $dtplite -merge -o $output_dir html [file dirname [ info script]]
+}

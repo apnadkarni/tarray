@@ -1,4 +1,4 @@
-[section Indices]
+[subsection Indices]
 An index into a typed column or table can be specified as either an integer
 or the keyword [const end]. As in Tcl's list commands, [const end] specifies
 the index of the last element in the tarray or the index after it, depending

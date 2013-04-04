@@ -11,11 +11,7 @@
 The [cmd tarray] extension implements typed arrays and associated commands
 [cmd column] and [uri table.html [cmd table]]. This page documents typed columns.
 See [uri tarray.html] for an overview.
-[para]
-
-[include types.inc]
-
-[section "Columns"] 
+[subsection Columns]
 A typed array column contains elements of a single 
 [sectref "Types" type]
 that is specified when it is created. The command [cmd tarray::column]
@@ -26,11 +22,12 @@ operations.
 Related to columns are [uri table.html tables] which are ordered
 sequences of typed columns.
 
+[include types.inc]
 [include indices.inc]
+
+[section "Command Reference"]
 [include options.inc]
-
-[section Commands]
-
+[subsection Commands]
 Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
