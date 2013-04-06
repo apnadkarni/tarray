@@ -10,7 +10,7 @@ of two forms -
 a [emph range] which includes all indices between a lower and an upper 
 bound (inclusive), and
 an [emph "index list"] which may be a list of integers, or a
-[const int] [uri tcolumn.html "typed column"]. This latter allows the
+[const int] [uri column.html "typed column"]. This latter allows the
 indices returned by commands such as [cmd "column search"] to be 
 efficiently passed to other commands. When indices are specified 
 as a list cause an

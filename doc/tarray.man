@@ -6,6 +6,12 @@
 
 [description]
 
+[emph {
+Note that this extension is very much in an experimental stage. It should
+be robust enough with a fairly comprehensive test suite. However, the API
+is subject to change and the benefits in practice are still to be determined.
+}]
+
 The [cmd tarray] extension implements a new Tcl collection data
 type - typed array - and associated commands
 [uri column.html [cmd column]] and [uri table.html [cmd table]].
@@ -36,9 +42,5 @@ each table definition. Moreover, [cmd tarray] provides value-based
 semantics so that columns and tables can be used as basic building blocks.
 [cmd tarray] expects additional facilities that Speedtables provides,
 like remote access, will be done at the script level.
-
-[para]
-How well this works in practice remains to be seen
-and hence [cmd tarray] is still deemed experimental.
 
 [manpage_end]
