@@ -8,7 +8,7 @@
 This document is a programmer's guide for installing and using the
 [cmd tarray] extension from Tcl.
 
-[section Installation]
+[section "Installation and Loading"]
 Binary packages for some platforms are available from the
 [uri http://www.sourceforge.net/projects/tarray "SourceForge Tarray download"]
 area. See [uri build.html "Building tarray"] for instructions to
@@ -17,10 +17,13 @@ build the extension for other platforms.
 To install the extension,
 extract the files from the distribution to any directory that is included
 in your Tcl installation's [var auto_path] variable.
-
+[para]
+Once installed, the extension can be loaded with the standard Tcl
+[cmd "package require"] command.
+[example "package require tarray"]
 [section Concepts]
 
-
+[subsection "Columns and Tables"]
 The extension implements two data types - [uri column.html columns]
 and [uri table.html tables]. The general term [emph "typed array"]
 is used to refer to either of these.
@@ -38,31 +41,225 @@ record fields happen to use column-wise storage. The corresponding
 [uri table.html [cmd tarray::table]] command operates on typed tables.
 
 [para]
-Typed arrays can be used either by themselves or as building blocks for more
-sophisticated data structures. At the most basic level, typed arrays
-provide memory dense storage; for example, at one extreme, typed 
-arrays of booleans occupy two orders of magnitude less storage than the 
-equivalent Tcl boolean values.
-[para]
-This basic usage also brings performance benefits from several sources.
-The compact memory storage of typed values means better cache and 
-working set utilization when working with large amounts of data. Native
-format storage means sorting and searching operations are faster.
-
-[para]
-In addition, typed arrays may be used as building blocks for more
-sophisticated data structures. For example, the
-array based storage may not be directly suitable for 
-applications that do a lot of insertions and deletions 
-(although on modern processors
-the point at which that happens is quite large).
-For such
-applications, the package provides sufficient flexibility that more
-suitable structures, such as B-Trees may be easily scripted on top
-without a significant performance penalty.
+Note there is no notion of field or column names for a table. A table
+is treated purely as a sequence of columns. Any capability like field
+names has to be scripted on top using tables as the underlying store and
+mapping field names to column positions in the table.
 
 [include types.inc]
 
 [include indices.inc]
+
+[section "Using Typed Arrays"]
+
+The [cmd tarray] extension implements two commands,
+[uri column.html [cmd column]] and [uri table.html [cmd table]],
+both in the [cmd tarray::] namespace. Each is an ensemble of subcommands
+that operate on columns and table respectively.
+The examples below assume the commands have been imported
+into the calling namespace or are in its namespace path.
+
+[subsection "Creating Typed Arrays"]
+
+The [cmd create] subcommand creates columns and tables.
+
+[example {column create int}]
+
+will create a typed column that can hold element of the [cmd int] type.
+The column can be initialized at creation time.
+
+[example {column create int {0 1 2 3}}]
+
+initializes the first four elements of the array. 
+
+[para]
+The array will be grown as needed but as an optimization, preallocation
+may be requested.
+
+[example {column create int {0 1 2 3} 1000}]
+
+will request a preallocation of a thousand elements with the first four
+being initialized.
+
+Tables can be initialized in analogous fashion, for example, to create
+a initialized table
+
+[example {table create {any wide} {{China 1350000000} {Vatican 850}}}]
+
+The initializers are specified as a nested list in the above example.
+Alternatively, they can also be specified as a list of columns (which
+have to be the same size).
+[example_begin]
+table create {any wide} [lb]list [lb]column create any {China Vatican}] [lb]column create int {1350000000 850}]]
+[example_end]
+
+[subsection "Specifying indexes in typed arrays"]
+
+Most commands require specification of the array locations
+to be targeted. This specification can be
+[list_begin itemized]
+[item] a single index,
+[item] a contiguous range of indices, or 
+[item] a list of indexes in arbitrary order specified as a list of integers
+or a column of type integer.
+[list_end]
+[example_begin]
+set col [lb]column create double {}]
+set col [lb]column fill $col 1.0 0 9]
+set col [lb]column fill $col 2.0 3]
+set col [lb]column fill $col 3.0 {2 7}]
+set col [lb]column fill $col 3.0 [lb]column create int {2 7}]]
+[example_end]
+The initial [cmd fill] initializes the first 10 elements of the column
+to [const 1.0]. The second one sets the single element at index [const 3]
+to [const 2.0]. The last two
+set elements at indices [const 2] and [const 7] to [const 3.0].
+[para]
+The last form, an integer column, is useful because some commands return
+indices in that form. For example, the following will replace all elements
+with negative values with [const 0.0].
+[example_begin]
+set col [lb]column fill $col 0.0 [lb]column search -all -lt $col 0]]
+[example_end]
+
+[para]
+Although the above example used columns, table indices are specified
+in identical fashion.
+
+[subsection "Values and Variables"]
+Commands that modify typed arrays come in two flavors: those that operate on
+column and table values and return the modified column or table as a result
+(for example [cmd fill]), 
+and those that modify a Tcl variable containing the column or table
+(for example [cmd vfill]). The difference is similar to how different
+Tcl list commands behave, e.g. [cmd linsert] and [cmd lreplace] versus
+[cmd lset] and [cmd lappend].
+
+[para]
+The examples above used the value-oriented form of the commands where
+the [cmd fill] modifies a copy of the contents of the [variable col]
+and returns the modified copy which is then stored back into [variable col].
+For large typed arrays, this is inefficient and the above would be better
+written as
+[example_begin]
+set col [lb]column create double {}]
+column vfill col 1.0 0 9]
+column vfill col 2.0 3]
+column vfill col 3.0 {2 7}]
+column vfill col 3.0 [lb]column create int {2 7}]]
+[example_end]
+Here the [cmd vfill] command is directly modifying the variable [variable col]
+and assuming the content is not shared, no copy needs to be made.
+
+[para]
+Almost every command that modifies a typed array has this dual equivalent.
+
+[comment "TBD - expand on the efficiency issues and benefits"]
+
+[subsection "Modifying typed arrays"]
+
+Storing values into a typed array may involve either storing a single
+value at multiple locations or a different value at each of the location.
+For the former, the [cmd fill] or [cmd vfill] commands are used
+as shown above.
+
+[para]
+To store different values, use the [cmd place] or [cmd put]
+commands or their variable modifying 
+equivalents [cmd vplace] and [cmd vput] shown below.
+
+[example_begin]
+column vplace col {300.0 200.0 500.0} {3 2 5}
+column vput col {7.0 8.0 9.0} 6
+column vput col {11.0 12.0}
+[example_end]
+The first command stores values [const 300.0], [const 200.0] and
+[const 500.0] at indices [const 3], [const 2] and [const 5]. Note the indices
+do not have to be specified in order. The second command stores
+[const 7.0], [const 8.0] and [const 9.0] in successive locations starting
+at index [const 6]. The last command appends [const 11.0], [const 12.0]
+to the end of the column.
+[para]
+Instead of specifying values as a list, they may also be specified
+as a column of the same type.
+[example_begin]
+set colA [lb]column create double {1.0 2.0 4.0}]
+column vplace colB $colA {3 2 5}
+[example_end]
+Again, this form is particularly useful when storing columns returned
+from commands into another column.
+
+[para]
+The [cmd table] command has equivalent commands. For example
+[example_begin]
+set populations [lb]table create {any wide} {}[rb]
+table vput populations {{China 1350000000} {Vatican 850}}
+[example_end]
+Note that just like in the case of columns, the list of values can
+be specified as a table instead, provided the column types are the same.
+
+[para]
+To summarize,
+[list_begin itemized]
+[item] The [cmd fill/vfill] commands store a single value at one or more
+locations specified as a single index, an index range or at specific
+indices specified as a list or [const int] column.
+[item] The [cmd place/vplace] commands store each value in a list
+at indices specified as a list or [const int] column.
+[item] The [cmd put/vput] commands store each value in a list at
+consecutive positions starting at a specified index. The number of
+of values stored depends on the size of the list, not an index range.
+[list_end]
+
+A point to be noted about all the above commands is that they may
+extend the size of the array if necessary. However, in the cases
+where an index list or index column is specified, there must not
+be any gaps in indices that extend the array.
+[example_begin]
+set populations [lb]table create {any wide} {{Vatican 850}  {China 1350000000}}[rb]
+table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2}
+table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
+[example_end]
+The first [cmd put] will succeed, changing the existing value at index 1
+and extending the array by two rows (note order of indices does not matter).
+The second [cmd put] will raise an error since index [const 2] neither exists
+nor is supplied in the command.
+
+[para]
+All the commands dicussed to this point overwrite an existing values, at
+the target locations. The [cmd "column insert"] and [cmd "column vinsert"]
+commands and their table equivalents store one value, or multiple values
+(passed as a list or a typed array),  into
+the type array, pushing existing elements further up.
+[example_begin]
+column insert $col 3.0 2 10]
+column insert $col {1.0 2.0 3.0} 2
+column insert $col $col 2
+[example_end]
+The first command returns a new column with the same value, [const 3.0],
+inserted [const 10] times at index [const 2]. The second command returns
+a new column with 
+all values in the passed list, [const 1.0], [const 2.0], [const 3.0],
+inserted at index [const 2].
+The last command returns a new column where all existing values in the
+column are reinserted at index [const 2].
+
+
+
+
+
+[subsection "Retrieving Data"]
+
+Specifying where to retrieve from
+
+Specifying format to retrieve it in.
+
+[subsection "Sorting and Searching"]
+
+For type any string rep is compared.
+
+[subsection "Tips"]
+Efficiency - reference counting
+"any" type - atomize
 
 [manpage_end]
