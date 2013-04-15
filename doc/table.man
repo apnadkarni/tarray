@@ -22,8 +22,7 @@ table command operates on typed tables.
 [include indices.inc]
 
 [section "Command Reference"]
-[include options.inc]
-[subsection Commands]
+
 Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
@@ -68,10 +67,8 @@ The size of the array will be extended if necessary.
 [call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
 Returns the values from a typed table at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
-The format
-of the returned values is controlled by [arg STANDARDOPTION]
-which may be any of the options controlling returned formats
-as specified in [sectref "Standard Options"].
+[include options.inc]
+
 
 [call [cmd "table index"] [arg TABLE] [arg INDEX]]
 Returns the value of the row at the position specified by [arg INDEX].
