@@ -347,12 +347,25 @@ how the outside search is limited to specific indices using the [cmd -among]
 option.
 
 [subsection "Sorting"]
-
+Columns can be sorted using the [cmd "column sort"] command or its
+variable targeting analogue [cmd "column vsort"].
+The commands take the [cmd -increasing] and [cmd -decreasing] options
+to determine the sort order.
+[para]
+The [cmd "column sort"] command also takes
+the [cmd -indices] option which results in the indices being returned 
+instead of the values themselves. This is useful for sorting tables
+based on a column. For example, assuming variable [var countries] has been
+initialized as above,
+[example_begin]
+table get -list $countries [lb]column sort -indices -nocase [lb]table column $countries 0]]
+[example_end]
+returns rows in the sorted order based on country name.
 
 [subsection "Other Commands"]
 
 size
-types
+type/types
 column
 
 [subsection "Tips"]
