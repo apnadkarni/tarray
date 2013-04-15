@@ -11,10 +11,10 @@
  * Options for 'tarray search'
  */
 static const char *ta_search_switches_e[] = {
-    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-indices", NULL
+    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-among", NULL
 };
 enum ta_search_switches_e {
-    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_INDICES
+    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_AMONG
 };
 /* Search flags */
 #define TA_SEARCH_INLINE 1  /* Return values, not indices */
@@ -645,7 +645,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         case TA_SEARCH_OPT_INLINE: search.flags |= TA_SEARCH_INLINE; break;
         case TA_SEARCH_OPT_INVERT: search.flags |= TA_SEARCH_INVERT; break;
         case TA_SEARCH_OPT_NOCASE: search.flags |= TA_SEARCH_NOCASE; break;
-        case TA_SEARCH_OPT_INDICES:
+        case TA_SEARCH_OPT_AMONG:
             if (search.indices) {
                 thdr_decr_refs(search.indices);
                 search.indices = NULL;
