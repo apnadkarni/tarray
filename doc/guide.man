@@ -325,7 +325,7 @@ and [const 3] [emph "in that order"]. The option [cmd -among] is
 particularly useful in combining searches as in the table example below.
 
 [para]
-To search tables, use the [cmd search] on individual columns.
+To search tables, use the [cmd search] on individual columns. For example,
 [example_begin]
 set countries [lb]table create {any wide double} {
     {Vatican      850     0.44}

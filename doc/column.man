@@ -98,30 +98,30 @@ not specified the elements are appended to the array.
 [call [cmd "column reverse"] [arg COLUMN]]
 Returns the typed column with order of elements reversed.
 
-[call [cmd "column search"] [opt "[option -range] [arg RANGE]"] [opt "[option -indices] [arg INDICES]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg COLUMN] [arg VALUE]]
+[call [cmd "column search"] [opt "[option -range] [arg RANGE]"] [opt "[option -among] [arg INDICES]"] [opt [option -all]] [opt [option -inline]] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg COLUMN] [arg VALUE]]
 Searches the specified typed column for a matching value. By default,
 the search starts at index 0 and returns the index of the first match,
 returning -1 if no matching value is found. 
 [para]
-Options [option -range] and [option -indices] modify which elements of
+Options [option -range] and [option -among] modify which elements of
 the column are examined. The [option -range] option limits the search
 to the range specified by [arg RANGE] which either consists of two integer
 indices denoting the starting and ending elements of the range (inclusive),
 or a single integer index denoting the start of the range with the end
 defaulting to the last element of the column.
-The [option -indices] option specifies a list of indices to be examined.
+The [option -among] option specifies a list of indices to be examined.
 [arg INDICES] is an [sectref Indices "index list or index column"].
 Indices are allowed to be specified multiple times
 in arbitrary order. Elements are examined and matches returned in that 
 same order. Indices that fall outside the range 
 (either explicitly specified through [option -range] or defaulting to the
 entire column) are ignored.
-Thus if both [option -range] and [option -indices] options are specified,
+Thus if both [option -range] and [option -among] options are specified,
 only those positions that meet both criteria are examined.
 [para]
 The command normally returns the index of the first succeeding match.
 Note this is not necessarily the lowest matching index 
-since [option -indices] may specify indices in any order. 
+since [option -among] may specify indices in any order. 
 If [option -all]
 is specified, the
 search does not stop at the first match but instead returns a list
