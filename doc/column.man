@@ -26,8 +26,7 @@ sequences of typed columns.
 [include indices.inc]
 
 [section "Command Reference"]
-[include options.inc]
-[subsection Commands]
+
 Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
@@ -60,14 +59,11 @@ refers to the current last occupied position in the column.
 The size of the array will be extended if necessary provided the specified
 indices do not have gaps beyond the current column size.
 
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
-[call [cmd "column get"] [arg [opt "STANDARDOPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
+[call [cmd "column get"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
+[call [cmd "column get"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
 Returns the values from a typed column at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
-The format
-of the returned values is controlled by [arg STANDARDOPTIONS]
-which may be any of the options controlling returned formats
-as specified in [sectref "Standard Options"].
+[include options.inc]
 
 [call [cmd "column index"] [arg COLUMN] [arg INDEX]]
 Returns the value of the element at the position specified by [arg INDEX]
