@@ -93,7 +93,7 @@ have to be the same size).
 table create {any wide} [lb]list [lb]column create any {China Vatican}] [lb]column create int {1350000000 850}]]
 [example_end]
 
-[subsection "Specifying indices"]
+[subsection "Specifying Indices"]
 
 Most commands require specification of the array locations
 to be targeted. This specification can be
@@ -160,7 +160,7 @@ Almost every command that modifies a typed array has this dual equivalent.
 
 [comment "TBD - expand on the efficiency issues and benefits"]
 
-[subsection "Modifying data"]
+[subsection "Modifying Data"]
 
 Modifying a typed array may involve either storing a 
 [emph single]
@@ -277,9 +277,9 @@ Multiple elements can be retrieved with the [cmd get] command. The command
 can be passed an index range or a sequence of noncontiguous indices specified
 as a Tcl list or a [const int] column:
 [example_begin]
-column get \$col 3 5
-column get \$col {10 7 4}
-table get \$tab [lb]column search -all -lt [lb]table column \$tab 0] 0]
+column get $col 3 5
+column get $col {10 7 4}
+table get $tab [lb]column search -all -lt [lb]table column $tab 0] 0]
 [example_end]
 
 By default, the [cmd get] command returns values as a typed array.
@@ -287,15 +287,67 @@ The [cmd -list] and [cmd -dict] commands can be used to return the values
 as a Tcl list or dictionary instead. In the latter case, the dictionary
 keys are the indices being retrieved.
 [example_begin]
-column get -list \$col 3 5
-table get -dict \$tab [lb]column search -all -lt [lb]table column \$tab 0] 0]
+column get -list $col 3 5
+table get -dict $tab [lb]column search -all -lt [lb]table column $tab 0] 0]
 [example_end]
 
-[subsection "Sorting and Searching"]
+[subsection "Searching"]
+The [cmd "column search"] command works similarly to Tcl's [cmd lsearch].
+It returns the indices (by default) or the values 
+(with the [cmd -inline] option) of matching elements in a column.
+Like [cmd lsearch], [cmd "column search"] stops on the first match and returns
+the matching index or value but
+the [cmd -all] option can be used to return all matches. The command supports
+several matching operators. See the [uri column.html "column reference"]
+for a list.
+[para]
+[example {column search $col 0}]
+returns the index of the first element that is 0 using the default
+matching operator that tests for equality
+(assumes [variable col] is a numeric column).
+[example {column search -inline -gt $col 0}]
+returns the value of the first positive element.
+[example {column search -all -gt $col 0}]
+returns the indices of all positive elements. The return value is
+an [const int] column.
+[example {column search -all -inline -nocase -pat $col *.exe}]
+returns the values of all elements that match [const *.exe] using
+case-insensitive matching as in Tcl's [cmd "string match -nocase"].
 
-For type any string rep is compared.
+[para]
+The search can be restricted to only look at specific elements using
+a combination of [cmd -range] and [cmd -among] options.
+[example {column search -range {0 9} $col 0}]
+limits the search to the first ten elements.
+[example {column search -among {1 5 3} $col 0}]
+only examines the elements at positions [const 1], [const 5],
+and [const 3] [emph "in that order"]. The option [cmd -among] is 
+particularly useful in combining searches as in the table example below.
 
-Searching tables
+[para]
+To search tables, use the [cmd search] on individual columns.
+[example_begin]
+set countries [lb]table create {any wide double} {
+    {Vatican      850     0.44}
+    {China 1350000000     9.55e6}
+    {USA    314000000     9.63e6}
+    {India 1250000000     3.3e6}
+    {Russia 141930000     17e6}
+}[rb]
+set pop_col [lb]table column $countries 1]
+set area_col [lb]table column $countries 2]
+set populous [lb]column search -all -gt $pop_col 250000000]
+table get -list $countries \
+    [lb]column search \
+        -among [lb]column search -all -gt $pop_col 250000000] \
+        -gt $area_col 5e6]
+[example_end]
+returns all rows for countries that are populous and large in area. Note
+how the outside search is limited to specific indices using the [cmd -among]
+option.
+
+[subsection "Sorting"]
+
 
 [subsection "Other Commands"]
 
