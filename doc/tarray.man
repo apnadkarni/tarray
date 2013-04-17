@@ -9,16 +9,16 @@
 [emph {
 Note that this extension is very much in an experimental stage. It should
 be robust enough with a fairly comprehensive test suite. However, the API
-is subject to change and the benefits in practice are still to be determined.
+is incomplete and subject to change.
 }]
-
+[para]
 The [cmd tarray] extension implements a new Tcl collection data
 type - typed array - and associated commands
 [uri column.html [cmd column]] and [uri table.html [cmd table]].
 A typed array stores elements of a specific data type in native format.
 The primary motivation for this extension
 is efficient memory utilization and speed of certain operations in
-applications dealing with very large numbers of elements.
+applications dealing with large numbers of elements.
 Typed columns and tables do not really provide any additional
 capabilities over Tcl's built-in commands, particularly [cmd list] and
 [cmd dict] and the script libraries based on these. Their primary use is
@@ -32,15 +32,15 @@ The [cmd tarray] extension was inspired in part by
 a lesser extent by [uri http://tclral.sourceforge.net/ TclRal].
 
 [para]
-The philosophy behind [cmd tarray] is to provide efficient facilities 
+The philosophy behind [package tarray] is to provide efficient facilities 
 on top of which more sophisticated data structures, possibly customized
 for specific applications, can be easily scripted and experimented with.
 Therefore, unlike
-[uri http://flightaware.github.com/speedtables/ Speedtables], [cmd tarray]
+[uri http://flightaware.github.com/speedtables/ Speedtables], [package tarray]
 does not require creation and recompilation of a new extension for
-each table definition. Moreover, [cmd tarray] provides value-based
+each table definition. Moreover, [package tarray] provides value-based
 semantics so that columns and tables can be used as basic building blocks.
-[cmd tarray] expects additional facilities that Speedtables provides,
-like remote access, will be done at the script level.
+Additional facilities that Speedtables provides,
+like remote access, are expected to be implemented at the script level.
 
 [manpage_end]
