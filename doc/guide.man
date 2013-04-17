@@ -364,12 +364,74 @@ returns rows in the sorted order based on country name.
 
 [subsection "Other Commands"]
 
-size
-type/types
-column
+The [cmd "column size"] and [cmd "table size"] commands return the number
+of elements in a column or table.
+[para]
+The [cmd "column type"] command returns the type of elements in a column
+while the [cmd "table types"] command returns a list of the types of each
+column in the table.
+[para]
+The [cmd "table column"] command returns a column from a table. This is
+useful for sorting and searching columns as shown in examples in previous
+sections.
 
-[subsection "Tips"]
-Efficiency - reference counting
-"any" type - atomize
+[subsection "Usage Hints"]
+[list_begin itemized]
+[item]
+Given that the [package tarray] extension is meant for dealing with large
+amounts of data, it is useful to keep in mind Tcl's object reference counting
+and copy-on-write implementation. Modifying a typed array that is shared
+will result in a copy being made, which can be expensive if the array is large.
+So, to modify a variable that contains a typed array, the command
+[example {column vput col [list 1.0 2.0]}]
+is far more efficient than
+[example {set col [column put $col [list 1.0 2.0]]}]
+assuming the value in [variable col] is not itself shared. This is similar
+to use of Tcl's [cmd lset] command to modify lists.
+
+[item]
+As arrays get large [package tarray] prioritizes memory usage over
+efficiency. As arrays grow, the additional extra memory is conservatively
+allocated (unlike Tcl which aggressively allocates extra memory).
+If the size of a typed array can be estimated in advance, for example,
+reading records from a database, the memory can be preallocated.
+[example {column create int {} 1000000}]
+preallocates space for a million elements.
+
+[item]
+Typed arrays are by design implemented as consecutive elements in
+contiguous memory. Certain operations, such as insertion and deletion,
+will not be efficient when arrays get very large. For applications
+where such opertions are common, other structures should be built
+on top using typed arrays as the lower level building blocks. Such
+higher level structures can be scripted and customized for specific
+usage patterns easily as they can be implemented at the script level
+using the low level typed array operations for efficiency. Whether
+this is required or not should be determined based on application
+benchmarks.
+
+[item]
+Columns of type [const any] are stored as Tcl_Obj objects internally
+and thus are very similar to Tcl lists.
+Any advantage of an [const any] typed array over using a simple 
+Tcl list in terms of the memory footprint comes only from conservative
+memory overallocation, not from reduced memory size of individual elements.
+It is therefore not as big a benefit as for other types.
+Thus columns of type [const any] are mostly beneficial when used
+in conjunction with other column types, for example in a table.
+[para]
+Both lists and columns have some pros and cons in terms of functionality but
+these are relatively minor.
+
+[item]
+The type [const any] can be any Tcl value, including typed arrays. Typed
+arrays can therefore be nested 
+(tables are currently implemented as nested columns).
+However, unlike some of the Tcl list commands, [package tarray] does
+not have commands that implicitly support nesting. Nested
+typed arrays have to be explicitly accessed as such.
+[example {column index [column index $outer_column 4] 0}]
+
+[list_end]
 
 [manpage_end]
