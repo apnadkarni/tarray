@@ -3,5 +3,7 @@
 [item files/guide.html  "Programmer's guide" {}]
 [item files/column.html  "Column command reference" {}]
 [item files/table.html   "Table command reference"  {}]
-[item files/build.html   "Building tarray" {}]
+[item files/build.html   "How to build and install" {}]
+[item http://sourceforge.net/projects/tarray "Project page" {}]
+[item http://sourceforge.net/projects/tarray/files "Downloads" {}]
 [toc_end]

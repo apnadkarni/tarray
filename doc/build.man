@@ -2,17 +2,25 @@
 [manpage_begin "tarray_build" n ""]
 [copyright "2012-2013 Ashok P. Nadkarni"]
 [moddesc "Typed Array extension"]
-[titledesc "Building the tarray extension"]
+[titledesc "Building and installing the tarray extension"]
 
 [description]
 
-The [cmd tarray] extension is a cross platform extension built using
+Binary distributions of [package tarray] are available from the 
+SourceForge download area at
+[uri http://sourceforge.net/projects/tarray/files]. This document
+describes building [package tarray] from sources.
+[para]
+The [package tarray] extension is built using
 the [uri http://andreas-kupries.github.com/critcl/ Critcl] package.
 The [package Critcl] package allows for an extension to be built in several
 forms. This document only summarizes building the [package tarray]
 extension as a binary package.
 
 [list_begin enumerated]
+[enum] Download a copy of the [package tarray] sources by either
+cloning its Mercurial repository or downloading a snapshot of the sources.
+See [uri https://sourceforge.net/p/tarray/code/ci/tip/tree/] for details.
 [enum] Download and install the [package Critcl] package (3.1 or later)
 as described
 in [uri http://andreas-kupries.github.com/critcl/doc/files/critcl_installer.html].

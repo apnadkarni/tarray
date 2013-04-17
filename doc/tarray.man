@@ -43,4 +43,9 @@ semantics so that columns and tables can be used as basic building blocks.
 Additional facilities that Speedtables provides,
 like remote access, are expected to be implemented at the script level.
 
+[section "Further Reading"]
+For detailed documentation, including reference documentation and 
+download and build instructions, follow the links at the top
+of this page.
+
 [manpage_end]
