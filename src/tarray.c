@@ -2051,7 +2051,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
     } while (0)
 
     /* Even dicts more efficiently built as lists and shimmered as necessary */
-    o = Tcl_NewListObj(end-low, NULL);
+    o = Tcl_NewListObj(fmt == TA_FORMAT_DICT ? (2*(end-low)) : (end-low), NULL);
     switch (psrc->type) {
     case TA_BOOLEAN:
         {

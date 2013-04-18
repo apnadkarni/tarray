@@ -48,10 +48,14 @@ proc tarray::table::_create_from_list {types initvals {initsize 0}} {
     return [tarray::column::create any $cols]
 }
 
-proc tarray::table::column {table colnum} {
+interp alias {} tarray::table::width {} tarray::column::size
+
+proc tarray::table::column {tab colnum} {
     # A table itself is a column (containing columns)
-    return [tarray::column::index $table $colnum]
+    return [tarray::column::index $tab $colnum]
 }
+
+interp alias {} tarray::table::slice {} tarray::column::get
 
 proc tarray::db::create {def {init {}} {size 0}} {
     variable _tables
@@ -70,8 +74,6 @@ proc tarray::db::create {def {init {}} {size 0}} {
     set _tables($tok) $table
     return $tok
 }
-
-
 
 namespace eval tarray {
 
@@ -113,12 +115,14 @@ namespace eval tarray {
             put put
             reverse reverse
             size size
+            slice slice
             vdelete vdelete
             vfill vfill
             vinsert vinsert
             vplace vplace
             vput vput
             vreverse vreverse
+            width width
         }
     }
 

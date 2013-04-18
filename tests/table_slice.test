@@ -1,0 +1,45 @@
+# table slice tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    test table_slice-1.0 {
+        Slice none
+    } -body {
+        tarray::table slice [sampletable {boolean int any} 0 100] {}
+    } -result {tarray any {}}
+
+    test table_slice-1.1 {
+        Slice all
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any} 0 100] 0 end]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn boolean 0 100]] \
+            [cequal [tarray::table column $tab 1] [samplecolumn int 0 100]] \
+            [cequal [tarray::table column $tab 2] [samplecolumn any 0 100]]
+    } -result {3 1 1 1}
+
+    test table_slice-1.2 {
+        Slice subset
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any wide} 0 100] {2 0 3}]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn any 0 100]] \
+            [cequal [tarray::table column $tab 1] [samplecolumn boolean 0 100]] \
+            [cequal [tarray::table column $tab 2] [samplecolumn wide 0 100]]
+    } -result {3 1 1 1}
+
+    test table_slice-1.3 {
+        Slice one
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any wide} 0 100] {1}]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn int 0 100]]
+    } -result {1 1}
+}
+
+::tcltest::cleanupTests
