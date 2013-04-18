@@ -1,0 +1,20 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin "tarray" n ""]
+[copyright "2013 Ashok P. Nadkarni"]
+[moddesc "Typed Arrays Version History"]
+[titledesc "TArray version history"]
+
+[description]
+
+[section Version 0.3]
+[list_begin itemize]
+[item] Added [uri table.html [cmd "table slice"]] command.
+[item] Added [uri table.html [cmd "table width"]] command.
+[list_end]
+
+[section Version 0.2]
+[list_begin itemize]
+[item] First public release.
+[list_end]
+
+[manpage_end]

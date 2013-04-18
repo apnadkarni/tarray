@@ -291,6 +291,16 @@ column get -list $col 3 5
 table get -dict $tab [lb]column search -all -lt [lb]table column $tab 0] 0]
 [example_end]
 
+[para]
+Tables provide additional commands for retrieving entire columns.
+[list_begin itemize]
+[item] [cmd "table column"] returns a column from a table. This is
+useful for sorting and searching columns as shown in table search
+examples below.
+[item] [cmd "table slice"] returns a new table containing a subset
+of the columns of a table.
+[list_end]
+
 [subsection "Searching"]
 The [cmd "column search"] command works similarly to Tcl's [cmd lsearch].
 It returns the indices (by default) or the values 
@@ -364,16 +374,13 @@ returns rows in the sorted order based on country name.
 
 [subsection "Other Commands"]
 
-The [cmd "column size"] and [cmd "table size"] commands return the number
-of elements in a column or table.
+The [cmd "column size"] command returns the number of elements in a column.
+The [cmd "table size"] and [cmd "table width"] commands return the number
+of rows and columns respectively in a table.
 [para]
 The [cmd "column type"] command returns the type of elements in a column
 while the [cmd "table types"] command returns a list of the types of each
 column in the table.
-[para]
-The [cmd "table column"] command returns a column from a table. This is
-useful for sorting and searching columns as shown in examples in previous
-sections.
 
 [subsection "Usage Hints"]
 [list_begin itemized]

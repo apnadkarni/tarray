@@ -4,7 +4,7 @@
 [moddesc "Typed Array Columns"]
 [titledesc "Commands related to typed array columns"]
 [require Tcl 8.5]
-[require tarray ?0.1?]
+[require tarray ?0.3?]
 
 [description]
 

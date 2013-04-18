@@ -884,6 +884,6 @@ critcl::class::define tarray::db {
     method_introspection
 }
 
-package provide tarray 0.2
+package provide tarray 0.3
 
 critcl::load

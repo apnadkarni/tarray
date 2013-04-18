@@ -1,0 +1,26 @@
+# table width tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    test table_width-1.0 {
+        Width none
+    } -body {
+        tarray::table width [newtable {}]
+    } -result 0
+
+    test table_width-1.1 {
+        Width single column
+    } -body {
+        tarray::table width [sampletable {int}]
+    } -result 1
+
+    test table_width-1.2 {
+        Width multiple columns
+    } -body {
+        tarray::table width [sampletable {boolean int wide}]
+    } -result 3
+}
+
+::tcltest::cleanupTests

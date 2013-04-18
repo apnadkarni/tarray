@@ -4,7 +4,7 @@
 [moddesc "Typed Array Tables"]
 [titledesc "Commands related to typed array tables"]
 [require Tcl 8.5]
-[require tarray ?0.1?]
+[require tarray ?0.3?]
 
 [description]
 
@@ -63,8 +63,8 @@ if [arg ROWVALUE] contains fewer elements than the table width.
 Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
-[call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg TABLE] [arg INDEXLIST]]
-[call [cmd "table get"] [arg [opt "STANDARDOPTION"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
+[call [cmd "table get"] [arg [opt "OPTIONS"]] [arg TABLE] [arg INDEXLIST]]
+[call [cmd "table get"] [arg [opt "OPTIONS"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
 Returns the values from a typed table at the indices specified as
 [sectref Indices "index list"] or [sectref Indices range].
 [include options.inc]
@@ -104,6 +104,11 @@ Returns the table with order of elements reversed.
 
 [call [cmd "table size"] [arg TABLE]]
 Returns the number of rows in the table.
+
+[call [cmd "table"] [cmd "slice"] [arg TABLE] [arg COLINDICES]]
+[call [cmd "table"] [cmd "slice"] [arg TABLE] [arg COLINDEXLOW] [arg COLINDEXHIGH]]
+Returns a table containing only the specified columns from the specified table.
+The columns are specified by their positions as a list or a range.
 
 [call [cmd "table vdelete"] [arg TABLEVAR] [arg INDEX]]
 [call [cmd "table vdelete"] [arg TABLEVAR] [arg INDEXLIST]]
@@ -164,6 +169,9 @@ Reverses the order of elements in the
 table in variable [arg TABLEVAR], stores it back
 in the variable. The result of the command is the resulting value
 stored in the variable.
+
+[call [cmd "table width"] [arg TABLE]]
+Returns the number of columns in the table.
 
 [list_end]
 
