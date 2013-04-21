@@ -384,6 +384,19 @@ column in the table.
 
 [subsection "Usage Hints"]
 [list_begin itemized]
+
+[item]
+When specifying indices to commands, Tcl lists of integers and 
+columns of type [const int] are usually interchangeable. Similarly, when
+passing multiple values to a command, either a Tcl list or a column
+of the appropriate type can be used. Note there is an ambiguity in the
+specific case where the target of the command is a column is of type
+[const any] and the passed operand is a string of the form
+[example {tarray any {...}]
+where the operand can be interpreted either as a column or a Tcl 
+list with three elements [const tarray], [const any] and the [const "{...}"].
+In this case the operand gets interpreted as a column.
+
 [item]
 Given that the [package tarray] extension is meant for dealing with large
 amounts of data, it is useful to keep in mind Tcl's object reference counting
