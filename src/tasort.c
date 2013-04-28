@@ -319,13 +319,15 @@ loop:	SWAPINIT(a, es);
 
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
-                                   int *pflags)
+                                   int *pflags, Tcl_Obj **ptarget)
 {
     static const char *switches[] = {
-        "-decreasing", "-increasing", "-indices", "-nocase", NULL
+        "-decreasing", "-increasing", "-indices", "-nocase", "-indirect", NULL
     };
     int i, opt;
     int flags = 0;
+
+    *ptarget = NULL;
 
     /* Note objv[] is entire command line so last objv[] element is array */
     for (i = 1; i < objc-1; ++i) {
@@ -337,7 +339,15 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
         case 0: flags |= TA_SORT_DECREASING; break;
         case 1: flags &= ~TA_SORT_DECREASING; break;
         case 2: flags |= TA_SORT_INDICES; break;
-        case 3: flags |= TA_SORT_NOCASE;
+        case 3: flags |= TA_SORT_NOCASE; break;
+        case 4:
+            if (++i >= objc-1) {
+                Tcl_SetResult(ip, "Missing argument to -indirect option.", TCL_STATIC);
+                return TCL_ERROR;
+            }
+            flags |= TA_SORT_INDIRECT;
+            *ptarget = objv[i];
+            break;
         }
     }
     *pflags = flags;
@@ -357,6 +367,8 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     int nocase = flags & TA_SORT_NOCASE;
     int orig_sort_state;
 
+    /* Even if returning indices, they are returned in tcol
+     * so we must be able to modify tcol */
     TA_ASSERT(! Tcl_IsShared(tcol));
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
@@ -483,6 +495,8 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                       cmpindexedfn);
 #endif
         }
+        // TBD - if caller can pass a shared tcol, we CANNOT do this
+        // Need to create a new Tcl_Obj
         ta_replace_intrep(tcol, psorted);
         return TCL_OK;
     } 
@@ -592,3 +606,76 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     return TCL_OK;
 }
 
+TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags)
+{
+    int *pindex, *pend, n, status;
+    thdr_t *pindices, *ptarget;
+    int (*cmpindexedfn)(void *, const void*, const void*);
+    int decreasing = flags & TA_SORT_DECREASING;
+    int nocase = flags & TA_SORT_NOCASE;
+
+    TA_ASSERT(! Tcl_IsShared(oindices));
+    TA_ASSERT(tcol_affirm(oindices));
+
+    if ((status = tcol_convert(ip, oindices)) != TCL_OK ||
+        (status = tcol_convert(ip, otarget)) != TCL_OK)
+        return status;
+
+    pindices = TARRAYHDR(oindices);
+    if (pindices->type != TA_INT)
+        return ta_bad_type_error(ip, pindices);
+
+    /* Validate indices for bounds */
+    n = tcol_occupancy(otarget);
+    pindex = THDRELEMPTR(pindices, int, 0);
+    pend = pindex + pindices->used;
+    while (pindex < pend) {
+        if (*pindex >= n || *pindex < 0)
+            return ta_index_range_error(ip, *pindex);
+        ++pindex;
+    }
+    
+    ptarget = TARRAYHDR(otarget);
+
+    switch (ptarget->type) {
+    case TA_BYTE:
+        cmpindexedfn = decreasing ? bytecmpindexedrev : bytecmpindexed;
+        break;
+    case TA_BOOLEAN:
+        cmpindexedfn = decreasing ? booleancmpindexedrev : booleancmpindexed;
+        break;
+    case TA_UINT:
+        cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
+        break;
+    case TA_INT:
+        cmpindexedfn = decreasing ? intcmpindexedrev : intcmpindexed;
+        break;
+    case TA_WIDE:
+        cmpindexedfn = decreasing ? widecmpindexedrev : widecmpindexed;
+        break;
+    case TA_DOUBLE:
+        cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
+        break;
+    case TA_ANY:
+        if (nocase) 
+            cmpindexedfn = decreasing ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
+        else
+            cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
+                break;
+    default:
+        ta_type_panic(ptarget->type);
+    }
+
+    /* Note list of indices is NOT sorted, do not mark it as such ! */
+#ifdef USE_QSORT
+    tarray_qsort_r(THDRELEMPTR(pindices, int, 0), pindices->used,
+                   sizeof(int), THDRELEMPTR(ptarget, unsigned char, 0),
+                   cmpindexedfn);
+#else
+    timsort_r(THDRELEMPTR(pindices, int, 0),
+              pindices->used, sizeof(int),
+              THDRELEMPTR(ptarget, unsigned char, 0),
+              cmpindexedfn);
+#endif
+    return TCL_OK;
+}
