@@ -276,22 +276,28 @@ badargs:
 }
 
 critcl::ccommand tarray::column::sort {} {
-    Tcl_Obj *tcol;
     int flags, status;
+    Tcl_Obj *tcol;
+    Tcl_Obj *otarget = NULL;
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "?options? tarray");
 	return TCL_ERROR;
     }
 
-    if ((status = tcol_parse_sort_options(interp, objc, objv, &flags)) != TCL_OK)
+    if ((status = tcol_parse_sort_options(interp, objc, objv, &flags, &otarget)) != TCL_OK)
         return status;
 
     tcol = objv[objc-1];
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
 
-    status = tcol_sort(interp, tcol, flags);
+    if (flags & TA_SORT_INDIRECT) {
+        TA_ASSERT(otarget != NULL);
+        tcol_sort_indirect(interp, tcol, otarget, flags);
+    } else
+        status = tcol_sort(interp, tcol, flags);
+
     return ta_return_result(interp, status, tcol);
 }
 
@@ -299,13 +305,14 @@ critcl::ccommand tarray::column::vsort {} {
     Tcl_Obj *tcol;
     int status;
     int flags;
+    Tcl_Obj *otarget = NULL;
 
     if (objc < 2) {
     	Tcl_WrongNumArgs(interp, 1, objv, "?options? COLUMNVAR");
         return TCL_ERROR;
     }
 
-    if ((status = tcol_parse_sort_options(interp, objc, objv, &flags)) != TCL_OK)
+    if ((status = tcol_parse_sort_options(interp, objc, objv, &flags, &otarget)) != TCL_OK)
         return status;
 
     if (flags & TA_SORT_INDICES) {
@@ -317,9 +324,15 @@ critcl::ccommand tarray::column::vsort {} {
     if (tcol == NULL)
         return TCL_ERROR;
     if (Tcl_IsShared(tcol))
-            tcol = Tcl_DuplicateObj(tcol);
+        tcol = Tcl_DuplicateObj(tcol);
 
-    status = tcol_sort(interp, tcol, flags);
+    if (flags & TA_SORT_INDIRECT) {
+        TA_ASSERT(otarget != NULL);
+        tcol_sort_indirect(interp, tcol, otarget, flags);
+    } else {
+        status = tcol_sort(interp, tcol, flags);
+    }
+
     return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 

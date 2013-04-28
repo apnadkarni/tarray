@@ -100,6 +100,7 @@ extern const char *g_type_tokens[];
 #define TA_SORT_DECREASING 1
 #define TA_SORT_INDICES    2
 #define TA_SORT_NOCASE     4
+#define TA_SORT_INDIRECT   8
 
 /* Pointers to Tcl's built-in type descriptors */
 extern Tcl_ObjType *g_tcl_list_type_ptr;
@@ -329,11 +330,12 @@ int tclobjcmpnocaseindexedrev(void *, const void *a, const void *b);
 
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
-                                   int *pflags);
+                                   int *pflags, Tcl_Obj **ptarget);
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
 
 TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                                       int objc, Tcl_Obj *const objv[]);
+TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);
 
 /*
  *  Inlined functions
