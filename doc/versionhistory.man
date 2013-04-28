@@ -7,13 +7,16 @@
 [description]
 
 [section Version 0.3]
-[list_begin itemize]
+[list_begin itemized]
+[item] Added option [cmd -indirect] to the 
+[uri column.html [cmd "column sort"]] and
+[uri column.html [cmd "column vsort"]] commands.
 [item] Added [uri table.html [cmd "table slice"]] command.
 [item] Added [uri table.html [cmd "table width"]] command.
 [list_end]
 
 [section Version 0.2]
-[list_begin itemize]
+[list_begin itemized]
 [item] First public release.
 [list_end]
 

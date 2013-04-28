@@ -6,4 +6,5 @@
 [item files/build.html   "How to build and install" {}]
 [item http://sourceforge.net/projects/tarray "Project page" {}]
 [item http://sourceforge.net/projects/tarray/files "Downloads" {}]
+[item files/versionhistory.html   "Version history" {}]
 [toc_end]

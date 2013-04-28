@@ -615,7 +615,6 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     int nocase = flags & TA_SORT_NOCASE;
 
     TA_ASSERT(! Tcl_IsShared(oindices));
-    TA_ASSERT(tcol_affirm(oindices));
 
     if ((status = tcol_convert(ip, oindices)) != TCL_OK ||
         (status = tcol_convert(ip, otarget)) != TCL_OK)

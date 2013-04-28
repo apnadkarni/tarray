@@ -293,7 +293,7 @@ table get -dict $tab [lb]column search -all -lt [lb]table column $tab 0] 0]
 
 [para]
 Tables provide additional commands for retrieving entire columns.
-[list_begin itemize]
+[list_begin itemized]
 [item] [cmd "table column"] returns a column from a table. This is
 useful for sorting and searching columns as shown in table search
 examples below.
@@ -371,6 +371,51 @@ initialized as above,
 table get -list $countries [lb]column sort -indices -nocase [lb]table column $countries 0]]
 [example_end]
 returns rows in the sorted order based on country name.
+[para]
+When sorting tables, for display purposes for example, it is often
+necessary to display elements that have the same value in the sort column
+in the same order that they were previously displayed. Although, individual
+column sorts are stable, this is not enough when sorting across multiple
+columns. In such cases, the [cmd -indirect] option to the sort command
+provides a solution. Using this option allows sorting where the
+"initial" ordering of elements is different from the actual order
+of elements in the column. An example will clarify this.
+[para]
+Consider a table that stores heights and weights.
+[example_begin]
+set tab [lb]table create {any int int} {
+    {Jeff 180 80}
+    {John 175 80}
+    {Jim 170 75}
+}[rb]
+[example_end]
+The user may choose to sort the table by height which boils down to
+the following code:
+[example_begin]
+table get -list $tab [lb]column sort -indices [lb]table column $tab 1[rb][rb]
+[example_end]
+This results in the table being displayed in the order
+[const Jim], [const John], [const Jeff].
+The user may then choose to sort by weight.
+[example_begin]
+table get -list $tab [lb]column sort -indices [lb]table column $tab 2[rb][rb]
+[example_end]
+resulting in a display in order
+[const Jim], [const Jeff], [const John]. 
+Since they actually have the same value in the new sort column,
+this interchange of positions
+between [const Jeff] and [const John] is disconcerting to the user.
+Use of the [cmd -indirect] option overcomes this problem.
+[example_begin]
+set indices [lb]column sort -indices [lb]table column $tab 1[rb][rb]
+table get -list $tab $indices
+# Now use previous order of indices to order elements when their
+# values in column 2 are equal
+table get -list $tab [lb]column sort -indirect [table column 2] $indices[rb]
+[example_end]
+In this last statement, the sort is done indirectly using values
+from table [variable tab] but the positioning of elements when
+these values compare equal is based on the order in [variable indices].
 
 [subsection "Other Commands"]
 
@@ -392,7 +437,7 @@ passing multiple values to a command, either a Tcl list or a column
 of the appropriate type can be used. Note there is an ambiguity in the
 specific case where the target of the command is a column is of type
 [const any] and the passed operand is a string of the form
-[example {tarray any {...}]
+[example {tarray any {...}}]
 where the operand can be interpreted either as a column or a Tcl 
 list with three elements [const tarray], [const any] and the [const "{...}"].
 In this case the operand gets interpreted as a column.
