@@ -294,7 +294,7 @@ critcl::ccommand tarray::column::sort {} {
 
     if (flags & TA_SORT_INDIRECT) {
         TA_ASSERT(otarget != NULL);
-        tcol_sort_indirect(interp, tcol, otarget, flags);
+        status = tcol_sort_indirect(interp, tcol, otarget, flags);
     } else
         status = tcol_sort(interp, tcol, flags);
 
@@ -328,7 +328,7 @@ critcl::ccommand tarray::column::vsort {} {
 
     if (flags & TA_SORT_INDIRECT) {
         TA_ASSERT(otarget != NULL);
-        tcol_sort_indirect(interp, tcol, otarget, flags);
+        status = tcol_sort_indirect(interp, tcol, otarget, flags);
     } else {
         status = tcol_sort(interp, tcol, flags);
     }
