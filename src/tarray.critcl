@@ -15,9 +15,6 @@ critcl::description {
     Tcl applications dealing with a large number of data items.
 }
 
-critcl::buildrequirement {
-    package require critcl::class
-}
 critcl::clean_cache
 critcl::tcl 8.5
 if {[string match "*-gcc" [critcl::targetconfig]] ||
@@ -510,6 +507,237 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     return ta_set_var_result(interp, tcol_reverse(interp, tcol), ovar, tcol);
 }
 
+critcl::cproc tarray::column::intersect3 {Tcl_Interp *interp TArrayObjPtr acol TArrayObjPtr bcol int nocase} ok {
+    thdr_t *athdr, *bthdr;
+    thdr_t *aintersectb=NULL, *aminusb=NULL, *bminusa=NULL;
+    int atype = tcol_type(acol);
+    unsigned char order, a_current_order, b_current_order;
+    int free_acol = 0, free_bcol = 0;
+    TCL_RESULT status = TCL_ERROR;
+    int sort_flags;
+    int nmin, ascending;
+
+    athdr = TARRAYHDR(athdr);
+    bthdr = TARRAYHDR(bthdr);
+
+    if (athdr == bthdr) {
+        TBD - same object, optimized return;
+    }
+
+    if (atype != athdr->type)
+        return ta_mismatched_types_error(interp, atype, bthdr->type);
+
+    a_current_order = athdr->sort_order;
+    b_current_order = bthdr->sort_order;
+
+    /* Ensure both columns are in same sort order */
+    order = THDR_UNSORTED;
+    if (atype == TA_ANY) {
+        /* TA_ANY separated because we have to deal with nocase */
+        if (a_current_order == b_current_order) {
+            /* If unsorted or sorted with different case-sensitivity, resort */
+            if ((nocase && SORT_ORDER_IS_NOCASE(a_current_order)) ||
+                (!nocase && SORT_ORDER_IS_CASE(a_current_order))) {
+                /* Both sorted appropriately. Lucky us, nought to do */
+                order = a_current_order;
+            } else {
+                /* Either unsorted or wrong case sensitivity. We have to
+                   sort/resort but try to make it as close to current
+                   order for efficiency
+                */
+                if (SORT_ORDER_IS_DESCENDING(a_current_order))
+                    order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
+                else
+                    order = nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
+            }
+        } else {
+            /* Sort state is different for a and b */
+            if ((nocase && SORT_ORDER_IS_NOCASE(a_current_order)) ||
+                (!nocase && SORT_ORDER_IS_CASE(a_current_order))) {
+                /* a is sorted appropriately. */
+                if ((nocase && SORT_ORDER_IS_NOCASE(b_current_order)) ||
+                    (!nocase && SORT_ORDER_IS_CASE(b_current_order))) {
+                    /* b is also sorted appropriately but different from a, choose to sort smaller one.*/
+                    order = athdr->used < bthdr->used ? b_current_order : a_current_order;
+                } else
+                    order = a_current_order; /* Only b needs sorting */
+            } else {
+                /* a is not sorted appropriately. */
+                if ((nocase && SORT_ORDER_IS_NOCASE(b_current_order)) ||
+                    (!nocase && SORT_ORDER_IS_CASE(b_current_order))) {
+                    /* But b is so use its order */
+                    order = b_current_order; /* sort a as b */
+                } else {
+                    /* Neither is sorted appropriately. Both will have to
+                       be sorted. Still try to optimize by picking
+                       something closer to the bigger column.
+                    */
+                    if (athdr->used >= bthdr->used) {
+                        if (SORT_ORDER_IS_DESCENDING(a_current_order))
+                            order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
+                        else if (SORT_ORDER_IS_ASCENDING(a_current_order))
+                            order = nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
+                    }  
+                    if (order == 0) {
+                        if (SORT_ORDER_IS_DESCENDING(b_current_order))
+                            order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
+                        else
+                            order = nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
+                    }
+                }
+            }
+        }
+    } else {
+        if (a_current_order == b_current_order) {
+            if (a_current_order == THDR_UNSORTED)
+                order = THDR_SORTED_ASCENDING;/* Both need sorting */
+        }
+        else {
+            /* a and b not sorted the same */
+            if (a_current_order == THDR_UNSORTED)
+                order = b_current_order; /* Sort a same as b */
+            else if (bthdr->sort_order == THDR_UNSORTED)
+                order = a_current_order; /* Sort b same as a */
+            else {
+                /* Both are sorted but not in same order. Resort the smaller */
+                if (athdr->used < bthdr->used)
+                    order = b_current_order;
+                else
+                    order = a_current_order;
+            }
+        }
+    }
+    
+    TA_ASSERT(order != 0);
+    switch (order) {
+    case THDR_SORTED_ASCENDING:         sort_flags = 0; break;
+    case THDR_SORTED_DESCENDING:        sort_flags = TA_SORT_DECREASING; break;
+    case THDR_SORTED_ASCENDING_NOCASE:  sort_flags = TA_SORT_NOCASE; break;
+    case THDR_SORTED_DESCENDING_NOCASE: sort_flags = TA_SORT_NOCASE | TA_SORT_DECREASING; break;
+    default:
+        Tcl_Panic("Unexpected sort order %d in function intersect", order);
+    }
+
+    if (a_current_order != order) {
+        /* a needs to be sorted. Needs to be unshared to do so */
+        if (Tcl_IsShared(acol)) {
+            acol = Tcl_DuplicateObj(acol);
+            free_acol = 1;
+        }
+        if (tcol_sort(interp, acol, sort_flags) != TCL_OK)
+            goto vamoose;
+        athdr = TARRAYHDR(acol);
+    }
+
+    if (b_current_order != order) {
+        /* b needs to be sorted. Needs to be unshared to do so */
+        if (Tcl_IsShared(bcol)) {
+            bcol = Tcl_DuplicateObj(bcol);
+            free_bcol = 1;
+        }
+        if (tcol_sort(interp, bcol, sort_flags) != TCL_OK)
+            goto vamoose;
+        bthdr = TARRAYHDR(bcol);
+    }
+
+    /*
+     * Create 3 arrays to hold the a intersect b, a-b, b-a.
+     * Max num elems in intersect is smaller of two arrays.
+     * Max num in a-b and b-a is num in a and b respectively.
+     */
+    nmin = athdr->used;
+    if (nmin > bthdr->used)
+        nmin = bthdr->used;
+
+    aintersectb = thdr_alloc(interp, atype, nmin);
+    aminusb = thdr_alloc(interp, atype, athdr->used);
+    bminusa = thdr_alloc(interp, atype, bthdr->used);
+    if (aintersectb == NULL || aminusb == NULL || bminusa == NULL)
+        goto vamoose;
+
+    switch (atype) {
+    case TA_BOOLEAN:
+        TBD;
+    case TA_UINT:
+        do {
+            t_ *pintersect = THDRELEMPTR(aintersectb, t_, 0);
+            t_ *paminusb = THDRELEMPTR(aminusb, t_, 0);
+            t_ *pbminusa = THDRELEMPTR(bminusa, t_, 0);
+            t_ *a = THDRELEMPTR(athdr, t_, 0);
+            t_ *b = THDRELEMPTR(bthdr, t_, 0);
+            t_ *aend = a + nmin;
+            t_ *bend = b + nmin;
+            
+            if (SORT_ORDER_IS_ASCENDING(order)) {
+                while (a < aend && b < bend) {
+                    if (*a == *b) {
+                        *pintersect++ = *a;
+                        ++a;
+                        ++b;
+                    } else if (*a < *b) {
+                        *paminusb++ = *a++;
+                    } else {
+                        *pbminusa++ = *b++;
+                    }
+                }
+            } else {
+                /* Sorted in descending order */
+                while (a < aend && b < bend) {
+                    if (*a == *b) {
+                        *pintersect++ = *a;
+                        ++a;
+                        ++b;
+                    } else if (*a < *b) {
+                        *bminusa++ = *b++;
+                    } else {
+                        *paminusb++ = *a++;
+                    }
+                }
+            }
+
+            /* Now copy left over elements */
+            while (a < aend) {
+                *paminusb++ = *a++
+            }
+            while (b < bend) {
+                *pbminusa++ = *b++;
+            }
+
+            aintersectb->used = pintersect - THDRELEMPTR(aintersectb, t_, 0);
+            aminusb->used = paminusb - THDRELEMPTR(aminusb, t_, 0);
+            bminusa->used = pbminusa - THDRELEMPTR(bminusa, t_, 0);
+
+        } while (0);
+        break;
+    case TA_INT:
+        TBD;
+    case TA_WIDE:
+        TBD;
+    case TA_DOUBLE:
+        TBD;
+    case TA_BYTE:
+        TBD;
+    case TA_ANY:
+        TBD;
+    }
+
+    /* Now loop through */
+
+
+    /* TBD - shrink arrays if underutilized */
+
+    status = TCL_OK;
+
+vamoose:
+    if (free_acol)
+        Tcl_DecrRefCount(acol);
+    if (free_bcol)
+        Tcl_DecrRefCount(bcol);
+    return status;
+}
+
+
+
 
 critcl::cproc tarray::table::put {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
     Tcl_Obj *table;
@@ -815,86 +1043,6 @@ critcl::cproc tarray::table::size {Tcl_Interp* interp Tcl_Obj* TABLE} ok {
     if (status == TCL_OK)
         Tcl_SetObjResult(interp, Tcl_NewIntObj(table_length(TABLE)));
     return status;
-}
-
-# If you are new to critcl, note that the order of constructor, insvariable
-# etc. is very important in terms of how initialization and freeing is done.
-critcl::class::define tarray::db {
-    classvariable int dummy_to_prevent_compile_fails_due_to_empty_class_def
-    insvariable Tcl_HashTable column_names {
-        Maps column names to index
-    } {
-        Tcl_InitObjHashTable(&instance->column_names);
-    } {
-        Tcl_DeleteHashTable(&instance->column_names);
-    }
-
-    insvariable thdr_t* columns {
-        Points to a tarray containing the table columns
-    } {
-        instance->columns = NULL;
-    } {
-        if (instance->columns) {
-            thdr_decr_refs(instance->columns);
-            instance->columns = NULL;
-        }
-    }
-
-    constructor {
-
-        Tcl_Obj **elems;
-        int i, nelems, tatype;
-        thdr_t thdr;
-        
-        /* table new DEFINITION */
-        if (objc != 1) {
-            Tcl_SetResult(interp, "Syntax error", TCL_STATIC);
-            goto error;
-        }
-
-        if (Tcl_ListObjGetElements(interp, objv[0], &nelems, &elems) != TCL_OK)
-            goto error;
-
-        if (nelems == 0 || nelems & 1) {
-            Tcl_SetResult(interp, "Invalid table definition", TCL_STATIC);
-            goto error;
-        }
-
-        instance->columns = thdr_alloc(interp, TA_ANY, nelems/2);
-        if (instance->columns == NULL)
-            goto error;
-        thdr_incr_refs(instance->columns);
-        /* This loop is structured slightly strange because of how critcl
-           puts together constructor fragments. The constructor
-           alwasy fall through for the success case
-        */
-        for (i = 0; i < nelems-1; i += 2) {
-            Tcl_Obj *tcol;
-            Tcl_HashEntry *he;
-            if (Tcl_GetIndexFromObj(interp, elems[i+1], g_type_tokens, "TArrayType",
-                                    TCL_EXACT, &tatype) == TCL_OK) {
-                tcol = tcol_new(thdr_alloc(interp, tatype, 0));
-                if (tcol && thdr_put_objs(interp, instance->columns, i/2, 1, &tcol, 0) == TCL_OK) {
-                    int is_new;
-                    he = Tcl_CreateHashEntry(&instance->column_names, (char *)elems[i], &is_new);
-                    if (is_new) {
-                        Tcl_SetHashValue(he, (ClientData) (i/2));
-                        continue; /* Success, go on with next field */
-                    } else {
-                        Tcl_SetObjResult(interp,
-                                         Tcl_ObjPrintf("Duplicate column name %s in table definition", Tcl_GetString(elems[i])));
-                    }
-                }
-            }
-            /* Something or the other failed */
-            thdr_decr_refs(instance->columns);
-            instance->columns = NULL;
-            Tcl_DeleteHashTable(&instance->column_names);
-            goto error;
-        }
-    }
-
-    method_introspection
 }
 
 package provide tarray 0.3
