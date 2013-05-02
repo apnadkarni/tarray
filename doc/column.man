@@ -78,6 +78,22 @@ The values are inserted at the specified position. If [arg FIRST]
 is [const end], the values are appended to the column.
 In all cases, the command may extend the array if necessary.
 
+[call [cmd "column intersect3"] [opt [cmd -nocase]] [arg COLUMNA] [arg COLUMNB]]
+Returns a list of three columns, the first containing elements
+common to both [arg COLUMNA] and [arg COLUMNB], the second containing
+elements only present in [arg COLUMNA] and the third containing
+elements only present in [arg COLUMNB]. Both columns must be of the same
+type. The elements in each returned column are in arbitrary order.
+[para]
+The columns may contain duplicate elements. These are treated as distinct
+so for example if [arg COLUMNA] contain 5 elements with value [const A],
+and [arg COLUMNB] contains only 3 such elements, then the first column
+in the result will contain two [const A] elements and the second
+column will contain three.
+[para]
+Option [arg -nocase] only has effect if the column type is [const any]. If
+specified, elements are compared in case-insensitive mode.
+
 [call [cmd "column place"] [arg COLUMN] [arg VALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
 corresponding  indices.
