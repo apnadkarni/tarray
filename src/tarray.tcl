@@ -85,6 +85,7 @@ namespace eval tarray {
             get get
             index index
             insert insert
+            intersect3 intersect3
             place place
             put put
             reverse reverse

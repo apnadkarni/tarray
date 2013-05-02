@@ -1552,7 +1552,7 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
     int sz;
     thdr_t *thdr;
 
-    if (count == 0)
+    if (count < 0)
             count = TA_DEFAULT_NSLOTS;
     /* We allocate one extra slot for the sentinel */
     sz = thdr_required_size(tatype, count + 1);
@@ -2254,8 +2254,6 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
             }
         }            
     }
-    
-
 
     thdr = thdr_alloc_and_init(ip, TA_INT, n, elems, 0);
     if (thdr) {

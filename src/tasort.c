@@ -495,7 +495,6 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                       cmpindexedfn);
 #endif
         }
-        // TBD - if caller can pass a shared tcol, we CANNOT do this
         // Need to create a new Tcl_Obj
         ta_replace_intrep(tcol, psorted);
         return TCL_OK;
