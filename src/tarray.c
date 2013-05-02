@@ -92,6 +92,15 @@ TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_invalid_opt_error(Tcl_Interp *ip, char *optname)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid option '%s'", optname));
+        Tcl_SetErrorCode(ip, "TARRAY", "OPTION", NULL);
+    }
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_not_tarray_error(Tcl_Interp *ip)
 {
     if (ip) {
