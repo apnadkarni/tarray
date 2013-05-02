@@ -8,11 +8,12 @@
 
 [section Version 0.3]
 [list_begin itemized]
+[item] Added [uri table.html [cmd "table intersect3"]] command.
+[item] Added [uri table.html [cmd "table slice"]] command.
+[item] Added [uri table.html [cmd "table width"]] command.
 [item] Added option [cmd -indirect] to the 
 [uri column.html [cmd "column sort"]] and
 [uri column.html [cmd "column vsort"]] commands.
-[item] Added [uri table.html [cmd "table slice"]] command.
-[item] Added [uri table.html [cmd "table width"]] command.
 [list_end]
 
 [section Version 0.2]
