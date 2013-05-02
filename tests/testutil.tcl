@@ -623,5 +623,22 @@ if {![info exists tarray::test::known]} {
         }
     }
 
+    # Compare two sets (bags - dup elements are treated as different)
+    proc equal_bags {s1 s2} {
+        set s1 [lsort $s1]
+        set s2 [lsort $s2]
+        if {[llength $s1] != [llength $s2]} {
+            return 0
+        }
+
+        foreach e1 $s1 e2 $s2 {
+            if {$e1 != $e2} {
+                return 0
+            }
+        }
+
+        return 1
+    }
+
     package require tarray
 }
