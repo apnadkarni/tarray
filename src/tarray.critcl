@@ -536,6 +536,7 @@ critcl::ccommand tarray::column::intersect3 {} {
     bthdr = TARRAYHDR(bcol);
 
     if (athdr == bthdr) {
+        /* TBD - also special case when either column is zero size */
         /* Optimize same object. Dunno how common this might be but ... */
         results[0] = acol;
         aminusb = thdr_alloc(interp, atype, 0);
@@ -690,8 +691,8 @@ critcl::ccommand tarray::column::intersect3 {} {
         t_ *pbminusa = THDRELEMPTR(bminusa, t_, 0);                     \
         t_ *a = THDRELEMPTR(athdr, t_, 0);                              \
         t_ *b = THDRELEMPTR(bthdr, t_, 0);                              \
-        t_ *aend = a + nmin;                                            \
-        t_ *bend = b + nmin;                                            \
+        t_ *aend = a + athdr->used;                                     \
+        t_ *bend = b + bthdr->used;                                     \
                                                                         \
         if (SORT_ORDER_IS_ASCENDING(order)) {                           \
             while (a < aend && b < bend) {                              \
@@ -721,11 +722,9 @@ critcl::ccommand tarray::column::intersect3 {} {
         }                                                               \
                                                                         \
         /* Now copy left over elements */                               \
-        aend = THDRELEMPTR(athdr, t_, athdr->used);                     \
         while (a < aend) {                                              \
             *paminusb++ = *a++;                                         \
         }                                                               \
-        bend = THDRELEMPTR(bthdr, t_, bthdr->used);                     \
         while (b < bend) {                                              \
             *pbminusa++ = *b++;                                         \
         }                                                               \
