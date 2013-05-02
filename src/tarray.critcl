@@ -507,24 +507,34 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     return ta_set_var_result(interp, tcol_reverse(interp, tcol), ovar, tcol);
 }
 
-critcl::cproc tarray::column::intersect3 {Tcl_Interp *interp TArrayObjPtr acol TArrayObjPtr bcol int nocase} ok {
+critcl::cproc tarray::column::intersect3 {Tcl_Interp* interp TArrayObjPtr acol TArrayObjPtr bcol int nocase} ok {
     thdr_t *athdr, *bthdr;
     thdr_t *aintersectb=NULL, *aminusb=NULL, *bminusa=NULL;
-    int atype = tcol_type(acol);
+    int atype;
     unsigned char order, a_current_order, b_current_order;
     int free_acol = 0, free_bcol = 0;
     TCL_RESULT status = TCL_ERROR;
     int sort_flags;
-    int nmin, ascending;
+    int nmin;
+    Tcl_Obj *results[3];
 
-    athdr = TARRAYHDR(athdr);
-    bthdr = TARRAYHDR(bthdr);
+    athdr = TARRAYHDR(acol);
+    atype = athdr->type;
+    bthdr = TARRAYHDR(bcol);
 
     if (athdr == bthdr) {
-        TBD - same object, optimized return;
+        /* Optimize same object. Dunno how common this might be but ... */
+        results[0] = acol;
+        aminusb = thdr_alloc(interp, atype, 0);
+        if (aminusb == NULL)
+            goto vamoose;
+        results[1] = tcol_new(aminusb);
+        results[2] = results[1];
+        Tcl_SetObjResult(interp, Tcl_NewListObj(3, results));
+        return TCL_OK;
     }
 
-    if (atype != athdr->type)
+    if (atype != bthdr->type)
         return ta_mismatched_types_error(interp, atype, bthdr->type);
 
     a_current_order = athdr->sort_order;
@@ -587,7 +597,7 @@ critcl::cproc tarray::column::intersect3 {Tcl_Interp *interp TArrayObjPtr acol T
                 }
             }
         }
-    } else {
+    } else if (atype != TA_BOOLEAN) {
         if (a_current_order == b_current_order) {
             if (a_current_order == THDR_UNSORTED)
                 order = THDR_SORTED_ASCENDING;/* Both need sorting */
@@ -608,36 +618,37 @@ critcl::cproc tarray::column::intersect3 {Tcl_Interp *interp TArrayObjPtr acol T
         }
     }
     
-    TA_ASSERT(order != 0);
-    switch (order) {
-    case THDR_SORTED_ASCENDING:         sort_flags = 0; break;
-    case THDR_SORTED_DESCENDING:        sort_flags = TA_SORT_DECREASING; break;
-    case THDR_SORTED_ASCENDING_NOCASE:  sort_flags = TA_SORT_NOCASE; break;
-    case THDR_SORTED_DESCENDING_NOCASE: sort_flags = TA_SORT_NOCASE | TA_SORT_DECREASING; break;
-    default:
-        Tcl_Panic("Unexpected sort order %d in function intersect", order);
-    }
-
-    if (a_current_order != order) {
-        /* a needs to be sorted. Needs to be unshared to do so */
-        if (Tcl_IsShared(acol)) {
-            acol = Tcl_DuplicateObj(acol);
-            free_acol = 1;
+    if (atype != TA_BOOLEAN) {
+        switch (order) {
+        case THDR_SORTED_ASCENDING:         sort_flags = 0; break;
+        case THDR_SORTED_DESCENDING:        sort_flags = TA_SORT_DECREASING; break;
+        case THDR_SORTED_ASCENDING_NOCASE:  sort_flags = TA_SORT_NOCASE; break;
+        case THDR_SORTED_DESCENDING_NOCASE: sort_flags = TA_SORT_NOCASE | TA_SORT_DECREASING; break;
+        default:
+            Tcl_Panic("Unexpected sort order %d in function intersect", order);
         }
-        if (tcol_sort(interp, acol, sort_flags) != TCL_OK)
-            goto vamoose;
-        athdr = TARRAYHDR(acol);
-    }
-
-    if (b_current_order != order) {
-        /* b needs to be sorted. Needs to be unshared to do so */
-        if (Tcl_IsShared(bcol)) {
-            bcol = Tcl_DuplicateObj(bcol);
-            free_bcol = 1;
+                                                                        
+        if (a_current_order != order) {
+            /* a needs to be sorted. Needs to be unshared to do so */
+            if (Tcl_IsShared(acol)) {
+                acol = Tcl_DuplicateObj(acol);
+                free_acol = 1;
+            }
+            if (tcol_sort(interp, acol, sort_flags) != TCL_OK)
+                goto vamoose;
+            athdr = TARRAYHDR(acol);
         }
-        if (tcol_sort(interp, bcol, sort_flags) != TCL_OK)
-            goto vamoose;
-        bthdr = TARRAYHDR(bcol);
+
+        if (b_current_order != order) {
+            /* b needs to be sorted. Needs to be unshared to do so */
+            if (Tcl_IsShared(bcol)) {
+                bcol = Tcl_DuplicateObj(bcol);
+                free_bcol = 1;
+            }
+            if (tcol_sort(interp, bcol, sort_flags) != TCL_OK)
+                goto vamoose;
+            bthdr = TARRAYHDR(bcol);
+        }
     }
 
     /*
@@ -655,76 +666,136 @@ critcl::cproc tarray::column::intersect3 {Tcl_Interp *interp TArrayObjPtr acol T
     if (aintersectb == NULL || aminusb == NULL || bminusa == NULL)
         goto vamoose;
 
+    /* IMPORTANT - INTERSECT must NOT error out else ref counts for
+       type TA_ANY will be broken as they are updated later */
+#define EQ(x_, y_) ((x_) == (y_))
+#define LT(x_, y_) ((x_) < (y_))
+#define INTERSECT(t_)                                                   \
+    do {                                                                \
+        t_ *pintersect = THDRELEMPTR(aintersectb, t_, 0);               \
+        t_ *paminusb = THDRELEMPTR(aminusb, t_, 0);                     \
+        t_ *pbminusa = THDRELEMPTR(bminusa, t_, 0);                     \
+        t_ *a = THDRELEMPTR(athdr, t_, 0);                              \
+        t_ *b = THDRELEMPTR(bthdr, t_, 0);                              \
+        t_ *aend = a + nmin;                                            \
+        t_ *bend = b + nmin;                                            \
+                                                                        \
+        if (SORT_ORDER_IS_ASCENDING(order)) {                           \
+            while (a < aend && b < bend) {                              \
+                if (EQ(*a, *b)) {                                       \
+                    *pintersect++ = *a;                                 \
+                    ++a;                                                \
+                    ++b;                                                \
+                } else if (LT(*a, *b)) {                                \
+                    *paminusb++ = *a++;                                 \
+                } else {                                                \
+                    *pbminusa++ = *b++;                                 \
+                }                                                       \
+            }                                                           \
+        } else {                                                        \
+            /* Sorted in descending order */                            \
+            while (a < aend && b < bend) {                              \
+                if (EQ(*a, *b)) {                                       \
+                    *pintersect++ = *a;                                 \
+                    ++a;                                                \
+                    ++b;                                                \
+                } else if (LT(*a, *b)) {                                \
+                    *pbminusa++ = *b++;                                 \
+                } else {                                                \
+                    *paminusb++ = *a++;                                 \
+                }                                                       \
+            }                                                           \
+        }                                                               \
+                                                                        \
+        /* Now copy left over elements */                               \
+        aend = THDRELEMPTR(athdr, t_, athdr->used);                     \
+        while (a < aend) {                                              \
+            *paminusb++ = *a++;                                         \
+        }                                                               \
+        bend = THDRELEMPTR(bthdr, t_, bthdr->used);                     \
+        while (b < bend) {                                              \
+            *pbminusa++ = *b++;                                         \
+        }                                                               \
+                                                                        \
+        aintersectb->used = pintersect - THDRELEMPTR(aintersectb, t_, 0); \
+        aminusb->used = paminusb - THDRELEMPTR(aminusb, t_, 0);         \
+        bminusa->used = pbminusa - THDRELEMPTR(bminusa, t_, 0);         \
+    } while (0)
+
     switch (atype) {
     case TA_BOOLEAN:
-        TBD;
+       {
+           int ones_in_a, ones_in_b, zeroes_in_a, zeroes_in_b;
+           int ones, zeroes;
+           ba_t *pbits;
+           ones_in_a = ba_count_ones(THDRELEMPTR(athdr, ba_t, 0), 0, athdr->used);
+           ones_in_b = ba_count_ones(THDRELEMPTR(bthdr, ba_t, 0), 0, bthdr->used);
+           zeroes_in_a = athdr->used - ones_in_a;
+           zeroes_in_b = bthdr->used - ones_in_b;
+           ones = ones_in_a < ones_in_b ? ones_in_a : ones_in_b;
+           zeroes = zeroes_in_a < zeroes_in_b ? zeroes_in_a : zeroes_in_b;
+           pbits = THDRELEMPTR(aintersectb, ba_t, 0);
+           ba_fill(pbits, 0, zeroes, 0);
+           ba_fill(pbits, zeroes, ones, 1);
+           aintersectb->used = ones + zeroes;
+           pbits = THDRELEMPTR(aminusb, ba_t, 0);
+           if (zeroes_in_a > zeroes) {
+               aminusb->used = zeroes_in_a - zeroes;
+               ba_fill(pbits, 0, aminusb->used, 0);
+           }
+           if (ones_in_a > ones) {
+               ba_fill(pbits, aminusb->used, ones_in_a - ones, 1);
+               aminusb->used += ones_in_a - ones;
+           }
+           pbits = THDRELEMPTR(bminusa, ba_t, 0);
+           if (zeroes_in_b > zeroes) {
+               bminusa->used = zeroes_in_b - zeroes;
+               ba_fill(pbits, 0, bminusa->used, 0);
+           }
+           if (ones_in_b > ones) {
+               ba_fill(pbits, bminusa->used, ones_in_b - ones, 1);
+               bminusa->used += ones_in_b - ones;
+           }
+       }
+        break;
     case TA_UINT:
-        do {
-            t_ *pintersect = THDRELEMPTR(aintersectb, t_, 0);
-            t_ *paminusb = THDRELEMPTR(aminusb, t_, 0);
-            t_ *pbminusa = THDRELEMPTR(bminusa, t_, 0);
-            t_ *a = THDRELEMPTR(athdr, t_, 0);
-            t_ *b = THDRELEMPTR(bthdr, t_, 0);
-            t_ *aend = a + nmin;
-            t_ *bend = b + nmin;
-            
-            if (SORT_ORDER_IS_ASCENDING(order)) {
-                while (a < aend && b < bend) {
-                    if (*a == *b) {
-                        *pintersect++ = *a;
-                        ++a;
-                        ++b;
-                    } else if (*a < *b) {
-                        *paminusb++ = *a++;
-                    } else {
-                        *pbminusa++ = *b++;
-                    }
-                }
-            } else {
-                /* Sorted in descending order */
-                while (a < aend && b < bend) {
-                    if (*a == *b) {
-                        *pintersect++ = *a;
-                        ++a;
-                        ++b;
-                    } else if (*a < *b) {
-                        *bminusa++ = *b++;
-                    } else {
-                        *paminusb++ = *a++;
-                    }
-                }
-            }
-
-            /* Now copy left over elements */
-            while (a < aend) {
-                *paminusb++ = *a++
-            }
-            while (b < bend) {
-                *pbminusa++ = *b++;
-            }
-
-            aintersectb->used = pintersect - THDRELEMPTR(aintersectb, t_, 0);
-            aminusb->used = paminusb - THDRELEMPTR(aminusb, t_, 0);
-            bminusa->used = pbminusa - THDRELEMPTR(bminusa, t_, 0);
-
-        } while (0);
+        INTERSECT(unsigned int);
         break;
     case TA_INT:
-        TBD;
+        INTERSECT(int);
+        break;
     case TA_WIDE:
-        TBD;
+        INTERSECT(Tcl_WideInt);
+        break;
     case TA_DOUBLE:
-        TBD;
+        INTERSECT(double);
+        break;
     case TA_BYTE:
-        TBD;
+        INTERSECT(unsigned char);
+        break;
     case TA_ANY:
-        TBD;
+#undef EQ
+#undef LT
+#define EQ(x_, y_) (ta_obj_compare((x_), (y_), nocase) == 0)
+#define LT(x_, y_) (ta_obj_compare((x_), (y_), nocase) < 0)
+        INTERSECT(Tcl_Obj *);
+        /* Need to update ref counts */
+        thdr_incr_obj_refs(aintersectb, 0, aintersectb->used);
+        thdr_incr_obj_refs(aminusb, 0, aminusb->used);
+        thdr_incr_obj_refs(bminusa, 0, bminusa->used);
+        break;
     }
 
-    /* Now loop through */
-
-
+    TA_ASSERT(aintersectb->used <= aintersectb->usable);
+    TA_ASSERT(aminusb->used <= aminusb->usable);
+    TA_ASSERT(bminusa->used <= bminusa->usable);
+           
     /* TBD - shrink arrays if underutilized */
+
+    results[0] = tcol_new(aintersectb);
+    results[1] = tcol_new(aminusb);
+    results[2] = tcol_new(bminusa);
+    Tcl_SetObjResult(interp, Tcl_NewListObj(3, results));
 
     status = TCL_OK;
 
@@ -733,6 +804,14 @@ vamoose:
         Tcl_DecrRefCount(acol);
     if (free_bcol)
         Tcl_DecrRefCount(bcol);
+    if (status != TCL_OK) {
+        if (aintersectb)
+            thdr_decr_refs(aintersectb);
+        if (aminusb)
+            thdr_decr_refs(aminusb);
+        if (bminusa)
+            thdr_decr_refs(bminusa);
+    }
     return status;
 }
 
