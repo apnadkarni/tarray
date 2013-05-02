@@ -169,6 +169,7 @@ TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
 TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname);
+TCL_RESULT ta_invalid_opt_error(Tcl_Interp *ip, char *optname);
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);

@@ -507,16 +507,29 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     return ta_set_var_result(interp, tcol_reverse(interp, tcol), ovar, tcol);
 }
 
-critcl::cproc tarray::column::intersect3 {Tcl_Interp* interp TArrayObjPtr acol TArrayObjPtr bcol int nocase} ok {
+critcl::ccommand tarray::column::intersect3 {} {
+    Tcl_Obj *acol, *bcol;
     thdr_t *athdr, *bthdr;
     thdr_t *aintersectb=NULL, *aminusb=NULL, *bminusa=NULL;
     int atype;
     unsigned char order, a_current_order, b_current_order;
     int free_acol = 0, free_bcol = 0;
     TCL_RESULT status = TCL_ERROR;
-    int sort_flags;
-    int nmin;
+    int sort_flags, nmin, nocase;
     Tcl_Obj *results[3];
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "?-nocase? COLUMNA COLUMNB");
+	return TCL_ERROR;
+    }
+
+    if (objc == 4) {
+        if (! ta_strequal(Tcl_GetString(objv[1]), "-nocase"))
+            return ta_invalid_opt_error(interp, "-nocase");
+    }
+
+    acol = objv[objc-2];
+    bcol = objv[objc-1];
 
     athdr = TARRAYHDR(acol);
     atype = athdr->type;
