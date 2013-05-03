@@ -1,0 +1,333 @@
+# column intersect3 tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc intersection_match {expected result} {
+        foreach r $result e $expected {
+            if {![equal_bags [tarray::column get -list $r 0 end] $e]} {
+                return 0
+            }
+        }
+        return 1
+    }
+    tcltest::customMatch intersect ::tarray::test::intersection_match
+
+
+    foreach type {boolean any byte double int uint wide} {
+        test column_intersect3-$type-1.0 {
+            Intersect empty columns
+        } -body {
+            tarray::column intersect3 [newcolumn $type] [newcolumn $type]
+        } -result [list [newcolumn $type] [newcolumn $type] [newcolumn $type]]
+
+        test column_intersect3-$type-1.1 {
+            Intersect with B empty
+        } -body {
+            tarray::column intersect3 [samplecolumn $type] [newcolumn $type]
+        } -result [list {} [samplerange $type] {}] -match intersect
+
+        test column_intersect3-$type-1.2 {
+            Intersect with A empty
+        } -body {
+            tarray::column intersect3 [newcolumn $type] [samplecolumn $type]
+        } -result [list {} {} [samplerange $type]] -match intersect
+
+        test column_intersect3-$type-2.0 {
+            Intersect invalid columns
+        } -body {
+            tarray::column intersect3 [samplecolumn $type] [samplecolumn [expr {$type eq "any" ? "boolean" : "any"}]]
+        } -result "*types*not compatible*" -returnCodes error -match glob
+
+        test column_intersect3-$type-2.0 {
+            Intersect A == B
+        } -body {
+            tarray::column intersect3 [samplecolumn $type] [samplecolumn $type]
+        } -result [list [samplerange $type] {} {}] -match intersect
+
+        test column_intersect3-$type-2.1 {
+            Intersect A == A
+        } -body {
+            set ta [samplecolumn $type]
+            tarray::column intersect3  $ta $ta
+        } -result [list [samplerange $type] {} {}] -match intersect
+
+        if {$type ne "boolean"} {
+            test column_intersect3-$type-4.0 {
+                Intersect - no overlap
+            } -body {
+                tarray::column intersect3 [newcolumn $type {0 3 2 1}] [newcolumn $type {5 7 6 8}]
+            } -result [list {} {0 1 2 3} {5 6 7 8}] -match intersect
+
+            test column_intersect3-$type-4.1 {
+                Intersect - full overlap
+            } -body {
+                tarray::column intersect3 [newcolumn $type {0 3 1 2}] [newcolumn $type {1 3 2 0}]
+            } -result [list {0 1 2 3} {} {}] -match intersect
+
+            test column_intersect3-$type-4.2 {
+                Intersect - no duplicates
+            } -body {
+                tarray::column intersect3 [newcolumn $type {0 3 5 2 1}] [newcolumn $type {5 6 7 3}]
+            } -result [list {3 5} {0 1 2} {6 7}] -match intersect
+
+            test column_intersect3-$type-4.3 {
+                Intersect - duplicates
+            } -body {
+                tarray::column intersect3 [newcolumn $type {2 0 3 5 2 1}] [newcolumn $type {5 6 7 3 6 5}]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-$type-4.4 {
+                Intersect - presorted ascending, unsorted
+            } -body {
+                tarray::column intersect3 [tarray::column sort [newcolumn $type {2 0 3 5 2 1}]] [newcolumn $type {5 6 7 3 6 5}]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-$type-4.5 {
+                Intersect - unsorted, presorted descending
+            } -body {
+                tarray::column intersect3 [newcolumn $type {2 0 3 5 2 1}] [tarray::column sort -decreasing [newcolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-$type-4.6 {
+                Intersect - presorted ascending, presorted ascending
+            } -body {
+                tarray::column intersect3 [tarray::column sort [newcolumn $type {2 0 3 5 2 1}]] [tarray::column sort [newcolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-$type-4.7 {
+                Intersect - presorted descending, presorted descending
+            } -body {
+                tarray::column intersect3 [tarray::column sort -decreasing [newcolumn $type {2 0 3 5 2 1}]] [tarray::column sort -decreasing [newcolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-$type-4.8 {
+                Intersect - presorted ascending, presorted descending
+            } -body {
+                tarray::column intersect3 [tarray::column sort [newcolumn $type {2 0 3 5 2 1}]] [tarray::column sort -decreasing [newcolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            # TBD - presorted (reverse, forward, mixed)
+        }
+    }
+
+    #
+    # Boolean tests
+    test column_intersect3-boolean-4.0 {
+        Intersect - no overlap
+    } -body {
+        tarray::column intersect3 [newcolumn boolean {0 0 0}] [newcolumn boolean {1 1}]
+    } -result [list {} {0 0 0} {1 1}] -match intersect
+
+    test column_intersect3-boolean-4.1 {
+        Intersect - full overlap
+    } -body {
+        tarray::column intersect3 [newcolumn boolean {0 1 }] [newcolumn boolean {1 0}]
+    } -result [list {0 1} {} {}] -match intersect
+
+    test column_intersect3-boolean-4.2 {
+        Intersect - no duplicates
+    } -body {
+        tarray::column intersect3 [newcolumn boolean {0 1}] [newcolumn boolean {0}]
+    } -result [list {0} {1} {}] -match intersect
+
+    test column_intersect3-boolean-4.3 {
+        Intersect - duplicates
+    } -body {
+        tarray::column intersect3 [newcolumn boolean {0 1 1 0 0 0}] [newcolumn boolean {0 0 1 1 1}]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-boolean-4.4 {
+        Intersect - presorted ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newcolumn boolean {0 1 1 0 0 0}]] [newcolumn boolean {0 0 1 1 1}]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-boolean-4.5 {
+        Intersect - unsorted, presorted descending
+    } -body {
+        tarray::column intersect3 [newcolumn boolean {0 1 1 0 0 0}] [tarray::column sort -decreasing [newcolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-boolean-4.6 {
+        Intersect - presorted ascending, presorted ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newcolumn boolean {0 1 1 0 0 0}]] [tarray::column sort [newcolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-boolean-4.7 {
+        Intersect - presorted descending, presorted descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newcolumn boolean {0 1 1 0 0 0}]] [tarray::column sort -decreasing [newcolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-boolean-4.8 {
+        Intersect - presorted ascending, presorted descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newcolumn boolean {0 1 1 0 0 0}]] [tarray::column sort -decreasing [newcolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+
+    #
+    # any -nocase
+    test column_intersect3-any-5.0 {
+        Intersect any - case-sensitive
+    } -body {
+        tarray::column intersect3 [newcolumn any {a b A c d}] [newcolumn any {a b a C}]
+    } -result [list {a b} {A c d} {a C}] -match intersect
+
+    test column_intersect3-any-5.1 {
+        Intersect any - case-insensitive
+    } -body {
+        tarray::column intersect3 -nocase [newcolumn any {a b A c d}] [newcolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.2 {
+        Intersect any - case-sensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.3 {
+        Intersect any - case-insensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.4 {
+        Intersect any - case-sensitive unsorted, ascending
+    } -body {
+        tarray::column intersect3 [newcolumn any {a b A c d}] [tarray::column sort [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.5 {
+        Intersect any - case-insensitive unsorted,ascending
+    } -body {
+        tarray::column intersect3 -nocase [newcolumn any {a b A c d}] [tarray::column sort [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.6 {
+        Intersect any - case-sensitive ascending, ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newcolumn any {a b A c d}]] [tarray::column sort [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.7 {
+        Intersect any - case-insensitive ascending,ascending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort [newcolumn any {a b A c d}]] [tarray::column sort [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.8 {
+        Intersect any - case-sensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.9 {
+        Intersect any - case-insensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -decreasing [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.10 {
+        Intersect any - case-sensitive unsorted, descending
+    } -body {
+        tarray::column intersect3 [newcolumn any {a b A c d}] [tarray::column sort -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.11 {
+        Intersect any - case-insensitive unsorted,descending
+    } -body {
+        tarray::column intersect3 -nocase [newcolumn any {a b A c d}] [tarray::column sort -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.12 {
+        Intersect any - case-sensitive descending, descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newcolumn any {a b A c d}]] [tarray::column sort -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.13 {
+        Intersect any - case-insensitive descending,descending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -decreasing [newcolumn any {a b A c d}]] [tarray::column sort -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    #
+    # presorted with -nocase
+    test column_intersect3-any-5.14 {
+        Intersect any - case-sensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.15 {
+        Intersect any - case-insensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.16 {
+        Intersect any - case-sensitive unsorted, ascending
+    } -body {
+        tarray::column intersect3 [newcolumn any {a b A c d}] [tarray::column sort -nocase [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.17 {
+        Intersect any - case-insensitive unsorted,ascending
+    } -body {
+        tarray::column intersect3 -nocase [newcolumn any {a b A c d}] [tarray::column sort -nocase [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.18 {
+        Intersect any - case-sensitive ascending, ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase [newcolumn any {a b A c d}]] [tarray::column sort -nocase [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.19 {
+        Intersect any - case-insensitive ascending,ascending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase [newcolumn any {a b A c d}]] [tarray::column sort -nocase [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.20 {
+        Intersect any - case-sensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase -decreasing [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.21 {
+        Intersect any - case-insensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newcolumn any {a b A c d}]] [newcolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.22 {
+        Intersect any - case-sensitive unsorted, descending
+    } -body {
+        tarray::column intersect3 [newcolumn any {a b A c d}] [tarray::column sort -nocase -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.23 {
+        Intersect any - case-insensitive unsorted,descending
+    } -body {
+        tarray::column intersect3 -nocase [newcolumn any {a b A c d}] [tarray::column sort -nocase -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-any-5.24 {
+        Intersect any - case-sensitive descending, descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase -decreasing [newcolumn any {a b A c d}]] [tarray::column sort -nocase -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-any-5.25 {
+        Intersect any - case-insensitive descending,descending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newcolumn any {a b A c d}]] [tarray::column sort -nocase -decreasing [newcolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+}
+
+::tcltest::cleanupTests
