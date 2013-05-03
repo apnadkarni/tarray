@@ -346,15 +346,17 @@ set countries [lb]table create {any wide double} {
 }[rb]
 set pop_col [lb]table column $countries 1]
 set area_col [lb]table column $countries 2]
-set populous [lb]column search -all -gt $pop_col 250000000]
 table get -list $countries \
-    [lb]column search \
+    [lb]column search -all \
         -among [lb]column search -all -gt $pop_col 250000000] \
         -gt $area_col 5e6]
 [example_end]
 returns all rows for countries that are populous and large in area. Note
 how the outside search is limited to specific indices using the [cmd -among]
 option.
+[para]
+The [cmd intersect3] command offers another way to search across multiple
+columns as described later.
 
 [subsection "Sorting"]
 Columns can be sorted using the [cmd "column sort"] command or its
@@ -411,7 +413,7 @@ set indices [lb]column sort -indices [lb]table column $tab 1[rb][rb]
 table get -list $tab $indices
 # Now use previous order of indices to order elements when their
 # values in column 2 are equal
-table get -list $tab [lb]column sort -indirect [table column 2] $indices[rb]
+table get -list $tab [lb]column sort -indirect [lb]table column 2] $indices[rb]
 [example_end]
 In this last statement, the sort is done indirectly using values
 from table [variable tab] but the positioning of elements when
@@ -419,9 +421,29 @@ these values compare equal is based on the order in [variable indices].
 
 [subsection "Other Commands"]
 
+The [cmd "column intersect3"] command returns the differences between
+two columns. The multiple column search example above could also
+have written as follows:
+
+[example_begin]
+set pop_col [lb]table column $countries 1]
+set area_col [lb]table column $countries 2]
+set populous [lb]column search -all -gt $pop_col 250000000[rb]
+set large [lb]column search -all -gt $area_col 5e6[rb]
+table get -list $countries [lb]lindex [lb]column intersect $populous $large[rb] 0[rb]
+[example_end]
+In most cases, the previous method using [cmd "column search -among"]
+is likely to be faster. However, the [cmd "column intersect3"] may be
+faster in some cases, for example, when multiple combinations are desired.
+[example_begin]
+lassign [lb]column intersect $populous $large[rb] populous_and_large populous_but_small sparse_but_large
+[example_end]
+
+[para]
 The [cmd "column size"] command returns the number of elements in a column.
 The [cmd "table size"] and [cmd "table width"] commands return the number
 of rows and columns respectively in a table.
+
 [para]
 The [cmd "column type"] command returns the type of elements in a column
 while the [cmd "table types"] command returns a list of the types of each
@@ -476,6 +498,15 @@ this is required or not should be determined based on application
 benchmarks.
 
 [item]
+Both lists and columns have some differences in terms of functionality.
+Columns do not have the [cmd -stride] option but the same functionality
+can be implemented through tables. List indexing offers nesting while
+although columns can be nested, the nested columns have to be explicitly
+accessed. On the other hand, columns offer some additional functions such 
+as [cmd intersect3] and indexing operations 
+(eg. extraction or storing of multiple elements through index lists).
+
+[item]
 Columns of type [const any] are stored as Tcl_Obj objects internally
 and thus are very similar to Tcl lists.
 Any advantage of an [const any] typed array over using a simple 
@@ -484,9 +515,6 @@ memory overallocation, not from reduced memory size of individual elements.
 It is therefore not as big a benefit as for other types.
 Thus columns of type [const any] are mostly beneficial when used
 in conjunction with other column types, for example in a table.
-[para]
-Both lists and columns have some pros and cons in terms of functionality but
-these are relatively minor.
 
 [item]
 The type [const any] can be any Tcl value, including typed arrays. Typed
@@ -496,6 +524,16 @@ However, unlike some of the Tcl list commands, [package tarray] does
 not have commands that implicitly support nesting. Nested
 typed arrays have to be explicitly accessed as such.
 [example {column index [column index $outer_column 4] 0}]
+
+[item]
+The package internally keeps track of the sorting state of a column.
+A column is internally marked after certain operations where the result
+is known to be sorted. An obvious example is the [cmd "column sort"]
+command. A less obvious case is an index column returned from certain
+search operations. Several commands make use of this for more efficient
+operation. For example, the [cmd "column intersect3"] command is much
+faster when columns are known to be sorted. Thus finding the intersection
+of two index columns resulting from searches is an O(n) operation.
 
 [list_end]
 
