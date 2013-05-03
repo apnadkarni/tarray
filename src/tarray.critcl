@@ -25,6 +25,10 @@ if {[string match "*-gcc" [critcl::targetconfig]] ||
 }
 
 critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c
+if {1} {
+    critcl::csources unsupported.c
+    critcl::ccommand tarray::column::dump ta_dump
+}
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h timsort-impl.h
 

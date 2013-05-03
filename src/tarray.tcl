@@ -81,6 +81,7 @@ namespace eval tarray {
         namespace ensemble create -map {
             create create
             delete delete
+            dump dump
             fill fill
             get get
             index index
