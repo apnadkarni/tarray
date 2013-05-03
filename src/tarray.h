@@ -342,6 +342,9 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                                       int objc, Tcl_Obj *const objv[]);
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);
 
+TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
+                       int objc, Tcl_Obj *const objv[]);
+
 /*
  *  Inlined functions
  */
