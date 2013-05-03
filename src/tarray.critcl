@@ -515,7 +515,7 @@ critcl::ccommand tarray::column::intersect3 {} {
     unsigned char order, a_current_order, b_current_order;
     int free_acol = 0, free_bcol = 0;
     TCL_RESULT status = TCL_ERROR;
-    int sort_flags, nmin, nocase;
+    int sort_flags, nmin, nocase = 0;
     Tcl_Obj *results[3];
 
     if (objc != 3 && objc != 4) {
@@ -526,6 +526,7 @@ critcl::ccommand tarray::column::intersect3 {} {
     if (objc == 4) {
         if (! ta_strequal(Tcl_GetString(objv[1]), "-nocase"))
             return ta_invalid_opt_error(interp, "-nocase");
+        nocase = 1;
     }
 
     acol = objv[objc-2];
@@ -615,6 +616,8 @@ critcl::ccommand tarray::column::intersect3 {} {
         if (a_current_order == b_current_order) {
             if (a_current_order == THDR_UNSORTED)
                 order = THDR_SORTED_ASCENDING;/* Both need sorting */
+            else
+                order = a_current_order;
         }
         else {
             /* a and b not sorted the same */
@@ -826,9 +829,6 @@ vamoose:
     }
     return status;
 }
-
-
-
 
 critcl::cproc tarray::table::put {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
     Tcl_Obj *table;
