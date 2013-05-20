@@ -2,7 +2,13 @@
 #include "tarray.h"
 #ifdef TA_SORT_MT
 # include "dispatch.h"
+/*
+ * Threshold for when sorts are multithreaded. Based on some preliminary
+ * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
+ */
+int ta_sort_mt_threshold = 5000;
 #endif
+
 
 /* Comparison functions for sorting */
 #define RETCMP(a_, b_, t_)                      \
@@ -608,7 +614,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         /* For TA_ANY we cannot multithread since Tcl_* routines are not
            thread safe */
         /* TBD - what should the threshold be ? */
-        if (psorted->type != TA_ANY && psorted->used > 10) {
+        if (psorted->type != TA_ANY && psorted->used > ta_sort_mt_threshold) {
             dispatch_group_t grp;
             dispatch_queue_t q;
             struct ta_sort_mt_context sort_context[2];

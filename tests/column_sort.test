@@ -55,8 +55,6 @@ namespace eval tarray::test {
             }
             return 0
         } else {
-            puts ta:[tarray::column get -list $sorted_ta 0 20]
-            puts li:[lrange $l 0 20]
             return 1
         }
     }

@@ -7,7 +7,8 @@
 
 # Set up configuration options for the package
 array set build_opts {
-      multithreaded_sort 1
+    multithreaded_sort 1
+    unsupported 1
 }
 
 # Standard critcl meta information
@@ -32,21 +33,38 @@ if {[string match "*-gcc" [critcl::targetconfig]] ||
 }
 
 critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c
-if {1} {
+if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
-    critcl::ccommand tarray::column::dump ta_dump
+    critcl::ccommand tarray::unsupported::dump ta_dump
+
 }
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h timsort-impl.h
+
+critcl::ccode {
+#include "tarray.h"
+}
 
 if {$build_opts(multithreaded_sort)} {
    critcl::clibraries "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/lib/dispatch.lib"
    critcl::cheaders "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/include/dispatch/dispatch.h"
    critcl::cflags -DTA_SORT_MT
+
+   critcl::ccommand tarray::unsupported::set_sort_mt_threshold {} {
+       if (objc == 2) {
+           if (Tcl_GetIntFromObj(interp, objv[1], &ta_sort_mt_threshold) != TCL_OK) {
+               return TCL_ERROR;
+           }
+       } else if (objc > 2) {
+           Tcl_WrongNumArgs(interp, 1, objv, "?THRESHOLD?");
+           return TCL_ERROR;
+       }
+       Tcl_SetObjResult(interp, Tcl_NewIntObj(ta_sort_mt_threshold));
+       return TCL_OK;
+   }
 }
 
 critcl::ccode {
-#include "tarray.h"
     typedef Tcl_Obj *TArrayObjPtr;
 
     /* Must match order of TA_FORMAT_* in tarray.h */
