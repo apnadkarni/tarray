@@ -30,3 +30,4 @@ Release*/*
 autom4te.cache/*
 config.status
 
+xdispatch*

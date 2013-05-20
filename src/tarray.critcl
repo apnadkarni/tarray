@@ -5,6 +5,13 @@
 # See the file LICENSE for license
 #
 
+# Set up configuration options for the package
+array set build_opts {
+      multithreaded_sort 1
+}
+
+# Standard critcl meta information
+
 package require critcl 3.1
 
 critcl::license "Ashok P. Nadkarni" license.terms
@@ -31,6 +38,12 @@ if {1} {
 }
 critcl::tsources tarray.tcl
 critcl::cheaders tarray.h timsort-impl.h
+
+if {$build_opts(multithreaded_sort)} {
+   critcl::clibraries "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/lib/dispatch.lib"
+   critcl::cheaders "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/include/dispatch/dispatch.h"
+   critcl::cflags -DTA_SORT_MT
+}
 
 critcl::ccode {
 #include "tarray.h"
