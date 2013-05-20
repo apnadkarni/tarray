@@ -8,7 +8,7 @@
 # Set up configuration options for the package
 array set build_opts {
     # "Multithreaded sort defaults to 0 because requires dispatch.dll"
-    multithreaded_sort 0
+    multithreaded_sort 1
     # "Enable compiling of unsupported functions"
     unsupported 1
 }
@@ -47,7 +47,7 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-if {$build_opts(multithreaded_sort)} {
+if {[string match "win32-*" [critcl::targetconfig]] && $build_opts(multithreaded_sort)} {
    critcl::clibraries "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/lib/dispatch.lib"
    critcl::cheaders "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/include/dispatch/dispatch.h"
    critcl::cflags -DTA_SORT_MT
