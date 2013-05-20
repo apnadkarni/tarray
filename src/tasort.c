@@ -634,7 +634,11 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
             TA_ASSERT(q != NULL);
             dispatch_group_async_f(grp, q, &sort_context[0], ta_sort_mt_worker);
+#  if 1 /* Might as well sort half ourselves instead of another thread. Even faster */
+            timsort(sort_context[1].base, sort_context[1].nelems, sort_context[1].elem_size, cmpfn);
+#  else
             dispatch_group_async_f(grp, q, &sort_context[1], ta_sort_mt_worker);
+#  endif
             dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
             dispatch_release(grp);
         }
