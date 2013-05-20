@@ -1,5 +1,8 @@
 #include "tcl.h"
 #include "tarray.h"
+#ifdef TA_SORT_MT
+# include "dispatch.h"
+#endif
 
 /* Comparison functions for sorting */
 #define RETCMP(a_, b_, t_)                      \
@@ -354,6 +357,22 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
     return TCL_OK;
 }
 
+#ifdef TA_SORT_MT
+/* Structure to hold the context for each sorting thread */
+struct ta_sort_mt_context {
+    void *base;                 /* Base of the sort array */
+    int   nelems;               /* Number of elements to sort */
+    int   elem_size;            /* Size of each element */
+    int (*cmpfn)(const void*, const void*); /* Comparison function */
+};
+
+static void ta_sort_mt_worker(struct ta_sort_mt_context *pctx)
+{
+    timsort(pctx->base, pctx->nelems, pctx->elem_size, pctx->cmpfn);
+}
+
+#endif
+
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 {
     int i, n;
@@ -585,8 +604,39 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         qsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
               psorted->elem_bits / CHAR_BIT, cmpfn);
 #else
+# ifdef TA_SORT_MT
+        /* For TA_ANY we cannot multithread since Tcl_* routines are not
+           thread safe */
+        /* TBD - what should the threshold be ? */
+        if (psorted->type != TA_ANY && psorted->used > 10) {
+            dispatch_group_t grp;
+            dispatch_queue_t q;
+            struct ta_sort_mt_context sort_context[2];
+
+            sort_context[0].base = THDRELEMPTR(psorted, unsigned char, 0);
+            sort_context[0].elem_size = psorted->elem_bits / CHAR_BIT;
+            sort_context[0].cmpfn = cmpfn;
+            sort_context[0].nelems = psorted->used/2;
+            sort_context[1].base = (sort_context[0].elem_size*(psorted->used/2))
+                + (char *)sort_context[0].base;
+            sort_context[1].nelems = psorted->used - psorted->used/2;
+            sort_context[1].elem_size = psorted->elem_bits / CHAR_BIT;
+            sort_context[1].cmpfn = cmpfn;
+
+            grp = dispatch_group_create();
+            TA_ASSERT(grp != NULL);
+            q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+            TA_ASSERT(q != NULL);
+            dispatch_group_async_f(grp, q, &sort_context[0], ta_sort_mt_worker);
+            dispatch_group_async_f(grp, q, &sort_context[1], ta_sort_mt_worker);
+            dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
+            dispatch_release(grp);
+        }
+        /* Now sort the almost sorted array. TBD - would an in-place merge be faster ? */
+# endif
         timsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
                 psorted->elem_bits / CHAR_BIT, cmpfn);
+
 #endif
     }
 
