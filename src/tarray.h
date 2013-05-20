@@ -102,6 +102,9 @@ extern const char *g_type_tokens[];
 #define TA_SORT_NOCASE     4
 #define TA_SORT_INDIRECT   8
 
+/* Threshold for when sorts are multithreaded */
+extern int ta_sort_mt_threshold;
+
 /* Pointers to Tcl's built-in type descriptors */
 extern Tcl_ObjType *g_tcl_list_type_ptr;
 
