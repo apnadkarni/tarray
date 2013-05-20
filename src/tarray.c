@@ -2596,18 +2596,26 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     int comparison;
 
     a = Tcl_GetStringFromObj(oaP, &alen);
-    alen = Tcl_NumUtfChars(a, alen); /* Num bytes -> num chars */
     b = Tcl_GetStringFromObj(obP, &blen);
+    
+    /* TBD - maybe check first letter before calling ? */
+#if 0
+    This is much slower than the strcmp method below
+    alen = Tcl_NumUtfChars(a, alen); /* Num bytes -> num chars */
     blen = Tcl_NumUtfChars(b, blen); /* Num bytes -> num chars */
 
     len = alen < blen ? alen : blen; /* len is the shorter length */
-    
-    /* TBD - maybe check first letter before calling ? */
     comparison = (ignorecase ? Tcl_UtfNcasecmp : Tcl_UtfNcmp)(a, b, len);
-
     if (comparison == 0) {
         comparison = alen-blen;
     }
+
+#else
+    /* Following Tcl's lsort we just use the Unicode code point collation
+       order which means a simple strcmp suffices */
+    comparison = (ignorecase ? stricmp : strcmp)(a, b);
+#endif
+
     return (comparison > 0) ? 1 : ((comparison < 0) ? -1 : 0);
 }
 
