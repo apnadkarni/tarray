@@ -7,7 +7,9 @@
 
 # Set up configuration options for the package
 array set build_opts {
-    multithreaded_sort 1
+    # "Multithreaded sort defaults to 0 because requires dispatch.dll"
+    multithreaded_sort 0
+    # "Enable compiling of unsupported functions"
     unsupported 1
 }
 
