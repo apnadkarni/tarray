@@ -75,7 +75,6 @@ namespace eval tarray::test {
         }
     }
 
-
     foreach type {boolean any byte double int uint wide} {
         test column_sort-$type-1.0 {
             Sort empty column (unshared)
@@ -451,6 +450,202 @@ namespace eval tarray::test {
         set tcol [tarray::column create any {a A b B}]
         tarray::column sort -indirect $tcol -nocase [tarray::column create int {-1 0 1 2}]
     } -result {tarray index -1 out of bounds} -returnCodes error
+
+    #
+    # Tests for multithreaded sorts
+    if {![catch {tarray::unsupported::set_sort_mt_threshold}]} {
+
+        foreach type {any boolean byte double int uint wide} {
+            test column_sort_mt-$type-2.0 {
+                Sort column (shared)
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_shared $type
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-2.1 {
+                Sort column (unshared)
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_unshared $type
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-2.2 {
+                Sort column -indices
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices $type
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-3.0 {
+                Sort column (shared) -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_shared $type -increasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-3.1 {
+                Sort column (unshared) -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_unshared $type -increasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-3.2 {
+                Sort column -increasing -indices
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices $type -increasing -indices
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-4.0 {
+                Sort column (shared) -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_shared $type -decreasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-4.1 {
+                Sort column (unshared) -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_unshared $type -decreasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-4.2 {
+                Sort column -decreasing -indices
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices $type -decreasing -indices
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.0 {
+                Sort presorted column -increasing -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_presorted $type -increasing -increasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.1 {
+                Sort presorted column -increasing -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_presorted $type -increasing -decreasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.2 {
+                Sort presorted column -decreasing -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_presorted $type -decreasing -decreasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.3 {
+                Sort presorted column -decreasing -increasing 
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_presorted $type -decreasing -increasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.4 {
+                Sort presorted column -indices -increasing -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices_presorted $type -increasing -increasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.5 {
+                Sort presorted column -indices -increasing -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices_presorted $type -increasing -decreasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.6 {
+                Sort presorted column -indices -decreasing -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices_presorted $type -decreasing -decreasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+
+            test column_sort_mt-$type-5.7 {
+                Sort presorted column -indices -decreasing -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::set_sort_mt_threshold]
+                tarray::unsupported::set_sort_mt_threshold 50
+            } -body {
+                sort_verify_indices_presorted $type -decreasing -increasing
+            } -cleanup {
+                tarray::unsupported::set_sort_mt_threshold $old_thresh
+            } -result 0
+        }
+
+        # TBD - need to test sort -indirect for multithreaded sorts
+    }
 }
 
 ::tcltest::cleanupTests
