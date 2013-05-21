@@ -758,45 +758,26 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     
     ptarget = TARRAYHDR(otarget);
 
-    switch (ptarget->type) {
-    case TA_BYTE:
-        cmpindexedfn = decreasing ? bytecmpindexedrev : bytecmpindexed;
-        break;
-    case TA_BOOLEAN:
-        cmpindexedfn = decreasing ? booleancmpindexedrev : booleancmpindexed;
-        break;
-    case TA_UINT:
-        cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
-        break;
-    case TA_INT:
-        cmpindexedfn = decreasing ? intcmpindexedrev : intcmpindexed;
-        break;
-    case TA_WIDE:
-        cmpindexedfn = decreasing ? widecmpindexedrev : widecmpindexed;
-        break;
-    case TA_DOUBLE:
-        cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
-        break;
-    case TA_ANY:
+    if (ptarget->type == TA_ANY) {
         if (nocase) 
             cmpindexedfn = decreasing ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
         else
             cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
-                break;
-    default:
-        ta_type_panic(ptarget->type);
+        
+        timsort_r(THDRELEMPTR(pindices, int, 0),
+                  pindices->used, sizeof(int),
+                  THDRELEMPTR(ptarget, unsigned char, 0),
+                  cmpindexedfn);
+    } else if (ptarget->type == TA_BOOLEAN) {
+        timsort_r(THDRELEMPTR(pindices, int, 0),
+                  pindices->used, sizeof(int),
+                  THDRELEMPTR(ptarget, unsigned char, 0),
+                  decreasing ? booleancmpindexedrev : booleancmpindexed
+            );
+    } else {
+        thdr_sort_scalars(pindices, decreasing, ptarget);
     }
 
     /* Note list of indices is NOT sorted, do not mark it as such ! */
-#ifdef USE_QSORT
-    tarray_qsort_r(THDRELEMPTR(pindices, int, 0), pindices->used,
-                   sizeof(int), THDRELEMPTR(ptarget, unsigned char, 0),
-                   cmpindexedfn);
-#else
-    timsort_r(THDRELEMPTR(pindices, int, 0),
-              pindices->used, sizeof(int),
-              THDRELEMPTR(ptarget, unsigned char, 0),
-              cmpindexedfn);
-#endif
     return TCL_OK;
 }
