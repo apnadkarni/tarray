@@ -364,12 +364,15 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
 }
 
 #ifdef TA_SORT_MT
+
 /* Structure to hold the context for each sorting thread */
 struct ta_sort_mt_context {
     void *base;                 /* Base of the sort array */
     int   nelems;               /* Number of elements to sort */
     int   elem_size;            /* Size of each element */
     int (*cmpfn)(const void*, const void*); /* Comparison function */
+    int (*cmpindexedfn)(void*, const void*, const void*); /* for indexed compares */
+    void *arg;                  /* Passed through for indexed compares */
 };
 
 static void ta_sort_mt_worker(struct ta_sort_mt_context *pctx)
@@ -377,7 +380,141 @@ static void ta_sort_mt_worker(struct ta_sort_mt_context *pctx)
     timsort(pctx->base, pctx->nelems, pctx->elem_size, pctx->cmpfn);
 }
 
+static void ta_sort_mt_worker_r(struct ta_sort_mt_context *pctx)
+{
+    timsort_r(pctx->base, pctx->nelems, pctx->elem_size, pctx->arg, pctx->cmpindexedfn);
+}
+
 #endif
+
+/* Note this routine does not handle booleans (because they are sorted
+   differently using just counts) and TA_ANY (because Tcl_Obj comparisons
+   are not thread safe
+*/
+static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
+{
+    int (*cmp)(const void*, const void*);
+    int (*cmpind)(void *, const void*, const void*);
+
+    TA_ASSERT(thdr->nrefs < 2);
+
+    if (psrc) {
+        /* Sort indices */
+        TA_ASSERT(thdr->type == TA_INT);
+        switch (psrc->type) {
+        case TA_BYTE: cmpind = decr ? bytecmpindexedrev : bytecmpindexed; break;
+        case TA_UINT: cmpind = decr ? uintcmpindexedrev : uintcmpindexed; break;
+        case TA_INT: cmpind = decr ? intcmpindexedrev : intcmpindexed; break;
+        case TA_WIDE: cmpind = decr ? widecmpindexedrev : widecmpindexed; break;
+        case TA_DOUBLE: cmpind = decr ? doublecmpindexedrev : doublecmpindexed; break;
+        case TA_ANY: /* FALLTHRU */
+        case TA_BOOLEAN: /* FALLTHRU */
+        default:
+            ta_type_panic(thdr->type);
+        }
+    } else {
+        switch (thdr->type) {
+        case TA_BYTE: cmp = decr ? bytecmprev : bytecmp; break;
+        case TA_UINT: cmp = decr ? uintcmprev : uintcmp; break;
+        case TA_INT: cmp = decr ? intcmprev : intcmp; break;
+        case TA_WIDE: cmp = decr ? widecmprev : widecmp; break;
+        case TA_DOUBLE: cmp = decr ? doublecmprev : doublecmp; break;
+        case TA_ANY: /* FALLTHRU */
+        case TA_BOOLEAN: /* FALLTHRU */
+        default:
+            ta_type_panic(thdr->type);
+        }
+    }
+
+
+#ifdef TA_SORT_MT
+    if (thdr->used > ta_sort_mt_threshold) {
+        dispatch_group_t grp;
+        dispatch_queue_t q;
+        int elem_size;
+        int align_size;
+        struct ta_sort_mt_context sort_context[2];
+
+        /* We have to make sure that when we are sorting "small elements"
+           like bytes, threads do not interfere with each other at the
+           boundaries of the array partitions on processors where
+           memory access is not atomic. So we divide the array such 
+           that the partition falls on a boundary that is a multiple
+           of atomic type. We assume (TBD) that void* satisfies this
+           We calculate a boundary that is a multiple of both the
+           data type and void*.
+           We assume base of array is aligned appropriately and divide
+           elements in (roughly) half.
+           X = elem_size*(psorted->used/2) gives #bytes in first partition
+           X/align_size gives number of alignment units in first partition
+           (discarding extra into second partition)
+           (X/align_size)*(align_size/elem_size) gives number of data
+           elements in first partition
+           But (align_size/elem_size) is exactly sizeof(void*). So number
+           of elements in first partition is (X/align_size)*sizeof(void*)
+        */
+        elem_size = thdr->elem_bits / CHAR_BIT;
+        align_size = elem_size * sizeof(void*); /* Want LCM but this will do */
+        sort_context[0].nelems = ((elem_size * thdr->used/2) / align_size)*sizeof(void *);
+
+        sort_context[0].base = THDRELEMPTR(thdr, unsigned char, 0);
+        sort_context[0].elem_size = elem_size;
+        if (psrc) {
+            sort_context[0].cmpfn = NULL;
+            sort_context[0].cmpindexedfn = cmpind;
+            sort_context[0].arg = THDRELEMPTR(psrc, unsigned char, 0);
+        } else {
+            sort_context[0].cmpfn = cmp;
+            sort_context[0].cmpindexedfn = NULL;
+            sort_context[0].arg = NULL;
+        }
+        sort_context[1].base = elem_size*sort_context[0].nelems + (char *)sort_context[0].base;
+        sort_context[1].nelems = thdr->used - sort_context[0].nelems;
+        sort_context[1].elem_size = elem_size;
+        sort_context[1].cmpfn = sort_context[0].cmpfn;
+        sort_context[1].cmpindexedfn = sort_context[0].cmpindexedfn;
+        sort_context[1].arg = sort_context[0].arg;
+        
+        if (sort_context[0].nelems && sort_context[1].nelems) {
+            grp = dispatch_group_create();
+            TA_ASSERT(grp != NULL);
+            q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+            TA_ASSERT(q != NULL);
+            if (psrc) {
+                dispatch_group_async_f(grp, q, &sort_context[0],
+                                       ta_sort_mt_worker_r);
+                timsort_r(sort_context[1].base, sort_context[1].nelems, sort_context[1].elem_size, sort_context[1].arg, cmpind);
+            } else {
+                dispatch_group_async_f(grp, q, &sort_context[0],
+                                       ta_sort_mt_worker);
+                timsort(sort_context[1].base, sort_context[1].nelems, elem_size, cmp);
+            }
+            dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
+            dispatch_release(grp);
+        }
+    }
+
+#endif /* TA_SORT_MT */
+    
+    /* Now sort the entire array. TBD - would an in-place merge be faster when
+       partially sorted above ? */
+    if (psrc) {
+        timsort_r(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
+                  thdr->elem_bits / CHAR_BIT,
+                  THDRELEMPTR(psrc, unsigned char, 0), cmpind);
+    } else {
+        timsort(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
+                thdr->elem_bits / CHAR_BIT, cmp);
+    }
+
+    /* Note when indirect/indexed sorting, returned indices are NOT sorted! */
+    if (psrc == NULL) {
+        thdr->sort_order =
+            decr ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
+    }
+}
+
+
 
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 {
@@ -480,46 +617,30 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             for (i = 0; i < psorted->used; ++i, ++indexP)
                 *indexP = i;
 
-            switch (psrc->type) {
-            case TA_BYTE:
-                cmpindexedfn = decreasing ? bytecmpindexedrev : bytecmpindexed;
-                break;
-            case TA_BOOLEAN:
-                cmpindexedfn = decreasing ? booleancmpindexedrev : booleancmpindexed;
-                break;
-            case TA_UINT:
-                cmpindexedfn = decreasing ? uintcmpindexedrev : uintcmpindexed;
-                break;
-            case TA_INT:
-                cmpindexedfn = decreasing ? intcmpindexedrev : intcmpindexed;
-                break;
-            case TA_WIDE:
-                cmpindexedfn = decreasing ? widecmpindexedrev : widecmpindexed;
-                break;
-            case TA_DOUBLE:
-                cmpindexedfn = decreasing ? doublecmpindexedrev : doublecmpindexed;
-                break;
-            case TA_ANY:
+            if (psrc->type == TA_ANY) {
                 if (nocase) 
                     cmpindexedfn = decreasing ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
                 else
                     cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
-                break;
-            default:
-                ta_type_panic(psorted->type);
+
+                timsort_r(THDRELEMPTR(psorted, int, 0),
+                          psorted->used, sizeof(int),
+                          THDRELEMPTR(psrc, unsigned char, 0),
+                          cmpindexedfn);
+
+            } else if (psrc->type == TA_BOOLEAN) {
+                timsort_r(THDRELEMPTR(psorted, int, 0),
+                          psorted->used, sizeof(int),
+                          THDRELEMPTR(psrc, unsigned char, 0),
+                          decreasing ? booleancmpindexedrev : booleancmpindexed
+                    );
+            } else {
+                thdr_sort_scalars(psorted, decreasing, psrc);
             }
+
             /* Note list of indices is NOT sorted, do not mark it as such ! */
-#ifdef USE_QSORT
-            tarray_qsort_r(THDRELEMPTR(psorted, int, 0), psorted->used,
-                           sizeof(int), THDRELEMPTR(psrc, unsigned char, 0),
-                           cmpindexedfn);
-#else
-            timsort_r(THDRELEMPTR(psorted, int, 0),
-                      psorted->used, sizeof(int),
-                      THDRELEMPTR(psrc, unsigned char, 0),
-                      cmpindexedfn);
-#endif
         }
+
         // Need to create a new Tcl_Obj
         ta_replace_intrep(tcol, psorted);
         return TCL_OK;
@@ -570,7 +691,23 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
      * Return sorted contents. Boolean type we treat separately
      * since we just need to count how many 1's and 0's.
      */
-    if (psorted->type == TA_BOOLEAN) {
+    if (psorted->type == TA_ANY) {
+        if (nocase)
+            cmpfn = decreasing ? tclobjcmpnocaserev : tclobjcmpnocase;
+        else
+            cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
+
+        timsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
+                psorted->elem_bits / CHAR_BIT, cmpfn);
+
+        if (decreasing)
+            psorted->sort_order =
+                nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
+        else
+            psorted->sort_order =
+                nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
+
+    } else if (psorted->type == TA_BOOLEAN) {
         ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
         n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
         if (decreasing) {
@@ -580,110 +717,12 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             ba_fill(baP, 0, psorted->used - n, 0);
             ba_fill(baP, psorted->used - n, n, 1);
         }
+
+        psorted->sort_order =
+            decreasing ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
     } else {
-        switch (psorted->type) {
-        case TA_BYTE:
-            cmpfn = decreasing ? bytecmprev : bytecmp;
-            break;
-        case TA_UINT:
-            cmpfn = decreasing ? uintcmprev : uintcmp;
-            break;
-        case TA_INT:
-            cmpfn = decreasing ? intcmprev : intcmp;
-            break;
-        case TA_WIDE:
-            cmpfn = decreasing ? widecmprev : widecmp;
-            break;
-        case TA_DOUBLE:
-            cmpfn = decreasing ? doublecmprev : doublecmp;
-            break;
-        case TA_ANY:
-            if (nocase)
-                cmpfn = decreasing ? tclobjcmpnocaserev : tclobjcmpnocase;
-            else
-                cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
-            break;
-        default:
-            ta_type_panic(psorted->type);
-        }
-#ifdef USE_QSORT
-        qsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
-              psorted->elem_bits / CHAR_BIT, cmpfn);
-#else
-# ifdef TA_SORT_MT
-        /* For TA_ANY we cannot multithread since Tcl_* routines are not
-           thread safe */
-        /* TBD - what should the threshold be ? */
-        if (psorted->type != TA_ANY && psorted->used > ta_sort_mt_threshold) {
-            dispatch_group_t grp;
-            dispatch_queue_t q;
-            int elem_size;
-            int align_size;
-            struct ta_sort_mt_context sort_context[2];
-
-            /* We have to make sure that when we are sorting "small elements"
-               like bytes, threads do not interfere with each other at the
-               boundaries of the array partitions on processors where
-               memory access is not atomic. So we divide the array such 
-               that the partition falls on a boundary that is a multiple
-               of atomic type. We assume (TBD) that void* satisfies this
-               We calculate a boundary that is a multiple of both the
-               data type and void*.
-               We assume base of array is aligned appropriately and divide
-               elements in (roughly) half.
-               X = elem_size*(psorted->used/2) gives #bytes in first partition
-               X/align_size gives number of alignment units in first partition
-                 (discarding extra into second partition)
-               (X/align_size)*(align_size/elem_size) gives number of data
-                 elements in first partition
-               But (align_size/elem_size) is exactly sizeof(void*). So number
-               of elements in first partition is (X/align_size)*sizeof(void*)
-            */
-            elem_size = psorted->elem_bits / CHAR_BIT;
-            align_size = elem_size * sizeof(void*); /* Want LCM but this will do */
-            sort_context[0].nelems = ((elem_size * psorted->used/2) / align_size)*sizeof(void *);
-
-            sort_context[0].base = THDRELEMPTR(psorted, unsigned char, 0);
-            sort_context[0].elem_size = elem_size;
-            sort_context[0].cmpfn = cmpfn;
-            sort_context[1].base = elem_size*sort_context[0].nelems + (char *)sort_context[0].base;
-            sort_context[1].nelems = psorted->used - sort_context[0].nelems;
-            sort_context[1].elem_size = elem_size;
-            sort_context[1].cmpfn = cmpfn;
-
-            if (sort_context[0].nelems && sort_context[1].nelems) {
-                grp = dispatch_group_create();
-                TA_ASSERT(grp != NULL);
-                q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-                TA_ASSERT(q != NULL);
-                dispatch_group_async_f(grp, q, &sort_context[0], ta_sort_mt_worker);
-#  if 1 /* Might as well sort half ourselves instead of another thread. Even faster */
-                timsort(sort_context[1].base, sort_context[1].nelems, sort_context[1].elem_size, cmpfn);
-#  else
-                dispatch_group_async_f(grp, q, &sort_context[1], ta_sort_mt_worker);
-#  endif
-                dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
-                dispatch_release(grp);
-            }
-        }
-        /* Now sort the almost sorted array. TBD - would an in-place merge be faster ? */
-# endif
-        timsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
-                psorted->elem_bits / CHAR_BIT, cmpfn);
-
-#endif
-    }
-
-    if (decreasing) {
-        if (nocase)
-            psorted->sort_order = THDR_SORTED_DESCENDING_NOCASE;
-        else
-            psorted->sort_order = THDR_SORTED_DESCENDING;
-    } else {
-        if (nocase)
-            psorted->sort_order = THDR_SORTED_ASCENDING_NOCASE;
-        else
-            psorted->sort_order = THDR_SORTED_ASCENDING;
+        /* Something other than TA_ANY and TA_BOOLEAN */
+        thdr_sort_scalars(psorted, decreasing, NULL);
     }
 
     return TCL_OK;
