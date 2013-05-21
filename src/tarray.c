@@ -2598,9 +2598,11 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     a = Tcl_GetStringFromObj(oaP, &alen);
     b = Tcl_GetStringFromObj(obP, &blen);
     
-    /* TBD - maybe check first letter before calling ? */
+    /* TBD - maybe check first letter before calling ? But be careful of case-insensitivity*/
 #if 0
-    This is much slower than the strcmp method below
+    // This is much slower than the strcmp method below but might be more
+    // "correct". On the other hand the strcmp method below is both faster
+    // and Tcl compatible with lsort and lsearch
     alen = Tcl_NumUtfChars(a, alen); /* Num bytes -> num chars */
     blen = Tcl_NumUtfChars(b, blen); /* Num bytes -> num chars */
 
