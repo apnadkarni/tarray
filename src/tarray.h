@@ -9,6 +9,12 @@
 
 #include "tcl.h"
 
+#ifdef TA_HAVE_LIBDISPATCH
+# include "dispatch.h"
+/* Threshold for when sorts are multithreaded */
+extern int ta_sort_mt_threshold;
+#endif
+
 #ifndef TA_INLINE
 # ifdef _MSC_VER
 #  define TA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
@@ -101,9 +107,6 @@ extern const char *g_type_tokens[];
 #define TA_SORT_INDICES    2
 #define TA_SORT_NOCASE     4
 #define TA_SORT_INDIRECT   8
-
-/* Threshold for when sorts are multithreaded */
-extern int ta_sort_mt_threshold;
 
 /* Pointers to Tcl's built-in type descriptors */
 extern Tcl_ObjType *g_tcl_list_type_ptr;
@@ -348,6 +351,9 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
 TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
                        int objc, Tcl_Obj *const objv[]);
 
+#ifdef TA_HAVE_LIBDISPATCH
+int thdr_calc_mt_split(thdr_t *thdr, int first, int count, int *psecond_block_size);
+#endif
 /*
  *  Inlined functions
  */
