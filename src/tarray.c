@@ -655,7 +655,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
                 TA_ASSERT(grp != NULL); /* TBD */
                 /* TBD - check return code */ ta_mt_group_async_f(grp, q, &fill_context[0], ta_fill_int_mt_worker);
                 ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
-                ta_mt_release(grp);
+                ta_mt_group_release(grp);
             }
             ta_fill_int_mt_worker(&fill_context[1]);
 #else

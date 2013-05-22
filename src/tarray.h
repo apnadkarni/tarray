@@ -1,7 +1,10 @@
 #ifndef TA_H
 #define TA_H
 
+#ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS /* Disable Visual C++ snprintf security warnings */
+#include <windows.h>            /* TBD - define LEAN_AND_MEAN ? */
+#endif
 
 #include <limits.h>
 #include <string.h>
@@ -362,7 +365,7 @@ typedef dispatch_function_t ta_mt_function_t;
 typedef dispatch_time_t     ta_mt_time_t;
 #define TA_MT_TIME_NOW DISPATCH_TIME_NOW
 #define TA_MT_TIME_FOREVER DISPATCH_TIME_FOREVER
-TA_INLINE ta_mt_group_t ta_mt_group_create() {
+TA_INLINE ta_mt_group_t ta_mt_group_create(void) {
     return dispatch_group_create();
 }
 TA_INLINE int ta_mt_group_async_f(ta_mt_group_t grp, void *ctx, ta_mt_function_t fn) {
@@ -384,7 +387,17 @@ TA_INLINE void ta_mt_group_release(ta_mt_group_t grp) {
 
 # elif defined(_WIN32)
 
+typedef struct ta_mt_group_s *ta_mt_group_t;
 typedef void(*ta_mt_function_t )(void *);
+typedef DWORD ta_mt_time_t;
+#define TA_MT_TIME_NOW 0
+#define TA_MT_TIME_FOREVER INFINITE
+
+ta_mt_group_t ta_mt_group_create(void);
+int ta_mt_group_async_f(ta_mt_group_t grp, void *ctx, ta_mt_function_t fn);
+long ta_mt_group_wait(ta_mt_group_t grp, ta_mt_time_t timeout);
+void ta_mt_group_retain(ta_mt_group_t grp);
+void ta_mt_group_release(ta_mt_group_t grp);
 
 # endif
 

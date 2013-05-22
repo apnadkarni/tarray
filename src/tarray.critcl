@@ -19,18 +19,18 @@ proc win32_target {} {
 array set build_opts {}
 
 # Multithreaded sort defaults to 0 on non-Win32 because it requires dispatch.dll
-set build_opts(mt_enable) [string match "win32-*" [critcl::targetconfig]]
+set build_opts(mt_enable) [win32_target]
 
 # Normally we use libdispatch only on non-Win32 and only if mt_enable is set
 # Override this in Win32 if you want explicitly use libdispatch even on Win32.
 # 
-set build_opts(use_libdispatch) 1
+set build_opts(use_libdispatch) 0
 if {$build_opts(mt_enable) && ![win32_target]} {
     set build_opts(use_libdispatch) 1
 }
 
 # Path to libdispatch (optional, set only if use_libdispatch is true)
-set build_opts(libdispatch_dir) "../xdispatch_0.7.2_Visual Studio 10 Win64_i386"
+#set build_opts(libdispatch_dir) "../xdispatch_0.7.2_Visual Studio 10 Win64_i386"
 
 # Enable compiling of unsupported functions
 set build_opts(unsupported) 1
@@ -72,20 +72,24 @@ critcl::ccode {
 
 if {$build_opts(mt_enable)} {
 
-   critcl::cflags -DTA_MT_ENABLE
+    if {! $build_opts(use_libdispatch)} {
+        critcl::csources mt.c
+    }
 
-   critcl::ccommand tarray::unsupported::set_sort_mt_threshold {} {
-       if (objc == 2) {
-           if (Tcl_GetIntFromObj(interp, objv[1], &ta_sort_mt_threshold) != TCL_OK) {
-               return TCL_ERROR;
-           }
-       } else if (objc > 2) {
-           Tcl_WrongNumArgs(interp, 1, objv, "?THRESHOLD?");
-           return TCL_ERROR;
-       }
-       Tcl_SetObjResult(interp, Tcl_NewIntObj(ta_sort_mt_threshold));
-       return TCL_OK;
-   }
+    critcl::cflags -DTA_MT_ENABLE
+
+    critcl::ccommand tarray::unsupported::set_sort_mt_threshold {} {
+        if (objc == 2) {
+            if (Tcl_GetIntFromObj(interp, objv[1], &ta_sort_mt_threshold) != TCL_OK) {
+                return TCL_ERROR;
+            }
+        } else if (objc > 2) {
+            Tcl_WrongNumArgs(interp, 1, objv, "?THRESHOLD?");
+            return TCL_ERROR;
+        }
+        Tcl_SetObjResult(interp, Tcl_NewIntObj(ta_sort_mt_threshold));
+        return TCL_OK;
+    }
 }
 
 if {$build_opts(use_libdispatch)} {
