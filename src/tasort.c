@@ -428,8 +428,7 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
 
 #ifdef TA_MT_ENABLE
     if (thdr->used > ta_sort_mt_threshold) {
-        dispatch_group_t grp;
-        dispatch_queue_t q;
+        ta_mt_group_t grp;
         int elem_size;
         struct ta_sort_mt_context sort_context[2];
 
@@ -454,21 +453,19 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
         sort_context[1].arg = sort_context[0].arg;
         
         if (sort_context[1].nelems) {
-            grp = dispatch_group_create();
-            TA_ASSERT(grp != NULL);
-            q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-            TA_ASSERT(q != NULL);
+            grp = ta_mt_group_create();
+            TA_ASSERT(grp != NULL); /* TBD, do not treat as catastrophic */
             if (psrc) {
-                dispatch_group_async_f(grp, q, &sort_context[1],
-                                       ta_sort_mt_worker_r);
+                /* TBD - check errors */
+                ta_mt_group_async_f(grp, &sort_context[1], ta_sort_mt_worker_r);
                 timsort_r(sort_context[0].base, sort_context[0].nelems, elem_size, sort_context[0].arg, cmpind);
             } else {
-                dispatch_group_async_f(grp, q, &sort_context[1],
-                                       ta_sort_mt_worker);
+                /* TBD - check errors */
+                ta_mt_group_async_f(grp, &sort_context[1], ta_sort_mt_worker);
                 timsort(sort_context[0].base, sort_context[0].nelems, elem_size, cmp);
             }
-            dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
-            dispatch_release(grp);
+            ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
+            ta_mt_group_release(grp);
         }
     }
 
