@@ -314,6 +314,66 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
     }
 }
 
+#ifdef TA_HAVE_LIBDISPATCH
+/*
+ * For multithreaded operations, the array needs to be split up such that
+ * the boundary is aligned at a point where the threads will not interfere
+ * with one another. This is an issue only for the sizes smaller
+ * than an atomic memory unit (assumed to be int).
+ * Returns number of elements in first partition. This will never be 0
+ * unless count is passed in as 0.
+ * *psecond_block_size will hold number in second. This may be 0.
+ *
+ * Does not check if range is too small to be worthwhile multithreading.
+ * That depends on operation and is up to the caller.
+ */
+
+int thdr_calc_mt_split(thdr_t *thdr, int first, int count, int *psecond_block_size)
+{
+    int second_block_size;
+    int memunits;
+    
+    TA_ASSERT((first + count) <= thdr->used);
+
+    /* Assumes the thdr array is aligned properly and that processors
+     * already access ints, wides and doubles atomically.
+     */
+    switch (thdr->type) {
+    case TA_INT:
+    case TA_UINT:
+    case TA_DOUBLE:
+    case TA_WIDE:
+        second_block_size = count/2;
+        break;
+        
+    case TA_BYTE:
+        /* Assumes int is appropriate for memory atomicity */
+        if (count < (2*sizeof(int)))
+            second_block_size = 0;
+        else {
+            /* Remember first may not be aligned apprpriately */
+            int aligned_first;
+            int remaining_count;
+            aligned_first = (first + sizeof(int) - 1) & (- (int) sizeof(int));
+            remaining_count = count - (aligned_first - first);
+            TA_ASSERT(remaining_count >= 0);
+            memunits = remaining_count / sizeof(int);
+            second_block_size = remaining_count - ((memunits / 2) * sizeof(int));
+        }
+        break;
+
+    /* BOOLEAN and ANY cannot be multithreaded */
+    case TA_BOOLEAN:
+    case TA_ANY:
+    default:
+        ta_type_panic(thdr->type);
+    }
+
+    *psecond_block_size = second_block_size;
+    return count - second_block_size;
+}
+#endif
+
 /*
  * Updates TA_ANY elements at the specific indices pindices[].
  * Also updates thdr->used.
@@ -527,6 +587,23 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
     return status;
 }
 
+struct ta_fill_mt_context {
+    ta_value_t tav;
+    void *base;
+    int   nelems;
+};
+
+void ta_fill_int_mt_worker(struct ta_fill_mt_context *pctx)
+{
+    int i;
+    int count = pctx->nelems;
+    int val = pctx->tav.ival;
+    int *pint;
+    pint = pctx->base;
+    for (i = 0; i < count; ++i, ++pint)
+        *pint = val;
+}
+
 /*
  * Set the value of an element range at a position in a thdr_t.
  * See the asserts below for conditions under which this can be called
@@ -564,10 +641,31 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
         if (ptav->ival == 0) {
             memset(THDRELEMPTR(thdr, int, pos), 0, count*sizeof(int));
         } else {
+#ifdef TA_HAVE_LIBDISPATCH
+            dispatch_group_t grp;
+            dispatch_queue_t q;
+            struct ta_fill_mt_context fill_context[2];
+            fill_context[0].tav = fill_context[1].tav = *ptav;
+            fill_context[0].base = THDRELEMPTR(thdr, int, pos);
+            fill_context[0].nelems = count/2;
+            fill_context[1].base = fill_context[0].nelems + (int*)fill_context[0].base;
+            fill_context[1].nelems = count - fill_context[0].nelems;
+            if (fill_context[0].nelems) {
+                grp = dispatch_group_create();
+                TA_ASSERT(grp != NULL);
+                q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+                TA_ASSERT(q != NULL);
+                dispatch_group_async_f(grp, q, &fill_context[0], ta_fill_int_mt_worker);
+                dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
+                dispatch_release(grp);
+            }
+            ta_fill_int_mt_worker(&fill_context[1]);
+#else
             int *pint;
             pint = THDRELEMPTR(thdr, int, pos);
             for (i = 0; i < count; ++i, ++pint)
                 *pint = ptav->ival;
+#endif
         }
         break;
         
@@ -2615,7 +2713,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 #else
     /* Following Tcl's lsort we just use the Unicode code point collation
        order which means a simple strcmp suffices */
-    comparison = (ignorecase ? stricmp : strcmp)(a, b);
+    comparison = (ignorecase ? _stricmp : strcmp)(a, b);
 #endif
 
     return (comparison > 0) ? 1 : ((comparison < 0) ? -1 : 0);

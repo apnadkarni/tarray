@@ -1,7 +1,6 @@
 #include "tcl.h"
 #include "tarray.h"
-#ifdef TA_SORT_MT
-# include "dispatch.h"
+#ifdef TA_HAVE_LIBDISPATCH
 /*
  * Threshold for when sorts are multithreaded. Based on some preliminary
  * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
@@ -363,7 +362,7 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
     return TCL_OK;
 }
 
-#ifdef TA_SORT_MT
+#ifdef TA_HAVE_LIBDISPATCH
 
 /* Structure to hold the context for each sorting thread */
 struct ta_sort_mt_context {
@@ -427,12 +426,11 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
     }
 
 
-#ifdef TA_SORT_MT
+#ifdef TA_HAVE_LIBDISPATCH
     if (thdr->used > ta_sort_mt_threshold) {
         dispatch_group_t grp;
         dispatch_queue_t q;
         int elem_size;
-        int align_size;
         struct ta_sort_mt_context sort_context[2];
 
         /* We have to make sure that when we are sorting "small elements"
@@ -453,10 +451,9 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
            But (align_size/elem_size) is exactly sizeof(void*). So number
            of elements in first partition is (X/align_size)*sizeof(void*)
         */
-        elem_size = thdr->elem_bits / CHAR_BIT;
-        align_size = elem_size * sizeof(void*); /* Want LCM but this will do */
-        sort_context[0].nelems = ((elem_size * thdr->used/2) / align_size)*sizeof(void *);
-
+        elem_size = thdr->elem_bits / CHAR_BIT; 
+        sort_context[0].nelems = thdr_calc_mt_split(thdr, 0, thdr->used, &sort_context[1].nelems);
+        TA_ASSERT((sort_context[0].nelems + sort_context[1].nelems) == thdr->used);
         sort_context[0].base = THDRELEMPTR(thdr, unsigned char, 0);
         sort_context[0].elem_size = elem_size;
         if (psrc) {
@@ -469,35 +466,36 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
             sort_context[0].arg = NULL;
         }
         sort_context[1].base = elem_size*sort_context[0].nelems + (char *)sort_context[0].base;
-        sort_context[1].nelems = thdr->used - sort_context[0].nelems;
         sort_context[1].elem_size = elem_size;
         sort_context[1].cmpfn = sort_context[0].cmpfn;
         sort_context[1].cmpindexedfn = sort_context[0].cmpindexedfn;
         sort_context[1].arg = sort_context[0].arg;
         
-        if (sort_context[0].nelems && sort_context[1].nelems) {
+        if (sort_context[1].nelems) {
             grp = dispatch_group_create();
             TA_ASSERT(grp != NULL);
             q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
             TA_ASSERT(q != NULL);
             if (psrc) {
-                dispatch_group_async_f(grp, q, &sort_context[0],
+                dispatch_group_async_f(grp, q, &sort_context[1],
                                        ta_sort_mt_worker_r);
-                timsort_r(sort_context[1].base, sort_context[1].nelems, sort_context[1].elem_size, sort_context[1].arg, cmpind);
+                timsort_r(sort_context[0].base, sort_context[0].nelems, elem_size, sort_context[0].arg, cmpind);
             } else {
-                dispatch_group_async_f(grp, q, &sort_context[0],
+                dispatch_group_async_f(grp, q, &sort_context[1],
                                        ta_sort_mt_worker);
-                timsort(sort_context[1].base, sort_context[1].nelems, elem_size, cmp);
+                timsort(sort_context[0].base, sort_context[0].nelems, elem_size, cmp);
             }
             dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
             dispatch_release(grp);
         }
     }
 
-#endif /* TA_SORT_MT */
+    /* Now fall through below to sort the entire array.
+       TBD - would an in-place merge be faster when partially sorted above ?
+    */
+
+#endif /* TA_HAVE_LIBDISPATCH */
     
-    /* Now sort the entire array. TBD - would an in-place merge be faster when
-       partially sorted above ? */
     if (psrc) {
         timsort_r(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
                   thdr->elem_bits / CHAR_BIT,
