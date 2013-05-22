@@ -1,6 +1,6 @@
 #include "tcl.h"
 #include "tarray.h"
-#ifdef TA_HAVE_LIBDISPATCH
+#ifdef TA_MT_ENABLE
 /*
  * Threshold for when sorts are multithreaded. Based on some preliminary
  * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
@@ -362,7 +362,7 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
     return TCL_OK;
 }
 
-#ifdef TA_HAVE_LIBDISPATCH
+#ifdef TA_MT_ENABLE
 
 /* Structure to hold the context for each sorting thread */
 struct ta_sort_mt_context {
@@ -426,31 +426,13 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
     }
 
 
-#ifdef TA_HAVE_LIBDISPATCH
+#ifdef TA_MT_ENABLE
     if (thdr->used > ta_sort_mt_threshold) {
         dispatch_group_t grp;
         dispatch_queue_t q;
         int elem_size;
         struct ta_sort_mt_context sort_context[2];
 
-        /* We have to make sure that when we are sorting "small elements"
-           like bytes, threads do not interfere with each other at the
-           boundaries of the array partitions on processors where
-           memory access is not atomic. So we divide the array such 
-           that the partition falls on a boundary that is a multiple
-           of atomic type. We assume (TBD) that void* satisfies this
-           We calculate a boundary that is a multiple of both the
-           data type and void*.
-           We assume base of array is aligned appropriately and divide
-           elements in (roughly) half.
-           X = elem_size*(psorted->used/2) gives #bytes in first partition
-           X/align_size gives number of alignment units in first partition
-           (discarding extra into second partition)
-           (X/align_size)*(align_size/elem_size) gives number of data
-           elements in first partition
-           But (align_size/elem_size) is exactly sizeof(void*). So number
-           of elements in first partition is (X/align_size)*sizeof(void*)
-        */
         elem_size = thdr->elem_bits / CHAR_BIT; 
         sort_context[0].nelems = thdr_calc_mt_split(thdr, 0, thdr->used, &sort_context[1].nelems);
         TA_ASSERT((sort_context[0].nelems + sort_context[1].nelems) == thdr->used);
@@ -494,7 +476,7 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
        TBD - would an in-place merge be faster when partially sorted above ?
     */
 
-#endif /* TA_HAVE_LIBDISPATCH */
+#endif /* TA_MT_ENABLE */
     
     if (psrc) {
         timsort_r(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,

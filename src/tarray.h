@@ -9,10 +9,8 @@
 
 #include "tcl.h"
 
-#ifdef TA_HAVE_LIBDISPATCH
+#ifdef TA_USE_LIBDISPATCH
 # include "dispatch.h"
-/* Threshold for when sorts are multithreaded */
-extern int ta_sort_mt_threshold;
 #endif
 
 #ifndef TA_INLINE
@@ -351,9 +349,47 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
 TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
                        int objc, Tcl_Obj *const objv[]);
 
-#ifdef TA_HAVE_LIBDISPATCH
+#ifdef TA_MT_ENABLE
+/* Threshold for when sorts are multithreaded */
+extern int ta_sort_mt_threshold;
+/* Multithreading support */
 int thdr_calc_mt_split(thdr_t *thdr, int first, int count, int *psecond_block_size);
+
+# ifdef TA_USE_LIBDISPATCH
+
+typedef dispatch_group_t    ta_mt_group_t;
+typedef dispatch_function_t ta_mt_function_t;
+typedef dispatch_time_t     ta_mt_time_t;
+#define TA_MT_TIME_NOW DISPATCH_TIME_NOW
+#define TA_MT_TIME_FOREVER DISPATCH_TIME_FOREVER
+TA_INLINE ta_mt_group_t ta_mt_group_create() {
+    return dispatch_group_create();
+}
+TA_INLINE int ta_mt_group_async_f(ta_mt_group_t grp, void *ctx, ta_mt_function_t fn) {
+    dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    if (q == NULL)
+        return -1;
+    dispatch_group_async_f(grp, q, ctx, fn);
+    return 0;
+}
+TA_INLINE long ta_mt_group_wait(ta_mt_group_t grp, ta_mt_time_t timeout) {
+    return dispatch_group_wait(grp, timeout);
+}
+TA_INLINE void ta_mt_group_retain(ta_mt_group_t grp) {
+    dispatch_retain(grp);
+}
+TA_INLINE void ta_mt_group_release(ta_mt_group_t grp) {
+    dispatch_release(grp);
+}
+
+# elif defined(_WIN32)
+
+typedef void(*ta_mt_function_t )(void *);
+
+# endif
+
 #endif
+
 /*
  *  Inlined functions
  */

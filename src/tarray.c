@@ -314,7 +314,7 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
     }
 }
 
-#ifdef TA_HAVE_LIBDISPATCH
+#ifdef TA_MT_ENABLE
 /*
  * For multithreaded operations, the array needs to be split up such that
  * the boundary is aligned at a point where the threads will not interfere
@@ -641,9 +641,9 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
         if (ptav->ival == 0) {
             memset(THDRELEMPTR(thdr, int, pos), 0, count*sizeof(int));
         } else {
-#ifdef TA_HAVE_LIBDISPATCH
-            dispatch_group_t grp;
-            dispatch_queue_t q;
+#ifdef TA_MT_ELABLE
+            ta_mt_group_t grp;
+            ta_mt_queue_t q;
             struct ta_fill_mt_context fill_context[2];
             fill_context[0].tav = fill_context[1].tav = *ptav;
             fill_context[0].base = THDRELEMPTR(thdr, int, pos);
@@ -651,13 +651,11 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
             fill_context[1].base = fill_context[0].nelems + (int*)fill_context[0].base;
             fill_context[1].nelems = count - fill_context[0].nelems;
             if (fill_context[0].nelems) {
-                grp = dispatch_group_create();
-                TA_ASSERT(grp != NULL);
-                q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-                TA_ASSERT(q != NULL);
-                dispatch_group_async_f(grp, q, &fill_context[0], ta_fill_int_mt_worker);
-                dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
-                dispatch_release(grp);
+                grp = ta_mt_group_create();
+                TA_ASSERT(grp != NULL); /* TBD */
+                /* TBD - check return code */ ta_mt_group_async_f(grp, q, &fill_context[0], ta_fill_int_mt_worker);
+                ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
+                ta_mt_release(grp);
             }
             ta_fill_int_mt_worker(&fill_context[1]);
 #else
