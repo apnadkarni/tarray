@@ -5,14 +5,37 @@
 # See the file LICENSE for license
 #
 
-# Set up configuration options for the package
-array set build_opts {
-    # "Multithreaded sort defaults to 0 because requires dispatch.dll"
-    use_libdispatch 1
-    # "Enable compiling of unsupported functions"
-    unsupported 1
+proc win32_target {} {
+    switch -glob -- [critcl::targetconfig] {
+        win32-* -
+        mingw* { return 1 }
+        default { return 0 }
+    }
 }
 
+################################################################
+# Set up configuration options for the package
+
+array set build_opts {}
+
+# Multithreaded sort defaults to 0 on non-Win32 because it requires dispatch.dll
+set build_opts(mt_enable) [string match "win32-*" [critcl::targetconfig]]
+
+# Normally we use libdispatch only on non-Win32 and only if mt_enable is set
+# Override this in Win32 if you want explicitly use libdispatch even on Win32.
+# 
+set build_opts(use_libdispatch) 1
+if {$build_opts(mt_enable) && ![win32_target]} {
+    set build_opts(use_libdispatch) 1
+}
+
+# Path to libdispatch (optional, set only if use_libdispatch is true)
+set build_opts(libdispatch_dir) "../xdispatch_0.7.2_Visual Studio 10 Win64_i386"
+
+# Enable compiling of unsupported functions
+set build_opts(unsupported) 1
+
+################################################################
 # Standard critcl meta information
 
 package require critcl 3.1
@@ -47,10 +70,9 @@ critcl::ccode {
 #include "tarray.h"
 }
 
-if {[string match "win32-*" [critcl::targetconfig]] && $build_opts(use_libdispatch)} {
-   critcl::clibraries "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/lib/dispatch.lib"
-   critcl::cheaders "../xdispatch_0.7.2_Visual Studio 10 Win64_i386/include/dispatch/dispatch.h"
-   critcl::cflags -DTA_HAVE_LIBDISPATCH
+if {$build_opts(mt_enable)} {
+
+   critcl::cflags -DTA_MT_ENABLE
 
    critcl::ccommand tarray::unsupported::set_sort_mt_threshold {} {
        if (objc == 2) {
@@ -65,6 +87,32 @@ if {[string match "win32-*" [critcl::targetconfig]] && $build_opts(use_libdispat
        return TCL_OK;
    }
 }
+
+if {$build_opts(use_libdispatch)} {
+    critcl::clibraries [file join $build_opts(libdispatch_dir) lib dispatch.lib]
+    critcl::cheaders [file join $build_opts(libdispatch_dir) include dispatch dispatch.h]
+
+    critcl::cflags -DTA_USE_LIBDISPATCH
+}
+
+
+################################################################
+# Type conversions
+
+critcl::argtype TArrayObjPtr {
+    if (tcol_convert(interp, @@) != TCL_OK)
+        return TCL_ERROR;
+    @A = @@;
+}
+
+critcl::argtype thdr_t* {
+    if (tcol_convert(interp, @@) != TCL_OK)
+        return TCL_ERROR;
+    @A = TARRAYHDR(@@);
+}
+
+################################################################
+# Common functions
 
 critcl::ccode {
     typedef Tcl_Obj *TArrayObjPtr;
@@ -119,23 +167,17 @@ critcl::ccode {
 
 }
 
+################################################################
+# Initialization
+
 critcl::cinit {
     TA_ASSERT(ba_sanity_check() == 0);
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
 } {
 }
 
-critcl::argtype TArrayObjPtr {
-    if (tcol_convert(interp, @@) != TCL_OK)
-        return TCL_ERROR;
-    @A = @@;
-}
-
-critcl::argtype thdr_t* {
-    if (tcol_convert(interp, @@) != TCL_OK)
-        return TCL_ERROR;
-    @A = TARRAYHDR(@@);
-}
+################################################################
+# Commands
 
 critcl::ccommand tarray::column::create {} {
     int init_size;
