@@ -50,11 +50,19 @@ critcl::description {
 
 critcl::clean_cache
 critcl::tcl 8.5
+
+################################################################
+# Compiler/platform specific flags
 if {[string match "*-gcc" [critcl::targetconfig]] ||
     [string match "linux-*-\\*" [critcl::targetconfig]] ||
     [string match  "mingw*" [critcl::targetconfig]]} {
     # Flags required for gcc
     critcl::cflags -std=gnu99 -Winline
+}
+
+if {[win32_target]} {
+   # Need XP at least
+   critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
 critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c
@@ -78,16 +86,29 @@ if {$build_opts(mt_enable)} {
 
     critcl::cflags -DTA_MT_ENABLE
 
-    critcl::ccommand tarray::unsupported::set_sort_mt_threshold {} {
-        if (objc == 2) {
-            if (Tcl_GetIntFromObj(interp, objv[1], &ta_sort_mt_threshold) != TCL_OK) {
-                return TCL_ERROR;
-            }
-        } else if (objc > 2) {
-            Tcl_WrongNumArgs(interp, 1, objv, "?THRESHOLD?");
+    critcl::ccommand tarray::unsupported::threshold {} {
+        const char *vname;
+        int *pval;
+        if (objc < 2 || objc > 3) {
+            Tcl_WrongNumArgs(interp, 1, objv, "THRESHOLD ?VALUE?");
             return TCL_ERROR;
         }
-        Tcl_SetObjResult(interp, Tcl_NewIntObj(ta_sort_mt_threshold));
+        
+        vname = Tcl_GetString(objv[1]);
+        if (ta_strequal(vname, "sort_mt"))
+            pval = &ta_sort_mt_threshold;
+        else if (ta_strequal(vname, "fill_mt"))
+            pval = &ta_fill_mt_threshold;
+        else {
+            Tcl_SetResult(interp, "Invalid threshold name. Must be sort_mt or fill_mt.", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        if (objc == 3) {
+            if (Tcl_GetIntFromObj(interp, objv[2], pval) != TCL_OK)
+                return TCL_ERROR;
+        }
+        Tcl_SetObjResult(interp, Tcl_NewIntObj(*pval));
         return TCL_OK;
     }
 }

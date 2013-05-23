@@ -432,8 +432,8 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
         int elem_size;
         struct ta_sort_mt_context sort_context[2];
 
-        elem_size = thdr->elem_bits / CHAR_BIT; 
-        sort_context[0].nelems = thdr_calc_mt_split(thdr, 0, thdr->used, &sort_context[1].nelems);
+        elem_size = thdr->elem_bits / CHAR_BIT;
+        sort_context[0].nelems = thdr_calc_mt_split(thdr->type, 0, thdr->used, &sort_context[1].nelems);
         TA_ASSERT((sort_context[0].nelems + sort_context[1].nelems) == thdr->used);
         sort_context[0].base = THDRELEMPTR(thdr, unsigned char, 0);
         sort_context[0].elem_size = elem_size;

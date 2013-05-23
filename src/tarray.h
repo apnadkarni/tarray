@@ -16,6 +16,11 @@
 # include "dispatch.h"
 #endif
 
+#ifndef ARRAYSIZE
+/* Older SDK's do not define this */
+#define ARRAYSIZE(A) RTL_NUMBER_OF(A)
+#endif
+
 #ifndef TA_INLINE
 # ifdef _MSC_VER
 #  define TA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
@@ -355,8 +360,9 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
 #ifdef TA_MT_ENABLE
 /* Threshold for when sorts are multithreaded */
 extern int ta_sort_mt_threshold;
+extern int ta_fill_mt_threshold;
 /* Multithreading support */
-int thdr_calc_mt_split(thdr_t *thdr, int first, int count, int *psecond_block_size);
+int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size);
 
 # ifdef TA_USE_LIBDISPATCH
 
