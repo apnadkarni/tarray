@@ -12,6 +12,14 @@
 
 #include "tarray.h"
 
+#ifdef TA_MT_ENABLE
+/*
+ * Thresholds for multithreading.
+ * TBD - need to benchmark and set. Likely to depend on compiler.
+ */
+int ta_fill_mt_threshold = 100000;
+#endif
+
 /*
  * TArray is a Tcl "type" used for densely storing arrays of elements
  * of a specific type. For reasons of efficiency in type checking,
@@ -328,17 +336,15 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
  * That depends on operation and is up to the caller.
  */
 
-int thdr_calc_mt_split(thdr_t *thdr, int first, int count, int *psecond_block_size)
+int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size)
 {
     int second_block_size;
     int memunits;
     
-    TA_ASSERT((first + count) <= thdr->used);
-
     /* Assumes the thdr array is aligned properly and that processors
      * already access ints, wides and doubles atomically.
      */
-    switch (thdr->type) {
+    switch (tatype) {
     case TA_INT:
     case TA_UINT:
     case TA_DOUBLE:
@@ -366,7 +372,7 @@ int thdr_calc_mt_split(thdr_t *thdr, int first, int count, int *psecond_block_si
     case TA_BOOLEAN:
     case TA_ANY:
     default:
-        ta_type_panic(thdr->type);
+        ta_type_panic(tatype);
     }
 
     *psecond_block_size = second_block_size;
@@ -587,21 +593,133 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
     return status;
 }
 
-struct ta_fill_mt_context {
+struct thdr_fill_mt_context {
     ta_value_t tav;
     void *base;
     int   nelems;
 };
 
-void ta_fill_int_mt_worker(struct ta_fill_mt_context *pctx)
+static void thdr_fill_int_mt_worker(struct thdr_fill_mt_context *pctx)
 {
-    int i;
-    int count = pctx->nelems;
     int val = pctx->tav.ival;
-    int *pint;
+    int *pint, *end;
+
+    /*
+      TBD - newer MS compiler generates as good code for any fill,
+      no need to special case to memset for 0. However, VC++ 6 does not.
+      Check if gcc same and ifdef memset code for specific compilers
+    */
+    if (val == 0) {
+        memset(pctx->base, 0, pctx->nelems*sizeof(int));
+        return;
+    }
+
     pint = pctx->base;
-    for (i = 0; i < count; ++i, ++pint)
-        *pint = val;
+    end = pint + pctx->nelems;
+    while (pint < end)
+        *pint++ = val;
+}
+
+static void thdr_fill_double_mt_worker(struct thdr_fill_mt_context *pctx)
+{
+    double val = pctx->tav.dval;
+    double *pdbl, *end;
+    
+    pdbl = pctx->base;
+    end = pdbl + pctx->nelems;
+    while (pdbl < end)
+        *pdbl++ = val;
+}
+
+static void thdr_fill_wide_mt_worker(struct thdr_fill_mt_context *pctx)
+{
+    Tcl_WideInt val = pctx->tav.wval;
+    Tcl_WideInt *pwide, *end;
+    
+    /*
+      TBD - newer MS compiler generates as good code for any fill,
+      no need to special case to memset for 0. However, VC++ 6 does not.
+      Check if gcc same and ifdef memset code for specific compilers
+    */
+    if (val == 0) {
+        memset(pctx->base, 0, pctx->nelems*sizeof(Tcl_WideInt));
+        return;
+    }
+
+    pwide = pctx->base;
+    end = pwide + pctx->nelems;
+    while (pwide < end)
+        *pwide++ = val;
+}
+
+static void thdr_fill_byte_mt_worker(struct thdr_fill_mt_context *pctx)
+{
+    memset(pctx->base, pctx->tav.ucval, pctx->nelems);
+}
+
+/*
+ * Use multiple threads to fill scalar values. 
+ * WARNING: Does NOT update thdr header (like thdr->used etc.)
+ * Caller must do that.
+ */
+void thdr_fill_scalars(Tcl_Interp *ip, thdr_t *thdr,
+                       const ta_value_t *ptav, int pos, int count)
+{
+    void (*workerfn)(struct thdr_fill_mt_context *);
+    int elem_size;
+    struct thdr_fill_mt_context fill_context[2];
+
+    TA_ASSERT(thdr->type == ptav->type);
+    TA_ASSERT(thdr->nrefs <= 1);
+    TA_ASSERT((pos+count) <= thdr->usable);
+
+    /*
+      TBD - depending on compiler generated code, multithreading
+      fills serves no purpose. VS 2012 translates to reps instruction
+      and does not benefit from multithreading. VC++ 6 does. Benchmark
+      and set default multithreading threshold accordingly.
+    */
+
+    switch (thdr->type) {
+    case TA_BYTE:
+        workerfn = thdr_fill_byte_mt_worker;
+        break;
+    case TA_WIDE:
+        workerfn = thdr_fill_wide_mt_worker;
+        break;
+    case TA_DOUBLE:
+        workerfn = thdr_fill_double_mt_worker;
+        break;
+
+    case TA_INT:
+    case TA_UINT:
+        workerfn = thdr_fill_int_mt_worker;
+        break;
+    default:
+        ta_type_panic(thdr->type);
+    }
+
+    fill_context[0].nelems = thdr_calc_mt_split(thdr->type, pos, count, &fill_context[1].nelems);
+    TA_ASSERT((fill_context[0].nelems + fill_context[1].nelems) == count);
+
+    elem_size = thdr->elem_bits / CHAR_BIT;
+    fill_context[0].tav = *ptav;
+    fill_context[0].base = (pos*elem_size) + THDRELEMPTR(thdr, unsigned char, 0);
+    if (count < ta_fill_mt_threshold || fill_context[1].nelems == 0) {
+        fill_context[0].nelems = count;
+        workerfn(&fill_context[0]);
+    } else {
+        /* Multiple threads */
+        ta_mt_group_t grp;
+        fill_context[1].tav = *ptav;
+        fill_context[1].base = (elem_size*fill_context[0].nelems) + (char*)fill_context[0].base;
+        grp = ta_mt_group_create();
+        TA_ASSERT(grp != NULL); /* TBD */
+        /* TBD - check return code */ ta_mt_group_async_f(grp, &fill_context[1], workerfn);
+        workerfn(&fill_context[0]);
+        ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
+        ta_mt_group_release(grp);
+    }
 }
 
 /*
@@ -636,59 +754,14 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     case TA_BOOLEAN:
         ba_fill(THDRELEMPTR(thdr, ba_t, 0), pos, count, ptav->bval);
         break;
+    case TA_BYTE:
+    case TA_WIDE:
+    case TA_DOUBLE:
     case TA_INT:
     case TA_UINT:
-        if (ptav->ival == 0) {
-            memset(THDRELEMPTR(thdr, int, pos), 0, count*sizeof(int));
-        } else {
-#ifdef TA_MT_ELABLE
-            ta_mt_group_t grp;
-            ta_mt_queue_t q;
-            struct ta_fill_mt_context fill_context[2];
-            fill_context[0].tav = fill_context[1].tav = *ptav;
-            fill_context[0].base = THDRELEMPTR(thdr, int, pos);
-            fill_context[0].nelems = count/2;
-            fill_context[1].base = fill_context[0].nelems + (int*)fill_context[0].base;
-            fill_context[1].nelems = count - fill_context[0].nelems;
-            if (fill_context[0].nelems) {
-                grp = ta_mt_group_create();
-                TA_ASSERT(grp != NULL); /* TBD */
-                /* TBD - check return code */ ta_mt_group_async_f(grp, q, &fill_context[0], ta_fill_int_mt_worker);
-                ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
-                ta_mt_group_release(grp);
-            }
-            ta_fill_int_mt_worker(&fill_context[1]);
-#else
-            int *pint;
-            pint = THDRELEMPTR(thdr, int, pos);
-            for (i = 0; i < count; ++i, ++pint)
-                *pint = ptav->ival;
-#endif
-        }
+        thdr_fill_scalars(ip, thdr, ptav, pos, count);
         break;
         
-    case TA_BYTE:
-        memset(THDRELEMPTR(thdr, unsigned char, pos), ptav->ucval, count);
-        break;
-
-    case TA_WIDE:
-        if (ptav->wval == 0) {
-            memset(THDRELEMPTR(thdr, Tcl_WideInt, pos), 0, count*sizeof(Tcl_WideInt));
-        } else {
-            Tcl_WideInt *pwide;
-            pwide = THDRELEMPTR(thdr, Tcl_WideInt, pos);
-            for (i = 0; i < count; ++i, ++pwide)
-                *pwide = ptav->wval;
-        }
-        break;
-    case TA_DOUBLE:
-        {
-            double *pdbl;
-            pdbl = THDRELEMPTR(thdr, double, pos);
-            for (i = 0; i < count; ++i, ++pdbl)
-                *pdbl = ptav->dval;
-        }
-        break;
     case TA_ANY:
         {
             Tcl_Obj **pobjs;

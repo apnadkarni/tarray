@@ -253,6 +253,94 @@ namespace eval tarray::test {
         set indices [tarray::column create int {0 -1 2 3}]
         tarray::column vsort -indirect $tcol -nocase indices
     } -result {tarray index -1 out of bounds} -returnCodes error
+
+    #
+    # Tests for multithreaded sorts
+    if {![catch {tarray::unsupported::threshold sort_mt}]} {
+
+        foreach type {any boolean byte double int uint wide} {
+            test column_vsort-$type-2.0 {
+                Sort column
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify $type
+            } -result 0
+
+            test column_vsort-$type-3.0 {
+                Sort column -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify $type -increasing
+            } -result 0
+
+            test column_vsort-$type-4.0 {
+                Sort column -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify $type -decreasing
+            } -result 0
+
+            test column_vsort-$type-5.0 {
+                Sort presorted column -increasing -increasing
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify_presorted $type -increasing -increasing
+            } -result 0
+
+            test column_vsort-$type-5.1 {
+                Sort presorted column -increasing -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify_presorted $type -increasing -decreasing
+            } -result 0
+
+            test column_vsort-$type-5.2 {
+                Sort presorted column -decreasing -decreasing
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify_presorted $type -decreasing -decreasing
+            } -result 0
+
+            test column_vsort-$type-5.3 {
+                Sort presorted column -decreasing -increasing 
+            } -setup {
+                set old_thresh [tarray::unsupported::threshold sort_mt]
+                tarray::unsupported::threshold sort_mt 50
+            } -cleanup {
+                tarray::unsupported::threshold sort_mt $old_thresh
+            } -body {
+                vsort_verify_presorted $type -decreasing -increasing
+            } -result 0
+        }
+
+        # TBD - need to test sort -nocase for multithreaded sorts
+        # TBD - need to test sort -indirect for multithreaded sorts
+    }
+
 }
 
 ::tcltest::cleanupTests
