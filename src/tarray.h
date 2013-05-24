@@ -192,6 +192,7 @@ void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_free(thdr_t *thdr);
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
 TCL_RESULT table_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
+void thdr_ensure_obj_strings(thdr_t *thdr);
 
 TCL_RESULT TGridVerifyType(Tcl_Interp *, Tcl_Obj *tableObj);
 Tcl_Obj *TGridNewObj(Tcl_Interp *, int nobjs, Tcl_Obj *const tcols[]);

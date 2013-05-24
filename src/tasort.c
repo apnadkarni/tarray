@@ -7,7 +7,7 @@
  */
 int ta_sort_mt_threshold = 5000;
 /* Whether multithreading is to be enabled for TA_ANY or not */
-int ta_sort_mt_enable_any = 0;
+int ta_sort_mt_enable_any = 0; /* TBD, change to 1 once sufficient testing */
 #endif
 
 
@@ -392,7 +392,7 @@ static void ta_sort_mt_worker_r(struct ta_sort_mt_context *pctx)
    differently using just counts) and TA_ANY (because Tcl_Obj comparisons
    are not thread safe
 */
-static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
+static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
 {
     int (*cmp)(const void*, const void*);
     int (*cmpind)(void *, const void*, const void*);
@@ -408,7 +408,14 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
         case TA_INT: cmpind = decr ? intcmpindexedrev : intcmpindexed; break;
         case TA_WIDE: cmpind = decr ? widecmpindexedrev : widecmpindexed; break;
         case TA_DOUBLE: cmpind = decr ? doublecmpindexedrev : doublecmpindexed; break;
-        case TA_ANY: /* FALLTHRU */
+        case TA_ANY:
+            if (nocase) {
+                cmpind = decr ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
+            } else {
+                cmpind = decr ? tclobjcmpindexedrev : tclobjcmpindexed;
+            }
+            break;
+
         case TA_BOOLEAN: /* FALLTHRU */
         default:
             ta_type_panic(thdr->type);
@@ -421,11 +428,13 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
         case TA_WIDE: cmp = decr ? widecmprev : widecmp; break;
         case TA_DOUBLE: cmp = decr ? doublecmprev : doublecmp; break;
         case TA_ANY:
-            if (ta_sort_mt_enable_any) {
+            if (nocase) {
+                cmp = decr ? tclobjcmpnocaserev : tclobjcmpnocase;
+            } else {
                 cmp = decr ? tclobjcmprev : tclobjcmp;
-                break;
             }
-            /* FALLTHRU - should not be called if !ta_sort_mt_enable_any */
+            break;
+
         case TA_BOOLEAN: /* FALLTHRU */
         default:
             ta_type_panic(thdr->type);
@@ -434,10 +443,23 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
 
 
 #ifdef TA_MT_ENABLE
-    if (thdr->used > ta_sort_mt_threshold) {
+    if (thdr->used >= ta_sort_mt_threshold &&
+        (ta_sort_mt_enable_any ||
+         (thdr->type != TA_ANY &&
+          (psrc == NULL || psrc->type != TA_ANY)))) {
+
         ta_mt_group_t grp;
         int elem_size;
         struct ta_sort_mt_context sort_context[2];
+
+        /* Tcl is not multithreaded within a single interp. To avoid
+           conflicts make sure strings have been generated for
+           all objects BEFORE multithreading.
+        */
+        if (thdr->type == TA_ANY)
+            thdr_ensure_obj_strings(thdr);
+        if (psrc && psrc->type == TA_ANY)
+            thdr_ensure_obj_strings(psrc);
 
         elem_size = thdr->elem_bits / CHAR_BIT;
         sort_context[0].nelems = thdr_calc_mt_split(thdr->type, 0, thdr->used, &sort_context[1].nelems);
@@ -493,8 +515,16 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
 
     /* Note when indirect/indexed sorting, returned indices are NOT sorted! */
     if (psrc == NULL) {
-        thdr->sort_order =
-            decr ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
+        if (thdr->type == TA_ANY) {
+            if (decr)
+                thdr->sort_order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
+            else
+                thdr->sort_order =
+                    nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
+        } else {
+            thdr->sort_order =
+                decr ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
+        }
     }
 }
 
@@ -505,8 +535,6 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     int i, n;
     thdr_t *psrc;
     thdr_t *psorted;
-    int (*cmpfn)(const void*, const void*);
-    int (*cmpindexedfn)(void *, const void*, const void*);
     int status;
     int decreasing = flags & TA_SORT_DECREASING;
     int return_indices = flags & TA_SORT_INDICES;
@@ -601,25 +629,14 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             for (i = 0; i < psorted->used; ++i, ++indexP)
                 *indexP = i;
 
-            if (psrc->type == TA_ANY) {
-                if (nocase) 
-                    cmpindexedfn = decreasing ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
-                else
-                    cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
-
-                timsort_r(THDRELEMPTR(psorted, int, 0),
-                          psorted->used, sizeof(int),
-                          THDRELEMPTR(psrc, unsigned char, 0),
-                          cmpindexedfn);
-
-            } else if (psrc->type == TA_BOOLEAN) {
+            if (psrc->type != TA_BOOLEAN)
+                thdr_mt_sort(psorted, decreasing, psrc, nocase);
+            else {
                 timsort_r(THDRELEMPTR(psorted, int, 0),
                           psorted->used, sizeof(int),
                           THDRELEMPTR(psrc, unsigned char, 0),
                           decreasing ? booleancmpindexedrev : booleancmpindexed
                     );
-            } else {
-                thdr_sort_scalars(psorted, decreasing, psrc);
             }
 
             /* Note list of indices is NOT sorted, do not mark it as such ! */
@@ -675,7 +692,9 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
      * Return sorted contents. Boolean type we treat separately
      * since we just need to count how many 1's and 0's.
      */
-    if (psorted->type == TA_BOOLEAN) {
+    if (psorted->type != TA_BOOLEAN)
+        thdr_mt_sort(psorted, decreasing, NULL, nocase);
+    else {
         ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
         n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
         if (decreasing) {
@@ -688,26 +707,6 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
         psorted->sort_order =
             decreasing ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
-
-    } else if (psorted->type == TA_ANY && ! ta_sort_mt_enable_any) {
-        if (nocase)
-            cmpfn = decreasing ? tclobjcmpnocaserev : tclobjcmpnocase;
-        else
-            cmpfn = decreasing ? tclobjcmprev : tclobjcmp;
-
-        timsort(THDRELEMPTR(psorted, unsigned char, 0), psorted->used,
-                psorted->elem_bits / CHAR_BIT, cmpfn);
-
-        if (decreasing)
-            psorted->sort_order =
-                nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
-        else
-            psorted->sort_order =
-                nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
-
-    } else {
-        /* Something other than TA_ANY and TA_BOOLEAN */
-        thdr_sort_scalars(psorted, decreasing, NULL);
     }
 
     return TCL_OK;
@@ -743,24 +742,14 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     
     ptarget = TARRAYHDR(otarget);
 
-    if (ptarget->type == TA_ANY) {
-        if (nocase) 
-            cmpindexedfn = decreasing ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
-        else
-            cmpindexedfn = decreasing ? tclobjcmpindexedrev : tclobjcmpindexed;
-        
-        timsort_r(THDRELEMPTR(pindices, int, 0),
-                  pindices->used, sizeof(int),
-                  THDRELEMPTR(ptarget, unsigned char, 0),
-                  cmpindexedfn);
-    } else if (ptarget->type == TA_BOOLEAN) {
+    if (ptarget->type != TA_BOOLEAN)
+        thdr_mt_sort(pindices, decreasing, ptarget, nocase);
+    else {
         timsort_r(THDRELEMPTR(pindices, int, 0),
                   pindices->used, sizeof(int),
                   THDRELEMPTR(ptarget, unsigned char, 0),
                   decreasing ? booleancmpindexedrev : booleancmpindexed
             );
-    } else {
-        thdr_sort_scalars(pindices, decreasing, ptarget);
     }
 
     /* Note list of indices is NOT sorted, do not mark it as such ! */
