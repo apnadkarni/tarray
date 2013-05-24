@@ -287,17 +287,18 @@ TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
    to run past end of array */
 void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
 {
-    register int i;
-    register Tcl_Obj **pobjs;
-
     if (thdr->type == TA_ANY) {
         if ((first + count) > thdr->used)
             count = thdr->used - first;
-        if (count <= 0)
-            return;
-        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (i = 0; i < count; ++i, ++pobjs) {
-            Tcl_IncrRefCount(*pobjs);
+        /* Note count might even be negative, check */
+        if (count > 0) {
+            Tcl_Obj **pobjs, **end;
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+            end = pobjs + count;
+            while (pobjs < end) {
+                Tcl_IncrRefCount(*pobjs);
+                ++pobjs;
+            }
         }
     }
 }
@@ -307,20 +308,38 @@ void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
 */
 void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
 {
-    register int i;
-    register Tcl_Obj **pobjs;
-
     if (thdr->type == TA_ANY) {
         if ((first + count) > thdr->used)
             count = thdr->used - first;
-        if (count <= 0)
-            return;
-        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
-        for (i = 0; i < count; ++i, ++pobjs) {
-            Tcl_DecrRefCount(*pobjs);
+        /* Note count might even be negative, check */
+        if (count > 0) {
+            Tcl_Obj **pobjs, **end;
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+            end = pobjs + count;
+            while (pobjs < end) {
+                Tcl_DecrRefCount(*pobjs);
+                ++pobjs;
+            }
         }
     }
 }
+
+void thdr_ensure_obj_strings(thdr_t *thdr)
+{
+    Tcl_Obj **pobjs, **end;
+
+    TA_ASSERT(thdr->type == TA_ANY);
+
+    pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    end = pobjs + thdr->used;
+    while (pobjs < end) {
+        if ((*pobjs)->bytes == NULL)
+            Tcl_GetString(*pobjs);
+        TA_ASSERT((*pobjs)->bytes != NULL);
+        ++pobjs;
+    }
+}
+
 
 #ifdef TA_MT_ENABLE
 /*
