@@ -1,5 +1,5 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin "tarray" n ""]
+[manpage_begin "tarray_versions" n ""]
 [copyright "2013 Ashok P. Nadkarni"]
 [moddesc "Typed Arrays Version History"]
 [titledesc "TArray version history"]
@@ -8,7 +8,9 @@
 
 [section Version 0.3]
 [list_begin itemized]
-[item] Added [uri table.html [cmd "table intersect3"]] command.
+[item] Parallelized [uri column.html [cmd "column sort"]] and
+[uri column.html [cmd "column vsort"]] commands.
+[item] Added [uri column.html [cmd "column intersect3"]] command.
 [item] Added [uri table.html [cmd "table slice"]] command.
 [item] Added [uri table.html [cmd "table width"]] command.
 [item] Added option [cmd -indirect] to the 
