@@ -6,6 +6,8 @@
  * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
  */
 int ta_sort_mt_threshold = 5000;
+/* Whether multithreading is to be enabled for TA_ANY or not */
+int ta_sort_mt_enable_any = 0;
 #endif
 
 
@@ -418,7 +420,12 @@ static void thdr_sort_scalars(thdr_t *thdr, int decr, thdr_t *psrc)
         case TA_INT: cmp = decr ? intcmprev : intcmp; break;
         case TA_WIDE: cmp = decr ? widecmprev : widecmp; break;
         case TA_DOUBLE: cmp = decr ? doublecmprev : doublecmp; break;
-        case TA_ANY: /* FALLTHRU */
+        case TA_ANY:
+            if (ta_sort_mt_enable_any) {
+                cmp = decr ? tclobjcmprev : tclobjcmp;
+                break;
+            }
+            /* FALLTHRU - should not be called if !ta_sort_mt_enable_any */
         case TA_BOOLEAN: /* FALLTHRU */
         default:
             ta_type_panic(thdr->type);
@@ -668,7 +675,21 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
      * Return sorted contents. Boolean type we treat separately
      * since we just need to count how many 1's and 0's.
      */
-    if (psorted->type == TA_ANY) {
+    if (psorted->type == TA_BOOLEAN) {
+        ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
+        n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
+        if (decreasing) {
+            ba_fill(baP, 0, n, 1);
+            ba_fill(baP, n, psorted->used - n, 0);
+        } else {
+            ba_fill(baP, 0, psorted->used - n, 0);
+            ba_fill(baP, psorted->used - n, n, 1);
+        }
+
+        psorted->sort_order =
+            decreasing ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
+
+    } else if (psorted->type == TA_ANY && ! ta_sort_mt_enable_any) {
         if (nocase)
             cmpfn = decreasing ? tclobjcmpnocaserev : tclobjcmpnocase;
         else
@@ -684,19 +705,6 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             psorted->sort_order =
                 nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
 
-    } else if (psorted->type == TA_BOOLEAN) {
-        ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
-        n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
-        if (decreasing) {
-            ba_fill(baP, 0, n, 1);
-            ba_fill(baP, n, psorted->used - n, 0);
-        } else {
-            ba_fill(baP, 0, psorted->used - n, 0);
-            ba_fill(baP, psorted->used - n, n, 1);
-        }
-
-        psorted->sort_order =
-            decreasing ? THDR_SORTED_DESCENDING : THDR_SORTED_ASCENDING;
     } else {
         /* Something other than TA_ANY and TA_BOOLEAN */
         thdr_sort_scalars(psorted, decreasing, NULL);

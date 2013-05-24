@@ -334,8 +334,9 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
  *
  * Does not check if range is too small to be worthwhile multithreading.
  * That depends on operation and is up to the caller.
+ *
+ * Note tatype must not be TA_BOOLEAN.
  */
-
 int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size)
 {
     int second_block_size;
@@ -345,6 +346,7 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
      * already access ints, wides and doubles atomically.
      */
     switch (tatype) {
+    case TA_ANY:
     case TA_INT:
     case TA_UINT:
     case TA_DOUBLE:
@@ -370,7 +372,6 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
 
     /* BOOLEAN and ANY cannot be multithreaded */
     case TA_BOOLEAN:
-    case TA_ANY:
     default:
         ta_type_panic(tatype);
     }
@@ -2761,14 +2762,15 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
 int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 {
     char *a, *b;
-    int alen, blen, len;
     int comparison;
+
+    /* TBD - maybe check first letter before calling ? But be careful of case-insensitivity*/
+#if 0
+    int alen, blen, len;
 
     a = Tcl_GetStringFromObj(oaP, &alen);
     b = Tcl_GetStringFromObj(obP, &blen);
     
-    /* TBD - maybe check first letter before calling ? But be careful of case-insensitivity*/
-#if 0
     // This is much slower than the strcmp method below but might be more
     // "correct". On the other hand the strcmp method below is both faster
     // and Tcl compatible with lsort and lsearch
@@ -2782,9 +2784,24 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     }
 
 #else
+    a = oaP->bytes;
+    if (a == NULL)
+        a = Tcl_GetString(oaP);
+    b = obP->bytes;
+    if (b == NULL)
+        b = Tcl_GetString(obP);
+
     /* Following Tcl's lsort we just use the Unicode code point collation
        order which means a simple strcmp suffices */
-    comparison = (ignorecase ? _stricmp : strcmp)(a, b);
+    /* TBD - Tcl has fixed this post-8.6. Check and change this accordingly */
+    if (ignorecase) {
+        comparison = _stricmp(a, b);
+    } else {
+        if (*a == *b)
+            comparison = strcmp(a, b);
+        else
+            comparison = *(unsigned char *)a - *(unsigned char *)b;
+    }
 #endif
 
     return (comparison > 0) ? 1 : ((comparison < 0) ? -1 : 0);

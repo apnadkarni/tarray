@@ -86,19 +86,21 @@ if {$build_opts(mt_enable)} {
 
     critcl::cflags -DTA_MT_ENABLE
 
-    critcl::ccommand tarray::unsupported::threshold {} {
+    critcl::ccommand tarray::unsupported::config {} {
         const char *vname;
         int *pval;
         if (objc < 2 || objc > 3) {
-            Tcl_WrongNumArgs(interp, 1, objv, "THRESHOLD ?VALUE?");
+            Tcl_WrongNumArgs(interp, 1, objv, "CONFIGVAR ?VALUE?");
             return TCL_ERROR;
         }
         
         vname = Tcl_GetString(objv[1]);
-        if (ta_strequal(vname, "sort_mt"))
+        if (ta_strequal(vname, "sort_mt_threshold"))
             pval = &ta_sort_mt_threshold;
-        else if (ta_strequal(vname, "fill_mt"))
+        else if (ta_strequal(vname, "fill_mt_threshold"))
             pval = &ta_fill_mt_threshold;
+        else if (ta_strequal(vname, "sort_mt_enable_any"))
+            pval = &ta_sort_mt_enable_any;
         else {
             Tcl_SetResult(interp, "Invalid threshold name. Must be sort_mt or fill_mt.", TCL_STATIC);
             return TCL_ERROR;
