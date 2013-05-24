@@ -716,7 +716,6 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
 {
     int *pindex, *pend, n, status;
     thdr_t *pindices, *ptarget;
-    int (*cmpindexedfn)(void *, const void*, const void*);
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;
 

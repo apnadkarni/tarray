@@ -159,10 +159,12 @@ typedef union thdr_s {
 extern struct Tcl_ObjType g_tcol_type;
 extern struct Tcl_ObjType g_table_type;
 
+const char *ta_type_string(int tatype);
+
 /*
  * Error and panic routines
  */
-const char *ta_type_string(int tatype);
+void ta_string_overflow_panic(const char *where);
 void ta_type_panic(int tatype);
 void ta_shared_panic(const char *where);
 void ta_small_panic(thdr_t *thdr, const char *where);
