@@ -65,7 +65,8 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c
+critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c errors.c
+
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
     critcl::ccommand tarray::unsupported::dump ta_dump
