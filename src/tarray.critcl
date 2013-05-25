@@ -1277,6 +1277,6 @@ critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
 
 critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
 
-package provide tarray 0.3
+package provide tarray 0.4
 
 critcl::load
