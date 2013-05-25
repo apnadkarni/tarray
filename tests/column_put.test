@@ -178,6 +178,12 @@ namespace eval tarray::test {
             puttest_valuelist_u $type 500 400 [samplerange $type 0 450]
         } -result 0 
 
+        test column_put-list-$type-2.8 {
+            Test storing of elements using end
+        } -body {
+            tarray::column put [samplecolumn $type 0 9] [samplerange $type end-2 end] end-3
+        } -result [crep $type [samplerange $type 0 6 end-2 end]] -match column
+
         test column_put-list-$type-3.0 {
             Test out of bound index
         } -body {
@@ -262,6 +268,12 @@ namespace eval tarray::test {
         } -body {
             puttest_valuecolumn_u $type 500 400 [samplerange $type 0 450]
         } -result 0 
+
+        test column_put-list-$type-2.8 {
+            Test storing of elements using end
+        } -body {
+            tarray::column put [samplecolumn $type 0 9] [newcolumn $type [samplerange $type end-2 end]] end-3
+        } -result [crep $type [samplerange $type 0 6 end-2 end]] -match column
 
         test column_put-column-$type-3.0 {
             Test out of bound index

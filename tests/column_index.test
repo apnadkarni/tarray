@@ -47,6 +47,12 @@ namespace eval tarray::test {
             tarray::column index [samplecolumn $type] 33
         } -result [samplevalue $type 33]
 
+        test column_index-$type-2.1 {
+            Get end element
+        } -body {
+            tarray::column index [samplecolumn $type] end-1
+        } -result [samplevalue $type end-1]
+
         test column_index-$type-3.0 {
             Get negative index
         } -body {

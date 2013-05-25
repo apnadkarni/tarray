@@ -16,6 +16,7 @@
 [item] Added option [cmd -indirect] to the 
 [uri column.html [cmd "column sort"]] and
 [uri column.html [cmd "column vsort"]] commands.
+[item] Added support for arithmetic on end index.
 [list_end]
 
 [section Version 0.2]
