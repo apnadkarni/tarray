@@ -1,10 +1,11 @@
+[include version.inc]
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin "tarray::column" n ""]
+[manpage_begin "tarray::column" n [vset tarray_version]]
 [copyright "2012-2013 Ashok P. Nadkarni"]
 [moddesc "Typed Array Columns"]
 [titledesc "Commands related to typed array columns"]
 [require Tcl 8.5]
-[require tarray ?0.3?]
+[require tarray ?[vset tarray_version]?]
 
 [description]
 

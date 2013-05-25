@@ -1,12 +1,13 @@
+[include version.inc]
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin "tarray_versions" n ""]
+[manpage_begin "tarray_versions" n [vset tarray_version]]
 [copyright "2013 Ashok P. Nadkarni"]
 [moddesc "Typed Arrays Version History"]
 [titledesc "TArray version history"]
 
 [description]
 
-[section Version 0.3]
+[section Version [vset tarray_version]]
 [list_begin itemized]
 [item] Parallelized [uri column.html [cmd "column sort"]] and
 [uri column.html [cmd "column vsort"]] commands.
