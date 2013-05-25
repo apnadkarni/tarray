@@ -1243,6 +1243,40 @@ critcl::cproc tarray::table::size {Tcl_Interp* interp Tcl_Obj* TABLE} ok {
     return status;
 }
 
+critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
+    Tcl_Obj *objs[6];
+
+    /* Return a keyed list */
+    
+    objs[0] = Tcl_NewStringObj("compiler", -1);
+#if defined(_MSC_VER)
+    objs[1] = Tcl_ObjPrintf("vc++ %u", _MSC_VER);
+#elif defined(__GNUC__)
+    objs[1] = Tcl_NewStringObj("gcc" __VERSION__, -1);
+#else
+    objs[1] = Tcl_NewStringObj("unknown", -1);
+#endif
+
+    objs[2] = Tcl_NewStringObj("opts", -1);
+
+    objs[3] = Tcl_NewListObj(0, NULL);
+#ifdef TA_MT_ENABLE
+    Tcl_ListObjAppendElement(NULL, objs[3], Tcl_NewStringObj("mt_enabled", -1));
+#endif
+#if TA_ENABLE_ASSERT
+    Tcl_ListObjAppendElement(NULL, objs[3], Tcl_NewStringObj("asserts_enabled", -1));
+#endif
+
+    /* Which Tcl did we build against ? (As opposed to run time) */
+    objs[4] = Tcl_NewStringObj("tcl_headers", -1);
+    objs[5] = Tcl_NewStringObj(TCL_PATCH_LEVEL, -1);
+
+     Tcl_SetObjResult(interp, Tcl_NewListObj(6, objs));
+     return TCL_OK;
+}
+
+critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
+
 package provide tarray 0.3
 
 critcl::load

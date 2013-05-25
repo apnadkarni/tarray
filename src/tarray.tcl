@@ -57,6 +57,18 @@ proc tarray::table::column {tab colnum} {
 
 interp alias {} tarray::table::slice {} tarray::column::get
 
+proc tarray::unsupported::build_info {} {
+    set result ""
+    catch {append result [encoding convertfrom utf-8 [critcl_info]]}
+    catch {
+        foreach {k val} [compiler_info] {
+            append result "\n    [format %-15s $k] $val"
+        }
+    }
+    return $result
+}
+
+
 proc tarray::db::create {def {init {}} {size 0}} {
     variable _tables
     variable _table_ctr
