@@ -739,6 +739,16 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         ++pindex;
     }
     
+    if (thdr_shared(pindices)) {
+        /* Cannot modify in place. Need to dup it */
+        pindices = thdr_clone(ip, pindices, 0);
+        if (pindices == NULL)
+            return TCL_ERROR;
+        ta_replace_intrep(oindices, pindices);
+    } else {
+        Tcl_InvalidateStringRep(oindices);
+    }
+
     ptarget = TARRAYHDR(otarget);
 
     if (ptarget->type != TA_BOOLEAN)
