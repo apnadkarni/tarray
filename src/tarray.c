@@ -32,14 +32,14 @@ static void ta_type_dup(Tcl_Obj *psrc, Tcl_Obj *pdst);
 static void ta_type_free_intrep(Tcl_Obj *o);
 static void ta_type_update_string(Tcl_Obj *o);
 struct Tcl_ObjType g_tcol_type = {
-    "tcolumn",
+    "tarray_column",
     ta_type_free_intrep,
     ta_type_dup,
     ta_type_update_string,
     NULL,     /* jenglish advises to keep this NULL */
 };
 struct Tcl_ObjType g_table_type = {
-    "table",
+    "tarray_table",
     ta_type_free_intrep,
     ta_type_dup,
     ta_type_update_string,
@@ -59,6 +59,109 @@ const char *g_type_tokens[] = {
 };    
 
 Tcl_ObjType *g_tcl_list_type_ptr;
+
+/*
+ * A Tcl object to parse tarray index tokens and cache the result so
+ * we do not parse "end" or "last" repeatedly. We could actually use the
+ * more sophisticated Tcl equivalent but unfortunately that is not exported.
+ */
+static void ta_indexobj_update_string(Tcl_Obj *);
+struct Tcl_ObjType g_indexobj_type = {
+    "tarray_indexobj",
+    NULL, /* No need for a free proc */
+    NULL, 
+    ta_indexobj_update_string,
+    NULL, /* convert from any - jenglish advises to keep this NULL */
+};
+
+
+static void ta_indexobj_update_string(Tcl_Obj *o)
+{
+    char buffer[TCL_INTEGER_SPACE + 5];
+    int len;
+
+    if (o->internalRep.longValue == 0)
+        strcpy(buffer, "end");
+    else if (o->internalRep.longValue > 0)
+        _snprintf(buffer, sizeof(buffer), "end+%d", o->internalRep.longValue);
+    else
+        _snprintf(buffer, sizeof(buffer), "end%d", o->internalRep.longValue);
+
+    len = strlen(buffer);
+    o->bytes = ckalloc(len+1);
+    memcpy(o->bytes, buffer, len+1);
+    o->length = len;
+}
+
+/*
+ * Copied from Tcl's SetEndOffsetFromAny which is unfortunately not public
+ * Look for a string of the form "end[+-]offset" and convert it to an
+ * internal representation holding the offset.
+ * Returns TCL_OK if ok, TCL_ERROR if the string was badly formed.
+ * If interp is not NULL, stores an error message in the interpreter
+ * result.
+ */
+static int ta_indexobj_from_any(
+    Tcl_Interp *interp,		/* Tcl interpreter or NULL */
+    Tcl_Obj *o)		/* Pointer to the object to parse */
+{
+    int offset;			/* Offset in the "end-offset" expression */
+    const char *bytes;	/* String rep of the object */
+    int length;			/* Length of the object's string rep */
+
+    if (o->typePtr == &g_indexobj_type) {
+	return TCL_OK;
+    }
+
+    /* Check for a string rep of the right form. */
+    bytes = Tcl_GetStringFromObj(o, &length);
+    if ((*bytes != 'e') ||
+        (strncmp(bytes, "end", (size_t)((length > 3) ? 3 : length)) != 0)) {
+        goto error_handler;
+    }
+
+    /* Convert the string rep. */
+
+    if (length <= 3) {
+	offset = 0;
+    } else if ((length > 4) && ((bytes[3] == '-') || (bytes[3] == '+'))) {
+	/*
+	 * This is our limited string expression evaluator. Pass everything
+	 * after "end-" to Tcl_GetInt, then reverse for offset. Tcl_GetInt
+         * accepts whitespace so check for next char to avoid it
+	 */
+        if (bytes[4] < '0' || bytes[4] > '9')
+            goto error_handler;
+	if (Tcl_GetInt(interp, bytes+4, &offset) != TCL_OK) {
+	    return TCL_ERROR;
+	}
+	if (bytes[3] == '-') {
+	    offset = -offset;
+	}
+    } else {
+	/* Conversion failed. Report the error. */
+        goto error_handler;
+    }
+
+    /* The conversion succeeded. Free the old internal rep and set the new */
+    if (o->typePtr && o->typePtr->freeIntRepProc)
+        o->typePtr->freeIntRepProc(o);
+    o->internalRep.longValue = offset;
+    o->typePtr = &g_indexobj_type;
+
+    return TCL_OK;
+
+error_handler:
+    if (interp != NULL) {
+        Tcl_SetObjResult(interp,
+                         Tcl_ObjPrintf(
+                             "bad index \"%s\": must be end?[+-]integer?",
+                             bytes));
+        Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
+    }
+    return TCL_ERROR;
+}
+
 
 
 /* TBD - in error and panic routines make sure strings are not too long */
@@ -329,9 +432,9 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
     }
 
     if (Tcl_GetIntFromObj(NULL, o, &val) != TCL_OK) {
-        if (! ta_strequal(Tcl_GetString(o), "end"))
+        if (ta_indexobj_from_any(NULL, o) != TCL_OK)
             return ta_index_error(ip, o);
-        val = end_value;
+        val = end_value + o->internalRep.longValue;
     }
     
     if (val < low || val > high)
@@ -344,7 +447,6 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
 
 /* 
  * Parse range bounds. low has to be between 0 and nelems.
- * "end" is treated nelems-1 (ie. last index)
  * high has to be 0-INT_MAX
  * if (high < low) count is returned as 0 (not an error)
  * Negative indices treated as 0
@@ -356,8 +458,7 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Ob
     if (ta_convert_index(ip, olow, &low, nelems-1, INT_MIN, nelems) != TCL_OK)
         return TCL_ERROR;
 
-    /* We allow -1 in case nelems == 0, since 'end' will then return -1 */
-    if (ta_convert_index(ip, ohigh, &high, nelems-1, -1, INT_MAX) != TCL_OK)
+    if (ta_convert_index(ip, ohigh, &high, nelems-1, INT_MIN, INT_MAX) != TCL_OK)
         return TCL_ERROR;
 
     if (low < 0)
@@ -2250,13 +2351,9 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     if (pindex != NULL) {
         /* To prevent shimmering, first check known to be a list */
         if (o->typePtr != g_tcl_list_type_ptr && pindex != NULL) {
-            status = ta_get_int_from_obj(NULL, o, &n);
+            status = ta_convert_index(NULL, o, &n, end, INT_MIN, INT_MAX);
             if (status == TCL_OK) {
                 *pindex = n;
-                return TA_INDEX_TYPE_INT;
-            }
-            if (ta_strequal(Tcl_GetString(o), "end")) {
-                *pindex = end;
                 return TA_INDEX_TYPE_INT;
             }
         }
@@ -2270,12 +2367,12 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
 
     /* Even as a list, it may be the single element "end". Check for that */
     if (n == 1) {
-        if (ta_strequal(Tcl_GetString(elems[0]), "end")) {
-            if (pindex != NULL) {
-                *pindex = end;
+        if (pindex != NULL) {
+            if (ta_convert_index(NULL, elems[0], &n, end, INT_MIN, INT_MAX) == TCL_OK) {
+                *pindex = n;
                 return TA_INDEX_TYPE_INT;
             }
-        }            
+        }
     }
 
     thdr = thdr_alloc_and_init(ip, TA_INT, n, elems, 0);

@@ -90,6 +90,12 @@ namespace eval tarray::test {
             col_change_and_verify $type $values [linsert $values end {*}[listrepeat  8 $val]] insert $val 32 8
         } -result 0
 
+        test column_insert-value-$type-2.9 {
+            Insert multiple element in middle (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type 0] end-2 10
+        } -result [crep $type [linsert [samplerange $type] end-2 {*}[listrepeat 10 [samplevalue $type 0]]]] -match column
+
         test column_insert-value-$type-3.0 {
             Insert zero elements (unshared)
         } -body {
@@ -115,6 +121,12 @@ namespace eval tarray::test {
         } -body {
             tarray::column insert [newcolumn $type [samplerange $type 0 10]] [samplevalue $type end] 12 1
         } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+        test column_insert-value-$type-3.4 {
+            Insert elements at out of bounds index (unshared)
+        } -body {
+            tarray::column insert [samplecolumn $type] [samplevalue $type end] end+1 1
+        } -result "*index*out of bounds*" -match glob -returnCodes error
 
         test column_insert-list-$type-1.0 {
             Insert single element list at start of empty column (shared)
@@ -197,6 +209,12 @@ namespace eval tarray::test {
             set insertions [samplerange $type]
             col_change_and_verify $type $values [linsert $values end {*}$insertions] insert $insertions 32
         } -result 0
+
+        test column_insert-list-$type-2.9 {
+            Insert multiple element at penultimate position (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 128]] [samplerange $type 129 end] end-1
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
 
         test column_insert-list-$type-3.0 {
             Insert zero elements (unshared)
@@ -298,6 +316,12 @@ namespace eval tarray::test {
             set insertions [samplerange $type]
             col_change_and_verify $type $values [linsert $values end {*}$insertions] insert [newcolumn $type $insertions] 32
         } -result 0
+
+        test column_insert-column-$type-2.9 {
+            Insert multiple element column at penultimate position (unshared)
+        } -body {
+            tarray::column insert [newcolumn $type [samplerange $type 0 128]] [samplecolumn $type 129 end] end-1
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
 
         test column_insert-column-$type-3.0 {
             Insert zero elements (unshared)

@@ -51,6 +51,12 @@ namespace eval tarray::test {
             tarray::column fill [newcolumn $type {}] $fills($type) end
         } -result * -match glob -returnCodes error
 
+        test column_fill-index-$type-1.3 {
+            Index end+1 allowed when column is empty
+        } -body {
+            tarray::column fill [newcolumn $type {}] $fills($type) end+1
+        } -result [crep $type [list $fills($type)]] -match column
+
         test column_fill-index-$type-2.0 {
             Fill an non-empty column with a single element (shared)
         } -body {
@@ -76,29 +82,40 @@ namespace eval tarray::test {
         } -result [crep $type [linsert $sample($type) end $fills($type)]] -match column
 
         test column_fill-index-$type-2.4 {
+            Extend non-empty column with end+1
+        } -body {
+            tarray::column fill [newcolumn $type $sample($type)] $fills($type) end+1
+        } -result [crep $type [linsert $sample($type) end $fills($type)]] -match column
+
+        test column_fill-index-$type-2.5 {
             Negative index end not allowed
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) -1
         } -result * -match glob -returnCodes error
 
-        test column_fill-index-$type-2.5 {
+        test column_fill-index-$type-2.6 {
             Out of range index end not allowed
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) [expr {[llength $sample($type)]+1}]
         } -result * -match glob -returnCodes error
 
-        test column_fill-index-$type-2.6 {
+        test column_fill-index-$type-2.7 {
+            Out of range index end not allowed
+        } -body {
+            tarray::column fill [newcolumn $type $sample($type)] $fills($type) end+2
+        } -result * -match glob -returnCodes error
+
+        test column_fill-index-$type-2.8 {
             Fill intermediate element in non-empty column
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) [expr {([llength $sample($type)]+1)/2}]
         } -result [crep $type [lreplace $sample($type) [expr {([llength $sample($type)]+1)/2}] [expr {([llength $sample($type)]+1)/2}] $fills($type)]] -match column
 
-        test column_fill-index-$type-2.7 {
+        test column_fill-index-$type-2.9 {
             Invalid syntax index not allowed
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) badsyntax
         } -result * -match glob -returnCodes error
-
     }
 
     #
@@ -382,6 +399,18 @@ namespace eval tarray::test {
             tarray::column fill [newcolumn $type {}] $fills($type) end end
         } -result [crep $type {}] -match column
 
+        test column_fill-range-$type-1.4 {
+            Index end+1 when column is empty
+        } -body {
+            tarray::column fill [newcolumn $type {}] $fills($type) end end+1
+        } -result [crep $type [list $fills($type)]] -match column
+
+        test column_fill-range-$type-1.5 {
+            Index end+1 when column is empty
+        } -body {
+            tarray::column fill [newcolumn $type {}] $fills($type) end+1 end+2
+        } -result [crep $type [lrepeat 2 $fills($type)]] -match column
+
         test column_fill-range-$type-2.0 {
             Test filling of leading elements (shared tclobj)
         } -body {
@@ -403,12 +432,18 @@ namespace eval tarray::test {
         } -result 0 
 
         test column_fill-range-$type-2.3 {
+            Test filling of trailing elements (shared tclobj)
+        } -body {
+            filltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $fills($type)]] end-5 end
+        } -result 0 
+
+        test column_fill-range-$type-2.4 {
             Test filling of entire array (unshared)
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) 0 end
         } -result [crep $type [listrepeat [llength $sample($type)] $fills($type)]] -match column
 
-        test column_fill-range-$type-2.3 {
+        test column_fill-range-$type-2.5 {
             Test filling of intermediate array (unshared)
         } -body {
             tarray::column fill [newcolumn $type $sample($type)] $fills($type) 50 100
@@ -440,13 +475,26 @@ namespace eval tarray::test {
         } -result [crep $type [concat [lrange $sample($type) 0 24] [listrepeat 26 $fills($type)]]] -match column
 
         test column_fill-range-$type-4.2 {
+            Test filling beyond last (unshared)
+        } -body {
+            tarray::column fill [newcolumn $type [lrange $sample($type) 0 100]] $fills($type) end+1 200
+        } -result [crep $type [concat [lrange $sample($type) 0 100] [listrepeat 100 $fills($type)]]] -match column
+
+        test column_fill-range-$type-4.3 {
             Test filling out-of-range (unshared)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) 257 300
         } -result "*257*out of bounds" -match glob -returnCodes error
+
+        test column_fill-range-$type-4.4 {
+            Test filling out-of-range (unshared)
+        } -body {
+            tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) end+2 300
+        } -result "*257*out of bounds" -match glob -returnCodes error
+
     }
 
-    # TBD - add tests for parallel filling
+    # TBD - add tests for multithreaded filling
 
 }
 ::tcltest::cleanupTests

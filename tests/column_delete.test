@@ -41,6 +41,18 @@ namespace eval tarray::test {
             tarray::column delete [samplecolumn $type] [expr {[llength $sample($type)]-1}]
         } -result [crep $type [lrange $sample($type) 0 end-1]] -match column
 
+        test column_delete-index-$type-2.2 {
+            Test deletion of last element (shared tclobj)
+        } -body {
+            change_and_verify_col $type $sample($type) delete [list end] [lrange $sample($type) 0 end-1]
+        } -result 0
+
+        test column_delete-index-$type-2.3 {
+            Test deletion of last element (unshared tclobj)
+        } -body {
+            tarray::column delete [samplecolumn $type] end
+        } -result [crep $type [lrange $sample($type) 0 end-1]] -match column
+
         test column_delete-index-$type-3.0 {
             Test deletion of end element (shared tclobj)
         } -body {
@@ -52,6 +64,18 @@ namespace eval tarray::test {
         } -body {
             tarray::column delete [samplecolumn $type] end
         } -result [crep $type [lrange $sample($type) 0 end-1]] -match column
+
+        test column_delete-index-$type-3.2 {
+            Test deletion of end-1 element (shared tclobj)
+        } -body {
+            change_and_verify_col $type $sample($type) delete [list end-1] [lreplace $sample($type) end-1 end-1]
+        } -result 0
+
+        test column_delete-index-$type-3.3 {
+            Test deletion of end+1 element (unshared tclobj)
+        } -body {
+            tarray::column delete [samplecolumn $type] end+1
+        } -result [crep $type $sample($type)] -match column
 
         set n -1
         foreach i {1 7 8 9 31 32 33 63 64 65 254} {
@@ -87,6 +111,12 @@ namespace eval tarray::test {
         } -result [crep $type $sample($type)] -match column
 
         test column_delete-index-$type-5.3 {
+            Test deletion of out-of-range end+1 index
+        } -body {
+            tarray::column delete [samplecolumn $type] end+1
+        } -result [crep $type $sample($type)] -match column
+
+        test column_delete-index-$type-5.4 {
             Test deletion of invalid syntax index
         } -body {
             tarray::column delete [samplecolumn $type] nonintsyntax
@@ -104,6 +134,12 @@ namespace eval tarray::test {
             tarray::column delete [newcolumn $type [lrange $sample($type) 0 0]] end
         } -result [crep $type {}] -match column
 
+        test column_delete-index-$type-6.0 {
+            Test deletion of element from single element column (shared)
+        } -body {
+            change_and_verify_col $type [list 100] delete [list end] {}
+        } -result 0
+
         test column_delete-index-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
@@ -111,6 +147,12 @@ namespace eval tarray::test {
         } -result 0
 
         test column_delete-index-$type-7.1 {
+            Test attempt to delete element from empty column (shared)
+        } -body {
+            change_and_verify_col $type {} delete [list end] {}
+        } -result 0
+
+        test column_delete-index-$type-7.2 {
             Test deletion of invalid index from empty column (unshared)
         } -body {
             tarray::column delete [newcolumn $type {}] -1
@@ -602,6 +644,22 @@ namespace eval tarray::test {
             tarray::column delete [samplecolumn $type] 129 end
         } -result [crep $type [lrange $sample($type) 0 128]] -match column
 
+        test column_delete-range-$type-2.2 {
+            Test deletion of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -128
+            change_and_verify_col $type $sample($type) delete [list end-$i end] [lrange $sample($type) 0 126]
+        } -result 0
+
+        test column_delete-range-$type-2.3 {
+            Test deletion of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            incr i -128
+            change_and_verify_col $type $sample($type) delete [list end-$i end+5] [lrange $sample($type) 0 126]
+        } -result 0
+
         test column_delete-range-$type-3.0 {
             Test deletion of intermediate (shared tclobj)
         } -body {
@@ -647,6 +705,13 @@ namespace eval tarray::test {
             tarray::column delete [samplecolumn $type] 60 40
         } -result [crep $type $sample($type)] -match column
 
+        test column_delete-range-$type-4.5 {
+            Test deletion of out-of-range (unshared)
+        } -body {
+            set i [llength $sample($type)]
+            tarray::column delete [samplecolumn $type] end+1 end+10
+        } -result [crep $type $sample($type)] -match column
+
         test column_delete-range-$type-5.0 {
             Test deletion of invalid syntax start index
         } -body {
@@ -682,6 +747,12 @@ namespace eval tarray::test {
             Test attempt to delete element from empty column (unshared)
         } -body {
             tarray::column delete [newcolumn $type {}] 0 end
+        } -result [crep $type {}] -match column
+
+        test column_delete-range-$type-7.2 {
+            Test attempt to delete element from empty column (unshared)
+        } -body {
+            tarray::column delete [newcolumn $type {}] end end
         } -result [crep $type {}] -match column
 
         test column_delete-range-$type-8.0 {

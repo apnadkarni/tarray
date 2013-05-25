@@ -109,7 +109,8 @@ Returns a typed column with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg VALUES].
 [arg VALUES] may be a list of values or a typed column of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
-not specified the elements are appended to the array.
+not specified the elements are appended to the array. The command interprets
+[const end] as the position after the last element in the array.
 
 [call [cmd "column reverse"] [arg COLUMN]]
 Returns the typed column with order of elements reversed.

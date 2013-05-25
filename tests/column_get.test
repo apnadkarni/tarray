@@ -123,18 +123,6 @@ namespace eval tarray::test {
             return "Returned type '[lindex $ta 1]' does not match type '$type' of input column"
         }
 
-        set max [expr {[llength $sample($type)] - 1}]
-        foreach var {low high} {
-            if {[set $var] eq "end"} { set $var $max }
-            if {[set $var] < 0} {set $var 0}
-            if {[set $var] > $max} {set $var $max}
-        }
-        set n [expr {$high-$low+1}]
-        if {$n < 0} {set n 0}
-        if {$n != [llength [lindex $ta 2]]} {
-            return "Length of returned data ([llength [lindex $ta 2]]) != length of range ($n)"
-        }
-
         if {[lequal $type [lrange $sample($type) $low $high] [lindex $ta 2]]} {
             return ""
         } else {
@@ -148,18 +136,6 @@ namespace eval tarray::test {
 
         set result [tarray::column get -list $cols_for_get($type) $low $high]
 
-        set max [expr {[llength $sample($type)] - 1}]
-        foreach var {low high} {
-            if {[set $var] eq "end"} { set $var $max }
-            if {[set $var] < 0} {set $var 0}
-            if {[set $var] > $max} {set $var $max}
-        }
-        set n [expr {$high-$low+1}]
-        if {$n < 0} {set n 0}
-        if {$n != [llength $result]} {
-            return "Length of returned data ([llength $result]) != length of index list ([llength $indexlist])"
-        }
-
         if {[lequal $type [lrange $sample($type) $low $high] $result]} {
             return ""
         } else {
@@ -172,20 +148,14 @@ namespace eval tarray::test {
         variable sample
 
         set result [tarray::column get -dict $cols_for_get($type) $low $high]
-        set max [expr {[llength $sample($type)] - 1}]
-        foreach var {low high} {
-            if {[set $var] eq "end"} { set $var $max }
-            if {[set $var] < 0} {set $var 0}
-            if {[set $var] > $max} {set $var $max}
-        }
 
         # Note we do not compare lengths of lists since in case of duplicate
         # indices, they will not be the same. Errors, if any, will caught
         # when retrieving values below.
 
         set l2 {}
-        for {set i $low} {$i <= $high} {incr i} {
-            lappend l2 [dict get $result $i]
+        dict for {i val} $result {
+            lappend l2 $val
         }
 
         if {[lequal $type [lrange $sample($type) $low $high] $l2]} {
@@ -649,7 +619,15 @@ namespace eval tarray::test {
             Get end-0
         } -body { test_get_range_ascol $type end 0 }
 
-        test column_get-range-ascol-$type-4.0 {
+        test column_get-range-ascol-$type-2.7 {
+            Get end-10 end
+        } -body { test_get_range_ascol $type end-10 end }
+
+        test column_get-range-ascol-$type-2.8 {
+            Get end-10 end
+        } -body { test_get_range_ascol $type end-10 end+10 }
+
+        test column_get-range-ascol-$type-3.0 {
             Get indexlist -tarray option
         } -body {
             tarray::column get -tarray [newcolumn $type {0 1}] 0 1
@@ -700,9 +678,17 @@ namespace eval tarray::test {
             Get end-end
         } -body { test_get_range_aslist $type end end }
 
-        test column_get-range-aslist-$type-2.6 {
+        test column_get-range-aslist-$type-2.7 {
             Get end-0
         } -body { test_get_range_aslist $type end 0 }
+
+        test column_get-range-ascol-$type-2.8 {
+            Get end-10 end
+        } -body { test_get_range_aslist $type end-10 end }
+
+        test column_get-range-ascol-$type-2.9 {
+            Get end-10 end
+        } -body { test_get_range_aslist $type end-10 end+10 }
 
         #
         # column get -dict range
@@ -749,9 +735,18 @@ namespace eval tarray::test {
             Get end-end
         } -body { test_get_range_asdict $type end end }
 
-        test column_get-range-asdict-$type-2.6 {
+        test column_get-range-asdict-$type-2.7 {
             Get end-0
         } -body { test_get_range_asdict $type end 0 }
+
+        test column_get-range-ascol-$type-2.8 {
+            Get end-10 end
+        } -body { test_get_range_asdict $type end-10 end }
+
+        test column_get-range-ascol-$type-2.9 {
+            Get end-10 end
+        } -body { test_get_range_asdict $type end-10 end+10 }
+
     }
 
 }
