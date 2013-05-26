@@ -5,6 +5,11 @@ proc make_list_of_doubles {count} {
     return $l
 }
 
+proc make_list_of_ints {count} {
+    time {lappend l [expr {int(10000*rand())}]} $count
+    return $l
+}
+
 proc make_list_of_strings {count} {
     # Multiply by 10 just so every string does not start with 0
     # and append "x" so it gets stored as a string
@@ -12,40 +17,51 @@ proc make_list_of_strings {count} {
     return $l
 }
 
+proc mt_disable {} {
+    tarray::unsupported::config sort_mt_threshold 100000000
+    tarray::unsupported::config sort_mt_enable_any 0
+}
+proc mt_enable {} {
+    tarray::unsupported::config sort_mt_threshold 10
+    tarray::unsupported::config sort_mt_enable_any 1
+}
+
 proc benchmark {n} {
     set results {}
 
-    # Difference between lany and lstr is that the latter is already
-    # string representation where the former will be converted during
-    # the sort
+    # TA_ANY
     set lstr [make_list_of_strings $n]
-    set ldbl [make_list_of_doubles $n]
-
     lsort $lstr;            # Prime to ensure string rep generated
-        
     dict set results $n strings list [time {lsort $lstr}]
-    dict set results $n doubles list [time {lsort -real $ldbl}]
-
-    # First do non-threaded by setting thresholds very high
-    tarray::unsupported::config sort_mt_threshold 100000000
-    tarray::unsupported::config sort_mt_enable_any 0
     set tstr [tarray::column create any $lstr]
-    set tdbl [tarray::column create double $ldbl]
-
+    mt_disable
     dict set results $n strings unthreaded [time {tarray::column sort $tstr}]
-    dict set results $n doubles unthreaded [time {tarray::column sort $tdbl}]
-
-    # Now do threaded sorts
-    tarray::unsupported::config sort_mt_threshold 10
-    tarray::unsupported::config sort_mt_enable_any 1
-
+    mt_enable
     dict set results $n strings threaded [time {tarray::column sort $tstr}]
-    dict set results $n doubles threaded [time {tarray::column sort $tdbl}]
+     # Now list -> tarray -> list
+    dict set results $n strings mixed [time {tarray::column get -list [tarray::column sort [tarray::column create any $lstr]] 0 end}]
 
-    # Now list -> tarray -> list
-    unset tstr tdbl
-    dict set results $n strings mixed [time {tarray::column sort [tarray::column create any $lstr]}]
-    dict set results $n doubles mixed [time {tarray::column sort [tarray::column create double $ldbl]}]
+    unset lstr tstr;                 # Recover memory
+
+    set ldbl [make_list_of_doubles $n]
+    dict set results $n doubles list [time {lsort -real $ldbl}]
+    set tdbl [tarray::column create double $ldbl]
+    mt_disable
+    dict set results $n doubles unthreaded [time {tarray::column sort $tdbl}]
+    mt_enable
+    dict set results $n doubles threaded [time {tarray::column sort $tdbl}]
+    dict set results $n doubles mixed [time {tarray::column get -list [tarray::column sort [tarray::column create double $ldbl]] 0 end}]
+    unset ldbl tdbl
+
+    set lint [make_list_of_ints $n]
+    dict set results $n ints list [time {lsort -integer $lint}]
+    set tint [tarray::column create int $lint]
+    mt_disable
+    dict set results $n ints unthreaded [time {tarray::column sort $tint}]
+    mt_enable
+    dict set results $n ints threaded [time {tarray::column sort $tint}]
+    dict set results $n ints mixed [time {tarray::column get -list [tarray::column sort [tarray::column create int $lint]] 0 end}]
+    unset lint tint
 
     return $results
 }
@@ -75,6 +91,7 @@ proc printbenchmark {results {out stdout}} {
                 puts $out [format "%9d %10s %10d %s %s %s" $size $type $base [scale $base $unthreaded] [scale $base $threaded] [scale $base $mixed]]
             }
         }
+        puts ""
     }
 }
 
