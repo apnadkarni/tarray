@@ -645,12 +645,14 @@ void thdr_fill_scalars(Tcl_Interp *ip, thdr_t *thdr,
         ta_type_panic(thdr->type);
     }
 
-    fill_context[0].nelems = thdr_calc_mt_split(thdr->type, pos, count, &fill_context[1].nelems);
-    TA_ASSERT((fill_context[0].nelems + fill_context[1].nelems) == count);
 
     elem_size = thdr->elem_bits / CHAR_BIT;
     fill_context[0].tav = *ptav;
     fill_context[0].base = (pos*elem_size) + THDRELEMPTR(thdr, unsigned char, 0);
+#ifdef TA_MT_ENABLE
+    fill_context[0].nelems = thdr_calc_mt_split(thdr->type, pos, count, &fill_context[1].nelems);
+    TA_ASSERT((fill_context[0].nelems + fill_context[1].nelems) == count);
+
     if (count < ta_fill_mt_threshold || fill_context[1].nelems == 0) {
         fill_context[0].nelems = count;
         workerfn(&fill_context[0]);
@@ -666,6 +668,10 @@ void thdr_fill_scalars(Tcl_Interp *ip, thdr_t *thdr,
         ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
         ta_mt_group_release(grp);
     }
+#else
+    fill_context[0].nelems = count;
+    workerfn(&fill_context[0]);
+#endif
 }
 
 /*
