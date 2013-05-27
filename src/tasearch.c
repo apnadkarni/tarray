@@ -70,7 +70,7 @@ static int ta_search_calc_slot_indices(ta_search_t *psearch)
 }
 
 /* Helper to figure out next slot to test */
-TA_INLINE int ta_search_calc_slot(ta_search_t *psearch)
+static TA_INLINE int ta_search_calc_slot(ta_search_t *psearch)
 {
     if (psearch->indices)
         return ta_search_calc_slot_indices(psearch);

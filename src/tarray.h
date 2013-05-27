@@ -4,6 +4,9 @@
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS /* Disable Visual C++ snprintf security warnings */
 #include <windows.h>            /* TBD - define LEAN_AND_MEAN ? */
+#else
+#define _snprintf snprintf
+#define _stricmp strcasecmp
 #endif
 
 #include <limits.h>
