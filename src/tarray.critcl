@@ -1276,6 +1276,7 @@ critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
 }
 
 critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
+critcl::cdata tarray::unsupported::hg_id       [exec hg identify]
 
 package provide tarray 0.4
 

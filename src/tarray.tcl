@@ -65,6 +65,7 @@ proc tarray::unsupported::build_info {} {
             append result "\n    [format %-15s $k] $val"
         }
     }
+    append result "\n    [format %-15s source_revision] [hg_id]"
     return $result
 }
 
