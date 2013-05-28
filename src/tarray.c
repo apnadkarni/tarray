@@ -12,6 +12,8 @@
 
 #include "tarray.h"
 
+int ta_experiment;
+
 #ifdef TA_MT_ENABLE
 /*
  * Thresholds for multithreading.
@@ -2739,7 +2741,7 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
         b = Tcl_GetString(obP);
 
     /* Following Tcl's lsort we just use the Unicode code point collation
-       order which means a simple strcmp suffices */
+       order which means a simple strcmp but this is incorrect for -nocase */
     /* TBD - Tcl has fixed this post-8.6. Check and change this accordingly */
     if (ignorecase) {
         comparison = _stricmp(a, b);
@@ -2752,6 +2754,59 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 #endif
 
     return (comparison > 0) ? 1 : ((comparison < 0) ? -1 : 0);
+}
+
+
+int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
+{
+    char *a, *b;
+    int alen, blen;
+    int comparison;
+
+    /* TBD - maybe check first letter before calling ? But be careful of case-insensitivity*/
+#if 0
+    a = Tcl_GetStringFromObj(oaP, &alen);
+    b = Tcl_GetStringFromObj(obP, &blen);
+
+    if (alen != blen)
+        return 0;
+
+    // This is much slower than the strcmp method below but might be more
+    // "correct". On the other hand the strcmp method below is both faster
+    // and Tcl compatible with lsort and lsearch
+    alen = Tcl_NumUtfChars(a, alen); /* Num bytes -> num chars */
+    blen = Tcl_NumUtfChars(b, blen); /* Num bytes -> num chars */
+
+    if (alen != blen)
+        return 0; /* Note this is different from above check, alen/blen have changed*/
+
+    return ! (ignorecase ? Tcl_UtfNcasecmp : Tcl_UtfNcmp)(a, b, alen);
+
+#else
+
+    /* Following Tcl's lsort we just use the Unicode code point collation
+       order which means a simple strcmp but this is incorrect for -nocase */
+    /* TBD - Tcl has fixed this post-8.6. Check and change this accordingly */
+    a = oaP->bytes;
+    if (a == NULL)
+        a = Tcl_GetString(oaP);
+    b = obP->bytes;
+    if (b == NULL)
+        b = Tcl_GetString(obP);
+
+    TA_ASSERT(a && b);
+
+    if (ignorecase) {
+        return ! _stricmp(a, b);
+    } else {
+        if (oaP->length != obP->length)
+            return 0;
+        if (*a != *b)
+            return 0;
+        else
+            return ! memcmp(a, b, oaP->length);
+    }
+#endif
 }
 
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,

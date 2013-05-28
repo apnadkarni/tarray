@@ -1,4 +1,9 @@
-source [file join [file dirname [info script]] testutil.tcl]
+set topdir [file dirname [file dirname [file normalize [info script]]]]
+set pkgdir [file join $topdir build lib tarray]
+if {[file exists [file join $pkgdir pkgIndex.tcl]]} {
+    set auto_path [linsert $auto_path 0 $pkgdir]
+}
+package require tarray
 
 proc make_list_of_doubles {count} {
     time {lappend l [expr {rand()}]} $count
@@ -163,11 +168,14 @@ if {[file normalize $::argv0] eq [file normalize [info script]]} {
     array set opts {
         -sizes {1000 10000 100000 1000000}
         -benchmarks {sort search}
+        -experiment 0
     }
     if {[catch {array set opts $::argv}]} {
         puts stderr "Usage: [file tail [info script]] ?-sizes SIZES? ?-benchmarks TYPES?"
         exit 1
     }
+
+    tarray::unsupported::config experiment $opts(-experiment)
 
     puts "Version:  [package require tarray]"
     puts "Run date: [clock format [clock seconds]]"

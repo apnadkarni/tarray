@@ -102,8 +102,10 @@ if {$build_opts(mt_enable)} {
             pval = &ta_fill_mt_threshold;
         else if (ta_strequal(vname, "sort_mt_enable_any"))
             pval = &ta_sort_mt_enable_any;
+        else if (ta_strequal(vname, "experiment"))
+            pval = &ta_experiment;
         else {
-            Tcl_SetResult(interp, "Invalid threshold name. Must be sort_mt or fill_mt.", TCL_STATIC);
+            Tcl_SetResult(interp, "Invalid config setting name.", TCL_STATIC);
             return TCL_ERROR;
         }
 

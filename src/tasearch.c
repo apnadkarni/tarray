@@ -514,11 +514,14 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
             pobj = *THDRELEMPTR(haystackP, Tcl_Obj *, slot);
             switch (psearch->op) {
             case TA_SEARCH_OPT_GT:
-                compare_result = ta_obj_compare(pobj, needleObj, nocase) > 0; break;
+                compare_result = ta_obj_compare(pobj, needleObj, nocase) > 0;
+                break;
             case TA_SEARCH_OPT_LT: 
-                compare_result = ta_obj_compare(pobj, needleObj, nocase) < 0; break;
+                compare_result = ta_obj_compare(pobj, needleObj, nocase) < 0;
+                break;
             case TA_SEARCH_OPT_EQ:
-                compare_result = ta_obj_compare(pobj, needleObj, nocase) == 0; break;
+                compare_result = ta_obj_equal(pobj, needleObj, nocase);
+                break;
             case TA_SEARCH_OPT_PAT:
                 compare_result = Tcl_StringCaseMatch(Tcl_GetString(pobj),
                                                      Tcl_GetString(needleObj),
@@ -575,11 +578,14 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
 
             switch (psearch->op) {
             case TA_SEARCH_OPT_GT:
-                compare_result = ta_obj_compare(pobj, needleObj, nocase) > 0; break;
+                compare_result = ta_obj_compare(pobj, needleObj, nocase) > 0;
+                break;
             case TA_SEARCH_OPT_LT: 
-                compare_result = ta_obj_compare(pobj, needleObj, nocase) < 0; break;
+                compare_result = ta_obj_compare(pobj, needleObj, nocase) < 0;
+                break;
             case TA_SEARCH_OPT_EQ:
-                compare_result = ta_obj_compare(pobj, needleObj, nocase) == 0; break;
+                compare_result = ta_obj_equal(pobj, needleObj, nocase);
+                break;
             case TA_SEARCH_OPT_PAT:
                 compare_result = Tcl_StringCaseMatch(Tcl_GetString(pobj),
                                                      Tcl_GetString(needleObj),
