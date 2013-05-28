@@ -319,6 +319,7 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip, int ntcols,
  * Search and sort routines
  */
 int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
+int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
 
 void tarray_qsort_r(void *a, size_t n, size_t es, void *thunk, int (*cmp)(void *, const void *, const void *));
 int intcmp(const void *a, const void *b);
@@ -362,6 +363,9 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
 
 TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
                        int objc, Tcl_Obj *const objv[]);
+
+
+extern int ta_experiment;
 
 #ifdef TA_MT_ENABLE
 /* Threshold for when sorts are multithreaded */
