@@ -400,6 +400,12 @@ if {![info exists tarray::test::known]} {
 
         proc vtab_change_and_verify {types initrows expected vop args} {
             set tab [tarray::table create $types $initrows]
+
+            # Force generation of a string rep. This is to verify
+            # that the string rep is actually regenerated after a
+            # command (this was a bug).
+            string length $tab
+
             if {![trequal [tarray::table {*}$vop tab {*}$args] $types $expected]} {
                 return 1
             }

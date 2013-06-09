@@ -101,5 +101,71 @@ namespace eval tarray::test {
         tarray::table::create [list [samplecolumn int 0 10] [samplecolumn int 0 9]]
     } -result "Columns*not the same size." -returnCodes error -match glob
 
+    test table_from_string-1.0 {
+        Verify generation of table from string - bug #17
+    } -body {
+        tarray::table size {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+    } -result 1
+
+    test table_from_string-1.1 {
+        Verify generation of table from string - bug #17
+    } -body {
+        tarray::table size \
+            [list tarray any \
+                 [list \
+                      [list tarray any [samplerange any 0 99]] \
+                      [list tarray boolean [samplerange boolean 0 99]] \
+                      [list tarray byte    [samplerange byte 0 99]] \
+                      [list tarray double [samplerange double 0 99]] \
+                      [list tarray int [samplerange int 0 99]] \
+                      [list tarray wide [samplerange wide 0 99]] \
+                      [list tarray uint [samplerange uint 0 99]]]]
+    } -result 100
+
+    test table_from_string-2.0 {
+        Verify error in first col length in generation of table from string
+    } -body {
+        tarray::table size \
+            [list tarray any \
+                 [list \
+                      [list tarray any [samplerange any 0 100]] \
+                      [list tarray boolean [samplerange boolean 0 99]] \
+                      [list tarray byte    [samplerange byte 0 99]] \
+                      [list tarray double [samplerange double 0 99]] \
+                      [list tarray int [samplerange int 0 99]] \
+                      [list tarray wide [samplerange wide 0 99]] \
+                      [list tarray uint [samplerange uint 0 99]]]]
+    } -result "Columns in tarray table have differing lengths." -returnCodes error
+
+    test table_from_string-2.1 {
+        Verify error in last col length in generation of table from string
+    } -body {
+        tarray::table size \
+            [list tarray any \
+                 [list \
+                      [list tarray any [samplerange any 0 99]] \
+                      [list tarray boolean [samplerange boolean 0 99]] \
+                      [list tarray byte    [samplerange byte 0 99]] \
+                      [list tarray double [samplerange double 0 99]] \
+                      [list tarray int [samplerange int 0 99]] \
+                      [list tarray wide [samplerange wide 0 99]] \
+                      [list tarray uint [samplerange uint 0 100]]]]
+    } -result "Columns in tarray table have differing lengths." -returnCodes error
+    test table_from_string-2.2 {
+        Verify error in middle col length in generation of table from string
+    } -body {
+        tarray::table size \
+            [list tarray any \
+                 [list \
+                      [list tarray any [samplerange any 0 99]] \
+                      [list tarray byte    [samplerange byte 0 99]] \
+                      [list tarray boolean [samplerange boolean 0 98]] \
+                      [list tarray double [samplerange double 0 99]] \
+                      [list tarray int [samplerange int 0 99]] \
+                      [list tarray wide [samplerange wide 0 99]] \
+                      [list tarray uint [samplerange uint 0 99]]]]
+    } -result "Columns in tarray table have differing lengths." -returnCodes error
+
 }
+
 ::tcltest::cleanupTests
