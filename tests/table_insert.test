@@ -307,6 +307,16 @@ namespace eval tarray::test {
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 100] insert [sampletable $types 0 1] 102
     } -result "*index 102*out of bounds*" -match glob -returnCodes error
 
+    #
+    # Verify string rep regeneration
+
+    test table_insert-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        tarray::table insert {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}} {{0 1 2}} 0
+    } -result {tarray any {{tarray int {0 99}} {tarray int {1 99}} {tarray int {2 99}}}}
+
+
 }
 
 ::tcltest::cleanupTests

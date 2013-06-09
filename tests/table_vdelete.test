@@ -534,6 +534,17 @@ namespace eval tarray::test {
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 98] vdelete end end
     } -result 0
 
+    #
+    # Verify string rep regeneration
+
+    test table_vdelete-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        set ta {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+        tarray::table vdelete ta 0 0
+        set ta
+    } -result {tarray any {{tarray int {}} {tarray int {}} {tarray int {}}}}
+
 }
 
 ::tcltest::cleanupTests

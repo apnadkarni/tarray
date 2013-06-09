@@ -246,6 +246,17 @@ namespace eval tarray::test {
         tarray::table vput ta [sampletable {any boolean byte double int uint}] 0
     } -result {*width 6 less than*} -returnCodes error -match glob
 
+    #
+    # Verify string rep regeneration
+
+    test table_vput-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        set ta {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+        tarray::table vput ta {{0 1 2}}
+        set ta
+    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+
 }
 
 ::tcltest::cleanupTests

@@ -581,6 +581,15 @@ namespace eval tarray::test {
         tab_change_and_verify_u $types [samplerows $types 0 99] [samplerows $types 0 98] delete end end
     } -result 0
 
+    #
+    # Verify string rep regeneration
+
+    test table_delete-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        tarray::table delete {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}} 0
+    } -result {tarray any {{tarray int {}} {tarray int {}} {tarray int {}}}}
+
 }
 
 ::tcltest::cleanupTests
