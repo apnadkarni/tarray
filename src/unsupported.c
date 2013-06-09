@@ -37,7 +37,7 @@ TCL_RESULT ta_dump(ClientData clientdata, Tcl_Interp *ip,
     oresult[i++] = Tcl_NewStringObj("Tcl_Obj.bytes", -1);
     if (o->bytes) {
         oresult[i] = Tcl_NewStringObj("", -1);
-	Tcl_AppendLimitedToObj(oresult[i], o->bytes, o->length, 40, "...");
+	Tcl_AppendLimitedToObj(oresult[i], o->bytes, o->length, 80, "...");
         ++i;
     } else {
         oresult[i++] = Tcl_NewObj();

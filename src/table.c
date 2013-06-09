@@ -233,8 +233,6 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     int status;
     thdr_t *thdr;
     Tcl_Obj **ptcol;
-    Tcl_Obj **end;
-    int nelems;
 
     if ((status = tcol_convert(ip, o)) != TCL_OK)
         return status;
@@ -242,16 +240,15 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     if (thdr->type != TA_ANY)
         return ta_bad_type_error(ip, thdr);
     if (tcol_occupancy(o) != 0) {
+        int i;
+
         ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-        nelems = tcol_occupancy(*ptcol);
-        end = thdr->used + ptcol;
-        while (ptcol < end) {
-            if ((status = tcol_convert(ip, *ptcol)) != TCL_OK)
+        for (i = 0; i < thdr->used; ++i) {
+            if ((status = tcol_convert(ip, ptcol[i])) != TCL_OK)
                 return status;
             /* All must have same number of elements */
-            if (tcol_occupancy(*ptcol) != nelems)
+            if (tcol_occupancy(ptcol[i]) != tcol_occupancy(ptcol[0]))
                 return ta_table_length_error(ip);
-            ++ptcol;
         }
     }
 
@@ -725,9 +722,9 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      return TCL_ERROR;
  }
 
- TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
-                             thdr_t *pindices, Tcl_Obj *orows,
-                             int new_size)
+static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
+                                    Tcl_Obj * const *tcols, Tcl_Obj *orows,
+                                    thdr_t *pindices, int new_size)
  {
      Tcl_Obj **prow;
      int i, nrows, status;
@@ -1364,46 +1361,9 @@ TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
     return status;
 }
 
-TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
-                           Tcl_Obj *orows,
-                           Tcl_Obj *oindices)
-{
-    thdr_t *pindices;
-    Tcl_Obj **tcols;
-    int ntcols;
-    int new_size;
-    int status;
 
-    TA_ASSERT(! Tcl_IsShared(table));
-
-    if ((status = table_convert(ip, table)) != TCL_OK || 
-        (ntcols = table_width(table)) == 0) 
-        return status;           /* Maybe OK or ERROR */
-
-    tcols = table_columns(table);
-
-    if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
-        return TCL_ERROR;
-
-    status = TCL_OK;
-    if (pindices->used > 0) {
-        status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcols[0]), pindices, &new_size);
-        if (status == TCL_OK) {
-            status = table_make_modifiable(ip, table, new_size, new_size);
-            if (status == TCL_OK) {
-                tcols = table_columns(table); /* (table_make_modifiable) */
-                status =  tcols_place_objs(ip, ntcols, tcols, pindices, orows, new_size);
-            }
-        }
-    }
-    
-    thdr_decr_refs(pindices);
-    return status;
-}
-
-
-TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
-                               Tcl_Obj *oindices, Tcl_Obj *omap)
+TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
+                       Tcl_Obj *oindices, Tcl_Obj *omap)
 {
     thdr_t *pindices;
     Tcl_Obj **tcols;
@@ -1413,7 +1373,6 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
     tcols_position_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(table));
-    TA_ASSERT(table_affirm(psrc));
 
     if ((status = table_convert(ip, table)) != TCL_OK || 
         (ntcols = table_width(table)) == 0) 
@@ -1442,10 +1401,6 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
     if (omap == NULL) {
         /* Not column mapping */
         tcols = table_columns(table);
-        if (table_width(psrc) < ntcols) {
-            ta_row_width_error(ip, table_width(psrc), ntcols);
-            goto vamoose;
-        }
     } else {
         /* Column mapping/reordering needed */
         if (tcols_build_position_map(ip, omap, table, &colmap) != TCL_OK)
@@ -1460,7 +1415,17 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
         ntcols = colmap.ncols;
     }
 
-    status =  tcols_place_indices(ip, ntcols, tcols, table_columns(psrc), pindices, new_size);
+    if (table_convert(NULL, ovalues) == TCL_OK) {
+        /* Source values specified as a table */
+        if (table_width(ovalues) < ntcols) {
+            ta_row_width_error(ip, table_width(ovalues), ntcols);
+            goto vamoose;
+        }
+        status =  tcols_place_indices(ip, ntcols, tcols, table_columns(ovalues), pindices, new_size);
+    } else {
+        /* Source values specified as a list of rows */
+        status =  tcols_place_objs(ip, ntcols, tcols, ovalues, pindices, new_size);
+    }
     
 vamoose:
     /* Before jumping here, colmap must have been initialized, 
@@ -1469,6 +1434,7 @@ vamoose:
     thdr_decr_refs(pindices);
     return status;
 }
+
 
 TCL_RESULT table_reverse(Tcl_Interp *ip, Tcl_Obj *table)
 {

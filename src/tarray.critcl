@@ -1178,55 +1178,67 @@ critcl::ccommand tarray::table::vinsert {} {
     return ta_set_var_result(interp, status, objv[1], table);
 }
 
+critcl::ccode {
+    static TCL_RESULT parse_place_params(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv, Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **poindices, Tcl_Obj **pomap)
+    {
+        int argpos;
+    
+        if (objc == 4) {
+            argpos = 0;
+            *pomap = NULL;
+        } else {
+            if (objc != 6) {
+                if (ip)
+                    Tcl_WrongNumArgs(ip, 1, objv, "?-map COLUMNMAP? TABLE VALUES INDICES");
+                return TCL_ERROR;
+            }
+            if (strcmp(Tcl_GetString(objv[1]), "-map"))
+                return ta_invalid_opt_error(ip, "-map");
+            argpos = 2;
+            *pomap = objv[2];
+        }
+
+        *potab = objv[1+argpos];
+        *povalues = objv[2+argpos];
+        *poindices = objv[3+argpos];
+        
+        return TCL_OK;
+    }
+}
+
 critcl::ccommand tarray::table::place {} {
-    int argpos, status;
+    int status;
     Tcl_Obj *otab, *ovalues, *oindices, *omap;
     
-    if (objc == 4) {
-        argpos = 0;
-        omap = NULL;
-    } else {
-        if (objc != 6) {
-            Tcl_WrongNumArgs(interp, 1, objv, "?-map COLUMNMAP? TABLE VALUES INDICES");
-            return TCL_ERROR;
-        }
-        if (strcmp(Tcl_GetString(objv[1]), "-map"))
-            return ta_invalid_opt_error(interp, "-map");
-        argpos = 2;
-        omap = objv[2];
-    }
-
-    otab = objv[1+argpos];
-    ovalues = objv[2+argpos];
-    oindices = objv[3+argpos];
+    if (parse_place_params(interp, objc, objv, &otab, &ovalues,
+                           &oindices, &omap) != TCL_OK)
+        return TCL_ERROR;
 
     if (Tcl_IsShared(otab))
         otab = Tcl_DuplicateObj(otab);
 
-    if (table_convert(NULL, ovalues) == TCL_OK)
-        status = table_place_indices(interp, otab, ovalues, oindices, omap);
-    else
-        status = table_place_objs(interp, otab, ovalues, oindices);
+    status = table_place(interp, otab, ovalues, oindices, omap);
 
     return ta_return_result(interp, status, otab);
 }
 
 
-critcl::cproc tarray::table::vplace {Tcl_Interp* interp Tcl_Obj* TABLEVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
+critcl::ccommand tarray::table::vplace {} {
     int status;
-    Tcl_Obj *table;
-
-    table = Tcl_ObjGetVar2(interp, TABLEVAR, NULL, TCL_LEAVE_ERR_MSG);
-    if (table == NULL)
-        return TCL_ERROR;
-    if (Tcl_IsShared(table))
-        table = Tcl_DuplicateObj(table);
+    Tcl_Obj *ovar, *ovalues, *oindices, *omap, *otab;
     
-    if (table_convert(NULL, VALUES) == TCL_OK)
-        status = table_place_indices(interp, table, VALUES, INDICES, NULL);
-    else
-        status = table_place_objs(interp, table, VALUES, INDICES);
-    return ta_set_var_result(interp, status, TABLEVAR, table);
+    if (parse_place_params(interp, objc, objv, &ovar, &ovalues,
+                           &oindices, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    otab = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (otab == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(otab))
+        otab = Tcl_DuplicateObj(otab);
+    
+    status = table_place(interp, otab, ovalues, oindices, omap);
+    return ta_set_var_result(interp, status, ovar, otab);
 }
 
 critcl::cproc tarray::table::reverse {Tcl_Interp* interp Tcl_Obj* table} ok {

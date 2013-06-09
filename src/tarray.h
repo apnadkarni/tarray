@@ -269,10 +269,6 @@ TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
 TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
- TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
-                             thdr_t *pindices, Tcl_Obj *orows,
-                             int new_size);
-TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols, Tcl_Obj * const *srccols, thdr_t *pindices, int new_size);
 
 TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
 TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
@@ -287,6 +283,8 @@ Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index);
 TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
                             Tcl_Obj *orows, Tcl_Obj *oindices);
 TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
+                               Tcl_Obj *oindices, Tcl_Obj *omap);
+TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
                                Tcl_Obj *oindices, Tcl_Obj *omap);
 TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
                             Tcl_Obj *opos, Tcl_Obj *ocount);
