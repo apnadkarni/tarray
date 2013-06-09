@@ -1178,34 +1178,55 @@ critcl::ccommand tarray::table::vinsert {} {
     return ta_set_var_result(interp, status, objv[1], table);
 }
 
-critcl::cproc tarray::table::place {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
-    int status;
+critcl::ccommand tarray::table::place {} {
+    int argpos, status;
+    Tcl_Obj *otab, *ovalues, *oindices, *omap;
+    
+    if (objc == 4) {
+        argpos = 0;
+        omap = NULL;
+    } else {
+        if (objc != 6) {
+            Tcl_WrongNumArgs(interp, 1, objv, "?-map COLUMNMAP? TABLE VALUES INDICES");
+            return TCL_ERROR;
+        }
+        if (strcmp(Tcl_GetString(objv[1]), "-map"))
+            return ta_invalid_opt_error(interp, "-map");
+        argpos = 2;
+        omap = objv[2];
+    }
 
-    if (Tcl_IsShared(GRID))
-        GRID = Tcl_DuplicateObj(GRID);
+    otab = objv[1+argpos];
+    ovalues = objv[2+argpos];
+    oindices = objv[3+argpos];
 
-    if (table_convert(NULL, VALUES) == TCL_OK)
-        status = table_place_indices(interp, GRID, VALUES, INDICES);
+    if (Tcl_IsShared(otab))
+        otab = Tcl_DuplicateObj(otab);
+
+    if (table_convert(NULL, ovalues) == TCL_OK)
+        status = table_place_indices(interp, otab, ovalues, oindices, omap);
     else
-        status = table_place_objs(interp, GRID, VALUES, INDICES);
-    return ta_return_result(interp, status, GRID);
+        status = table_place_objs(interp, otab, ovalues, oindices);
+
+    return ta_return_result(interp, status, otab);
 }
 
-critcl::cproc tarray::table::vplace {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
+
+critcl::cproc tarray::table::vplace {Tcl_Interp* interp Tcl_Obj* TABLEVAR Tcl_Obj* VALUES Tcl_Obj* INDICES} ok {
     int status;
     Tcl_Obj *table;
 
-    table = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
+    table = Tcl_ObjGetVar2(interp, TABLEVAR, NULL, TCL_LEAVE_ERR_MSG);
     if (table == NULL)
         return TCL_ERROR;
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
     
     if (table_convert(NULL, VALUES) == TCL_OK)
-        status = table_place_indices(interp, table, VALUES, INDICES);
+        status = table_place_indices(interp, table, VALUES, INDICES, NULL);
     else
         status = table_place_objs(interp, table, VALUES, INDICES);
-    return ta_set_var_result(interp, status, GRIDVAR, table);
+    return ta_set_var_result(interp, status, TABLEVAR, table);
 }
 
 critcl::cproc tarray::table::reverse {Tcl_Interp* interp Tcl_Obj* table} ok {

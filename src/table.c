@@ -16,6 +16,108 @@
 #include "tarray.h"
 
 
+/*
+ * Struct to hold mapping of passed in data to columns in a table
+ */
+typedef struct tcols_position_map_s {
+    int       ncols; /* Number of columns pointed to by pcols and is the
+                        number of columns specified in the map */
+    int       nrefmap; /* Number of entries in refmap. This is generally
+                          the number of columns in the referenced table */
+    Tcl_Obj **pcols; /* Point to either tcols[] or dynamically allocated.
+                        Contains the table columns referenced by the map.
+                     */
+    int      *prefmap; /* Points to refmap[] or dynamically allocated.
+                          Count per column of table indicating how many
+                          times that column is included in pcols
+                       */
+    Tcl_Obj *tcols[20];
+    int      refmap[20];
+} tcols_position_map_t;
+
+TA_INLINE static void tcols_init_position_map(tcols_position_map_t *pmap)
+{
+    pmap->ncols = 0;
+    pmap->nrefmap = 0;
+    pmap->pcols = pmap->tcols;
+    pmap->prefmap = pmap->refmap;
+}
+
+TA_INLINE static void tcols_free_position_map(tcols_position_map_t *pmap)
+{
+    if (pmap->pcols != pmap->tcols) {
+        TA_FREEMEM(pmap->pcols);
+        pmap->pcols = pmap->tcols;
+    }
+    if (pmap->prefmap != pmap->refmap) {
+        TA_FREEMEM(pmap->prefmap);
+        pmap->prefmap = pmap->refmap;
+    }
+}
+
+static TCL_RESULT tcols_verify_position_map_includes_all(
+    Tcl_Interp *ip, tcols_position_map_t *pmap)
+{
+    int i = pmap->nrefmap;
+    while (i--) {
+        if (pmap->prefmap[i] == 0) {
+            /* This column was not in map */
+            if (ip)
+                Tcl_SetResult(ip, "All columns in a table must be specified in a column map when extending the table.", TCL_STATIC);
+            return TCL_ERROR;
+        }
+    }
+    return TCL_OK;
+}
+                                                         
+static TCL_RESULT tcols_build_position_map(Tcl_Interp *ip, Tcl_Obj *omap,
+                                           Tcl_Obj *table,
+                                           tcols_position_map_t *pmap)
+{
+    int n, width;
+    Tcl_Obj **objs;
+
+    TA_ASSERT(table_affirm(table));
+    width = table_width(table);
+
+    if (Tcl_ListObjGetElements(ip, omap, &n, &objs) != TCL_OK)
+        return TCL_ERROR;
+
+    if (n <= ARRAYSIZE(pmap->tcols))
+        pmap->pcols = pmap->tcols;
+    else
+        pmap->pcols = (Tcl_Obj **) TA_ALLOCMEM(n * sizeof(pmap->pcols[0]));
+
+    if (width <= ARRAYSIZE(pmap->refmap))
+        pmap->prefmap = pmap->refmap;
+    else
+        pmap->prefmap = (int *) TA_ALLOCMEM(width * sizeof(pmap->prefmap[0]));
+
+    /* Indicate none of the columns are included in the map */
+    pmap->nrefmap = width;
+    memset(pmap->prefmap, 0, width*sizeof(pmap->prefmap[0]));
+
+    pmap->ncols = n;
+    while (n--) {
+        int colnum;
+        if (Tcl_GetIntFromObj(ip, objs[n], &colnum) != TCL_OK)
+            goto error_handler;
+        if (colnum >= width) {
+            ta_index_range_error(ip, colnum);
+            goto error_handler;
+        }
+        pmap->pcols[n] = table_column(table, colnum);
+        pmap->prefmap[colnum] += 1;
+    }
+    
+    return TCL_OK;
+    
+error_handler:
+    tcols_free_position_map(pmap);
+    return TCL_ERROR;
+}
+
+
 TCL_RESULT tcols_fill_range(
     Tcl_Interp *ip,
     int ntcols,
@@ -259,7 +361,7 @@ TCL_RESULT table_fill_obj(
             return TCL_ERROR;
 
         }
-        status = thdr_verify_indices(ip, TARRAYHDR(table_column(table, 0)), pindices, &count);
+        status = thdr_verify_indices_in_range(ip, table_length(table), pindices, &count);
         if (status == TCL_OK && count > 0) {
             status = table_make_modifiable(ip, table, count, count); // TBD - count + extra?
             status = tcols_fill_indices(ip, ncols, table_columns(table),
@@ -1285,7 +1387,7 @@ TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
 
     status = TCL_OK;
     if (pindices->used > 0) {
-        status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
+        status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcols[0]), pindices, &new_size);
         if (status == TCL_OK) {
             status = table_make_modifiable(ip, table, new_size, new_size);
             if (status == TCL_OK) {
@@ -1300,14 +1402,15 @@ TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
 }
 
 
-TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table,
-                           Tcl_Obj *psrc, Tcl_Obj *oindices)
+TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
+                               Tcl_Obj *oindices, Tcl_Obj *omap)
 {
     thdr_t *pindices;
     Tcl_Obj **tcols;
     int ntcols;
     int new_size;
     int status;
+    tcols_position_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(table));
     TA_ASSERT(table_affirm(psrc));
@@ -1316,25 +1419,53 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table,
         (ntcols = table_width(table)) == 0) 
         return status;           /* Maybe OK or ERROR */
 
-    if (table_width(psrc) < ntcols)
-        return ta_row_width_error(ip, table_width(psrc), ntcols);
-
     if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
         return TCL_ERROR;
 
-    status = TCL_OK;
-    if (pindices->used > 0) {
-        tcols = table_columns(table);
-        status = thdr_verify_indices(ip, TARRAYHDR(tcols[0]), pindices, &new_size);
-        if (status == TCL_OK) {
-            status = table_make_modifiable(ip, table, new_size, new_size);
-            if (status == TCL_OK) {
-                tcols = table_columns(table); /* (table_make_modifiable) */
-                status =  tcols_place_indices(ip, ntcols, tcols, table_columns(psrc), pindices, new_size);
-            }
-        }
+    if (pindices->used == 0) {
+        thdr_decr_refs(pindices);
+        return TCL_OK;           /* Nothing to be done */
     }
+
+    status = TCL_ERROR;
+
+    tcols_init_position_map(&colmap);
+    if (thdr_verify_indices_in_range(ip, table_length(table), pindices, &new_size) != TCL_OK)
+        goto vamoose;
+
+    /* Actually only *subset* of columns need to be modifiable - TBD */
+    if (table_make_modifiable(ip, table, new_size, new_size) != TCL_OK)
+        goto vamoose;
+
+    /* Note column mapping, if requested, must be done
+       AFTER table_make_modifiable as that will change columns */
+    if (omap == NULL) {
+        /* Not column mapping */
+        tcols = table_columns(table);
+        if (table_width(psrc) < ntcols) {
+            ta_row_width_error(ip, table_width(psrc), ntcols);
+            goto vamoose;
+        }
+    } else {
+        /* Column mapping/reordering needed */
+        if (tcols_build_position_map(ip, omap, table, &colmap) != TCL_OK)
+            goto vamoose;
+
+        /* If table is to be grown, all columns must be specified in map */
+        if (new_size > table_length(table)) {
+            if (tcols_verify_position_map_includes_all(ip, &colmap) != TCL_OK)
+                goto vamoose;
+        }
+        tcols = colmap.pcols;
+        ntcols = colmap.ncols;
+    }
+
+    status =  tcols_place_indices(ip, ntcols, tcols, table_columns(psrc), pindices, new_size);
     
+vamoose:
+    /* Before jumping here, colmap must have been initialized, 
+       pindices allocated and status must hold return value */
+    tcols_free_position_map(&colmap);
     thdr_decr_refs(pindices);
     return status;
 }
