@@ -164,10 +164,6 @@ error_handler:
     return TCL_ERROR;
 }
 
-
-
-/* TBD - in error and panic routines make sure strings are not too long */
-
 const char *ta_type_string(int tatype)
 {
     if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]))) {
@@ -254,6 +250,49 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
     }
 }
 
+TCL_RESULT ta_build_column_map(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *otab, int *pmap, int pmap_size, int **ppmap, int *pcount)
+{
+    int i, count;
+    int width;
+    Tcl_Obj **objs;
+    int pmap_allocated;
+
+    if (table_convert(ip, otab) != TCL_OK)
+        return TCL_ERROR;
+    width = table_width(otab);
+
+    if (Tcl_ListObjGetElements(ip, omap, &count, &objs) != TCL_OK)
+            return TCL_ERROR;
+    
+    if (count > pmap_size) {
+        pmap = (int **) TA_ALLOCMEM(count * sizeof(int));
+        pmap_allocated = 1;
+    } else
+        pmap_allocated = 0;
+
+    for (i=0; i < count; ++i) {
+        if (Tcl_GetIntFromObj(ip, objs[i], &pmap[i]) != TCL_OK)
+            goto error_handler;
+        if (pmap[i] >= width) {
+            ta_index_range_error(ip, pmap[i]);
+            goto error_handler;
+        }
+    }
+    
+    *ppmap = pmap;
+    *pcount = count;
+
+    return TCL_OK;
+
+error_handler:
+    if (pmap_allocated)
+        TA_FREEMEM(pmap);
+    return TCL_ERROR;
+}
+
+
+
+/* Make sure all objects in the tarray have string representations */
 void thdr_ensure_obj_strings(thdr_t *thdr)
 {
     Tcl_Obj **pobjs, **end;
@@ -807,31 +846,28 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
    themselves extend the range. Sort indices to simplify this.
    Returns new size needed in *new_sizeP
 */
-TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP)
+TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t *pindices, int *new_sizeP)
 {
-    int cur, used, highest, status;
+    int cur, highest, status;
     int *pindex, *end;
     thdr_t *psorted = NULL;
 
     TA_ASSERT(pindices->type == TA_INT);
 
-    used = thdr->used;
     pindex = THDRELEMPTR(pindices, int, 0);
     end = THDRELEMPTR(pindices, int, pindices->used);
 
     /* Special cases so we don't go through the long path */
     if (pindices->used < 2) {
-        /* 0/1 element list is always sorted so mark it as such anyways ! */
-        thdr->sort_order = THDR_SORTED_ASCENDING;
         if (pindices->used == 0)
             *new_sizeP = 0;
         else {
             /* One index specified */
-            if (*pindex < 0 || *pindex > used)
+            if (*pindex < 0 || *pindex > current_size)
                 return ta_index_range_error(ip, *pindex);
-            *new_sizeP = used;
-            if (*pindex == used)
-                *new_sizeP = used+1;
+            *new_sizeP = current_size;
+            if (*pindex == current_size)
+                *new_sizeP = current_size + 1;
         }
         return TCL_OK;
     }    
@@ -870,7 +906,7 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         TA_ASSERT(pindex < end); /* Since we already special cased 0/1 above */
         cur = *--end;
         highest = cur;
-        while (pindex < end && cur > used) {
+        while (pindex < end && cur > current_size) {
             --end;
             /* Sorted, so can only be cur or cur-1 */
             if (*end != cur && *end != (cur-1))
@@ -891,15 +927,15 @@ TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, i
         /* Same as above loop but in reverse since sorted in reverse order */
         cur = *pindex++;
         highest = cur;
-        while (pindex < end && cur > used) {
+        while (pindex < end && cur > current_size) {
             if (*pindex != cur && *pindex != (cur-1))
                 break;
             cur = *pindex++;
         }
     }
 
-    if (cur <= used) {
-        *new_sizeP = highest >= used ? highest + 1 : used;
+    if (cur <= current_size) {
+        *new_sizeP = highest >= current_size ? highest + 1 : current_size;
         status = TCL_OK;
     } else
         status = ta_index_range_error(ip, cur);
@@ -2236,6 +2272,10 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
  *
  * Invalidates the string rep in all cases.
  * Only fails on memory allocation failure.
+ *
+ * TBD - check all calls to tcol_make_modifiable to see if passed prefsize
+ * is sensible else array will grow one element at a time with bad 
+ * performance. Maybe even always allocate extra independent of prefsize.
  */
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
                                 Tcl_Obj *tcol, int minsize, int prefsize)
@@ -2672,7 +2712,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             }
             break;
         case TA_INDEX_TYPE_THDR:
-            status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &count);
+            status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcol), pindices, &count);
             if (status == TCL_OK && count > 0) {
                 status = tcol_make_modifiable(ip, tcol, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
@@ -2760,11 +2800,11 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 {
     char *a, *b;
-    int alen, blen;
-    int comparison;
 
     /* TBD - maybe check first letter before calling ? But be careful of case-insensitivity*/
 #if 0
+    int alen, blen, comparison;
+
     a = Tcl_GetStringFromObj(oaP, &alen);
     b = Tcl_GetStringFromObj(obP, &blen);
 
@@ -2909,7 +2949,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
         else {
             status = ta_verify_value_objs(ip, tcol_type(tcol), nvalues, ovalues);
             if (status == TCL_OK) {
-                status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &new_size);
+                status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcol), pindices, &new_size);
                 if (status == TCL_OK) {
                     status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
                     thdr_place_objs(ip, TARRAYHDR(tcol), pindices,
@@ -2949,7 +2989,7 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
         if (pindices->used > psrc->used)
             status = ta_indices_count_error(ip, pindices->used, psrc->used);
         else {
-            status = thdr_verify_indices(ip, TARRAYHDR(tcol), pindices, &new_size);
+            status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcol), pindices, &new_size);
             if (status == TCL_OK) {
                 status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
                 thdr_place_indices(ip, TARRAYHDR(tcol), psrc, pindices, new_size);

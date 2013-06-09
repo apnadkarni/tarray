@@ -69,7 +69,6 @@ proc tarray::unsupported::build_info {} {
     return $result
 }
 
-
 proc tarray::db::create {def {init {}} {size 0}} {
     variable _tables
     variable _table_ctr

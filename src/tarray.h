@@ -75,10 +75,11 @@ typedef int TCL_RESULT;
 #endif
 
 /* TA_ALLOCMEM and TA_REALLOCMEM call should panic on failure to allocate */
-#define TA_ALLOCMEM ckalloc
+/* TBD - change to use inline functions */
+#define TA_ALLOCMEM(n_) (void*)ckalloc(n_)
 #define TA_FREEMEM(p_) if (p_) ckfree((char *)p_)
 #define TA_REALLOCMEM ckrealloc
-#define TA_ATTEMPTALLOCMEM attemptckalloc
+#define TA_ATTEMPTALLOCMEM(n_) (void*)attemptckalloc(n_)
 #define TA_ATTEMPTREALLOCMEM attemptckrealloc
 
 
@@ -245,7 +246,7 @@ thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, int init_size);
 thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, int init_size);
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *intepr, int tatype,
                              int nelems, Tcl_Obj * const elems[]);
-TCL_RESULT thdr_verify_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *pindices, int *new_sizeP);
+TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t *pindices, int *new_sizeP);
 int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
                       int want_sorted, int end, thdr_t **thdrP, int *pindex);
 #define TA_INDEX_TYPE_ERROR 0
@@ -285,8 +286,8 @@ TCL_RESULT table_reverse(Tcl_Interp *interp, Tcl_Obj *table);
 Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index);
 TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
                             Tcl_Obj *orows, Tcl_Obj *oindices);
-TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table,
-                               Tcl_Obj *psrc, Tcl_Obj *oindices);
+TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
+                               Tcl_Obj *oindices, Tcl_Obj *omap);
 TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
                             Tcl_Obj *opos, Tcl_Obj *ocount);
 
