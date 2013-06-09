@@ -270,13 +270,15 @@ TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
     if ((status = table_convert(ip, table)) != TCL_OK)
         return status;
     
-    /*
-     * First make the table object itself modifiable in case its thdr
-     * is shared. Note this also invalidates its string representation.
-     */
-    if (thdr_shared(TARRAYHDR(table)) &&
-        (status = tcol_make_modifiable(ip, table, 0, 0)) != TCL_OK)
-        return status;
+    /* Make the table object itself modifiable in case its thdr is shared */
+    if (thdr_shared(TARRAYHDR(table))) {
+        /* Note this also invalidates its string representation. */
+        if ((status = tcol_make_modifiable(ip, table, 0, 0)) != TCL_OK)
+            return status;
+    } else {
+        /* Not shared. Just invalidate the string rep. Was bug #18 */
+        Tcl_InvalidateStringRep(table);
+    }
 
     /* Now make its contained columns modifiable */
     tcols = THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, 0);

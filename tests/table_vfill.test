@@ -446,6 +446,17 @@ namespace eval tarray::test {
         vtab_change_and_verify $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] vfill [samplerow $types] 102 200
     } -result "*102*out of bounds" -match glob -returnCodes error
 
+    #
+    # Verify string rep regeneration
+
+    test table_vfill-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        set ta {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+        tarray::table vfill ta {0 1 2} end+1
+        set ta
+    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+
 }
 
 ::tcltest::cleanupTests

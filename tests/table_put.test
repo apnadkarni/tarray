@@ -300,6 +300,16 @@ namespace eval tarray::test {
         tarray::table put [sampletable $type 0 10] [sampletable {any boolean byte double int uint}] 0
     } -result {*width 6 less than*} -returnCodes error -match glob
 
+    #
+    # Verify string rep regeneration
+
+    test table_put-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        tarray::table put {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}} {{0 1 2}}
+    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+
+
 }
 
 ::tcltest::cleanupTests

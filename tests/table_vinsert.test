@@ -307,6 +307,17 @@ namespace eval tarray::test {
         vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100] vinsert [sampletable $types 0 1] 102
     } -result "*index 102*out of bounds*" -match glob -returnCodes error
 
+    #
+    # Verify string rep regeneration
+
+    test table_vinsert-stringrep-1.0 {
+        Verify string representation is updated on unshared object - bug 18
+    } -body {
+        set ta {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+        tarray::table vinsert ta {{0 1 2}} 1
+        set ta
+    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+
 }
 
 ::tcltest::cleanupTests
