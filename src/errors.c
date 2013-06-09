@@ -7,6 +7,10 @@
 
 #include "tarray.h"
 
+
+
+/* TBD - in error and panic routines make sure strings are not too long */
+
 void ta_string_overflow_panic(const char *where)
 {
     Tcl_Panic("Max size for a Tcl value (%d bytes) exceeded in %s", INT_MAX, where ? where : "unknown function");
@@ -39,7 +43,7 @@ TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname)
 TCL_RESULT ta_invalid_opt_error(Tcl_Interp *ip, char *optname)
 {
     if (ip) {
-        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid option '%s'", optname));
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid option '%31.32s'", optname));
         Tcl_SetErrorCode(ip, "TARRAY", "OPTION", NULL);
     }
     return TCL_ERROR;
@@ -90,7 +94,7 @@ TCL_RESULT ta_value_type_error(Tcl_Interp *ip, Tcl_Obj *o, int tatype)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Value %s not valid for type %s.",
+                         Tcl_ObjPrintf("Value '%.40s' not valid for type %s.",
                                        Tcl_GetString(o),
                                        ta_type_string(tatype)));
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "TYPE", NULL);
@@ -174,7 +178,7 @@ TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Invalid index range specification '%s'.",
+                         Tcl_ObjPrintf("Invalid index range specification '%80.80s'.",
                                        Tcl_GetString(o)));
         Tcl_SetErrorCode(ip, "TARRAY", "RANGE", "VALUE", NULL);
     }
