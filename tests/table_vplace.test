@@ -183,7 +183,7 @@ namespace eval tarray::test {
         set type {any boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vplace ta {{anyvalue 1 256 0 0 0 0}} {0}
-    } -result {Value 256 not valid for type byte.} -returnCodes error -match glob
+    } -result {Value '256' not valid for type byte.} -returnCodes error -match glob
     test table_vplace-list-indexlist-3.4 {
         Test invalid values (row of different widths)
     } -body {
@@ -321,7 +321,7 @@ namespace eval tarray::test {
         set type {any boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vplace ta {{anyvalue 1 256 0 0 0 0}} [indexcolumn {0}]
-    } -result {Value 256 not valid for type byte.} -returnCodes error -match glob
+    } -result {Value '256' not valid for type byte.} -returnCodes error -match glob
     test table_vplace-list-indexlist-3.4 {
         Test invalid values (row of different widths)
     } -body {
