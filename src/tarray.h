@@ -272,8 +272,9 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
 
 TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, Tcl_Obj *omap, int insert);
 TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
-                          Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
-TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable, Tcl_Obj *ofirst, int insert);
+                          Tcl_Obj *orows, Tcl_Obj *ofirst,
+                          Tcl_Obj *omap, int insert);
+TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable, Tcl_Obj *ofirst, Tcl_Obj *omap, int insert);
 TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
                         Tcl_Obj *indexa, Tcl_Obj *indexb);
 Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
@@ -287,7 +288,7 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
 TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
                                Tcl_Obj *oindices, Tcl_Obj *omap);
 TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, Tcl_Obj *ocount);
+                            Tcl_Obj *opos, Tcl_Obj *ocount, Tcl_Obj *omap);
 
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index);
 Tcl_Obj *tcol_get(struct Tcl_Interp *, Tcl_Obj *osrc, thdr_t *pindices, int fmt);

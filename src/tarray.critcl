@@ -939,58 +939,102 @@ vamoose:
     return status;
 }
 
-critcl::cproc tarray::table::put {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
-    Tcl_Obj *table;
+critcl::ccode {
+    static TCL_RESULT table_put_parseargs(
+        Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+        Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pomap, Tcl_Obj **poff)
+    {
+        if (objc < 3 || objc > 6) {
+            if (ip)
+                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE VALUES ?POSITION?");
+            return TCL_ERROR;
+        }
+        
+        switch (objc) {
+        case 3:
+        case 4:
+            /* Cannot contain an valid option. Parse as though no options */
+            *pomap = NULL;
+            *potab = objv[1];
+            *povalues = objv[2];
+            *poff = objc == 4 ? objv[3] : NULL;
+            break;
+        case 5:
+        case 6:
+            /* If valid, options must be present */
+            /* To prevent shimmering, don't check for options if a tarray */
+            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-columns"))
+                return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+            *pomap = objv[2];
+            *potab = objv[3];
+            *povalues = objv[4];
+            *poff = objc == 6 ? objv[5] : NULL;
+            break;
+        }
+        return TCL_OK;
+    }
+}
+
+critcl::ccommand tarray::table::put {} {
+    Tcl_Obj *table, *ovalues, *omap, *ofirst;
     int status;
 
-    table = GRID;
+    if ((status = table_put_parseargs(interp, objc, objv, &table, &ovalues, &omap, &ofirst)) != TCL_OK)
+        return status;
+
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
-
     /* Values may be given as a table or a Tcl list */
-    if (table_convert(NULL, VALUES) == TCL_OK)
-        status = table_copy(interp, table, VALUES, FIRST, 0);
+    if (table_convert(NULL, ovalues) == TCL_OK)
+        status = table_copy(interp, table, ovalues, ofirst, omap, 0);
     else
-        status = table_put_objs(interp, table, VALUES, FIRST, 0);
+        status = table_put_objs(interp, table, ovalues, ofirst, omap, 0);
 
     return ta_return_result(interp, status, table);
 }
 
-critcl::cproc tarray::table::vput {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* VALUES Tcl_Obj* {FIRST 0}} ok {
-    Tcl_Obj *table;
+critcl::ccommand tarray::table::vput {} {
+    Tcl_Obj *ovar, *table, *ovalues, *omap, *ofirst;
     int status;
 
-    table = Tcl_ObjGetVar2(interp, GRIDVAR, NULL, TCL_LEAVE_ERR_MSG);
+    if ((status = table_put_parseargs(interp, objc, objv, &ovar, &ovalues, &omap, &ofirst)) != TCL_OK)
+        return status;
+
+    table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
     if (table == NULL)
         return TCL_ERROR;
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
     /* Values may be given as a table or a Tcl list */
-    if (table_convert(NULL, VALUES) == TCL_OK)
-        status = table_copy(interp, table, VALUES, FIRST, 0);
+    if (table_convert(NULL, ovalues) == TCL_OK)
+        status = table_copy(interp, table, ovalues, ofirst, omap, 0);
     else
-        status = table_put_objs(interp, table, VALUES, FIRST, 0);
+        status = table_put_objs(interp, table, ovalues, ofirst, omap, 0);
 
-    return ta_set_var_result(interp, status, GRIDVAR, table);
+    return ta_set_var_result(interp, status, ovar, table);
 }
 
 critcl::ccode {
-    static TCL_RESULT table_fill_parse_params(
+
+    static TCL_RESULT table_fill_parseargs(
     Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     Tcl_Obj **potab, Tcl_Obj **porow, Tcl_Obj **aindex, Tcl_Obj **bindex, Tcl_Obj **pomap)
     {
         int argoff;
 
-        if (objc < 4 || objc > 7)
-            goto usage;
+        if (objc < 4 || objc > 7) {
+            if (ip)
+                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE ROW (INDEXLIST | LOW ?HIGH?)");
+            return TCL_ERROR;
+        }
 
         argoff = 0;
         *pomap = NULL;
         /* If 4 or 5 args, no options are present */
         if (objc > 5) {
             /* To prevent shimmering, don't check for options if a tarray */
-            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-map"))
+            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-columns"))
                 return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
             argoff = 2;
             *pomap = objv[2];
@@ -1003,10 +1047,6 @@ critcl::ccode {
         
         return TCL_OK;
 
-    usage:
-        if (ip)
-            Tcl_WrongNumArgs(ip, 1, objv, "?-map COLUMNMAP? TABLE ROW (INDEXLIST | LOW ?HIGH?)");
-        return TCL_ERROR;
     }
 }
 
@@ -1014,7 +1054,7 @@ critcl::ccommand tarray::table::fill {} {
     Tcl_Obj *table, *orow, *aindex, *bindex, *omap;
     int status;
 
-    if (table_fill_parse_params(interp, objc, objv, &table, &orow, &aindex, &bindex, &omap) != TCL_OK)
+    if (table_fill_parseargs(interp, objc, objv, &table, &orow, &aindex, &bindex, &omap) != TCL_OK)
         return TCL_ERROR;
 
     if (Tcl_IsShared(table))
@@ -1028,7 +1068,7 @@ critcl::ccommand tarray::table::vfill {} {
     int status;
     Tcl_Obj *ovar, *table, *orow, *aindex, *bindex, *omap;
 
-    if (table_fill_parse_params(interp, objc, objv, &ovar, &orow, &aindex, &bindex, &omap) != TCL_OK)
+    if (table_fill_parseargs(interp, objc, objv, &ovar, &orow, &aindex, &bindex, &omap) != TCL_OK)
         return TCL_ERROR;
 
     table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
@@ -1171,42 +1211,73 @@ critcl::cproc tarray::table::index {Tcl_Interp* interp Tcl_Obj* GRID Tcl_Obj* IN
 }
 
 
+critcl::ccode {
+
+    static TCL_RESULT table_insert_parseargs(
+    Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+    Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pofirst, Tcl_Obj **pocount, Tcl_Obj **pomap)
+    {
+        int argoff;
+
+        if (objc < 4 || objc > 7) {
+            if (ip)
+                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE  (ROWS INDEXLIST | ROW LOW ?HIGH?)");
+            return TCL_ERROR;
+        }
+
+        argoff = 0;
+        *pomap = NULL;
+        /* If 4 or 5 args, no options are present */
+        if (objc > 5) {
+            /* To prevent shimmering, don't check for options if a tarray */
+            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-columns"))
+                return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+            argoff = 2;
+            *pomap = objv[2];
+        }
+
+        *potab = objv[++argoff];
+        *povalues = objv[++argoff];
+        *pofirst = objv[++argoff];
+        *pocount = ++argoff < objc ? objv[argoff] : NULL;
+        
+        return TCL_OK;
+    }
+}
+
 critcl::ccommand tarray::table::insert {} {
-    Tcl_Obj *table;
+    Tcl_Obj *table, *ovalues, *ofirst, *ocount, *omap;
     int status;
 
-    if (objc != 4 && objc != 5) {
-    	Tcl_WrongNumArgs(interp, 1, objv, "GRID (VALUES POSITION | VALUE POSITION COUNT)");
-	return TCL_ERROR;
-    }
-    
-    table = objv[1];
+    if (table_insert_parseargs(interp, objc, objv, &table, &ovalues,
+                               &ofirst, &ocount, &omap) != TCL_OK)
+        return TCL_ERROR;
+
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
-    status = table_insert_obj(interp, table, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    status = table_insert_obj(interp, table, ovalues, ofirst, ocount, omap);
     return ta_return_result(interp, status, table);
 }
 
 critcl::ccommand tarray::table::vinsert {} {
-    Tcl_Obj *table;
+    Tcl_Obj *ovar, *table, *ovalues, *ofirst, *ocount, *omap;
     int status;
 
-    if (objc != 4 && objc != 5) {
-    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMNVAR (VALUES POSITION | VALUE POSITION COUNT)");
-	return TCL_ERROR;
-    }
-    
-    table = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table_insert_parseargs(interp, objc, objv, &ovar, &ovalues,
+                               &ofirst, &ocount, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
     if (table == NULL)
         return TCL_ERROR;
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
-    status = table_insert_obj(interp, table, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
-    return ta_set_var_result(interp, status, objv[1], table);
+    status = table_insert_obj(interp, table, ovalues, ofirst, ocount, omap);
+    return ta_set_var_result(interp, status, ovar, table);
 }
 
 critcl::ccode {
-    static TCL_RESULT table_place_parse_params(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv, Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **poindices, Tcl_Obj **pomap)
+    static TCL_RESULT table_place_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv, Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **poindices, Tcl_Obj **pomap)
     {
         int argpos;
 	char *s;
@@ -1217,11 +1288,11 @@ critcl::ccode {
         } else {
             if (objc != 6) {
                 if (ip)
-                    Tcl_WrongNumArgs(ip, 1, objv, "?-map COLUMNMAP? TABLE VALUES INDICES");
+                    Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE VALUES INDICES");
                 return TCL_ERROR;
             }
 	    s = Tcl_GetString(objv[1]);
-            if (strcmp(s, "-map"))
+            if (strcmp(s, "-columns"))
                 return ta_invalid_opt_error(ip, s);
             argpos = 2;
             *pomap = objv[2];
@@ -1239,7 +1310,7 @@ critcl::ccommand tarray::table::place {} {
     int status;
     Tcl_Obj *otab, *ovalues, *oindices, *omap;
     
-    if (table_place_parse_params(interp, objc, objv, &otab, &ovalues,
+    if (table_place_parseargs(interp, objc, objv, &otab, &ovalues,
                            &oindices, &omap) != TCL_OK)
         return TCL_ERROR;
 
@@ -1256,7 +1327,7 @@ critcl::ccommand tarray::table::vplace {} {
     int status;
     Tcl_Obj *ovar, *ovalues, *oindices, *omap, *otab;
     
-    if (table_place_parse_params(interp, objc, objv, &ovar, &ovalues,
+    if (table_place_parseargs(interp, objc, objv, &ovar, &ovalues,
                            &oindices, &omap) != TCL_OK)
         return TCL_ERROR;
 
