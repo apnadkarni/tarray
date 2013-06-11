@@ -19,85 +19,93 @@
 /*
  * Struct to hold mapping of passed in data to columns in a table
  */
-typedef struct tcols_position_map_s {
-    int       ncols; /* Number of columns pointed to by pcols and is the
-                        number of columns specified in the map */
-    int       nrefmap; /* Number of entries in refmap. This is generally
-                          the number of columns in the referenced table */
-    Tcl_Obj **pcols; /* Point to either tcols[] or dynamically allocated.
-                        Contains the table columns referenced by the map.
-                     */
-    int      *prefmap; /* Points to refmap[] or dynamically allocated.
-                          Count per column of table indicating how many
-                          times that column is included in pcols
-                       */
-    Tcl_Obj *tcols[20];
-    int      refmap[20];
-} tcols_position_map_t;
+typedef struct column_map_s {
+    int            *pmapped_indices;   /* Array mapping to column index. May
+                                          point to either mapped_indices[] or
+                                          allocated memory. */
+    int             mapped_indices_count; /* Number of elements of above */
 
-TA_INLINE static void tcols_init_position_map(tcols_position_map_t *pmap)
+    Tcl_Obj       **pmapped_columns;  /* Array of mapped columns. Maybe 
+                                         NULL indicating not initialized, or
+                                         point to mapped_columns[] or
+                                         allocated memory */
+    int             mapped_column_count; /* Number of elements of above */
+
+    /* TBD - actually this may not be needed here. If columns cannot be repeated
+       in the map, then to check if all columns are specified checking 
+       mapped_indices_count against table width is sufficient. The usage array
+       can then be internal to the function building the map */
+    unsigned char  *pcolumn_usage; /* Array of flags, one per table column.
+                                      If non-0, corresponding column
+                                      is included in the map. May point
+                                      to column_usage[] or allocated memory.
+                                      Number of entries is equal to number
+                                      of columns in table.
+                                   */
+    /* Following are static areas to avoid memory allocation */
+    Tcl_Obj       *mapped_columns[10];
+    int            mapped_indices[10];
+    unsigned char  column_usage[40];
+} column_map_t;
+
+static TCL_RESULT column_map_missing_columns_error(Tcl_Interp *ip)
 {
-    pmap->ncols = 0;
-    pmap->nrefmap = 0;
-    pmap->pcols = pmap->tcols;
-    pmap->prefmap = pmap->refmap;
+    if (ip)
+        Tcl_SetResult(ip, "All columns in a table must be specified in a column map when extending the table.", TCL_STATIC);
+    return TCL_ERROR;
 }
 
-TA_INLINE static void tcols_free_position_map(tcols_position_map_t *pmap)
+static void column_map_reset(column_map_t *pmap)
 {
-    if (pmap->pcols != pmap->tcols) {
-        TA_FREEMEM(pmap->pcols);
-        pmap->pcols = pmap->tcols;
+    if (pmap->pmapped_indices != pmap->mapped_indices) {
+        TA_FREEMEM(pmap->pmapped_indices);
+        pmap->pmapped_indices = pmap->mapped_indices;
     }
-    if (pmap->prefmap != pmap->refmap) {
-        TA_FREEMEM(pmap->prefmap);
-        pmap->prefmap = pmap->refmap;
+    if (pmap->pmapped_columns != pmap->mapped_columns) {
+        TA_FREEMEM(pmap->pmapped_columns);
+        pmap->pmapped_columns = pmap->mapped_columns;
+    }
+    if (pmap->pcolumn_usage != pmap->column_usage) {
+        TA_FREEMEM(pmap->pcolumn_usage);
+        pmap->pcolumn_usage = pmap->column_usage;
     }
 }
 
-static TCL_RESULT tcols_verify_position_map_includes_all(
-    Tcl_Interp *ip, tcols_position_map_t *pmap)
-{
-    int i = pmap->nrefmap;
-    while (i--) {
-        if (pmap->prefmap[i] == 0) {
-            /* This column was not in map */
-            if (ip)
-                Tcl_SetResult(ip, "All columns in a table must be specified in a column map when extending the table.", TCL_STATIC);
-            return TCL_ERROR;
-        }
-    }
-    return TCL_OK;
-}
-                                                         
-static TCL_RESULT tcols_build_position_map(Tcl_Interp *ip, Tcl_Obj *omap,
-                                           Tcl_Obj *table,
-                                           tcols_position_map_t *pmap)
+static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
+                            column_map_t *pmap)
 {
     int n, width;
     Tcl_Obj **objs;
 
-    TA_ASSERT(table_affirm(table));
-    width = table_width(table);
+    pmap->pmapped_indices = pmap->mapped_indices;
+    pmap->pmapped_columns = pmap->mapped_columns;
+    pmap->pcolumn_usage = pmap->column_usage;
+    pmap->mapped_column_count = 0;
+
+    if (omap == NULL) {
+        pmap->mapped_indices_count = 0;
+        return TCL_OK;
+    }
 
     if (Tcl_ListObjGetElements(ip, omap, &n, &objs) != TCL_OK)
         return TCL_ERROR;
 
-    if (n <= ARRAYSIZE(pmap->tcols))
-        pmap->pcols = pmap->tcols;
-    else
-        pmap->pcols = (Tcl_Obj **) TA_ALLOCMEM(n * sizeof(pmap->pcols[0]));
+    if (n == 0) {
+        Tcl_SetResult(ip, "A column map must have at least one element", TCL_STATIC);
+        return TCL_ERROR;
+    }
 
-    if (width <= ARRAYSIZE(pmap->refmap))
-        pmap->prefmap = pmap->refmap;
-    else
-        pmap->prefmap = (int *) TA_ALLOCMEM(width * sizeof(pmap->prefmap[0]));
+    if (n > ARRAYSIZE(pmap->mapped_indices))
+        pmap->pmapped_indices = (int *) TA_ALLOCMEM(n * sizeof(*pmap->pmapped_indices));
+    pmap->mapped_indices_count = n;
 
-    /* Indicate none of the columns are included in the map */
-    pmap->nrefmap = width;
-    memset(pmap->prefmap, 0, width*sizeof(pmap->prefmap[0]));
+    TA_ASSERT(table_affirm(table));
+    width = table_width(table);
 
-    pmap->ncols = n;
+    if (width > ARRAYSIZE(pmap->column_usage))
+        pmap->pcolumn_usage = (unsigned char *) TA_ALLOCMEM(width * sizeof(*pmap->pcolumn_usage));
+    memset(pmap->pcolumn_usage, 0, width*sizeof(*pmap->pcolumn_usage));
+
     while (n--) {
         int colnum;
         if (Tcl_GetIntFromObj(ip, objs[n], &colnum) != TCL_OK)
@@ -106,17 +114,80 @@ static TCL_RESULT tcols_build_position_map(Tcl_Interp *ip, Tcl_Obj *omap,
             ta_index_range_error(ip, colnum);
             goto error_handler;
         }
-        pmap->pcols[n] = table_column(table, colnum);
-        pmap->prefmap[colnum] += 1;
+        if (pmap->pcolumn_usage[colnum]) {
+            Tcl_SetResult(ip, "A column may be specified at most once in a column map.", TCL_STATIC);
+            goto error_handler;
+        }
+        pmap->pcolumn_usage[colnum] = 1;
+        pmap->pmapped_indices[n] = colnum;
     }
     
     return TCL_OK;
     
 error_handler:
-    tcols_free_position_map(pmap);
+    column_map_reset(pmap);
     return TCL_ERROR;
 }
 
+
+TA_INLINE static TCL_RESULT column_map_verify(
+    Tcl_Interp *ip, column_map_t *pmap, int width, int cur_size, int new_size)
+{
+
+    /* If we are not growing the table, the column map can be a subset,
+       else it must include all the columns */
+
+    if (new_size <= cur_size)
+        return TCL_OK;
+
+    /* New size is larger so map must include all columns */
+
+    /* Special case - identity mapping */
+    if (pmap->mapped_indices_count == 0)
+        return TCL_OK;
+
+    /*
+     * When building the map we do not allow duplicates. Therefore if
+     * number of mapped indices is equal to number of table columns,
+     * all columns are included in the map
+     */
+    if (pmap->mapped_indices_count == width)
+        return TCL_OK;
+
+    return column_map_missing_columns_error(ip);
+}
+                                                         
+static TCL_RESULT column_map_get_columns(
+    Tcl_Interp *ip, column_map_t *pmap, Tcl_Obj *table,
+    Tcl_Obj ***pcolumns, int *pncolumns)
+{
+    TA_ASSERT(table_affirm(table));
+    if (pmap->mapped_indices_count == 0) {
+        /* Identity mapping */
+        *pcolumns = table_columns(table);
+        *pncolumns = table_width(table);
+        return TCL_OK;
+    }
+
+    if (pmap->mapped_column_count == 0) {
+        /* We have not yet mapped the columns */
+        int n;
+        Tcl_Obj **tcols = THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, 0);
+        n = pmap->mapped_indices_count;
+        pmap->mapped_column_count = n;
+        TA_ASSERT(pmap->pmapped_columns == pmap->mapped_columns);
+        if (n > ARRAYSIZE(pmap->mapped_columns))
+            pmap->pmapped_columns = TA_ALLOCMEM(n * sizeof(*pmap->pmapped_columns));
+        while (n--)
+            pmap->pmapped_columns[n] = tcols[pmap->pmapped_indices[n]];
+    }
+
+    TA_ASSERT(pmap->mapped_column_count == pmap->mapped_indices_count);
+
+    *pcolumns = pmap->pmapped_columns;
+    *pncolumns = pmap->mapped_column_count;
+    return TCL_OK;
+}
 
 TCL_RESULT tcols_fill_range(
     Tcl_Interp *ip,
@@ -1370,9 +1441,9 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
     thdr_t *pindices;
     Tcl_Obj **tcols;
     int ntcols;
-    int new_size;
+    int cur_size, new_size;
     int status;
-    tcols_position_map_t colmap;
+    column_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(table));
 
@@ -1388,34 +1459,26 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
         return TCL_OK;           /* Nothing to be done */
     }
 
-    status = TCL_ERROR;
 
-    tcols_init_position_map(&colmap);
-    if (thdr_verify_indices_in_range(ip, table_length(table), pindices, &new_size) != TCL_OK)
+    if ((status = column_map_init(ip, omap, table, &colmap)) != TCL_OK)
+        return status;
+
+    cur_size = table_length(table);
+    status = TCL_ERROR;
+    if (thdr_verify_indices_in_range(ip, cur_size, pindices, &new_size) != TCL_OK)
+        goto vamoose;
+
+    /* Verify new size is compatible with column mapping */
+    if (column_map_verify(ip, &colmap, ntcols, cur_size, new_size) != TCL_OK)
         goto vamoose;
 
     /* Actually only *subset* of columns need to be modifiable - TBD */
     if (table_make_modifiable(ip, table, new_size, new_size) != TCL_OK)
         goto vamoose;
 
-    /* Note column mapping, if requested, must be done
-       AFTER table_make_modifiable as that will change columns */
-    if (omap == NULL) {
-        /* Not column mapping */
-        tcols = table_columns(table);
-    } else {
-        /* Column mapping/reordering needed */
-        if (tcols_build_position_map(ip, omap, table, &colmap) != TCL_OK)
-            goto vamoose;
-
-        /* If table is to be grown, all columns must be specified in map */
-        if (new_size > table_length(table)) {
-            if (tcols_verify_position_map_includes_all(ip, &colmap) != TCL_OK)
-                goto vamoose;
-        }
-        tcols = colmap.pcols;
-        ntcols = colmap.ncols;
-    }
+    /* Note this must be done AFTER table_make_modifiable as columns might change */
+    if (column_map_get_columns(ip, &colmap, table, &tcols, &ntcols) != TCL_OK)
+        goto vamoose;
 
     if (table_convert(NULL, ovalues) == TCL_OK) {
         /* Source values specified as a table */
@@ -1432,7 +1495,7 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
 vamoose:
     /* Before jumping here, colmap must have been initialized, 
        pindices allocated and status must hold return value */
-    tcols_free_position_map(&colmap);
+    column_map_reset(&colmap);
     thdr_decr_refs(pindices);
     return status;
 }
