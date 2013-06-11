@@ -976,7 +976,7 @@ critcl::cproc tarray::table::vput {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* 
 }
 
 critcl::ccode {
-    static TCL_RESULT parse_table_fill_params(
+    static TCL_RESULT table_fill_parse_params(
     Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     Tcl_Obj **potab, Tcl_Obj **porow, Tcl_Obj **aindex, Tcl_Obj **bindex, Tcl_Obj **pomap)
     {
@@ -991,7 +991,7 @@ critcl::ccode {
         if (objc > 5) {
             /* To prevent shimmering, don't check for options if a tarray */
             if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-map"))
-                return ta_invalid_opt_error(ip, "-map");
+                return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
             argoff = 2;
             *pomap = objv[2];
         }
@@ -1014,7 +1014,7 @@ critcl::ccommand tarray::table::fill {} {
     Tcl_Obj *table, *orow, *aindex, *bindex, *omap;
     int status;
 
-    if (parse_table_fill_params(interp, objc, objv, &table, &orow, &aindex, &bindex, &omap) != TCL_OK)
+    if (table_fill_parse_params(interp, objc, objv, &table, &orow, &aindex, &bindex, &omap) != TCL_OK)
         return TCL_ERROR;
 
     if (Tcl_IsShared(table))
@@ -1028,7 +1028,7 @@ critcl::ccommand tarray::table::vfill {} {
     int status;
     Tcl_Obj *ovar, *table, *orow, *aindex, *bindex, *omap;
 
-    if (parse_table_fill_params(interp, objc, objv, &ovar, &orow, &aindex, &bindex, &omap) != TCL_OK)
+    if (table_fill_parse_params(interp, objc, objv, &ovar, &orow, &aindex, &bindex, &omap) != TCL_OK)
         return TCL_ERROR;
 
     table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
@@ -1206,9 +1206,10 @@ critcl::ccommand tarray::table::vinsert {} {
 }
 
 critcl::ccode {
-    static TCL_RESULT parse_place_params(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv, Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **poindices, Tcl_Obj **pomap)
+    static TCL_RESULT table_place_parse_params(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv, Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **poindices, Tcl_Obj **pomap)
     {
         int argpos;
+	char *s;
     
         if (objc == 4) {
             argpos = 0;
@@ -1219,8 +1220,9 @@ critcl::ccode {
                     Tcl_WrongNumArgs(ip, 1, objv, "?-map COLUMNMAP? TABLE VALUES INDICES");
                 return TCL_ERROR;
             }
-            if (strcmp(Tcl_GetString(objv[1]), "-map"))
-                return ta_invalid_opt_error(ip, "-map");
+	    s = Tcl_GetString(objv[1]);
+            if (strcmp(s, "-map"))
+                return ta_invalid_opt_error(ip, s);
             argpos = 2;
             *pomap = objv[2];
         }
@@ -1237,7 +1239,7 @@ critcl::ccommand tarray::table::place {} {
     int status;
     Tcl_Obj *otab, *ovalues, *oindices, *omap;
     
-    if (parse_place_params(interp, objc, objv, &otab, &ovalues,
+    if (table_place_parse_params(interp, objc, objv, &otab, &ovalues,
                            &oindices, &omap) != TCL_OK)
         return TCL_ERROR;
 
@@ -1254,7 +1256,7 @@ critcl::ccommand tarray::table::vplace {} {
     int status;
     Tcl_Obj *ovar, *ovalues, *oindices, *omap, *otab;
     
-    if (parse_place_params(interp, objc, objv, &ovar, &ovalues,
+    if (table_place_parse_params(interp, objc, objv, &ovar, &ovalues,
                            &oindices, &omap) != TCL_OK)
         return TCL_ERROR;
 
