@@ -975,43 +975,70 @@ critcl::cproc tarray::table::vput {Tcl_Interp* interp Tcl_Obj* GRIDVAR Tcl_Obj* 
     return ta_set_var_result(interp, status, GRIDVAR, table);
 }
 
+critcl::ccode {
+    static TCL_RESULT parse_table_fill_params(
+    Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+    Tcl_Obj **potab, Tcl_Obj **porow, Tcl_Obj **aindex, Tcl_Obj **bindex, Tcl_Obj **pomap)
+    {
+        int argoff;
+
+        if (objc < 4 || objc > 7)
+            goto usage;
+
+        argoff = 0;
+        *pomap = NULL;
+        /* If 4 or 5 args, no options are present */
+        if (objc > 5) {
+            /* To prevent shimmering, don't check for options if a tarray */
+            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-map"))
+                return ta_invalid_opt_error(ip, "-map");
+            argoff = 2;
+            *pomap = objv[2];
+        }
+
+        *potab = objv[++argoff];
+        *porow = objv[++argoff];
+        *aindex = objv[++argoff];
+        *bindex = ++argoff < objc ? objv[argoff] : NULL;
+        
+        return TCL_OK;
+
+    usage:
+        if (ip)
+            Tcl_WrongNumArgs(ip, 1, objv, "?-map COLUMNMAP? TABLE ROW (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
+    }
+}
+
 critcl::ccommand tarray::table::fill {} {
-    Tcl_Obj *table;
+    Tcl_Obj *table, *orow, *aindex, *bindex, *omap;
     int status;
 
-    if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "GRID VALUES (INDEXLIST | LOW ?HIGH?");
-	return TCL_ERROR;
-    }
+    if (parse_table_fill_params(interp, objc, objv, &table, &orow, &aindex, &bindex, &omap) != TCL_OK)
+        return TCL_ERROR;
 
-    table = objv[1];
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    status = table_fill_obj(interp, table, objv[2], objv[3], 
-                            objc == 5 ? objv[4] : NULL, 0);
-
+    status = table_fill_obj(interp, table, orow, aindex, bindex, 0);
     return ta_return_result(interp, status, table);
 }
 
 critcl::ccommand tarray::table::vfill {} {
     int status;
-    Tcl_Obj *table;
+    Tcl_Obj *ovar, *table, *orow, *aindex, *bindex, *omap;
 
-    if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(interp, 1, objv, "GRIDVAR VALUES (INDEXLIST | LOW ?HIGH?");
-	return TCL_ERROR;
-    }
+    if (parse_table_fill_params(interp, objc, objv, &ovar, &orow, &aindex, &bindex, &omap) != TCL_OK)
+        return TCL_ERROR;
 
-    table = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
     if (table == NULL)
         return TCL_ERROR;
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    status = table_fill_obj(interp, table, objv[2], objv[3], 
-                            objc == 5 ? objv[4] : NULL, 0);
-    return ta_set_var_result(interp, status, objv[1], table);
+    status = table_fill_obj(interp, table, orow, aindex, bindex, 0);
+    return ta_set_var_result(interp, status, ovar, table);
 }
 
 critcl::ccommand tarray::table::delete {} {

@@ -434,6 +434,7 @@ TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
 }
 TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 
+/* This checks that o is currently a tcol, not that it can be converted to one */
 TA_INLINE int tcol_affirm(Tcl_Obj *o)
 {
     return (o->typePtr == &g_tcol_type || o->typePtr == &g_table_type);
