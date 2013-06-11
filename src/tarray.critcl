@@ -1020,7 +1020,7 @@ critcl::ccommand tarray::table::fill {} {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    status = table_fill_obj(interp, table, orow, aindex, bindex, 0);
+    status = table_fill_obj(interp, table, orow, aindex, bindex, omap, 0);
     return ta_return_result(interp, status, table);
 }
 
@@ -1037,7 +1037,7 @@ critcl::ccommand tarray::table::vfill {} {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    status = table_fill_obj(interp, table, orow, aindex, bindex, 0);
+    status = table_fill_obj(interp, table, orow, aindex, bindex, omap, 0);
     return ta_set_var_result(interp, status, ovar, table);
 }
 
