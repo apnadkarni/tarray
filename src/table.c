@@ -379,70 +379,95 @@ TCL_RESULT table_fill_obj(
     Tcl_Obj *orow,
     Tcl_Obj *indexa,
     Tcl_Obj *indexb,             /* Can be NULL */
+    Tcl_Obj *omap,
     int insert)
 {
     int low, count;
     int status;
-    int col_len, ncols;
-    thdr_t *pindices;
+    int ncols;
+    thdr_t *pindices = NULL;
+    column_map_t colmap;
+    int cur_size, new_size;
+    Tcl_Obj **tcols;
+    int is_range;
 
     TA_ASSERT(! Tcl_IsShared(table));
 
     if ((status = table_convert(ip, table)) != TCL_OK)
         return status;
+
     ncols = table_width(table);
-    col_len = table_length(table);
+    cur_size = table_length(table);
+
     if (indexb) {
         /* Given a range */
-        status = ta_fix_range_bounds(ip, col_len, indexa, indexb, &low, &count);
-        if (status != TCL_OK || count == 0)
+        if ((status = ta_fix_range_bounds(ip, cur_size, indexa, indexb, &low, &count)) != TCL_OK)
             return status;
-        if ((status = table_make_modifiable(ip, table,
-                                            (insert ? col_len : low) + count,
-                                            0)) != TCL_OK)
-            return status;
-        return tcols_fill_range(ip, ncols, table_columns(table), orow,
-                                low, count, insert);
-    }
-
-    /* A single index arg, so must be an index or an index column or list */
-
-    /* Note status is TCL_OK at this point */
-    switch (ta_obj_to_indices(ip, indexa, 1, col_len - 1, &pindices, &low)) {
-    case TA_INDEX_TYPE_ERROR:
-        status = TCL_ERROR;
-        break;
-    case TA_INDEX_TYPE_INT:
-        if (low < 0 || low > col_len) {
-            ta_index_range_error(ip, low);
-            status = TCL_ERROR;
-        } else {
-            status = table_make_modifiable(ip, table,
-                                           (insert ? col_len : low) + 1,
-                                           0);
-            if (status == TCL_OK)
-                status = tcols_fill_range(ip, ncols, table_columns(table),
-                                          orow, low, 1, insert);
-        }
-        break;
-    case TA_INDEX_TYPE_THDR:
-        if (insert) {
-            Tcl_SetResult(ip, "Internal error: attempt to use insert mode with index list", TCL_STATIC);
+        is_range = 1;
+    } else {
+        /* A single index arg, must be an index or an index column or list */
+        switch (ta_obj_to_indices(ip, indexa, 1, cur_size - 1, &pindices, &low)) {
+        case TA_INDEX_TYPE_ERROR:
             return TCL_ERROR;
-
+        case TA_INDEX_TYPE_INT:
+            if (low < 0 || low > cur_size)
+                return ta_index_range_error(ip, low);
+            count = 1;
+            is_range = 1;       /* Treat as a range of size 1 */
+            break;
+        case TA_INDEX_TYPE_THDR:
+            if (insert) {
+                Tcl_SetResult(ip, "Internal error: attempt to use insert mode with index list", TCL_STATIC);
+                return TCL_ERROR;
+            }
+            if ((status = thdr_verify_indices_in_range(ip, cur_size, pindices, &new_size)) != TCL_OK)
+                return status;
+            count = pindices->used;
+            is_range = 0;
+            break;
         }
-        status = thdr_verify_indices_in_range(ip, table_length(table), pindices, &count);
-        if (status == TCL_OK && count > 0) {
-            status = table_make_modifiable(ip, table, count, count); // TBD - count + extra?
-            status = tcols_fill_indices(ip, ncols, table_columns(table),
-                                        orow, pindices, count);
-        }
-        thdr_decr_refs(pindices);
-        break;
     }
 
-    /* status contains TCL_OK or other code */
-    /* ip must already hold error message in case of error */
+    /* For ranges, find the new size. We already know it if index list */
+    if (is_range) {
+        if (insert)
+            new_size = cur_size + count;
+        else
+            new_size = (low + count) > cur_size ? (low + count) : cur_size ;
+    }
+
+    /*
+     * Verify new size is compatible with column mapping, then make
+     * the table modifiable, and only then retrieve the columns to
+     * be changed (since making the table modifiable can change
+     * allocation.
+     */
+    status = TCL_ERROR; /* Assume the worst */
+    if (column_map_init(ip, omap, table, &colmap) == TCL_OK &&
+        column_map_verify(ip, &colmap, ncols, cur_size, new_size) == TCL_OK &&
+        table_make_modifiable(ip, table, new_size, 0) == TCL_OK &&
+        column_map_get_columns(ip, &colmap, table, &tcols, &ncols) == TCL_OK) {
+        if (count == 0)
+            status = TCL_OK; /* No-op */
+        else {
+            if (is_range)
+                status = tcols_fill_range(ip, ncols, tcols, orow,
+                                          low, count, insert);
+            else
+                status = tcols_fill_indices(ip, ncols, tcols,
+                                            orow, pindices, new_size);
+        }
+    }
+
+vamoose:
+    /* To jump here -
+     * status contains TCL_OK or other code
+     * ip must already hold error message in case of error
+     * colmap must have been initialized
+     */
+    column_map_reset(&colmap);
+    if (pindices)
+        thdr_decr_refs(pindices);
     return status;
 }
 
@@ -1458,7 +1483,6 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
         thdr_decr_refs(pindices);
         return TCL_OK;           /* Nothing to be done */
     }
-
 
     if ((status = column_map_init(ip, omap, table, &colmap)) != TCL_OK)
         return status;

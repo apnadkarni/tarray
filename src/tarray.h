@@ -270,7 +270,7 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
 
-TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, int insert);
+TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, Tcl_Obj *omap, int insert);
 TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
                           Tcl_Obj *orows, Tcl_Obj *ofirst, int insert);
 TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable, Tcl_Obj *ofirst, int insert);
