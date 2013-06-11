@@ -459,8 +459,7 @@ TCL_RESULT table_fill_obj(
         }
     }
 
-vamoose:
-    /* To jump here -
+    /*
      * status contains TCL_OK or other code
      * ip must already hold error message in case of error
      * colmap must have been initialized
@@ -976,10 +975,12 @@ TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcol
 TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
                           Tcl_Obj *orows,
                           Tcl_Obj *ofirst, /* NULL -> end of table */
+                          Tcl_Obj *omap,
                           int insert)
 {
-    int off, nrows, old_size, status;
-    Tcl_Obj **rows;
+    int off, nrows, old_size, new_size, status, ntcols;
+    Tcl_Obj **rows, **tcols;
+    column_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(table));
 
@@ -993,27 +994,37 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
 
     /* Get the limits of the range to set */
     old_size = table_length(table);
+    /* off contains starting offset (end if not specified) */
     off = old_size;
-    if (ofirst)
-        status = ta_convert_index(ip, ofirst, &off, old_size, 0, old_size);
+    if (ofirst) {
+        if ((status = ta_convert_index(ip, ofirst, &off, old_size, 0, old_size)) != TCL_OK)
+            return status;
+    }
 
-    /* n contains starting offset (end if not specified) */
-    if (status == TCL_OK) {
+    if (insert)
+        new_size = old_size + nrows;
+    else
+        new_size = (off + nrows) > old_size ? (off + nrows) : old_size;
 
-        /* Note this also invalidates the string rep as desired */
-        status = table_make_modifiable(ip, table,
-                                       (insert ? old_size : off) + nrows,
-                                       0);
-        if (status == TCL_OK) {
-            /* Note even on error tcols_put_objs guarantees a consistent 
-             * and unchanged tcols
-             */
-            status = tcols_put_objs(ip, table_width(table),
-                                    table_columns(table),
-                                    nrows, rows, off, insert);
+    if ((status = column_map_init(ip, omap, table, &colmap)) != TCL_OK)
+        return status;
+
+    /* Verify new size is compatible with column mapping */
+    if (column_map_verify(ip, &colmap, table_width(table), old_size, new_size) == TCL_OK) {
+        /* Actually only *subset* of columns need to be modifiable - TBD */
+        if (table_make_modifiable(ip, table, new_size, new_size) == TCL_OK) {
+            /* Note this must be AFTER table_make_modifiable as columns might change */
+            if (column_map_get_columns(ip, &colmap, table, &tcols, &ntcols) == TCL_OK) {
+                /* Note even on error tcols_put_objs guarantees a consistent 
+                 * and unchanged tcols
+                 */
+                status = tcols_put_objs(ip, ntcols, tcols,
+                                        nrows, rows, off, insert);
+            }
         }
     }
-    
+
+    column_map_reset(&colmap);
     return status;
 }
 
@@ -1055,12 +1066,14 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
 
 TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable,
                       Tcl_Obj *ofirst, /* NULL -> end of table */
+                      Tcl_Obj *omap,
                       int insert)
 {
-    int first, status;
+    int first, ntcols, status;
     Tcl_Obj **dstcols;
     Tcl_Obj **srccols;
-    int count, new_min_size;
+    int count, cur_size, new_size;
+    column_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(dstable));
 
@@ -1068,30 +1081,41 @@ TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable,
         (status = table_convert(ip, srctable)) != TCL_OK)
         return status;
 
-    if (table_width(dstable) > table_width(srctable))
-        return ta_row_width_error(ip, table_width(srctable), table_width(srctable));
-
     srccols = table_columns(srctable);
     count = tcol_occupancy(srccols[0]);
     dstcols = table_columns(dstable);
-    first = tcol_occupancy(dstcols[0]); /* Default is end */
+    cur_size = tcol_occupancy(dstcols[0]);
+    first = cur_size; /* Default is end */
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &first, first, 0, first);
     if (status != TCL_OK)
         return status;
 
     if (insert)
-        new_min_size = tcol_occupancy(dstcols[0]) + count;
+        new_size = cur_size + count;
     else
-        new_min_size = first + count;
-    status = table_make_modifiable(ip, dstable, new_min_size, 0);
-    if (status != TCL_OK)
+        new_size = (first + count) > cur_size ? (first + count) : cur_size;
+
+    if ((status = column_map_init(ip, omap, dstable, &colmap)) != TCL_OK)
         return status;
 
-    dstcols = table_columns(dstable); /* Re-init - might have changed */
+    /* Verify new size is compatible with column mapping */
+    if (column_map_verify(ip, &colmap, table_width(dstable), cur_size, new_size) == TCL_OK) {
+        /* Actually only *subset* of columns need to be modifiable - TBD */
+        if (table_make_modifiable(ip, dstable, new_size, new_size) == TCL_OK) {
+            /* Note this must be AFTER table_make_modifiable as columns might change */
+            if (column_map_get_columns(ip, &colmap, dstable, &dstcols, &ntcols) == TCL_OK) {
+                if (ntcols > table_width(srctable))
+                    status = ta_row_width_error(ip, table_width(srctable), ntcols);
+                else
+                    status = tcols_copy(ip, ntcols, dstcols, first,
+                                        srccols, 0, count, insert);
+            }
+        }
+    }
 
-    return tcols_copy(ip, table_width(dstable), dstcols, first,
-                      srccols, 0, count, insert);
+    column_map_reset(&colmap);
+    return status;
 }
 
 TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
@@ -1421,7 +1445,7 @@ Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index)
 }
 
 TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, Tcl_Obj *ocount)
+                            Tcl_Obj *opos, Tcl_Obj *ocount, Tcl_Obj *omap)
 {
     int status;
 
@@ -1430,9 +1454,9 @@ TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
     if (ocount == NULL) {
         /* Values may be given as a column or a list */
         if ((status = table_convert(NULL, ovalue)) == TCL_OK)
-            status =  table_copy(ip, table, ovalue, opos, 1);
+            status =  table_copy(ip, table, ovalue, opos, omap, 1);
         else
-            status =  table_put_objs(ip, table, ovalue, opos, 1);
+            status =  table_put_objs(ip, table, ovalue, opos, omap, 1);
     } else {
         int pos, count, col_len;
         if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
