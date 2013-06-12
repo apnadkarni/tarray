@@ -250,47 +250,6 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
     }
 }
 
-TCL_RESULT ta_build_column_map(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *otab, int *pmap, int pmap_size, int **ppmap, int *pcount)
-{
-    int i, count;
-    int width;
-    Tcl_Obj **objs;
-    int pmap_allocated;
-
-    if (table_convert(ip, otab) != TCL_OK)
-        return TCL_ERROR;
-    width = table_width(otab);
-
-    if (Tcl_ListObjGetElements(ip, omap, &count, &objs) != TCL_OK)
-            return TCL_ERROR;
-    
-    if (count > pmap_size) {
-        pmap = (int **) TA_ALLOCMEM(count * sizeof(int));
-        pmap_allocated = 1;
-    } else
-        pmap_allocated = 0;
-
-    for (i=0; i < count; ++i) {
-        if (Tcl_GetIntFromObj(ip, objs[i], &pmap[i]) != TCL_OK)
-            goto error_handler;
-        if (pmap[i] >= width) {
-            ta_index_range_error(ip, pmap[i]);
-            goto error_handler;
-        }
-    }
-    
-    *ppmap = pmap;
-    *pcount = count;
-
-    return TCL_OK;
-
-error_handler:
-    if (pmap_allocated)
-        TA_FREEMEM(pmap);
-    return TCL_ERROR;
-}
-
-
 
 /* Make sure all objects in the tarray have string representations */
 void thdr_ensure_obj_strings(thdr_t *thdr)
