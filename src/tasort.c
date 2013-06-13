@@ -547,7 +547,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
-    psrc = TARRAYHDR(tcol);
+    psrc = tcol_thdr(tcol);
 
     /*
      * If values are already sorted in suitable order, we can make use
@@ -643,7 +643,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         }
 
         // Need to create a new Tcl_Obj
-        ta_replace_intrep(tcol, psorted);
+        tcol_replace_intrep(tcol, psorted);
         return TCL_OK;
     } 
         
@@ -661,7 +661,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
             psrc = thdr_clone_reversed(ip, psrc, 0);
             if (psrc == NULL)
                 return TCL_ERROR;
-            ta_replace_intrep(tcol, psrc);
+            tcol_replace_intrep(tcol, psrc);
         } else {
             /* Reverse in place  */
             thdr_reverse(psrc);
@@ -682,7 +682,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         psorted = thdr_clone(ip, psrc, 0);
         if (psorted == NULL)
             return TCL_ERROR;
-        ta_replace_intrep(tcol, psorted);
+        tcol_replace_intrep(tcol, psorted);
     } else {
         psorted = psrc;
         Tcl_InvalidateStringRep(tcol);
@@ -725,7 +725,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         (status = tcol_convert(ip, otarget)) != TCL_OK)
         return status;
 
-    pindices = TARRAYHDR(oindices);
+    pindices = tcol_thdr(oindices);
     if (pindices->type != TA_INT)
         return ta_bad_type_error(ip, pindices);
 
@@ -744,12 +744,12 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         pindices = thdr_clone(ip, pindices, 0);
         if (pindices == NULL)
             return TCL_ERROR;
-        ta_replace_intrep(oindices, pindices);
+        tcol_replace_intrep(oindices, pindices);
     } else {
         Tcl_InvalidateStringRep(oindices);
     }
 
-    ptarget = TARRAYHDR(otarget);
+    ptarget = tcol_thdr(otarget);
 
     if (ptarget->type != TA_BOOLEAN)
         thdr_mt_sort(pindices, decreasing, ptarget, nocase);

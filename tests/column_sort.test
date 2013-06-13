@@ -397,7 +397,7 @@ namespace eval tarray::test {
         set tcol [tarray::column create any {a A b B}]
         set indices [tarray::column sort -indices $tcol]
         tarray::column sort -indirect $tcol -nocase $indices
-    } -result {tarray int {1 0 3 2}} -match column
+    } -result {tarray_column int {1 0 3 2}} -match column
 
     test column_sort-indirect-1.1 {
         Sort -indirect -decreasing any
@@ -405,7 +405,7 @@ namespace eval tarray::test {
         set tcol [tarray::column create any {A a B b}]
         set indices [tarray::column sort -indices -decreasing $tcol]
         tarray::column sort -indirect $tcol -nocase -decreasing $indices
-    } -result {tarray int {3 2 1 0}} -match column
+    } -result {tarray_column int {3 2 1 0}} -match column
 
     test column_sort-indirect-1.2 {
         Sort -indirect any (partial)
@@ -413,14 +413,14 @@ namespace eval tarray::test {
         set tcol [tarray::column create any {a A b B}]
         set indices [tarray::column sort -indices $tcol]
         tarray::column sort -indirect $tcol -nocase [tarray::column get $indices 0 2]
-    } -result {tarray int {1 0 3}} -match column
+    } -result {tarray_column int {1 0 3}} -match column
 
     test column_sort-indirect-1.3 {
         Sort -indirect any (empty)
     } -body {
         set tcol [tarray::column create any {a A b B}]
         tarray::column sort -indirect $tcol -nocase [tarray::column create int {}]
-    } -result {tarray int {}} -match column
+    } -result {tarray_column int {}} -match column
 
     test column_sort-indirect-2.0 {
         Sort -indirect missing argument

@@ -9,6 +9,7 @@
 #include "tcl.h"
 #if __GNUC__ && !__GNUC_STDC_INLINE__
 /* Force generation of code for inline - older gnu compilers */
+/* TBD - is this needed in this file? tarray.c already has it */
 #define TA_INLINE
 #endif
 
@@ -47,6 +48,25 @@ typedef struct column_map_s {
     int            mapped_indices[10];
     unsigned char  column_usage[40];
 } column_map_t;
+
+
+/*
+ * A TArray table is a Tcl_Obj type used for densely storing an array
+ * of TArray columns. The Tcl_Obj internal rep contains a pointer to
+ * to a thdr_t internal representation and mapping from column names
+ * to indices.
+ */
+static void table_type_dup(Tcl_Obj *psrc, Tcl_Obj *pdst);
+static void table_type_free_intrep(Tcl_Obj *o);
+struct Tcl_ObjType ta_table_type = {
+    "tarray_table",
+    table_type_free_intrep,
+    table_type_dup,
+    ta_update_string_for_table_or_type_any,
+    NULL,     /* jenglish advises to keep this NULL */
+};
+
+/******************************************************************/
 
 static TCL_RESULT column_map_missing_columns_error(Tcl_Interp *ip)
 {
@@ -172,7 +192,7 @@ static TCL_RESULT column_map_get_columns(
     if (pmap->mapped_column_count == 0) {
         /* We have not yet mapped the columns */
         int n;
-        Tcl_Obj **tcols = THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, 0);
+        Tcl_Obj **tcols = THDRELEMPTR(table_thdr(table), Tcl_Obj *, 0);
         n = pmap->mapped_indices_count;
         pmap->mapped_column_count = n;
         TA_ASSERT(pmap->pmapped_columns == pmap->mapped_columns);
@@ -228,7 +248,7 @@ TCL_RESULT tcols_fill_range(
     }
 
     for (i = 0; i < ntcols; ++i)
-        thdr_fill_range(ip, TARRAYHDR(tcols[i]),
+        thdr_fill_range(ip, tcol_thdr(tcols[i]),
                         &values[i], pos, count, insert);
 
     /* status will already contain TCL_OK */
@@ -242,6 +262,66 @@ vamoose:
     return status;
 
 }
+
+/*
+ * table type routines
+ */
+static void table_type_free_intrep(Tcl_Obj *o)
+{
+    thdr_t *thdr;
+    Tcl_Obj *ocolnames;
+
+    TA_ASSERT(table_affirm(o));
+
+    thdr = OBJTHDR(o); 
+    TA_ASSERT(thdr);
+    thdr_decr_refs(thdr);
+    OBJTHDR(o) = NULL;
+
+    ocolnames = OBJCOLNAMES(o);
+    TA_ASSERT(ocolnames);
+    Tcl_DecrRefCount(ocolnames);
+    OBJCOLNAMES(o) = NULL;
+    
+    o->typePtr = NULL;
+}
+
+static void table_type_dup(Tcl_Obj *osrc, Tcl_Obj *odst)
+{
+    TA_ASSERT(table_affirm(osrc));
+    TA_ASSERT(OBJTHDR(osrc));
+    TA_ASSERT(OBJCOLNAMES(osrc));
+    
+    table_set_intrep(odst, OBJTHDR(osrc), OBJCOLNAMES(osrc));
+}
+
+/* Never returns NULL */
+Tcl_Obj *table_column_names (Tcl_Obj *otab)
+{
+    Tcl_Obj  *onames;
+    Tcl_Obj **elems;
+    int       i, nelems, status;
+
+    TA_ASSERT(table_affirm(otab));
+    TA_ASSERT(OBJCOLNAMES(otab));
+
+    /* Note Dicts are guaranteed to return keys in same order as creation
+       when iterated over so just by looping we get correct column order. */
+    TA_NOFAIL(Tcl_ListObjGetElements(NULL, OBJCOLNAMES(otab), &nelems, &elems), TCL_OK);
+
+    TA_ASSERT((nelems & 1) == 0);
+
+    onames = Tcl_NewListObj(0, NULL);
+    for (i = 0; i < nelems; i += 2) {
+        Tcl_ListObjAppendElement(NULL, onames, elems[i]);
+    }
+    
+    return onames;
+}
+
+/*
+ * Table manipulation functions
+ */
 
 TCL_RESULT tcols_fill_indices(
     Tcl_Interp *ip,
@@ -285,7 +365,7 @@ TCL_RESULT tcols_fill_indices(
 
     /* Now that verification is complete, go do the actual changes */
     for (i = 0; i < ntcols; ++i)
-        thdr_fill_indices(ip, TARRAYHDR(tcols[i]), &values[i], pindices, new_size);
+        thdr_fill_indices(ip, tcol_thdr(tcols[i]), &values[i], pindices, new_size);
     
     /* status will already be TCL_OK */
 
@@ -299,34 +379,75 @@ vamoose:
 
 }
 
+/* SHould only be called if o is not a table already */
 TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    int status;
-    thdr_t *thdr;
-    Tcl_Obj **ptcol;
+    int       i, ntcols, nelems, ncolnames, tatype, status;
+    thdr_t   *thdr;
+    Tcl_Obj **elems, **tcols, **colnames;
+    Tcl_Obj  *colnames_map, *re;
 
-    if ((status = tcol_convert(ip, o)) != TCL_OK)
-        return status;
-    thdr = TARRAYHDR(o);
-    if (thdr->type != TA_ANY)
-        return ta_bad_type_error(ip, thdr);
-    if (tcol_occupancy(o) != 0) {
-        int i;
-
-        ptcol = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-        for (i = 0; i < thdr->used; ++i) {
-            if ((status = tcol_convert(ip, ptcol[i])) != TCL_OK)
-                return status;
-            /* All must have same number of elements */
-            if (tcol_occupancy(ptcol[i]) != tcol_occupancy(ptcol[0]))
-                return ta_table_length_error(ip);
-        }
+    if (tcol_affirm(o) ||
+        Tcl_ListObjGetElements(NULL, o, &nelems, &elems) != TCL_OK
+        && nelems != 3
+        && strcmp(Tcl_GetString(elems[0]), ta_table_type.name)) {
+        return ta_not_table_error(ip);
     }
 
-    o->typePtr = &g_table_type;
+    /* Do the columns */
+    if ((status = Tcl_ListObjGetElements(ip, elems[2], &ntcols, &tcols))
+        != TCL_OK)
+        return status;
+    for (i = 0; i < ntcols; ++i) {
+        if ((status = tcol_convert(ip, tcols[i])) != TCL_OK)
+            return status;
+        /* All must have same length */
+        if (tcol_occupancy(tcols[i]) != tcol_occupancy(tcols[0]))
+            return ta_table_length_error(ip);
+    }
+    thdr = thdr_alloc_and_init(ip, TA_ANY, ntcols, tcols, ntcols);
+    if (thdr == NULL)
+        return TCL_ERROR;
+
+    /* Now store the column names as name -> index pairs. */
+    if ((status = Tcl_ListObjGetElements(ip, elems[1], &ncolnames, &colnames))
+        != TCL_OK) {
+        thdr_decr_refs(thdr);
+        return status;
+    }
+    colnames_map = Tcl_NewListObj(0, NULL);
+    re = Tcl_NewStringObj("^[_[:alpha:]][-_[:alnum:]]*$", -1);
+    for (i = 0; i < ncolnames; ++i) {
+        int match = Tcl_RegExpMatchObj(ip, colnames[i], re);
+        if (match <= 0) {
+            if (match == 0 && ip)
+                Tcl_SetResult(ip, "Invalid column name syntax.", TCL_STATIC);
+            Tcl_DecrRefCount(re);
+            Tcl_DecrRefCount(colnames_map);
+            thdr_decr_refs(thdr);
+            return TCL_ERROR;
+        }
+        Tcl_ListObjAppendElement(ip, colnames_map, colnames[i]);
+        Tcl_ListObjAppendElement(ip, colnames_map, Tcl_NewIntObj(i));
+    }
+    Tcl_DecrRefCount(re);
+
+    /*
+     * Get rid of old representation and stick in the new one. Note
+     * string rep is NOT invalidated and must NOT be if it is shared.
+     * In any case, no need to do so here.
+     */
+    if (o->typePtr && o->typePtr->freeIntRepProc) {
+        o->typePtr->freeIntRepProc(o);
+        o->typePtr = NULL;
+    }
+
+    table_set_intrep(o, thdr, colnames_map);
     return TCL_OK;
 }
 
+/* Makes the table data store modifiable. Does NOT make the column names
+   modifiable */
 TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
                                 Tcl_Obj *table,
                                  int minsize, /* Min *contained* cols */
@@ -334,6 +455,7 @@ TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
     )
 {
     int i, status;
+    thdr_t *thdr;
     Tcl_Obj **tcols;
 
     TA_ASSERT(! Tcl_IsShared(table));
@@ -342,18 +464,19 @@ TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
         return status;
     
     /* Make the table object itself modifiable in case its thdr is shared */
-    if (thdr_shared(TARRAYHDR(table))) {
+    thdr = table_thdr(table);
+    if (thdr_shared(thdr)) {
+        thdr = thdr_clone(ip, thdr, 0);
         /* Note this also invalidates its string representation. */
-        if ((status = tcol_make_modifiable(ip, table, 0, 0)) != TCL_OK)
-            return status;
+        table_replace_intrep(table, thdr, NULL);
     } else {
         /* Not shared. Just invalidate the string rep. Was bug #18 */
         Tcl_InvalidateStringRep(table);
     }
 
     /* Now make its contained columns modifiable */
-    tcols = THDRELEMPTR(TARRAYHDR(table), Tcl_Obj *, 0);
-    i = tcol_occupancy(table);
+    tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    i = thdr->used;
     while (i--) {
         Tcl_Obj *tcol;
         tcol = tcols[i];
@@ -524,7 +647,7 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
             return ta_row_width_error(ip, nfields, ntcols);
 
         for (t = 0; t < ntcols; ++t) {
-            int tatype = TARRAYHDR(tcols[t])->type;
+            int tatype = tcol_thdr(tcols[t])->type;
             switch (tatype) {
             case TA_BOOLEAN:
                 if (Tcl_GetBooleanFromObj(ip, fields[t], &v.ival) != TCL_OK)
@@ -579,9 +702,9 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      if (ntcols == 0 || nrows == 0)
          return TCL_OK;          /* Nought to do */
 
-     thdr0 = TARRAYHDR(tcols[0]);
+     thdr0 = tcol_thdr(tcols[0]);
      for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < ntcols; ++t) {
-         thdr = TARRAYHDR(tcols[t]);
+         thdr = tcol_thdr(tcols[t]);
          TA_ASSERT(! Tcl_IsShared(tcols[t]));
          TA_ASSERT(! thdr_shared(thdr));
          if (insert)
@@ -702,7 +825,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      if (have_other_cols) {
          for (t=0; t < ntcols; ++t) {
              /* Skip TA_ANY on this round, until all other data is stored */
-             thdr = TARRAYHDR(tcols[t]);
+             thdr = tcol_thdr(tcols[t]);
              if (thdr->type == TA_ANY)
                  continue;
 
@@ -780,7 +903,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      /* Now that no errors are possible, update the TA_ANY columns */
      for (t=0; t < ntcols; ++t) {
          register Tcl_Obj **pobjs;
-         thdr = TARRAYHDR(tcols[t]);
+         thdr = tcol_thdr(tcols[t]);
          if (thdr->type != TA_ANY)
              continue;
          if (insert)
@@ -806,10 +929,10 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
      /* Now finally, update all the counts */
      for (t=0; t < ntcols; ++t) {
          if (insert) {
-             TARRAYHDR(tcols[t])->used += nrows;
+             tcol_thdr(tcols[t])->used += nrows;
          } else {
-             if ((first + nrows) > TARRAYHDR(tcols[t])->used)
-                 TARRAYHDR(tcols[t])->used = first + nrows;
+             if ((first + nrows) > tcol_thdr(tcols[t])->used)
+                 tcol_thdr(tcols[t])->used = first + nrows;
          }
      }
      
@@ -833,8 +956,8 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
      for (i = 0; i < ntcols; ++i) {
          TA_ASSERT(! Tcl_IsShared(tcols[i]));
          TA_ASSERT(tcol_affirm(tcols[i]));
-         TA_ASSERT(! thdr_shared(TARRAYHDR(tcols[i])));
-         TA_ASSERT(TARRAYHDR(tcols[i])->usable >= new_size);
+         TA_ASSERT(! thdr_shared(tcol_thdr(tcols[i])));
+         TA_ASSERT(tcol_thdr(tcols[i])->usable >= new_size);
     }
 
     if (ntcols == 0 || pindices->used == 0)
@@ -854,9 +977,9 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
 #define tcols_place_COPY(type, fn)                                      \
     do {                                                                \
         type *p;                                                        \
-        p = THDRELEMPTR(TARRAYHDR(tcols[i]), type, 0);                  \
+        p = THDRELEMPTR(tcol_thdr(tcols[i]), type, 0);                  \
         while (pindex < end) {                                          \
-            TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);           \
+            TA_ASSERT(*pindex < tcol_thdr(tcols[i])->usable);           \
             TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);    \
             TA_ASSERT(o != NULL);                                       \
             TA_NOFAIL(fn(ip, o, &p[*pindex++]), TCL_OK);                \
@@ -866,7 +989,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
     for (i = 0; i < ntcols; ++i) {
         int *pindex, *end;
 
-        TARRAYHDR(tcols[i])->sort_order = THDR_UNSORTED;
+        tcol_thdr(tcols[i])->sort_order = THDR_UNSORTED;
         pindex = THDRELEMPTR(pindices, int, 0);
         end = pindex + pindices->used;
         prow = rows;
@@ -888,10 +1011,10 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
             break;
         case TA_BOOLEAN:
             {
-                ba_t *baP = THDRELEMPTR(TARRAYHDR(tcols[i]), ba_t, 0);
+                ba_t *baP = THDRELEMPTR(tcol_thdr(tcols[i]), ba_t, 0);
                 while (pindex < end) {
                     int bval;
-                    TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);
+                    TA_ASSERT(*pindex < tcol_thdr(tcols[i])->usable);
                     TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
                     TA_ASSERT(o != NULL);
                     TA_NOFAIL(Tcl_GetBooleanFromObj(ip, o, &bval), TCL_OK);
@@ -904,7 +1027,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                 Tcl_Obj **pobjs;
                 int j;
 
-                pobjs = THDRELEMPTR(TARRAYHDR(tcols[i]), Tcl_Obj *, 0);
+                pobjs = THDRELEMPTR(tcol_thdr(tcols[i]), Tcl_Obj *, 0);
 
                 /*
                  * Reference counts makes this tricky. If replacing an existing
@@ -921,7 +1044,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                     pobjs[j] = NULL;        /* TBD - optimization - memset ? */
                 while (pindex < end) {
                     /* Careful about the order here! */
-                    TA_ASSERT(*pindex < TARRAYHDR(tcols[i])->usable);
+                    TA_ASSERT(*pindex < tcol_thdr(tcols[i])->usable);
                     TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
                     TA_ASSERT(o != NULL);
                     Tcl_IncrRefCount(o);
@@ -935,7 +1058,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
             ta_type_panic(tcol_type(tcols[i]));
         }
 
-        TARRAYHDR(tcols[i])->used = new_size;
+        tcol_thdr(tcols[i])->used = new_size;
     }
 
     return TCL_OK;
@@ -954,8 +1077,8 @@ TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcol
         TA_ASSERT(! Tcl_IsShared(tcols[i]));
         TA_ASSERT(tcol_affirm(tcols[i]));
         TA_ASSERT(tcol_affirm(srccols[i]));
-        TA_ASSERT(! thdr_shared(TARRAYHDR(tcols[i])));
-        TA_ASSERT(TARRAYHDR(tcols[i])->usable >= new_size);
+        TA_ASSERT(! thdr_shared(tcol_thdr(tcols[i])));
+        TA_ASSERT(tcol_thdr(tcols[i])->usable >= new_size);
 
         if (tcol_type(tcols[i]) != tcol_type(srccols[i]))
             return ta_mismatched_types_error(ip, tcol_type(tcols[i]), tcol_type(srccols[i]));
@@ -965,7 +1088,7 @@ TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcol
 
     /* Now all validation done, do the actual copy */
     for (i = 0; i < ntcols; ++i) {
-        thdr_place_indices(ip, TARRAYHDR(tcols[i]), TARRAYHDR(srccols[i]),
+        thdr_place_indices(ip, tcol_thdr(tcols[i]), tcol_thdr(srccols[i]),
                            pindices, new_size);
     }
     return TCL_OK;
@@ -1045,8 +1168,8 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
         TA_ASSERT(tcol_affirm(srccols[i]));
         TA_ASSERT(tcol_occupancy(dstcols[i]) == tcol_occupancy(dstcols[0]));
 
-        pdst = TARRAYHDR(dstcols[i]);
-        psrc = TARRAYHDR(srccols[i]);
+        pdst = tcol_thdr(dstcols[i]);
+        psrc = tcol_thdr(srccols[i]);
 
         TA_ASSERT(! thdr_shared(pdst));
         TA_ASSERT(pdst->usable >= (insert ? pdst->used + count : dst_elem_first + count));
@@ -1057,8 +1180,8 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     
     /* Now that *all* columns have been checked, do the actual copy */
     for (i = 0; i < ntcols; ++i) {
-        thdr_copy(TARRAYHDR(dstcols[i]), dst_elem_first,
-                  TARRAYHDR(srccols[i]), src_elem_first, count, insert);
+        thdr_copy(tcol_thdr(dstcols[i]), dst_elem_first,
+                  tcol_thdr(srccols[i]), src_elem_first, count, insert);
     }    
 
     return TCL_OK;
@@ -1224,7 +1347,7 @@ Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 
         pindex = THDRELEMPTR(pindices, int, 0);
         end = pindex + pindices->used;
-        srcbase = THDRELEMPTR(TARRAYHDR(srccols[i]), unsigned char, 0);
+        srcbase = THDRELEMPTR(tcol_thdr(srccols[i]), unsigned char, 0);
         bound = tcol_occupancy(srccols[i]);
         if (fmt == TA_FORMAT_DICT) {
             /* Values are in alternate slots since mixed with indices */
@@ -1353,7 +1476,7 @@ Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
                 
 #define table_range_COPY(type_, objfn_)                                 \
     do {                                                                \
-        type_ *p = THDRELEMPTR(TARRAYHDR(srccols[i]), type_, low);      \
+        type_ *p = THDRELEMPTR(tcol_thdr(srccols[i]), type_, low);      \
         type_ *pend = p + count;                                    \
         while (p < pend) {                                              \
             Tcl_ListObjAppendElement(ip, olistelems[j], objfn_(*p++));  \
@@ -1376,7 +1499,7 @@ Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
         switch (tcol_type(srccols[i])) {
         case TA_BOOLEAN:
             {
-                ba_t *srcbaP = THDRELEMPTR(TARRAYHDR(srccols[i]), ba_t, 0);
+                ba_t *srcbaP = THDRELEMPTR(tcol_thdr(srccols[i]), ba_t, 0);
                 int k;
                 for (k = low; k < end; j += incr, ++k) {
                     Tcl_ListObjAppendElement(ip, olistelems[j],

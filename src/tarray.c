@@ -22,32 +22,6 @@ int ta_experiment;
 int ta_fill_mt_threshold = 100000;
 #endif
 
-/*
- * TArray is a Tcl "type" used for densely storing arrays of elements
- * of a specific type. For reasons of efficiency in type checking,
- * we define two types - tcolumn that holds an array of elements,
- * and table, which is just a tcolumn (and hence uses the same member
- * functions) each element of which is a Tcl_Obj
- * that is itself a tcolumn.
- */
-static void ta_type_dup(Tcl_Obj *psrc, Tcl_Obj *pdst);
-static void ta_type_free_intrep(Tcl_Obj *o);
-static void ta_type_update_string(Tcl_Obj *o);
-struct Tcl_ObjType g_tcol_type = {
-    "tarray_column",
-    ta_type_free_intrep,
-    ta_type_dup,
-    ta_type_update_string,
-    NULL,     /* jenglish advises to keep this NULL */
-};
-struct Tcl_ObjType g_table_type = {
-    "tarray_table",
-    ta_type_free_intrep,
-    ta_type_dup,
-    ta_type_update_string,
-    NULL,     /* jenglish advises to keep this NULL */
-};
-
 /* Must match definitions in tarray.h ! */
 const char *g_type_tokens[] = {
     "boolean",
@@ -63,20 +37,571 @@ const char *g_type_tokens[] = {
 Tcl_ObjType *g_tcl_list_type_ptr;
 
 /*
+ * A TArray column is a Tcl_Obj type used for densely storing arrays
+ * of a specific type. The Tcl_Obj internal representation points
+ * to a thdr_t internal representation of the column. 
+ */
+static void tcol_type_dup(Tcl_Obj *psrc, Tcl_Obj *pdst);
+static void tcol_type_free_intrep(Tcl_Obj *o);
+static void tcol_type_update_string(Tcl_Obj *o);
+struct Tcl_ObjType ta_column_type = {
+    "tarray_column",
+    tcol_type_free_intrep,
+    tcol_type_dup,
+    tcol_type_update_string,
+    NULL,     /* jenglish advises to keep this NULL */
+};
+
+
+/*
  * A Tcl object to parse tarray index tokens and cache the result so
  * we do not parse "end" or "last" repeatedly. We could actually use the
  * more sophisticated Tcl equivalent but unfortunately that is not exported.
  */
 static void ta_indexobj_update_string(Tcl_Obj *);
-struct Tcl_ObjType g_indexobj_type = {
-    "tarray_indexobj",
+struct Tcl_ObjType ta_index_type = {
+    "tarray_index",
     NULL, /* No need for a free proc */
     NULL, 
     ta_indexobj_update_string,
     NULL, /* convert from any - jenglish advises to keep this NULL */
 };
 
+const char *ta_type_string(int tatype)
+{
+    if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]))) {
+        return g_type_tokens[tatype];
+    } else
+        return "<invalid>";
+}
 
+static void tcol_type_free_intrep(Tcl_Obj *o)
+{
+    thdr_t *thdr;
+
+    TA_ASSERT(tcol_affirm(o));
+
+    thdr = OBJTHDR(o); 
+    TA_ASSERT(thdr);
+
+    thdr_decr_refs(thdr);
+    OBJTHDR(o) = NULL;
+    o->typePtr = NULL;
+}
+
+static void tcol_type_dup(Tcl_Obj *osrc, Tcl_Obj *odst)
+{
+    TA_ASSERT(tcol_affirm(osrc));
+    TA_ASSERT(OBJTHDR(osrc) != NULL);
+        
+    tcol_set_intrep(odst, OBJTHDR(osrc));
+}
+
+#ifdef NOTUSED
+/* Returns a ckalloc'ed string rep of the Tcl_Obj array */
+static char *ta_generate_string_from_objv(int objc, Tcl_Obj *const *objv, int *plen)
+{
+    /* Copied almost verbatim from the Tcl's UpdateStringOfList */
+#   define LOCAL_SIZE 20
+    int localFlags[LOCAL_SIZE], *flagPtr = NULL;
+    int i, length;
+    size_t bytesNeeded;
+    const char *elem;
+    char *dst, *str;
+    int quote_hash;
+
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc. Tcl_Obj.bytes (where caller might need to
+       store the result) requires ckalloc'ed memory
+    */
+
+    if (objc == 0) {
+        str = ckalloc(sizeof(*str));
+        *str = '\0';
+        *plen = 0;
+        return str;
+    }
+
+    /*
+     * Pass 1: estimate space, gather flags.
+     */
+
+    if (objc <= LOCAL_SIZE) {
+        flagPtr = localFlags;
+    } else {
+        /*
+         * We know objc <= TA_MAX_OBJC, so this is safe.
+         */
+
+        flagPtr = (int *) ckalloc(objc * sizeof(int));
+    }
+
+    bytesNeeded = 0;
+    quote_hash = 0;
+    for (i = 0; i < objc; i++) {
+        flagPtr[i] = quote_hash;
+        quote_hash = TCL_DONT_QUOTE_HASH;
+        elem = Tcl_GetStringFromObj(objv[i], &length);
+        bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
+        if ((((size_t)1) << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
+            ta_string_overflow_panic("tcol_type_update_string_for_objtype");
+    }
+    if ((bytesNeeded + objc + 1) > INT_MAX)
+        ta_string_overflow_panic("tcol_type_update_string_for_objtype");
+
+    bytesNeeded += objc;        /* For separators and terminating null */
+
+    /*
+     * Pass 2: copy into string rep buffer.
+     */
+
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc */
+    str = ckalloc(bytesNeeded);
+    dst = str;
+    quote_hash = 0;
+    for (i = 0; i < objc; i++) {
+        flagPtr[i] |= quote_hash;
+        quote_hash = TCL_DONT_QUOTE_HASH;
+        elem = Tcl_GetStringFromObj(objv[i], &length);
+        dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
+        *dst++ = ' ';
+    }
+    *--dst = '\0';
+    TA_ASSERT(dst < (str + bytesNeeded));
+    *plen = dst - str;
+
+    if (flagPtr != localFlags) {
+        ckfree((char *) flagPtr);
+    }
+
+    return str;
+}
+#endif
+
+
+/* Called to generate a string implementation for tarray columns of type TA_ANY
+   and tables */
+void ta_update_string_for_table_or_type_any(Tcl_Obj *o)
+{
+    /* Copied almost verbatim from the Tcl's UpdateStringOfList */
+    Tcl_Obj **objv;
+    int objc;
+    thdr_t *thdr;
+#   define LOCAL_SIZE 20
+    int localFlags[LOCAL_SIZE], *flagPtr = NULL;
+    int i, length;
+    size_t bytesNeeded;
+    const char *elem;
+    char *dst;
+    int quote_hash;
+    Tcl_Obj *onames = NULL;
+    const char *names;
+    int names_len;
+
+    TA_ASSERT(o->typePtr == &ta_column_type || o->typePtr == &ta_table_type);
+
+    thdr = OBJTHDR(o);
+    objv = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    objc = thdr->used;
+
+    /*
+     * Pass 1: estimate space, gather flags.
+     */
+
+    if (objc <= LOCAL_SIZE) {
+        flagPtr = localFlags;
+    } else {
+        /*
+         * We know objc <= TA_MAX_OBJC, so this is safe.
+         */
+
+        flagPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
+    }
+
+    bytesNeeded = strlen(o->typePtr->name);
+    if (o->typePtr == &ta_table_type) {
+        /* If a table, need to add on column names */
+        TA_ASSERT(OBJCOLNAMES(o));
+        onames = table_column_names(o);
+        names = Tcl_GetStringFromObj(onames, &names_len);
+        bytesNeeded += 1 + 1 + names_len + 1; /* With lead space, enclosing {} */
+    } else {
+        /* If a column, need to add the column type (always TA_ANY) in
+           this routine as other types are handled elsewhere */
+        TA_ASSERT(thdr->type == TA_ANY);
+        names_len = strlen(g_type_tokens[TA_ANY]);
+        bytesNeeded += 1 + names_len;/* With lead space */
+    }
+
+    bytesNeeded += 1 + 1 + 1; /* Lead space and enclosing {} for objv */
+
+    quote_hash = TCL_DONT_QUOTE_HASH;
+    for (i = 0; i < objc; i++) {
+        /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
+        flagPtr[i] = quote_hash;
+        quote_hash = 0;
+        elem = Tcl_GetStringFromObj(objv[i], &length);
+        bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
+        if ((((size_t)1) << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
+            ta_string_overflow_panic("tcol_type_update_string_for_objtype");
+    }
+    if ((bytesNeeded + objc + 1) > INT_MAX)
+        ta_string_overflow_panic("tcol_type_update_string_for_objtype");
+
+    bytesNeeded += objc;        /* For separators and terminating null */
+
+    /*
+     * Pass 2: copy into string rep buffer.
+     */
+
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc */
+    o->bytes = ckalloc(bytesNeeded);
+    dst = o->bytes;
+    strcpy(dst, o->typePtr->name);
+    dst += strlen(dst);
+    if (o->typePtr == &ta_table_type) {
+        *dst++ = ' ';
+        *dst++ = '{';
+        memcpy(dst, names, names_len);
+        dst += names_len;
+        *dst++ = '}';
+    } else {
+        *dst++ = ' ';
+        memcpy(dst, g_type_tokens[TA_ANY], names_len);
+        dst += names_len;
+    }
+
+    *dst++ = ' ';
+    *dst++ = '{';
+    /* TBD - handle objc==0 case. Huh? Isn't that handled in the else part ? */
+    if (objc) {
+        quote_hash = TCL_DONT_QUOTE_HASH;
+        for (i = 0; i < objc; i++) {
+            flagPtr[i] |= quote_hash;
+            quote_hash = 0;
+            elem = Tcl_GetStringFromObj(objv[i], &length);
+            dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
+            *dst++ = ' ';
+            /* Assert <, not <= because need to add terminating "}" */
+            TA_ASSERT(dst < (o->bytes + bytesNeeded));
+        }
+        dst[-1] = '}';
+    } else
+        *dst++ = '}';
+    *dst = '\0';
+    TA_ASSERT(dst < (o->bytes + bytesNeeded));
+    o->length = dst - o->bytes;
+
+    if (flagPtr != localFlags) {
+        TA_FREEMEM((char *) flagPtr);
+    }
+    if (onames)
+        Tcl_DecrRefCount(onames);
+}
+
+
+/* Called to generate a string implementation from an array of Tcl_Obj */
+static void OBSOLETEtcol_type_update_string_for_objtype(Tcl_Obj *o)
+{
+    /* Copied almost verbatim from the Tcl's UpdateStringOfList */
+    Tcl_Obj **objv;
+    int objc;
+    thdr_t *thdr;
+#   define LOCAL_SIZE 20
+    int localFlags[LOCAL_SIZE], *flagPtr = NULL;
+    int i, length;
+    size_t bytesNeeded;
+    const char *elem;
+    char *dst;
+    int quote_hash;
+
+    thdr = OBJTHDR(o);
+    objv = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    objc = thdr->used;
+
+    /*
+     * Pass 1: estimate space, gather flags.
+     */
+
+    if (objc <= LOCAL_SIZE) {
+        flagPtr = localFlags;
+    } else {
+        /*
+         * We know objc <= TA_MAX_OBJC, so this is safe.
+         */
+
+        flagPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
+    }
+
+    bytesNeeded =
+        sizeof("tarray ") - 1 /* -1 to exclude the null */
+        + sizeof(" {") - 1 /* Start of list minus trailing null */
+        + 1               /* Trailing "}" */
+        + strlen(g_type_tokens[TA_ANY]);
+    quote_hash = TCL_DONT_QUOTE_HASH;
+    for (i = 0; i < objc; i++) {
+        /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
+        flagPtr[i] = quote_hash;
+        quote_hash = 0;
+        elem = Tcl_GetStringFromObj(objv[i], &length);
+        bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
+        if ((((size_t)1) << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
+            ta_string_overflow_panic("tcol_type_update_string_for_objtype");
+    }
+    if ((bytesNeeded + objc + 1) > INT_MAX)
+        ta_string_overflow_panic("tcol_type_update_string_for_objtype");
+
+    bytesNeeded += objc;        /* For separators and terminating null */
+
+    /*
+     * Pass 2: copy into string rep buffer.
+     */
+
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc */
+    o->bytes = ckalloc(bytesNeeded);
+    dst = o->bytes;
+    memcpy(dst, "tarray ", sizeof("tarray ")-1);
+    dst += sizeof("tarray ") - 1;
+    strcpy(dst, g_type_tokens[TA_ANY]);
+    dst += strlen(g_type_tokens[TA_ANY]);
+    *dst++ = ' ';
+    *dst++ = '{';
+    /* TBD - handle objc==0 case */
+    if (objc) {
+        quote_hash = TCL_DONT_QUOTE_HASH;
+        for (i = 0; i < objc; i++) {
+            flagPtr[i] |= quote_hash;
+            quote_hash = 0;
+            elem = Tcl_GetStringFromObj(objv[i], &length);
+            dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
+            *dst++ = ' ';
+            /* Assert <, not <= because need to add terminating "}" */
+            TA_ASSERT(dst < (o->bytes + bytesNeeded));
+        }
+        dst[-1] = '}';
+    } else
+        *dst++ = '}';
+    *dst = '\0';
+    TA_ASSERT(dst < (o->bytes + bytesNeeded));
+    o->length = dst - o->bytes;
+
+    if (flagPtr != localFlags) {
+        TA_FREEMEM((char *) flagPtr);
+    }
+}
+
+static void tcol_type_update_string(Tcl_Obj *o)
+{
+    unsigned int i, n, count;
+    unsigned int allocated, unused, min_needed, prefix_len;
+    char *cP;
+    int max_elem_space;  /* Max space to print one element including
+                            either terminating null or space */
+    thdr_t *thdr;
+        
+    TA_ASSERT(tcol_affirm(o));
+
+    thdr = OBJTHDR(o);
+    TA_ASSERT(thdr->type < sizeof(g_type_tokens)/sizeof(g_type_tokens[0]));
+
+    o->bytes = NULL;
+
+    prefix_len = strlen(o->typePtr->name)
+        + 1            /* Space */
+        + strlen(g_type_tokens[thdr->type])
+        + 2;                         /* Start of list " {" */
+    min_needed = prefix_len + 1 + 1;            /* Trailing "}" and null */
+
+    count = tcol_occupancy(o);
+    if (count == 0) {
+        /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+           defined as ckalloc */
+        cP = ckalloc(min_needed);
+        o->bytes = cP;
+        snprintf(cP, min_needed, "%s %s {}", o->typePtr->name,
+                 g_type_tokens[thdr->type]);
+        o->length = min_needed - 1;
+        return;
+    }
+
+    /* Code below based on count > 0 else terminating \0 will blow memory */
+
+    /*
+     * When output size cannot be calculated exactly, we allocate using
+     * some estimate based on the type.
+     */
+        
+    switch (tcol_type(o)) {
+    case TA_BOOLEAN:
+        {
+            /*
+             * Special case Boolean since we know exactly how many chars will
+             * be required 
+             */
+            ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
+            register ba_t ba;
+            register ba_t ba_mask;
+
+            /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+               defined as ckalloc */
+            cP = ckalloc(min_needed + 2*count - 1);
+            n = snprintf(cP, min_needed, "%s %s {", o->typePtr->name,
+                         g_type_tokens[TA_BOOLEAN]);
+            TA_ASSERT(n > 0 && n < min_needed);
+            o->bytes = cP;
+            cP += n;
+            n = count / BA_UNIT_SIZE;
+            for (i = 0; i < n; ++i, ++baP) {
+                ba = *baP;
+                for (ba_mask = BITPOSMASK(0); ba_mask ; ba_mask = BITMASKNEXT(ba_mask)) {
+                    *cP++ = (ba & ba_mask) ? '1' : '0';
+                    *cP++ = ' ';
+                }
+            }
+            n = count - n*BA_UNIT_SIZE;    /* Left over bits in last byte */
+            if (n) {
+                ba = *baP;
+                for (i = 0, ba_mask = BITPOSMASK(0); i < n; ++i, ba_mask = BITMASKNEXT(ba_mask)) {
+                    *cP++ = (ba & ba_mask) ? '1' : '0';
+                    *cP++ = ' ';
+                }
+            }
+            cP[-1] = '}';
+            *cP = '\0';
+            o->length = cP - o->bytes;
+        }
+        return;
+                
+    case TA_ANY:
+        ta_update_string_for_table_or_type_any(o);
+        return;
+                
+    case TA_UINT:
+    case TA_INT:
+        TA_ASSERT(sizeof(int) == 4); /* So max string space needed is 11 */
+        max_elem_space = 11;
+        break;
+    case TA_WIDE:
+        max_elem_space = TCL_INTEGER_SPACE;
+        break;
+    case TA_DOUBLE:
+        max_elem_space = TCL_DOUBLE_SPACE;
+        break;
+    case TA_BYTE:
+        max_elem_space = 3;
+        break;
+    default:
+        ta_type_panic(thdr->type);
+    }
+            
+    /*
+     * Assume an element averages half max space with room for at
+     * least one max element. Note max_elem_space includes trailing ' '
+     */
+    allocated = min_needed + max_elem_space + ((max_elem_space + 1)/2)*count;
+    unused = allocated - prefix_len;
+    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
+       defined as ckalloc */
+    cP = ckalloc(allocated);
+    o->bytes = cP;
+    snprintf(cP, prefix_len+1, "%s %s {",
+             o->typePtr->name, g_type_tokens[thdr->type]);
+    TA_ASSERT(strlen(cP) == prefix_len);
+    cP += prefix_len;
+    min_needed = max_elem_space + 2; /* space or terminating "}" and null */
+    for (i = 0; i < count; ) {
+        if (unused < min_needed) {
+            n = allocated - unused; /* Used space */
+            /* Increase assuming average space taken so far (roughly) */
+            TA_ASSERT(i != 0);
+            allocated += min_needed + (count - i) * (n/i);
+            o->bytes = ckrealloc(o->bytes, allocated);
+            cP = n + (char *) o->bytes;
+            unused = allocated - n;
+        }
+        /*
+         * We nest loops for performance by minimizing switch jumps
+         * At top of nested loops below, there is room for at least one elem
+         */
+        switch (thdr->type) {
+        case TA_UINT:
+        case TA_INT:
+            {
+                int *intP = THDRELEMPTR(thdr, int, i);
+                char *fmt = thdr->type == TA_UINT ? "%u" : "%d";
+                while (i < count && unused >= min_needed) {
+                    n = snprintf(cP, unused, fmt, *intP++);
+                    TA_ASSERT(n > 0 && n < unused);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
+            break;
+        case TA_WIDE:
+            {
+                Tcl_WideInt *pwide = THDRELEMPTR(thdr, Tcl_WideInt, i);
+                while (i < count && unused >= min_needed) {
+                    n = snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *pwide++);
+                    TA_ASSERT(n > 0 && n < unused);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
+            break;
+        case TA_DOUBLE:
+            /* Do not use snprintf because of slight difference
+               it does not include decimal point for whole ints. For
+               consistency with Tcl, use Tcl_PrintDouble instead */
+            {
+                double *pdbl = THDRELEMPTR(thdr, double, i);
+                while (i < count && unused >= min_needed) {
+                    Tcl_PrintDouble(NULL, *pdbl++, cP);
+                    n = strlen(cP);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
+            break;
+        case TA_BYTE:
+            {
+                unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, i);
+                while (i < count && unused >= min_needed) {
+                    n = snprintf(cP, unused, "%u", *ucP++);
+                    TA_ASSERT(n > 0 && n < unused);
+                    ++i;
+                    cP += n;
+                    *cP++ = ' ';
+                    unused -= n+1;
+                }
+            }
+            break;
+        }
+    }
+
+    TA_ASSERT(unused >=1 );
+    cP[-1] = '}';         /* Terminate list */
+    *cP = '\0';
+    o->length = cP - o->bytes; /* Terminating null not included in length */
+            
+    /* Only shrink array if unused space is comparatively too large */
+    unused = allocated - (o->length + 1);
+    if (unused > (allocated / 8) && unused > 20)
+        o->bytes = ckrealloc(o->bytes, o->length + 1);
+    return;
+}
+
+/*
+ * indexobj routines
+ */
 static void ta_indexobj_update_string(Tcl_Obj *o)
 {
     char buffer[TCL_INTEGER_SPACE + 5];
@@ -103,7 +628,7 @@ static void ta_indexobj_update_string(Tcl_Obj *o)
  * If interp is not NULL, stores an error message in the interpreter
  * result.
  */
-static int ta_indexobj_from_any(
+int ta_indexobj_from_any(
     Tcl_Interp *interp,		/* Tcl interpreter or NULL */
     Tcl_Obj *o)		/* Pointer to the object to parse */
 {
@@ -111,7 +636,7 @@ static int ta_indexobj_from_any(
     const char *bytes;	/* String rep of the object */
     int length;			/* Length of the object's string rep */
 
-    if (o->typePtr == &g_indexobj_type) {
+    if (o->typePtr == &ta_index_type) {
 	return TCL_OK;
     }
 
@@ -149,7 +674,7 @@ static int ta_indexobj_from_any(
     if (o->typePtr && o->typePtr->freeIntRepProc)
         o->typePtr->freeIntRepProc(o);
     o->internalRep.longValue = offset;
-    o->typePtr = &g_indexobj_type;
+    o->typePtr = &ta_index_type;
 
     return TCL_OK;
 
@@ -162,14 +687,6 @@ error_handler:
         Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
     }
     return TCL_ERROR;
-}
-
-const char *ta_type_string(int tatype)
-{
-    if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]))) {
-        return g_type_tokens[tatype];
-    } else
-        return "<invalid>";
 }
 
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
@@ -423,7 +940,7 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
     int val;
 
     /* Do type checks to avoid expensive shimmering in case of errors */
-    if (tcol_affirm(o))
+    if (tcol_affirm(o) || table_affirm(o))
         return ta_index_error(ip, o);
 
     if (o->typePtr == g_tcl_list_type_ptr) {
@@ -472,6 +989,7 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Ob
     return TCL_OK;
 }
 
+/* SHould only be called if o is not a column already */
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     Tcl_Obj **elems;
@@ -480,7 +998,7 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     /* See if we can convert it to one based on string representation */
     if (Tcl_ListObjGetElements(NULL, o, &nelems, &elems) == TCL_OK
         && nelems == 3
-        && !strcmp(Tcl_GetString(elems[0]), "tarray")
+        && !strcmp(Tcl_GetString(elems[0]), ta_column_type.name)
         && Tcl_GetIndexFromObj(ip, elems[1], g_type_tokens, "TArrayType",
                                TCL_EXACT, &tatype) == TCL_OK) {
         /* So far so good. Try and convert */
@@ -506,11 +1024,11 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
             o->typePtr = NULL;
         }
 
-        ta_set_intrep(o, thdr);
+        tcol_set_intrep(o, thdr);
         return TCL_OK;
     }
                 
-    return ta_not_tarray_error(ip);
+    return ta_not_column_error(ip);
 }
 
 
@@ -999,321 +1517,6 @@ void thdr_free(thdr_t *thdr)
 }
 
 
-static void ta_type_free_intrep(Tcl_Obj *o)
-{
-    thdr_t *thdr;
-
-    TA_ASSERT(tcol_affirm(o));
-
-    thdr = TARRAYHDR(o); 
-    TA_ASSERT(thdr);
-
-    thdr_decr_refs(thdr);
-    TARRAYHDR(o) = NULL;
-    o->typePtr = NULL;
-}
-
-static void ta_type_dup(Tcl_Obj *osrc, Tcl_Obj *odst)
-{
-    TA_ASSERT(tcol_affirm(osrc));
-    TA_ASSERT(TARRAYHDR(osrc) != NULL);
-        
-    ta_set_intrep(odst, TARRAYHDR(osrc));
-}
-
-
-/* Called to generate a string implementation from an array of Tcl_Obj */
-static void ta_type_update_string_for_objtype(Tcl_Obj *o)
-{
-    /* Copied almost verbatim from the Tcl's UpdateStringOfList */
-    Tcl_Obj **objv;
-    int objc;
-    thdr_t *thdr;
-#   define LOCAL_SIZE 20
-    int localFlags[LOCAL_SIZE], *flagPtr = NULL;
-    int i, length;
-    size_t bytesNeeded;
-    const char *elem;
-    char *dst;
-
-    thdr = TARRAYHDR(o);
-    objv = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-    objc = thdr->used;
-
-    /*
-     * Pass 1: estimate space, gather flags.
-     */
-
-    if (objc <= LOCAL_SIZE) {
-        flagPtr = localFlags;
-    } else {
-        /*
-         * We know objc <= TA_MAX_OBJC, so this is safe.
-         */
-
-        flagPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
-    }
-
-    bytesNeeded =
-        sizeof("tarray ") - 1 /* -1 to exclude the null */
-        + sizeof(" {") - 1 /* Start of list minus trailing null */
-        + 1               /* Trailing "}" */
-        + strlen(g_type_tokens[TA_ANY]);
-    for (i = 0; i < objc; i++) {
-        /* TCL_DONT_QUOTE_HASH since we are not at beginning of string */
-        flagPtr[i] = TCL_DONT_QUOTE_HASH;
-        elem = Tcl_GetStringFromObj(objv[i], &length);
-        bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
-        if ((((size_t)1) << (sizeof(bytesNeeded)*CHAR_BIT - 1)) & bytesNeeded)
-            ta_string_overflow_panic("ta_type_update_string_for_objtype");
-    }
-    if ((bytesNeeded + objc + 1) > INT_MAX)
-        ta_string_overflow_panic("ta_type_update_string_for_objtype");
-
-    bytesNeeded += objc;        /* For separators and terminating null */
-
-    /*
-     * Pass 2: copy into string rep buffer.
-     */
-
-    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
-       defined as ckalloc */
-    o->bytes = ckalloc(bytesNeeded);
-    dst = o->bytes;
-    memcpy(dst, "tarray ", sizeof("tarray ")-1);
-    dst += sizeof("tarray ") - 1;
-    strcpy(dst, g_type_tokens[TA_ANY]);
-    dst += strlen(g_type_tokens[TA_ANY]);
-    *dst++ = ' ';
-    *dst++ = '{';
-    /* TBD - handle objc==0 case */
-    if (objc) {
-        for (i = 0; i < objc; i++) {
-            flagPtr[i] |= (i ? TCL_DONT_QUOTE_HASH : 0);
-            elem = Tcl_GetStringFromObj(objv[i], &length);
-            dst += Tcl_ConvertCountedElement(elem, length, dst, flagPtr[i]);
-            *dst++ = ' ';
-            /* Assert <, not <= because need to add terminating "}" */
-            TA_ASSERT(dst < (o->bytes + bytesNeeded));
-        }
-        dst[-1] = '}';
-    } else
-        *dst++ = '}';
-    *dst = '\0';
-    TA_ASSERT(dst < (o->bytes + bytesNeeded));
-    o->length = dst - o->bytes;
-
-    if (flagPtr != localFlags) {
-        TA_FREEMEM((char *) flagPtr);
-    }
-}
-
-
-static void ta_type_update_string(Tcl_Obj *o)
-{
-    unsigned int i, n, count;
-    unsigned int allocated, unused, min_needed, prefix_len;
-    char *cP;
-    int max_elem_space;  /* Max space to print one element including
-                            either terminating null or space */
-    thdr_t *thdr;
-        
-    TA_ASSERT(tcol_affirm(o));
-
-    thdr = TARRAYHDR(o);
-    TA_ASSERT(thdr->type < sizeof(g_type_tokens)/sizeof(g_type_tokens[0]));
-
-    o->bytes = NULL;
-
-    prefix_len = 
-        sizeof("tarray ") - 1   /* -1 to exclude the null */
-        + strlen(g_type_tokens[thdr->type])
-        + 2;                         /* Start of list " {" */
-    min_needed = prefix_len + 1 + 1;            /* Trailing "}" and null */
-
-    count = tcol_occupancy(o);
-    if (count == 0) {
-        /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
-           defined as ckalloc */
-        cP = ckalloc(min_needed);
-        o->bytes = cP;
-        snprintf(cP, min_needed, "tarray %s {}",
-                  g_type_tokens[thdr->type]);
-        o->length = min_needed - 1;
-        return;
-    }
-
-    /* Code below based on count > 0 else terminating \0 will blow memory */
-
-    /*
-     * When output size cannot be calculated exactly, we allocate using
-     * some estimate based on the type.
-     */
-        
-    switch (tcol_type(o)) {
-    case TA_BOOLEAN:
-        {
-            /*
-             * Special case Boolean since we know exactly how many chars will
-             * be required 
-             */
-            ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            register ba_t ba;
-            register ba_t ba_mask;
-
-            /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
-               defined as ckalloc */
-            cP = ckalloc(min_needed + 2*count - 1);
-            n = snprintf(cP, min_needed, "tarray %s {",
-                      g_type_tokens[TA_BOOLEAN]);
-            TA_ASSERT(n > 0 && n < min_needed);
-            o->bytes = cP;
-            cP += n;
-            n = count / BA_UNIT_SIZE;
-            for (i = 0; i < n; ++i, ++baP) {
-                ba = *baP;
-                for (ba_mask = BITPOSMASK(0); ba_mask ; ba_mask = BITMASKNEXT(ba_mask)) {
-                    *cP++ = (ba & ba_mask) ? '1' : '0';
-                    *cP++ = ' ';
-                }
-            }
-            n = count - n*BA_UNIT_SIZE;    /* Left over bits in last byte */
-            if (n) {
-                ba = *baP;
-                for (i = 0, ba_mask = BITPOSMASK(0); i < n; ++i, ba_mask = BITMASKNEXT(ba_mask)) {
-                    *cP++ = (ba & ba_mask) ? '1' : '0';
-                    *cP++ = ' ';
-                }
-            }
-            cP[-1] = '}';
-            *cP = '\0';
-            o->length = cP - o->bytes;
-        }
-        return;
-                
-    case TA_ANY:
-        ta_type_update_string_for_objtype(o);
-        return;
-                
-    case TA_UINT:
-    case TA_INT:
-        TA_ASSERT(sizeof(int) == 4); /* So max string space needed is 11 */
-        max_elem_space = 11;
-        break;
-    case TA_WIDE:
-        max_elem_space = TCL_INTEGER_SPACE;
-        break;
-    case TA_DOUBLE:
-        max_elem_space = TCL_DOUBLE_SPACE;
-        break;
-    case TA_BYTE:
-        max_elem_space = 3;
-        break;
-    default:
-        ta_type_panic(thdr->type);
-    }
-            
-    /*
-     * Assume an element averages half max space with room for at
-     * least one max element. Note max_elem_space includes trailing ' '
-     */
-    allocated = min_needed + max_elem_space + ((max_elem_space + 1)/2)*count;
-    unused = allocated - prefix_len;
-    /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
-       defined as ckalloc */
-    cP = ckalloc(allocated);
-    o->bytes = cP;
-    snprintf(cP, prefix_len+1, "tarray %s {", g_type_tokens[thdr->type]);
-    TA_ASSERT(strlen(cP) == prefix_len);
-    cP += prefix_len;
-    min_needed = max_elem_space + 2; /* space or terminating "}" and null */
-    for (i = 0; i < count; ) {
-        if (unused < min_needed) {
-            n = allocated - unused; /* Used space */
-            /* Increase assuming average space taken so far (roughly) */
-            TA_ASSERT(i != 0);
-            allocated += min_needed + (count - i) * (n/i);
-            o->bytes = ckrealloc(o->bytes, allocated);
-            cP = n + (char *) o->bytes;
-            unused = allocated - n;
-        }
-        /*
-         * We nest loops for performance by minimizing switch jumps
-         * At top of nested loops below, there is room for at least one elem
-         */
-        switch (thdr->type) {
-        case TA_UINT:
-        case TA_INT:
-            {
-                int *intP = THDRELEMPTR(thdr, int, i);
-                char *fmt = thdr->type == TA_UINT ? "%u" : "%d";
-                while (i < count && unused >= min_needed) {
-                    n = snprintf(cP, unused, fmt, *intP++);
-                    TA_ASSERT(n > 0 && n < unused);
-                    ++i;
-                    cP += n;
-                    *cP++ = ' ';
-                    unused -= n+1;
-                }
-            }
-            break;
-        case TA_WIDE:
-            {
-                Tcl_WideInt *pwide = THDRELEMPTR(thdr, Tcl_WideInt, i);
-                while (i < count && unused >= min_needed) {
-                    n = snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *pwide++);
-                    TA_ASSERT(n > 0 && n < unused);
-                    ++i;
-                    cP += n;
-                    *cP++ = ' ';
-                    unused -= n+1;
-                }
-            }
-            break;
-        case TA_DOUBLE:
-            /* Do not use snprintf because of slight difference
-               it does not include decimal point for whole ints. For
-               consistency with Tcl, use Tcl_PrintDouble instead */
-            {
-                double *pdbl = THDRELEMPTR(thdr, double, i);
-                while (i < count && unused >= min_needed) {
-                    Tcl_PrintDouble(NULL, *pdbl++, cP);
-                    n = strlen(cP);
-                    ++i;
-                    cP += n;
-                    *cP++ = ' ';
-                    unused -= n+1;
-                }
-            }
-            break;
-        case TA_BYTE:
-            {
-                unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, i);
-                while (i < count && unused >= min_needed) {
-                    n = snprintf(cP, unused, "%u", *ucP++);
-                    TA_ASSERT(n > 0 && n < unused);
-                    ++i;
-                    cP += n;
-                    *cP++ = ' ';
-                    unused -= n+1;
-                }
-            }
-            break;
-        }
-    }
-
-    TA_ASSERT(unused >=1 );
-    cP[-1] = '}';         /* Terminate list */
-    *cP = '\0';
-    o->length = cP - o->bytes; /* Terminating null not included in length */
-            
-    /* Only shrink array if unused space is comparatively too large */
-    unused = allocated - (o->length + 1);
-    if (unused > (allocated / 8) && unused > 20)
-        o->bytes = ckrealloc(o->bytes, o->length + 1);
-    return;
-}
-
 Tcl_Obj *tcol_new(thdr_t *thdr)
 {
     Tcl_Obj *o;
@@ -1322,7 +1525,7 @@ Tcl_Obj *tcol_new(thdr_t *thdr)
         return NULL;
     o = Tcl_NewObj();
     Tcl_InvalidateStringRep(o);
-    ta_set_intrep(o, thdr);
+    tcol_set_intrep(o, thdr);
     return o;
 }
 
@@ -2137,7 +2340,7 @@ Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
 
     if (tcol_convert(ip, tcol) != TCL_OK)
         return NULL;
-    thdr = TARRAYHDR(tcol);
+    thdr = tcol_thdr(tcol);
     if (index < 0 || index >= thdr->used) {
         ta_index_range_error(ip, index);
         return NULL;
@@ -2155,7 +2358,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
     TA_ASSERT(low >= 0);
     TA_ASSERT(count >= 0);
 
-    psrc = TARRAYHDR(osrc);
+    psrc = tcol_thdr(osrc);
 
     if (fmt == TA_FORMAT_TARRAY) {
         thdr_t *thdr = thdr_range(ip, psrc, low, count);
@@ -2235,6 +2438,8 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
  * TBD - check all calls to tcol_make_modifiable to see if passed prefsize
  * is sensible else array will grow one element at a time with bad 
  * performance. Maybe even always allocate extra independent of prefsize.
+ *
+ * TBD - make a inline fastpath version of this
  */
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
                                 Tcl_Obj *tcol, int minsize, int prefsize)
@@ -2244,7 +2449,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
     TA_ASSERT(tcol_affirm(tcol));
     TA_ASSERT(! Tcl_IsShared(tcol));
 
-    thdr = TARRAYHDR(tcol);
+    thdr = tcol_thdr(tcol);
     if (prefsize == 0)
         prefsize = thdr->usable;
     if (minsize < thdr->used)
@@ -2257,16 +2462,11 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
         thdr = thdr_clone(ip, thdr, prefsize);
         if (thdr == NULL)
             return TCL_ERROR;   /* Note tcol is not changed */
-        ta_replace_intrep(tcol, thdr);
+        tcol_replace_intrep(tcol, thdr);
     } else if (thdr->usable < minsize) {
-        /* Case (3). Note don't use ta_set_intrep as we are keeping all 
-           fields and ref counts the same */
-        Tcl_InvalidateStringRep(tcol);
-        thdr = thdr_realloc(ip, thdr, prefsize);
-        if (thdr)
-            TARRAYHDR(tcol) = thdr;
-        else
-            return TCL_ERROR;   /* Note tcol is not changed */
+        /* Case (3). */
+        if (tcol_grow_intrep(ip, tcol, prefsize) != TCL_OK)
+            return TCL_ERROR;
     } else {
         /* Case (2) - just reuse, invalidate the string rep */
         Tcl_InvalidateStringRep(tcol);
@@ -2336,7 +2536,7 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
      */
     if (tcol_affirm(o)) {
         if (tcol_type(o) == TA_INT) {
-            thdr = TARRAYHDR(o);
+            thdr = tcol_thdr(o);
             if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
                 thdr = thdr_clone(ip, thdr, thdr->used);
                 if (thdr == NULL)
@@ -2353,6 +2553,8 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
             return TA_INDEX_TYPE_ERROR;
         }
     }
+
+    /* TBD - should we not try to convert to a tcol ? Above only checks if already a tcol */
 
     /* If pindex is NULL, caller never wants to be treated as a single index */
     if (pindex != NULL) {
@@ -2412,7 +2614,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
     TA_ASSERT(pindices->type == TA_INT);
     count = pindices->used;
 
-    psrc = TARRAYHDR(osrc);
+    psrc = tcol_thdr(osrc);
     if (fmt == TA_FORMAT_TARRAY) {
         thdr = thdr_alloc(ip, psrc->type, count);
         if (thdr == NULL)
@@ -2562,7 +2764,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     status = tcol_make_modifiable(ip, tcol, tcol_occupancy(tcol), 0);
     if (status == TCL_OK) {
-        thdr_t *thdr = TARRAYHDR(tcol);
+        thdr_t *thdr = tcol_thdr(tcol);
         if (indexb) {
             status = ta_fix_range_bounds(ip, thdr->used, indexa,
                                              indexb, &low, &count);
@@ -2601,7 +2803,7 @@ TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
     if (ocount == NULL) {
         /* Values may be given as a column or a list */
         if ((status = tcol_convert(NULL, ovalue)) == TCL_OK)
-            status = tcol_copy_thdr(ip, tcol, TARRAYHDR(ovalue), opos, 1);
+            status = tcol_copy_thdr(ip, tcol, tcol_thdr(ovalue), opos, 1);
         else
             status = tcol_put_objs(ip, tcol, ovalue, opos, 1);
     } else {
@@ -2616,7 +2818,7 @@ TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                     ta_value_t tav;
                     if ((status = ta_value_from_obj(ip, ovalue,
                                                     tcol_type(tcol), &tav)) == TCL_OK)
-                        thdr_fill_range(ip, TARRAYHDR(tcol), &tav, pos, count, 1);
+                        thdr_fill_range(ip, tcol_thdr(tcol), &tav, pos, count, 1);
                 }
             } else if (count < 0) {
                 status = ta_bad_count_error(ip, count);
@@ -2650,7 +2852,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
         if (status == TCL_OK && count != 0) {
             status = tcol_make_modifiable(ip, tcol, low+count, 0);
             if (status == TCL_OK)
-                thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, count, 0);
+                thdr_fill_range(ip, tcol_thdr(tcol), &value, low, count, 0);
         }
     } else {
         /* Not a range, either a list or single index */
@@ -2667,7 +2869,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             } else {
                 status = tcol_make_modifiable(ip, tcol, low+1, 0);
                 if (status == TCL_OK)
-                    thdr_fill_range(ip, TARRAYHDR(tcol), &value, low, 1, 0);
+                    thdr_fill_range(ip, tcol_thdr(tcol), &value, low, 1, 0);
             }
             break;
         case TA_INDEX_TYPE_THDR:
@@ -2675,7 +2877,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
             if (status == TCL_OK && count > 0) {
                 status = tcol_make_modifiable(ip, tcol, count, count); // TBD - count + extra?
                 if (status == TCL_OK)
-                    thdr_fill_indices(ip, TARRAYHDR(tcol), &value, pindices, count);
+                    thdr_fill_indices(ip, tcol_thdr(tcol), &value, pindices, count);
             }
             thdr_decr_refs(pindices);
             break;
@@ -2695,13 +2897,13 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    if (thdr_shared(TARRAYHDR(tcol))) {
-        thdr = thdr_clone_reversed(ip, TARRAYHDR(tcol), 0);
+    if (thdr_shared(tcol_thdr(tcol))) {
+        thdr = thdr_clone_reversed(ip, tcol_thdr(tcol), 0);
         if (thdr == NULL)
             return TCL_ERROR;
-        ta_replace_intrep(tcol, thdr);
+        tcol_replace_intrep(tcol, thdr);
     } else {
-        thdr_reverse(TARRAYHDR(tcol));
+        thdr_reverse(tcol_thdr(tcol));
         Tcl_InvalidateStringRep(tcol);
     }
     return TCL_OK;
@@ -2830,7 +3032,7 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,
                                       psrc->used + (insert ? cur_used : first),
                                       0);
         if (status == TCL_OK)
-            thdr_copy(TARRAYHDR(tcol), first, psrc, 0, psrc->used, insert); 
+            thdr_copy(tcol_thdr(tcol), first, psrc, 0, psrc->used, insert); 
     }
     return status;
 }
@@ -2870,7 +3072,7 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
             /* Note even on error thdr_put_objs guarantees a consistent 
              * and unchanged tcol
              */
-            status = thdr_put_objs(ip, TARRAYHDR(tcol),
+            status = thdr_put_objs(ip, tcol_thdr(tcol),
                                    n, nvalues, values, insert);
         }
     }
@@ -2911,7 +3113,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                 status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcol), pindices, &new_size);
                 if (status == TCL_OK) {
                     status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
-                    thdr_place_objs(ip, TARRAYHDR(tcol), pindices,
+                    thdr_place_objs(ip, tcol_thdr(tcol), pindices,
                                     new_size,
                                     nvalues, ovalues);
                 }
@@ -2931,12 +3133,12 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
     thdr_t *pindices, *psrc;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
-    TA_ASSERT(osrc->typePtr == &g_tcol_type);
+    TA_ASSERT(tcol_affirm(osrc));
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    psrc = TARRAYHDR(osrc);
+    psrc = tcol_thdr(osrc);
     if (psrc->type != tcol_type(tcol))
         return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
@@ -2951,7 +3153,7 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
             status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcol), pindices, &new_size);
             if (status == TCL_OK) {
                 status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
-                thdr_place_indices(ip, TARRAYHDR(tcol), psrc, pindices, new_size);
+                thdr_place_indices(ip, tcol_thdr(tcol), psrc, pindices, new_size);
             }
         }
     }

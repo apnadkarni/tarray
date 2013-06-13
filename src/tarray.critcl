@@ -129,23 +129,24 @@ if {$build_opts(use_libdispatch)} {
 ################################################################
 # Type conversions
 
-critcl::argtype TArrayObjPtr {
+critcl::argtype TColObjPtr {
     if (tcol_convert(interp, @@) != TCL_OK)
         return TCL_ERROR;
     @A = @@;
 }
 
-critcl::argtype thdr_t* {
-    if (tcol_convert(interp, @@) != TCL_OK)
+critcl::argtype TableObjPtr {
+    if (table_convert(interp, @@) != TCL_OK)
         return TCL_ERROR;
-    @A = TARRAYHDR(@@);
+    @A = @@;
 }
 
 ################################################################
 # Common functions
 
 critcl::ccode {
-    typedef Tcl_Obj *TArrayObjPtr;
+    typedef Tcl_Obj *TColObjPtr;
+    typedef Tcl_Obj *TableObjPtr;
 
     /* Must match order of TA_FORMAT_* in tarray.h */
     static const char *gFormatOptions[] = {
@@ -283,15 +284,15 @@ critcl::ccommand tarray::column::vdelete {} {
     return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
-critcl::cproc tarray::column::size {Tcl_Interp* interp TArrayObjPtr tcol} int {
+critcl::cproc tarray::column::size {TColObjPtr tcol} int {
     return tcol_occupancy(tcol);
 }
 
-critcl::cproc tarray::column::type {Tcl_Interp* interp TArrayObjPtr tcol} "const char*" {
+critcl::cproc tarray::column::type {TColObjPtr tcol} "const char*" {
     return ta_type_string(tcol_type(tcol));
 }
 
-critcl::cproc tarray::column::index {Tcl_Interp* interp TArrayObjPtr COLUMN Tcl_Obj* INDEX} ok {
+critcl::cproc tarray::column::index {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj* INDEX} ok {
     int ix;
     Tcl_Obj *o;
     if (ta_convert_index(interp, INDEX, &ix, tcol_occupancy(COLUMN)-1, 0, tcol_occupancy(COLUMN)-1) != TCL_OK)
@@ -324,7 +325,7 @@ critcl::ccommand tarray::column::get {} {
      * In that the string rep will anyways exist and question of shimmering
      * does not arise.
      */
-    if (tcol_affirm(objv[1])) {
+    if (tcol_affirm(objv[1]) || table_affirm(objv[1])) {
         ta_arg = 1;
     } else {
         /* OK, see if it is an option */
@@ -442,8 +443,8 @@ critcl::ccommand tarray::column::vsort {} {
     return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 
-critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TArrayObjPtr tcol} ok {
-    thdr_t *thdrP = TARRAYHDR(tcol);
+critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TColObjPtr tcol} ok {
+    thdr_t *thdrP = tcol_thdr(tcol);
     if (thdrP->type != TA_BOOLEAN) {
         Tcl_SetResult(interp, "tarray type is not boolean", TCL_STATIC);
         return TCL_ERROR;
@@ -502,7 +503,7 @@ critcl::cproc tarray::column::put {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* V
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, VALUES) == TCL_OK) {
         /* It is a tarray. Verify the right type */
-        status = tcol_copy_thdr(interp, tcol, TARRAYHDR(VALUES), FIRST, 0);
+        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), FIRST, 0);
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
@@ -523,7 +524,7 @@ critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Ob
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, VALUES) == TCL_OK) {
         /* It is a tarray */
-        status = tcol_copy_thdr(interp, tcol, TARRAYHDR(VALUES), FIRST, 0);
+        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), FIRST, 0);
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
@@ -641,9 +642,9 @@ critcl::ccommand tarray::column::intersect3 {} {
     acol = objv[objc-2];
     bcol = objv[objc-1];
 
-    athdr = TARRAYHDR(acol);
+    athdr = tcol_thdr(acol);
     atype = athdr->type;
-    bthdr = TARRAYHDR(bcol);
+    bthdr = tcol_thdr(bcol);
 
     if (athdr == bthdr) {
         /* TBD - also special case when either column is zero size */
@@ -762,7 +763,7 @@ critcl::ccommand tarray::column::intersect3 {} {
             }
             if (tcol_sort(interp, acol, sort_flags) != TCL_OK)
                 goto vamoose;
-            athdr = TARRAYHDR(acol);
+            athdr = tcol_thdr(acol);
         }
 
         if (b_current_order != order) {
@@ -773,7 +774,7 @@ critcl::ccommand tarray::column::intersect3 {} {
             }
             if (tcol_sort(interp, bcol, sort_flags) != TCL_OK)
                 goto vamoose;
-            bthdr = TARRAYHDR(bcol);
+            bthdr = tcol_thdr(bcol);
         }
     }
 
@@ -963,7 +964,7 @@ critcl::ccode {
         case 6:
             /* If valid, options must be present */
             /* To prevent shimmering, don't check for options if a tarray */
-            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-columns"))
+            if (strcmp(Tcl_GetString(objv[1]), "-columns"))
                 return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
             *pomap = objv[2];
             *potab = objv[3];
@@ -1034,7 +1035,7 @@ critcl::ccode {
         /* If 4 or 5 args, no options are present */
         if (objc > 5) {
             /* To prevent shimmering, don't check for options if a tarray */
-            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-columns"))
+            if (strcmp(Tcl_GetString(objv[1]), "-columns"))
                 return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
             argoff = 2;
             *pomap = objv[2];
@@ -1135,8 +1136,7 @@ critcl::ccommand tarray::table::get {} {
      * In that the string rep will anyways exist and question of shimmering
      * does not arise.
      */
-    if (tcol_affirm(objv[1])) {
-        /* Note we check for tcol_affirm, not table_affirm */
+    if (tcol_affirm(objv[1]) || table_affirm(objv[1])) {
         ta_arg = 1;
     } else {
         /* OK, see if it is an option */
@@ -1229,8 +1229,7 @@ critcl::ccode {
         *pomap = NULL;
         /* If 4 or 5 args, no options are present */
         if (objc > 5) {
-            /* To prevent shimmering, don't check for options if a tarray */
-            if (tcol_affirm(objv[1]) || strcmp(Tcl_GetString(objv[1]), "-columns"))
+            if (strcmp(Tcl_GetString(objv[1]), "-columns"))
                 return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
             argoff = 2;
             *pomap = objv[2];
@@ -1361,21 +1360,12 @@ critcl::cproc tarray::table::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     return ta_set_var_result(interp, table_reverse(interp, table), ovar, table);
 }
 
-# TBD - document and test
-critcl::cproc tarray::table::width {Tcl_Interp* interp Tcl_Obj* TABLE} ok {
-    TCL_RESULT status;
-    status = table_convert(interp, TABLE);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, Tcl_NewIntObj(table_width(TABLE)));
-    return status;
+critcl::cproc tarray::table::size {TableObjPtr TABLE} int {
+    return table_length(TABLE);
 }
 
-critcl::cproc tarray::table::size {Tcl_Interp* interp Tcl_Obj* TABLE} ok {
-    TCL_RESULT status;
-    status = table_convert(interp, TABLE);
-    if (status == TCL_OK)
-        Tcl_SetObjResult(interp, Tcl_NewIntObj(table_length(TABLE)));
-    return status;
+critcl::cproc tarray::table::width {TableObjPtr TABLE} int {
+    return table_width(TABLE);
 }
 
 critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {

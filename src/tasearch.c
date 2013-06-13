@@ -635,7 +635,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     if (tcol_convert(ip, objv[objc-2]) != TCL_OK)
         return TCL_ERROR;
 
-    haystackP = TARRAYHDR(objv[objc-2]);
+    haystackP = tcol_thdr(objv[objc-2]);
     search.indices = NULL;
     search.flags = 0;
     search.lower = 0;
