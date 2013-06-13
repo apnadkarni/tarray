@@ -4,58 +4,25 @@ namespace eval tarray {
     namespace eval db {}
 }
 
-proc tarray::table::create {args} {
+proc tarray::table::create {def} {
+    set colnames {}
     set cols {}
-    switch -exact -- [llength $args] {
-        1 {
-            # Verify each element is a column and of the correct size
-            foreach col [lindex $args 0] {
-                if {[tarray::column::size $col] != [tarray::column::size [lindex $args 0 0]]} {
-                    error "Columns in table initializer are not the same size."
-                }
-                lappend cols $col
-            }
-            return [tarray::column::create any $cols]
-        }
-        2 -
-        3 {
-            set initsize 0
-            if {[llength $args] == 3} {
-                set initsize [lindex $args 2]
-            }
-            foreach type [lindex $args 0] {
-                lappend cols [tarray::column::create $type {} $initsize]
-            }
-            set tab [tarray::column::create any $cols]
-            tarray::table::vput tab [lindex $args 1]
-            return $tab
-        }
-        0 {
-            return [tarray::column::create any {}]
-        }
-        default {
-            return -level 1 -code error "wrong # args:"
-        }
+    foreach {colname coltype} $def {
+        lappend colnames $colname
+        lappend cols [tarray::column::create $coltype {}]
     }
 
+    return [list tarray_table $colnames $cols]
 }
 
-proc tarray::table::_create_from_list {types initvals {initsize 0}} {
-    set cols {}
-    foreach type $types init $initvals {
-        lappend cols [tarray::column::create $type $init $initsize]
-    }
-    return [tarray::column::create any $cols]
-}
-
-interp alias {} tarray::table::width {} tarray::column::size
+interp alias {} tarray::table::width {} tarray::column::XXXsize
 
 proc tarray::table::column {tab colnum} {
     # A table itself is a column (containing columns)
-    return [tarray::column::index $tab $colnum]
+XXX    return [tarray::column::index $tab $colnum]
 }
 
-interp alias {} tarray::table::slice {} tarray::column::get
+interp alias {} XXXtarray::table::slice {} tarray::column::get
 
 proc tarray::unsupported::build_info {} {
     set result ""

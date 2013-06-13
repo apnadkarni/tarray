@@ -49,10 +49,19 @@ TCL_RESULT ta_invalid_opt_error(Tcl_Interp *ip, char *optname)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_not_tarray_error(Tcl_Interp *ip)
+TCL_RESULT ta_not_column_error(Tcl_Interp *ip)
 {
     if (ip) {
-        Tcl_SetResult(ip, "Object is not a TArray", TCL_STATIC);
+        Tcl_SetResult(ip, "Object is not a TArray column", TCL_STATIC);
+        Tcl_SetErrorCode(ip, "TARRAY", "TCLOBJTYPE", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_not_table_error(Tcl_Interp *ip)
+{
+    if (ip) {
+        Tcl_SetResult(ip, "Object is not a TArray table", TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "TCLOBJTYPE", NULL);
     }
     return TCL_ERROR;

@@ -13,7 +13,7 @@ TCL_RESULT ta_dump(ClientData clientdata, Tcl_Interp *ip,
     Tcl_Obj *o;
     int i;
     char buf[2*TCL_INTEGER_SPACE+6];
-    Tcl_Obj *oresult[20];
+    Tcl_Obj *oresult[22];
 
     if (objc != 2) {
 	Tcl_WrongNumArgs(ip, 1, objv, "value");
@@ -39,15 +39,19 @@ TCL_RESULT ta_dump(ClientData clientdata, Tcl_Interp *ip,
         oresult[i] = Tcl_NewStringObj("", -1);
 	Tcl_AppendLimitedToObj(oresult[i], o->bytes, o->length, 80, "...");
         ++i;
-    } else {
+    } else
         oresult[i++] = Tcl_NewObj();
+
+    if (o->typePtr == &ta_table_type) {
+        oresult[i++] = Tcl_NewStringObj("columnames", -1);
+        oresult[i++] = table_column_names(o);
     }
 
-    if (o->typePtr == &g_tcol_type || o->typePtr == &g_table_type) {
+    if (o->typePtr == &ta_column_type || o->typePtr == &ta_table_type) {
         thdr_t *thdr;
         char *s;
         oresult[i++] = Tcl_NewStringObj("thdr*", -1);
-        thdr = TARRAYHDR(o);
+        thdr = o->typePtr == &ta_column_type ? tcol_thdr(o) : table_thdr(o);
         sprintf(buf, "%p", (void *) thdr);
         oresult[i++] = Tcl_NewStringObj(buf, -1);
         oresult[i++] = Tcl_NewStringObj("thdr.nrefs", -1);

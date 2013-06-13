@@ -216,12 +216,12 @@ if {![info exists tarray::test::known]} {
 
         # Manufacture the column-equivalent rep of a list
         proc crep {type {values {}}} {
-            return [list tarray $type $values]
+            return [list tarray_column $type $values]
         }
 
         proc validate {ta} {
             if {[llength $ta] != 3 ||
-                [lindex $ta 0] ne "tarray" ||
+                [lindex $ta 0] ne "tarray_column" ||
                 [lindex $ta 1] ni {any byte boolean double int uint wide}} {
                 error "Value [string range $ta 0 40]... is not a tarray"
             }

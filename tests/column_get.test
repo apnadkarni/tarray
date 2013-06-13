@@ -14,7 +14,7 @@ namespace eval tarray::test {
     proc cmp_get_indexlist_ascol {type indexlist ta} {
         variable sample
 
-        if {[lindex $ta 0] ne "tarray"} {
+        if {[lindex $ta 0] ne "tarray_column"} {
             return "Return value not a column"
         }
         if {[lindex $ta 1] ne $type} {
@@ -116,7 +116,7 @@ namespace eval tarray::test {
 
         set ta [tarray::column get $cols_for_get($type) $low $high]
 
-        if {[lindex $ta 0] ne "tarray"} {
+        if {[lindex $ta 0] ne "tarray_column"} {
             return "Return value not a column"
         }
         if {[lindex $ta 1] ne $type} {
