@@ -128,8 +128,10 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
 
     while (n--) {
         int colnum;
-        if (Tcl_GetIntFromObj(ip, objs[n], &colnum) != TCL_OK)
+        if (Tcl_GetIntFromObj(NULL, objs[n], &colnum) != TCL_OK &&
+            table_parse_column_index(ip, table, objs[n], &colnum) != TCL_OK)
             goto error_handler;
+
         if (colnum >= width) {
             ta_index_range_error(ip, colnum);
             goto error_handler;
