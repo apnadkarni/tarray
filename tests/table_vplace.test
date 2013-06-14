@@ -33,7 +33,7 @@ namespace eval tarray::test {
         if {$pass_values_as_list} {
             return [vtab_change_and_verify $types $values $expected vplace $changes $indexlist_or_indexarray]
         } else {
-            return [vtab_change_and_verify $types $values $expected vplace [tarray::table create $types $changes] $indexlist_or_indexarray]
+            return [vtab_change_and_verify $types $values $expected vplace [tarray::table create [col_def $types] $changes] $indexlist_or_indexarray]
         }
     }
 
@@ -618,10 +618,10 @@ namespace eval tarray::test {
     test table_vplace-stringrep-1.0 {
         Verify string representation is updated on unshared object - bug 18
     } -body {
-        set ta {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+        set ta {tarray_table {f0 f1 f2} {{tarray_column int {99}} {tarray_column int {99}} {tarray_column int {99}}}}
         tarray::table vplace ta {{0 1 2}} 1
         set ta
-    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+    } -result {tarray_table {f0 f1 f2} {{tarray_column int {99 0}} {tarray_column int {99 1}} {tarray_column int {99 2}}}}
 
 }
 

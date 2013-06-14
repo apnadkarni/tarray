@@ -9,7 +9,7 @@ namespace eval tarray::test {
         set ta [newtable {uint boolean any}]
         tarray::table vreverse ta
         set ta
-    } -result [crep any [list [crep uint {}] [crep boolean {}] [crep any {}]]]
+    } -result [trep [list [crep uint {}] [crep boolean {}] [crep any {}]]]
 
     test table_vreverse-1.1 {
         Vreverse a one element table

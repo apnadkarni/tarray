@@ -219,6 +219,19 @@ if {![info exists tarray::test::known]} {
             return [list tarray_column $type $values]
         }
 
+        # Manufacture the table-equivalent. columns is a list of
+        # tarray columns. Field names are constructed in same fashion
+        # as col_def
+        proc trep {columns} {
+            set i 0
+            set colnames {}
+            while {$i < [llength $columns]} {
+                lappend colnames col$i
+                incr i
+            }
+            return [list tarray_table $colnames $columns]
+        }
+
         proc validate {ta} {
             if {[llength $ta] != 3 ||
                 [lindex $ta 0] ne "tarray_column" ||
@@ -267,6 +280,7 @@ if {![info exists tarray::test::known]} {
 
             return 1
         }
+        tcltest::customMatch list [list tarray::test::lequal any]
 
         proc llequal {types ll1 ll2} {
             foreach type $types l1 $ll1 l2 $ll2 {
@@ -296,6 +310,31 @@ if {![info exists tarray::test::known]} {
             return [lequal $atype $avals $bvals]
         }
 
+        # Test two tables for equality
+        tcltest::customMatch table tarray::test::tequal
+        proc tequal {a b} {
+            lassign $a atag acolnames acolumns
+            lassign $b btag bcolnames bcolumns
+            if {$atag ne "tarray_table" || $btag ne "tarray_table"} {
+                error "$a or $b is not a table"
+            }
+
+            if {![lequal any $acolnames $bcolnames]} {
+                return 0
+            }
+            if {[llength $acolumns] != [llength $bcolumns]} {
+                return 0
+            }
+
+            foreach cola $acolumns colb $bcolumns {
+                if {![cequal $cola $colb]} {
+                    return 0
+                }
+            }
+
+            return 1
+        }
+
         # Compare a column and a list for equality
         proc clequal {col type l} {
             # TBD - may be also force getting internal rep of column
@@ -304,9 +343,14 @@ if {![info exists tarray::test::known]} {
         }
 
         # Compare a table and a list of lists for equality
-        proc tlequal {tab types ll} {
-            foreach col [lindex $tab 2] type $types l $ll {
-                if {![clequal $col $type $l]} { return 0 }
+        proc tlequal {tab coldef ll} {
+            foreach {colname coltype} $coldef name [lindex $tab 1] {
+                if {$colname ne $name} {
+                    return 0
+                }
+            }
+            foreach col [lindex $tab 2] {colname coltype} $coldef l $ll {
+                if {![clequal $col $coltype $l]} { return 0 }
             }
             return 1
         }
@@ -366,11 +410,15 @@ if {![info exists tarray::test::known]} {
         }
 
         # Compare a table and row values
-        proc trequal {tab types rows} {
-            #puts tab:$tab
-            #puts rows:$rows
-            foreach tcol [lindex $tab 2] type $types col [rows2cols $rows] {
-                if {![clequal $tcol $type $col]} {
+        proc trequal {tab coldef rows} {
+            foreach {colname coltype} $coldef name [lindex $tab 1] {
+                if {$colname ne $name} {
+                    return 0
+                }
+            }
+
+            foreach tcol [lindex $tab 2] {colname coltype} $coldef col [rows2cols $rows] {
+                if {![clequal $tcol $coltype $col]} {
                     return 0
                 }
             }
@@ -378,12 +426,13 @@ if {![info exists tarray::test::known]} {
         }
 
         proc tab_change_and_verify {types initrows expected op args} {
-            set tab [tarray::table create $types $initrows]
-            if {![trequal [tarray::table {*}$op $tab {*}$args] $types $expected]} {
+            set coldef [col_def $types]
+            set tab [tarray::table create $coldef $initrows]
+            if {![trequal [tarray::table {*}$op $tab {*}$args] $coldef $expected]} {
                 return 1
             }
             # Verify original is unchanged
-            if {![trequal $tab $types $initrows]} {
+            if {![trequal $tab $coldef $initrows]} {
                 return 2
             }
             return 0
@@ -391,7 +440,8 @@ if {![info exists tarray::test::known]} {
 
         # Unshared version of above
         proc tab_change_and_verify_u {types initrows expected op args} {
-            if {![trequal [tarray::table {*}$op [tarray::table create $types $initrows] {*}$args] $types $expected]} {
+            set coldef [col_def $types]
+            if {![trequal [tarray::table {*}$op [tarray::table create $coldef $initrows] {*}$args] $coldef $expected]} {
                 # Note for compatibility with other routines, success is 0
                 return 1
             }
@@ -399,18 +449,20 @@ if {![info exists tarray::test::known]} {
         }
 
         proc vtab_change_and_verify {types initrows expected vop args} {
-            set tab [tarray::table create $types $initrows]
+            set coldef [col_def $types]
+
+            set tab [tarray::table create $coldef $initrows]
 
             # Force generation of a string rep. This is to verify
             # that the string rep is actually regenerated after a
             # command (this was a bug).
             string length $tab
 
-            if {![trequal [tarray::table {*}$vop tab {*}$args] $types $expected]} {
+            if {![trequal [tarray::table {*}$vop tab {*}$args] $coldef $expected]} {
                 return 1
             }
             # Verify variable is also changed
-            if {![trequal $tab $types $expected]} {
+            if {![trequal $tab $coldef $expected]} {
                 return 2
             }
             return 0
@@ -421,7 +473,8 @@ if {![info exists tarray::test::known]} {
         }
 
         proc newtable {types {init {}}} {
-            return [tarray::table create $types $init]
+            set coldef [col_def $types]
+            return [tarray::table create $coldef $init]
         }
         
         proc indices {low high} {
@@ -547,7 +600,16 @@ if {![info exists tarray::test::known]} {
             if {[llength $types] == 0} {
                 set types { any boolean byte double int uint wide }
             }
-            return [tarray::table create $types [samplerows $types $low $high]]
+            return [tarray::table create [col_def $types] [samplerows $types $low $high]]
+        }
+
+        proc col_def types {
+            set def {}
+            set i -1
+            foreach type $types {
+                lappend def col[incr i] $type
+            }
+            return $def
         }
 
         proc lmax {l} {

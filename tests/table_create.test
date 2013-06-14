@@ -11,69 +11,34 @@ namespace eval tarray::test {
         test table_create-$type-1.0 {
             Test creation of empty table
         } -body {
-            tarray::table create [list $type] {}
-        } -result [crep any [list [crep $type {}]]]
+            tarray::table create [list fld_$type $type] {}
+        } -result [list tarray_table [list fld_$type] [list [crep $type {}]]]
 
         test table_create-$type-1.1 {
-            Test creation of empty table with preallocation
-        } -body {
-            tarray::table create [list $type] {} 1000
-        } -result [crep any [list [crep $type {}]]]
-
-        test table_create-$type-2.0 {
-            Test creation of table with initial column
-        } -body {
-            tarray::table create [list [samplecolumn $type]]
-        } -result [crep any [list [crep $type [samplerange $type]]]]
-
-        test table_create-$type-2.1 {
             Test creation of table with initial list
         } -body {
-            tarray::table create [list $type] [samplerows $type]
-        } -result [crep any [list [crep $type [samplerange $type]]]]
+            tarray::table create [list _$type $type] [samplerows $type]
+        } -result [list tarray_table _$type [list [crep $type [samplerange $type]]]] -match list
     }
 
     test table_create-1.0 {
         Test creation of null columns
     } -body {
         tarray::table create {}
-    } -result [crep any {}]
+    } -result [list tarray_table {} {}]
 
     test table_create-1.1 {
         Test creation of null lists
     } -body {
         tarray::table create {} {}
-    } -result [crep any {}]
+   } -result [list tarray_table {} {}]
     
     test table_create-2.0 {
-        Test creation table using columns
-    } -body {
-        set types { any boolean byte double int uint wide }
-        set tab [tarray::table create \
-                     [list \
-                          [samplecolumn any ] \
-                          [samplecolumn boolean ] \
-                          [samplecolumn byte ] \
-                          [samplecolumn double ] \
-                          [samplecolumn int ] \
-                          [samplecolumn uint ] \
-                          [samplecolumn wide ]]]
-        tlequal $tab $types [list \
-                          [samplerange any ] \
-                          [samplerange boolean ] \
-                          [samplerange byte ] \
-                          [samplerange double ] \
-                          [samplerange int ] \
-                          [samplerange uint ] \
-                          [samplerange wide ]]
-    } -result 1
-
-    test table_create-2.1 {
         Test creation table using rows
     } -body {
-        set types { any boolean byte double int uint wide }
-        set tab [tarray::table create $types [samplerows $types]]
-        tlequal $tab $types [list \
+        set types {any boolean byte double int uint wide }
+        set tab [tarray::table create [col_def $types] [samplerows $types]]
+        tlequal $tab [col_def $types] [list \
                           [samplerange any ] \
                           [samplerange boolean ] \
                           [samplerange byte ] \
@@ -84,86 +49,78 @@ namespace eval tarray::test {
     } -result 1
 
     test table_create-3.0 {
-        Test creation with invalid column
+        Test creation with duplicate column names
     } -body {
-        tarray::table::create {this is not a column}
-    } -result "*is not a TArray*" -returnCodes error -match glob
+        tarray::table::create {colname int colname wide}
+    } -result "Duplicate column name 'colname'" -returnCodes error -match glob
 
     test table_create-3.1 {
-        Test creation with invalid list
+        Test creation with invalid initializer list
     } -body {
-        tarray::table::create [list int] {{notanint}}
+        tarray::table::create [list anycol any intcol int] {{somestring notanint}}
     } -result "*expected integer*" -returnCodes error -match glob
 
     test table_create-3.2 {
-        Test creation with mismatched column sizes
+        Test creation with invalid column name
     } -body {
-        tarray::table::create [list [samplecolumn int 0 10] [samplecolumn int 0 9]]
-    } -result "Columns*not the same size." -returnCodes error -match glob
+        tarray::table::create [list 0col any intcol int] {{somestring 0}}
+    } -result "Invalid column name syntax." -returnCodes error
+
+    test table_create-3.3 {
+        Test creation with invalid column name
+    } -body {
+        tarray::table::create [list "col umn" any intcol int] {{somestring 0}}
+    } -result "Invalid column name syntax." -returnCodes error
 
     test table_from_string-1.0 {
         Verify generation of table from string - bug #17
     } -body {
-        tarray::table size {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}}
+        tarray::table size {tarray_table {f0 f1 f2} {{tarray_column int {99}} {tarray_column int {99}} {tarray_column int {99}}}}
     } -result 1
 
     test table_from_string-1.1 {
         Verify generation of table from string - bug #17
     } -body {
         tarray::table size \
-            [list tarray any \
+            [list tarray_table {f0 f1 f2 f3 f4 f5 f6} \
                  [list \
-                      [list tarray any [samplerange any 0 99]] \
-                      [list tarray boolean [samplerange boolean 0 99]] \
-                      [list tarray byte    [samplerange byte 0 99]] \
-                      [list tarray double [samplerange double 0 99]] \
-                      [list tarray int [samplerange int 0 99]] \
-                      [list tarray wide [samplerange wide 0 99]] \
-                      [list tarray uint [samplerange uint 0 99]]]]
+                      [list tarray_column any [samplerange any 0 99]] \
+                      [list tarray_column boolean [samplerange boolean 0 99]] \
+                      [list tarray_column byte    [samplerange byte 0 99]] \
+                      [list tarray_column double [samplerange double 0 99]] \
+                      [list tarray_column int [samplerange int 0 99]] \
+                      [list tarray_column wide [samplerange wide 0 99]] \
+                      [list tarray_column uint [samplerange uint 0 99]]]]
     } -result 100
 
     test table_from_string-2.0 {
         Verify error in first col length in generation of table from string
     } -body {
         tarray::table size \
-            [list tarray any \
+            [list tarray_table {f0 f1 f2 f3 f4 f5 f6} \
                  [list \
-                      [list tarray any [samplerange any 0 100]] \
-                      [list tarray boolean [samplerange boolean 0 99]] \
-                      [list tarray byte    [samplerange byte 0 99]] \
-                      [list tarray double [samplerange double 0 99]] \
-                      [list tarray int [samplerange int 0 99]] \
-                      [list tarray wide [samplerange wide 0 99]] \
-                      [list tarray uint [samplerange uint 0 99]]]]
+                      [list tarray_column any [samplerange any 0 100]] \
+                      [list tarray_column boolean [samplerange boolean 0 99]] \
+                      [list tarray_column byte    [samplerange byte 0 99]] \
+                      [list tarray_column double [samplerange double 0 99]] \
+                      [list tarray_column int [samplerange int 0 99]] \
+                      [list tarray_column wide [samplerange wide 0 99]] \
+                      [list tarray_column uint [samplerange uint 0 99]]]]
     } -result "Columns in tarray table have differing lengths." -returnCodes error
 
     test table_from_string-2.1 {
         Verify error in last col length in generation of table from string
     } -body {
         tarray::table size \
-            [list tarray any \
+            [list tarray_table {f0 f1 f2 f3 f4 f5 f6} \
                  [list \
-                      [list tarray any [samplerange any 0 99]] \
-                      [list tarray boolean [samplerange boolean 0 99]] \
-                      [list tarray byte    [samplerange byte 0 99]] \
-                      [list tarray double [samplerange double 0 99]] \
-                      [list tarray int [samplerange int 0 99]] \
-                      [list tarray wide [samplerange wide 0 99]] \
-                      [list tarray uint [samplerange uint 0 100]]]]
-    } -result "Columns in tarray table have differing lengths." -returnCodes error
-    test table_from_string-2.2 {
-        Verify error in middle col length in generation of table from string
-    } -body {
-        tarray::table size \
-            [list tarray any \
-                 [list \
-                      [list tarray any [samplerange any 0 99]] \
-                      [list tarray byte    [samplerange byte 0 99]] \
-                      [list tarray boolean [samplerange boolean 0 98]] \
-                      [list tarray double [samplerange double 0 99]] \
-                      [list tarray int [samplerange int 0 99]] \
-                      [list tarray wide [samplerange wide 0 99]] \
-                      [list tarray uint [samplerange uint 0 99]]]]
+                      [list tarray_column any [samplerange any 0 99]] \
+                      [list tarray_column boolean [samplerange boolean 0 99]] \
+                      [list tarray_column byte    [samplerange byte 0 99]] \
+                      [list tarray_column double [samplerange double 0 99]] \
+                      [list tarray_column int [samplerange int 0 99]] \
+                      [list tarray_column wide [samplerange wide 0 99]] \
+                      [list tarray_column uint [samplerange uint 0 98]]]]
     } -result "Columns in tarray table have differing lengths." -returnCodes error
 
 }
