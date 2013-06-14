@@ -395,6 +395,7 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
 
+Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns);
 Tcl_Obj *table_column_names (Tcl_Obj *otab);
 TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, Tcl_Obj *omap, int insert);
 TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
@@ -653,17 +654,6 @@ TA_INLINE int table_length(Tcl_Obj *table)
 {
     TA_ASSERT(table_affirm(table));
     return table_width(table) == 0 ? 0 : tcol_occupancy(table_column(table, 0));
-}
-
-/* Assumes properly structured thdr */
-TA_INLINE Tcl_Obj *table_new(thdr_t *thdr)
-{
-    Tcl_Obj *table;
-    TA_ASSERT(thdr->type == TA_ANY);
-    table = tcol_new(thdr);
-    if (table)
-        table->typePtr = &ta_table_type;
-    return table;
 }
 
 #endif

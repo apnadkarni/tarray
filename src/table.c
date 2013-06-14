@@ -300,7 +300,7 @@ Tcl_Obj *table_column_names (Tcl_Obj *otab)
 {
     Tcl_Obj  *onames;
     Tcl_Obj **elems;
-    int       i, nelems, status;
+    int       i, nelems;
 
     TA_ASSERT(table_affirm(otab));
     TA_ASSERT(OBJCOLNAMES(otab));
@@ -382,15 +382,15 @@ vamoose:
 /* SHould only be called if o is not a table already */
 TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    int       i, ntcols, nelems, ncolnames, tatype, status;
+    int       i, ntcols, nelems, ncolnames, status;
     thdr_t   *thdr;
     Tcl_Obj **elems, **tcols, **colnames;
     Tcl_Obj  *colnames_map, *re;
 
     if (tcol_affirm(o) ||
-        Tcl_ListObjGetElements(NULL, o, &nelems, &elems) != TCL_OK
-        && nelems != 3
-        && strcmp(Tcl_GetString(elems[0]), ta_table_type.name)) {
+        Tcl_ListObjGetElements(NULL, o, &nelems, &elems) != TCL_OK ||
+        nelems != 3 ||
+        strcmp(Tcl_GetString(elems[0]), ta_table_type.name)) {
         return ta_not_table_error(ip);
     }
 
@@ -1187,6 +1187,23 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     return TCL_OK;
 }
 
+/* Assumes properly structured thdr */
+Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns)
+{
+    Tcl_Obj *o;
+
+    TA_ASSERT(thdr->type == TA_ANY);
+    TA_ASSERT(ocolumns);
+
+    if (thdr == NULL)
+        return NULL;
+    o = Tcl_NewObj();
+    Tcl_InvalidateStringRep(o);
+    table_set_intrep(o, thdr, ocolumns);
+    return o;
+}
+
+
 TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable,
                       Tcl_Obj *ofirst, /* NULL -> end of table */
                       Tcl_Obj *omap,
@@ -1301,7 +1318,7 @@ Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 return NULL;
             }
         }
-        return table_new(thdr);
+        return table_new(thdr, OBJCOLNAMES(osrc));
     }
 
     /*
@@ -1440,7 +1457,7 @@ Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
                 return NULL;
             }
         }
-        return table_new(thdr);
+        return table_new(thdr, OBJCOLNAMES(osrc));
     }
 
     /*
