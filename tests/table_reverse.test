@@ -8,13 +8,13 @@ namespace eval tarray::test {
     } -body {
         set ta [newtable {uint boolean any}]
         tarray::table reverse $ta
-    } -result [crep any [list [crep uint {}] [crep boolean {}] [crep any {}]]]
+    } -result [trep [list [crep uint {}] [crep boolean {}] [crep any {}]]]
 
     test table_reverse-1.1 {
         Reverse an empty table (unshared)
     } -body {
         tarray::table reverse [newtable {double byte int wide}]
-    } -result [crep any [list [crep double {}] [crep byte {}] [crep int {}] [crep wide {}]]]
+    } -result [trep [list [crep double {}] [crep byte {}] [crep int {}] [crep wide {}]]]
 
     test table_reverse-1.2 {
         Reverse a one element table (unshared)

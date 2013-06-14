@@ -33,7 +33,7 @@ namespace eval tarray::test {
         if {$pass_values_as_list} {
             return [tab_change_and_verify $types $values $expected place $changes $indexlist_or_indexarray]
         } else {
-            return [tab_change_and_verify $types $values $expected place [tarray::table create $types $changes] $indexlist_or_indexarray]
+            return [tab_change_and_verify $types $values $expected place [tarray::table create [col_def $types] $changes] $indexlist_or_indexarray]
         }
     }
 
@@ -67,7 +67,7 @@ namespace eval tarray::test {
         if {$pass_values_as_list} {
             return [tab_change_and_verify_u $types $values $expected place $changes $indexlist_or_indexarray]
         } else {
-            return [tab_change_and_verify_u $types $values $expected place [tarray::table create $types $changes] $indexlist_or_indexarray]
+            return [tab_change_and_verify_u $types $values $expected place [tarray::table create [col_def $types] $changes] $indexlist_or_indexarray]
         }
     }
 
@@ -643,8 +643,8 @@ namespace eval tarray::test {
     test table_place-stringrep-1.0 {
         Verify string representation is updated on unshared object - bug 18
     } -body {
-        tarray::table place {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}} {{0 1 2}} 1
-    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+        tarray::table place {tarray_table {f0 f1 f2} {{tarray_column int {99}} {tarray_column int {99}} {tarray_column int {99}}}} {{0 1 2}} 1
+    } -result {tarray_table {f0 f1 f2} {{tarray_column int {99 0}} {tarray_column int {99 1}} {tarray_column int {99 2}}}}
 
 }
 

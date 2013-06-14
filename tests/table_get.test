@@ -7,7 +7,7 @@ namespace eval tarray::test {
 
     proc test_table_get_indexlist_astable {indexlist {types {any boolean byte double int uint wide}}} {
         set got [tarray::table get -tarray [sampletable $types] $indexlist]
-        if {[trequal $got $types [samplerows $types $indexlist]]} {
+        if {[trequal $got [col_def $types] [samplerows $types $indexlist]]} {
             return ""
         } else {
             return "Returned table != expected"
@@ -16,7 +16,7 @@ namespace eval tarray::test {
 
     proc test_table_get_indices_astable {indexlist {types {any boolean byte double int uint wide}}} {
         set got [tarray::table get -tarray [sampletable $types] [indexcolumn $indexlist]]
-        if {[trequal $got $types [samplerows $types $indexlist]]} {
+        if {[trequal $got [col_def $types] [samplerows $types $indexlist]]} {
             return ""
         } else {
             return "Returned table != expected"
@@ -81,7 +81,7 @@ namespace eval tarray::test {
         set expected_rows [samplerows $types $low $high]
         set ta [tarray::table get -tarray [sampletable $types] $low $high]
 
-        if {[trequal $ta $types $expected_rows]} {
+        if {[trequal $ta [col_def $types] $expected_rows]} {
             return ""
         } else {
             return "Returned table != expected"
@@ -134,7 +134,7 @@ namespace eval tarray::test {
         Get an empty index list from empty array
     } -body {
         tarray::table get [newtable {}] {}
-    } -result [crep any {}]
+    } -result [trep {}]
 
     test table_get-indexlist-astable-1.1 {
         Get the first element in empty array
@@ -146,7 +146,7 @@ namespace eval tarray::test {
         Get an empty index list from empty array
     } -body {
         tarray::table get [newtable {int boolean any}] {}
-    } -result [crep any [list [crep int] [crep boolean] [crep any]]]
+    } -result [trep [list [crep int] [crep boolean] [crep any]]]
 
     test table_get-indexlist-astable-1.3 {
         Get the first element in empty array
@@ -206,7 +206,7 @@ namespace eval tarray::test {
         Get indexlist verify -tarray is default 
     } -body {
         tarray::table get -tarray [newtable {int any} {{0 a} {1 b}}] {1 0}
-    } -result [crep any [list [crep int {1 0}] [crep any {b a}]]]
+    } -result [trep [list [crep int {1 0}] [crep any {b a}]]]
 
 
     # get -list indexlist
@@ -344,7 +344,7 @@ namespace eval tarray::test {
         Get an empty index list from empty array
     } -body {
         tarray::table get [newtable {int boolean any}] [indexcolumn {}]
-    } -result [crep any [list [crep int] [crep boolean] [crep any]]]
+    } -result [trep [list [crep int] [crep boolean] [crep any]]]
 
     test table_get-indices-astable-1.1 {
         Get the first element in empty array
@@ -398,7 +398,7 @@ namespace eval tarray::test {
         Get indices verify -tarray is default 
     } -body {
         tarray::table get -tarray [newtable {int any} {{0 a} {1 b}}]  {1 0}
-    } -result [crep any [list [crep int {1 0}] [crep any {b a}]]]
+    } -result [trep [list [crep int {1 0}] [crep any {b a}]]]
 
 
     # get -list indices
@@ -516,25 +516,25 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {}] 0 end
-    } -result [crep any {}] -match column
+    } -result [trep {}] -match table
 
     test table_get-range-astable-1.1 {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {}] 0 0
-    } -result [crep any {}] -match column
+    } -result [trep {}] -match table
 
     test table_get-range-astable-1.2 {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {int any}] 0 end
-    } -result [crep any [list [crep int] [crep any]]]
+    } -result [trep [list [crep int] [crep any]]]
 
     test table_get-range-astable-1.3 {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {boolean any}] 0 0
-    } -result [crep any [list [crep boolean] [crep any]]]
+    } -result [trep [list [crep boolean] [crep any]]]
 
     test table_get-range-astable-2.0 {
         Get the first element
@@ -574,7 +574,7 @@ namespace eval tarray::test {
         Get indexlist -tarray option
     } -body {
         tarray::table get -tarray [newtable {int any} {{0 a} {1 b}}] 0 1
-    } -result [crep any [list [crep int {0 1}] [crep any {a b}]]]
+    } -result [trep [list [crep int {0 1}] [crep any {a b}]]]
 
 
     #

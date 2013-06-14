@@ -38,7 +38,7 @@ namespace eval tarray::test {
         if {$pass_as_list} {
             return [tab_change_and_verify $type $init $expected put $changes {*}$posargs]
         } else {
-            return [tab_change_and_verify $type $init $expected put [tarray::table create $type $changes] {*}$posargs]
+            return [tab_change_and_verify $type $init $expected put [tarray::table create [col_def $type] $changes] {*}$posargs]
         }
     }
 
@@ -77,7 +77,7 @@ namespace eval tarray::test {
         if {$pass_as_list} {
             return [tab_change_and_verify_u $type $init $expected put $changes {*}$posargs]
         } else {
-            return [tab_change_and_verify_u $type $init $expected put [tarray::table create $type $changes] {*}$posargs]
+            return [tab_change_and_verify_u $type $init $expected put [tarray::table create [col_def $type] $changes] {*}$posargs]
         }
     }
 
@@ -112,8 +112,8 @@ namespace eval tarray::test {
         Put a single value into an empty table (unshared tclobj, default position)
     } -body {
         set type {any boolean byte double int uint wide}
-        tarray::table put [tarray::table create {any boolean int} {}] {{anything true 99}}
-    } -result {tarray any {{tarray any {anything}} {tarray boolean {1}} {tarray int {99}}}}
+        tarray::table put [tarray::table create {f0 any f1 boolean f2 int} {}] {{anything true 99}}
+    } -result {tarray_table {f0 f1 f2} {{tarray_column any {anything}} {tarray_column boolean {1}} {tarray_column int {99}}}}
 
     test table_put-list-2.0 {
         Test storing of leading elements (shared tclobj)
@@ -213,8 +213,8 @@ namespace eval tarray::test {
         Put a single value into an empty table (unshared tclobj, default position)
     } -body {
         set type {any boolean byte double int uint wide}
-        tarray::table put [tarray::table create {any boolean int} {}] [tarray::table create {any boolean int} {{anything true 99}}]
-    } -result {tarray any {{tarray any {anything}} {tarray boolean {1}} {tarray int {99}}}}
+        tarray::table put [tarray::table create {f0 any f1 boolean f2 int} {}] [tarray::table create {r0 any r1 boolean r2 int} {{anything true 99}}]
+    } -result {tarray_table {f0 f1 f2} {{tarray_column any {anything}} {tarray_column boolean {1}} {tarray_column int {99}}}}
 
     test table_put-table-2.0 {
         Test storing of leading elements (shared tclobj)
@@ -306,8 +306,8 @@ namespace eval tarray::test {
     test table_put-stringrep-1.0 {
         Verify string representation is updated on unshared object - bug 18
     } -body {
-        tarray::table put {tarray any {{tarray int {99}} {tarray int {99}} {tarray int {99}}}} {{0 1 2}}
-    } -result {tarray any {{tarray int {99 0}} {tarray int {99 1}} {tarray int {99 2}}}}
+        tarray::table put {tarray_table {f0 f1 f2} {{tarray_column int {99}} {tarray_column int {99}} {tarray_column int {99}}}} {{0 1 2}}
+    } -result {tarray_table {f0 f1 f2} {{tarray_column int {99 0}} {tarray_column int {99 1}} {tarray_column int {99 2}}}}
 
 
 }
