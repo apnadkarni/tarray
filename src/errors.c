@@ -187,9 +187,40 @@ TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Invalid index range specification '%80.80s'.",
+                         Tcl_ObjPrintf("Invalid index range limit '%.80s'.",
                                        Tcl_GetString(o)));
         Tcl_SetErrorCode(ip, "TARRAY", "RANGE", "VALUE", NULL);
+    }
+    return TCL_ERROR;
+}
+
+
+TCL_RESULT ta_column_name_error(Tcl_Interp *ip, Tcl_Obj *o)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("No column with name '%.80s'.",
+                                       Tcl_GetString(o)));
+        Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Duplicate columns specified in column list '%.80s'.", Tcl_GetString(o)));
+        Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int colindex)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid column index '%d'.", colindex));
+        Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
     }
     return TCL_ERROR;
 }

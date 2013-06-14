@@ -307,6 +307,7 @@ Tcl_Obj *table_column_names (Tcl_Obj *otab)
 
     /* Note Dicts are guaranteed to return keys in same order as creation
        when iterated over so just by looping we get correct column order. */
+
     TA_NOFAIL(Tcl_ListObjGetElements(NULL, OBJCOLNAMES(otab), &nelems, &elems), TCL_OK);
 
     TA_ASSERT((nelems & 1) == 0);
@@ -318,6 +319,71 @@ Tcl_Obj *table_column_names (Tcl_Obj *otab)
     
     return onames;
 }
+
+/* Returns the name for a column. The returned Tcl_Obj does NOT have its
+   ref count incremented! 
+*/
+TCL_RESULT table_column_index_to_name(Tcl_Interp *ip, Tcl_Obj *otab,
+                                      int colindex, Tcl_Obj **pname)
+{
+    Tcl_Obj *onames, *oname;
+    int      i, status;
+
+    TA_ASSERT(table_affirm(otab));
+
+    onames = OBJCOLNAMES(otab);
+    TA_ASSERT(onames);
+
+    /* Note Dicts are guaranteed to return keys in same order as creation
+       when iterated over so we assume names are in column index order */
+
+    i = 2*colindex;
+    status = Tcl_ListObjIndex(ip, onames, i, &oname);
+    if (status == TCL_OK) {
+        if (oname) {
+            *pname = oname;
+            /* Cross check */
+            TA_ASSERT(Tcl_ListObjIndex(NULL, onames, i+1, &oname) == TCL_OK);
+            TA_ASSERT(oname);
+            TA_ASSERT(Tcl_GetIntFromObj(NULL, oname, &i) == TCL_OK);
+            TA_ASSERT(i == colindex);
+            return TCL_OK;
+        }
+        /* Not in range */
+        status = ta_column_index_error(ip, colindex);
+    }
+    return status;
+}
+
+TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
+                                      Tcl_Obj *table, Tcl_Obj *oindex,
+                                      int *pindex)
+{
+    int colindex, status;
+    Tcl_Obj *onames, *o;
+
+    TA_ASSERT(table_affirm(table));
+
+    if (Tcl_GetIntFromObj(NULL, oindex, &colindex) == TCL_OK) {
+        if (colindex >= table_width(table))
+            return ta_index_range_error(ip, colindex);
+        *pindex = colindex;
+        return TCL_OK;
+    }
+
+    /* Not an integer, see if name */
+    onames = OBJCOLNAMES(table);
+    TA_ASSERT(onames);
+              
+    if (Tcl_DictObjGet(ip, onames, oindex, &o) != TCL_OK)
+        return ta_column_name_error(ip, oindex);
+
+    TA_NOFAIL(Tcl_GetIntFromObj(NULL, o, &colindex), TCL_OK);
+    TA_ASSERT(colindex < table_width(table));
+    *pindex = colindex;
+    return TCL_OK;
+}
+
 
 /*
  * Table manipulation functions

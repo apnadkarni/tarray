@@ -20,8 +20,6 @@ proc tarray::table::create {def {init {}}} {
     return [insert [list tarray_table $colnames $cols] $init end]
 }
 
-interp alias {} XXXtarray::table::slice {} tarray::column::get
-
 proc tarray::unsupported::build_info {} {
     set result ""
     catch {append result [encoding convertfrom utf-8 [critcl_info]]}
@@ -84,6 +82,7 @@ namespace eval tarray {
     namespace eval table {
         namespace ensemble create -map {
             column column
+            cnames cnames
             create create
             delete delete
             fill fill
