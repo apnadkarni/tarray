@@ -20,13 +20,6 @@ proc tarray::table::create {def {init {}}} {
     return [insert [list tarray_table $colnames $cols] $init end]
 }
 
-interp alias {} tarray::table::width {} tarray::column::XXXsize
-
-proc tarray::table::column {tab colnum} {
-    # A table itself is a column (containing columns)
-XXX    return [tarray::column::index $tab $colnum]
-}
-
 interp alias {} XXXtarray::table::slice {} tarray::column::get
 
 proc tarray::unsupported::build_info {} {
