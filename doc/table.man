@@ -31,20 +31,17 @@ Note: All commands are located in the [cmd tarray] namespace.
 [call [cmd "table column"] [arg TABLE] [arg COLINDEX]]
 Returns a typed column at the specified position in a table.
 
-[call [cmd "table create"] [arg COLUMNLIST]]
-[call [cmd "table create"] [arg TYPES] [arg ROWVALUES] [arg [opt INITSIZE]]]
+[call [cmd "table create"] [arg DEFINITION] [arg ROWVALUES]]
 Returns a typed table containing a sequence of columns.
-In the first form, [arg COLUMNLIST] is a list of typed array columns.
+[arg DEFINITION] is a list of alternating column names and column types.
+A column name is an identifier for a column that can be used in lieu
+of a column index. The type for a column must be one
+of the valid types described in [sectref "Types"].
 [para]
-In the second form, [arg TYPES] is a list
-of valid types described in [sectref "Types"].
 [arg ROWVALUES] is the initial content of the table array specified
 as a nested list with each sublist being a row
 whose element types are compatible with the corresponding
-column types in [arg TYPES].
-[arg INITSIZE] argument may be specified to indicate how many slots to
-preallocate for the table columns. This is only treated as a hint and actual
-size allocated may differ.
+column types in [arg DEFINITION].
 
 [call [cmd "table delete"] [arg TABLE] [arg INDEX]]
 [call [cmd "table delete"] [arg TABLE] [arg INDEXLIST]]

@@ -8,6 +8,14 @@
 [description]
 
 [section Version [vset tarray_version]]
+
+[list_begin itemized]
+[item] [emph "Incompatibility"] The syntax of the [cmd "table create"]
+command has changed.
+[list_end]
+
+[section Version 0.4]
+
 [list_begin itemized]
 [item] Parallelized [uri column.html [cmd "column sort"]] and
 [uri column.html [cmd "column vsort"]] commands.
