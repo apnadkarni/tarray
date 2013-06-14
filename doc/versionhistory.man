@@ -12,6 +12,8 @@
 [list_begin itemized]
 [item] [emph "Incompatibility"] The syntax of the [cmd "table create"]
 command has changed.
+[item] [emph "Incompatibility"] The [cmd "table slice"] command no
+longer allows a range of columns to be specified.
 [list_end]
 
 [section Version 0.4]

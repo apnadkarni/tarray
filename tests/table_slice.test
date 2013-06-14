@@ -8,12 +8,12 @@ namespace eval tarray::test {
         Slice none
     } -body {
         tarray::table slice [sampletable {boolean int any} 0 100] {}
-    } -result {tarray any {}}
+    } -result {tarray_table {} {}}
 
     test table_slice-1.1 {
         Slice all
     } -body {
-        set tab [tarray::table slice [sampletable {boolean int any} 0 100] 0 end]
+        set tab [tarray::table slice [sampletable {boolean int any} 0 100] {0 1 2}]
         list \
             [tarray::table width $tab] \
             [cequal [tarray::table column $tab 0] [samplecolumn boolean 0 100]] \
@@ -22,7 +22,7 @@ namespace eval tarray::test {
     } -result {3 1 1 1}
 
     test table_slice-1.2 {
-        Slice subset
+        Slice subset in different order
     } -body {
         set tab [tarray::table slice [sampletable {boolean int any wide} 0 100] {2 0 3}]
         list \
@@ -40,6 +40,10 @@ namespace eval tarray::test {
             [tarray::table width $tab] \
             [cequal [tarray::table column $tab 0] [samplecolumn int 0 100]]
     } -result {1 1}
+
+    # TBD - column name tests
+    # TBD - column duplicated tests
+
 }
 
 ::tcltest::cleanupTests

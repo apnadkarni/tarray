@@ -103,10 +103,11 @@ Returns the table with order of elements reversed.
 [call [cmd "table size"] [arg TABLE]]
 Returns the number of rows in the table.
 
-[call [cmd "table"] [cmd "slice"] [arg TABLE] [arg COLINDICES]]
-[call [cmd "table"] [cmd "slice"] [arg TABLE] [arg COLINDEXLOW] [arg COLINDEXHIGH]]
-Returns a table containing only the specified columns from the specified table.
-The columns are specified by their positions as a list or a range.
+[call [cmd "table"] [cmd "slice"] [arg TABLE] [arg COLUMNLIST]]
+Returns a table containing only the specified columns from [arg TABLE].
+The columns are specified by their positions or names as a list. A column
+must not be included more than once. The returned table contains
+columns in the same order as [arg COLUMNLIST].
 
 [call [cmd "table vdelete"] [arg TABLEVAR] [arg INDEX]]
 [call [cmd "table vdelete"] [arg TABLEVAR] [arg INDEXLIST]]
