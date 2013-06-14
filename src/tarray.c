@@ -249,7 +249,11 @@ void ta_update_string_for_table_or_type_any(Tcl_Obj *o)
     if ((bytesNeeded + objc + 1) > INT_MAX)
         ta_string_overflow_panic("tcol_type_update_string_for_objtype");
 
-    bytesNeeded += objc;        /* For separators and terminating null */
+    /* For separators and terminating null. Note this may result in one extra
+       byte being allocated since the separator is not needed for last element.
+       However, the +1 is needed to take care of the case where objc==0
+    */
+    bytesNeeded += objc + 1;
 
     /*
      * Pass 2: copy into string rep buffer.
@@ -353,7 +357,7 @@ static void OBSOLETEtcol_type_update_string_for_objtype(Tcl_Obj *o)
     if ((bytesNeeded + objc + 1) > INT_MAX)
         ta_string_overflow_panic("tcol_type_update_string_for_objtype");
 
-    bytesNeeded += objc;        /* For separators and terminating null */
+    bytesNeeded += objc+1;        /* For separators and terminating null */
 
     /*
      * Pass 2: copy into string rep buffer.
