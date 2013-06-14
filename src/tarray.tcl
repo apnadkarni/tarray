@@ -4,15 +4,20 @@ namespace eval tarray {
     namespace eval db {}
 }
 
-proc tarray::table::create {def} {
+proc tarray::table::create {def {init {}}} {
     set colnames {}
     set cols {}
+    array set seen {}
     foreach {colname coltype} $def {
+        if {[info exists seen($colname)]} {
+            error "Duplicate column name '$colname'"
+        }
+        set seen($colname) 1
         lappend colnames $colname
         lappend cols [tarray::column::create $coltype {}]
     }
 
-    return [list tarray_table $colnames $cols]
+    return [insert [list tarray_table $colnames $cols] $init end]
 }
 
 interp alias {} tarray::table::width {} tarray::column::XXXsize
