@@ -10,8 +10,11 @@
 [section Version [vset tarray_version]]
 
 [list_begin itemized]
+[item] Added the [cmd "table range"] command.
 [item] [emph "Incompatibility"] The syntax of the [cmd "table create"]
 command has changed.
+[item] [emph "Incompatibility"] The [cmd "table get"] command no
+longer allows a range to be specified. Use [cmd "table range"] instead.
 [item] [emph "Incompatibility"] The [cmd "table slice"] command no
 longer allows a range of columns to be specified.
 [list_end]

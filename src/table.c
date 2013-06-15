@@ -361,7 +361,7 @@ TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
                                       Tcl_Obj *table, Tcl_Obj *oindex,
                                       int *pindex)
 {
-    int colindex, status;
+    int colindex;
     Tcl_Obj *onames, *o;
 
     TA_ASSERT(table_affirm(table));
@@ -1347,7 +1347,7 @@ TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
     return status;
 }
 
-Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
+static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 {
     int i, width, *pindex, *end, index;
     Tcl_Obj **srccols;
@@ -1492,7 +1492,7 @@ index_error:   /* index should hold the current index in error */
     return NULL;
 }
 
-Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
+static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt)
 {
     int i, width, end;
     Tcl_Obj **srccols;
@@ -1773,4 +1773,76 @@ TCL_RESULT table_reverse(Tcl_Interp *ip, Tcl_Obj *table)
     }
 
     return TCL_OK;
+}
+
+TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                          int command)
+{
+    Tcl_Obj *table, *omap;
+    int      i, status, opt, minargs;
+    int      fmt = TA_FORMAT_TARRAY;
+    /* Note order of options matches switch below */
+    static const char *table_get_options[] = {
+        "-tarray",
+        "-list",
+        "-dict",
+        "-columns",
+        NULL
+    };
+
+    minargs = command == TA_RETRIEVE_GET ? 2 : 3;
+
+    if (objc < 1+minargs) {
+        Tcl_WrongNumArgs(ip, 1, objv, command == TA_RETRIEVE_GET ? "?OPTIONS? TABLE INDEXLIST" : "?OPTIONS? TABLE LOW HIGH");
+        return TCL_ERROR;
+    }
+
+    table = objv[objc-minargs];
+    if ((status = table_convert(ip, table)) != TCL_OK)
+        return status;
+
+    omap = NULL;
+    for (i = 1; i < objc-minargs; ++i) {
+        if ((status = Tcl_GetIndexFromObj(ip, objv[i], table_get_options,
+                                          "option", TCL_EXACT, &opt)) != TCL_OK)
+            return TCL_ERROR;
+        switch (opt) {
+        case 0: fmt = TA_FORMAT_TARRAY; break;
+        case 1: fmt = TA_FORMAT_LIST; break;
+        case 2: fmt = TA_FORMAT_DICT; break;
+        case 3:
+            ++i;
+            if (i >= objc-minargs) {
+                ta_missing_arg_error(ip, "-columns");
+                return TCL_ERROR;
+            }
+            omap = objv[i];
+            break;
+        }
+    }
+       
+    if (command == TA_RETRIEVE_GET) {
+        thdr_t  *pindices;
+
+        if (ta_obj_to_indices(ip, objv[objc-1], 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
+            return TCL_ERROR;
+
+        table = table_get(ip, table, pindices, fmt);
+        thdr_decr_refs(pindices);
+    } else {
+        /* Range LOW HIGH */
+        int low, high, count;
+        status = ta_fix_range_bounds(ip, table_length(table),
+                                     objv[objc-2], objv[objc-1],
+                                     &low, &count);
+        if (status != TCL_OK)
+            return status;
+        table = table_range(ip, table, low, count, fmt);
+    }
+
+    if (table) {
+        Tcl_SetObjResult(ip, table);
+        return TCL_OK;
+    } else
+        return TCL_ERROR;
 }

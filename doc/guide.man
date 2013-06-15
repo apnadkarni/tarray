@@ -274,16 +274,23 @@ column index $col 4
 table index $tab end
 [example_end]
 
-Multiple elements can be retrieved with the [cmd get] command. The command
-can be passed an index range or a sequence of noncontiguous indices specified
+Multiple elements can be retrieved with the [cmd get]
+and [cmd range] commands. The [cmd get] command
+can be passed a sequence of noncontiguous indices specified
 as a Tcl list or a [const int] column:
 [example_begin]
-column get $col 3 5
 column get $col {10 7 4}
 table get $tab [lb]column search -all -lt [lb]table column $tab 0] 0]
 [example_end]
 
-By default, the [cmd get] command returns values as a typed array.
+The [cmd range] command retrieves elements in a specified index range.
+[example_begin]
+column range $col 3 5
+table range $tab 0 10
+[example_end]
+
+[para]
+By default, both commands returns values as a typed array.
 The [cmd -list] and [cmd -dict] commands can be used to return the values
 as a Tcl list or dictionary instead. In the latter case, the dictionary
 keys are the indices being retrieved.

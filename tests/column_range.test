@@ -1,0 +1,252 @@
+# TBD - sorted indices tarray
+# column range tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    # Initialize our own columns for testing so we do not have to create
+    # a new one every time
+    variable cols_for_get
+    foreach type {boolean any byte double int uint wide} {
+        set cols_for_get($type) [samplecolumn $type]
+    }    
+
+    proc test_get_range_ascol {type low high} {
+        variable cols_for_get
+        variable sample
+
+        set ta [tarray::column range $cols_for_get($type) $low $high]
+
+        if {[lindex $ta 0] ne "tarray_column"} {
+            return "Return value not a column"
+        }
+        if {[lindex $ta 1] ne $type} {
+            return "Returned type '[lindex $ta 1]' does not match type '$type' of input column"
+        }
+
+        if {[lequal $type [lrange $sample($type) $low $high] [lindex $ta 2]]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    proc test_get_range_aslist {type low high} {
+        variable cols_for_get
+        variable sample
+
+        set result [tarray::column range -list $cols_for_get($type) $low $high]
+
+        if {[lequal $type [lrange $sample($type) $low $high] $result]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    proc test_get_range_asdict {type low high} {
+        variable cols_for_get
+        variable sample
+
+        set result [tarray::column range -dict $cols_for_get($type) $low $high]
+
+        # Note we do not compare lengths of lists since in case of duplicate
+        # indices, they will not be the same. Errors, if any, will caught
+        # when retrieving values below.
+
+        set l2 {}
+        dict for {i val} $result {
+            lappend l2 $val
+        }
+
+        if {[lequal $type [lrange $sample($type) $low $high] $l2]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+    }
+
+    ################################################################
+    # Tests
+
+    foreach type {boolean any byte double int uint wide} {
+        #
+        # column range range
+
+        test column_get-range-ascol-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column range [newcolumn $type {}] 0 end
+        } -result [crep $type {}] -match column
+
+        test column_get-range-ascol-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column range [newcolumn $type {}] 0 0
+        } -result [crep $type {}] -match column
+
+        test column_get-range-ascol-$type-2.0 {
+            Get the first element
+        } -body { test_get_range_ascol $type 0 0}
+
+        test column_get-range-ascol-$type-2.1 {
+            Get first to end
+        } -body { test_get_range_ascol $type 0 end }
+
+        test column_get-range-ascol-$type-2.2 {
+            Get first to last 
+        } -body {
+            test_get_range_ascol $type 0 [expr {[llength $sample($type)] -1}]
+        }
+
+        test column_get-range-ascol-$type-2.3 {
+            Get range with negative low
+        } -body { test_get_range_ascol $type -5 100 }
+
+        test column_get-range-ascol-$type-2.4 {
+            Get range with out of bounds high
+        } -body { test_get_range_ascol $type 50 10000}
+
+        test column_get-range-ascol-$type-2.5 {
+            Get range out of bounds on both ends
+        } -body { test_get_range_ascol $type -10 10000 }
+
+        test column_get-range-ascol-$type-2.6 {
+            Get end-end
+        } -body { test_get_range_ascol $type end end }
+
+        test column_get-range-ascol-$type-2.6 {
+            Get end-0
+        } -body { test_get_range_ascol $type end 0 }
+
+        test column_get-range-ascol-$type-2.7 {
+            Get end-10 end
+        } -body { test_get_range_ascol $type end-10 end }
+
+        test column_get-range-ascol-$type-2.8 {
+            Get end-10 end
+        } -body { test_get_range_ascol $type end-10 end+10 }
+
+        test column_get-range-ascol-$type-3.0 {
+            Get indexlist -tarray option
+        } -body {
+            tarray::column range -tarray [newcolumn $type {0 1}] 0 1
+        } -result [crep $type {0 1}] -match column
+
+        #
+        # column range -aslist range
+
+        test column_get-range-aslist-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column range -list [newcolumn $type {}] 0 end
+        } -result {}
+
+        test column_get-range-aslist-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column range -list [newcolumn $type {}] 0 0
+        } -result {}
+
+        test column_get-range-aslist-$type-2.0 {
+            Get the first element
+        } -body { test_get_range_aslist $type 0 0}
+
+        test column_get-range-aslist-$type-2.1 {
+            Get first to end
+        } -body { test_get_range_aslist $type 0 end }
+
+        test column_get-range-aslist-$type-2.2 {
+            Get first to last 
+        } -body {
+            test_get_range_aslist $type 0 [expr {[llength $sample($type)] -1}]
+        }
+
+        test column_get-range-aslist-$type-2.3 {
+            Get range with negative low
+        } -body { test_get_range_aslist $type -5 100 }
+
+        test column_get-range-aslist-$type-2.4 {
+            Get range with out of bounds high
+        } -body { test_get_range_aslist $type 50 10000}
+
+        test column_get-range-aslist-$type-2.5 {
+            Get range out of bounds on both ends
+        } -body { test_get_range_aslist $type -10 10000 }
+
+        test column_get-range-aslist-$type-2.6 {
+            Get end-end
+        } -body { test_get_range_aslist $type end end }
+
+        test column_get-range-aslist-$type-2.7 {
+            Get end-0
+        } -body { test_get_range_aslist $type end 0 }
+
+        test column_get-range-ascol-$type-2.8 {
+            Get end-10 end
+        } -body { test_get_range_aslist $type end-10 end }
+
+        test column_get-range-ascol-$type-2.9 {
+            Get end-10 end
+        } -body { test_get_range_aslist $type end-10 end+10 }
+
+        #
+        # column range -dict range
+
+        test column_get-range-asdict-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column range -dict [newcolumn $type {}] 0 end
+        } -result {}
+
+        test column_get-range-asdict-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column range -dict [newcolumn $type {}] 0 0
+        } -result {}
+
+        test column_get-range-asdict-$type-2.0 {
+            Get the first element
+        } -body { test_get_range_asdict $type 0 0}
+
+        test column_get-range-asdict-$type-2.1 {
+            Get first to end
+        } -body { test_get_range_asdict $type 0 end }
+
+        test column_get-range-asdict-$type-2.2 {
+            Get first to last 
+        } -body {
+            test_get_range_asdict $type 0 [expr {[llength $sample($type)] -1}]
+        }
+
+        test column_get-range-asdict-$type-2.3 {
+            Get range with negative low
+        } -body { test_get_range_asdict $type -5 100 }
+
+        test column_get-range-asdict-$type-2.4 {
+            Get range with out of bounds high
+        } -body { test_get_range_asdict $type 50 10000}
+
+        test column_get-range-asdict-$type-2.5 {
+            Get range out of bounds on both ends
+        } -body { test_get_range_asdict $type -10 10000 }
+
+        test column_get-range-asdict-$type-2.6 {
+            Get end-end
+        } -body { test_get_range_asdict $type end end }
+
+        test column_get-range-asdict-$type-2.7 {
+            Get end-0
+        } -body { test_get_range_asdict $type end 0 }
+
+        test column_get-range-ascol-$type-2.8 {
+            Get end-10 end
+        } -body { test_get_range_asdict $type end-10 end }
+
+        test column_get-range-ascol-$type-2.9 {
+            Get end-10 end
+        } -body { test_get_range_asdict $type end-10 end+10 }
+    }
+}
+
+::tcltest::cleanupTests

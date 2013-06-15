@@ -61,9 +61,8 @@ The size of the array will be extended if necessary provided the specified
 indices do not have gaps beyond the current column size.
 
 [call [cmd "column get"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
-[call [cmd "column get"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
 Returns the values from a typed column at the indices specified as
-[sectref Indices "index list"] or [sectref Indices range].
+[sectref Indices "index list"].
 [include options.inc]
 
 [call [cmd "column index"] [arg COLUMN] [arg INDEX]]
@@ -112,6 +111,10 @@ replaced by the corresponding elements of [arg VALUES].
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended to the array. The command interprets
 [const end] as the position after the last element in the array.
+
+[call [cmd "column range"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
+Returns the values from a typed column for indices in a specified range.
+[include options.inc]
 
 [call [cmd "column reverse"] [arg COLUMN]]
 Returns the typed column with order of elements reversed.
