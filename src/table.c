@@ -1840,7 +1840,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     int      fmt = TA_FORMAT_TARRAY;
     /* Note order of options matches switch below */
     static const char *table_retrieve_options[] = {
-        "-tarray",
+        "-table",
         "-list",
         "-dict",
         "-columns",

@@ -11,16 +11,56 @@
 
 The [cmd tarray] extension implements typed arrays and associated commands
 [uri column.html [cmd column]] and [cmd table].
-This page documents typed tables.
-See [uri tarray.html] for an overview.
+This page provides reference documentation for
+commands related to typed tables.
+See [uri tarray.html] for an overview and [uri guide.html] for a
+programming guide.
 [subsection Tables]
 A typed table is an ordered sequence of [uri tarray.html "typed columns"]
 of equal size. It can be viewed as an array of records where the
 record fields happen to use column-wise storage. The corresponding
-table command operates on typed tables.
+[cmd table] command operates on typed tables.
+[para]
+The columns in a table are defined with a name, type and order when the table
+is created. Commands that operate on tables allow columns to be specified
+using either the column name or its position.
 
 [include types.inc]
 [include indices.inc]
+
+[subsection "Standard Options"]
+Many commands take one or more of the standard options described below.
+The [cmd -list], [cmd -dict] and [cmd -table] options control
+the format of the returned values. The [cmd -columns] option allows
+selection and ordering of specific columns from the table.
+[list_begin options]
+[opt_def -columns [arg COLUMNS]]
+Selects a subset of columns from the table and their order. If this option
+is not specified, all columns in the table are selected as the target
+of the command and in the same order as in the table definition.
+If this option is specified, [arg COLUMNS] is a list of column indexes
+and names. For commands that retrieve data, like [cmd "table get"],
+only data from the specified columns is retrieved and in the column
+order specified in [arg COLUMNS]. For commands that modify data,
+only data in the specified columns is modified. The input data
+values are taken in the same order as specified in [arg COLUMNS].
+Note that when a command invocation that causes a table to grow specifies
+the [cmd -columns] option, all columns must be included in [arg COLUMNS]
+although they may be specified in any order depending on the order of
+the source data.
+[opt_def -dict]
+Specifies that the return values must be in the form of a dictionary
+keyed by the corresponding indices. The value of each key is a row
+which is a list each element
+of which is the value at that index in the corresponding column.
+[opt_def -list] Specifies that the return value must be in the form
+of a list of rows, one per index. Each row is itself a list, each element
+of which is the value at that index in the corresponding column.
+[opt_def -table]
+Specifies thta the values are to be returned as a table.
+This is the default if neither [cmd -list] nor [cmd -dict] is specified.
+[list_end]
+
 
 [section "Command Reference"]
 
@@ -28,8 +68,9 @@ Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
 
-[call [cmd "table column"] [arg TABLE] [arg COLINDEX]]
-Returns a typed column at the specified position in a table.
+[call [cmd "table column"] [arg TABLE] [arg COLSPEC]]
+Returns a typed column from a table. [arg COLSPEC] may be either
+the column name or its position.
 
 [call [cmd "table create"] [arg DEFINITION] [arg ROWVALUES]]
 Returns a typed table containing a sequence of columns.
@@ -49,9 +90,9 @@ column types in [arg DEFINITION].
 Returns a typed table with all specified rows deleted. The row
 indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "table fill"] [arg TABLE] [arg ROWVALUE] [arg INDEX]]
-[call [cmd "table fill"] [arg TABLE] [arg ROWVALUE] [arg INDEXLIST]]
-[call [cmd "table fill"] [arg TABLE] [arg ROWVALUE] [arg LOW] [arg HIGH]]
+[call [cmd "table fill"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "table fill"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "table fill"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUE] [arg LOW] [arg HIGH]]
 Returns a typed table with specified rows set to [arg ROWVALUE]. 
 Each element from the list [arg ROWVALUE] is assigned to the corresponding
 column of the table at the specified indices. Any additional elements
@@ -60,12 +101,16 @@ in [arg ROWVALUE] are ignored. An error is generated if any element of
 if [arg ROWVALUE] contains fewer elements than the table width.
 Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to target specific columns of the table or to match
+the order of columns to the supplied data.
 
 [call [cmd "table get"] [arg [opt "OPTIONS"]] [arg TABLE] [arg INDEXLIST]]
 Returns the values from a table at the indices specified as
 [sectref Indices "index list"].
-[include options.inc]
-
+Any of the [sectref "Standard Options" "standard options"]
+may be specified with this command.
 
 [call [cmd "table index"] [arg TABLE] [arg INDEX]]
 Returns the value of the row at the position specified by [arg INDEX].
@@ -78,7 +123,7 @@ at position [arg FIRST] and returns the new table. In the second form,
 The rows are inserted at the specified position.
 In both cases, the command may extend the array if necessary.
 
-[call [cmd "table place"] [arg TABLE] [arg ROWVALUES] [arg INDICES]]
+[call [cmd "table place"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUES] [arg INDICES]]
 Returns a table with the specified values at the 
 corresponding  indices.
 [arg ROWVALUES] may be a list of row values or a compatible table. 
@@ -88,18 +133,27 @@ of each row must be no smaller than the width of the table.
 [arg INDICES] must be a 
 index list in the one of the forms described in [sectref Indices]
 and may extend the column if the condition listed there are satisfied.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to target specific columns of the table or to match
+the order of columns to the supplied data.
 
-[call [cmd "table put"] [arg TABLE] [arg ROWVALUES] [opt [arg FIRST]]]
+[call [cmd "table put"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUES] [opt [arg FIRST]]]
 Returns a table with the elements starting at index [arg FIRST]
 replaced by the corresponding elements of [arg ROWVALUES].
 [arg ROWVALUES] may be a list of values or a table of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to target specific columns of the table or to match
+the order of columns to the supplied data.
 
 [call [cmd "table range"] [arg [opt "OPTIONS"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
 Returns all values from a table between the indices specified as a
 [sectref Indices range].
-[include options.inc]
+Any of the [sectref "Standard Options" "standard options"]
+may be specified with this command.
 
 [call [cmd "table reverse"] [arg TABLE]]
 Returns the table with order of elements reversed.
@@ -122,15 +176,19 @@ of the variable (which may differ because of traces) is returned as the
 result of the command.
 Indices are specified in any of the forms described in [sectref Indices].
 
-[call [cmd "table vfill"] [arg TABLEVAR] [arg ROWVALUE] [arg INDEX]]
-[call [cmd "table vfill"] [arg TABLEVAR] [arg ROWVALUE] [arg INDEXLIST]]
-[call [cmd "table vfill"] [arg TABLEVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
+[call [cmd "table vfill"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUE] [arg INDEX]]
+[call [cmd "table vfill"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUE] [arg INDEXLIST]]
+[call [cmd "table vfill"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUE] [arg LOW] [arg HIGH]]
 Set the elements of the table in variable [arg TABLEVAR] at the specified
 indices to
 [arg ROWVALUE]. 
 The new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to target specific columns of the table or to match
+the order of columns to the supplied data.
 [para]
 See [cmd fill] for more information.
 
@@ -147,16 +205,21 @@ the new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
 
-[call [cmd "table vplace"] [arg TABLEVAR] [arg ROWVALUES] [arg INDICES]]
+[call [cmd "table vplace"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUES] [arg INDICES]]
 Modifies a table stored in the variable [arg TABLEVAR]
 with the specified values at the corresponding indices.
 The new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
 [para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to target specific columns of the table or to match
+the order of columns to the supplied data.
+
+[para]
 See the command [cmd "table place"] for other details.
 
-[call [cmd "table vput"] [arg TABLEVAR] [arg ROWVALUES] [arg FIRST]]
+[call [cmd "table vput"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUES] [arg FIRST]]
 Modifies a variable [arg TABLEVAR] containing a typed column.
 The elements of the column starting at index [arg FIRST] are
 replaced by the corresponding elements of [arg ROWVALUES]. If [arg FIRST] is
@@ -164,6 +227,10 @@ not specified the elements are appended to the array.
 The new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to target specific columns of the table or to match
+the order of columns to the supplied data.
 [para]
 See the command [cmd "table put"] for other details.
 
