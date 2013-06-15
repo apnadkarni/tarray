@@ -1261,6 +1261,7 @@ critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj
     thdr = thdr_alloc(interp, TA_ANY, count);
     if (thdr == NULL)
         return TCL_ERROR;
+    /* TBD - maybe we can use column_map_get_columns here ? */
     pdstcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
     ocolnames = Tcl_NewListObj(0, NULL);
     for (i = 0; i < count; ++i) {
