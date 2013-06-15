@@ -3174,7 +3174,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     int      fmt = TA_FORMAT_TARRAY;
     /* Note order of options matches switch below */
     static const char *tcol_get_options[] = {
-        "-tarray", "-list", "-dict", NULL
+        "-column", "-list", "-dict", NULL
     };
 
     minargs = command == TA_RETRIEVE_GET ? 2 : 3;

@@ -10,8 +10,11 @@
 [description]
 
 The [cmd tarray] extension implements typed arrays and associated commands
-[cmd column] and [uri table.html [cmd table]]. This page documents typed columns.
-See [uri tarray.html] for an overview.
+[cmd column] and [uri table.html [cmd table]].
+This page provides reference documentation for
+commands related to typed columns.
+See [uri tarray.html] for an overview and [uri guide.html] for a
+programming guide.
 [subsection Columns]
 A typed array column contains elements of a single 
 [sectref "Types" type]
@@ -25,6 +28,16 @@ sequences of typed columns.
 
 [include types.inc]
 [include indices.inc]
+[subsection "Standard Options"]
+The format
+of the returned values is controlled by the following options:
+[list_begin options]
+[opt_def -list] The values are returned as a Tcl list.
+[opt_def -dict]
+The values are returned as a dictionary keyed by the corresponding indices.
+[opt_def -column] The values are returned as a typed column.
+This is the default if none of the other options is specified.
+[list_end]
 
 [section "Command Reference"]
 
@@ -63,7 +76,9 @@ indices do not have gaps beyond the current column size.
 [call [cmd "column get"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg INDEXLIST]]
 Returns the values from a typed column at the indices specified as
 [sectref Indices "index list"].
-[include options.inc]
+Any of the [sectref "Standard Options" "standard options"]
+may be specified with this command.
+
 
 [call [cmd "column index"] [arg COLUMN] [arg INDEX]]
 Returns the value of the element at the position specified by [arg INDEX]
@@ -114,7 +129,8 @@ not specified the elements are appended to the array. The command interprets
 
 [call [cmd "column range"] [arg [opt "OPTIONS"]] [arg COLUMN] [arg LOW] [arg HIGH]]
 Returns the values from a typed column for indices in a specified range.
-[include options.inc]
+Any of the [sectref "Standard Options" "standard options"]
+may be specified with this command.
 
 [call [cmd "column reverse"] [arg COLUMN]]
 Returns the typed column with order of elements reversed.

@@ -1,1 +1,1 @@
-[vset tarray_version 0.4]
+[vset tarray_version 0.5]
