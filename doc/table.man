@@ -115,13 +115,19 @@ may be specified with this command.
 [call [cmd "table index"] [arg TABLE] [arg INDEX]]
 Returns the value of the row at the position specified by [arg INDEX].
 
-[call [cmd "table insert"] [arg TABLE] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "table insert"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
 [call [cmd "table insert"] [arg TABLE] [arg ROWVALUES] [arg FIRST]]
 In the first form, inserts [arg COUNT] rows with value [arg ROWVALUE]
 at position [arg FIRST] and returns the new table. In the second form,
 [arg ROWVALUES] may be a list of row values or a compatible table.
 The rows are inserted at the specified position.
 In both cases, the command may extend the array if necessary.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to match
+the order of columns to the supplied data. Note that [arg COLUMNS] must
+include all columns in the table as the command would not know what
+values to use for the unspecified columns.
 
 [call [cmd "table place"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLE] [arg ROWVALUES] [arg INDICES]]
 Returns a table with the specified values at the 
@@ -192,7 +198,7 @@ the order of columns to the supplied data.
 [para]
 See [cmd fill] for more information.
 
-[call [cmd "table vinsert"] [arg TABLEVAR] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
+[call [cmd "table vinsert"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUE] [arg FIRST] [arg COUNT]]
 [call [cmd "table vinsert"] [arg TABLEVAR] [arg ROWVALUES] [arg FIRST]]
 In the first form, inserts [arg COUNT] rows with value [arg ROWVALUE]
 at position [arg FIRST] in the table stored in variable
@@ -204,6 +210,13 @@ In both cases,
 the new value is assigned back to the variable. The resulting value
 of the variable (which may differ because of traces) is returned as the
 result of the command.
+[para]
+The standard option [sectref "Standard Options" [cmd -columns]] 
+may be specified to match
+the order of columns to the supplied data. Note that [arg COLUMNS] must
+include all columns in the table as the command would not know what
+values to use for the unspecified columns.
+
 
 [call [cmd "table vplace"] [opt "[cmd -columns] [arg COLUMNS]"] [arg TABLEVAR] [arg ROWVALUES] [arg INDICES]]
 Modifies a table stored in the variable [arg TABLEVAR]

@@ -36,16 +36,12 @@ that is specified when the column is created. The command
 to create and manipulate typed columns.
 operations.
 [para]
-A typed table is an ordered sequence of typed columns
+A typed table is an ordered sequence of named columns
 of equal size. It can be also be viewed as an array of records where the
 record fields happen to use column-wise storage. The corresponding
 [uri table.html [cmd tarray::table]] command operates on typed tables.
-
-[para]
-Note there is no notion of field or column names for a table. A table
-is treated purely as a sequence of columns. Any capability like field
-names has to be scripted on top using tables as the underlying store and
-mapping field names to column positions in the table.
+Columns in a table can be referenced using either their name or
+their position in the ordered sequence.
 
 [include types.inc]
 
@@ -85,13 +81,8 @@ being initialized.
 Tables can be initialized in analogous fashion, for example, to create
 a initialized table
 
-[example {table create {any wide} {{China 1350000000} {Vatican 850}}}]
-
-The initializers are specified as a nested list in the above example.
-Alternatively, they can also be specified as a list of columns (which
-have to be the same size).
 [example_begin]
-table create {any wide} [lb]list [lb]column create any {China Vatican}] [lb]column create int {1350000000 850}]]
+set tab [lb]table create {country any population wide} {{China 1350000000} {Vatican 850}}[rb]
 [example_end]
 
 [subsection "Specifying Indices"]
@@ -105,15 +96,16 @@ to be targeted. This specification can be
 or a column of type integer.
 [list_end]
 [example_begin]
-set col [lb]column create double {}]
-set col [lb]column fill $col 1.0 0 9]
-set col [lb]column fill $col 2.0 3]
-set col [lb]column fill $col 3.0 {2 7}]
-set col [lb]column fill $col 3.0 [lb]column create int {2 7}]]
+set col [lb]column create double {}[rb]
+set col [lb]column fill $col 1.0 0 9[rb]
+set col [lb]column fill $col 2.0 3[rb]
+set col [lb]column fill $col 2.0 end-2 end[rb]
+set col [lb]column fill $col 3.0 {2 7}[rb]
+set col [lb]column fill $col 3.0 [lb]column create int {2 7}[rb][rb]
 [example_end]
 The initial [cmd fill] initializes the first 10 elements of the column
 to [const 1.0]. The second one sets the single element at index [const 3]
-to [const 2.0]. The last two
+to [const 2.0]. The sets the last 3 elements to [const 2.0]. The last two
 set elements at indices [const 2] and [const 7] to [const 3.0].
 [para]
 The last form, an integer column, is useful because some commands return
@@ -204,18 +196,40 @@ from commands into another column.
 [para]
 The [cmd table] command has equivalent commands. For example
 [example_begin]
-set populations [lb]table create {any wide} {}[rb]
+set populations [lb]table create {country any population wide} {}[rb]
 table vput populations {{China 1350000000} {Vatican 850}}
 [example_end]
 Note that just like in the case of columns, the list of values can
 be specified as a table instead, provided the column types are the same.
+[para]
+When storing data, the [cmd -columns] option comes in handy for two
+different purposes. First, it allows data to be specified in a different
+order than that specified in the column definition. For example,
+in the above example, if the order of the supplied data was population
+followed by country, the command could have been written as follows:
+[example_begin]
+table vput -columns {population country} populations {{1350000000 China} {850 Vatican}}
+[example_end]
+There is no need to reorder the fields in the input data.
+[para]
+Secondly, the [cmd -columns] allows modification of a subset of the columns.
+[example_begin]
+set populations [lb]table create {country any population wide} {}[rb]
+table vput populations {{China 1350000000} {Vatican 850}}
+table vfill -columns {population} populations {851} 1
+[example_end]
+The population of the second table row is changed to 851.
 
+[para]
 A point to be noted about all the above commands is that they may
-extend the size of the array if necessary. However, in the cases
+extend the size of the array if necessary. However, two conditions
+must apply for this: 
+[list_begin itemized]
+[item]
 where an index list or index column is specified, there must not
 be any gaps in indices that extend the array.
 [example_begin]
-set populations [lb]table create {any wide} {{Vatican 850}  {China 1350000000}}[rb]
+set populations [lb]table create {country any population wide} {{Vatican 850}  {China 1350000000}}[rb]
 table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2}
 table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
 [example_end]
@@ -223,6 +237,11 @@ The first [cmd put] will succeed, changing the existing value at index 1
 and extending the array by two rows (note order of indices does not matter).
 The second [cmd put] will raise an error since index [const 2] neither exists
 nor is supplied in the command.
+[item]
+Second, if the [cmd -columns] option is specified, it must include all
+columns (in any order) of the table. Otherwise, the command will not
+know what value to use for the other columns when extending the table.
+[list_end]
 
 [para]
 All the commands dicussed to this point overwrite an existing values, at
@@ -300,6 +319,15 @@ table get -dict $tab [lb]column search -all -lt [lb]table column $tab 0] 0]
 [example_end]
 
 [para]
+In the case of tables, both commands also provide for retrieval of
+a subset of columns and in a different order than in the definition.
+[example_begin]
+table range -columns {population country} $populations 0 end
+table range -columns {1} $populations 0 end
+[example_end]
+Note columns may be specified either by position or name.
+
+[para]
 Tables provide additional commands for retrieving entire columns.
 [list_begin itemized]
 [item] [cmd "table column"] returns a column from a table. This is
@@ -345,21 +373,21 @@ particularly useful in combining searches as in the table example below.
 [para]
 To search tables, use the [cmd search] on individual columns. For example,
 [example_begin]
-set countries [lb]table create {any wide double} {
+set countries [lb]table create {country any population wide area double} {
     {Vatican      850     0.44}
     {China 1350000000     9.55e6}
     {USA    314000000     9.63e6}
     {India 1250000000     3.3e6}
     {Russia 141930000     17e6}
 }[rb]
-set pop_col [lb]table column $countries 1]
-set area_col [lb]table column $countries 2]
-table get -list $countries \
+set pop_col [lb]table column $countries 1]; # Column specified by position
+set area_col [lb]table column $countries area]; # Column specified by name
+table get -list -columns {country} $countries \
     [lb]column search -all \
         -among [lb]column search -all -gt $pop_col 250000000] \
         -gt $area_col 5e6]
 [example_end]
-returns all rows for countries that are populous and large in area. Note
+returns names of countries that are populous and large in area. Note
 how the outside search is limited to specific indices using the [cmd -among]
 option.
 [para]
@@ -393,7 +421,7 @@ of elements in the column. An example will clarify this.
 [para]
 Consider a table that stores heights and weights.
 [example_begin]
-set tab [lb]table create {any int int} {
+set tab [lb]table create {name any height int weight int} {
     {Jeff 180 80}
     {John 175 80}
     {Jim 170 75}
@@ -402,13 +430,13 @@ set tab [lb]table create {any int int} {
 The user may choose to sort the table by height which boils down to
 the following code:
 [example_begin]
-table get -list $tab [lb]column sort -indices [lb]table column $tab 1[rb][rb]
+table get -list $tab [lb]column sort -indices [lb]table column $tab height[rb][rb]
 [example_end]
 This results in the table being displayed in the order
 [const Jim], [const John], [const Jeff].
 The user may then choose to sort by weight.
 [example_begin]
-table get -list $tab [lb]column sort -indices [lb]table column $tab 2[rb][rb]
+table get -list $tab [lb]column sort -indices [lb]table column $tab weight[rb][rb]
 [example_end]
 resulting in a display in order
 [const Jim], [const Jeff], [const John]. 
@@ -417,11 +445,11 @@ this interchange of positions
 between [const Jeff] and [const John] is disconcerting to the user.
 Use of the [cmd -indirect] option overcomes this problem.
 [example_begin]
-set indices [lb]column sort -indices [lb]table column $tab 1[rb][rb]
+set indices [lb]column sort -indices [lb]table column $tab height[rb][rb]
 table get -list $tab $indices
 # Now use previous order of indices to order elements when their
-# values in column 2 are equal
-table get -list $tab [lb]column sort -indirect [lb]table column 2] $indices[rb]
+# values in the weight column are equal
+table get -list $tab [lb]column sort -indirect [lb]table column weight] $indices[rb]
 [example_end]
 In this last statement, the sort is done indirectly using values
 from table [variable tab] but the positioning of elements when
@@ -434,8 +462,8 @@ two columns. The multiple column search example above could also
 have written as follows:
 
 [example_begin]
-set pop_col [lb]table column $countries 1]
-set area_col [lb]table column $countries 2]
+set pop_col [lb]table column $countries population]
+set area_col [lb]table column $countries area]
 set populous [lb]column search -all -gt $pop_col 250000000[rb]
 set large [lb]column search -all -gt $area_col 5e6[rb]
 table get -list $countries [lb]lindex [lb]column intersect $populous $large[rb] 0[rb]
