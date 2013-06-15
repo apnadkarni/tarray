@@ -64,6 +64,7 @@ namespace eval tarray {
             intersect3 intersect3
             place place
             put put
+            range range
             reverse reverse
             size size
             search search
@@ -91,6 +92,7 @@ namespace eval tarray {
             insert insert
             place place
             put put
+            range range
             reverse reverse
             size size
             slice slice

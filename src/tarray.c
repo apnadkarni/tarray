@@ -3166,3 +3166,62 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
     return status;
 }
 
+TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                         int command)
+{
+    Tcl_Obj *tcol;
+    int      i, status, opt, minargs;
+    int      fmt = TA_FORMAT_TARRAY;
+    /* Note order of options matches switch below */
+    static const char *tcol_get_options[] = {
+        "-tarray", "-list", "-dict", NULL
+    };
+
+    minargs = command == TA_RETRIEVE_GET ? 2 : 3;
+
+    if (objc < 1+minargs || objc > 2+minargs) {
+        Tcl_WrongNumArgs(ip, 1, objv, command == TA_RETRIEVE_GET ? "?OPTIONS? COLUMN INDEXLIST" : "?OPTIONS? COLUMN LOW HIGH");
+        return TCL_ERROR;
+    }
+
+    tcol = objv[objc-minargs];
+    if ((status = tcol_convert(ip, tcol)) != TCL_OK)
+        return status;
+
+    if (objc == 2+minargs) {
+        /* An option is specified */
+        if ((status = Tcl_GetIndexFromObj(ip, objv[1], tcol_get_options,
+                                          "option", TCL_EXACT, &opt)) != TCL_OK)
+            return TCL_ERROR;
+        switch (opt) {
+        case 0: fmt = TA_FORMAT_TARRAY; break;
+        case 1: fmt = TA_FORMAT_LIST; break;
+        case 2: fmt = TA_FORMAT_DICT; break;
+        }
+    }
+       
+    if (command == TA_RETRIEVE_GET) {
+        thdr_t  *pindices;
+
+        if (ta_obj_to_indices(ip, objv[objc-1], 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
+            return TCL_ERROR;
+
+        tcol = tcol_get(ip, tcol, pindices, fmt);
+        thdr_decr_refs(pindices);
+    } else {
+        /* Range LOW HIGH */
+        int low, high, count;
+        status = ta_fix_range_bounds(ip, tcol_occupancy(tcol),
+                                     objv[objc-2], objv[objc-1],
+                                     &low, &count);
+        if (status != TCL_OK)
+            return status;
+        tcol = tcol_range(ip, tcol, low, count, fmt);
+    }
+
+    if (tcol) {
+        Tcl_SetObjResult(ip, tcol);
+        return TCL_OK;
+    } else
+        return TCL_ERROR;
+}

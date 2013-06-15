@@ -1,0 +1,248 @@
+# TBD - sorted indices tarray
+# column get tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc test_table_get_range_astable {low high {types {any boolean byte double int uint wide}}} {
+
+        set expected_rows [samplerows $types $low $high]
+        set ta [tarray::table range -tarray [sampletable $types] $low $high]
+
+        if {[trequal $ta [col_def $types] $expected_rows]} {
+            return ""
+        } else {
+            return "Returned table != expected"
+        }
+    }
+
+    proc test_table_get_range_aslist {low high {types {any boolean byte double int uint wide}}} {
+
+        set expected_rows [samplerows $types $low $high]
+        set rows [tarray::table range -list [sampletable $types] $low $high]
+
+        if {[llequal $types $rows $expected_rows]} {
+            return ""
+        } else {
+            return "Returned list != expected"
+        }
+    }
+
+    proc test_table_get_range_asdict {low high {types {any boolean byte double int uint wide}}} {
+
+        set expected_rows [samplerows $types $low $high]
+        set result [tarray::table range -dict [sampletable $types] $low $high]
+        
+        set max [expr {[samplesize] - 1}]
+        foreach var {low high} {
+            if {[set $var] eq "end"} { set $var $max }
+            if {[set $var] < 0} {set $var 0}
+            if {[set $var] > $max} {set $var $max}
+        }
+
+        set rows {}
+        for {set i $low} {$i <= $high} {incr i} {
+            lappend rows [dict get $result $i]
+        }
+
+        if {[llequal $types $rows $expected_rows]} {
+            return ""
+        } else {
+            return "Returned dict != expected"
+        }
+    }
+
+    ################################################################
+    # Tests
+
+    #
+    # table range range
+
+    test table_range-astable-1.0 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range [newtable {}] 0 end
+    } -result [trep {}] -match table
+
+    test table_range-astable-1.1 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range [newtable {}] 0 0
+    } -result [trep {}] -match table
+
+    test table_range-astable-1.2 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range [newtable {int any}] 0 end
+    } -result [trep [list [crep int] [crep any]]]
+
+    test table_range-astable-1.3 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range [newtable {boolean any}] 0 0
+    } -result [trep [list [crep boolean] [crep any]]]
+
+    test table_range-astable-2.0 {
+        Get the first element
+    } -body { test_table_get_range_astable 0 0}
+
+    test table_range-astable-2.1 {
+        Get first to end
+    } -body { test_table_get_range_astable 0 end }
+
+    test table_range-astable-2.2 {
+        Get first to last 
+    } -body {
+        test_table_get_range_astable 0 [expr {[samplesize]-1}]
+    }
+
+    test table_range-astable-2.3 {
+        Get range with negative low
+    } -body { test_table_get_range_astable -5 100 }
+
+    test table_range-astable-2.4 {
+        Get range with out of bounds high
+    } -body { test_table_get_range_astable 50 10000}
+
+    test table_range-astable-2.5 {
+        Get range out of bounds on both ends
+    } -body { test_table_get_range_astable -10 10000 }
+
+    test table_range-astable-2.6 {
+        Get end-end
+    } -body { test_table_get_range_astable end end }
+
+    test table_range-astable-2.6 {
+        Get end-0
+    } -body { test_table_get_range_astable end 0 }
+
+    test table_range-astable-4.0 {
+        Get indexlist -tarray option
+    } -body {
+        tarray::table range -tarray [newtable {int any} {{0 a} {1 b}}] 0 1
+    } -result [trep [list [crep int {0 1}] [crep any {a b}]]]
+
+
+    #
+    # table range -aslist range
+
+    test table_range-aslist-1.0 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -list [newtable {}] 0 end
+    } -result {}
+
+    test table_range-aslist-1.1 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -list [newtable {}] 0 0
+    } -result {}
+
+    test table_range-aslist-1.2 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -list [newtable {boolean}] 0 end
+    } -result {}
+
+    test table_range-aslist-1.3 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -list [newtable {any}] 0 0
+    } -result {}
+
+    test table_range-aslist-2.0 {
+        Get the first element
+    } -body { test_table_get_range_aslist 0 0}
+
+    test table_range-aslist-2.1 {
+        Get first to end
+    } -body { test_table_get_range_aslist  0 end }
+
+    test table_range-aslist-2.2 {
+        Get first to last 
+    } -body { test_table_get_range_aslist  0 [expr {[samplesize] -1}] }
+
+    test table_range-aslist-2.3 {
+        Get range with negative low
+    } -body { test_table_get_range_aslist -5 100 }
+
+    test table_range-aslist-2.4 {
+        Get range with out of bounds high
+    } -body { test_table_get_range_aslist 50 10000}
+
+    test table_range-aslist-2.5 {
+        Get range out of bounds on both ends
+    } -body { test_table_get_range_aslist -10 10000 }
+
+    test table_range-aslist-2.6 {
+        Get end-end
+    } -body { test_table_get_range_aslist end end }
+
+    test table_range-aslist-2.6 {
+        Get end-0
+    } -body { test_table_get_range_aslist end 0 }
+
+    #
+    # table range -dict range
+
+    test table_range-asdict-1.0 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -dict [newtable {}] 0 end
+    } -result {}
+
+    test table_range-asdict-1.1 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -dict [newtable {}] 0 0
+    } -result {}
+
+    test table_range-asdict-1.2 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -dict [newtable {boolean int}] 0 end
+    } -result {}
+
+    test table_range-asdict-1.3 {
+        Get the first element in empty array
+    } -body {
+        tarray::table range -dict [newtable {any uint}] 0 0
+    } -result {}
+
+    test table_range-asdict-2.0 {
+        Get the first element
+    } -body { test_table_get_range_asdict 0 0}
+
+    test table_range-asdict-2.1 {
+        Get first to end
+    } -body { test_table_get_range_asdict 0 end }
+
+    test table_range-asdict-2.2 {
+        Get first to last 
+    } -body {
+        test_table_get_range_asdict 0 [expr {[samplesize] -1}]
+    }
+
+    test table_range-asdict-2.3 {
+        Get range with negative low
+    } -body { test_table_get_range_asdict -5 100 }
+
+    test table_range-asdict-2.4 {
+        Get range with out of bounds high
+    } -body { test_table_get_range_asdict 50 10000}
+
+    test table_range-asdict-2.5 {
+        Get range out of bounds on both ends
+    } -body { test_table_get_range_asdict -10 10000 }
+
+    test table_range-asdict-2.6 {
+        Get end-end
+    } -body { test_table_get_range_asdict end end }
+
+    test table_range-asdict-2.6 {
+        Get end-0
+    } -body { test_table_get_range_asdict end 0 }
+}
+
+::tcltest::cleanupTests

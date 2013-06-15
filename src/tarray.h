@@ -107,7 +107,6 @@ typedef struct ta_value_s {
 
 extern const char *g_type_tokens[];
 
-/* Must match order of gFormatOptions in tarray.critcl ! */
 #define TA_FORMAT_TARRAY 0
 #define TA_FORMAT_LIST 1
 #define TA_FORMAT_DICT 2
@@ -382,6 +381,8 @@ int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
 #define TA_INDEX_TYPE_THDR 2
 
 thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count);
+TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                         int command);
 Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
@@ -413,8 +414,10 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
 TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable, Tcl_Obj *ofirst, Tcl_Obj *omap, int insert);
 TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
                         Tcl_Obj *indexa, Tcl_Obj *indexb);
-Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
-Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, int fmt);
+TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                          int command);
+#define TA_RETRIEVE_GET 0
+#define TA_RETRIEVE_RANGE 1
 TCL_RESULT table_reverse(Tcl_Interp *interp, Tcl_Obj *table);
 Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index);
 TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,

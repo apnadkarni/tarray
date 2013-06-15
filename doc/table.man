@@ -62,9 +62,8 @@ Indices are specified in any of the forms described in [sectref Indices].
 The size of the array will be extended if necessary.
 
 [call [cmd "table get"] [arg [opt "OPTIONS"]] [arg TABLE] [arg INDEXLIST]]
-[call [cmd "table get"] [arg [opt "OPTIONS"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
-Returns the values from a typed table at the indices specified as
-[sectref Indices "index list"] or [sectref Indices range].
+Returns the values from a table at the indices specified as
+[sectref Indices "index list"].
 [include options.inc]
 
 
@@ -96,6 +95,11 @@ replaced by the corresponding elements of [arg ROWVALUES].
 [arg ROWVALUES] may be a list of values or a table of the same type.
 The command may extend the array if necessary. If [arg FIRST] is
 not specified the elements are appended.
+
+[call [cmd "table range"] [arg [opt "OPTIONS"]] [arg TABLE] [arg LOW] [arg [opt HIGH]]]
+Returns all values from a table between the indices specified as a
+[sectref Indices range].
+[include options.inc]
 
 [call [cmd "table reverse"] [arg TABLE]]
 Returns the table with order of elements reversed.
