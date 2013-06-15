@@ -148,14 +148,6 @@ critcl::ccode {
     typedef Tcl_Obj *TColObjPtr;
     typedef Tcl_Obj *TableObjPtr;
 
-    /* Must match order of TA_FORMAT_* in tarray.h */
-    static const char *gFormatOptions[] = {
-        "-tarray",
-        "-list",
-        "-dict",
-        NULL
-    };
-
     /*
      * If status is success, sets ip result to ores. Always returns status.
      * ores might be deallocated unless caller makes sure it is holding a 
