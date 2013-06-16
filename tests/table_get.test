@@ -459,6 +459,152 @@ namespace eval tarray::test {
     } -body {
         test_table_get_indices_asdict [list [samplesize]]
     } -returnCodes error -result "*out of bounds*" -match glob
+
+    #################################################################
+
+    # Verify -columns
+
+    test table_get-columnsopt-1.0 {
+        Verify getting all columns using names
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]        
+    } -body {
+        trequal [tarray::table get -columns {col0 col1 col2 col3} $tab {0 1 2 3 4}] $def $init
+    } -result 1
+
+    test table_get-columnsopt-1.1 {
+        Verify getting all columns out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        trequal [tarray::table get -columns {2 col0 col1 3} $tab {3 1}] {col2 int col0 boolean col1 any col3 double} {{3 1 three 3.0} {1 1 one 1.0}}
+    } -result 1
+
+    test table_get-columnsopt-1.2 {
+        Verify getting all columns out of order as list
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -list -columns {2 col0 col1 3} $tab {3 1}
+    } -result {{3 1 three 3.0} {1 1 one 1.0}}
+
+    test table_get-columnsopt-2.0 {
+        Verify getting subset of columns
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        trequal [tarray::table get -columns {col0 2} $tab {3 1}] {col0 boolean col2 int} {{1 3} {1 1}}
+    } -result 1
+
+    test table_get-columnsopt-2.1 {
+        Verify getting subset of columns out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        trequal [tarray::table get -columns {col3 1} $tab {4}] {col3 double col1 any} {{4.0 four}}
+    } -result 1
+
+    test table_get-columnsopt-2.2 {
+        Verify getting subset of columns out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        llequal {double any} [tarray::table get -list -columns {col3 1} $tab {4}] {{4.0 four}}
+    } -result 1
+
+    test table_get-columnsopt-2.3 {
+        Verify getting subset of columns out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -dict -columns {col3 1} $tab {4 0}
+    } -result {4 {4.0 four} 0 {0.0 zero}}
+
+    test table_get-columnsopt-3.0 {
+        Verify getting non-existent column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {col3 5} $tab {4}
+    } -result "Column index '5' out of bounds." -returnCodes error
+
+    test table_get-columnsopt-3.1 {
+        Verify getting non-existent column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {col3 col5} $tab {4}
+    } -result "No column with name 'col5'." -returnCodes error
+
+    test table_get-columnsopt-3.2 {
+        Verify getting duplicate columns
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {0 1 0} $tab {1 4}
+    } -result "Column index '0' specified multiple times in column list." -returnCodes error
+
+    test table_get-columnsopt-3.3 {
+        Verify getting duplicate columns
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {col2 col2} $tab {1}
+    } -result "Column index '2' specified multiple times in column list." -returnCodes error
+
+    test table_get-columnsopt-3.4 {
+        Verify getting duplicate columns
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {col2 col0 2} $tab {1 3}
+    } -result "Column index '2' specified multiple times in column list." -returnCodes error
+
+    test table_get-columnsopt-3.5 {
+        Verify getting empty column list
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {} $tab {1 3}
+    } -result "A column map must have at least one column specified." -returnCodes error
+
+    test table_get-columnsopt-3.6 {
+        Verify getting negative column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table get -columns {-1} $tab {1 3}
+    } -result "Column index '-1' out of bounds." -returnCodes error
+
+
 }
 
 ::tcltest::cleanupTests

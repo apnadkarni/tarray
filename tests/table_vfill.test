@@ -468,7 +468,7 @@ namespace eval tarray::test {
         set def {col0 boolean col1 any col2 int col3 double}
         set newrow {1 ninetynine 99 99.0}
         set tab [tarray::table create $def $init]
-        tarray::table vfill -columns {col0 col1 col2 col3} tab $newrow 0]
+        tarray::table vfill -columns {col0 col1 col2 col3} tab $newrow 0
         trequal $tab $def [lreplace $init 0 0 $newrow]
     } -result 1
 
@@ -593,6 +593,16 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
         tarray::table vfill -columns {col0 3 col2} tab {1 99.0 99} 0 end+1
     } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+
+    test table_fill-columnsopt-3.8 {
+        Verify filling negative column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vfill -columns {col1 -1} tab {ninetynine 99} end
+    } -result "Column index '-1' out of bounds." -returnCodes error
 
 }
 

@@ -66,14 +66,14 @@ namespace eval tarray::test {
     } -result 0
 
     test table_fill-index-2.4 {
-        Negative index end not allowed
+        Negative index not allowed
     } -body {
         set types {boolean int any byte}
         tab_change_and_verify_u $types [samplerows $types] [samplerows $types] fill [samplerow $types 0] -1
-    } -result * -match glob -returnCodes error
+    } -result "*index -1 out of bounds*" -match glob -returnCodes error
 
     test table_fill-index-2.5 {
-        Out of range index end not allowed
+        Out of range index not allowed
     } -body {
         set types {wide boolean uint any}
         set rows [samplerows $types 0 10]
@@ -545,7 +545,7 @@ namespace eval tarray::test {
     } -result "Column index '5' out of bounds." -returnCodes error
 
     test table_fill-columnsopt-3.1 {
-        Verify filling non-existent column position
+        Verify filling non-existent column name
     } -body {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
         set def {col0 boolean col1 any col2 int col3 double}
@@ -606,6 +606,15 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
         set tab [tarray::table fill -columns {col0 3 col2} $tab {1 99.0 99} 0 end+1]
     } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+
+    test table_fill-columnsopt-3.8 {
+        Verify filling negative column position
+    } -body {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+        set tab [tarray::table fill -columns {col1 -1} $tab {ninetynine 99} end]
+    } -result "Column index '-1' out of bounds." -returnCodes error
 
 }
 
