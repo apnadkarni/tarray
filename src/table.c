@@ -132,7 +132,7 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
             table_parse_column_index(ip, table, objs[n], &colnum) != TCL_OK)
             goto error_handler;
 
-        if (colnum >= width) {
+        if (colnum < 0 || colnum >= width) {
             ta_column_index_error(ip, colnum);
             goto error_handler;
         }
