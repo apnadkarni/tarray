@@ -48,11 +48,36 @@ namespace eval tarray::test {
                           [samplerange wide ]]
     } -result 1
 
+    test table_create-2.1 {
+        Test creation table using a table
+    } -body {
+        set types {any boolean byte double int uint wide }
+        set tab [tarray::table create [col_def $types] [samplerows $types]]
+        set tab2 [tarray::table create [col_def $types] $tab]
+        tequal $tab $tab2
+    } -result 1
+
+    test table_create-2.2 {
+        Test creation table using a wider table
+    } -body {
+        set types {any boolean byte double int uint wide }
+        set tab [tarray::table create [col_def $types] [samplerows $types]]
+        set tab2 [tarray::table create [col_def [lrange $types 0 end-1]] $tab]
+        tlequal $tab2 [col_def [lrange $types 0 end-1]]  [list \
+                                           [samplerange any ] \
+                                           [samplerange boolean ] \
+                                           [samplerange byte ] \
+                                           [samplerange double ] \
+                                           [samplerange int ] \
+                                           [samplerange uint ]]
+    } -result 1
+
+
     test table_create-3.0 {
         Test creation with duplicate column names
     } -body {
         tarray::table::create {colname int colname wide}
-    } -result "Duplicate column name 'colname'" -returnCodes error -match glob
+    } -result "Duplicate column name 'colname'." -returnCodes error
 
     test table_create-3.1 {
         Test creation with invalid initializer list
@@ -71,6 +96,32 @@ namespace eval tarray::test {
     } -body {
         tarray::table::create [list "col umn" any intcol int] {{somestring 0}}
     } -result "Invalid column name syntax." -returnCodes error
+
+    test table_create-3.4 {
+        Test creation with invalid column name
+    } -body {
+        tarray::table::create [list anycol any "" int] {{somestring 0}}
+    } -result "Invalid column name syntax." -returnCodes error
+
+    test table_create-3.5 {
+        Test creation with missing type
+    } -body {
+        tarray::table::create [list anycol any intcol int boolean] {{somestring 0}}
+    } -result "bad TArrayType \"\": must be boolean, uint, int, wide, double, byte, or any" -returnCodes error
+
+    test table_create-3.6 {
+        Test creation with bad type
+    } -body {
+        tarray::table::create [list anycol any intcol int fubcol fub] {{somestring 0}}
+    } -result "bad TArrayType \"fub\": must be boolean, uint, int, wide, double, byte, or any" -returnCodes error
+
+    test table_create-3.7 {
+        Test creation table using a narrower table
+    } -body {
+        set types {any boolean byte double int uint wide }
+        set tab [tarray::table create [col_def [lrange $types 0 end-1]] [samplerows [lrange $types 0 end-1]]]
+        set tab2 [tarray::table create [col_def $types] $tab]
+    } -result "Row or table width 6 less than destination width 7." -returnCodes error
 
     test table_from_string-1.0 {
         Verify generation of table from string - bug #17

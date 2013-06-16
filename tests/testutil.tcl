@@ -350,7 +350,9 @@ if {![info exists tarray::test::known]} {
                 }
             }
             foreach col [lindex $tab 2] {colname coltype} $coldef l $ll {
-                if {![clequal $col $coltype $l]} { return 0 }
+                if {![clequal $col $coltype $l]} {
+                    return 0
+                }
             }
             return 1
         }

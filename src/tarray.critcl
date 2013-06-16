@@ -1228,7 +1228,7 @@ critcl::cproc tarray::table::column {Tcl_Interp* interp TableObjPtr TABLE Tcl_Ob
     thdr_t *thdr = OBJTHDR(TABLE);
     int status, pos;
 
-    if ((status = ta_convert_index(interp, oindex, &pos, thdr->used-1, 0, thdr->used-1))
+    if ((status = table_parse_column_index(interp, TABLE, oindex, &pos))
         != TCL_OK)
         return status;
 
