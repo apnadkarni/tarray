@@ -219,7 +219,16 @@ TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o)
 TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int colindex)
 {
     if (ip) {
-        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid column index '%d'.", colindex));
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index '%d' out of bounds.", colindex));
+        Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index '%d' specified multiple times in column list.", colindex));
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
     }
     return TCL_ERROR;

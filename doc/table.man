@@ -72,6 +72,9 @@ Note: All commands are located in the [cmd tarray] namespace.
 Returns a typed column from a table. [arg COLSPEC] may be either
 the column name or its position.
 
+[call [cmd "table cnames"] [arg TABLE]]
+Returns the list of column names for the table.
+
 [call [cmd "table create"] [arg DEFINITION] [arg ROWVALUES]]
 Returns a typed table containing a sequence of columns.
 [arg DEFINITION] is a list of alternating column names and column types.

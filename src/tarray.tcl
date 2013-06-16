@@ -10,7 +10,7 @@ proc tarray::table::create {def {init {}}} {
     array set seen {}
     foreach {colname coltype} $def {
         if {[info exists seen($colname)]} {
-            error "Duplicate column name '$colname'"
+            error "Duplicate column name '$colname'."
         }
         set seen($colname) 1
         lappend colnames $colname

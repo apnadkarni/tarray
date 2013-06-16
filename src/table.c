@@ -111,7 +111,7 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
         return TCL_ERROR;
 
     if (n == 0) {
-        Tcl_SetResult(ip, "A column map must have at least one element", TCL_STATIC);
+        Tcl_SetResult(ip, "A column map must have at least one column specified.", TCL_STATIC);
         return TCL_ERROR;
     }
 
@@ -133,11 +133,11 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
             goto error_handler;
 
         if (colnum >= width) {
-            ta_index_range_error(ip, colnum);
+            ta_column_index_error(ip, colnum);
             goto error_handler;
         }
         if (pmap->pcolumn_usage[colnum]) {
-            Tcl_SetResult(ip, "A column may be specified at most once in a column map.", TCL_STATIC);
+            ta_multiple_columns_error(ip, colnum);
             goto error_handler;
         }
         pmap->pcolumn_usage[colnum] = 1;
@@ -394,8 +394,8 @@ TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
     TA_ASSERT(table_affirm(table));
 
     if (Tcl_GetIntFromObj(NULL, oindex, &colindex) == TCL_OK) {
-        if (colindex >= table_width(table))
-            return ta_index_range_error(ip, colindex);
+        if (colindex < 0 || colindex >= table_width(table))
+            return ta_column_index_error(ip, colindex);
         *pindex = colindex;
         return TCL_OK;
     }

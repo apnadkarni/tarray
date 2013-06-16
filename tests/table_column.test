@@ -27,10 +27,10 @@ namespace eval tarray::test {
     } -result [samplecolumn boolean] -match column
 
     test table-column-1.3 {
-        Get end column from a table
+        Get named column from a table
     } -body {
         set tab [sampletable {any boolean int wide}]
-        tarray::table column $tab end
+        tarray::table column $tab col3
     } -result [samplecolumn wide] -match column
 
     test table-column-2.0 {
@@ -48,11 +48,18 @@ namespace eval tarray::test {
     } -result "*index -1 out of bounds*" -returnCodes error -match glob
 
     test table-column-2.2 {
-        Attempt to end column from an empty table
+        Attempt to get non-existent column name
     } -body {
-        set tab [trep {}]
+        set tab [sampletable {any boolean int wide}]
+        tarray::table column $tab  nosuchcol
+    } -result "No column with name 'nosuchcol'." -returnCodes error -match glob
+
+    test table-column-2.3 {
+        Verify end is treated as column name
+    } -body {
+        set tab [sampletable {any boolean int wide}]
         tarray::table column $tab end
-    } -result "*index -1 out of bounds*" -returnCodes error -match glob
+    } -result "No column with name 'end'." -returnCodes error
 
 }
 ::tcltest::cleanupTests
