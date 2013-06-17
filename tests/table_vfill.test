@@ -506,6 +506,28 @@ namespace eval tarray::test {
         trequal $tab $def [lrepeat 3 $newrow]
     } -result 1
 
+    test table_vfill-columnsopt-1.4 {
+        Verify filling empty table - index list
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def {}]
+    } -body {
+        tarray::table vfill -columns {0 col1 2 col3} tab $newrow {0 2 1}
+        trequal $tab $def [lrepeat 3 $newrow]
+    } -result 1
+
+    test table_vfill-columnsopt-1.5 {
+        Verify filling empty table - index column
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def {}]
+    } -body {
+        tarray::table fill -columns {0 col1 2 col3} tab $newrow [tarray::column create int {2 1 0}]
+        trequal $tab $def [lrepeat 3 $newrow]
+    } -result 1
+
     test table_vfill-columnsopt-2.0 {
         Verify filling subset columns
     } -setup {
