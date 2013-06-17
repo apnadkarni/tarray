@@ -1229,6 +1229,7 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
         return status;
 
     /* Verify new size is compatible with column mapping */
+    status = TCL_ERROR;
     if (column_map_verify(ip, &colmap, table_width(table), old_size, new_size) == TCL_OK) {
         /* Actually only *subset* of columns need to be modifiable - TBD */
         if (table_make_modifiable(ip, table, new_size, new_size) == TCL_OK) {
@@ -1725,20 +1726,25 @@ TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
         else
             status =  table_put_objs(ip, table, ovalue, opos, omap, 1);
     } else {
-        int pos, count, col_len;
+        int pos, count, col_len, ncols;
+        Tcl_Obj **tcols;
+        column_map_t colmap;
         if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
             (status = table_convert(ip, table)) == TCL_OK) {
 
-            if (count == 0)
-                return TCL_OK;  /* Nothing to do */
+            col_len = table_length(table);
+
+            if (column_map_init(ip, omap, table, &colmap) != TCL_OK ||
+                column_map_verify(ip, &colmap, table_width(table), col_len, count+col_len) != TCL_OK)
+                return TCL_ERROR;
+
             if (count > 0) {
-                col_len = table_length(table);
                 if ((status = table_make_modifiable(ip, table, count+col_len, 0)) == TCL_OK &&
                     (status = ta_convert_index(ip, opos, &pos, col_len,
-                                               0, col_len)) == TCL_OK) {
-                    status = tcols_fill_range(ip, table_width(table),
-                                              table_columns(table), ovalue,
-                                              pos, count, 1);
+                                               0, col_len)) == TCL_OK &&
+                    (status = column_map_get_columns(ip, &colmap, table, &tcols, &ncols)) == TCL_OK) {
+                    status = tcols_fill_range(ip, ncols, tcols,
+                                              ovalue, pos, count, 1);
                 }
             } else if (count < 0) {
                 status = ta_bad_count_error(ip, count);

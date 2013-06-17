@@ -317,6 +317,154 @@ namespace eval tarray::test {
     } -result {tarray_table {f0 f1 f2} {{tarray_column int {0 99}} {tarray_column int {1 99}} {tarray_column int {2 99}}}}
 
 
+    ################################################################
+    # Verify -columns
+
+    test table_insert-columnsopt-1.0 {
+        Verify insert all columns using names
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def $init]
+    } -body {
+        set tab [tarray::table insert -columns {col0 col1 col2 col3} $tab $newrow 0 1]
+        trequal $tab $def [linsert $init 0 $newrow]
+    } -result 1
+
+    test table_insert-columnsopt-1.1 {
+        Verify insert list, all columns using names out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        set tab [tarray::table insert -columns {1 col0 3 col2} $tab [list {ninetynine 1 99.0 99} {hundred 0 100.0 100}] 1]
+        trequal $tab $def [linsert $init 1 {1 ninetynine 99 99.0} {0 hundred 100 100.0}]
+    } -result 1
+
+    test table_insert-columnsopt-1.2 {
+        Verify growing table, all columns using names out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        set tab [tarray::table insert -columns {1 col0 3 col2} $tab [list {ninetynine 1 99.0 99} {hundred 0 100.0 100}] end]
+        trequal $tab $def [linsert $init end {1 ninetynine 99 99.0} {0 hundred 100 100.0}]
+    } -result 1
+
+    test table_insert-columnsopt-1.3 {
+        Verify insert into empty table
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def {}]
+    } -body {
+        set tab [tarray::table insert -columns {1 col0 3 col2} $tab {ninetynine 1 99.0 99} end 2]
+        trequal $tab $def [lrepeat 2 {1 ninetynine 99 99.0}]
+    } -result 1
+
+    test table_insert-columnsopt-2.0 {
+        Verify insert subset columns
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {col1 2} $tab {ninetynine 99} 0 1
+    } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+    
+    test table_insert-columnsopt-2.1 {
+        Verify inserting subset columns out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {2 col1} $tab {{99 ninetynine} {100 hundred}} 1
+    } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+
+    test table_insert-columnsopt-3.0 {
+        Verify inserting non-existent column position
+    } -body {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+        tarray::table insert -columns {col0 col1 col2 col3 5} $tab {0 0 0 0 0} 0
+    } -result "Column index '5' out of bounds." -returnCodes error
+
+    test table_insert-columnsopt-3.1 {
+        Verify inserting non-existent column name
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {col0 col1 col2 col3 col5} $tab [list {0 0 0 0 0}] 0
+    } -result "No column with name 'col5'." -returnCodes error
+
+    test table_insert-columnsopt-3.2 {
+        Verify inserting duplicate column names
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {col0 col1 col2 col1} $tab {0 0 0 0} 0 1
+    } -result "Column index '1' specified multiple times in column list." -returnCodes error
+
+    test table_insert-columnsopt-3.3 {
+        Verify filling duplicate column positions
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {col0 col1 col2 col3 col1} $tab {{0 0 0 0 0}} 0
+    } -result "Column index '1' specified multiple times in column list." -returnCodes error
+
+    test table_insert-columnsopt-3.4 {
+        Verify filling duplicate column positions
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {col0 col1 col2 col3 col1} $tab {0 0 0 0} 0 1
+    } -result "Column index '1' specified multiple times in column list." -returnCodes error
+
+    test table_insert-columnsopt-3.5 {
+        Verify insufficient data width
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {col0 col1 col2 col3} $tab {{0 0 0}} 0
+    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+    
+    test table_insert-columnsopt-3.6 {
+        Verify empty column list
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {} $tab {0 0 0 0} 0 1
+    } -result "A column map must have at least one column specified." -returnCodes error
+
+    test table_insert-columnsopt-3.8 {
+        Verify inserting negative column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table insert -columns {0 1 2 -1} $tab {0 0 0 0} end
+    } -result "Column index '-1' out of bounds." -returnCodes error
+
+
 }
 
 ::tcltest::cleanupTests
