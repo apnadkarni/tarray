@@ -12,7 +12,7 @@ namespace eval tarray::test {
             set indexlist $indexlist_or_indexarray
             set n [llength $indexlist]
         } else {
-            set indexlist [tarray::column get -list $indexlist_or_indexarray 0 end]
+            set indexlist [tarray::column range -list $indexlist_or_indexarray 0 end]
         }
         incr n -1
         if {[llength $args]} {
@@ -622,6 +622,222 @@ namespace eval tarray::test {
         tarray::table vplace ta {{0 1 2}} 1
         set ta
     } -result {tarray_table {f0 f1 f2} {{tarray_column int {99 0}} {tarray_column int {99 1}} {tarray_column int {99 2}}}}
+
+    #################################################################
+
+    # Verify -columns
+
+    test table_vplace-columnsopt-1.0 {
+        Verify placing all columns using names
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col0 col1 col2 col3} tab [list $newrow] 0
+        trequal $tab $def [lreplace $init 0 0 $newrow]
+    } -result 1
+
+    test table_vplace-columnsopt-1.1 {
+        Verify placing range, all columns using names out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {1 col0 3 col2} tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}}  {1 0}
+        trequal $tab $def [lreplace $init 0 1 {0 hundred 100 100.0} {1 ninetynine 99 99.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-1.2 {
+        Verify growing table, all columns using names out of order
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {1 col0 3 col2} tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}} [tarray::column create int {6 5}]
+        trequal $tab $def [linsert $init end {0 hundred 100 100.0} {1 ninetynine 99 99.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-1.3 {
+        Verify placing empty table
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def {}]
+    } -body {
+        tarray::table vplace -columns {1 col0 3 col2} tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}} [tarray::column create int {0 1}]
+        trequal $tab $def [list {1 ninetynine 99 99.0} {0 hundred 100 100.0} ]
+    } -result 1
+
+    test table_vplace-columnsopt-1.4 {
+        Verify placing empty table
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def {}]
+    } -body {
+        set tab [tarray::table vplace -columns {1 col0 3 col2} tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}} {1 0}]
+        trequal $tab $def [list  {0 hundred 100 100.0} {1 ninetynine 99 99.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-2.0 {
+        Verify placing subset columns
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col1 2} tab {{ninetynine 99}} {4}
+        trequal $tab $def [lreplace $init end end {0 ninetynine 99 4.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-2.1 {
+        Verify placing subset columns unordered, discrete indices
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {3 col0} tab {{99.0 0} {100.0 1}} {1 2}
+        trequal $tab $def [lreplace $init 1 2 {0 one 1 99.0} {1 two 2 100.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-2.2 {
+        Verify placing subset columns unordered, index column
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {3 col1} tab {{99.0 ninetynine} {100.0 hundred}} [tarray::column create int {2 1}]
+        trequal $tab $def [lreplace $init 1 2 {1 hundred 1 100.0} {0 ninetynine 2 99.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-2.3 {
+        Verify placing subset columns unordered from table, discrete indices
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {3 col0} tab [tarray::table create {f0 double f1 boolean} {{99.0 0} {100.0 1}}] {1 2}
+        trequal $tab $def [lreplace $init 1 2 {0 one 1 99.0} {1 two 2 100.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-2.4 {
+        Verify placing subset columns unordered, index column
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {3 col1} tab [tarray::table create {fdbl double fany any} {{99.0 ninetynine} {100.0 hundred}}] [tarray::column create int {2 1}]
+        trequal $tab $def [lreplace $init 1 2 {1 hundred 1 100.0} {0 ninetynine 2 99.0}]
+    } -result 1
+
+    test table_vplace-columnsopt-3.0 {
+        Verify placing non-existent column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col1 5} tab {{ninetynine 99}} 4
+    } -result "Column index '5' out of bounds." -returnCodes error
+
+    test table_vplace-columnsopt-3.1 {
+        Verify placing non-existent column name
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col5} tab {{ninetynine 99}} [tarray::column create int {0 1}]
+    } -result "No column with name 'col5'." -returnCodes error
+
+    test table_vplace-columnsopt-3.2 {
+        Verify placing duplicate column names
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col1 col1} tab [tarray::table create {f0 any f1 any} {{ninetynine ninetynine}}] {0}
+    } -result "Column index '1' specified multiple times in column list." -returnCodes error
+
+    test table_vplace-columnsopt-3.3 {
+        Verify placing duplicate column positions
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {0 1 0} tab {{0 astring 0}} 1
+    } -result "Column index '0' specified multiple times in column list." -returnCodes error
+
+    test table_vplace-columnsopt-3.4 {
+        Verify placing duplicate column positions
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col2 col3 2} tab {{0 0 0}} {0 1 2}
+    } -result "Column index '2' specified multiple times in column list." -returnCodes error
+
+    test table_vplace-columnsopt-3.5 {
+        Verify insufficient data width
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col0 col1 col2 col3} tab {{0 0 0}} 0
+    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+
+    test table_vplace-columnsopt-3.6 {
+        Verify insufficient data width
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col0 col1 col2 col3} tab [tarray::table create {f0 boolean f1 any f2 int} { {0 0 0} }] {0}
+    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+
+    test table_vplace-columnsopt-3.7 {
+        Verify empty column list
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {} tab {{0 0 0 0}} 0
+    } -result "A column map must have at least one column specified." -returnCodes error
+
+    test table_vplace-columnsopt-3.8 {
+        Verify growing table, subset columns 
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col0 3 col2} tab {{1 99.0 99}} 5
+    } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+
+    test table_vplace-columnsopt-3.9 {
+        Verify placing negative column position
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vplace -columns {col1 -1} tab {{ninetynine 99}} 0
+    } -result "Column index '-1' out of bounds." -returnCodes error
+
+
+
 
 }
 

@@ -519,6 +519,28 @@ namespace eval tarray::test {
         trequal $tab $def [lrepeat 3 $newrow]
     } -result 1
 
+    test table_fill-columnsopt-1.4 {
+        Verify filling empty table - index list
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def {}]
+    } -body {
+        set tab [tarray::table fill -columns {0 col1 2 col3} $tab $newrow {0 2 1}]
+        trequal $tab $def [lrepeat 3 $newrow]
+    } -result 1
+
+    test table_fill-columnsopt-1.5 {
+        Verify filling empty table - index column
+    } -setup {
+        set def {col0 boolean col1 any col2 int col3 double}
+        set newrow {1 ninetynine 99 99.0}
+        set tab [tarray::table create $def {}]
+    } -body {
+        set tab [tarray::table fill -columns {0 col1 2 col3} $tab $newrow [tarray::column create int {2 1 0}]]
+        trequal $tab $def [lrepeat 3 $newrow]
+    } -result 1
+
     test table_fill-columnsopt-2.0 {
         Verify filling subset columns
     } -setup {
@@ -538,6 +560,17 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table fill -columns {3 col0} $tab {99.0 0} {1 2}]
+        trequal $tab $def [lreplace $init 1 2 {0 one 1 99.0} {0 two 2 99.0}]
+    } -result 1
+
+    test table_fill-columnsopt-2.2 {
+        Verify filling subset columns unordered, index column
+    } -setup {
+        set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
+        set def {col0 boolean col1 any col2 int col3 double}
+        set tab [tarray::table create $def $init]
+    } -body {
+        set tab [tarray::table fill -columns {3 col0} $tab {99.0 0} [tarray::column create int {2 1}]]
         trequal $tab $def [lreplace $init 1 2 {0 one 1 99.0} {0 two 2 99.0}]
     } -result 1
 
