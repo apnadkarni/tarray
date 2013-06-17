@@ -38,14 +38,14 @@ namespace eval tarray::test {
     } -body {
         set tab [sampletable {any boolean int wide}]
         tarray::table column $tab  4
-    } -result "*index 4 out of bounds*" -returnCodes error -match glob
+    } -result "Column index '4' out of bounds." -returnCodes error
 
     test table-column-2.1 {
         Attempt to get negative index column from a table
     } -body {
         set tab [sampletable {any boolean int wide}]
         tarray::table column $tab -1
-    } -result "*index -1 out of bounds*" -returnCodes error -match glob
+    } -result "Column index '-1' out of bounds." -returnCodes error
 
     test table-column-2.2 {
         Attempt to get non-existent column name

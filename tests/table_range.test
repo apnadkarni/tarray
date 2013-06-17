@@ -8,7 +8,7 @@ namespace eval tarray::test {
     proc test_table_get_range_astable {low high {types {any boolean byte double int uint wide}}} {
 
         set expected_rows [samplerows $types $low $high]
-        set ta [tarray::table range -tarray [sampletable $types] $low $high]
+        set ta [tarray::table range -table [sampletable $types] $low $high]
 
         if {[trequal $ta [col_def $types] $expected_rows]} {
             return ""
@@ -118,9 +118,9 @@ namespace eval tarray::test {
     } -body { test_table_get_range_astable end 0 }
 
     test table_range-astable-4.0 {
-        Get indexlist -tarray option
+        Get indexlist -table option
     } -body {
-        tarray::table range -tarray [newtable {int any} {{0 a} {1 b}}] 0 1
+        tarray::table range -table [newtable {int any} {{0 a} {1 b}}] 0 1
     } -result [trep [list [crep int {0 1}] [crep any {a b}]]]
 
 

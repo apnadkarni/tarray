@@ -181,9 +181,9 @@ namespace eval tarray::test {
         } -returnCodes error -result "*out of bounds*" -match glob
 
         test column_get-indexlist-ascol-$type-4.0 {
-            Get indexlist -tarray option
+            Get indexlist -column option
         } -body {
-            tarray::column get -tarray [newcolumn $type {0 1}] {1 0}
+            tarray::column get -column [newcolumn $type {0 1}] {1 0}
         } -result [crep $type {1 0}] -match column
 
 
@@ -378,9 +378,9 @@ namespace eval tarray::test {
         } -returnCodes error -result "*out of bounds*" -match glob
 
         test column_get-indices-ascol-$type-4.0 {
-            Get indexlist -tarray option
+            Get indexlist -column option
         } -body {
-            tarray::column get -tarray [newcolumn $type {0 1}] {1 0}
+            tarray::column get -column [newcolumn $type {0 1}] {1 0}
         } -result [crep $type {1 0}] -match column
 
         #

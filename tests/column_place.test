@@ -12,7 +12,7 @@ namespace eval tarray::test {
             set indexlist $indexlist_or_indexarray
             set n [llength $indexlist]
         } else {
-            set indexlist [tarray::column get -list $indexlist_or_indexarray 0 end]
+            set indexlist [tarray::column range -list $indexlist_or_indexarray 0 end]
         }
         incr n -1
         if {[llength $args]} {
@@ -46,7 +46,7 @@ namespace eval tarray::test {
             set indexlist $indexlist_or_indexarray
             set n [llength $indexlist]
         } else {
-            set indexlist [tarray::column get -list $indexlist_or_indexarray 0 end]
+            set indexlist [tarray::column range -list $indexlist_or_indexarray 0 end]
         }
         incr n -1
         if {[llength $args]} {
