@@ -19,9 +19,14 @@
 # include "dispatch.h"
 #endif
 
-#ifndef ARRAYSIZE
+#ifdef _MSC_VER
+/* For MSC, use compiler version since it protects against A being a pointer */
+# ifndef ARRAYSIZE
 /* Older SDK's do not define this */
-#define ARRAYSIZE(A) RTL_NUMBER_OF(A)
+#  define ARRAYSIZE(A) RTL_NUMBER_OF(A)
+# endif
+#else
+# define ARRAYSIZE(A) (sizeof(A)/sizeof(A[0]))
 #endif
 
 #ifndef TA_INLINE
