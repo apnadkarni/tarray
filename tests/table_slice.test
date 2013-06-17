@@ -41,8 +41,66 @@ namespace eval tarray::test {
             [cequal [tarray::table column $tab 0] [samplecolumn int 0 100]]
     } -result {1 1}
 
-    # TBD - column name tests
-    # TBD - column duplicated tests
+    test table_slice-1.4 {
+        Slice all
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any} 0 100] {col0 col1 col2}]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn boolean 0 100]] \
+            [cequal [tarray::table column $tab 1] [samplecolumn int 0 100]] \
+            [cequal [tarray::table column $tab 2] [samplecolumn any 0 100]]
+    } -result {3 1 1 1}
+
+    test table_slice-1.5 {
+        Slice subset in different order
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any wide} 0 100] {col2 col0 col3}]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn any 0 100]] \
+            [cequal [tarray::table column $tab 1] [samplecolumn boolean 0 100]] \
+            [cequal [tarray::table column $tab 2] [samplecolumn wide 0 100]]
+    } -result {3 1 1 1}
+
+    test table_slice-1.6 {
+        Slice one
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any wide} 0 100] {col1}]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn int 0 100]]
+    } -result {1 1}
+
+    test table_slice-1.7 {
+        Slice subset in different order with mixed names and col positions
+    } -body {
+        set tab [tarray::table slice [sampletable {boolean int any wide} 0 100] {col2 0 col3}]
+        list \
+            [tarray::table width $tab] \
+            [cequal [tarray::table column $tab 0] [samplecolumn any 0 100]] \
+            [cequal [tarray::table column $tab 1] [samplecolumn boolean 0 100]] \
+            [cequal [tarray::table column $tab 2] [samplecolumn wide 0 100]]
+    } -result {3 1 1 1}
+
+    test table_slice-2.0 {
+        Slice subset in with dup col names
+    } -body {
+        tarray::table slice [sampletable {boolean int any wide} 0 100] {col2 col0 col2}
+    } -result "Duplicate columns specified in column list 'col2 col0 col2'." -returnCodes error
+
+    test table_slice-2.1 {
+        Slice subset in with dup col indices
+    } -body {
+        tarray::table slice [sampletable {boolean int any wide} 0 100] {2 0 2}
+    } -result "Duplicate columns specified in column list '2 0 2'." -returnCodes error
+
+    test table_slice-2.2 {
+        Slice subset in with dup col names and indices
+    } -body {
+        tarray::table slice [sampletable {boolean int any wide} 0 100] {col2 col0 2}
+    } -result "Duplicate columns specified in column list 'col2 col0 2'." -returnCodes error
+
 
 }
 
