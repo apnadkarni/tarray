@@ -412,7 +412,7 @@ namespace eval tarray::test {
     } -body {
         set tcol [tarray::column create any {a A b B}]
         set indices [tarray::column sort -indices $tcol]
-        tarray::column sort -indirect $tcol -nocase [tarray::column get $indices 0 2]
+        tarray::column sort -indirect $tcol -nocase [tarray::column range $indices 0 2]
     } -result {tarray_column int {1 0 3}} -match column
 
     test column_sort-indirect-1.3 {

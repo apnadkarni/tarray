@@ -128,9 +128,9 @@ namespace eval tarray::test {
         } -body { test_get_range_ascol $type end-10 end+10 }
 
         test column_get-range-ascol-$type-3.0 {
-            Get indexlist -tarray option
+            Get indexlist -column option
         } -body {
-            tarray::column range -tarray [newcolumn $type {0 1}] 0 1
+            tarray::column range -column [newcolumn $type {0 1}] 0 1
         } -result [crep $type {0 1}] -match column
 
         #

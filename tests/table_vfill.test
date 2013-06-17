@@ -524,7 +524,7 @@ namespace eval tarray::test {
         set newrow {1 ninetynine 99 99.0}
         set tab [tarray::table create $def {}]
     } -body {
-        tarray::table fill -columns {0 col1 2 col3} tab $newrow [tarray::column create int {2 1 0}]
+        tarray::table vfill -columns {0 col1 2 col3} tab $newrow [tarray::column create int {2 1 0}]
         trequal $tab $def [lrepeat 3 $newrow]
     } -result 1
 

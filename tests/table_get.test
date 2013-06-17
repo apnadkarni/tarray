@@ -6,7 +6,7 @@ source testutil.tcl
 namespace eval tarray::test {
 
     proc test_table_get_indexlist_astable {indexlist {types {any boolean byte double int uint wide}}} {
-        set got [tarray::table get -tarray [sampletable $types] $indexlist]
+        set got [tarray::table get -table [sampletable $types] $indexlist]
         if {[trequal $got [col_def $types] [samplerows $types $indexlist]]} {
             return ""
         } else {
@@ -15,7 +15,7 @@ namespace eval tarray::test {
     }
 
     proc test_table_get_indices_astable {indexlist {types {any boolean byte double int uint wide}}} {
-        set got [tarray::table get -tarray [sampletable $types] [indexcolumn $indexlist]]
+        set got [tarray::table get -table [sampletable $types] [indexcolumn $indexlist]]
         if {[trequal $got [col_def $types] [samplerows $types $indexlist]]} {
             return ""
         } else {
@@ -155,9 +155,9 @@ namespace eval tarray::test {
     } -returnCodes error -result "*out of bounds*" -match glob
 
     test table_get-indexlist-astable-4.0 {
-        Get indexlist verify -tarray is default 
+        Get indexlist verify -table is default 
     } -body {
-        tarray::table get -tarray [newtable {int any} {{0 a} {1 b}}] {1 0}
+        tarray::table get -table [newtable {int any} {{0 a} {1 b}}] {1 0}
     } -result [trep [list [crep int {1 0}] [crep any {b a}]]]
 
 
@@ -347,9 +347,9 @@ namespace eval tarray::test {
     } -returnCodes error -result "*out of bounds*" -match glob
 
     test table_get-indices-astable-4.0 {
-        Get indices verify -tarray is default 
+        Get indices verify -table is default 
     } -body {
-        tarray::table get -tarray [newtable {int any} {{0 a} {1 b}}]  {1 0}
+        tarray::table get -table [newtable {int any} {{0 a} {1 b}}]  {1 0}
     } -result [trep [list [crep int {1 0}] [crep any {b a}]]]
 
 
