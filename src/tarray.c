@@ -53,6 +53,60 @@ struct Tcl_ObjType ta_column_type = {
 };
 
 
+/* Panics on consistency check failure. int return value so it can
+ be called from TA_ASSERT */
+int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
+{
+    Tcl_Obj **objPP;
+    int i;
+
+    /* Note used cannot be == usable because of sentinel */
+    if (thdr->used >= thdr->usable)
+        Tcl_Panic("thdr->used=%d, thdr->usable=%d", thdr->used, thdr->usable);
+
+    switch (thdr->type) {
+    case TA_BOOLEAN:
+    case TA_UINT:
+    case TA_INT:
+    case TA_WIDE:
+    case TA_DOUBLE:
+    case TA_BYTE:
+        break;
+    case TA_ANY:
+        objPP = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+        for (i = 0; i < thdr->used; ++i) {
+            if (objPP[i]->refCount < 1)
+                Tcl_Panic("thdr TA_ANY element ref count (%d) < 1", objPP[i]->refCount);
+        }
+        break;
+    default:
+        ta_type_panic(thdr->type);
+    }
+
+    return 1;
+}
+
+
+int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
+{
+    thdr_t *thdr;
+    int i;
+
+    if (tcol_convert(ip, tcol) != TCL_OK || ! tcol_affirm(tcol))
+        Tcl_Panic("Tcl_Obj is not a column");
+
+    thdr = tcol_thdr(tcol);
+    if (thdr == NULL)
+        Tcl_Panic("NULL thdr in Tcl_Obj");
+    if (thdr->nrefs < 1)
+        Tcl_Panic("Column thdr->nrefs (%d) < 1", thdr->nrefs);
+    
+    thdr_check(ip, thdr);
+
+    return 1;
+}
+
+
 /*
  * A Tcl object to parse tarray index tokens and cache the result so
  * we do not parse "end" or "last" repeatedly. We could actually use the
@@ -3220,6 +3274,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     }
 
     if (tcol) {
+        TA_ASSERT(tcol_check(ip, tcol));
         Tcl_SetObjResult(ip, tcol);
         return TCL_OK;
     } else

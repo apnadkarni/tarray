@@ -20,6 +20,31 @@ proc tarray::table::create {def {init {}} {size 0}} {
     return [insert [list tarray_table $colnames $cols] $init end]
 }
 
+proc tarray::table::sort {args} {
+    set opts {}
+    set want_indices 0
+    foreach arg [lrange $args 0 end-2] {
+        switch -exact -- $arg {
+            -indices {set want_indices 1}
+            -increasing -
+            -decreasing -
+            -nocase { lappend opts $arg}
+            default {
+                error "Invalid option '$arg'"
+            }
+        }
+    }
+
+    set tab [lindex $args end-1]
+    set indices [tarray::column::sort -indices {*}$opts [column $tab [lindex $args end]]]
+    if {$want_indices} {
+        return $indices
+    } else {
+        return [get $tab $indices]
+    }
+}
+
+
 proc tarray::unsupported::build_info {} {
     set result ""
     catch {append result [encoding convertfrom utf-8 [critcl_info]]}

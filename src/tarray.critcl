@@ -208,6 +208,7 @@ critcl::ccommand tarray::column::create {} {
     Tcl_Obj **elems;
     int nelems;
     thdr_t *thdrP;
+    Tcl_Obj *o;
 
     if (objc < 2 || objc > 4) {
         Tcl_WrongNumArgs(interp, 1, objv, "TYPE ?INITVAL? ?INITSIZE?");
@@ -235,7 +236,10 @@ critcl::ccommand tarray::column::create {} {
     if (thdrP == NULL)
         return TCL_ERROR;
 
-    Tcl_SetObjResult(interp, tcol_new(thdrP));
+    o = tcol_new(thdrP);
+
+    TA_ASSERT(tcol_check(interp, o));
+    Tcl_SetObjResult(interp, o);
     return TCL_OK;
 }
 
@@ -254,6 +258,7 @@ critcl::ccommand tarray::column::delete {} {
         tcol = Tcl_DuplicateObj(objv[1]);
 
     status = tcol_delete(interp, tcol, objv[2], objc == 4 ? objv[3] : NULL);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
 
@@ -273,6 +278,7 @@ critcl::ccommand tarray::column::vdelete {} {
         tcol = Tcl_DuplicateObj(tcol);
 
     status = tcol_delete(interp, tcol, objv[2], objc == 4 ? objv[3] : NULL);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
@@ -329,6 +335,7 @@ critcl::ccommand tarray::column::sort {} {
     } else
         status = tcol_sort(interp, tcol, flags);
 
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
 
@@ -364,6 +371,7 @@ critcl::ccommand tarray::column::vsort {} {
         status = tcol_sort(interp, tcol, flags);
     }
 
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 
@@ -395,6 +403,7 @@ critcl::ccommand tarray::column::insert {} {
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
     status = tcol_insert_obj(interp, tcol, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
 
@@ -413,6 +422,7 @@ critcl::ccommand tarray::column::vinsert {} {
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
     status = tcol_insert_obj(interp, tcol, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
@@ -432,6 +442,7 @@ critcl::cproc tarray::column::put {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* V
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
 
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
 
@@ -452,6 +463,7 @@ critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Ob
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, COLUMNVAR, tcol);
 }
 
@@ -465,6 +477,7 @@ critcl::cproc tarray::column::place {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj*
         status = tcol_place_indices(interp, COLUMN, VALUES, INDICES);
     else
         status = tcol_place_objs(interp, COLUMN, VALUES, INDICES);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, COLUMN));
     return ta_return_result(interp, status, COLUMN);
 }
 
@@ -483,6 +496,7 @@ critcl::cproc tarray::column::vplace {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_
     else
         status = tcol_place_objs(interp, tcol, VALUES, INDICES);
 
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, COLUMNVAR, tcol);
 }
 
@@ -501,6 +515,7 @@ critcl::ccommand tarray::column::fill {} {
 
     status = tcol_fill_obj(interp, tcol, objv[2], objv[3],
                                objc == 5 ? objv[4] : NULL);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
 
@@ -520,25 +535,31 @@ critcl::ccommand tarray::column::vfill {} {
         tcol = Tcl_DuplicateObj(tcol);
 
     status = tcol_fill_obj(interp, tcol, objv[2], objv[3], objc == 5 ? objv[4] : NULL);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, objv[1], tcol);
 }
 
 critcl::cproc tarray::column::reverse {Tcl_Interp* interp Tcl_Obj* tcol} ok {
+    TCL_RESULT status;
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
-    return ta_return_result(interp, tcol_reverse(interp, tcol), tcol);
+    status = tcol_reverse(interp, tcol);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
+    return ta_return_result(interp, status, tcol);
 }
     
 critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     Tcl_Obj *tcol;
-
+    TCL_RESULT status;
     tcol = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
     if (tcol == NULL)
         return TCL_ERROR;
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
 
-    return ta_set_var_result(interp, tcol_reverse(interp, tcol), ovar, tcol);
+    status = tcol_reverse(interp, tcol);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
+    return ta_set_var_result(interp, status, ovar, tcol);
 }
 
 critcl::ccommand tarray::column::intersect3 {} {
@@ -844,6 +865,9 @@ critcl::ccommand tarray::column::intersect3 {} {
     results[0] = tcol_new(aintersectb);
     results[1] = tcol_new(aminusb);
     results[2] = tcol_new(bminusa);
+    TA_ASSERT(tcol_check(interp, results[0]));
+    TA_ASSERT(tcol_check(interp, results[1]));
+    TA_ASSERT(tcol_check(interp, results[2]));
     Tcl_SetObjResult(interp, Tcl_NewListObj(3, results));
 
     status = TCL_OK;
@@ -915,6 +939,7 @@ critcl::ccommand tarray::table::put {} {
     else
         status = table_put_objs(interp, table, ovalues, ofirst, omap, 0);
 
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_return_result(interp, status, table);
 }
 
@@ -937,6 +962,7 @@ critcl::ccommand tarray::table::vput {} {
     else
         status = table_put_objs(interp, table, ovalues, ofirst, omap, 0);
 
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_set_var_result(interp, status, ovar, table);
 }
 
@@ -986,6 +1012,7 @@ critcl::ccommand tarray::table::fill {} {
         table = Tcl_DuplicateObj(table);
 
     status = table_fill_obj(interp, table, orow, aindex, bindex, omap, 0);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_return_result(interp, status, table);
 }
 
@@ -1003,6 +1030,7 @@ critcl::ccommand tarray::table::vfill {} {
         table = Tcl_DuplicateObj(table);
 
     status = table_fill_obj(interp, table, orow, aindex, bindex, omap, 0);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_set_var_result(interp, status, ovar, table);
 }
 
@@ -1019,6 +1047,7 @@ critcl::ccommand tarray::table::delete {} {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
     status = table_delete(interp, table, objv[2], objc == 4 ? objv[3] : NULL);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_return_result(interp, status, table);
 }
 
@@ -1038,6 +1067,7 @@ critcl::ccommand tarray::table::vdelete {} {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
     status = table_delete(interp, table, objv[2], objc == 4 ? objv[3] : NULL);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_set_var_result(interp, status, objv[1], table);
 }
 
@@ -1111,6 +1141,7 @@ critcl::ccommand tarray::table::insert {} {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
     status = table_insert_obj(interp, table, ovalues, ofirst, ocount, omap);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_return_result(interp, status, table);
 }
 
@@ -1128,6 +1159,7 @@ critcl::ccommand tarray::table::vinsert {} {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
     status = table_insert_obj(interp, table, ovalues, ofirst, ocount, omap);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_set_var_result(interp, status, ovar, table);
 }
 
@@ -1173,7 +1205,7 @@ critcl::ccommand tarray::table::place {} {
         otab = Tcl_DuplicateObj(otab);
 
     status = table_place(interp, otab, ovalues, oindices, omap);
-
+    TA_ASSERT(status != TCL_OK || table_check(interp, otab));
     return ta_return_result(interp, status, otab);
 }
 
@@ -1193,18 +1225,23 @@ critcl::ccommand tarray::table::vplace {} {
         otab = Tcl_DuplicateObj(otab);
     
     status = table_place(interp, otab, ovalues, oindices, omap);
+    TA_ASSERT(status != TCL_OK || table_check(interp, otab));
     return ta_set_var_result(interp, status, ovar, otab);
 }
 
 critcl::cproc tarray::table::reverse {Tcl_Interp* interp Tcl_Obj* table} ok {
+    TCL_RESULT status;
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    return ta_return_result(interp, table_reverse(interp, table), table);
+    status = table_reverse(interp, table);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
+    return ta_return_result(interp, status, table);
 }
     
 critcl::cproc tarray::table::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     Tcl_Obj *table;
+    TCL_RESULT status;
 
     table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
     if (table == NULL)
@@ -1213,7 +1250,9 @@ critcl::cproc tarray::table::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    return ta_set_var_result(interp, table_reverse(interp, table), ovar, table);
+    status = table_reverse(interp, table);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
+    return ta_set_var_result(interp, status, ovar, table);
 }
 
 critcl::cproc tarray::table::size {TableObjPtr TABLE} int {
@@ -1227,12 +1266,15 @@ critcl::cproc tarray::table::width {TableObjPtr TABLE} int {
 critcl::cproc tarray::table::column {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj* oindex} ok {
     thdr_t *thdr = OBJTHDR(TABLE);
     int status, pos;
+    Tcl_Obj *tcol;
 
     if ((status = table_parse_column_index(interp, TABLE, oindex, &pos))
         != TCL_OK)
         return status;
 
-    Tcl_SetObjResult(interp, *THDRELEMPTR(thdr, Tcl_Obj*, pos));
+    tcol = *THDRELEMPTR(thdr, Tcl_Obj*, pos);
+    TA_ASSERT(tcol_check(interp, tcol));
+    Tcl_SetObjResult(interp, tcol);
     return TCL_OK;
 }
 
@@ -1286,9 +1328,11 @@ critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj
     if (status == TCL_ERROR) {
         thdr_decr_refs(thdr);
         Tcl_DecrRefCount(ocolnames);
-    } else 
-        Tcl_SetObjResult(interp, table_new(thdr, ocolnames));
-
+    } else {
+        Tcl_Obj *otab = table_new(thdr, ocolnames);
+        TA_ASSERT(table_check(interp, otab));
+        Tcl_SetObjResult(interp, otab);
+    }
     return status;
 }
 
