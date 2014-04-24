@@ -4,7 +4,7 @@ namespace eval tarray {
     namespace eval db {}
 }
 
-proc tarray::table::create {def {init {}}} {
+proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}
     set cols {}
     array set seen {}
@@ -14,7 +14,7 @@ proc tarray::table::create {def {init {}}} {
         }
         set seen($colname) 1
         lappend colnames $colname
-        lappend cols [tarray::column::create $coltype {}]
+        lappend cols [tarray::column::create $coltype {} $size]
     }
 
     return [insert [list tarray_table $colnames $cols] $init end]
