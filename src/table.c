@@ -68,6 +68,37 @@ struct Tcl_ObjType ta_table_type = {
 
 /******************************************************************/
 
+/* Panics on consistency check failure. int return value so it can
+ be called from TA_ASSERT */
+int table_check(Tcl_Interp *ip, Tcl_Obj *otab)
+{
+    thdr_t *thdr;
+    Tcl_Obj **tcols;
+    int ncols;
+    int i;
+
+    if (table_convert(ip, otab) != TCL_OK || ! table_affirm(otab))
+        Tcl_Panic("Tcl_Obj is not a table");
+
+    thdr = table_thdr(otab);
+    if (thdr == NULL)
+        Tcl_Panic("NULL thdr in Tcl_Obj");
+    if (thdr->type != TA_ANY)
+        Tcl_Panic("Table thdr->type not TA_ANY");
+    if (thdr->nrefs < 1)
+        Tcl_Panic("Table thdr->nrefs (%d) < 1", thdr->nrefs);
+    
+    ncols = thdr->used;
+    tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    for (i = 0; i < ncols; ++i) {
+        if (tcols[i]->refCount < 1)
+            Tcl_Panic("Table column ref count (%d) < 1", tcols[i]->refCount);
+        tcol_check(ip, tcols[i]);
+    }
+
+    return 1;
+}
+
 static TCL_RESULT column_map_missing_columns_error(Tcl_Interp *ip)
 {
     if (ip)
@@ -293,8 +324,8 @@ vamoose:
  * table type routines
  */
 static void table_type_free_intrep(Tcl_Obj *o)
-{
-    thdr_t *thdr;
+{ 
+   thdr_t *thdr;
     Tcl_Obj *ocolnames;
 
     TA_ASSERT(table_affirm(o));
@@ -1419,9 +1450,10 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
         tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
         for (i = 0; i < nsrccols; ++i) {
             tcols[i] = tcol_get(ip, srccols[i], pindices, TA_FORMAT_TARRAY);
-            if (tcols[i])
+            if (tcols[i]) {
+                Tcl_IncrRefCount(tcols[i]);
                 thdr->used++; /* Update as we go so freeing on error simpler */
-            else {
+            } else {
                 thdr_decr_refs(thdr);
                 goto error_handler;
             }
@@ -1904,6 +1936,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     }
 
     if (table) {
+        TA_ASSERT(table_check(ip, table));
         Tcl_SetObjResult(ip, table);
         return TCL_OK;
     } else

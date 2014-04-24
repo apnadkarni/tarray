@@ -386,7 +386,10 @@ int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
 #define TA_INDEX_TYPE_INT   1
 #define TA_INDEX_TYPE_THDR 2
 
+int thdr_check(Tcl_Interp *, thdr_t *);
 thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count);
+
+int tcol_check(Tcl_Interp *, Tcl_Obj *);
 TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
                          int command);
 Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
@@ -405,6 +408,7 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
 
+int table_check(Tcl_Interp *, Tcl_Obj *);
 Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns);
 Tcl_Obj *table_column_names (Tcl_Obj *otab);
 TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
