@@ -1,8 +1,11 @@
 # Simple Tcl script to build tarray
 # Set up the appropriate environment and specify the corresponding -target
-# (should be one of dev32, dev64, release32 or release64 or one of the
-# built-in Critcl targets)
+# Should be one of the built-in Critcl targets or if -config tarray.cfg
+# is specified, one of the targets in that file.
 # No checks are made that the build env and target match
+
+# NOTE: if you need to use a debugger, use -keep option so that source
+# files are preserved
 
 
 package require critcl 3.1
