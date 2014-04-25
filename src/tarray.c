@@ -60,10 +60,6 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
     Tcl_Obj **objPP;
     int i;
 
-    /* Note used cannot be == usable because of sentinel */
-    if (thdr->used >= thdr->usable)
-        Tcl_Panic("thdr->used=%d, thdr->usable=%d", thdr->used, thdr->usable);
-
     switch (thdr->type) {
     case TA_BOOLEAN:
     case TA_UINT:
@@ -3274,7 +3270,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     }
 
     if (tcol) {
-        TA_ASSERT(tcol_check(ip, tcol));
+        TA_ASSERT(fmt != TA_FORMAT_TARRAY || tcol_check(ip, tcol));
         Tcl_SetObjResult(ip, tcol);
         return TCL_OK;
     } else

@@ -11,8 +11,9 @@ namespace eval tarray::test {
         test table_create-$type-1.0 {
             Test creation of empty table
         } -body {
-            tarray::table create [list fld_$type $type] {}
-        } -result [list tarray_table [list fld_$type] [list [crep $type {}]]]
+            set tab [tarray::table create [list fld_$type $type] {}]
+            list tarray_table [lequal any [lindex $tab 1] [list fld_$type]] [lindex $tab 2]
+        } -result [list tarray_table 1 [list [crep $type {}]]]
 
         test table_create-$type-1.1 {
             Test creation of table with initial list
