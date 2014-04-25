@@ -1606,9 +1606,10 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
         tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
         for (i = 0; i < nsrccols; ++i) {
             tcols[i] = tcol_range(ip, srccols[i], low, count, TA_FORMAT_TARRAY);
-            if (tcols[i])
+            if (tcols[i]) {
+                Tcl_IncrRefCount(tcols[i]);
                 thdr->used++; /* Update as we go so freeing on error simpler */
-            else {
+            } else {
                 thdr_decr_refs(thdr);
                 return NULL;
             }
@@ -1936,7 +1937,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     }
 
     if (table) {
-        TA_ASSERT(table_check(ip, table));
+        TA_ASSERT(fmt != TA_FORMAT_TARRAY || table_check(ip, table));
         Tcl_SetObjResult(ip, table);
         return TCL_OK;
     } else
