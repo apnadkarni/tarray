@@ -20,15 +20,20 @@ proc tarray::table::create {def {init {}} {size 0}} {
     return [insert [list tarray_table $colnames $cols] $init end]
 }
 
+# TBD - document and test
 proc tarray::table::sort {args} {
-    set opts {}
+    set sort_opts {}
+    set format_opts {}
     set want_indices 0
     foreach arg [lrange $args 0 end-2] {
         switch -exact -- $arg {
             -indices {set want_indices 1}
             -increasing -
             -decreasing -
-            -nocase { lappend opts $arg}
+            -nocase { lappend sort_opts $arg}
+            -dict -
+            -list -
+            -table { lappend format_opts $arg }
             default {
                 error "Invalid option '$arg'"
             }
@@ -36,11 +41,11 @@ proc tarray::table::sort {args} {
     }
 
     set tab [lindex $args end-1]
-    set indices [tarray::column::sort -indices {*}$opts [column $tab [lindex $args end]]]
+    set indices [tarray::column::sort -indices {*}$sort_opts [column $tab [lindex $args end]]]
     if {$want_indices} {
         return $indices
     } else {
-        return [get $tab $indices]
+        return [get {*}$format_opts $tab $indices]
     }
 }
 
