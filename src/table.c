@@ -1927,7 +1927,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
         thdr_decr_refs(pindices);
     } else {
         /* Range LOW HIGH */
-        int low, high, count;
+        int low, count;
         status = ta_fix_range_bounds(ip, table_length(table),
                                      objv[objc-2], objv[objc-1],
                                      &low, &count);

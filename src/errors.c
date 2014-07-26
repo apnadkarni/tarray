@@ -188,7 +188,7 @@ TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *o)
     if (ip) {
         Tcl_SetObjResult(ip,
                          Tcl_ObjPrintf("Invalid index range limit '%.80s'.",
-                                       Tcl_GetString(o)));
+                                       o ? Tcl_GetString(o) : ""));
         Tcl_SetErrorCode(ip, "TARRAY", "RANGE", "VALUE", NULL);
     }
     return TCL_ERROR;

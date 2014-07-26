@@ -389,8 +389,7 @@ static void ta_sort_mt_worker_r(struct ta_sort_mt_context *pctx)
 #endif
 
 /* Note this routine does not handle booleans (because they are sorted
-   differently using just counts) and TA_ANY (because Tcl_Obj comparisons
-   are not thread safe
+   differently using just counts)
 */
 static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
 {

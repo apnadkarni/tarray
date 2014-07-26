@@ -57,7 +57,7 @@ of which is the value at that index in the corresponding column.
 of a list of rows, one per index. Each row is itself a list, each element
 of which is the value at that index in the corresponding column.
 [opt_def -table]
-Specifies thta the values are to be returned as a table.
+Specifies that the values are to be returned as a table.
 This is the default if neither [cmd -list] nor [cmd -dict] is specified.
 [list_end]
 

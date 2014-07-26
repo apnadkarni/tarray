@@ -2,6 +2,7 @@ namespace eval tarray {
     namespace eval column {}
     namespace eval table {}
     namespace eval db {}
+    namespace eval unsupported {}
 }
 
 proc tarray::table::create {def {init {}} {size 0}} {
@@ -92,6 +93,7 @@ namespace eval tarray {
             index index
             insert insert
             intersect3 intersect3
+            minmax minmax
             place place
             put put
             range range
