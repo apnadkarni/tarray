@@ -357,6 +357,7 @@ void thdr_place_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj * const *ovalues
 void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                        const ta_value_t *ptav, thdr_t *pindices, int highest_index);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
+void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP);
 
 Tcl_Obj * tcol_new(thdr_t *thdr);
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
