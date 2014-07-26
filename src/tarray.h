@@ -345,6 +345,9 @@ void thdr_ensure_obj_strings(thdr_t *thdr);
 
 TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav);
+Tcl_Obj *ta_value_to_obj(ta_value_t *ptav);
+int ta_value_compare(ta_value_t *pa, ta_value_t *pb, int ignore_case);
+
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
                      const ta_value_t *ptav, int pos, int count, int insert);
 void thdr_fill_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj *oval, int highest_in_indices);
@@ -452,6 +455,7 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
 TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
                       int end_value, int low, int high);
 TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, int nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
+TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *rangeObj, int *plow, int *pcount);
 
 TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
                                          int nrows, Tcl_Obj * const rows[]);
@@ -521,6 +525,7 @@ extern int ta_experiment;
 extern int ta_sort_mt_threshold;
 extern int ta_sort_mt_enable_any;
 extern int ta_fill_mt_threshold;
+extern int ta_minmax_mt_threshold;
 /* Multithreading support */
 int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size);
 

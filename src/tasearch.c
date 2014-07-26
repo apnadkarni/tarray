@@ -682,6 +682,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
              * To prevent shimmering, check if the index object is same
              * as tarray object.
              */
+            /* TBD - see if we can replace with ta_parse_range_option_value */
             if (objv[i] == objv[objc-2])
                 orange = Tcl_DuplicateObj(objv[i]);
             else {

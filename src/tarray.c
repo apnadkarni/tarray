@@ -20,6 +20,7 @@ int ta_experiment;
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
 int ta_fill_mt_threshold = 100000;
+int ta_minmax_mt_threshold = 100000;
 #endif
 
 /* Must match definitions in tarray.h ! */
@@ -86,7 +87,6 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
 int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
 {
     thdr_t *thdr;
-    int i;
 
     if (tcol_convert(ip, tcol) != TCL_OK || ! tcol_affirm(tcol))
         Tcl_Panic("Tcl_Obj is not a column");
@@ -101,7 +101,6 @@ int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
 
     return 1;
 }
-
 
 /*
  * A Tcl object to parse tarray index tokens and cache the result so
@@ -1008,6 +1007,9 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
         val = end_value + o->internalRep.longValue;
     }
     
+    /* Note it is ok for val to be greater than end_value as it is used
+       in calls where (for example) the column is extended */
+
     if (val < low || val > high)
         return ta_index_range_error(ip, val);
     else {
@@ -1019,6 +1021,8 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
 /* 
  * Parse range bounds. low has to be between 0 and nelems.
  * high has to be 0-INT_MAX
+ * olow cannot be NULL.
+ * If ohigh is NULL, it is treated as nelems-1
  * if (high < low) count is returned as 0 (not an error)
  * Negative indices treated as 0
  */
@@ -1026,11 +1030,17 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Ob
 {
     int low, high;
 
+    /* TBD - need we restrict low to < nelems? Some routines which allow that
+     cannot call this */
     if (ta_convert_index(ip, olow, &low, nelems-1, INT_MIN, nelems) != TCL_OK)
         return TCL_ERROR;
 
-    if (ta_convert_index(ip, ohigh, &high, nelems-1, INT_MIN, INT_MAX) != TCL_OK)
-        return TCL_ERROR;
+    if (ohigh) {
+        if (ta_convert_index(ip, ohigh, &high, nelems-1, INT_MIN, INT_MAX) != TCL_OK)
+            return TCL_ERROR;
+    } else {
+        high = nelems-1;        /* If nelems==0, will be dealt with below */
+    }
 
     if (low < 0)
         low = 0;
@@ -1041,6 +1051,28 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Ob
         *pcount = high - low + 1;
 
     return TCL_OK;
+}
+
+TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *orange, int *plow, int *pcount)
+{
+    Tcl_Obj **objs;
+    int       nobjs;
+
+    /*
+     * Do type checks to avoid expensive shimmering in case of caller error
+     * and also verify format
+     */
+    if (tcol_affirm(orange) ||
+        table_affirm(orange) ||
+        Tcl_ListObjGetElements(NULL, orange, &nobjs, &objs) != TCL_OK ||
+        (nobjs != 1 && nobjs != 2)) {
+        return ta_invalid_range_error(ip, orange);
+    }    
+    
+    return ta_fix_range_bounds(ip, nelems,
+                               objs[0],
+                               nobjs == 1 ? NULL : objs[1],
+                               plow, pcount);
 }
 
 /* SHould only be called if o is not a column already */
@@ -1109,6 +1141,46 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
     if (status == TCL_OK)
         ptav->type = tatype;
     return status;
+}
+
+Tcl_Obj *ta_value_to_obj(ta_value_t *ptav)
+{
+    switch (ptav->type) {
+    case TA_BOOLEAN: return Tcl_NewBooleanObj(ptav->bval);
+    case TA_BYTE: return Tcl_NewIntObj(ptav->ucval);
+    case TA_INT: return Tcl_NewIntObj(ptav->ival);
+    case TA_UINT: return Tcl_NewWideIntObj(ptav->uival);
+    case TA_WIDE: return Tcl_NewWideIntObj(ptav->wval);
+    case TA_DOUBLE: return Tcl_NewDoubleObj(ptav->dval);
+    case TA_ANY: return ptav->oval;
+    default:
+        ta_type_panic(ptav->type);
+    }
+    return NULL;
+}
+
+/* Values MUST be same type, not even just both compatible */
+int ta_value_compare(ta_value_t *pa, ta_value_t *pb, int ignore_case)
+{
+    TA_ASSERT(pa->type == pb->type);
+
+    /* Just subtraction can lead to overflows! */
+#define VALUE_CMP_(a, b, fld) \
+    (a->fld > b->fld ? 1 : (a->fld == b->fld ? 0 : -1))
+
+    switch (pa->type) {
+    case TA_BOOLEAN: return VALUE_CMP_(pa, pb, bval);
+    case TA_UINT:    return VALUE_CMP_(pa, pb, uival);
+    case TA_INT:     return VALUE_CMP_(pa, pb, ival);
+    case TA_WIDE:    return VALUE_CMP_(pa, pb, wval);
+    case TA_DOUBLE:  return VALUE_CMP_(pa, pb, dval);
+    case TA_BYTE:    return VALUE_CMP_(pa, pb, ucval);
+    case TA_ANY:     return ta_obj_compare(pa->oval, pb->oval, ignore_case);
+    default:
+        ta_type_panic(pa->type);
+        return 0;                   /* To keep compiler happy */
+    }
+#undef VALUE_CMP_
 }
 
 struct thdr_fill_mt_context {
@@ -2556,6 +2628,177 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
     }
 }
 
+struct thdr_minmax_mt_context {
+    ta_value_t min_value;
+    ta_value_t max_value;
+    int min_index;
+    int max_index;
+    void *base;
+    int   nelems;
+    unsigned char type;
+    char ignore_case;
+};
+
+#define MINMAXLOOP(pctx_, type_, minptr_, maxptr_)      \
+    do {                                                \
+        type_ *p, *pend;                            \
+        type_ minval, maxval;                           \
+        type_ *pmin, *pmax;                             \
+        p = (type_ *) (pctx_)->base;                \
+        pend = p + (pctx_)->nelems;                 \
+        minval = maxval = *p;                       \
+        pmin = pmax = p;                            \
+        while (p < pend) {                          \
+            TA_ASSERT(maxval >= minval);                \
+            if (*p < minval)                        \
+                pmin = p;                           \
+            else if (*p > maxval)                   \
+                pmax = p;                           \
+            ++p;                                    \
+        }                                               \
+        (pctx_)->min_index = pmin - (type_ *) (pctx_)->base;     \
+        *(minptr_) = *pmin;                             \
+        (pctx_)->max_index = pmax - (type_ *) (pctx_)->base;     \
+        *(maxptr_) = *pmax;                             \
+    } while (0)
+
+static void thdr_minmax_mt_worker (struct thdr_minmax_mt_context *pctx)
+{
+    TA_ASSERT(pctx->nelems > 0);
+    switch (pctx->type) {
+    case TA_UINT:
+        MINMAXLOOP(pctx, unsigned int, &pctx->min_value.uival, &pctx->max_value.uival);
+        break;
+    case TA_INT:
+        MINMAXLOOP(pctx, int, &pctx->min_value.ival, &pctx->max_value.ival);
+        break;
+    case TA_WIDE:
+        MINMAXLOOP(pctx, Tcl_WideInt, &pctx->min_value.wval, &pctx->max_value.wval);
+        break;
+    case TA_DOUBLE:
+        MINMAXLOOP(pctx, double, &pctx->min_value.dval, &pctx->max_value.dval);
+        break;
+    case TA_BYTE:
+        MINMAXLOOP(pctx, unsigned char, &pctx->min_value.ucval, &pctx->max_value.ucval);
+        break;
+    case TA_ANY:
+        {
+            Tcl_Obj **p, **pend;
+            Tcl_Obj *minval, *maxval;
+            Tcl_Obj **pmin, **pmax;
+            int ignore_case = pctx->ignore_case;
+            TA_ASSERT(pctx->nelems > 0);                 
+            p = (Tcl_Obj **) pctx->base;
+            pend = p + pctx->nelems;
+            minval = maxval = *p;
+            pmin = pmax = p;
+            while (p < pend) {
+                if (ta_obj_compare(*p, minval, ignore_case) < 0)
+                    pmin = p;
+                else if (ta_obj_compare(*p, maxval, ignore_case) > 0)
+                    pmax = p;
+                ++p;
+            }
+            pctx->min_index = pmin - (Tcl_Obj **)pctx->base;
+            pctx->min_value.oval = *pmin;
+            pctx->max_index = pmax - (Tcl_Obj **)pctx->base;
+            pctx->max_value.oval = *pmax;
+        }
+        break;
+    case TA_BOOLEAN:
+        /* Not handled here */
+        ta_type_panic(pctx->type);
+        break;
+    }
+    pctx->min_value.type = pctx->type;
+    pctx->max_value.type = pctx->type;
+}
+
+
+/* Returns the minimum and maximum */
+static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int *min_indexP, int *max_indexP, ta_value_t *minP, ta_value_t *maxP)
+{
+    struct thdr_minmax_mt_context mt_context[2];
+    int elem_size;
+    int min_grp, max_grp;
+
+    TA_ASSERT(start >= 0 && start < thdr->used);
+    TA_ASSERT(count > 0);
+    TA_ASSERT((start + count) <= thdr->used);
+
+    if (thdr->type == TA_BOOLEAN) {
+        int min_index, max_index;
+        ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
+        min_index = ba_find(baP, 0, start, thdr->used);
+        max_index = ba_find(baP, 1, start, thdr->used);
+        if (min_index < 0)
+            min_index = 0;      /* No 0's so first element (1) is the min */
+        if (max_index < 0)
+            max_index = 0;      /* No 0's so first element (1) is the min */
+        *min_indexP = min_index;
+        *max_indexP = max_index;
+        minP->bval = ba_get(baP, min_index);
+        maxP->bval = ba_get(baP, max_index);
+        return;
+    }
+
+    elem_size = thdr->elem_bits / CHAR_BIT;
+    mt_context[0].type = thdr->type;
+    mt_context[0].ignore_case = ignore_case;
+    mt_context[0].base = (start*elem_size) + THDRELEMPTR(thdr, unsigned char, 0);
+#ifdef TA_MT_ENABLE
+    mt_context[0].nelems = thdr_calc_mt_split(thdr->type, start, count, &mt_context[1].nelems);
+    TA_ASSERT((mt_context[0].nelems + mt_context[1].nelems) == count);
+
+    if (count < ta_minmax_mt_threshold || mt_context[1].nelems == 0) {
+        mt_context[0].nelems = count;
+        thdr_minmax_mt_worker(&mt_context[0]);
+        min_grp = 0;
+        max_grp = 0;
+    } else {
+        /* Multiple threads */
+        ta_mt_group_t grp;
+
+        if (thdr->type == TA_ANY)
+            thdr_ensure_obj_strings(thdr); /* Prevent races if string rep does not exist */
+
+        mt_context[1].type = thdr->type;
+        mt_context[1].base = (elem_size*mt_context[0].nelems) + (char*)mt_context[0].base;
+        grp = ta_mt_group_create();
+        TA_ASSERT(grp != NULL); /* TBD */
+        /* TBD - check return code */ ta_mt_group_async_f(grp, &mt_context[1], thdr_minmax_mt_worker);
+        thdr_minmax_mt_worker(&mt_context[0]);
+        ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
+        ta_mt_group_release(grp);
+        /* We will need to see if which thread had smaller/greater value */
+        min_grp = (ta_value_compare(&mt_context[0].min_value, &mt_context[1].min_value, ignore_case) <= 0);
+        max_grp = (ta_value_compare(&mt_context[0].max_value, &mt_context[1].max_value, ignore_case) >= 0);
+    }
+
+#else /* not TA_MT_ENABLE */
+
+    mt_context[0].nelems = count;
+    thdr_minmax_mt_worker(&mt_context[0]);
+    min_grp = 0;
+    max_grp = 0;
+
+#endif
+
+    *minP = mt_context[min_grp].min_value;
+    if (min_grp == 0)
+        *min_indexP = start + mt_context[0].min_index;
+    else
+        *min_indexP = start + mt_context[0].nelems + mt_context[1].min_index;
+
+    *maxP = mt_context[max_grp].max_value;
+    if (max_grp == 0)
+        *max_indexP = start + mt_context[0].max_index;
+    else
+        *max_indexP = start + mt_context[0].nelems + mt_context[1].max_index;
+
+}
+
+
 /*
  * Converts the passed Tcl_Obj o to integer indexes. If a single index
  * stores it in *pindex and returns TA_INDEX_TYPE_INT. If multiple indices,
@@ -3220,7 +3463,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
                          int command)
 {
     Tcl_Obj *tcol;
-    int      i, status, opt, minargs;
+    int      status, opt, minargs;
     int      fmt = TA_FORMAT_TARRAY;
     /* Note order of options matches switch below */
     static const char *tcol_get_options[] = {
@@ -3260,7 +3503,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
         thdr_decr_refs(pindices);
     } else {
         /* Range LOW HIGH */
-        int low, high, count;
+        int low, count;
         status = ta_fix_range_bounds(ip, tcol_occupancy(tcol),
                                      objv[objc-2], objv[objc-1],
                                      &low, &count);
@@ -3275,4 +3518,74 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
         return TCL_OK;
     } else
         return TCL_ERROR;
+}
+
+TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
+                           int objc, Tcl_Obj *const objv[])
+{
+    int i, opt, start, count;
+    int ignore_case = 0, want_indices = 0;
+    TCL_RESULT status;
+    static const char *tcol_minmax_switches[] = {
+        "-range", "-indices", "-nocase", NULL
+    };
+    enum tcol_minmax_switches_e {
+        TA_MINMAX_OPT_RANGE, TA_MINMAX_OPT_INDICES, TA_MINMAX_OPT_NOCASE
+    };
+    int min_index, max_index;
+    ta_value_t minval, maxval;
+    thdr_t *thdr;
+    Tcl_Obj *objs[2];
+
+    if (objc < 2) {
+	Tcl_WrongNumArgs(ip, 1, objv, "?options? column");
+	return TCL_ERROR;
+    }
+    
+    if (tcol_convert(ip, objv[objc-1]) != TCL_OK)
+        return TCL_ERROR;
+    thdr = tcol_thdr(objv[objc-1]);
+    start = 0;
+    count = thdr->used;
+    for (i = 1; i < objc-1; ++i) {
+	status = Tcl_GetIndexFromObj(ip, objv[i], tcol_minmax_switches, "option", 0, &opt);
+        if (status != TCL_OK)
+            return status;
+
+        switch ((enum tcol_minmax_switches_e) opt) {
+        case TA_MINMAX_OPT_RANGE:
+            if (i > objc-3)
+                return ta_missing_arg_error(ip, "-range");
+            ++i;
+            status = ta_parse_range_option_value(ip, count, objv[i], &start, &count);
+            if (status != TCL_OK)
+                return status;
+            break;
+        case TA_MINMAX_OPT_INDICES:
+            want_indices = 1;
+            break;
+        case TA_MINMAX_OPT_NOCASE:
+            ignore_case = 1;
+            break;
+        }
+    }
+
+    if (count <= 0 ||
+        start > thdr->used ||
+        (start+count) > thdr->used) {
+        return ta_invalid_range_error(ip, NULL);
+    }
+
+    thdr_minmax(thdr, start, count, ignore_case,
+                &min_index, &max_index, &minval, &maxval);
+
+    if (want_indices) {
+        objs[0] = Tcl_NewIntObj(min_index);
+        objs[1] = Tcl_NewIntObj(max_index);
+    } else {
+        objs[0] = ta_value_to_obj(&minval);
+        objs[1] = ta_value_to_obj(&maxval);
+    }
+    Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
+    return TCL_OK;
 }

@@ -100,6 +100,8 @@ if {$build_opts(mt_enable)} {
             pval = &ta_sort_mt_threshold;
         else if (ta_strequal(vname, "fill_mt_threshold"))
             pval = &ta_fill_mt_threshold;
+        else if (ta_strequal(vname, "minmax_mt_threshold"))
+            pval = &ta_minmax_mt_threshold;
         else if (ta_strequal(vname, "sort_mt_enable_any"))
             pval = &ta_sort_mt_enable_any;
         else if (ta_strequal(vname, "experiment"))
@@ -242,7 +244,6 @@ critcl::ccommand tarray::column::create {} {
     Tcl_SetObjResult(interp, o);
     return TCL_OK;
 }
-
 
 critcl::ccommand tarray::column::delete {} {
     Tcl_Obj *tcol;
@@ -389,6 +390,8 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TColObjPtr tcol} ok {
 }
 
 critcl::ccommand tarray::column::search tcol_search_cmd
+
+critcl::ccommand tarray::column::minmax tcol_minmax_cmd
 
 critcl::ccommand tarray::column::insert {} {
     Tcl_Obj *tcol;
@@ -1285,7 +1288,7 @@ critcl::cproc tarray::table::cnames {Tcl_Interp* interp TableObjPtr TABLE} ok {
 
 critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj* COLUMNLIST} ok {
     Tcl_Obj *ocolnames, *ocolname, **pdstcols;
-    int      low, count, status, srcindex;
+    int      count, status, srcindex;
     thdr_t  *thdr;
     int i;
     Tcl_Obj *oindex;
