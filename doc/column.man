@@ -109,6 +109,23 @@ column will contain three.
 Option [arg -nocase] only has effect if the column type is [const any]. If
 specified, elements are compared in case-insensitive mode.
 
+[call [cmd "column minmax"] [arg [opt OPTIONS]] [arg COLUMN]]
+Searches the specified column for the minimum and maximum values, returning 
+them as a pair. If [cmd -indices] is specified, the their indices
+are returned instead of their values. In case either value occurs 
+at multiple indices in the column, the lowest index is returned.
+[nl]
+The option [cmd -range] can be specified to limit the search to a subrange
+of the column. It takes a pair of indices,
+in the one of the forms described in [sectref Indices],
+that inclusively specify
+the subrange. The second element of the pair may be omitted in which case 
+it defaults to the last element in the column.
+[nl]
+The option [-nocase] may be specified to indicate case-insensitive 
+comparisons. This is only effective for column type [const any]
+and ignored for the others.
+
 [call [cmd "column place"] [arg COLUMN] [arg VALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
 corresponding  indices.
