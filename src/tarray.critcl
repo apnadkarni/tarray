@@ -69,7 +69,7 @@ critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timso
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
-    critcl::ccommand tarray::unsupported::dump ta_dump
+    critcl::ccommand tarray::unsupported::dump ta_dump_cmd
 
 }
 critcl::tsources tarray.tcl

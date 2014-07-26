@@ -2650,16 +2650,19 @@ struct thdr_minmax_mt_context {
         pmin = pmax = p;                            \
         while (p < pend) {                          \
             TA_ASSERT(maxval >= minval);                \
-            if (*p < minval)                        \
+            if (*p < minval) {                          \
+                minval = *p; \
                 pmin = p;                           \
-            else if (*p > maxval)                   \
+            } else if (*p > maxval) {               \
+                maxval = *p; \
                 pmax = p;                           \
+            } \
             ++p;                                    \
         }                                               \
         (pctx_)->min_index = pmin - (type_ *) (pctx_)->base;     \
-        *(minptr_) = *pmin;                             \
+        *(minptr_) = minval;                             \
         (pctx_)->max_index = pmax - (type_ *) (pctx_)->base;     \
-        *(maxptr_) = *pmax;                             \
+        *(maxptr_) = maxval;                             \
     } while (0)
 
 static void thdr_minmax_mt_worker (struct thdr_minmax_mt_context *pctx)
@@ -2693,16 +2696,19 @@ static void thdr_minmax_mt_worker (struct thdr_minmax_mt_context *pctx)
             minval = maxval = *p;
             pmin = pmax = p;
             while (p < pend) {
-                if (ta_obj_compare(*p, minval, ignore_case) < 0)
+                if (ta_obj_compare(*p, minval, ignore_case) < 0) {
+                    minval = *p;
                     pmin = p;
-                else if (ta_obj_compare(*p, maxval, ignore_case) > 0)
+                } else if (ta_obj_compare(*p, maxval, ignore_case) > 0) {
+                    maxval = *p;
                     pmax = p;
+                }
                 ++p;
             }
             pctx->min_index = pmin - (Tcl_Obj **)pctx->base;
-            pctx->min_value.oval = *pmin;
+            pctx->min_value.oval = minval;
             pctx->max_index = pmax - (Tcl_Obj **)pctx->base;
-            pctx->max_value.oval = *pmax;
+            pctx->max_value.oval = maxval;
         }
         break;
     case TA_BOOLEAN:

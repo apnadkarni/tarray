@@ -510,13 +510,18 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int *pflags, Tcl_Obj **ptarget);
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
 
-TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
-                                      int objc, Tcl_Obj *const objv[]);
+
+
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);
 
-TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
-                       int objc, Tcl_Obj *const objv[]);
-
+/* Note we need prototypes for commands defined separately but
+   registered with critcl::ccommand. Otherwise, since
+   critcl itself only generates declarations of the form "int foo()"
+   compiler complains (warnings) when passed to Tcl_CreateObjCommand
+*/
+Tcl_ObjCmdProc tcol_search_cmd;
+Tcl_ObjCmdProc ta_dump_cmd;
+Tcl_ObjCmdProc tcol_minmax_cmd;
 
 extern int ta_experiment;
 

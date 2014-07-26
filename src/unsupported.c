@@ -7,8 +7,8 @@
 
 #include "tarray.h"
 
-TCL_RESULT ta_dump(ClientData clientdata, Tcl_Interp *ip,
-                     int objc, Tcl_Obj *const objv[])
+TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
+                       int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *o;
     int i;
