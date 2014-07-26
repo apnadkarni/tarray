@@ -2628,6 +2628,31 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
     }
 }
 
+void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP)
+{
+    TA_ASSERT(index >= 0 && index < thdr->used);
+
+    tavP->type = thdr->type;
+    switch (tavP->type) {
+    case TA_BOOLEAN:
+        tavP->bval = ba_get(THDRELEMPTR(thdr, ba_t, 0), index); break;
+    case TA_UINT:
+        tavP->uival = *THDRELEMPTR(thdr, unsigned int, index); break;
+    case TA_INT:
+        tavP->ival = *THDRELEMPTR(thdr, int, index); break;
+    case TA_WIDE:
+        tavP->wval = *THDRELEMPTR(thdr, Tcl_WideInt, index); break;
+    case TA_DOUBLE:
+        tavP->dval = *THDRELEMPTR(thdr, double, index); break;
+    case TA_BYTE:
+        tavP->ucval = *THDRELEMPTR(thdr, unsigned char, index); break;
+    case TA_ANY:
+        tavP->oval = *THDRELEMPTR(thdr, Tcl_Obj *, index); break;
+    default:
+        ta_type_panic(thdr->type);
+    }
+}
+
 struct thdr_minmax_mt_context {
     ta_value_t min_value;
     ta_value_t max_value;
@@ -2731,6 +2756,26 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
     TA_ASSERT(start >= 0 && start < thdr->used);
     TA_ASSERT(count > 0);
     TA_ASSERT((start + count) <= thdr->used);
+
+    if (thdr->type != TA_ANY)
+        ignore_case = 0;        /* Allows us to combine some sorted checks */
+
+    if ((SORT_ORDER_IS_NOCASE(thdr->sort_order) && ignore_case) ||
+        (SORT_ORDER_IS_CASE(thdr->sort_order) && !ignore_case)) {
+        if (SORT_ORDER_IS_ASCENDING(thdr->sort_order)) {
+            *min_indexP = start;
+            thdr_index_ta_value(thdr, start, minP);
+            *max_indexP = start + count - 1;
+            thdr_index_ta_value(thdr, start+count-1, maxP);
+        } else {
+            TA_ASSERT(SORT_ORDER_IS_DESCENDING(thdr->sort_order));
+            *max_indexP = start;
+            thdr_index_ta_value(thdr, start, maxP);
+            *min_indexP = start + count - 1;
+            thdr_index_ta_value(thdr, start+count-1, minP);
+        }
+        return;
+    }
 
     if (thdr->type == TA_BOOLEAN) {
         int min_index, max_index;
