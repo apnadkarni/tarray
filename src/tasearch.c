@@ -215,9 +215,9 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
 }
                         
 struct thdr_search_mt_context {
-    ta_value_t needle;
     thdr_t *haystack;      /* MT read access, must NOT be modified */
-    thdr_t *found;              /* Will contain values or indices */
+    ta_value_t needle;
+    thdr_t *thdr;              /* Will contain values or indices */
     int start;                  /* Starting position to look in haystack */
     int count;                  /* Number of elements to examine */
     int flags;                  /* TA_SEARCH_* flags */
@@ -238,7 +238,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
 
     compare_wanted = pctx->flags & TA_SEARCH_INVERT ? 0 : 1;
 
-    pctx->found = NULL;
+    pctx->thdr = NULL;
     thdr = thdr_alloc(NULL,
                       pctx->flags & TA_SEARCH_INLINE ? type : TA_INT,
                       10);                /* Assume 10 hits TBD */
@@ -289,16 +289,16 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
 
     switch (type) {
     case TA_INT:    SEARCHLOOP(int, pctx->needle.ival); break;
-    case TA_UINT:   SEARCHLOOP(unsigned int, pctx->needle.ival); break;
-    case TA_WIDE:   SEARCHLOOP(Tcl_WideInt, pctx->needle.ival); break;
-    case TA_DOUBLE: SEARCHLOOP(double, pctx->needle.ival); break;
-    case TA_BYTE:   SEARCHLOOP(unsigned char, pctx->needle.ival); break;
+    case TA_UINT:   SEARCHLOOP(unsigned int, pctx->needle.uival); break;
+    case TA_WIDE:   SEARCHLOOP(Tcl_WideInt, pctx->needle.wval); break;
+    case TA_DOUBLE: SEARCHLOOP(double, pctx->needle.dval); break;
+    case TA_BYTE:   SEARCHLOOP(unsigned char, pctx->needle.ucval); break;
     default:        ta_type_panic(type);
     }
 
     if ((pctx->flags & TA_SEARCH_INLINE) == 0)
         thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
-    pctx->found = thdr;
+    pctx->thdr = thdr;
     pctx->res = TCL_OK;
     return;
 }
@@ -380,8 +380,8 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
     res = TCL_OK;
     for (i = 0, nfound = 0; i < ncontexts; ++i) {
         if (mt_context[i].res == TCL_OK) {
-            TA_ASSERT(mt_context[i].found != NULL);
-            nfound += mt_context[i].found->used;
+            TA_ASSERT(mt_context[i].thdr != NULL);
+            nfound += mt_context[i].thdr->used;
         } else {
             res = TCL_ERROR;
             break;
@@ -392,33 +392,33 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
         thdr_t *result_thdr;
         /* Based on above checks that all contexts that exist have status OK */
         /* Context 0 always exists. See if it has any matches */
-        result_thdr = mt_context[0].found; /* Assume */
-        if (mt_context[0].found->used > 0) {
+        result_thdr = mt_context[0].thdr; /* Assume */
+        if (mt_context[0].thdr->used > 0) {
             /* Have something here. See if second context also does. */
             if (ncontexts > 1) {
-                if (mt_context[1].found->used > 0) {
-                    thdr_copy(mt_context[0].found,
-                              mt_context[0].found->used,
-                              mt_context[1].found,
+                if (mt_context[1].thdr->used > 0) {
+                    thdr_copy(mt_context[0].thdr,
+                              mt_context[0].thdr->used,
+                              mt_context[1].thdr,
                               0,
-                              mt_context[1].found->used,
+                              mt_context[1].thdr->used,
                               0);
                 }
-                thdr_decr_refs(mt_context[1].found);
+                thdr_decr_refs(mt_context[1].thdr);
             }
         } else {
             /* First context had no match. Check second if any */
             if (ncontexts > 1) {
-                thdr_decr_refs(mt_context[0].found);
-                result_thdr = mt_context[1].found; /* May also be empty */
+                thdr_decr_refs(mt_context[0].thdr);
+                result_thdr = mt_context[1].thdr; /* May also be empty */
             }
         }
         Tcl_SetObjResult(ip, tcol_new(result_thdr));
     } else {
         /* Free up everything */
         for (i = 0; i < ncontexts; ++i) {
-            if (mt_context[i].res == TCL_OK && mt_context[i].found != NULL)
-                thdr_decr_refs(mt_context[i].found);
+            if (mt_context[i].res == TCL_OK && mt_context[i].thdr != NULL)
+                thdr_decr_refs(mt_context[i].thdr);
         }
         Tcl_SetResult(ip, "Error during column search (out of memory?)", TCL_STATIC);
     }
