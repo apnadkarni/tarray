@@ -218,6 +218,8 @@ struct thdr_search_mt_context {
     thdr_t *haystack;      /* MT read access, must NOT be modified */
     ta_value_t needle;
     thdr_t *thdr;              /* Will contain values or indices */
+    int first_match;           /* Index of first match */
+    ta_value_t first_value;           /* Value of first match */
     int start;                  /* Starting position to look in haystack */
     int count;                  /* Number of elements to examine */
     int flags;                  /* TA_SEARCH_* flags */
@@ -229,25 +231,28 @@ struct thdr_search_mt_context {
 static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
 {
     int compare_wanted;
-    thdr_t *thdr;
+    thdr_t *thdr = NULL;
     unsigned char type = pctx->haystack->type;
     
     TA_ASSERT(pctx->op == TA_SEARCH_OPT_GT || pctx->op == TA_SEARCH_OPT_LT || pctx->op == TA_SEARCH_OPT_EQ);
-    TA_ASSERT(pctx->flags & TA_SEARCH_ALL);
     TA_ASSERT((pctx->start + pctx->count) <= pctx->haystack->used);
 
     compare_wanted = pctx->flags & TA_SEARCH_INVERT ? 0 : 1;
 
     pctx->thdr = NULL;
-    thdr = thdr_alloc(NULL,
-                      pctx->flags & TA_SEARCH_INLINE ? type : TA_INT,
-                      10);                /* Assume 10 hits TBD */
-    if (thdr == NULL) {
-        pctx->res = TCL_ERROR;
-        return;
-    }
+    pctx->first_match = -1;
+    if (pctx->flags & TA_SEARCH_ALL) {
+        thdr = thdr_alloc(NULL,
+                          pctx->flags & TA_SEARCH_INLINE ? type : TA_INT,
+                          10);                /* Assume 10 hits TBD */
+        if (thdr == NULL) {
+            pctx->res = TCL_ERROR;
+            return;
+        }
+    } else
+        pctx->first_value.type = type;
 
-#define SEARCHLOOP(type_, value_) \
+#define SEARCHLOOP_(type_, value_) \
     do {                                                                \
         type_ *p, *end;                                                 \
         type_ needle = value_;                                          \
@@ -265,22 +270,27 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                                                                         \
             if (compare_result == compare_wanted) {                     \
                 /* Have a match, add it to found items */               \
-                if (thdr->used >= thdr->usable) {                       \
-                    thdr_t *pnew;                                       \
-                    pnew = thdr_realloc(NULL, thdr, thdr->used + TA_EXTRA(thdr->used)); \
-                    if (pnew)                                           \
-                        thdr = pnew;                                    \
-                    else {                                              \
-                        thdr_decr_refs(thdr);                           \
-                        pctx->res = TCL_ERROR;                          \
-                        return;                                         \
+                if (pctx->flags & TA_SEARCH_ALL) {                      \
+                    if (thdr->used >= thdr->usable) {                   \
+                        thdr_t *pnew;                                   \
+                        pnew = thdr_realloc(NULL, thdr, thdr->used + TA_EXTRA(thdr->used)); \
+                        if (pnew)                                       \
+                            thdr = pnew;                                \
+                        else {                                          \
+                            thdr_decr_refs(thdr);                       \
+                            pctx->res = TCL_ERROR;                      \
+                            return;                                     \
+                        }                                               \
                     }                                                   \
+                    if (pctx->flags & TA_SEARCH_INLINE)                 \
+                        *THDRELEMPTR(thdr, type_, thdr->used) = *p;     \
+                    else                                                \
+                        *THDRELEMPTR(thdr, int, thdr->used) = pos;      \
+                    thdr->used++;                                       \
+                } else {                                                \
+                    pctx->first_match = pos;                            \
+                    break;                                              \
                 }                                                       \
-                if (pctx->flags & TA_SEARCH_INLINE)                     \
-                    *THDRELEMPTR(thdr, type_, thdr->used) = *p;         \
-                else                                                    \
-                    *THDRELEMPTR(thdr, int, thdr->used) = pos;          \
-                thdr->used++;                                           \
             }                                                           \
             ++pos;                                                      \
             ++p;                                                        \
@@ -288,17 +298,41 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
     } while (0)
 
     switch (type) {
-    case TA_INT:    SEARCHLOOP(int, pctx->needle.ival); break;
-    case TA_UINT:   SEARCHLOOP(unsigned int, pctx->needle.uival); break;
-    case TA_WIDE:   SEARCHLOOP(Tcl_WideInt, pctx->needle.wval); break;
-    case TA_DOUBLE: SEARCHLOOP(double, pctx->needle.dval); break;
-    case TA_BYTE:   SEARCHLOOP(unsigned char, pctx->needle.ucval); break;
-    default:        ta_type_panic(type);
+    case TA_INT:
+        SEARCHLOOP_(int, pctx->needle.ival);
+        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+            pctx->first_value.ival = *THDRELEMPTR(pctx->haystack, int, pctx->first_match);
+        break;
+    case TA_UINT:
+        SEARCHLOOP_(unsigned int, pctx->needle.uival);
+        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+            pctx->first_value.uival = *THDRELEMPTR(pctx->haystack, unsigned int, pctx->first_match);
+        break;
+    case TA_WIDE:
+        SEARCHLOOP_(Tcl_WideInt, pctx->needle.wval);
+        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+            pctx->first_value.wval = *THDRELEMPTR(pctx->haystack, Tcl_WideInt, pctx->first_match);
+        break;
+    case TA_DOUBLE:
+        SEARCHLOOP_(double, pctx->needle.dval);
+        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+            pctx->first_value.dval = *THDRELEMPTR(pctx->haystack, double, pctx->first_match);
+        break;
+    case TA_BYTE:
+        SEARCHLOOP_(unsigned char, pctx->needle.ucval);
+        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+            pctx->first_value.ucval = *THDRELEMPTR(pctx->haystack, unsigned char, pctx->first_match);
+        break;
+    default:
+        ta_type_panic(type);
     }
 
-    if ((pctx->flags & TA_SEARCH_INLINE) == 0)
-        thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
-    pctx->thdr = thdr;
+    if (pctx->flags & TA_SEARCH_ALL) {
+        if ((pctx->flags & TA_SEARCH_INLINE) == 0)
+            thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
+        pctx->thdr = thdr;
+    }
+
     pctx->res = TCL_OK;
     return;
 }
@@ -309,7 +343,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
 {
     TCL_RESULT res;
     struct thdr_search_mt_context mt_context[2];
-    int i, ncontexts, nfound, count;
+    int i, ncontexts, count;
 
     /* First check that the search amenable to multithreading. */
     switch (psearch->op) {
@@ -318,7 +352,8 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
     default: return TCL_CONTINUE;
     }
 
-    if (! (psearch->flags & TA_SEARCH_ALL))
+    /* Verify we are not searching with indices (-among option) */
+    if (psearch->indices)
         return TCL_CONTINUE;
 
     /* Empty column/range. Format of return value depends on other options,
@@ -337,7 +372,6 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
     mt_context[0].start = psearch->lower;
     mt_context[0].flags = psearch->flags;
     mt_context[0].op = psearch->op;
-
     
 #ifdef TA_MT_ENABLE
     /* tbd */
@@ -376,49 +410,77 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
 
 #endif
 
-    /* Verify status and count total matches */
+    /*
+     * If TA_SEARCH_ALL is true, the thdr fields of the context are valid
+     * Else the first_match/first_value fields are valid.
+     */
+    
+    /* First verify all threads ran successfully */
     res = TCL_OK;
-    for (i = 0, nfound = 0; i < ncontexts; ++i) {
-        if (mt_context[i].res == TCL_OK) {
-            TA_ASSERT(mt_context[i].thdr != NULL);
-            nfound += mt_context[i].thdr->used;
-        } else {
+    for (i = 0; i < ncontexts; ++i) {
+        if (mt_context[i].res != TCL_OK) {
             res = TCL_ERROR;
             break;
         }
     }
 
     if (res == TCL_OK) {
-        thdr_t *result_thdr;
-        /* Based on above checks that all contexts that exist have status OK */
-        /* Context 0 always exists. See if it has any matches */
-        result_thdr = mt_context[0].thdr; /* Assume */
-        if (mt_context[0].thdr->used > 0) {
-            /* Have something here. See if second context also does. */
-            if (ncontexts > 1) {
-                if (mt_context[1].thdr->used > 0) {
-                    thdr_copy(mt_context[0].thdr,
-                              mt_context[0].thdr->used,
-                              mt_context[1].thdr,
-                              0,
-                              mt_context[1].thdr->used,
-                              0);
+        if (psearch->flags & TA_SEARCH_ALL) {
+            thdr_t *result_thdr;
+            /* Based on above checks that all contexts that exist have status OK */
+            /* Context 0 always exists. See if it has any matches */
+            result_thdr = mt_context[0].thdr; /* Assume */
+            if (mt_context[0].thdr->used > 0) {
+                /* Have something here. See if second context also does. */
+                if (ncontexts > 1) {
+                    if (mt_context[1].thdr->used > 0) {
+                        thdr_copy(mt_context[0].thdr,
+                                  mt_context[0].thdr->used,
+                                  mt_context[1].thdr,
+                                  0,
+                                  mt_context[1].thdr->used,
+                                  0);
+                    }
+                    thdr_decr_refs(mt_context[1].thdr);
                 }
-                thdr_decr_refs(mt_context[1].thdr);
+            } else {
+                /* First context had no match. Check second if any */
+                if (ncontexts > 1) {
+                    thdr_decr_refs(mt_context[0].thdr);
+                    result_thdr = mt_context[1].thdr; /* May also be empty */
+                }
             }
+            Tcl_SetObjResult(ip, tcol_new(result_thdr));
         } else {
-            /* First context had no match. Check second if any */
-            if (ncontexts > 1) {
-                thdr_decr_refs(mt_context[0].thdr);
-                result_thdr = mt_context[1].thdr; /* May also be empty */
+            /* Single value to be returned */
+            Tcl_Obj *resultObj;
+            int matching_context;
+            if (mt_context[0].first_match >= 0)
+                matching_context = 0;
+            else if (ncontexts > 1 && mt_context[1].first_match >= 0)
+                matching_context = 1;
+            else
+                matching_context = -1;
+            if (psearch->flags & TA_SEARCH_INLINE) {
+                if (matching_context >= 0)
+                    resultObj = ta_value_to_obj(&mt_context[matching_context].first_value);
+                else
+                    resultObj = Tcl_NewObj();
+            } else {
+                if (matching_context >= 0)
+                    resultObj = Tcl_NewIntObj(mt_context[matching_context].first_match);
+                else
+                    resultObj = Tcl_NewIntObj(-1);
             }
+            Tcl_SetObjResult(ip, resultObj);
         }
-        Tcl_SetObjResult(ip, tcol_new(result_thdr));
     } else {
-        /* Free up everything */
-        for (i = 0; i < ncontexts; ++i) {
-            if (mt_context[i].res == TCL_OK && mt_context[i].thdr != NULL)
-                thdr_decr_refs(mt_context[i].thdr);
+        /* Free up thdrs (only allocated with TA_SEARCH_ALL) */
+        if (psearch->flags & TA_SEARCH_ALL) {
+            for (i = 0; i < ncontexts; ++i) {
+                if (mt_context[i].res == TCL_OK && mt_context[i].thdr != NULL)
+                    thdr_decr_refs(mt_context[i].thdr);
+            }
         }
         Tcl_SetResult(ip, "Error during column search (out of memory?)", TCL_STATIC);
     }
