@@ -19,8 +19,8 @@ int ta_experiment;
  * Thresholds for multithreading.
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
-int ta_fill_mt_threshold = 100000;
-int ta_minmax_mt_threshold = 100000;
+int ta_fill_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+int ta_minmax_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 /* Must match definitions in tarray.h ! */
@@ -1984,6 +1984,7 @@ int thdr_required_size(int tatype, int count)
     return sizeof(thdr_t) + space;
 }
 
+/* ip may be NULL */
 thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
 {
     thdr_t *thdr;
@@ -2002,6 +2003,7 @@ thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
     return thdr;
 }
 
+/* ip may be NULL */
 thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
 {
     unsigned char nbits;

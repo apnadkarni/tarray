@@ -528,6 +528,8 @@ extern int ta_experiment;
 
 #ifdef TA_MT_ENABLE
 /* Threshold for when sorts are multithreaded */
+#define TA_MT_THRESHOLD_DEFAULT 10000
+extern int ta_search_mt_threshold;
 extern int ta_sort_mt_threshold;
 extern int ta_sort_mt_enable_any;
 extern int ta_fill_mt_threshold;

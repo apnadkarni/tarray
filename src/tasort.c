@@ -5,7 +5,7 @@
  * Threshold for when sorts are multithreaded. Based on some preliminary
  * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
  */
-int ta_sort_mt_threshold = 5000;
+int ta_sort_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 /* Whether multithreading is to be enabled for TA_ANY or not */
 int ta_sort_mt_enable_any = 0; /* TBD, change to 1 once sufficient testing */
 #endif
