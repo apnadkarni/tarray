@@ -3,6 +3,7 @@ namespace eval tarray {
     namespace eval table {}
     namespace eval db {}
     namespace eval unsupported {}
+    namespace eval test {}
 }
 
 proc tarray::table::create {def {init {}} {size 0}} {
@@ -80,6 +81,26 @@ proc tarray::db::create {def {init {}} {size 0}} {
     set _tables($tok) $table
     return $tok
 }
+
+proc tarray::test::lsample {type count} {
+    set l {}
+    # TBD - handle type "any"
+    # TBD - return entire range of floats
+    # TBD - larger numbers are more likely. Change to return equal
+    # number from each range 0-9, 10-99, 100-999 etc.
+    switch $type {
+        boolean { time {lappend l [expr {rand() > 0.5}]} $count }
+        uint { time {lappend l [expr {wide(0xffffffff*rand())}]} $count }
+        int { time {lappend l [expr {wide(0x7fffffff*(rand()-0.5))}]} $count }
+        wide { time {lappend l [expr {wide(0x7fffffffffffffff*rand())}]} $count }
+        byte { time {lappend l [expr {round(255*rand())}]} $count }
+        double {time {lappend l [tcl::mathfunc::rand]} $count}
+    }
+    return $l
+}
+
+
+
 
 namespace eval tarray {
 
