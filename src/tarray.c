@@ -1991,6 +1991,9 @@ thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
     int sz;
 
     TA_ASSERT(oldP->nrefs < 2);
+    /* The following assert is needed because we must not inadvertently
+       reduce the size to less than what is already in use since that
+       will result in Tcl_Obj* leaks in case the thdr is of type TA_ANY. */
     TA_ASSERT(oldP->used <= new_count);
 
     /* We allocate one more for the sentinel */

@@ -238,8 +238,8 @@ TA_INLINE TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size)
     
     thdr = tcol_thdr(o);
     TA_ASSERT(thdr);
-    TA_ASSERT(new_size > thdr->usable);
     TA_ASSERT(! thdr_shared(thdr));
+    TA_ASSERT(new_size > thdr->usable);
 
     /* Note don't use tcol_replace_intrep as we are keeping all 
        fields and ref counts the same */

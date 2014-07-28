@@ -549,8 +549,18 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                 /* Have something here. See if second context also does. */
                 if (ncontexts > 1) {
                     if (mt_context[1].thdr->used > 0) {
-                        thdr_copy(mt_context[0].thdr,
-                                  mt_context[0].thdr->used,
+                        int total = mt_context[0].thdr->used + mt_context[1].thdr->used;
+                        if (result_thdr->usable < total) {
+                            result_thdr = thdr_realloc(ip, result_thdr, total);
+                            if (result_thdr == NULL) {
+                                thdr_decr_refs(mt_context[0].thdr);
+                                thdr_decr_refs(mt_context[1].thdr);
+                                return TCL_ERROR;
+                            }
+                            mt_context[0].thdr = result_thdr;
+                        }
+                        thdr_copy(result_thdr,
+                                  result_thdr->used,
                                   mt_context[1].thdr,
                                   0,
                                   mt_context[1].thdr->used,
