@@ -605,6 +605,10 @@ if {![info exists tarray::test::known]} {
             return [tarray::table create [col_def $types] [samplerows $types $low $high]]
         }
 
+        proc randomcolumn {type {count 1000001}} {
+            return [tarray::column create $type [tarray::unsupported::lrandom $type $count]]
+        }
+
         proc col_def types {
             set def {}
             set i -1

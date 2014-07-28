@@ -21,6 +21,11 @@ void ta_type_panic(int tatype)
     Tcl_Panic("Unknown or unexpected tarray type %d", tatype);
 }
 
+void ta_operator_panic(int op)
+{
+    Tcl_Panic("Unknown or unexpected operator %d", op);
+}
+
 void ta_shared_panic(const char *where)
 {
     Tcl_Panic("Shared thdr_t passed for modification to %s.", where);
