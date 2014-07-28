@@ -308,6 +308,7 @@ void ta_update_string_for_table_or_type_any(Tcl_Obj *o);
  */
 void ta_string_overflow_panic(const char *where);
 void ta_type_panic(int tatype);
+void ta_operator_panic(int oper);
 void ta_shared_panic(const char *where);
 void ta_small_panic(thdr_t *thdr, const char *where);
 TCL_RESULT ta_not_column_error(Tcl_Interp *);

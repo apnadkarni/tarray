@@ -82,7 +82,7 @@ proc tarray::db::create {def {init {}} {size 0}} {
     return $tok
 }
 
-proc tarray::test::lsample {type count} {
+proc tarray::unsupported::lrandom {type count} {
     set l {}
     # TBD - handle type "any"
     # TBD - return entire range of floats
@@ -95,12 +95,16 @@ proc tarray::test::lsample {type count} {
         wide { time {lappend l [expr {wide(0x7fffffffffffffff*rand())}]} $count }
         byte { time {lappend l [expr {round(255*rand())}]} $count }
         double {time {lappend l [tcl::mathfunc::rand]} $count}
+        any {
+            time {
+                set n [expr {round(100*rand())}]
+                lappend l [string repeat $n $n]
+            } $count
+        }
+        default {error "Unknown type $type"}
     }
     return $l
 }
-
-
-
 
 namespace eval tarray {
 
