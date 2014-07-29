@@ -96,17 +96,26 @@ typedef int TCL_RESULT;
 #define TA_DOUBLE 4
 #define TA_BYTE 5
 #define TA_ANY 6
+#define TA_STRING 7
+
+
+typedef struct tas_t {
+    unsigned char nrefs;
+#define TAS_MAX_NREFS 255
+    char          s[1];         /* Actually variable size, null terminated */
+} tas_t;
 
 typedef struct ta_value_s {
     unsigned char type;
     union {
-        int          bval : 1;
-        unsigned int uival;
-        int          ival;
-        Tcl_WideInt  wval;
-        double       dval;
+        int           bval : 1;
+        unsigned int  uival;
+        int           ival;
+        Tcl_WideInt   wval;
+        double        dval;
         unsigned char ucval;
         Tcl_Obj *     oval;
+        tas_t *       ptas;
     };
 } ta_value_t;
 
@@ -311,6 +320,7 @@ void ta_type_panic(int tatype);
 void ta_operator_panic(int oper);
 void ta_shared_panic(const char *where);
 void ta_small_panic(thdr_t *thdr, const char *where);
+void ta_memory_panic(int);
 TCL_RESULT ta_not_column_error(Tcl_Interp *);
 TCL_RESULT ta_not_table_error(Tcl_Interp *);
 TCL_RESULT ta_search_op_error(Tcl_Interp *, int op);
@@ -333,12 +343,24 @@ TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 
+/* tas_t interface */
+tas_t *tas_alloc(char *s, int len);
+tas_t * tas_from_obj(Tcl_Obj *o);
+Tcl_Obj *tas_to_obj(tas_t *src);
+tas_t *tas_ref(tas_t *src);
+void tas_unref(tas_t *ptas);
+int tas_equal(tas_t *a, tas_t *b, int nocase);
+int tas_compare(tas_t *a, tas_t *b, int nocase);
+tas_t *tas_dup(tas_t *src);
+
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
 
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
+void thdr_incr_tas_refs(thdr_t *thdr, int first, int count);
+void thdr_decr_tas_refs(thdr_t *thdr, int first, int count);
 
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
 TCL_RESULT table_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
@@ -348,6 +370,8 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav);
 Tcl_Obj *ta_value_to_obj(ta_value_t *ptav);
 int ta_value_compare(ta_value_t *pa, ta_value_t *pb, int ignore_case);
+void ta_value_clear(ta_value_t *);
+void ta_value_init(ta_value_t *);
 
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
                      const ta_value_t *ptav, int pos, int count, int insert);
@@ -473,6 +497,8 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip, int ntcols,
 /*
  * Search and sort routines
  */
+int ta_utf8_compare(char *, char *, int ignorecase);
+int ta_utf8_equal(char *, char *, int ignorecase);
 int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
 int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
 

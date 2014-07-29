@@ -304,9 +304,11 @@ TCL_RESULT tcols_fill_range(
             goto vamoose;
     }
 
-    for (i = 0; i < ntcols; ++i)
+    for (i = 0; i < ntcols; ++i) {
         thdr_fill_range(ip, tcol_thdr(tcols[i]),
                         &values[i], pos, count, insert);
+        ta_value_clear(&values[i]);
+    }
 
     /* status will already contain TCL_OK */
 
@@ -491,9 +493,11 @@ TCL_RESULT tcols_fill_indices(
     }
 
     /* Now that verification is complete, go do the actual changes */
-    for (i = 0; i < ntcols; ++i)
+    for (i = 0; i < ntcols; ++i) {
         thdr_fill_indices(ip, tcol_thdr(tcols[i]), &values[i], pindices, new_size);
-    
+        ta_value_clear(&values[i]);
+    }
+
     /* status will already be TCL_OK */
 
 vamoose:
@@ -802,6 +806,8 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
                 break;
             case TA_ANY:
                 break;      /* No validation */
+            case TA_STRING:
+                break;      /* No validation */
             default:
                 ta_type_panic(tatype);
             }
@@ -819,254 +825,268 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                           int first, int insert)
 {
     int t, r, ival;
-     int have_obj_cols;
-     int have_other_cols;
-     int need_data_validation;
-     Tcl_Obj *oval;
-     thdr_t *thdr, *thdr0;
+    int have_cols_that_need_validation;
+    int need_data_validation;
+    Tcl_Obj *oval;
+    thdr_t *thdr, *thdr0;
 
+    if (ntcols == 0 || nrows == 0)
+        return TCL_OK;          /* Nought to do */
 
-     if (ntcols == 0 || nrows == 0)
-         return TCL_OK;          /* Nought to do */
+    thdr0 = tcol_thdr(tcols[0]);
+    for (t = 0, have_cols_that_need_validation = 0; t < ntcols; ++t) {
+        thdr = tcol_thdr(tcols[t]);
+        TA_ASSERT(! Tcl_IsShared(tcols[t]));
+        TA_ASSERT(! thdr_shared(thdr));
+        if (insert)
+            TA_ASSERT(thdr->usable >= (thdr->used + nrows)); /* 'Nuff space */
+        else
+            TA_ASSERT(thdr->usable >= (first + nrows)); /* 'Nuff space */
+        TA_ASSERT(thdr->used == thdr0->used); /* All same size */
+        
+        if (thdr->type != TA_ANY && thdr->type != TA_STRING)
+            have_cols_that_need_validation = 1;
+    }
 
-     thdr0 = tcol_thdr(tcols[0]);
-     for (t = 0, have_obj_cols = 0, have_other_cols = 0; t < ntcols; ++t) {
-         thdr = tcol_thdr(tcols[t]);
-         TA_ASSERT(! Tcl_IsShared(tcols[t]));
-         TA_ASSERT(! thdr_shared(thdr));
-         if (insert)
-             TA_ASSERT(thdr->usable >= (thdr->used + nrows)); /* 'Nuff space */
-         else
-             TA_ASSERT(thdr->usable >= (first + nrows)); /* 'Nuff space */
-         TA_ASSERT(thdr->used == thdr0->used); /* All same size */
+    /*
+     * In case of errors, we have to keep the old values
+     * so we loop through first to verify there are no errors and then
+     * a second time to actually store the values. The arrays can be
+     * very large so we do not want to allocate a temporary
+     * holding area for saving old values to be restored in case of errors
+     * or to hold new Tcl_Values so conversion does not need to be repeated.
+     *
+     * There are two kinds of errors - data type errors (e.g. attempt
+     * to store a non-integer into an integer field) and structural
+     * errors (e.g. a row not having enough elements).
+     *
+     * As a special optimization, when appending to the end, we do
+     * not need to first check. We directly store the values and in case
+     * of errors, simply not update the old size.
+     *
+     * TA_ANY/TA_STRING add a complication. They do not need a type check
+     * but because their reference counts have to be managed, it is more
+     * complicated to back track on errors when we skip the validation
+     * checks in the pure append case. So we update these columns
+     * only after everything else has been updated.
+     */
 
-         if (thdr->type == TA_ANY)
-             have_obj_cols = 1;
-         else
-             have_other_cols = 1;
-     }
+    if (! have_cols_that_need_validation) {
+        /* Only TA_ANY/TA_STRING columns, data validation is a no-op */
+        need_data_validation = 0;
+    } else if (first >= thdr0->used) {
+        /*
+         * Pure append, not overwriting so rollback becomes easy and
+         * no need for prevalidation step.
+         */
+        need_data_validation = 0;
+    } else
+        need_data_validation = 1;
 
-     /*
-      * In case of errors, we have to keep the old values
-      * so we loop through first to verify there are no errors and then
-      * a second time to actually store the values. The arrays can be
-      * very large so we do not want to allocate a temporary
-      * holding area for saving old values to be restored in case of errors
-      * or to hold new Tcl_Values so conversion does not need to be repeated.
-      *
-      * There are two kinds of errors - data type errors (e.g. attempt
-      * to store a non-integer into an integer field) and structural
-      * errors (e.g. a row not having enough elements).
-      *
-      * As a special optimization, when appending to the end, we do
-      * not need to first check. We directly store the values and in case
-      * of errors, simply not update the old size.
-      *
-      * TA_ANY add a complication. They do not need a type check
-      * but because their reference counts have to be managed, it is more
-      * complicated to back track on errors when we skip the validation
-      * checks in the pure append case. So we update these columns
-      * only after everything else has been updated.
-      */
+    /*
+     * TBD - optmization. Check which of these alternativs is better
+     *  - current implementation
+     *  - Do not call tcols_validate_obj_row_widths but check
+     *    return of Tcl_ListObjIndex in storage loop
+     *  - always call thdrs_validate_obj_rows (even if appending)
+     *    and dispense with error checking in storage loop.
+     */
+    if (need_data_validation) {
+        if (tcols_validate_obj_rows(ip, ntcols, tcols, nrows, rows) != TCL_OK)
+            return TCL_ERROR;
+    } else {
+        /*
+         * We are not validating data but then validate row widths 
+         * We are doing this to simplify error rollback for TA_ANY/TA_STRING
+         */
+        if (tcols_validate_obj_row_widths(ip, ntcols, nrows, rows) != TCL_OK)
+            return TCL_ERROR;
+    }
 
-     if (! have_other_cols) {
-         /* Only TA_ANY columns, data validation is a no-op */
-         need_data_validation = 0;
-     } else if (first >= thdr0->used) {
-         /*
-          * Pure append, not overwriting so rollback becomes easy and
-          * no need for prevalidation step.
-          */
-         need_data_validation = 0;
-     } else
-         need_data_validation = 1;
+    /* We could either iterate vertically or horizontally
+     *   for (per thdr)
+     *     switch (thdr->type)
+     *       for (per row)
+     *         field <- Tcl_ListObjIndex
+     *         validate field
+     * or
+     *   for (per row)
+     *     fields <- Tcl_ListObjGetElements
+     *     per field
+     *       switch thdr->type
+     *         validate field
+     *
+     * Not clear which will perform better - first case inner loop has
+     * a indirect call (Tcl_ListObjIndex). Second case inner loop has a switch
+     * (probably faster than a indirect call). On the other hand, when actually
+     * writing out to the array, cache effects might make the former
+     * faster (writing consecutive locations).
+     *
+     * As it turns out, we use the first method for a different reason -
+     * when we are strictly appending without overwriting, we do not
+     * validate since rollback is easy. The complication is that if
+     * any column is of type TA_ANY/TA_STRING, when an error occurs we have to
+     * rollback that column's Tcl_Obj reference counts. Keeping track
+     * of this is more involved using the second scheme and much simpler
+     * with the first scheme. Hence we go with that.
+     */
 
+    /*
+     * Now actually store the values. Note we still have to check
+     * status on conversion in case we did not do checks when we are appending
+     * to the end, and we have to store TA_ANY/TA_STRING last to facilitate
+     * rollback on errors as discussed earlier.
+     */
+#define tcols_put_COPY(type, pos, fn)                            \
+    do {                                                         \
+        type *p;                                                 \
+        Tcl_Obj *o;                                              \
+        p = THDRELEMPTR(thdr, type, first);                      \
+        for (r = 0; r < nrows; ++r, ++p) {                       \
+            Tcl_ListObjIndex(ip, rows[r], pos, &o);              \
+            TA_ASSERT(o);                                        \
+            if (fn(ip, o, p) != TCL_OK)                          \
+                goto error_return;                               \
+        }                                                        \
+    } while (0)
 
-     /*
-      * TBD - optmization. Check which of these alternativs is better
-      *  - current implementation
-      *  - Do not call tcols_validate_obj_row_widths but check
-      *    return of Tcl_ListObjIndex in storage loop
-      *  - always call thdrs_validate_obj_rows (even if appending)
-      *    and dispense with error checking in storage loop.
-      */
-     if (need_data_validation) {
-         if (tcols_validate_obj_rows(ip, ntcols, tcols, nrows, rows) != TCL_OK)
-             return TCL_ERROR;
-     } else {
-         /*
-          * We are not validating data but then validate row widths 
-          * We are doing this to simplify error rollback for TA_ANY
-          */
-         if (tcols_validate_obj_row_widths(ip, ntcols, nrows, rows) != TCL_OK)
-             return TCL_ERROR;
-     }
+    if (have_cols_that_need_validation) {
+        for (t=0; t < ntcols; ++t) {
+            /* Skip TA_ANY on this round, until all other data is stored */
+            thdr = tcol_thdr(tcols[t]);
+            if (thdr->type == TA_ANY || thdr->type == TA_STRING)
+                continue;
 
-     /* We could either iterate vertically or horizontally
-      *   for (per thdr)
-      *     switch (thdr->type)
-      *       for (per row)
-      *         field <- Tcl_ListObjIndex
-      *         validate field
-      * or
-      *   for (per row)
-      *     fields <- Tcl_ListObjGetElements
-      *     per field
-      *       switch thdr->type
-      *         validate field
-      *
-      * Not clear which will perform better - first case inner loop has
-      * a indirect call (Tcl_ListObjIndex). Second case inner loop has a switch
-      * (probably faster than a indirect call). On the other hand, when actually
-      * writing out to the array, cache effects might make the former
-      * faster (writing consecutive locations).
-      *
-      * As it turns out, we use the first method for a different reason -
-      * when we are strictly appending without overwriting, we do not
-      * validate since rollback is easy. The complication is that if
-      * any column is of type TA_ANY, when an error occurs we have to
-      * rollback that column's Tcl_Obj reference counts. Keeping track
-      * of this is more involved using the second scheme and much simpler
-      * with the first scheme. Hence we go with that.
-      */
+            if (insert)
+                thdr_make_room(thdr, first, nrows);
 
-     /*
-      * Now actually store the values. Note we still have to check
-      * status on conversion in case we did not do checks when we are appending
-      * to the end, and we have to store TA_ANY last to facilitate
-      * rollback on errors as discussed earlier.
-      */
- #define tcols_put_COPY(type, pos, fn)                           \
-     do {                                                        \
-         type *p;                                                \
-         Tcl_Obj *o; \
-         p = THDRELEMPTR(thdr, type, first);                     \
-         for (r = 0; r < nrows; ++r, ++p) {                      \
-             Tcl_ListObjIndex(ip, rows[r], pos, &o);             \
-             TA_ASSERT(o);                                    \
-             if (fn(ip, o, p) != TCL_OK)       \
-                 goto error_return;                              \
-         }                                                       \
-     } while (0)
+            thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
+            switch (thdr->type) {
+            case TA_BOOLEAN:
+                {
+                    register ba_t *baP;
+                    ba_t ba, ba_mask;
+                    int off;
+                    
+                    /* Take care of the initial condition where the first bit
+                       may not be aligned on a boundary */
+                    baP = THDRELEMPTR(thdr, ba_t, first / BA_UNIT_SIZE);
+                    off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
+                    ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
+                    if (off != 0) {
+                        /*
+                         * Offset is off within a ba_t. Get the ba_t at that 
+                         * location preserving the preceding bits within
+                         * the char.
+                         */
+                        ba = *baP & BITPOSMASKLT(off);
+                    } else
+                        ba = 0;
+                    for (r = 0; r < nrows; ++r) {
+                        Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                        TA_ASSERT(oval);
+                        if (Tcl_GetBooleanFromObj(ip, oval, &ival) != TCL_OK)
+                            goto error_return;
+                        if (ival)
+                            ba |= ba_mask;
+                        ba_mask = BITMASKNEXT(ba_mask);
+                        if (ba_mask == 0) {
+                            *baP++ = ba;
+                            ba = 0;
+                            ba_mask = BITPOSMASK(0);
+                        }
+                    }
+                    if (ba_mask != BITPOSMASK(0)) {
+                        /* We have some leftover bits in ba that need
+                           to be stored.  * We need to *merge* these into
+                           the corresponding word * keeping the existing
+                           high index bits.  * Note the bit indicated by
+                           ba_mask also has to be preserved, * not
+                           overwritten.  */
+                        *baP = ba | (*baP & BITMASKGE(ba_mask));
+                    }
+                }
+                break;
 
-     if (have_other_cols) {
-         for (t=0; t < ntcols; ++t) {
-             /* Skip TA_ANY on this round, until all other data is stored */
-             thdr = tcol_thdr(tcols[t]);
-             if (thdr->type == TA_ANY)
-                 continue;
+            case TA_UINT:
+                tcols_put_COPY(unsigned int, t, ta_get_uint_from_obj);
+                break;
+            case TA_INT:
+                tcols_put_COPY(unsigned int, t, Tcl_GetIntFromObj);
+                break;
+            case TA_WIDE:
+                tcols_put_COPY(Tcl_WideInt, t, Tcl_GetWideIntFromObj);
+                break;
+            case TA_DOUBLE:
+                tcols_put_COPY(double, t, Tcl_GetDoubleFromObj);
+                break;
+            case TA_BYTE:
+                tcols_put_COPY(unsigned char, t, ta_get_byte_from_obj);
+                break;
+            default:
+                ta_type_panic(thdr->type);
+            }
+        }
+    }
 
-             if (insert)
-                 thdr_make_room(thdr, first, nrows);
+    /* Now that no errors can occur, update the TA_ANY and TA_STRING columns */
+    for (t=0; t < ntcols; ++t) {
+        thdr = tcol_thdr(tcols[t]);
+        if (thdr->type != TA_ANY && thdr->type != TA_STRING)
+            continue;
+        if (insert)
+            thdr_make_room(thdr, first, nrows);
+        thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
+        if (thdr->type == TA_ANY) {
+            register Tcl_Obj **pobjs;
+            pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
+            for (r = 0; r < nrows ; ++r, ++pobjs) {
+                Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                TA_ASSERT(oval);
+                /* Careful about the order here! */
+                Tcl_IncrRefCount(oval);
+                /* Release old elems only if we were not inserting */
+                if (!insert) {
+                    if ((first + r) < thdr->used) {
+                        /* Deref what was originally in that slot */
+                        Tcl_DecrRefCount(*pobjs);
+                    }
+                }
+                *pobjs = oval;
+            }
+        } else {
+            /* TA_STRING */
+            register tas_t **pptas;
+            pptas = THDRELEMPTR(thdr, tas_t *, first);
+            for (r = 0; r < nrows ; ++r, ++pptas) {
+                Tcl_ListObjIndex(ip, rows[r], t, &oval);
+                TA_ASSERT(oval);
+                /* Release old elems only if we were not inserting */
+                if (!insert) {
+                    if ((first + r) < thdr->used) {
+                        /* Deref what was originally in that slot */
+                        tas_unref(*pptas);
+                    }
+                }
+                *pptas = tas_from_obj(oval);
+            }
+        }
+    }
 
-             thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
-             switch (thdr->type) {
-             case TA_BOOLEAN:
-                 {
-                     register ba_t *baP;
-                     ba_t ba, ba_mask;
-                     int off;
-
-                     /* Take care of the initial condition where the first bit
-                        may not be aligned on a boundary */
-                     baP = THDRELEMPTR(thdr, ba_t, first / BA_UNIT_SIZE);
-                     off = first % BA_UNIT_SIZE; /* Offset of bit within a char */
-                     ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
-                     if (off != 0) {
-                         /*
-                          * Offset is off within a ba_t. Get the ba_t at that location
-                          * preserving the preceding bits within the char.
-                          */
-                         ba = *baP & BITPOSMASKLT(off);
-                     } else
-                         ba = 0;
-                     for (r = 0; r < nrows; ++r) {
-                         Tcl_ListObjIndex(ip, rows[r], t, &oval);
-                         TA_ASSERT(oval);
-                         if (Tcl_GetBooleanFromObj(ip, oval, &ival) != TCL_OK)
-                             goto error_return;
-                         if (ival)
-                             ba |= ba_mask;
-                         ba_mask = BITMASKNEXT(ba_mask);
-                         if (ba_mask == 0) {
-                             *baP++ = ba;
-                             ba = 0;
-                             ba_mask = BITPOSMASK(0);
-                         }
-                     }
-                     if (ba_mask != BITPOSMASK(0)) {
-                         /* We have some leftover bits in ba that need
-                         to be stored.  * We need to *merge* these into
-                         the corresponding word * keeping the existing
-                         high index bits.  * Note the bit indicated by
-                         ba_mask also has to be preserved, * not
-                         overwritten.  */
-                         *baP = ba | (*baP & BITMASKGE(ba_mask));
-                     }
-                 }
-                 break;
-
-             case TA_UINT:
-                 tcols_put_COPY(unsigned int, t, ta_get_uint_from_obj);
-                 break;
-             case TA_INT:
-                 tcols_put_COPY(unsigned int, t, Tcl_GetIntFromObj);
-                 break;
-             case TA_WIDE:
-                 tcols_put_COPY(Tcl_WideInt, t, Tcl_GetWideIntFromObj);
-                 break;
-             case TA_DOUBLE:
-                 tcols_put_COPY(double, t, Tcl_GetDoubleFromObj);
-                 break;
-             case TA_BYTE:
-                 tcols_put_COPY(unsigned char, t, ta_get_byte_from_obj);
-                 break;
-             default:
-                 ta_type_panic(thdr->type);
-             }
-         }
-     }
-
-     /* Now that no errors are possible, update the TA_ANY columns */
-     for (t=0; t < ntcols; ++t) {
-         register Tcl_Obj **pobjs;
-         thdr = tcol_thdr(tcols[t]);
-         if (thdr->type != TA_ANY)
-             continue;
-         if (insert)
-             thdr_make_room(thdr, first, nrows);
-         thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
-         pobjs = THDRELEMPTR(thdr, Tcl_Obj *, first);
-         for (r = 0; r < nrows ; ++r, ++pobjs) {
-             Tcl_ListObjIndex(ip, rows[r], t, &oval);
-             TA_ASSERT(oval);
-             /* Careful about the order here! */
-             Tcl_IncrRefCount(oval);
-             /* Release old elems only if we were not inserting */
-             if (!insert) {
-                 if ((first + r) < thdr->used) {
-                     /* Deref what was originally in that slot */
-                     Tcl_DecrRefCount(*pobjs);
-                 }
-             }
-             *pobjs = oval;
-         }
-     }
-
-     /* Now finally, update all the counts */
-     for (t=0; t < ntcols; ++t) {
-         if (insert) {
-             tcol_thdr(tcols[t])->used += nrows;
-         } else {
-             if ((first + nrows) > tcol_thdr(tcols[t])->used)
-                 tcol_thdr(tcols[t])->used = first + nrows;
-         }
-     }
+    /* Now finally, update all the counts */
+    for (t=0; t < ntcols; ++t) {
+        if (insert) {
+            tcol_thdr(tcols[t])->used += nrows;
+        } else {
+            if ((first + nrows) > tcol_thdr(tcols[t])->used)
+                tcol_thdr(tcols[t])->used = first + nrows;
+        }
+    }
      
-     return TCL_OK;
+    return TCL_OK;
 
  error_return:                  /* Interp should already contain errors */
-     return TCL_ERROR;
+    return TCL_ERROR;
  }
 
 static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
@@ -1181,6 +1201,39 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                 }               
             }
             break;
+
+        case TA_STRING:
+            {
+                tas_t **pptas;
+                int j;
+
+                pptas = THDRELEMPTR(tcol_thdr(tcols[i]), tas_t *, 0);
+
+                /*
+                 * Reference counts makes this tricky. If replacing an existing
+                 * index we have to increment the new value's ref and decrement
+                 * the old value's. If the index points to a previously unused
+                 * slot, then the value there is garbage and Tcl_DecrRefCount
+                 * should not be called on it. The problem is we cannot distinguish
+                 * the cases up front using thdr->used as a threshold because
+                 * pindices is in arbitrary order AND indices may be repeated.
+                 * Hence what we do is to store NULL first in all unused slots
+                 * that will be written to mark what is unused.
+                 */
+                for (j = tcol_occupancy(tcols[i]); j < new_size; ++j)
+                    pptas[j] = NULL;        /* TBD - optimization - memset ? */
+                while (pindex < end) {
+                    /* Careful about the order here! */
+                    TA_ASSERT(*pindex < tcol_thdr(tcols[i])->usable);
+                    TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
+                    TA_ASSERT(o != NULL);
+                    if (pptas[*pindex] != NULL)
+                        tas_unref(pptas[*pindex]);/* Deref original slot */
+                    pptas[*pindex++] = o;
+                }               
+            }
+            break;
+
         default:
             ta_type_panic(tcol_type(tcols[i]));
         }
@@ -1551,6 +1604,9 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
             */
             table_get_COPY(Tcl_Obj *, (Tcl_Obj *));
             break;
+        case TA_STRING:
+            table_get_COPY(tas_t *, tas_to_obj);
+            break;
         default:
             ta_type_panic(tcol_type(srccols[i]));
         }
@@ -1705,6 +1761,10 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
                passed as essentially a no-op conversion function
             */
             table_range_COPY(Tcl_Obj *, (Tcl_Obj *));
+            break;
+        case TA_STRING:
+            /* We can use macro here as well for the same reason. */
+            table_range_COPY(Tcl_Obj *, tas_to_obj);
             break;
         default:
             ta_type_panic(tcol_type(srccols[i]));

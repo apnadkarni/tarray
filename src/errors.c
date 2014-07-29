@@ -36,6 +36,11 @@ void ta_small_panic(thdr_t *thdr, const char *where)
     Tcl_Panic("Insufficient space in thdr_t (allocated %d) in %s.", thdr->usable, where);
 }
 
+void ta_memory_panic(int req_size)
+{
+    Tcl_Panic("Memory allocation failed (%d bytes).", req_size);
+}
+
 TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname)
 {
     if (ip) {

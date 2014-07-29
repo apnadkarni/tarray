@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012-2013, Ashok P. Nadkarni
+# Copyright (c) 2012-2014, Ashok P. Nadkarni
 # All rights reserved.
 #
 # See the file LICENSE for license
@@ -65,7 +65,7 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources tarray.c table.c tasearch.c bitarray.c tasort.c timsort.c timsort_r.c errors.c
+critcl::csources tarray.c table.c tasearch.c bitarray.c tastring.c tasort.c timsort.c timsort_r.c errors.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -617,8 +617,8 @@ critcl::ccommand tarray::column::intersect3 {} {
 
     /* Ensure both columns are in same sort order */
     order = THDR_UNSORTED;
-    if (atype == TA_ANY) {
-        /* TA_ANY separated because we have to deal with nocase */
+    if (atype == TA_ANY || atype == TA_STRING) {
+        /* TA_ANY/TA_STRING separated because we have to deal with nocase */
         if (a_current_order == b_current_order) {
             /* If unsorted or sorted with different case-sensitivity, resort */
             if ((nocase && SORT_ORDER_IS_NOCASE(a_current_order)) ||
@@ -851,6 +851,7 @@ critcl::ccommand tarray::column::intersect3 {} {
     case TA_ANY:
 #undef EQ
 #undef LT
+        /* TBD - why not EQ -> ta_obj_equal ? */
 #define EQ(x_, y_) (ta_obj_compare((x_), (y_), nocase) == 0)
 #define LT(x_, y_) (ta_obj_compare((x_), (y_), nocase) < 0)
         INTERSECT(Tcl_Obj *);
@@ -858,6 +859,17 @@ critcl::ccommand tarray::column::intersect3 {} {
         thdr_incr_obj_refs(aintersectb, 0, aintersectb->used);
         thdr_incr_obj_refs(aminusb, 0, aminusb->used);
         thdr_incr_obj_refs(bminusa, 0, bminusa->used);
+        break;
+    case TA_STRING:
+#undef EQ
+#undef LT
+#define EQ(x_, y_) (tas_equal((x_), (y_), nocase))
+#define LT(x_, y_) (tas_compare((x_), (y_), nocase) < 0)
+        INTERSECT(tas_t *);
+        /* Need to update ref counts */
+        thdr_incr_tas_refs(aintersectb, 0, aintersectb->used);
+        thdr_incr_tas_refs(aminusb, 0, aminusb->used);
+        thdr_incr_tas_refs(bminusa, 0, bminusa->used);
         break;
     }
 

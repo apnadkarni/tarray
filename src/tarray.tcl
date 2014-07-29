@@ -84,7 +84,6 @@ proc tarray::db::create {def {init {}} {size 0}} {
 
 proc tarray::unsupported::lrandom {type count} {
     set l {}
-    # TBD - handle type "any"
     # TBD - return entire range of floats
     # TBD - larger numbers are more likely. Change to return equal
     # number from each range 0-9, 10-99, 100-999 etc.
@@ -95,6 +94,7 @@ proc tarray::unsupported::lrandom {type count} {
         wide { time {lappend l [expr {wide(0x7fffffffffffffff*rand())}]} $count }
         byte { time {lappend l [expr {round(255*rand())}]} $count }
         double {time {lappend l [tcl::mathfunc::rand]} $count}
+        string -
         any {
             time {
                 set n [expr {round(100*rand())}]

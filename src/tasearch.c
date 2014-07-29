@@ -525,6 +525,10 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
 
 #endif
 
+    /* Note if set, mt_context[1].needle is SAME so do NOT clear it as well
+       else you will have double freeing */
+    ta_value_clear(&mt_context[0].needle);
+
     /*
      * If TA_SEARCH_ALL is true, the thdr fields of the context are valid
      * Else the first_match/first_value fields are valid.
