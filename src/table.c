@@ -62,7 +62,7 @@ struct Tcl_ObjType ta_table_type = {
     "tarray_table",
     table_type_free_intrep,
     table_type_dup,
-    ta_update_string_for_table_or_type_any,
+    ta_update_string_for_variable_element_size,
     NULL,     /* jenglish advises to keep this NULL */
 };
 

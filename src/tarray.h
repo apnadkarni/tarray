@@ -138,7 +138,8 @@ extern Tcl_ObjType *g_tcl_list_type_ptr;
 #define TA_DEFAULT_NSLOTS 1000
 
 #define TA_MAX_ELEM_SIZE (sizeof(double) > sizeof(int) ? (sizeof(double) > sizeof(void*) ? sizeof(double) : sizeof(void*)) : sizeof(int))
-#define TA_MAX_COUNT (1 + (int)(((size_t)UINT_MAX - sizeof(thdr_t))/TA_MAX_ELEM_SIZE))
+/* Max usable count - not including space for sentinel */
+#define TA_MAX_COUNT (int)(((size_t)UINT_MAX - sizeof(thdr_t))/TA_MAX_ELEM_SIZE)
 
 /*
  * A thdr_t stores an array of elements of a specific type. It is used
@@ -180,6 +181,8 @@ void thdr_free(thdr_t *thdr);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, int tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
+
 TA_INLINE void thdr_incr_refs(thdr_t *thdr)  { thdr->nrefs++; }
 TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
     if (thdr->nrefs-- <= 1) thdr_free(thdr);
@@ -237,29 +240,6 @@ TA_INLINE void tcol_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
     Tcl_InvalidateStringRep(o);
 }
 
-/* Grow the internal rep to a minimum size */
-TA_INLINE TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size)
-{
-    thdr_t *thdr;
-
-    TA_ASSERT(tcol_affirm(o));
-    TA_ASSERT(! Tcl_IsShared(o));
-    
-    thdr = tcol_thdr(o);
-    TA_ASSERT(thdr);
-    TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT(new_size > thdr->usable);
-
-    /* Note don't use tcol_replace_intrep as we are keeping all 
-       fields and ref counts the same */
-    Tcl_InvalidateStringRep(o);
-    thdr = thdr_realloc(ip, thdr, new_size);
-    if (thdr == NULL)
-        return TCL_ERROR;   /* Note tcol is not changed */
-
-    OBJTHDR(o) = thdr;
-    return TCL_OK;
-}
 
 /*
  * Inline functions to manipulate internal representation of Tarray tables
@@ -310,7 +290,7 @@ TA_INLINE void table_replace_intrep(Tcl_Obj *o, thdr_t *thdr,
 int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 
 const char *ta_type_string(int tatype);
-void ta_update_string_for_table_or_type_any(Tcl_Obj *o);
+void ta_update_string_for_variable_element_size(Tcl_Obj *o);
 
 /*
  * Error and panic routines
@@ -329,6 +309,7 @@ TCL_RESULT ta_table_length_error(Tcl_Interp *);
 TCL_RESULT ta_row_width_error(Tcl_Interp *, int rowwidth, int tablewidth);
 TCL_RESULT ta_bad_type_error(Tcl_Interp *ip, thdr_t *thdr);
 TCL_RESULT ta_memory_error(Tcl_Interp *, int size);
+TCL_RESULT ta_limit_error(Tcl_Interp *, int);
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
