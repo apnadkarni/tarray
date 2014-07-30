@@ -153,6 +153,17 @@ TCL_RESULT ta_memory_error(Tcl_Interp *ip, int req_size)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_limit_error(Tcl_Interp *ip, int req_count)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Requested array size (%d bytes) greater than limit.",
+                                       req_count));
+        Tcl_SetErrorCode(ip, "TARRAY", "SIZELIMIT", NULL);
+    }
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
     if (ip) {
