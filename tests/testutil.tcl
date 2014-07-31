@@ -161,14 +161,16 @@ if {![info exists tarray::test::known]} {
             time {set w [expr {$i & 1 ? -($i*$i) : ($i*$i)}] ; lappend l $w ; lappend anyl $w; incr i} $count
             lappend good(wide) $l
 
-            lappend anyl lower UPPER duplicate _ DUPLICATE MIXED MiXeD mixed
+            lappend anyl "" lower UPPER duplicate _ DUPLICATE MIXED MiXeD mixed
             lappend good(any) $anyl
+            # string type is basically same as type any
+            set good(string) $good(any)
 
             # Use 1000 value version as the sample values (arbitrary)
             # Note for booleans this uses the 101010101 unaligned pattern which
             # is what we want
             if {$count == $sample_size} {
-                foreach type {any boolean byte double int uint wide} {
+                foreach type {any string boolean byte double int uint wide} {
                     set sample($type) [lrange [lindex $good($type) end] 0 $sample_size-1]
                 }
             }
@@ -181,6 +183,7 @@ if {![info exists tarray::test::known]} {
         lappend good(byte) {0 1 0xff 0x80 012 255}
         lappend good(wide) {0 1 -1 0xdef -0xabc  0x1ffffffff -0x1ffffffff 012 -077 987654321098 -987654321098 9223372036854775807 -9223372036854775808}
         lappend good(double) {0 1 0.0 1.1 0x2 -0x3 011 -022 -1.1 1e10 1e-10 2.2e20 -3.3e-30 Inf -Inf}
+
 
         #
         # Invalid values. Note Unlike the good array, the bad array holds
@@ -203,6 +206,7 @@ if {![info exists tarray::test::known]} {
         # lsort option corresponding to a tarray type
         proc lsort_cmp {type} {
             switch -exact -- $type {
+                string -
                 any { return -ascii }
                 wide -
                 double {return -real }
@@ -235,7 +239,7 @@ if {![info exists tarray::test::known]} {
         proc validate {ta} {
             if {[llength $ta] != 3 ||
                 [lindex $ta 0] ne "tarray_column" ||
-                [lindex $ta 1] ni {any byte boolean double int uint wide}} {
+                [lindex $ta 1] ni {any string byte boolean double int uint wide}} {
                 error "Value [string range $ta 0 40]... is not a tarray"
             }
         }
@@ -258,6 +262,7 @@ if {![info exists tarray::test::known]} {
                         incr i
                     }
                 }
+                string -
                 any {
                     foreach aval $avals bval $bvals {
                         if {$aval ne $bval} {
@@ -530,7 +535,7 @@ if {![info exists tarray::test::known]} {
 
         proc samplelistofcolumnvalues {{types {}} args} {
             if {[llength $types] == 0} {
-                set types { any boolean byte double int uint wide }
+                set types { any string boolean byte double int uint wide }
             }
             if {[llength $args] == 0} {
                 set args {0 end}
@@ -560,7 +565,7 @@ if {![info exists tarray::test::known]} {
 
         proc samplerows {{types {}} args} {
             if {[llength $types] == 0} {
-                set types { any boolean byte double int uint wide }
+                set types { any string boolean byte double int uint wide }
             }
             if {[llength $args] == 0} {
                 set args {0 end}
@@ -600,13 +605,26 @@ if {![info exists tarray::test::known]} {
 
         proc sampletable {{types {}} {low 0} {high end}} {
             if {[llength $types] == 0} {
-                set types { any boolean byte double int uint wide }
+                set types { any string boolean byte double int uint wide }
             }
             return [tarray::table create [col_def $types] [samplerows $types $low $high]]
         }
 
-        proc randomcolumn {type {count 1000001}} {
-            return [tarray::column create $type [tarray::unsupported::lrandom $type $count]]
+        proc largelist {type} {
+            variable largelists
+            # Note: must return the same list for a particular type
+            if {![info exists largelists($type)]} {
+                set largelists($type) [tarray::unsupported::lrandom $type 100000]
+            }
+            return $largelists($type)
+        }
+
+        proc largecolumn {type} {
+            # DO NOT REPLACE THIS WITH A CACHED VERSION AS RETURNED
+            # COLUMN IS EXPECTED TO BE UNSHARED
+            # Also note the same column must be returned as the list
+            # returned by largelist
+            return [tarray::column create $type [largelist $type]]
         }
 
         proc col_def types {
@@ -659,7 +677,7 @@ if {![info exists tarray::test::known]} {
 
         proc badvalues {type} {
             variable bad
-            return $bad($type); # Note will fail for type 'any'
+            return $bad($type); # Note will fail for type 'any' or 'string'
         }
 
         proc samplefilter {type args} {
