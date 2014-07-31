@@ -7,7 +7,7 @@ namespace eval tarray::test {
     ################################################################
     # Tests
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         #
         # column get indexlist
 
@@ -26,8 +26,8 @@ namespace eval tarray::test {
         test column_index-$type-2.1 {
             Get end element
         } -body {
-            tarray::column index [samplecolumn $type] end
-        } -result [samplevalue $type end]
+            tarray::column index [largecolumn $type] end
+        } -result [lindex [largelist $type] end]
 
         test column_index-$type-2.2 {
             Get random element
@@ -50,8 +50,8 @@ namespace eval tarray::test {
         test column_index-$type-2.1 {
             Get end element
         } -body {
-            tarray::column index [samplecolumn $type] end-1
-        } -result [samplevalue $type end-1]
+            tarray::column index [largecolumn $type] end-1
+        } -result [lindex [largelist $type] end-1]
 
         test column_index-$type-3.0 {
             Get negative index

@@ -627,6 +627,21 @@ if {![info exists tarray::test::known]} {
             return [tarray::column create $type [largelist $type]]
         }
 
+        proc largerange {type args} {
+            if {[llength $args] == 0} {
+                set args {0 end}
+            }
+            if {[llength $args] & 1} {
+                # Odd number of indices, repeat last
+                lappend args [lindex $args end]
+            }
+            set l {}
+            foreach {low high} $args {
+                lappend l {*}[lrange [largelist $type] $low $high]
+            }
+            return $l
+        }
+
         proc col_def types {
             set def {}
             set i -1
