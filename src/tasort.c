@@ -37,6 +37,19 @@ int tclobjcmpnocase(const void *a, const void *b) {
 int tclobjcmpnocaserev(const void *a, const void *b) {
     return  ta_obj_compare(*(Tcl_Obj **)b, *(Tcl_Obj **)a, 1);
 }
+int tcltascmp(const void *a, const void *b) {
+    return tas_compare(*(tas_t **)a, *(tas_t **)b, 0);
+}
+int tcltascmprev(const void *a, const void *b) {
+    return tas_compare(*(tas_t **)b, *(tas_t **)a, 0);
+}
+int tcltascmpnocase(const void *a, const void *b) {
+    return tas_compare(*(tas_t **)a, *(tas_t **)b, 1);
+}
+int tcltascmpnocaserev(const void *a, const void *b) {
+    return  tas_compare(*(tas_t **)b, *(tas_t **)a, 1);
+}
+
 
 /*
  * Comparison functions for sorting when the passed values are integer
@@ -99,6 +112,28 @@ int tclobjcmpnocaseindexedrev(void *ctx, const void *ai, const void *bi) {
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(b, a, 1);
 }
+int tcltascmpindexed(void *ctx, const void *ai, const void *bi) {
+    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    return tas_compare(a, b, 0);
+}
+int tcltascmpindexedrev(void *ctx, const void *ai, const void *bi) {
+    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    return tas_compare(b, a, 0);
+}
+int tcltascmpnocaseindexed(void *ctx, const void *ai, const void *bi) {
+    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    return tas_compare(a, b, 1);
+}
+int tcltascmpnocaseindexedrev(void *ctx, const void *ai, const void *bi) {
+    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    return tas_compare(b, a, 1);
+}
+
+
 int booleancmpindexed(void *ctx, const void *ai, const void *bi) {
     unsigned char uca, ucb;
     uca = ba_get((ba_t *)ctx, *(int *)ai);
@@ -408,11 +443,16 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
         case TA_WIDE: cmpind = decr ? widecmpindexedrev : widecmpindexed; break;
         case TA_DOUBLE: cmpind = decr ? doublecmpindexedrev : doublecmpindexed; break;
         case TA_ANY:
-            if (nocase) {
+            if (nocase)
                 cmpind = decr ? tclobjcmpnocaseindexedrev : tclobjcmpnocaseindexed;
-            } else {
+            else
                 cmpind = decr ? tclobjcmpindexedrev : tclobjcmpindexed;
-            }
+            break;
+        case TA_STRING:
+            if (nocase)
+                cmpind = decr ? tcltascmpnocaseindexedrev : tcltascmpnocaseindexed;
+            else
+                cmpind = decr ? tcltascmpindexedrev : tcltascmpindexed;
             break;
 
         case TA_BOOLEAN: /* FALLTHRU */
@@ -427,11 +467,16 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
         case TA_WIDE: cmp = decr ? widecmprev : widecmp; break;
         case TA_DOUBLE: cmp = decr ? doublecmprev : doublecmp; break;
         case TA_ANY:
-            if (nocase) {
+            if (nocase)
                 cmp = decr ? tclobjcmpnocaserev : tclobjcmpnocase;
-            } else {
+            else
                 cmp = decr ? tclobjcmprev : tclobjcmp;
-            }
+            break;
+        case TA_STRING:
+            if (nocase)
+                cmp = decr ? tcltascmpnocaserev : tcltascmpnocase;
+            else
+                cmp = decr ? tcltascmprev : tcltascmp;
             break;
 
         case TA_BOOLEAN: /* FALLTHRU */
@@ -514,7 +559,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
 
     /* Note when indirect/indexed sorting, returned indices are NOT sorted! */
     if (psrc == NULL) {
-        if (thdr->type == TA_ANY) {
+        if (thdr->type == TA_STRING || thdr->type == TA_ANY) {
             if (decr)
                 thdr->sort_order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
             else
@@ -550,10 +595,10 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
     /*
      * If values are already sorted in suitable order, we can make use
-     * of it. For TA_ANY, we need to check whether sort order was
+     * of it. For TA_ANY/TA_STRING, we need to check whether sort order was
      * case sensitive or not
      */
-    if (psrc->type != TA_ANY) {
+    if (psrc->type != TA_ANY && psrc->type != TA_STRING) {
         nocase = 0;             /* Ignored for other types */
         if (psrc->sort_order == THDR_UNSORTED)
             orig_sort_state = 0; /* Can't use sort state */

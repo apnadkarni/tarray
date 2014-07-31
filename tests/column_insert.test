@@ -12,7 +12,7 @@ namespace eval tarray::test {
     # Also, when modifying a temp variable tests have to confirm that
     # the original is not modified
 
-    foreach type {boolean any byte double int uint wide } {
+    foreach type {boolean string any byte double int uint wide } {
 
         test column_insert-value-$type-1.0 {
             Insert one element at start of empty column (shared)
@@ -37,8 +37,8 @@ namespace eval tarray::test {
         test column_insert-value-$type-2.1 {
             Insert multiple element at start of column (unshared)
         } -body {
-            tarray::column insert [newcolumn $type [samplerange $type]] [samplevalue $type end] 0 10
-        } -result [crep $type [linsert [samplerange $type] 0 {*}[listrepeat 10 [samplevalue $type end]]]] -match column
+            tarray::column insert [newcolumn $type [largelist $type]] [lindex [largelist $type] end] 0 10
+        } -result [crep $type [linsert [largerange $type] 0 {*}[listrepeat 10 [lindex [largelist $type] end]]]] -match column
 
         test column_insert-value-$type-2.2 {
             Insert multiple element at start of column (unshared)
@@ -77,8 +77,8 @@ namespace eval tarray::test {
         test column_insert-value-$type-2.7 {
             Insert elements in middle of column extending it (shared)
         } -body {
-            set values [samplerange $type 0 31]
-            set val [samplevalue $type end]
+            set values [largerange $type 0 31]
+            set val [lindex [largelist  $type] end]
             col_change_and_verify $type $values [linsert $values 30 {*}[listrepeat  8 $val]] insert $val 30 8
         } -result 0
 
@@ -163,8 +163,8 @@ namespace eval tarray::test {
         test column_insert-list-$type-2.2 {
             Insert elements after end element (shared)
         } -body {
-            set values [samplerange $type 0 100]
-            set insertions [samplerange $type 150 end]
+            set values [largerange $type 0 100]
+            set insertions [largerange $type 150 end]
             col_change_and_verify $type $values [linsert $values end {*}$insertions] insert $insertions end
         } -result 0
 
