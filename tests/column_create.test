@@ -5,8 +5,8 @@ source testutil.tcl
 namespace eval tarray::test {
     namespace import ::tcltest::test
 
-    # Tests for creating empty tarrays
-    foreach type {any boolean byte double int uint wide} {
+    # Tests for creating empty and large tarrays
+    foreach type {any string boolean byte double int uint wide} {
         test column-create-$type-1.0 {
             Test creation of empty column
         } -body {
@@ -17,6 +17,15 @@ namespace eval tarray::test {
         } -body {
             tarray::column create $type {} 1000
         } -result [crep $type {}]
+
+        #
+        # Tests for creating large columns
+        set num -1
+        test column-create-large-$type-1.[incr num] {
+            Test creation of column with large initializer
+        } -body {
+            tarray::column create $type [largelist $type]
+        } -result [crep $type [largelist $type]] -match column
     }
 
     #
@@ -31,6 +40,7 @@ namespace eval tarray::test {
             } -result [crep $type $value] -match column
         }
     }
+
 
     #
     # Tests for invalid types

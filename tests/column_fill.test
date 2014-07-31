@@ -13,6 +13,7 @@ namespace eval tarray::test {
         wide    549755813887
         double  6.022e23
         any     "anything at all"
+        string  "string anything at all"
     }
 
     proc filltest {type init expected args} {
@@ -31,7 +32,7 @@ namespace eval tarray::test {
     #
     # column fill index
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_fill-index-$type-1.0 {
             Fill an empty column with a single element (shared)
@@ -108,8 +109,8 @@ namespace eval tarray::test {
         test column_fill-index-$type-2.8 {
             Fill intermediate element in non-empty column
         } -body {
-            tarray::column fill [newcolumn $type $sample($type)] $fills($type) [expr {([llength $sample($type)]+1)/2}]
-        } -result [crep $type [lreplace $sample($type) [expr {([llength $sample($type)]+1)/2}] [expr {([llength $sample($type)]+1)/2}] $fills($type)]] -match column
+            tarray::column fill [newcolumn $type [largelist $type]] $fills($type) [expr {([llength [largelist $type]]+1)/2}]
+        } -result [crep $type [lreplace [largelist $type] [expr {([llength [largelist $type]]+1)/2}] [expr {([llength [largelist $type]]+1)/2}] $fills($type)]] -match column
 
         test column_fill-index-$type-2.9 {
             Invalid syntax index not allowed
@@ -121,7 +122,7 @@ namespace eval tarray::test {
     #
     # column fill indexlist
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_fill-indexlist-$type-1.0 {
             Fill an empty column (shared)
         } -body {
@@ -163,8 +164,8 @@ namespace eval tarray::test {
         test column_fill-indexlist-$type-2.4 {
             Test extending column reverse order (shared tclobj)
         } -body {
-            set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+            set i [llength [largelist $type]]
+            filltest $type [largelist $type] [lreplace [largelist $type] end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
         } -result 0 
 
         test column_fill-indexlist-$type-2.5 {
@@ -190,12 +191,11 @@ namespace eval tarray::test {
         } -body {
             # Note duplicate
             set indices {1 7 8 9 31 32 33 33 63 64 65 254}
-            set l2 $sample($type)
+            set l2 [largelist $type]
             foreach i $indices {
                 set l2 [lreplace $l2 $i $i $fills($type)]
             }
-            set ta [newcolumn $type $sample($type)]
-            filltest $type $sample($type) $l2 [lsort -decreasing -integer $indices]
+            filltest $type [largelist $type] $l2 [lsort -decreasing -integer $indices]
         } -result 0
 
         test column_fill-indexlist-$type-3.2 {
@@ -254,7 +254,7 @@ namespace eval tarray::test {
     #
     # column fill indicesarray
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_fill-indices-$type-1.0 {
             Fill an empty column (shared)
         } -body {
@@ -282,8 +282,8 @@ namespace eval tarray::test {
         test column_fill-indices-$type-2.2 {
             Test filling of trailing elements (shared tclobj)
         } -body {
-            set i [llength $sample($type)]
-            filltest $type $sample($type) [lreplace $sample($type) end-2 end $fills($type) $fills($type) $fills($type)] [indexcolumn [incr i -3] [incr i] [incr i]]
+            set i [llength [largelist $type]]
+            filltest $type [largelist $type] [lreplace [largelist $type] end-2 end $fills($type) $fills($type) $fills($type)] [indexcolumn [incr i -3] [incr i] [incr i]]
         } -result 0 
 
         test column_fill-indices-$type-2.3 {
@@ -373,7 +373,7 @@ namespace eval tarray::test {
     #
     # column fill range
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_fill-range-$type-1.0 {
             Fill an empty column with a single element (shared)
@@ -414,7 +414,7 @@ namespace eval tarray::test {
         test column_fill-range-$type-2.0 {
             Test filling of leading elements (shared tclobj)
         } -body {
-            filltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] 0 2
+            filltest $type [largelist $type] [lreplace [largelist $type] 0 2 $fills($type) $fills($type) $fills($type)] 0 2
         } -result 0 
 
         test column_fill-range-$type-2.1 {
@@ -434,7 +434,7 @@ namespace eval tarray::test {
         test column_fill-range-$type-2.3 {
             Test filling of trailing elements (shared tclobj)
         } -body {
-            filltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $fills($type)]] end-5 end
+            filltest $type [largelist $type] [lreplace [largelist $type] end-5 end {*}[listrepeat 6 $fills($type)]] end-5 end
         } -result 0 
 
         test column_fill-range-$type-2.4 {
@@ -470,9 +470,9 @@ namespace eval tarray::test {
         test column_fill-range-$type-4.1 {
             Test filling extending (shared)
         } -body {
-            set ta [newcolumn $type [lrange $sample($type) 0 31]]
+            set ta [newcolumn $type [lrange [largelist $type] 0 31]]
             tarray::column fill $ta $fills($type) 25 50
-        } -result [crep $type [concat [lrange $sample($type) 0 24] [listrepeat 26 $fills($type)]]] -match column
+        } -result [crep $type [concat [lrange [largelist $type] 0 24] [listrepeat 26 $fills($type)]]] -match column
 
         test column_fill-range-$type-4.2 {
             Test filling beyond last (unshared)
