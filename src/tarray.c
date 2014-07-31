@@ -2799,9 +2799,11 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
     if (minsize > prefsize)
         prefsize = minsize;
 
-    /* Ensure a minimum free space remaining after reallocation */
-    if (thdr_roundup_alloc_size(thdr->used, prefsize, &prefsize) != TCL_OK)
-        return ta_limit_error(ip, prefsize);
+    /* Ensure a minimum free space remaining after reallocation if we are growing the array */
+    if (prefsize > thdr->used) {
+        if (thdr_roundup_alloc_size(thdr->used, prefsize, &prefsize) != TCL_OK)
+            return ta_limit_error(ip, prefsize);
+    }
 
     if (thdr_shared(thdr)) {
         /* Case (1) */
@@ -2818,6 +2820,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
         Tcl_InvalidateStringRep(tcol);
     }
 
+    TA_ASSERT(tcol_thdr(tcol)->usable >= minsize);
     return TCL_OK;
 }
 
