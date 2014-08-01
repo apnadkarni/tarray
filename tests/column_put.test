@@ -113,7 +113,7 @@ namespace eval tarray::test {
     # the original is not modified
 
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         
         #
         # column put valuelist pos
@@ -197,7 +197,7 @@ namespace eval tarray::test {
             tarray::column put [samplecolumn $type 0 10] [samplerange $type 0 2] -1
         } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
-        if {$type ne "any"} {
+        if {$type ne "any" && $type ne "string"} {
             test column_put-list-$type-3.3 {
                 Test invalid values
             } -body {
@@ -288,7 +288,7 @@ namespace eval tarray::test {
             tarray::column put [samplecolumn $type 0 10] [samplecolumn $type 0 2] -1
         } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
-        if {$type ne "any"} {
+        if {$type ne "any" && $type ne "string"} {
             test column_put-column-$type-3.3 {
                 Test invalid values
             } -body {
