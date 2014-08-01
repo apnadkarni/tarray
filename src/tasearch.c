@@ -218,8 +218,10 @@ struct thdr_search_mt_context {
     thdr_t *haystack;      /* MT read access, must NOT be modified */
     ta_value_t needle;
     thdr_t *thdr;              /* Will contain values or indices */
-    int first_match;           /* Index of first match */
+    struct thdr_search_mt_context *context0; /* Ptr to first context - used
+                                                in assertion checking */
     ta_value_t first_value;           /* Value of first match */
+    int first_match;           /* Index of first match */
     int start;                  /* Starting position to look in haystack */
     int count;                  /* Number of elements to examine */
     int flags;                  /* TA_SEARCH_* flags */
@@ -234,7 +236,15 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
     unsigned char type = pctx->haystack->type;
     
     TA_ASSERT((pctx->start + pctx->count) <= pctx->haystack->used);
-
+    /* If regexp operation, must not multithread */
+    TA_ASSERT(pctx->op != TA_SEARCH_OPT_RE || pctx == pctx->context0);
+    /* If inline+all search for STRING or ANY, must not multithread.
+       TBD - we could perhaps change this if we postpone refcounting until
+       we return to the main thread. But error handling becomes harder.
+    */
+    TA_ASSERT(pctx == pctx->context0 ||
+              ((pctx->flags & (TA_SEARCH_INLINE|TA_SEARCH_ALL)) != (TA_SEARCH_INLINE|TA_SEARCH_ALL)) ||
+              (type != TA_ANY && type != TA_STRING));
 
     compare_wanted = pctx->flags & TA_SEARCH_INVERT ? 0 : 1;
 
@@ -595,6 +605,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
     mt_context[0].start = psearch->lower;
     mt_context[0].flags = psearch->flags;
     mt_context[0].op = psearch->op;
+    mt_context[0].context0 = mt_context;
     
 #ifdef TA_MT_ENABLE
     /* TBD - see if this can be reworked to avoid call to thdr_calc_mt_split
@@ -607,8 +618,8 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
        Else the secondary thread might do bunch of unnecessary work */
     /* Note that TA_ANY/TA+STRING requires manipulation of ref counts
        which is not thread-safe so we use only one thread for those
-       cases if INLINE search.
-       TBD - verify non-inline searches really can multithread */
+       cases if INLINE+ALL search.
+       TBD - verify non-inline and non-all searches really can multithread */
     /* Use single thread if regexp matching as regexp engine is not thread
        safe (stores Tcl_Obj* in compiled regexps and potentially updates them)
     */
@@ -616,7 +627,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
         psearch->op == TA_SEARCH_OPT_RE ||
         mt_context[1].count == 0 ||
         ((haystackP->type == TA_ANY || haystackP->type == TA_STRING) &&
-         (psearch->flags & TA_SEARCH_INLINE))) {
+         ((psearch->flags & (TA_SEARCH_INLINE|TA_SEARCH_ALL)) == (TA_SEARCH_INLINE|TA_SEARCH_ALL)))) {
         mt_context[0].count = count;
         thdr_basic_search_mt_worker(&mt_context[0]);
         ncontexts = 1;
@@ -628,6 +639,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
         mt_context[1].flags = psearch->flags;
         mt_context[1].op = psearch->op;
         mt_context[1].needle = mt_context[0].needle;
+        mt_context[1].context0 = mt_context;
 
         grp = ta_mt_group_create();
         TA_ASSERT(grp != NULL); /* TBD */
