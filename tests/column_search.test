@@ -5504,16 +5504,6 @@ namespace eval tarray::test {
             tarray::column search -all -inline -nocase -eq [newcolumn $type $l] b
         } -result [newcolumn $type {B b}]
 
-
-        test column_search-large-$type-pat-6.0 {
-            Match on first element -nocase -all
-        } -body {
-            set l [lrepeat 100000 abc]
-            lset l 48000 Bcd
-            lset l 51000 bD
-            tarray::column search -nocase -pat -all [newcolumn $type $l] b*d
-        } -result [newcolumn int {48000 51000}]
-
         test column_search-large-$type-pat-1.0 {
             Match on first element
         } -body {
@@ -5651,10 +5641,147 @@ namespace eval tarray::test {
             tarray::column search -inline -all -range {0 50999} -pat [newcolumn $type $l] b*
         } -result [newcolumn $type {bc bcd}]
 
+        ### -re
+
+        test column_search-large-$type-re-1.0 {
+            Match on first element
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -re [newcolumn $type $l] ^b
+        } -result 48000
+
+        test column_search-large-$type-re-1.1 {
+            Match on all element
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -re [newcolumn $type $l] ^b
+        } -result [newcolumn int [list 48000 51000]]
+
+        test column_search-large-$type-re-2.0 {
+            Match on first element -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -inline -re [newcolumn $type $l] ^..\$
+        } -result bc
+
+        test column_search-large-$type-re-2.1 {
+            Match on all element -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -inline -re [newcolumn $type $l] {^.[cd]$}
+        } -result [newcolumn $type [list bc bd]]
+
+        test column_search-large-$type-re-3.0 {
+            Match on first element -not
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -re -not [newcolumn $type $l] a.*
+        } -result 48000
+
+        test column_search-large-$type-re-3.1 {
+            Match on all element -not
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -not -re [newcolumn $type $l] .bc
+        } -result [newcolumn int [list 48000 51000]]
+
+        test column_search-large-$type-re-4.0 {
+            Match on first element -inline -not
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -not -inline -re [newcolumn $type $l] c
+        } -result bd
+
+        test column_search-large-$type-re-4.1 {
+            Match on all element -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -inline -re -not [newcolumn $type $l] ...
+        } -result [newcolumn $type [list bc bd]]
+
+        test column_search-large-$type-re-5.0 {
+            Match on first element case sensitive
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 Bd
+            tarray::column search -re [newcolumn $type $l] B
+        } -result 51000
+
+        test column_search-large-$type-re-5.1 {
+            Match on first element -nocase
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 Bc
+            lset l 51000 bD
+            tarray::column search -nocase -re [newcolumn $type $l] ^b
+        } -result 48000
+
+        test column_search-large-$type-re-6.0 {
+            Match on first element -nocase -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 Bcd
+            lset l 51000 bD
+            tarray::column search -nocase -re -all [newcolumn $type $l] ^b.?d
+        } -result [newcolumn int {48000 51000}]
+
+        test column_search-large-$type-re-7.0 {
+            Match on first element -among
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -among {51000 40000 48000} -re [newcolumn $type $l] ^b
+        } -result 51000
+
+        test column_search-large-$type-re-7.1 {
+            Match on first element -among -inline -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -inline -all -among {51000 40000 48000} -re [newcolumn $type $l] ^b
+        } -result [newcolumn $type {bd bc}]
+
+        test column_search-large-$type-re-8.0 {
+            Match on first element -range
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -range {50000 end} -re [newcolumn $type $l] ^b
+        } -result 51000
+
+        test column_search-large-$type-re-8.1 {
+            Match on first element -among -inline -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 50000 bcd
+            lset l 51000 bd
+            tarray::column search -inline -all -range {0 50999} -re [newcolumn $type $l] ^b
+        } -result [newcolumn $type {bc bcd}]
+
+
     }
 
-
-    # TBD - any/string + -re, -pat, -nocase
     # TBD - Verify MT is effective by setting thresholds
     # TBD - large boolean tests
     
