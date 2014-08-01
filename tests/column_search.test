@@ -5303,46 +5303,358 @@ namespace eval tarray::test {
 
         ### -le
 
-        test column_search-large-$type-ltgt-1.0 {
-            Matching elements in both halves
+        lassign [dict get {
+            any  {abc jkl xyz}
+            string  {abc jkl xyz}
+            int  {-1 0 1}
+            uint {0 100 1000}
+            wide {-1 0 1}
+            double {-1.0 0.0 1.0}
+            byte {0 128 255}
+        } $type] low elem high
+
+        set n [tarray::unsupported::config search_mt_threshold]
+        set l [lrepeat $n $elem]
+        set lowpos1 [expr {$n/2 - 10}]; # Toward end of first half
+        set highpos1 [expr {$lowpos1-1}]
+        set lowpos2 [expr {$n/2 + 10}]; # Toward beginning of second half so second thread should find it quicker
+        set highpos2 [expr {$lowpos2+1}]
+        lset l $lowpos1 $low
+        lset l $highpos1 $high
+        lset l $lowpos2 $low
+        lset l $highpos2 $high
+
+        set col [tarray::column create $type $l]
+
+        test column_search-large-$type-lt-1.0 {
+            Search large - find first element
         } -body {
-            lassign [dict get {
-                any  {a j z}
-                string {a j z}
-                int  {-1 0 1}
-                uint {0 100 1000}
-                wide {-1 0 1}
-                double {-1.0 0.0 1.0}
-                byte {0 128 255}
-            } $type] low elem high
+            tarray::column search -lt $col $elem
+        } -result $lowpos1
 
-            set n [tarray::unsupported::config search_mt_threshold]
-            set l [lrepeat $n $elem]
-            set lowpos1 [expr {$n/2 - 10}]; # Toward end of first half
-            set highpos1 [expr {$lowpos1-1}]
-            set lowpos2 [expr {$n/2 + 10}]; # Toward beginning of second half so second thread should find it quicker
-            set highpos2 [expr {$lowpos2+1}]
-            lset l $lowpos1 $low
-            lset l $highpos1 $high
-            lset l $lowpos2 $low
-            lset l $highpos2 $high
+        test column_search-large-$type-lt-1.1 {
+            Search large - find first element inline
+        } -body {
+            tarray::column search -inline -lt $col $elem
+        } -result $low
 
-            set col [tarray::column create $type $l]
+        test column_search-large-$type-lt-2.0 {
+            Search large - find all element
+        } -body {
+            tarray::column search -lt -all $col $elem
+        } -result [newcolumn int [list $lowpos1 $lowpos2]]
 
-            list \
-                [tcl::mathop::== [tarray::column search -gt $col $elem] $highpos1] \
-                [tcl::mathop::== [tarray::column search -lt $col $elem] $lowpos1] \
-                [cequal [tarray::column search -gt -all $col $elem] [list tarray_column int [list $highpos1 $highpos2]]] \
-                [cequal [tarray::column search -inline -gt -all $col $elem] [list tarray_column $type [list $high $high]]] \
-                [cequal [tarray::column search -lt -all $col $elem] [list tarray_column int [list $lowpos1 $lowpos2]]] \
-                [cequal [tarray::column search -inline -lt -all $col $elem] [list tarray_column $type [list $low $low]]] \
-                [cequal [tarray::column search -not -gt -all $col $low] [list tarray_column int [list $lowpos1 $lowpos2]]] \
-                [cequal [tarray::column search -not -inline -lt -all $col $high] [list tarray_column $type [list $high $high]]]
-        } -result {1 1 1 1 1 1 1 1}
+        test column_search-large-$type-lt-2.1 {
+            Search large - find all element -inline
+        } -body {
+            tarray::column search -lt -all -inline $col $elem
+        } -result [newcolumn $type [list $low $low]]
+
+        test column_search-large-$type-lt-3.0 {
+            Search large - find first element -not 
+        } -body {
+            tarray::column search -lt -not $col $high
+        } -result $highpos1
+
+        test column_search-large-$type-lt-3.1 {
+            Search large - find first element -not -all
+        } -body {
+            tarray::column search -lt -not -all $col $high
+        } -result [newcolumn int [list $highpos1 $highpos2]]
+
+        test column_search-large-$type-lt-3.2 {
+            Search large - find first element -not -inline
+        } -body {
+            tarray::column search -lt -not -inline $col $high
+        } -result $high
+
+        test column_search-large-$type-lt-3.3 {
+            Search large - find first element -not -inline -all
+        } -body {
+            tarray::column search -lt -not -inline -all $col $high
+        } -result [newcolumn $type [list $high $high]]
+
+        test column_search-large-$type-lt-4.0 {
+            Search large - find all element in range
+        } -body {
+            tarray::column search -lt -all -range [list [+ $lowpos1 1] end] $col $elem
+        } -result [newcolumn int [list $lowpos2]]
+
+        test column_search-large-$type-lt-4.1 {
+            Search large - find all element in range inline
+        } -body {
+            tarray::column search -lt -inline -all -range [list [+ $lowpos1 1] end] $col $elem
+        } -result [newcolumn $type [list $low]]
+
+        test column_search-large-$type-lt-5.0 {
+            Search large - find all element -among
+        } -body {
+            tarray::column search -lt -among [list 0 $lowpos2 $lowpos1 [+ $lowpos2 1]] $col $elem
+        } -result $lowpos2
+
+        test column_search-large-$type-lt-5.1 {
+            Search large - find element -among -inline
+        } -body {
+            tarray::column search -lt -all -among [list 0 [+ $lowpos1 1] $lowpos2] $col $elem
+        } -result [newcolumn int [list $lowpos2]]
         
+        ###
+
+        test column_search-large-$type-gt-1.0 {
+            Search large - find first element
+        } -body {
+            tarray::column search -gt $col $elem
+        } -result $highpos1
+
+        test column_search-large-$type-gt-1.1 {
+            Search large - find first element inline
+        } -body {
+            tarray::column search -inline -gt $col $elem
+        } -result $high
+
+        test column_search-large-$type-gt-2.0 {
+            Search large - find all element
+        } -body {
+            tarray::column search -gt -all $col $elem
+        } -result [newcolumn int [list $highpos1 $highpos2]]
+
+        test column_search-large-$type-gt-2.1 {
+            Search large - find all element -inline
+        } -body {
+            tarray::column search -gt -all -inline $col $elem
+        } -result [newcolumn $type [list $high $high]]
+
+        test column_search-large-$type-gt-3.0 {
+            Search large - find first element -not 
+        } -body {
+            tarray::column search -gt -not $col $low
+        } -result $lowpos1
+
+        test column_search-large-$type-gt-3.1 {
+            Search large - find first element -not -all
+        } -body {
+            tarray::column search -gt -not -all $col $low
+        } -result [newcolumn int [list $lowpos1 $lowpos2]]
+
+        test column_search-large-$type-gt-3.2 {
+            Search large - find first element -not -inline
+        } -body {
+            tarray::column search -gt -not -inline $col $low
+        } -result $low
+
+        test column_search-large-$type-gt-3.3 {
+            Search large - find first element -not -inline -all
+        } -body {
+            tarray::column search -gt -not -inline -all $col $low
+        } -result [newcolumn $type [list $low $low]]
+
+        test column_search-large-$type-gt-4.0 {
+            Search large - find all element in range
+        } -body {
+            tarray::column search -gt -all -range [list [+ $highpos1 1] end] $col $elem
+        } -result [newcolumn int [list $highpos2]]
+
+        test column_search-large-$type-gt-4.1 {
+            Search large - find all element in range inline
+        } -body {
+            tarray::column search -gt -inline -all -range [list [+ $highpos1 1] end] $col $elem
+        } -result [newcolumn $type [list $high]]
+
+        test column_search-large-$type-gt-5.0 {
+            Search large - find all element -among
+        } -body {
+            tarray::column search -gt -among [list 0 $highpos2 $highpos1 [+ $highpos2 1]] $col $elem
+        } -result $highpos2
+
+        test column_search-large-$type-gt-5.1 {
+            Search large - find element -among -inline
+        } -body {
+            tarray::column search -gt -all -among [list 0 [+ $highpos1 1] $highpos2] $col $elem
+        } -result [newcolumn int [list $highpos2]]
+    }
+
+
+    # Special tests for any & string - nocase, re, pat
+    foreach type {any string} {
+
+        test column_search-large-$type-eq-nocase-1.0 {
+            Match on first element case sensitive
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 B
+            lset l 51000 b
+            tarray::column search -eq [newcolumn $type $l] b
+        } -result 51000
+
+        test column_search-large-$type-eq-nocase-1.1 {
+            Match on first element -nocase 
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 B
+            lset l 51000 b
+            tarray::column search -eq -nocase [newcolumn $type $l] b
+        } -result 48000
+
+        test column_search-large-$type-eq-nocase-1.2 {
+            Match on first element -nocase  -all -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 B
+            lset l 51000 b
+            tarray::column search -all -inline -nocase -eq [newcolumn $type $l] b
+        } -result [newcolumn $type {B b}]
+
+
+        test column_search-large-$type-pat-6.0 {
+            Match on first element -nocase -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 Bcd
+            lset l 51000 bD
+            tarray::column search -nocase -pat -all [newcolumn $type $l] b*d
+        } -result [newcolumn int {48000 51000}]
+
+        test column_search-large-$type-pat-1.0 {
+            Match on first element
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -pat [newcolumn $type $l] b*
+        } -result 48000
+
+        test column_search-large-$type-pat-1.1 {
+            Match on all element
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -pat [newcolumn $type $l] b*
+        } -result [newcolumn int [list 48000 51000]]
+
+        test column_search-large-$type-pat-2.0 {
+            Match on first element -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -inline -pat [newcolumn $type $l] b*
+        } -result bc
+
+        test column_search-large-$type-pat-2.1 {
+            Match on all element -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -inline -pat [newcolumn $type $l] b*
+        } -result [newcolumn $type [list bc bd]]
+
+        test column_search-large-$type-pat-3.0 {
+            Match on first element -not
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -pat -not [newcolumn $type $l] a*
+        } -result 48000
+
+        test column_search-large-$type-pat-3.1 {
+            Match on all element -not
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -not -pat [newcolumn $type $l] a*
+        } -result [newcolumn int [list 48000 51000]]
+
+        test column_search-large-$type-pat-4.0 {
+            Match on first element -inline -not
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -not -inline -pat [newcolumn $type $l] *c
+        } -result bd
+
+        test column_search-large-$type-pat-4.1 {
+            Match on all element -inline
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -all -inline -pat -not [newcolumn $type $l] a*
+        } -result [newcolumn $type [list bc bd]]
+
+        test column_search-large-$type-pat-5.0 {
+            Match on first element case sensitive
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 Bc
+            lset l 51000 bd
+            tarray::column search -pat [newcolumn $type $l] b*
+        } -result 51000
+
+        test column_search-large-$type-pat-5.1 {
+            Match on first element -nocase
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 Bc
+            lset l 51000 bD
+            tarray::column search -nocase -pat [newcolumn $type $l] b*
+        } -result 48000
+
+        test column_search-large-$type-pat-6.0 {
+            Match on first element -nocase -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 Bcd
+            lset l 51000 bD
+            tarray::column search -nocase -pat -all [newcolumn $type $l] b*d
+        } -result [newcolumn int {48000 51000}]
+
+        test column_search-large-$type-pat-7.0 {
+            Match on first element -among
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -among {51000 40000 48000} -pat [newcolumn $type $l] b*
+        } -result 51000
+
+        test column_search-large-$type-pat-7.1 {
+            Match on first element -among -inline -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -inline -all -among {51000 40000 48000} -pat [newcolumn $type $l] b*
+        } -result [newcolumn $type {bd bc}]
+
+
+        test column_search-large-$type-pat-8.0 {
+            Match on first element -range
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -range {50000 end} -pat [newcolumn $type $l] b*
+        } -result 51000
+
+        test column_search-large-$type-pat-8.1 {
+            Match on first element -among -inline -all
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 50000 bcd
+            lset l 51000 bd
+            tarray::column search -inline -all -range {0 50999} -pat [newcolumn $type $l] b*
+        } -result [newcolumn $type {bc bcd}]
 
     }
 
+
+    # TBD - any/string + -re, -pat, -nocase
     # TBD - Verify MT is effective by setting thresholds
     # TBD - large boolean tests
     
