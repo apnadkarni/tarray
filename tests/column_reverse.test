@@ -3,7 +3,7 @@
 source testutil.tcl
 
 namespace eval tarray::test {
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_reverse-$type-1.0 {
             Reverse an empty column (shared)
         } -body {
