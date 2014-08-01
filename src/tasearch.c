@@ -227,7 +227,6 @@ struct thdr_search_mt_context {
     enum ta_search_switches_e op; /* Search operation */
 };
 
-/* MT search only handles numeric types. */
 static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
 {
     int compare_wanted;
@@ -331,6 +330,9 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
             int nocase = pctx->flags & TA_SEARCH_NOCASE;
             Tcl_RegExp re;
 
+            /* NOTE: regexp code is not thread safe. It is up to the caller
+               to ensure only the interp thread calls this routine for
+               regexp matching */
             if (pctx->op == TA_SEARCH_OPT_RE) {
                 /* Following lsearch implementation, get the regexp before any
                    shimmering can take place, and try to compile for the efficient
@@ -348,6 +350,9 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                     }
                 }
             }
+
+            if (nocase)
+                nocase = TCL_MATCH_NOCASE;
 
             p = THDRELEMPTR(pctx->haystack, Tcl_Obj *, pctx->start);
             end = p + pctx->count;
@@ -367,7 +372,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                 case TA_SEARCH_OPT_PAT:
                     compare_result = Tcl_StringCaseMatch(Tcl_GetString(*p),
                                                          Tcl_GetString(needleObj),
-                                                         nocase ? TCL_MATCH_NOCASE : 0);
+                                                         nocase);
                     break;
                 case TA_SEARCH_OPT_RE:
                     compare_result = Tcl_RegExpExecObj(NULL, re, *p, 0, 0, 0);
@@ -418,6 +423,115 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
         if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
             pctx->first_value.oval = *THDRELEMPTR(pctx->haystack, Tcl_Obj *, pctx->first_match);
         break;
+
+    case TA_STRING:
+        do {
+            tas_t **p, **end;
+            tas_t *needle = pctx->needle.ptas; 
+            int pos = pctx->start;
+            int nocase = pctx->flags & TA_SEARCH_NOCASE;
+            Tcl_RegExp re;
+
+            /* NOTE: regexp code is not thread safe. It is up to the caller
+               to ensure only the interp thread calls this routine for
+               regexp matching */
+            if (pctx->op == TA_SEARCH_OPT_RE) {
+                if (! nocase)
+                    re = Tcl_RegExpCompile(NULL, needle->s);
+                else {
+                    /* Tcl_RegExpCompile does not have flags for
+                     * case-insensitive comparisons so prefix the option 
+                    */
+                    /* Note sizeof includes the terminating null */
+                    char *nocase_s = TA_ALLOCMEM(sizeof("(?i)")+strlen(needle->s));
+                    strcpy(nocase_s, "(?i)");
+                    strcpy(nocase_s + sizeof("(?i)")-1, needle->s);
+                    re = Tcl_RegExpCompile(NULL, nocase_s);
+                    TA_FREEMEM(nocase_s);
+                }
+                if (re == NULL) {
+                    pctx->res = TCL_ERROR;
+                    return;
+                }
+            }
+
+            if (nocase)
+                nocase = TCL_MATCH_NOCASE;
+            p = THDRELEMPTR(pctx->haystack, tas_t *, pctx->start);
+            end = p + pctx->count;
+
+            while (p < end) {
+                int compare_result;
+                switch (pctx->op) {
+                case TA_SEARCH_OPT_GT:
+                    compare_result = tas_compare(*p, needle, nocase) > 0;
+                    break;
+                case TA_SEARCH_OPT_LT: 
+                    compare_result = tas_compare(*p, needle, nocase) < 0;
+                    break;
+                case TA_SEARCH_OPT_EQ:
+                    compare_result = tas_equal(*p, needle, nocase);
+                    break;
+                case TA_SEARCH_OPT_PAT:
+                    compare_result =
+                        Tcl_StringCaseMatch((*p)->s, needle->s, nocase);
+                    break;
+                case TA_SEARCH_OPT_RE:
+                    compare_result = Tcl_RegExpExec(NULL, re, (*p)->s, (*p)->s);
+                    if (compare_result < 0) {
+                        /* Note this unrefs elements if needed. OK because
+                         RE operator should only be used in interp thread */
+                        thdr_decr_refs(thdr);
+                        pctx->res = TCL_ERROR;
+                        return;
+                    }
+                    break;
+                default:
+                    goto op_panic;
+                }
+
+                if (compare_result == compare_wanted) {
+                    /* Have a match, add it to found items */
+                    if (pctx->flags & TA_SEARCH_ALL) {
+                        if (thdr->used >= thdr->usable) {
+                            thdr_t *pnew;
+                            pnew = thdr_realloc(NULL, thdr, thdr->used + TA_EXTRA(thdr->used));
+                            if (pnew)
+                                thdr = pnew;
+                            else {
+                                thdr_decr_refs(thdr);
+                                pctx->res = TCL_ERROR;
+                                return;
+                            }
+                        }
+                        if (pctx->flags & TA_SEARCH_INLINE) {
+                            /* Note this operation is not thread-safe. The
+                               assumption is caller is using only the interp
+                               thread so ok to do this*/
+                            *THDRELEMPTR(thdr, tas_t *, thdr->used) = tas_ref(*p);
+                        } else
+                            *THDRELEMPTR(thdr, int, thdr->used) = pos;
+                        thdr->used++;
+                    } else {
+                        pctx->first_match = pos;
+                        break;
+                    }
+                }
+                ++pos;
+                ++p;
+            }
+        } while (0);
+        /* NOTE:
+         * Do not use tas_ref because that is not MT-safe and this point
+         * in the code is reached even for operations that allow MT.
+         * Correspondingly caller should not use ta_value_clear
+         * on pctx->first_value 
+         */
+        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+            pctx->first_value.ptas = *THDRELEMPTR(pctx->haystack, tas_t *, pctx->first_match);
+        break;
+
+
     default:
         ta_type_panic(type);
     }
@@ -491,10 +605,18 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
     
     /* TBD - should we disable parallelization when TA_SEARCH_ALL is not set?
        Else the secondary thread might do bunch of unnecessary work */
-    /* Note that TA_ANY requires Tcl_IncrRefCount which is not thread-safe
-       so we use only one thread for TA_ANY if INLINE search.
+    /* Note that TA_ANY/TA+STRING requires manipulation of ref counts
+       which is not thread-safe so we use only one thread for those
+       cases if INLINE search.
        TBD - verify non-inline searches really can multithread */
-    if (count < ta_search_mt_threshold || mt_context[1].count == 0 || (haystackP->type == TA_ANY && (psearch->flags & TA_SEARCH_INLINE))) {
+    /* Use single thread if regexp matching as regexp engine is not thread
+       safe (stores Tcl_Obj* in compiled regexps and potentially updates them)
+    */
+    if (count < ta_search_mt_threshold ||
+        psearch->op == TA_SEARCH_OPT_RE ||
+        mt_context[1].count == 0 ||
+        ((haystackP->type == TA_ANY || haystackP->type == TA_STRING) &&
+         (psearch->flags & TA_SEARCH_INLINE))) {
         mt_context[0].count = count;
         thdr_basic_search_mt_worker(&mt_context[0]);
         ncontexts = 1;
@@ -601,6 +723,11 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                 else
                     resultObj = Tcl_NewIntObj(-1);
             }
+            /*
+             * NOTE: Do NOT call ta_value_clear on mt_context[].first_value
+             * since ref counts would not have been updated in the worker
+             * threads.
+             */
             Tcl_SetObjResult(ip, resultObj);
         }
     } else {
@@ -611,7 +738,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                     thdr_decr_refs(mt_context[i].thdr);
             }
         }
-        Tcl_SetResult(ip, "Error during column search (out of memory?)", TCL_STATIC);
+        Tcl_SetResult(ip, "Error during column search (out of memory or invalid regexp?)", TCL_STATIC);
     }
 
     return res;
@@ -1054,6 +1181,179 @@ static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
     return TCL_OK;
 }
 
+
+static TCL_RESULT thdr_search_string(Tcl_Interp *ip, thdr_t *haystackP,
+                                     Tcl_Obj *needleObj, ta_search_t *psearch)
+{
+    int slot;
+    tas_t *ptas, *needle;
+    Tcl_Obj *oresult;
+    int compare_result;
+    int compare_wanted;
+    int nocase;
+    Tcl_RegExp re;
+    TCL_RESULT res;
+
+    /* TBD - do we need to increment the haystacP ref to guard against shimmering */
+    TA_ASSERT(haystackP->type == TA_STRING);
+    
+    res = thdr_basic_search_mt(ip, haystackP, needleObj, psearch);
+    if (res != TCL_CONTINUE)
+        return res;
+
+    compare_wanted = psearch->flags & TA_SEARCH_INVERT ? 0 : 1;
+    nocase = psearch->flags & TA_SEARCH_NOCASE;
+
+    switch (psearch->op) {
+    case TA_SEARCH_OPT_GT:
+    case TA_SEARCH_OPT_LT: 
+    case TA_SEARCH_OPT_EQ:
+    case TA_SEARCH_OPT_PAT:
+        break;
+    case TA_SEARCH_OPT_RE:
+        /* Following lsearch implementation, get the regexp before any
+           shimmering can take place, and try to compile for the efficient
+           NOSUB case
+        */
+        re = Tcl_GetRegExpFromObj(NULL, needleObj,
+                                  TCL_REG_ADVANCED|(nocase ? TCL_REG_NOCASE : 0)|TCL_REG_NOSUB );
+        if (re == NULL) {
+            /* That failed, so try without the NOSUB flag */
+            re = Tcl_GetRegExpFromObj(ip, needleObj,
+                                      TCL_REG_ADVANCED|(nocase ? TCL_REG_NOCASE : 0));
+            if (re == NULL)
+                return TCL_ERROR;
+        }
+        break;
+    default:
+        return ta_search_op_error(ip, psearch->op);
+    }
+
+    if (nocase && psearch->op == TA_SEARCH_OPT_PAT)
+        nocase = TCL_MATCH_NOCASE;
+    needle = tas_from_obj(needleObj); /* Must be UNREF'ed ! */
+    if (psearch->flags & TA_SEARCH_ALL) {
+        thdr_t *thdr, *newP;
+
+        thdr = thdr_alloc(ip,
+                            psearch->flags & TA_SEARCH_INLINE ? TA_STRING : TA_INT,
+                            10);                /* Assume 10 hits */
+        if (thdr == NULL)
+            goto free_needle_and_return_error;
+
+        while (1) {
+            slot = ta_search_calc_slot(psearch);
+            if (slot == -1)
+                break;
+
+            ptas = *THDRELEMPTR(haystackP, tas_t *, slot);
+            switch (psearch->op) {
+            case TA_SEARCH_OPT_GT:
+                compare_result = tas_compare(ptas, needle, nocase) > 0;
+                break;
+            case TA_SEARCH_OPT_LT: 
+                compare_result = tas_compare(ptas, needle, nocase) < 0;
+                break;
+            case TA_SEARCH_OPT_EQ:
+                compare_result = tas_equal(ptas, needle, nocase);
+                break;
+            case TA_SEARCH_OPT_PAT:
+                compare_result = Tcl_StringCaseMatch(ptas->s, needle->s,
+                                                     nocase ? TCL_MATCH_NOCASE : 0);
+                break;
+            case TA_SEARCH_OPT_RE:
+                compare_result = Tcl_RegExpExec(NULL, re, ptas->s, ptas->s);
+                if (compare_result < 0) {
+                    thdr_decr_refs(thdr); /* Note this unrefs embedded elements  if needed */
+                    goto free_needle_and_return_error;
+                }
+                break;
+            }
+            if (compare_result == compare_wanted) {
+                /* Have a match */
+                /* Ensure enough space in target array */
+                if (thdr->used >= thdr->usable) {
+                    newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
+                    if (newP)
+                        thdr = newP;
+                    else {
+                        thdr_decr_refs(thdr);
+                        goto free_needle_and_return_error;
+                    }
+                }
+                if (psearch->flags & TA_SEARCH_INLINE) {
+                    *THDRELEMPTR(thdr, tas_t *, thdr->used) = tas_ref(ptas);
+                } else {
+                    *THDRELEMPTR(thdr, int, thdr->used) = slot;
+                }
+                thdr->used++;
+            }
+
+            psearch->cur += 1;  /* Next slot or index */
+        } /* end while (1) */
+
+        if (psearch->indices == NULL &&
+            ((psearch->flags & TA_SEARCH_INLINE) == 0))
+            thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
+        oresult = tcol_new(thdr);
+
+    } else {
+        /* Return first found element */
+
+        while (1) {
+            slot = ta_search_calc_slot(psearch);
+            if (slot == -1) {
+                ptas = NULL;
+                break;
+            }
+            ptas = *THDRELEMPTR(haystackP, tas_t *, slot);
+
+            switch (psearch->op) {
+            case TA_SEARCH_OPT_GT:
+                compare_result = tas_compare(ptas, needle, nocase) > 0;
+                break;
+            case TA_SEARCH_OPT_LT: 
+                compare_result = tas_compare(ptas, needle, nocase) < 0;
+                break;
+            case TA_SEARCH_OPT_EQ:
+                compare_result = tas_equal(ptas, needle, nocase);
+                break;
+            case TA_SEARCH_OPT_PAT:
+                compare_result = Tcl_StringCaseMatch(ptas->s, needle->s, nocase);
+                break;
+            case TA_SEARCH_OPT_RE:
+                compare_result = Tcl_RegExpExec(NULL, re, ptas->s, ptas->s);
+                if (compare_result < 0)
+                    goto free_needle_and_return_error;
+                break;
+            }
+            if (compare_result == compare_wanted)
+                break;
+
+            psearch->cur += 1;  /* Next slot or index */
+        }
+
+        TA_ASSERT(ptas == NULL || slot >= 0);
+        TA_ASSERT(ptas || slot < 0);
+
+        if (psearch->flags & TA_SEARCH_INLINE) {
+            /* No need to incr ref for pobj, the SetObjResult does it */
+            oresult = ptas ? tas_to_obj(ptas) : Tcl_NewObj();
+        } else
+            oresult = Tcl_NewIntObj(slot);
+    }
+
+    Tcl_SetObjResult(ip, oresult);
+    return TCL_OK;
+
+free_needle_and_return_error:
+    if (needle)
+        tas_unref(needle);
+    return TCL_ERROR;
+}
+
+
+
 TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
@@ -1170,6 +1470,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     case TA_WIDE:   searchfn = thdr_search_entier; break;
     case TA_DOUBLE: searchfn = thdr_search_double; break;
     case TA_ANY:    searchfn = thdr_search_obj; break;
+    case TA_STRING:    searchfn = thdr_search_string; break;
     default:
         ta_type_panic(haystackP->type);
         return TCL_ERROR;       /* To avoid compiler warning about return */
