@@ -614,17 +614,21 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
         thdr_calc_mt_split(haystackP->type, psearch->lower, count, &mt_context[1].count);
     TA_ASSERT((mt_context[0].count + mt_context[1].count) == count);
     
-    /* TBD - should we disable parallelization when TA_SEARCH_ALL is not set?
-       Else the secondary thread might do bunch of unnecessary work */
     /* Note that TA_ANY/TA+STRING requires manipulation of ref counts
        which is not thread-safe so we use only one thread for those
-       cases if INLINE+ALL search.
-       TBD - verify non-inline and non-all searches really can multithread */
+       cases if INLINE+ALL search. This is a REQUIREMENT.
+
+       In addition if TA_SEARCH_ALL is not set, we do not use MT.
+       This is NOT a REQUIREMENT. Rather it is to avoid both unnecessary
+       work as well as holding up the first thread if the match is found
+       in the first thread itself.
+    */
     /* Use single thread if regexp matching as regexp engine is not thread
        safe (stores Tcl_Obj* in compiled regexps and potentially updates them)
     */
     if (count < ta_search_mt_threshold ||
         psearch->op == TA_SEARCH_OPT_RE ||
+        ((psearch->flags & TA_SEARCH_ALL) == 0) ||
         mt_context[1].count == 0 ||
         ((haystackP->type == TA_ANY || haystackP->type == TA_STRING) &&
          ((psearch->flags & (TA_SEARCH_INLINE|TA_SEARCH_ALL)) == (TA_SEARCH_INLINE|TA_SEARCH_ALL)))) {
