@@ -26,15 +26,15 @@ namespace eval tarray::test {
         test column_reverse-$type-2.0 {
             Reverse a column (unshared)
         } -body {
-            tarray::column reverse [samplecolumn $type]
-        } -result [crep $type [lreverse [samplerange $type]]] -match column
+            tarray::column reverse [largecolumn $type]
+        } -result [crep $type [lreverse [largelist $type]]] -match column
 
         test column_reverse-$type-2.1 {
             Reverse a column (shared)
         } -body {
-            set ta [samplecolumn $type]
+            set ta [largecolumn $type]
             tarray::column reverse $ta
-        } -result [crep $type [lreverse [samplerange $type]]] -match column
+        } -result [crep $type [lreverse [largelist $type]]] -match column
     }    
 }
 

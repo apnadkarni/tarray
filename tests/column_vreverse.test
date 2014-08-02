@@ -3,7 +3,7 @@
 source testutil.tcl
 
 namespace eval tarray::test {
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_vreverse-$type-1.0 {
             Vreverse an empty column
         } -body {
@@ -23,10 +23,10 @@ namespace eval tarray::test {
         test column_vreverse-$type-2.0 {
             Vreverse a column
         } -body {
-            set ta [samplecolumn $type]
+            set ta [largecolumn $type]
             tarray::column vreverse ta
             set ta
-        } -result [crep $type [lreverse [samplerange $type]]] -match column
+        } -result [crep $type [lreverse [largelist $type]]] -match column
 
     }    
 }
