@@ -1229,7 +1229,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                     TA_ASSERT(o != NULL);
                     if (pptas[*pindex] != NULL)
                         tas_unref(pptas[*pindex]);/* Deref original slot */
-                    pptas[*pindex++] = o;
+                    pptas[*pindex++] = tas_from_obj(o);
                 }               
             }
             break;
@@ -1764,7 +1764,7 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
             break;
         case TA_STRING:
             /* We can use macro here as well for the same reason. */
-            table_range_COPY(Tcl_Obj *, tas_to_obj);
+            table_range_COPY(tas_t *, tas_to_obj);
             break;
         default:
             ta_type_panic(tcol_type(srccols[i]));
