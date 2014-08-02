@@ -111,7 +111,7 @@ specified, elements are compared in case-insensitive mode.
 
 [call [cmd "column minmax"] [arg [opt OPTIONS]] [arg COLUMN]]
 Searches the specified column for the minimum and maximum values, returning 
-them as a pair. If [cmd -indices] is specified, the their indices
+them as a pair. If [cmd -indices] is specified, their indices
 are returned instead of their values. In case either value occurs 
 at multiple indices in the column, the lowest index is returned.
 [nl]
@@ -122,7 +122,7 @@ that inclusively specify
 the subrange. The second element of the pair may be omitted in which case 
 it defaults to the last element in the column.
 [nl]
-The option [-nocase] may be specified to indicate case-insensitive 
+The option [cmd -nocase] may be specified to indicate case-insensitive 
 comparisons. This is only effective for column type [const any]
 and ignored for the others.
 
