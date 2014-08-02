@@ -46,7 +46,7 @@ namespace eval tarray::test {
     }
 
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         
         #
         # column vplace valuelist indexlist
@@ -150,7 +150,7 @@ namespace eval tarray::test {
             tarray::column vplace ta [samplerange $type 0 2] {end}
         } -result {*expected integer*} -returnCodes error -match glob
 
-        if {$type ne "any"} {
+        if {$type ni {string any}} {
             test column_vplace-list-indexlist-$type-3.3 {
                 Test invalid values
             } -body {
@@ -255,7 +255,7 @@ namespace eval tarray::test {
             tarray::column vplace ta [samplerange $type 0 2] [indexcolumn -1]
         } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
-        if {$type ne "any"} {
+        if {$type ni {string any}} {
             test column_vplace-list-indexlist-$type-3.2 {
                 Test invalid values
             } -body {
@@ -366,7 +366,7 @@ namespace eval tarray::test {
             tarray::column vplace ta [samplecolumn $type 0 2] {end}
         } -result {*expected integer*} -returnCodes error -match glob
 
-        if {$type ne "any"} {
+        if {$type ni {string any}} {
             test column_vplace-column-indexlist-$type-3.3 {
                 Test invalid values
             } -body {
@@ -470,7 +470,7 @@ namespace eval tarray::test {
             tarray::column vplace ta [samplerange $type 0 2] [indexcolumn -1]
         } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
-        if {$type ne "any"} {
+        if {$type ni {string any}} {
             test column_vplace-column-indexlist-$type-3.2 {
                 Test invalid values
             } -body {

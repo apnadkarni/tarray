@@ -13,6 +13,7 @@ namespace eval tarray::test {
         wide    549755813887
         double  6.022e23
         any     "anything at all"
+        string  "any string at all"
     }
 
     proc vfilltest {type init expected args} {
@@ -23,7 +24,7 @@ namespace eval tarray::test {
     #
     # column fill index
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_vfill-index-$type-1.0 {
             Fill an empty column with a single element
@@ -94,7 +95,7 @@ namespace eval tarray::test {
     #
     # column fill indexlist
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_vfill-indexlist-$type-1.0 {
             Fill an empty column
         } -body {
@@ -227,7 +228,7 @@ namespace eval tarray::test {
     #
     # column vfill indicesarray
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_vfill-indices-$type-1.0 {
             vfill an empty column (shared)
         } -body {
@@ -355,7 +356,7 @@ namespace eval tarray::test {
     #
     # column vfill range
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_vfill-range-$type-1.0 {
             vfill an empty column with a single element (shared)

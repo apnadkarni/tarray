@@ -4,7 +4,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    foreach type {boolean any byte double int uint wide } {
+    foreach type {boolean string any byte double int uint wide } {
 
         test column_vinsert-value-$type-1.0 {
             Insert one element at start of empty column
@@ -39,9 +39,9 @@ namespace eval tarray::test {
         test column_vinsert-value-$type-2.2 {
             vinsert multiple element at start of column
         } -body {
-            set ta [samplecolumn $type]
-            tarray::column vinsert ta [samplevalue $type 0] end 10
-        } -result [crep $type [linsert [samplerange $type] end {*}[listrepeat 10 [samplevalue $type 0]]]] -match column
+            set ta [largecolumn $type]
+            tarray::column vinsert ta [lindex [largelist $type] 0] end 10
+        } -result [crep $type [linsert [largerange $type] end {*}[listrepeat 10 [lindex [largelist $type] 0]]]] -match column
 
         test column_vinsert-value-$type-2.3 {
             vinsert elements at end of column
@@ -62,8 +62,8 @@ namespace eval tarray::test {
         test column_vinsert-value-$type-2.5 {
             vinsert elements in middle of column
         } -body {
-            set values [samplerange $type]
-            set val [samplevalue $type end]
+            set values [largelist $type]
+            set val [lindex $values end]
             vcol_change_and_verify $type $values [linsert $values 63 {*}[listrepeat  8 $val]] vinsert $val 63 8
         } -result 0
 
@@ -168,9 +168,9 @@ namespace eval tarray::test {
         test column_vinsert-list-$type-2.3 {
             vinsert multiple element at penultimate position
         } -body {
-            set ta [samplecolumn $type 0 128]
-            tarray::column vinsert ta [samplerange $type 129 end] 128
-        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+            set ta [newcolumn $type [largerange $type 0 128]]
+            tarray::column vinsert ta [largerange $type 129 end] 128
+        } -result [crep $type [linsert [largerange $type 0 128] 128 {*}[largerange $type 129 end]]] -match column
 
         test column_vinsert-list-$type-2.4 {
             vinsert multiple elements in middle
