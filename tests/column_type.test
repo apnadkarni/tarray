@@ -4,7 +4,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_type-$type-1.0 {
             Type of empty column
         } -body {
