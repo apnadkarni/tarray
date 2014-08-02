@@ -7,12 +7,12 @@ namespace eval tarray::test {
     #
     # column vdelete index
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_vdelete-index-$type-1.0 {
             Test deletion of first element 
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete 0 [lrange $sample($type) 1 end]
+            vchange_and_verify_col $type [largelist $type] vdelete 0 [lrange [largelist $type] 1 end]
         } -result 0
 
         test column_vdelete-index-$type-2.0 {
@@ -24,7 +24,7 @@ namespace eval tarray::test {
         test column_vdelete-index-$type-3.0 {
             Test deletion of end element
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list end] [lrange $sample($type) 0 end-1]
+            vchange_and_verify_col $type [largelist $type] vdelete [list end] [lrange [largelist $type] 0 end-1]
         } -result 0
 
         set n -1
@@ -32,7 +32,7 @@ namespace eval tarray::test {
             test column_vdelete-index-$type-4.[incr n] {
                 Test deletion of intermediate element
             } -body {
-                vchange_and_verify_col $type $sample($type) vdelete [list $i] [concat [lrange $sample($type) 0 $i-1] [lrange $sample($type) $i+1 end]]
+                vchange_and_verify_col $type [largelist $type] vdelete [list $i] [concat [lrange [largelist $type] 0 $i-1] [lrange [largelist $type] $i+1 end]]
             } -result 0
         }
 
@@ -82,18 +82,18 @@ namespace eval tarray::test {
     #
     # column vdelete index list
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_vdelete-indexlist-$type-1.0 {
             Test deletion of leading elements
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list {0 1 2}] [lrange $sample($type) 3 end]
+            vchange_and_verify_col $type [largelist $type] vdelete [list {0 1 2}] [lrange [largelist $type] 3 end]
         } -result 0 
 
         test column_vdelete-indexlist-$type-1.1 {
             Test deletion of leading elements (out of order)
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list {0 2 1 3}] [lrange $sample($type) 4 end]
+            vchange_and_verify_col $type [largelist $type] vdelete [list {0 2 1 3}] [lrange [largelist $type] 4 end]
         } -result 0
 
         test column_vdelete-indexlist-$type-1.2 {
@@ -138,7 +138,6 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            set ta [samplecolumn $type]
             vchange_and_verify_col $type $sample($type) vdelete [list [lsort -increasing -integer $indices]] $l2
         } -result 0
 
@@ -146,13 +145,12 @@ namespace eval tarray::test {
             Test deletion of intermediate (reverse ordered)
         } -body {
             set indices {1 7 8 9 31 32 33 63 64 65 254}
-            set l2 $sample($type)
+            set l2 [largelist $type]
             # Deletion from list must take place back to front
             foreach i [lsort -integer -decreasing $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list [lsort -decreasing -integer $indices]] $l2
+            vchange_and_verify_col $type [largelist $type] vdelete [list [lsort -decreasing -integer $indices]] $l2
         } -result 0
 
         test column_vdelete-indexlist-$type-3.2 {
@@ -190,15 +188,15 @@ namespace eval tarray::test {
         } -body {
             # Note duplicate 33
             set indices {1 254 64 33 7 65 8 33 9 31 32 63}
-            set l2 $sample($type)
+            set l2 [largelist $type]
             # Deletion must take place back to front
             foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            set i [llength $sample($type)]
+            set i [llength [largelist $type]]
             set indices [linsert [linsert $indices 0 $i] 32 [incr i 10]]
             lappend indices -1
-            set ta [samplecolumn $type]
+            set ta [largecolumn $type]
             tarray::column vdelete ta $indices
             clequal $ta $type $l2
         } -result 1
@@ -273,7 +271,7 @@ namespace eval tarray::test {
     #
     # column vdelete indicesarray
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_vdelete-indices-$type-1.0 {
             Test deletion of leading elements
@@ -284,7 +282,7 @@ namespace eval tarray::test {
         test column_vdelete-indices-$type-1.1 {
             Test deletion of leading elements (out of order)
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list [indexcolumn {0 2 1 3}]] [lrange $sample($type) 4 end]
+            vchange_and_verify_col $type [largelist $type] vdelete [list [indexcolumn {0 2 1 3}]] [lrange [largelist $type] 4 end]
         } -result 0
 
         test column_vdelete-indices-$type-1.2 {
@@ -335,15 +333,14 @@ namespace eval tarray::test {
             Test deletion of intermediate (ordered)
         } -body {
             set indices {1 7 8 9 31 32 33 63 64 65 254}
-            set l2 $sample($type)
+            set l2 [largelist $type]
             # Deletion must take place back to front
             foreach i [lsort -integer -decreasing $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            set ta [samplecolumn $type]
             # Explicitly order indices
             set indices [tarray::column sort [indexcolumn $indices]]
-            vchange_and_verify_col $type $sample($type) vdelete [list $indices] $l2
+            vchange_and_verify_col $type [largelist $type] vdelete [list $indices] $l2
         } -result 0
 
         test column_vdelete-indices-$type-3.1 {
@@ -366,13 +363,12 @@ namespace eval tarray::test {
         } -body {
             # Note duplicate
             set indices {1 254 64 33 7 65 8 33 9 31 32 63}
-            set l2 $sample($type)
+            set l2 [largelist $type]
             # Deletion must take place back to front. -unique to remove dups
             foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list [indexcolumn $indices]] $l2
+            vchange_and_verify_col $type [largelist $type] vdelete [list [indexcolumn $indices]] $l2
         } -result 0
 
         test column_vdelete-indices-$type-4.0 {
@@ -471,7 +467,6 @@ namespace eval tarray::test {
             Test deletion of all indices from column
         } -body {
             set l [lrange $sample($type) 0 3]
-            set ta [newcolumn $type $l ]
             vchange_and_verify_col $type $l vdelete [list [indexcolumn {0 1 2 3}]] {}
         } -result 0
 
@@ -493,7 +488,7 @@ namespace eval tarray::test {
     #
     # column vdelete range
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
 
         test column_vdelete-range-$type-1.0 {
             Test deletion of leading elements
@@ -520,7 +515,7 @@ namespace eval tarray::test {
         test column_vdelete-range-$type-3.0 {
             Test deletion of intermediate
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list 63 127] [concat [lrange $sample($type) 0 62] [lrange $sample($type) 128 end]]
+            vchange_and_verify_col $type [largelist $type] vdelete [list 63 127] [concat [lrange [largelist $type] 0 62] [lrange [largelist $type] 128 end]]
         } -result 0
 
         test column_vdelete-range-$type-4.0 {

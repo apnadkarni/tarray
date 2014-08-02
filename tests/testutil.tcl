@@ -208,11 +208,11 @@ if {![info exists tarray::test::known]} {
             switch -exact -- $type {
                 string -
                 any { return -ascii }
+                uint -
                 wide -
                 double {return -real }
                 byte -
                 int -
-                uint -
                 boolean { return -integer }
             }         
         }

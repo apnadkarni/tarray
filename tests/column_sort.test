@@ -5,14 +5,22 @@ source testutil.tcl
 namespace eval tarray::test {
 
     # args is any combination of -nocase, -increasing, -decreasing
-    proc sort_verify_shared {type args} {
-        set l [lshuffle [samplerange $type]]
+    proc sort_verify_shared {size type args} {
+        if {$size eq "large"} {
+            set l [largelist $type]
+        } else {
+            set l [lshuffle [samplerange $type]]
+        }
         return [col_change_and_verify $type $l [lsort [lsort_cmp $type] {*}$args $l] [linsert $args 0 sort]]
     }
 
     # args is any combination of -nocase, -increasing, -decreasing
-    proc sort_verify_unshared {type args} {
-        set l [lshuffle [samplerange $type]]
+    proc sort_verify_unshared {size type args} {
+        if {$size eq "large"} {
+            set l [largelist $type]
+        } else {
+            set l [lshuffle [samplerange $type]]
+        }
         if {[clequal [tarray::column {*}[linsert $args 0 sort] [tarray::column create $type $l]] $type [lsort [lsort_cmp $type] {*}$args $l]]} {
             return 0
         } else {
@@ -21,8 +29,13 @@ namespace eval tarray::test {
     }
 
     # args is any combination of -nocase, -increasing, -decreasing
-    proc sort_verify_indices {type args} {
-        set l [lshuffle [samplerange $type]]
+    proc sort_verify_indices {size type args} {
+        if {$size eq "large"} {
+            set l [largelist $type]
+        } else {
+            set l [lshuffle [samplerange $type]]
+        }
+
         if {[clequal [tarray::column {*}[linsert $args 0 sort -indices] [tarray::column create $type $l]] int [lsort [lsort_cmp $type] -indices {*}$args $l]]} {
             return 0
         } else {
@@ -31,8 +44,13 @@ namespace eval tarray::test {
     }
 
     # Verify that presorted tarrays are sorted correctly
-    proc sort_verify_presorted {type presort_args args} {
-        set l [lshuffle [samplerange $type]]
+    proc sort_verify_presorted {size type presort_args args} {
+        if {$size eq "large"} {
+            set l [largelist $type]
+        } else {
+            set l [lshuffle [samplerange $type]]
+        }
+
         set ta [tarray::column create $type $l]
 
         lassign [time {set sorted_ta [tarray::column sort {*}$presort_args $ta]}] unsorted_time
@@ -42,8 +60,9 @@ namespace eval tarray::test {
         set l [lsort $lsort_op {*}$args [lsort $lsort_op {*}$presort_args $l]]
         if {[clequal $resorted_ta $type $l]} {
             if {[llength $l] > 100} {
-                # For Booleans not much difference in time */
-                if {$type ne "boolean"} {
+                # For Booleans not much difference in time. Also compare
+                # only if sort arguments were the same
+                if {$type ne "boolean" && $presort_args eq $args} {
                     if {$unsorted_time < ($presorted_time * 5)} {
                         puts "Presorted time (type $type, length [llength $l]) $presorted_time not much smaller than unsorted time $unsorted_time"
                     }
@@ -60,8 +79,13 @@ namespace eval tarray::test {
     }
 
     # Verify that presorted tarrays are sorted correctly (indices)
-    proc sort_verify_indices_presorted {type presort_args args} {
-        set l [lsort [lsort_cmp $type] {*}$presort_args [samplerange $type]]
+    proc sort_verify_indices_presorted {size type presort_args args} {
+        if {$size eq "large"} {
+            set l [largelist $type]
+        } else {
+            set l [samplerange $type]
+        }
+        set l [lsort [lsort_cmp $type] {*}$presort_args $l]
         set ta [tarray::column create $type $l]
         set sorted_ta [tarray::column sort {*}$presort_args $ta]
 
@@ -75,7 +99,7 @@ namespace eval tarray::test {
         }
     }
 
-    foreach type {boolean any byte double int uint wide} {
+    foreach type {boolean string any byte double int uint wide} {
         test column_sort-$type-1.0 {
             Sort empty column (unshared)
         } -body {
@@ -116,110 +140,212 @@ namespace eval tarray::test {
         test column_sort-$type-2.0 {
             Sort column (shared)
         } -body {
-            sort_verify_shared $type
+            sort_verify_shared small $type
+        } -result 0
+
+        test column_sort-large-$type-2.0 {
+            Sort column (shared)
+        } -body {
+            sort_verify_shared large $type
         } -result 0
 
         test column_sort-$type-2.1 {
             Sort column (unshared)
         } -body {
-            sort_verify_unshared $type
+            sort_verify_unshared small $type
+        } -result 0
+
+        test column_sort-large-$type-2.1 {
+            Sort column (unshared)
+        } -body {
+            sort_verify_unshared large $type
         } -result 0
 
         test column_sort-$type-2.2 {
             Sort column -indices
         } -body {
-            sort_verify_indices $type
+            sort_verify_indices small $type
+        } -result 0
+
+        test column_sort-large-$type-2.2 {
+            Sort column -indices
+        } -body {
+            sort_verify_indices large $type
         } -result 0
 
         test column_sort-$type-3.0 {
             Sort column (shared) -increasing
         } -body {
-            sort_verify_shared $type -increasing
+            sort_verify_shared small $type -increasing
+        } -result 0
+
+        test column_sort-large-$type-3.0 {
+            Sort column (shared) -increasing
+        } -body {
+            sort_verify_shared large $type -increasing
         } -result 0
 
         test column_sort-$type-3.1 {
             Sort column (unshared) -increasing
         } -body {
-            sort_verify_unshared $type -increasing
+            sort_verify_unshared small $type -increasing
+        } -result 0
+
+        test column_sort-large-$type-3.1 {
+            Sort column (unshared) -increasing
+        } -body {
+            sort_verify_unshared large $type -increasing
         } -result 0
 
         test column_sort-$type-3.2 {
             Sort column -increasing -indices
         } -body {
-            sort_verify_indices $type -increasing -indices
+            sort_verify_indices small $type -increasing -indices
+        } -result 0
+
+        test column_sort-large-$type-3.2 {
+            Sort column -increasing -indices
+        } -body {
+            sort_verify_indices large $type -increasing -indices
         } -result 0
 
         test column_sort-$type-4.0 {
             Sort column (shared) -decreasing
         } -body {
-            sort_verify_shared $type -decreasing
+            sort_verify_shared small $type -decreasing
+        } -result 0
+
+        test column_sort-large-$type-4.0 {
+            Sort column (shared) -decreasing
+        } -body {
+            sort_verify_shared large $type -decreasing
         } -result 0
 
         test column_sort-$type-4.1 {
             Sort column (unshared) -decreasing
         } -body {
-            sort_verify_unshared $type -decreasing
+            sort_verify_unshared small $type -decreasing
+        } -result 0
+
+        test column_sort-large-$type-4.1 {
+            Sort column (unshared) -decreasing
+        } -body {
+            sort_verify_unshared large $type -decreasing
         } -result 0
 
         test column_sort-$type-4.2 {
             Sort column -decreasing -indices
         } -body {
-            sort_verify_indices $type -decreasing -indices
+            sort_verify_indices small $type -decreasing -indices
+        } -result 0
+
+        test column_sort-large-$type-4.2 {
+            Sort column -decreasing -indices
+        } -body {
+            sort_verify_indices large $type -decreasing -indices
         } -result 0
 
         test column_sort-$type-5.0 {
             Sort presorted column -increasing -increasing
         } -body {
-            sort_verify_presorted $type -increasing -increasing
+            sort_verify_presorted small $type -increasing -increasing
+        } -result 0
+
+        test column_sort-large-$type-5.0 {
+            Sort presorted column -increasing -increasing
+        } -body {
+            sort_verify_presorted large $type -increasing -increasing
         } -result 0
 
         test column_sort-$type-5.1 {
             Sort presorted column -increasing -decreasing
         } -body {
-            sort_verify_presorted $type -increasing -decreasing
+            sort_verify_presorted small $type -increasing -decreasing
+        } -result 0
+
+        test column_sort-large-$type-5.1 {
+            Sort presorted column -increasing -decreasing
+        } -body {
+            sort_verify_presorted large $type -increasing -decreasing
         } -result 0
 
         test column_sort-$type-5.2 {
             Sort presorted column -decreasing -decreasing
         } -body {
-            sort_verify_presorted $type -decreasing -decreasing
+            sort_verify_presorted small $type -decreasing -decreasing
+        } -result 0
+
+        test column_sort-large-$type-5.2 {
+            Sort presorted column -decreasing -decreasing
+        } -body {
+            sort_verify_presorted large $type -decreasing -decreasing
         } -result 0
 
         test column_sort-$type-5.3 {
             Sort presorted column -decreasing -increasing 
         } -body {
-            sort_verify_presorted $type -decreasing -increasing
+            sort_verify_presorted small $type -decreasing -increasing
+        } -result 0
+
+        test column_sort-large-$type-5.3 {
+            Sort presorted column -decreasing -increasing 
+        } -body {
+            sort_verify_presorted large $type -decreasing -increasing
         } -result 0
 
         test column_sort-$type-5.4 {
             Sort presorted column -indices -increasing -increasing
         } -body {
-            sort_verify_indices_presorted $type -increasing -increasing
+            sort_verify_indices_presorted small $type -increasing -increasing
+        } -result 0
+
+        test column_sort-large-$type-5.4 {
+            Sort presorted column -indices -increasing -increasing
+        } -body {
+            sort_verify_indices_presorted large $type -increasing -increasing
         } -result 0
 
         test column_sort-$type-5.5 {
             Sort presorted column -indices -increasing -decreasing
         } -body {
-            sort_verify_indices_presorted $type -increasing -decreasing
+            sort_verify_indices_presorted small $type -increasing -decreasing
+        } -result 0
+
+        test column_sort-large-$type-5.5 {
+            Sort presorted column -indices -increasing -decreasing
+        } -body {
+            sort_verify_indices_presorted large $type -increasing -decreasing
         } -result 0
 
         test column_sort-$type-5.6 {
             Sort presorted column -indices -decreasing -decreasing
         } -body {
-            sort_verify_indices_presorted $type -decreasing -decreasing
+            sort_verify_indices_presorted small $type -decreasing -decreasing
+        } -result 0
+
+        test column_sort-large-$type-5.6 {
+            Sort presorted column -indices -decreasing -decreasing
+        } -body {
+            sort_verify_indices_presorted large $type -decreasing -decreasing
         } -result 0
 
         test column_sort-$type-5.7 {
             Sort presorted column -indices -decreasing -increasing
         } -body {
-            sort_verify_indices_presorted $type -decreasing -increasing
+            sort_verify_indices_presorted small $type -decreasing -increasing
+        } -result 0
+
+        test column_sort-large-$type-5.7 {
+            Sort presorted column -indices -decreasing -increasing
+        } -body {
+            sort_verify_indices_presorted large $type -decreasing -increasing
         } -result 0
 
         # The following specific test triggered a bug in timsort because
         # it was doing memcpy instead of memmove in overlapping buffers
         # (only triggered on Linux amd64 with gcc 4.4, Windows worked
         # fine)
-        if {$type ne "any"} {
+        if {$type ne "any" && $type ne "string"} {
             test column_sort-$type-6.0 {
                 Verify memcpy bug fixed
             } -body {
@@ -230,226 +356,424 @@ namespace eval tarray::test {
 
     #
     # -nocase tests
+    foreach type {string any} {
+        # Although the remaining tests 2.0 onward include mixed case in sample
+        # data, explicitly test just to make sure
+        test column_sort-$type-nocase-1.0 {
+            Sort column
+        } -body {
+            tarray::column sort [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep $type {Abc _ abc dEg def}] -match column
 
-    # Although the remaining tests 2.0 onward include mixed case in sample
-    # data, explicitly test just to make sure
-    test column_sort-nocase-1.0 {
-        Sort column
-    } -body {
-        tarray::column sort [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep any {Abc _ abc dEg def}] -match column
+        test column_sort-$type-nocase-1.1 {
+            Sort column -nocase
+        } -body {
+            tarray::column sort -nocase [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep $type {_ abc Abc def dEg}] -match column
 
-    test column_sort-nocase-1.1 {
-        Sort column -nocase
-    } -body {
-        tarray::column sort -nocase [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep any {_ abc Abc def dEg}] -match column
+        test column_sort-$type-nocase-1.2 {
+            Sort column -decreasing
+        } -body {
+            tarray::column sort -decreasing [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep $type {def dEg abc _ Abc}] -match column
 
-    test column_sort-nocase-1.2 {
-        Sort column -decreasing
-    } -body {
-        tarray::column sort -decreasing [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep any {def dEg abc _ Abc}] -match column
+        test column_sort-$type-nocase-1.3 {
+            Sort column -decreasing
+        } -body {
+            tarray::column sort -nocase -decreasing [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep $type {dEg def abc Abc _}] -match column
 
-    test column_sort-nocase-1.3 {
-        Sort column -decreasing
-    } -body {
-        tarray::column sort -nocase -decreasing [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep any {dEg def abc Abc _}] -match column
+        test column_sort-$type-nocase-1.4 {
+            Sort column -increasing
+        } -body {
+            tarray::column sort -increasing [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep $type {Abc _ abc dEg def}] -match column
 
-    test column_sort-nocase-1.4 {
-        Sort column -increasing
-    } -body {
-        tarray::column sort -increasing [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep any {Abc _ abc dEg def}] -match column
+        test column_sort-$type-nocase-1.5 {
+            Sort column -nocase -increasing
+        } -body {
+            tarray::column sort -nocase -increasing [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep $type {_ abc Abc def dEg}] -match column
 
-    test column_sort-nocase-1.5 {
-        Sort column -nocase -increasing
-    } -body {
-        tarray::column sort -nocase -increasing [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep any {_ abc Abc def dEg}] -match column
+        test column_sort-$type-nocase-1.6 {
+            Sort column -decreasing -indices -nocase
+        } -body {
+            tarray::column sort -nocase -decreasing -indices [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep int {3 2 0 1 4}] -match column
 
-    test column_sort-nocase-1.6 {
-        Sort column -decreasing -indices -nocase
-    } -body {
-        tarray::column sort -nocase -decreasing -indices [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep int {3 2 0 1 4}] -match column
+        test column_sort-$type-nocase-1.7 {
+            Sort column -nocase -increasing -indices
+        } -body {
+            tarray::column sort -indices -nocase -increasing [tarray::column create $type {abc Abc def dEg _}]
+        } -result [crep int {4 0 1 2 3}] -match column
 
-    test column_sort-nocase-1.7 {
-        Sort column -nocase -increasing -indices
-    } -body {
-        tarray::column sort -indices -nocase -increasing [tarray::column create any {abc Abc def dEg _}]
-    } -result [crep int {4 0 1 2 3}] -match column
+        test column_sort-$type-nocase-2.0 {
+            Sort column (shared)
+        } -body {
+            sort_verify_shared small $type -nocase
+        } -result 0
 
-    test column_sort-nocase-2.0 {
-        Sort column (shared)
-    } -body {
-        sort_verify_shared any -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-2.0 {
+            Sort column (shared)
+        } -body {
+            sort_verify_shared large $type -nocase
+        } -result 0
 
-    test column_sort-nocase-2.1 {
-        Sort column (unshared)
-    } -body {
-        sort_verify_unshared any -nocase
-    } -result 0
+        test column_sort-$type-nocase-2.1 {
+            Sort column (unshared)
+        } -body {
+            sort_verify_unshared small $type -nocase
+        } -result 0
 
-    test column_sort-nocase-2.2 {
-        Sort column -indices
-    } -body {
-        sort_verify_indices any -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-2.1 {
+            Sort column (unshared)
+        } -body {
+            sort_verify_unshared large $type -nocase
+        } -result 0
 
-    test column_sort-nocase-3.0 {
-        Sort column (shared) -increasing -nocase
-    } -body {
-        sort_verify_shared any -increasing -nocase
-    } -result 0
+        test column_sort-$type-nocase-2.2 {
+            Sort column -indices
+        } -body {
+            sort_verify_indices small $type -nocase
+        } -result 0
 
-    test column_sort-nocase-3.1 {
-        Sort column (unshared) -increasing -nocase
-    } -body {
-        sort_verify_unshared any -increasing -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-2.2 {
+            Sort column -indices
+        } -body {
+            sort_verify_indices large $type -nocase
+        } -result 0
 
-    test column_sort-nocase-3.2 {
-        Sort column -increasing -indices -nocase
-    } -body {
-        sort_verify_indices any -increasing -indices -nocase
-    } -result 0
+        test column_sort-$type-nocase-3.0 {
+            Sort column (shared) -increasing -nocase
+        } -body {
+            sort_verify_shared small $type -increasing -nocase
+        } -result 0
 
-    test column_sort-nocase-4.0 {
-        Sort column (shared) -decreasing -nocase
-    } -body {
-        sort_verify_shared any -decreasing -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-3.0 {
+            Sort column (shared) -increasing -nocase
+        } -body {
+            sort_verify_shared large $type -increasing -nocase
+        } -result 0
 
-    test column_sort-nocase-4.1 {
-        Sort column (unshared) -decreasing -nocase
-    } -body {
-        sort_verify_unshared any -decreasing -nocase
-    } -result 0
+        test column_sort-$type-nocase-3.1 {
+            Sort column (unshared) -increasing -nocase
+        } -body {
+            sort_verify_unshared small $type -increasing -nocase
+        } -result 0
 
-    test column_sort-nocase-4.2 {
-        Sort column -decreasing -indices -nocase
-    } -body {
-        sort_verify_indices any -decreasing -indices -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-3.1 {
+            Sort column (unshared) -increasing -nocase
+        } -body {
+            sort_verify_unshared large $type -increasing -nocase
+        } -result 0
 
-    test column_sort-nocase-5.0 {
-        Sort presorted column -increasing -increasing -nocase
-    } -body {
-        sort_verify_presorted any  -increasing -increasing -nocase
-    } -result 0
+        test column_sort-$type-nocase-3.2 {
+            Sort column -increasing -indices -nocase
+        } -body {
+            sort_verify_indices small $type -increasing -indices -nocase
+        } -result 0
 
-    test column_sort-nocase-5.1 {
-        Sort presorted column -increasing -decreasing -nocase
-    } -body {
-        sort_verify_presorted any -increasing -decreasing -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-3.2 {
+            Sort column -increasing -indices -nocase
+        } -body {
+            sort_verify_indices large $type -increasing -indices -nocase
+        } -result 0
 
-    test column_sort-nocase-5.2 {
-        Sort presorted column -decreasing -decreasing -nocase
-    } -body {
-        sort_verify_presorted any -decreasing -decreasing -nocase
-    } -result 0
+        test column_sort-$type-nocase-4.0 {
+            Sort column (shared) -decreasing -nocase
+        } -body {
+            sort_verify_shared small $type -decreasing -nocase
+        } -result 0
 
-    test column_sort-nocase-5.3 {
-        Sort presorted column -decreasing -increasing  -nocase
-    } -body {
-        sort_verify_presorted any -decreasing -increasing -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-4.0 {
+            Sort column (shared) -decreasing -nocase
+        } -body {
+            sort_verify_shared large $type -decreasing -nocase
+        } -result 0
 
-    test column_sort-nocase-5.4 {
-        Sort presorted column -indices -increasing -increasing -nocase
-    } -body {
-        sort_verify_indices_presorted any -increasing -increasing -nocase
-    } -result 0
+        test column_sort-$type-nocase-4.1 {
+            Sort column (unshared) -decreasing -nocase
+        } -body {
+            sort_verify_unshared small $type -decreasing -nocase
+        } -result 0
 
-    test column_sort-nocase-5.5 {
-        Sort presorted column -indices -increasing -decreasing -nocase
-    } -body {
-        sort_verify_indices_presorted any -increasing -decreasing -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-4.1 {
+            Sort column (unshared) -decreasing -nocase
+        } -body {
+            sort_verify_unshared large $type -decreasing -nocase
+        } -result 0
 
-    test column_sort-nocase-5.6 {
-        Sort presorted column -indices -decreasing -decreasing -nocase
-    } -body {
-        sort_verify_indices_presorted any -decreasing -decreasing -nocase
-    } -result 0
+        test column_sort-$type-nocase-4.2 {
+            Sort column -decreasing -indices -nocase
+        } -body {
+            sort_verify_indices small $type -decreasing -indices -nocase
+        } -result 0
 
-    test column_sort-nocase-5.7 {
-        Sort presorted column -indices -decreasing -increasing -nocase
-    } -body {
-        sort_verify_indices_presorted any -decreasing -increasing -nocase
-    } -result 0
+        test column_sort-$type-large-nocase-4.2 {
+            Sort column -decreasing -indices -nocase
+        } -body {
+            sort_verify_indices large $type -decreasing -indices -nocase
+        } -result 0
 
-    
-    #
-    # Tests for -indirect
-    # We test that -indirect is in effect by testing order of elements
-    # that are equal in the second -nocase sort. They should be in the
-    # order of the indices array, not in the order of the original
-    # We do this for type "any" using -nocase but how do we test
-    # similarly for other types ? TBD
-    test column_sort-indirect-1.0 {
-        Sort -indirect any
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        set indices [tarray::column sort -indices $tcol]
-        tarray::column sort -indirect $tcol -nocase $indices
-    } -result {tarray_column int {1 0 3 2}} -match column
+        test column_sort-$type-nocase-5.0 {
+            Sort presorted column -increasing -increasing -nocase
+        } -body {
+            sort_verify_presorted small $type  -increasing -increasing -nocase
+        } -result 0
 
-    test column_sort-indirect-1.1 {
-        Sort -indirect -decreasing any
-    } -body {
-        set tcol [tarray::column create any {A a B b}]
-        set indices [tarray::column sort -indices -decreasing $tcol]
-        tarray::column sort -indirect $tcol -nocase -decreasing $indices
-    } -result {tarray_column int {3 2 1 0}} -match column
+        test column_sort-$type-nocase-5.0.1 {
+            Sort presorted column {-increasing -nocase} -increasing -nocase
+        } -body {
+            sort_verify_presorted small $type  {-increasing -nocase} -increasing -nocase
+        } -result 0
 
-    test column_sort-indirect-1.2 {
-        Sort -indirect any (partial)
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        set indices [tarray::column sort -indices $tcol]
-        tarray::column sort -indirect $tcol -nocase [tarray::column range $indices 0 2]
-    } -result {tarray_column int {1 0 3}} -match column
+        test column_sort-$type-large-nocase-5.0 {
+            Sort presorted column -increasing -increasing -nocase
+        } -body {
+            sort_verify_presorted large $type  -increasing -increasing -nocase
+        } -result 0
 
-    test column_sort-indirect-1.3 {
-        Sort -indirect any (empty)
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        tarray::column sort -indirect $tcol -nocase [tarray::column create int {}]
-    } -result {tarray_column int {}} -match column
+        test column_sort-$type-large-nocase-5.0.1 {
+            Sort presorted column {-increasing -nocase} -increasing -nocase
+        } -body {
+            sort_verify_presorted large $type  {-increasing -nocase} -increasing -nocase
+        } -result 0
 
-    test column_sort-indirect-2.0 {
-        Sort -indirect missing argument
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        set indices [tarray::column sort -indices $tcol]
-        tarray::column sort -nocase -indirect $indices
-    } -result "Missing argument to -indirect option." -returnCodes error
+        test column_sort-$type-nocase-5.1 {
+            Sort presorted column -increasing -decreasing -nocase
+        } -body {
+            sort_verify_presorted small $type -increasing -decreasing -nocase
+        } -result 0
 
-    test column_sort-indirect-2.1 {
-        Sort -indirect wrong index type
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        tarray::column sort -indirect $tcol -nocase [tarray::column create byte {0 1 2 3}]
-    } -result "tarray is of the wrong type (byte)" -returnCodes error
+        test column_sort-$type-nocase-5.1.1 {
+            Sort presorted column -increasing -decreasing -nocase
+        } -body {
+            sort_verify_presorted small $type {-increasing -nocase} -decreasing -nocase
+        } -result 0
 
-    test column_sort-indirect-2.2 {
-        Sort -indirect any bad index
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        tarray::column sort -indirect $tcol -nocase [tarray::column create int {0 1 2 4 3}]
-    } -result {tarray index 4 out of bounds} -returnCodes error
+        test column_sort-$type-large-nocase-5.1 {
+            Sort presorted column -increasing -decreasing -nocase
+        } -body {
+            sort_verify_presorted large $type -increasing -decreasing -nocase
+        } -result 0
 
-    test column_sort-indirect-2.3 {
-        Sort -indirect any negative index
-    } -body {
-        set tcol [tarray::column create any {a A b B}]
-        tarray::column sort -indirect $tcol -nocase [tarray::column create int {-1 0 1 2}]
-    } -result {tarray index -1 out of bounds} -returnCodes error
+        test column_sort-$type-large-nocase-5.1 {
+            Sort presorted column {-increasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_presorted large $type {-increasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.2 {
+            Sort presorted column -decreasing -decreasing -nocase
+        } -body {
+            sort_verify_presorted small $type -decreasing -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.2.1 {
+            Sort presorted column {-decreasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_presorted small $type {-decreasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.2 {
+            Sort presorted column -decreasing -decreasing -nocase
+        } -body {
+            sort_verify_presorted large $type -decreasing -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.2.1 {
+            Sort presorted column {-decreasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_presorted large $type {-decreasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.3 {
+            Sort presorted column -decreasing -increasing  -nocase
+        } -body {
+            sort_verify_presorted small $type -decreasing -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.3.1 {
+            Sort presorted column {-decreasing -nocase} -increasing  -nocase
+        } -body {
+            sort_verify_presorted small $type {-decreasing -nocase} -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.3 {
+            Sort presorted column -decreasing -increasing  -nocase
+        } -body {
+            sort_verify_presorted large $type -decreasing -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.3.1 {
+            Sort presorted column {-decreasing -nocase} -increasing  -nocase
+        } -body {
+            sort_verify_presorted large $type {-decreasing -nocase} -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.4 {
+            Sort presorted column -indices -increasing -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type -increasing -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.4.1 {
+            Sort presorted column -indices {-increasing -nocase} -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type {-increasing -nocase} -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.4 {
+            Sort presorted column -indices -increasing -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type -increasing -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.4.1 {
+            Sort presorted column -indices {-increasing -nocase} -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type {-increasing -nocase} -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.5 {
+            Sort presorted column -indices -increasing -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type -increasing -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.5.1 {
+            Sort presorted column -indices {-increasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type {-increasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.5 {
+            Sort presorted column -indices -increasing -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type -increasing -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.5 {
+            Sort presorted column -indices {-increasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type {-increasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.6 {
+            Sort presorted column -indices -decreasing -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type -decreasing -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.6.1 {
+            Sort presorted column -indices {-decreasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type {-decreasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.6 {
+            Sort presorted column -indices -decreasing -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type -decreasing -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.6.1 {
+            Sort presorted column -indices {-decreasing -nocase} -decreasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type {-decreasing -nocase} -decreasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.7 {
+            Sort presorted column -indices -decreasing -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type -decreasing -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-nocase-5.7.1 {
+            Sort presorted column -indices {-decreasing -nocase} -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted small $type {-decreasing -nocase} -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.7 {
+            Sort presorted column -indices -decreasing -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type -decreasing -increasing -nocase
+        } -result 0
+
+        test column_sort-$type-large-nocase-5.7 {
+            Sort presorted column -indices {-decreasing -nocase} -increasing -nocase
+        } -body {
+            sort_verify_indices_presorted large $type {-decreasing -nocase} -increasing -nocase
+        } -result 0
+        
+        #
+        # Tests for -indirect
+        # We test that -indirect is in effect by testing order of elements
+        # that are equal in the second -nocase sort. They should be in the
+        # order of the indices array, not in the order of the original
+        # We do this for type "$type" using -nocase but how do we test
+        # similarly for other types ? TBD
+        test column_sort-$type-indirect-1.0 {
+            Sort -indirect $type
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            set indices [tarray::column sort -indices $tcol]
+            tarray::column sort -indirect $tcol -nocase $indices
+        } -result {tarray_column int {1 0 3 2}} -match column
+
+        test column_sort-$type-indirect-1.1 {
+            Sort -indirect -decreasing $type
+        } -body {
+            set tcol [tarray::column create $type {A a B b}]
+            set indices [tarray::column sort -indices -decreasing $tcol]
+            tarray::column sort -indirect $tcol -nocase -decreasing $indices
+        } -result {tarray_column int {3 2 1 0}} -match column
+
+        test column_sort-$type-indirect-1.2 {
+            Sort -indirect $type (partial)
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            set indices [tarray::column sort -indices $tcol]
+            tarray::column sort -indirect $tcol -nocase [tarray::column range $indices 0 2]
+        } -result {tarray_column int {1 0 3}} -match column
+
+        test column_sort-$type-indirect-1.3 {
+            Sort -indirect $type (empty)
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            tarray::column sort -indirect $tcol -nocase [tarray::column create int {}]
+        } -result {tarray_column int {}} -match column
+
+        test column_sort-$type-indirect-2.0 {
+            Sort -indirect missing argument
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            set indices [tarray::column sort -indices $tcol]
+            tarray::column sort -nocase -indirect $indices
+        } -result "Missing argument to -indirect option." -returnCodes error
+
+        test column_sort-$type-indirect-2.1 {
+            Sort -indirect wrong index type
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            tarray::column sort -indirect $tcol -nocase [tarray::column create byte {0 1 2 3}]
+        } -result "tarray is of the wrong type (byte)" -returnCodes error
+
+        test column_sort-$type-indirect-2.2 {
+            Sort -indirect $type bad index
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            tarray::column sort -indirect $tcol -nocase [tarray::column create int {0 1 2 4 3}]
+        } -result {tarray index 4 out of bounds} -returnCodes error
+
+        test column_sort-$type-indirect-2.3 {
+            Sort -indirect $type negative index
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            tarray::column sort -indirect $tcol -nocase [tarray::column create int {-1 0 1 2}]
+        } -result {tarray index -1 out of bounds} -returnCodes error
+    }
 
     #
     # Tests for multithreaded sorts
@@ -462,7 +786,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_shared $type
+                sort_verify_shared small $type
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -473,7 +797,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_unshared $type
+                sort_verify_unshared small $type
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -484,7 +808,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices $type
+                sort_verify_indices small $type
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -495,7 +819,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_shared $type -increasing
+                sort_verify_shared small $type -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -506,7 +830,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_unshared $type -increasing
+                sort_verify_unshared small $type -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -517,7 +841,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices $type -increasing -indices
+                sort_verify_indices small $type -increasing -indices
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -528,7 +852,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_shared $type -decreasing
+                sort_verify_shared small $type -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -539,7 +863,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_unshared $type -decreasing
+                sort_verify_unshared small $type -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -550,7 +874,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices $type -decreasing -indices
+                sort_verify_indices small $type -decreasing -indices
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -561,7 +885,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted $type -increasing -increasing
+                sort_verify_presorted small $type -increasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -572,7 +896,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted $type -increasing -decreasing
+                sort_verify_presorted small $type -increasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -583,7 +907,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted $type -decreasing -decreasing
+                sort_verify_presorted small $type -decreasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -594,7 +918,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted $type -decreasing -increasing
+                sort_verify_presorted small $type -decreasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -605,7 +929,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted $type -increasing -increasing
+                sort_verify_indices_presorted small $type -increasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -616,7 +940,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted $type -increasing -decreasing
+                sort_verify_indices_presorted small $type -increasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -627,7 +951,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted $type -decreasing -decreasing
+                sort_verify_indices_presorted small $type -decreasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -638,7 +962,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted $type -decreasing -increasing
+                sort_verify_indices_presorted small $type -decreasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
