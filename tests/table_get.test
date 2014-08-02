@@ -5,7 +5,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    proc test_table_get_indexlist_astable {indexlist {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_indexlist_astable {indexlist {types {any string boolean byte double int uint wide}}} {
         set got [tarray::table get -table [sampletable $types] $indexlist]
         if {[trequal $got [col_def $types] [samplerows $types $indexlist]]} {
             return ""
@@ -14,7 +14,7 @@ namespace eval tarray::test {
         }
     }
 
-    proc test_table_get_indices_astable {indexlist {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_indices_astable {indexlist {types {any string boolean byte double int uint wide}}} {
         set got [tarray::table get -table [sampletable $types] [indexcolumn $indexlist]]
         if {[trequal $got [col_def $types] [samplerows $types $indexlist]]} {
             return ""
@@ -23,7 +23,7 @@ namespace eval tarray::test {
         }
     }
 
-    proc test_table_get_indexlist_aslist {indexlist {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_indexlist_aslist {indexlist {types {any string boolean byte double int uint wide}}} {
         set got [tarray::table get -list [sampletable $types] $indexlist]
         if {[llequal $types [samplerows $types $indexlist] $got]} {
             return ""
@@ -32,7 +32,7 @@ namespace eval tarray::test {
         }
     }
 
-    proc test_table_get_indices_aslist {indexlist {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_indices_aslist {indexlist {types {any string boolean byte double int uint wide}}} {
         set got [tarray::table get -list [sampletable $types] [indexcolumn $indexlist]]
         if {[llequal $types [samplerows $types $indexlist] $got]} {
             return ""
@@ -43,7 +43,7 @@ namespace eval tarray::test {
 
 
     # Tests values passed as list returned as a list
-    proc test_table_get_indexlist_asdict {indexlist {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_indexlist_asdict {indexlist {types {any string boolean byte double int uint wide}}} {
         set result [tarray::table get -dict [sampletable $types] $indexlist]
         set expected_rows [samplerows $types $indexlist]
         # Dictionary key is index, row is value
@@ -60,7 +60,7 @@ namespace eval tarray::test {
     }
 
     # Tests values passed as list returned as a list
-    proc test_table_get_indices_asdict {indexlist {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_indices_asdict {indexlist {types {any string boolean byte double int uint wide}}} {
         set result [tarray::table get -dict [sampletable $types] [indexcolumn $indexlist]]
         set expected_rows [samplerows $types $indexlist]
         # Dictionary key is index, row is value
@@ -157,8 +157,8 @@ namespace eval tarray::test {
     test table_get-indexlist-astable-4.0 {
         Get indexlist verify -table is default 
     } -body {
-        tarray::table get -table [newtable {int any} {{0 a} {1 b}}] {1 0}
-    } -result [trep [list [crep int {1 0}] [crep any {b a}]]]
+        tarray::table get -table [newtable {int string} {{0 a} {1 b}}] {1 0}
+    } -result [trep [list [crep int {1 0}] [crep string {b a}]]]
 
 
     # get -list indexlist
@@ -295,8 +295,8 @@ namespace eval tarray::test {
     test table_get-indices-astable-1.0 {
         Get an empty index list from empty array
     } -body {
-        tarray::table get [newtable {int boolean any}] [indexcolumn {}]
-    } -result [trep [list [crep int] [crep boolean] [crep any]]]
+        tarray::table get [newtable {int boolean string}] [indexcolumn {}]
+    } -result [trep [list [crep int] [crep boolean] [crep string]]]
 
     test table_get-indices-astable-1.1 {
         Get the first element in empty array
@@ -478,10 +478,10 @@ namespace eval tarray::test {
         Verify getting all columns out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        trequal [tarray::table get -columns {2 col0 col1 3} $tab {3 1}] {col2 int col0 boolean col1 any col3 double} {{3 1 three 3.0} {1 1 one 1.0}}
+        trequal [tarray::table get -columns {2 col0 col1 3} $tab {3 1}] {col2 int col0 boolean col1 string col3 double} {{3 1 three 3.0} {1 1 one 1.0}}
     } -result 1
 
     test table_get-columnsopt-1.2 {
@@ -528,7 +528,7 @@ namespace eval tarray::test {
         Verify getting subset of columns out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table get -dict -columns {col3 1} $tab {4 0}
@@ -558,7 +558,7 @@ namespace eval tarray::test {
         Verify getting duplicate columns
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table get -columns {0 1 0} $tab {1 4}

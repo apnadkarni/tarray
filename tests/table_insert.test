@@ -14,21 +14,21 @@ namespace eval tarray::test {
     test table_insert-value-1.1 {
         Insert one element at end of empty table (unshared)
     } -body {
-        set types {any wide boolean }
+        set types {string wide boolean }
         tab_change_and_verify_u $types {} [samplerows $types 0 0] insert [samplerow $types] end 1
     } -result 0
 
     test table_insert-value-2.0 {
         Insert one element at start of table (shared)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types end end 0 100] insert [samplerow $types end] 0 1
     } -result 0
 
     test table_insert-value-2.1 {
         Insert multiple element at start of table (unshared)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types [samplerows $types 0 100] [concat [listrepeat 10 [samplerow $types end]] [samplerows $types 0 100]] insert [samplerow $types end] 0 10
     } -result 0
 
@@ -49,7 +49,7 @@ namespace eval tarray::test {
     test table_insert-value-2.4 {
         Insert multiple element in middle (unshared)
     } -body {
-        set types {any boolean uint}
+        set types {string boolean uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [concat  [samplerows $types 0 49 ] [listrepeat 10 [samplerow $types end]] [samplerows $types 50 100]] insert [samplerow $types end] 50 10
     } -result 0
 
@@ -63,14 +63,14 @@ namespace eval tarray::test {
     test table_insert-value-2.6 {
         Insert elements after last element (shared)
     } -body {
-        set types {any boolean uint}
+        set types {string boolean uint}
         tab_change_and_verify $types [samplerows $types 0 100] [concat  [samplerows $types 0 100] [listrepeat 10 [samplerow $types 0]]] insert [samplerow $types 0] 101 10
     } -result 0
 
     test table_insert-value-3.0 {
         Insert zero elements (unshared)
     } -body {
-        set types {any boolean uint}
+        set types {string boolean uint}
         tab_change_and_verify_u $types [samplerows $types] [samplerows $types] insert [samplerow $types 0] 10 0
     } -result 0
 
@@ -91,7 +91,7 @@ namespace eval tarray::test {
     test table_insert-value-3.3 {
         Insert elements at out of bounds index (unshared)
     } -body {
-        set types {any boolean uint}
+        set types {string boolean uint}
         tab_change_and_verify_u $types [samplerows $types 0 10] [samplerows $types 0 10] insert [samplerow $types end] 12 1
     } -result "*index 12*out of bounds*" -match glob -returnCodes error
 
@@ -106,7 +106,7 @@ namespace eval tarray::test {
     test table_insert-list-1.1 {
         Insert single element list at end of empty table (unshared)
     } -body { 
-        set types {boolean any int wide}
+        set types {boolean string int wide}
         tab_change_and_verify_u $types {} [samplerows $types 0 0] insert [samplerows $types 0 0] end
     } -result 0
 
@@ -120,84 +120,84 @@ namespace eval tarray::test {
     test table_insert-list-2.0 {
         Insert multiple element at start of table (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] insert [samplerows $types 11 15] 0
     } -result 0
 
     test table_insert-list-2.1 {
         Insert multiple element at start of table (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] insert [samplerows $types 11 15] 0
     } -result 0
 
     test table_insert-list-2.2 {
         Insert multiple element at end of table (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 11 15] insert [samplerows $types 11 15] end
     } -result 0
 
     test table_insert-list-2.3 {
         Insert multiple element at penultimate position (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 99 11 15 100 100] insert [samplerows $types 11 15] 100
     } -result 0
 
     test table_insert-list-2.4 {
         Insert multiple elements in middle (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 50 11 15 51 100] insert [samplerows $types 11 15] 51
     } -result 0
 
     test table_insert-list-2.5 {
         Insert elements in middle of column (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 9 0 9 10 100] insert [samplerows $types 0 9] 10
     } -result 0
 
     test table_insert-list-2.6 {
         Insert multiple elements in middle extending column (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 94 10 19 95 100] insert [samplerows $types 10 19] 95
     } -result 0
 
     test table_insert-list-2.7 {
         Insert multiple elements in middle extending column (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 0 100 95 100] insert [samplerows $types 0 100] 95
     } -result 0
 
     test table_insert-list-2.8 {
         Insert elements after last element (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 0 100] insert [samplerows $types 0 100] 101
     } -result 0
 
     test table_insert-list-3.0 {
         Insert zero elements (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types] [samplerows $types] insert {} 100
     } -result 0
 
     test table_insert-list-3.1 {
         Insert elements at negative index (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types] [samplerows $types] insert [samplerows $types 0 1] -1
     } -result "*index -1*out of bounds*" -match glob -returnCodes error
 
     test table_insert-list-3.2 {
         Insert elements at out of bounds index (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 100] insert [samplerows $types 0 1] 102
     } -result "*index 102*out of bounds*" -match glob -returnCodes error
 
@@ -219,91 +219,91 @@ namespace eval tarray::test {
     test table_insert-table-1.2 {
         Insert table at start of empty column (shared)
     } -body {
-        set types {boolean any int wide}
+        set types {boolean string int wide}
         tab_change_and_verify $types {} [samplerows $types 0 1] insert [sampletable $types 0 1] 0
     } -result 0
 
     test table_insert-table-2.0 {
         Insert multiple element at start of table (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] insert [sampletable $types 11 15] 0
     } -result 0
 
     test table_insert-table-2.1 {
         Insert multiple element at start of table (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] insert [sampletable $types 11 15] 0
     } -result 0
 
     test table_insert-table-2.2 {
         Insert multiple element at end of table (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 11 15] insert [sampletable $types 11 15] end
     } -result 0
 
     test table_insert-table-2.3 {
         Insert multiple element at penultimate position (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 99 11 15 100 100] insert [sampletable $types 11 15] 100
     } -result 0
 
     test table_insert-table-2.4 {
         Insert multiple elements in middle (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 50 11 15 51 100] insert [sampletable $types 11 15] 51
     } -result 0
 
     test table_insert-table-2.5 {
         Insert elements in middle of column (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 9 0 9 10 100] insert [sampletable $types 0 9] 10
     } -result 0
 
     test table_insert-table-2.6 {
         Insert multiple elements in middle extending column (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 94 10 19 95 100] insert [sampletable $types 10 19] 95
     } -result 0
 
     test table_insert-table-2.7 {
         Insert multiple elements in middle extending column (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 0 100 95 100] insert [sampletable $types 0 100] 95
     } -result 0
 
     test table_insert-table-2.8 {
         Insert elements after last element (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 0 100] insert [sampletable $types 0 100] 101
     } -result 0
 
     test table_insert-table-3.0 {
         Insert zero elements (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types] [samplerows $types] insert [newtable $types {}] 100
     } -result 0
 
     test table_insert-table-3.1 {
         Insert elements at negative index (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify $types [samplerows $types] [samplerows $types] insert [sampletable $types 0 1] -1
     } -result "*index -1*out of bounds*" -match glob -returnCodes error
 
     test table_insert-table-3.2 {
         Insert elements at out of bounds index (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 100] insert [sampletable $types 0 1] 102
     } -result "*index 102*out of bounds*" -match glob -returnCodes error
 
@@ -336,7 +336,7 @@ namespace eval tarray::test {
         Verify insert list, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table insert -columns {1 col0 3 col2} $tab [list {ninetynine 1 99.0 99} {hundred 0 100.0 100}] 1]
@@ -369,7 +369,7 @@ namespace eval tarray::test {
         Verify insert subset columns
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table insert -columns {col1 2} $tab {ninetynine 99} 0 1
@@ -389,7 +389,7 @@ namespace eval tarray::test {
         Verify inserting non-existent column position
     } -body {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
         tarray::table insert -columns {col0 col1 col2 col3 5} $tab {0 0 0 0 0} 0
     } -result "Column index '5' out of bounds." -returnCodes error
@@ -408,7 +408,7 @@ namespace eval tarray::test {
         Verify inserting duplicate column names
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table insert -columns {col0 col1 col2 col1} $tab {0 0 0 0} 0 1
@@ -418,7 +418,7 @@ namespace eval tarray::test {
         Verify filling duplicate column positions
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table insert -columns {col0 col1 col2 col3 col1} $tab {{0 0 0 0 0}} 0
@@ -458,7 +458,7 @@ namespace eval tarray::test {
         Verify inserting negative column position
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table insert -columns {0 1 2 -1} $tab {0 0 0 0} end

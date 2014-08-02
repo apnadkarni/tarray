@@ -96,14 +96,14 @@ namespace eval tarray::test {
     test table_place-list-indexlist-1.0 {
         Fill an empty table with a single element (shared)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type {0}
     } -result 0
 
     test table_place-list-indexlist-1.1 {
         Fill empty column with a single element (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type {0}
     } -result 0
 
@@ -117,35 +117,35 @@ namespace eval tarray::test {
     test table_place-list-indexlist-2.1 {
         Test storing of leading elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [lsort -integer -decreasing [indices 0 50]]
     } -result 0 
 
     test table_place-list-indexlist-2.2 {
         Test storing of leading elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type {3 1 2 0} [samplerows $type 0 31]
     } -result 0
 
     test table_place-list-indexlist-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type {100 101 102 103} [samplerows $type 0 103]
     } -result 0 
 
     test table_place-list-indexlist-2.4 {
         Test storing of trailing elements reverse order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type {128 127 126 125} [samplerows $type 0 128]
     } -result 0 
 
     test table_place-list-indexlist-2.5 {
         Test storing of trailing elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type {31 28 30 29} [samplerows $type 0 31]
     } -result 0
 
@@ -165,7 +165,7 @@ namespace eval tarray::test {
     test table_place-list-indexlist-2.8 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type {128 127 1 0}
     } -result 0 
 
@@ -179,35 +179,35 @@ namespace eval tarray::test {
     test table_place-list-indexlist-2.10 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type {60 16 100 15}
     } -result 0
 
     test table_place-list-indexlist-2.11 {
         Test extending (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type {34 1 10 33 32} [samplerows $type 0 31]
     } -result 0
 
     test table_place-list-indexlist-2.12 {
         Test extending single element (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type {32} [samplerows $type 0 31]
     } -result 0
 
     test table_place-list-indexlist-3.0 {
         Test gap in indices
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [samplerows $type 0 2] {12 13}
     } -result {*index 12 out of bounds*} -returnCodes error -match glob
 
     test table_place-list-indexlist-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [samplerows $type 0 2] {-1}
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
@@ -220,13 +220,13 @@ namespace eval tarray::test {
     test table_place-list-indexlist-3.3 {
         Test invalid values
     } -body {
-        set type {any boolean byte double int uint wide}
-        tarray::table place [sampletable $type 0 10] {{anyvalue 1 256 0 0 0 0}} {0}
+        set type {any string boolean byte double int uint wide}
+        tarray::table place [sampletable $type 0 10] {{anyvalue anyvalue 1 256 0 0 0 0}} {0}
     } -result {Value '256' not valid for type byte.} -returnCodes error -match glob
     test table_place-list-indexlist-3.4 {
         Test invalid values (row of different widths)
     } -body {
-        set type {any double int uint wide}
+        set type {string double int uint wide}
         tarray::table place [sampletable $type 0 10] {{anyvalue 1.0 0 0}} {0}
     } -result {*width 4 less than**} -returnCodes error -match glob
 
@@ -236,56 +236,56 @@ namespace eval tarray::test {
     test table_place-list-indices-1.0 {
         Fill an empty table with a single element (shared)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [indexcolumn 0]
     } -result 0
         
     test table_place-list-indices-1.1 {
         Fill empty column with a single element (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type [indexcolumn 0]
     } -result 0
 
     test table_place-list-indices-2.0 {
         Test storing of leading elements (shared tclobj)
     } -body {
-        set type {uint wide boolean any}
+        set type {uint wide boolean string}
         tplacetest_valuelist $type [indices 0 100]
     } -result 0 
 
     test table_place-list-indices-2.1 {
         Test storing of leading elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [lsort -integer -decreasing [indices 0 50]]
     } -result 0 
 
     test table_place-list-indices-2.2 {
         Test storing of leading elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type [indexcolumn {3 1 2 0}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-list-indices-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [indexcolumn {100 101 102 103}] [samplerows $type 0 103]
     } -result 0 
 
     test table_place-list-indices-2.4 {
         Test storing of trailing elements reverse order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type [indexcolumn {128 127 126 125}] [samplerows $type 0 128]
     } -result 0 
 
     test table_place-list-indices-2.5 {
         Test storing of trailing elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type [indexcolumn {31 28 30 29}] [samplerows $type 0 31]
     } -result 0
 
@@ -305,7 +305,7 @@ namespace eval tarray::test {
     test table_place-list-indices-2.8 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [indexcolumn {128 127 1 0}]
     } -result 0 
 
@@ -319,43 +319,43 @@ namespace eval tarray::test {
     test table_place-list-indices-2.10 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [indexcolumn {60 16 100 15}]
     } -result 0
 
     test table_place-list-indices-2.11 {
         Test extending (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist_u $type [indexcolumn {34 1 10 33 32}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-list-indices-2.12 {
         Test extending single element (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuelist $type [indexcolumn {32}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-list-indices-3.0 {
         Test gap in indices
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [samplerows $type 0 2] [indexcolumn {12 13}]
     } -result {*index 12 out of bounds*} -returnCodes error -match glob
 
     test table_place-list-indices-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [samplerows $type 0 2] {-1}
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
     test table_place-list-indices-3.3 {
         Test invalid values
     } -body {
-        set type {any boolean byte double int uint wide}
-        tarray::table place [sampletable $type 0 10] {{anyvalue 1 256 0 0 0 0}} [indexcolumn {0}]
+        set type {any string boolean byte double int uint wide}
+        tarray::table place [sampletable $type 0 10] {{anyvalue stringvalue 1 256 0 0 0 0}} [indexcolumn {0}]
     } -result {Value '256' not valid for type byte.} -returnCodes error -match glob
     test table_place-list-indexlist-3.4 {
         Test invalid values (row of different widths)
@@ -376,49 +376,49 @@ namespace eval tarray::test {
     test table_place-column-indexlist-1.1 {
         Fill empty column with a single element (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type {0}
     } -result 0
 
     test table_place-column-indexlist-2.0 {
         Test storing of leading elements (shared tclobj)
     } -body {
-        set type {uint wide boolean any}
+        set type {uint wide boolean string}
         tplacetest_valuetable $type [indices 0 100]
     } -result 0 
 
     test table_place-column-indexlist-2.1 {
         Test storing of leading elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [lsort -integer -decreasing [indices 0 50]]
     } -result 0 
 
     test table_place-column-indexlist-2.2 {
         Test storing of leading elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type {3 1 2 0} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type {100 101 102 103} [samplerows $type 0 103]
     } -result 0 
 
     test table_place-column-indexlist-2.4 {
         Test storing of trailing elements reverse order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type {128 127 126 125} [samplerows $type 0 128]
     } -result 0 
 
     test table_place-column-indexlist-2.5 {
         Test storing of trailing elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type {31 28 30 29} [samplerows $type 0 31]
     } -result 0
 
@@ -438,7 +438,7 @@ namespace eval tarray::test {
     test table_place-column-indexlist-2.8 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type {128 127 1 0}
     } -result 0 
 
@@ -452,42 +452,42 @@ namespace eval tarray::test {
     test table_place-column-indexlist-2.10 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type {60 16 100 15}
     } -result 0
 
     test table_place-column-indexlist-2.11 {
         Test extending (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type {34 1 10 33 32} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-2.12 {
         Test extending single element (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type {32} [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indexlist-3.0 {
         Test gap in indices
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable $type 0 2] {12 13}
     } -result {*index 12 out of bounds*} -returnCodes error -match glob
 
     test table_place-column-indexlist-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable $type 0 2] {-1}
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
     test table_place-column-indexlist-3.2 {
         Test use of index end
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable $type 0 2] {end}
     } -result {*expected integer*} -returnCodes error -match glob
 
@@ -501,21 +501,21 @@ namespace eval tarray::test {
     test table_place-column-indexlist-3.4 {
         Test invalid values (table of different widths)
     } -body {
-        set type {any double int uint wide}
-        tarray::table place [sampletable $type 0 10] [sampletable {any double int uint}] {0}
+        set type {string double int uint wide}
+        tarray::table place [sampletable $type 0 10] [sampletable {string double int uint}] {0}
     } -result {*width 4 less than**} -returnCodes error -match glob
 
     test table_place-column-indices-1.0 {
         Fill an empty table with a single element (shared)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [indexcolumn 0]
     } -result 0
         
     test table_place-column-indices-1.1 {
         Fill empty column with a single element (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type [indexcolumn 0]
     } -result 0
 
@@ -529,35 +529,35 @@ namespace eval tarray::test {
     test table_place-column-indices-2.1 {
         Test storing of leading elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [lsort -integer -decreasing [indices 0 50]]
     } -result 0 
 
     test table_place-column-indices-2.2 {
         Test storing of leading elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type [indexcolumn {3 1 2 0}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [indexcolumn {100 101 102 103}] [samplerows $type 0 103]
     } -result 0 
 
     test table_place-column-indices-2.4 {
         Test storing of trailing elements reverse order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type [indexcolumn {128 127 126 125}] [samplerows $type 0 128]
     } -result 0 
 
     test table_place-column-indices-2.5 {
         Test storing of trailing elements random order (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type [indexcolumn {31 28 30 29}] [samplerows $type 0 31]
     } -result 0
 
@@ -577,7 +577,7 @@ namespace eval tarray::test {
     test table_place-column-indices-2.8 {
         Test storing of middle elements reverse order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [indexcolumn {128 127 1 0}]
     } -result 0 
 
@@ -591,44 +591,44 @@ namespace eval tarray::test {
     test table_place-column-indices-2.10 {
         Test storing of middle elements random order (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [indexcolumn {60 16 100 15}]
     } -result 0
 
     test table_place-column-indices-2.11 {
         Test extending (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable_u $type [indexcolumn {34 1 10 33 32}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-2.12 {
         Test extending single element (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tplacetest_valuetable $type [indexcolumn {32}] [samplerows $type 0 31]
     } -result 0
 
     test table_place-column-indices-3.0 {
         Test gap in indices
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable $type 0 2] [indexcolumn 12 13]
     } -result {*index 12 out of bounds*} -returnCodes error -match glob
 
     test table_place-column-indices-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable $type 0 2] [indexcolumn -1]
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
     test table_place-column-indices-3.2 {
         Test invalid values (table of different type)
     } -body {
-        set type {any double int uint wide}
+        set type {string double int uint wide}
         tarray::table place [sampletable $type 0 10] [sampletable {int double uint wide byte}] [indexcolumn 0]
-    } -result {*types any and int are not compatible*} -returnCodes error -match glob
+    } -result {*types string and int are not compatible*} -returnCodes error -match glob
 
     test table_place-column-indices-3.4 {
         Test invalid values (table of different widths)
@@ -666,7 +666,7 @@ namespace eval tarray::test {
         Verify placing range, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table place -columns {1 col0 3 col2} $tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}}  {1 0}]
@@ -677,7 +677,7 @@ namespace eval tarray::test {
         Verify growing table, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table place -columns {1 col0 3 col2} $tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}} [tarray::column create int {6 5}]]
@@ -719,7 +719,7 @@ namespace eval tarray::test {
         Verify placing subset columns unordered, discrete indices
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table place -columns {3 col0} $tab {{99.0 0} {100.0 1}} {1 2}]
@@ -741,7 +741,7 @@ namespace eval tarray::test {
         Verify placing subset columns unordered from table, discrete indices
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table place -columns {3 col0} $tab [tarray::table create {f0 double f1 boolean} {{99.0 0} {100.0 1}}] {1 2}]
@@ -803,7 +803,7 @@ namespace eval tarray::test {
         Verify placing duplicate column positions
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table place -columns {col2 col3 2} $tab {{0 0 0}} {0 1 2}

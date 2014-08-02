@@ -22,8 +22,8 @@ namespace eval tarray::test {
     test table_index-2.0 {
         Get the first element
     } -body {
-        tarray::table index [sampletable {boolean any int}] 0
-    } -result [samplerow {boolean any int} 0]
+        tarray::table index [sampletable {boolean string int}] 0
+    } -result [samplerow {boolean string int} 0]
 
     test table_index-2.1 {
         Get end element
@@ -34,8 +34,8 @@ namespace eval tarray::test {
     test table_index-2.2 {
         Get random element
     } -body {
-        tarray::table index [sampletable {any boolean byte double int uint wide}] 31
-    } -result [samplerow {any boolean byte double int uint wide} 31]
+        tarray::table index [sampletable {any string boolean byte double int uint wide}] 31
+    } -result [samplerow {any string boolean byte double int uint wide} 31]
 
     test table_index-2.3 {
         Get random element

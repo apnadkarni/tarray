@@ -31,7 +31,7 @@ namespace eval tarray::test {
     test table_delete-index-2.0 {
         Test deletion of last element (shared tclobj)
     } -body {
-        set types {uint int any}
+        set types {uint int string}
         tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 8] delete end
     } -result 0
 
@@ -47,7 +47,7 @@ namespace eval tarray::test {
         test table_delete-index-3.[incr n] {
             Test deletion of intermediate element (shared tclobj)
         } -body {
-            set types {any boolean byte double int uint wide}
+            set types {any string boolean byte double int uint wide}
             tab_change_and_verify $types \
                 [samplerows $types 0 255] \
                 [samplerows $types 0 [expr {$i-1}] [expr {$i+1}] 255] \
@@ -57,7 +57,7 @@ namespace eval tarray::test {
         test table_delete-index-3.[incr n] {
             Test deletion of intermediate element (unshared tclobj)
         } -body {
-            set types {any boolean byte double int uint wide}
+            set types {any string boolean byte double int uint wide}
             tab_change_and_verify_u $types \
                 [samplerows $types 0 256] \
                 [samplerows $types 0 [expr {$i-1}] [expr {$i+1}] 256] \
@@ -82,7 +82,7 @@ namespace eval tarray::test {
     test table_delete-index-5.2 {
         Test deletion of out-of-range index
     } -body {
-        set types {any any}
+        set types {any string}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] delete -1
     } -result 0
 
@@ -103,7 +103,7 @@ namespace eval tarray::test {
     test table_delete-index-6.1 {
         Test deletion of element from single element grid (unshared)
     } -body {
-        set types {boolean int any}
+        set types {boolean int string}
         tab_change_and_verify_u $types [samplerows $types 0 0] [samplerows $types 0 -1] delete 0
     } -result 0
 
@@ -135,7 +135,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-1.0 {
         Test deletion of leading elements (shared tclobj)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] delete [list 0 1 2]
     } -result 0 
 
@@ -191,7 +191,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-3.0 {
         Test deletion of intermediate (shared tclobj, ordered)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -201,7 +201,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-3.1 {
         Test deletion of intermediate (unshared tclobj, reverse order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify_u $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 254] \
@@ -211,7 +211,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-3.2 {
         Test deletion of intermediate (shared tclobj, random order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -235,7 +235,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-4.2 {
         Test deletion of out-of-range (shared, random indices)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types \
             [samplerows $types 0 100] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 100] \
@@ -245,7 +245,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-5.0 {
         Test deletion of invalid syntax indices
     } -body {
-        set types {int any}
+        set types {int string}
         tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 1 9] delete {1 notinteger 63}
     } -returnCodes error -match glob -result "expected integer but got \"notinteger\""
 
@@ -280,7 +280,7 @@ namespace eval tarray::test {
     test table_delete-indexlist-6.4 {
         Test deletion of all indices from table (shared, random order, dups)
     } -body {
-        set types {uint boolean any}
+        set types {uint boolean string}
         tab_change_and_verify_u $types [samplerows $types 0 10] [samplerows $types 0 -1] delete [list 9 8 9 10 3 6 4 0 7 5 2 1 1 0 10]
     } -result 0
 
@@ -324,7 +324,7 @@ namespace eval tarray::test {
     test table_delete-indices-1.3 {
         Test deletion of leading elements (unshared tclobj, reverse order)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify_u $types [samplerows $types 0 99] [samplerows $types 5 99] delete [indexcolumn 4 3 3 2 1 0]
     } -result 0
 
@@ -352,14 +352,14 @@ namespace eval tarray::test {
     test table_delete-indices-2.3 {
         Test deletion of trailing elements (unshared tclobj, reverse order)
     } -body {
-        set types {wide any double}
+        set types {wide string double}
         tab_change_and_verify_u $types [samplerows $types 0 100] [samplerows $types 0 95] delete [indexcolumn 100 99 98 97 96]
     } -result 0
 
     test table_delete-indices-3.0 {
         Test deletion of intermediate (shared tclobj, ordered)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -369,7 +369,7 @@ namespace eval tarray::test {
     test table_delete-indices-3.1 {
         Test deletion of intermediate (unshared tclobj, reverse order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify_u $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 254] \
@@ -379,7 +379,7 @@ namespace eval tarray::test {
     test table_delete-indices-3.2 {
         Test deletion of intermediate (shared tclobj, random order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -403,7 +403,7 @@ namespace eval tarray::test {
     test table_delete-indices-4.2 {
         Test deletion of out-of-range (shared, random indices)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         tab_change_and_verify $types \
             [samplerows $types 0 100] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 100] \
@@ -420,7 +420,7 @@ namespace eval tarray::test {
     test table_delete-indices-6.0 {
         Test deletion of all indices from table (unshared, reverse)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify_u $types [samplerows $types 0 10] [samplerows $types 0 -1] delete [indexcolumn 10 9 8 7 6 5 4 3 2 1 0]
     } -result 0
 
@@ -465,7 +465,7 @@ namespace eval tarray::test {
     test table_delete-range-1.1 {
         Test deletion of leading elements (unshared tclobj)
     } -body {
-        set types {wide any double}
+        set types {wide string double}
         tab_change_and_verify_u $types [samplerows $types 0 99] [samplerows $types 99 99] delete 0 98
     } -result 0
 
@@ -479,7 +479,7 @@ namespace eval tarray::test {
     test table_delete-range-2.1 {
         Test deletion of trailing elements (unshared tclobj, using end)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify_u $types [samplerows $types 0 99] [samplerows $types 0 49] delete 50 end
     } -result 0
 
@@ -500,7 +500,7 @@ namespace eval tarray::test {
     test table_delete-range-4.0 {
         Test deletion of out-of-range (unshared)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] delete 100 110
     } -result 0
 
@@ -528,7 +528,7 @@ namespace eval tarray::test {
     test table_delete-range-4.4 {
         Test deletion of reversed range limits
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] delete 60 40
     } -result 0
 
@@ -549,7 +549,7 @@ namespace eval tarray::test {
     test table_delete-range-6.0 {
         Test deletion of all indices from column (shared)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 -1] delete 0 99
     } -result 0
 
@@ -570,7 +570,7 @@ namespace eval tarray::test {
     test table_delete-range-8.0 {
         Delete single element range (shared, leading)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 1 99] delete 0 0 
     } -result 0
 
