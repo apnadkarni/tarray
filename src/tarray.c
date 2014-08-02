@@ -3032,7 +3032,7 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
     TA_ASSERT(count > 0);
     TA_ASSERT((start + count) <= thdr->used);
 
-    if (thdr->type != TA_ANY)
+    if (thdr->type != TA_ANY && thdr->type != TA_STRING)
         ignore_case = 0;        /* Allows us to combine some sorted checks */
 
     if ((SORT_ORDER_IS_NOCASE(thdr->sort_order) && ignore_case) ||
@@ -3062,16 +3062,16 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
     if (thdr->type == TA_BOOLEAN) {
         int min_index, max_index;
         ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-        min_index = ba_find(baP, 0, start, thdr->used);
-        max_index = ba_find(baP, 1, start, thdr->used);
+        min_index = ba_find(baP, 0, start, start+count);
+        max_index = ba_find(baP, 1, start, start+count);
         if (min_index < 0)
             min_index = 0;      /* No 0's so first element (1) is the min */
         if (max_index < 0)
             max_index = 0;      /* No 0's so first element (1) is the min */
         *min_indexP = min_index;
-        *max_indexP = max_index;
         if (ppomin)
             *ppomin = Tcl_NewBooleanObj(ba_get(baP, min_index));
+        *max_indexP = max_index;
         if (ppomax)
             *ppomax = Tcl_NewBooleanObj(ba_get(baP, max_index));
         return;
@@ -3107,8 +3107,8 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
         ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
         ta_mt_group_release(grp);
         /* We will need to see if which thread had smaller/greater value */
-        min_grp = (ta_value_compare(&mt_context[0].min_value, &mt_context[1].min_value, ignore_case) <= 0);
-        max_grp = (ta_value_compare(&mt_context[0].max_value, &mt_context[1].max_value, ignore_case) >= 0);
+        min_grp = (ta_value_compare(&mt_context[0].min_value, &mt_context[1].min_value, ignore_case) > 0);
+        max_grp = (ta_value_compare(&mt_context[0].max_value, &mt_context[1].max_value, ignore_case) < 0);
     }
 
 #else /* not TA_MT_ENABLE */
