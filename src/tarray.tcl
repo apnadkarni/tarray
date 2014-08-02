@@ -98,7 +98,7 @@ proc tarray::unsupported::lrandom {type count} {
         any {
             time {
                 set n [expr {round(100*rand())}]
-                lappend l [string repeat $n $n]
+                lappend l $type[string repeat $n $n]
             } $count
         }
         default {error "Unknown type $type"}
