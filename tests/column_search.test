@@ -5787,8 +5787,4 @@ namespace eval tarray::test {
     
 }
 
-
-
-
-
 ::tcltest::cleanupTests
