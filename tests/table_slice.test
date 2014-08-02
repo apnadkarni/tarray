@@ -13,12 +13,12 @@ namespace eval tarray::test {
     test table_slice-1.1 {
         Slice all
     } -body {
-        set tab [tarray::table slice [sampletable {boolean int any} 0 100] {0 1 2}]
+        set tab [tarray::table slice [sampletable {boolean int string} 0 100] {0 1 2}]
         list \
             [tarray::table width $tab] \
             [cequal [tarray::table column $tab 0] [samplecolumn boolean 0 100]] \
             [cequal [tarray::table column $tab 1] [samplecolumn int 0 100]] \
-            [cequal [tarray::table column $tab 2] [samplecolumn any 0 100]]
+            [cequal [tarray::table column $tab 2] [samplecolumn string 0 100]]
     } -result {3 1 1 1}
 
     test table_slice-1.2 {
@@ -44,12 +44,12 @@ namespace eval tarray::test {
     test table_slice-1.4 {
         Slice all
     } -body {
-        set tab [tarray::table slice [sampletable {boolean int any} 0 100] {col0 col1 col2}]
+        set tab [tarray::table slice [sampletable {boolean int string} 0 100] {col0 col1 col2}]
         list \
             [tarray::table width $tab] \
             [cequal [tarray::table column $tab 0] [samplecolumn boolean 0 100]] \
             [cequal [tarray::table column $tab 1] [samplecolumn int 0 100]] \
-            [cequal [tarray::table column $tab 2] [samplecolumn any 0 100]]
+            [cequal [tarray::table column $tab 2] [samplecolumn string 0 100]]
     } -result {3 1 1 1}
 
     test table_slice-1.5 {

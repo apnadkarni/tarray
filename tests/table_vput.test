@@ -56,14 +56,14 @@ namespace eval tarray::test {
     test table_vput-list-1.0 {
         Vput a single value into an empty table
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 1 0 {}
     } -result 0
         
     test table_vput-list-2.0 {
         Test storing of leading elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 100 0
     } -result 0 
 
@@ -77,49 +77,49 @@ namespace eval tarray::test {
     test table_vput-list-2.2 {
         Test storing of trailing elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 10 63 [samplerows $type 0 63]
     } -result 0 
 
     test table_vput-list-2.3 {
         Test storing of trailing elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 10 64 [samplerows $type 0 63]
     } -result 0 
 
     test table_vput-list-2.4 {
         Test storing of trailing elements (default end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 1
     } -result 0 
 
     test table_vput-list-2.5 {
         Test storing of trailing elements (specified end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 20 end
     } -result 0 
 
     test table_vput-list-2.6 {
         Test storing of middle elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 10 127
     } -result 0 
 
     test table_vput-list-2.7 {
         Test storing of middle elements (extend length)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuelist $type 500 400 [samplerows $type 0 450]
     } -result 0 
 
     test table_vput-list-3.0 {
         Test out of bound index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vput ta [samplerows $type 0 2] 12
         } -result {*index 12 out of bounds*} -returnCodes error -match glob
@@ -127,7 +127,7 @@ namespace eval tarray::test {
     test table_vput-list-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vput ta [samplerows $type 0 2] -1
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
@@ -135,18 +135,18 @@ namespace eval tarray::test {
     test table_vput-list-3.2 {
         Test invalid values
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
-        tarray::table vput ta {{anyvalue 0 0 0 0 1.0 0}} 0
+        tarray::table vput ta {{anyvalue stringvalue 0 0 0 0 1.0 0}} 0
     } -result {*expected*but got*} -returnCodes error -match glob
 
     test table_vput-list-3.3 {
         Test invalid values (wrong table width)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
-        tarray::table vput ta {{anyvalue 0 0 0 0 0}} 0
-    } -result {*width 6 less than*} -returnCodes error -match glob
+        tarray::table vput ta {{anyvalue stringvalue 0 0 0 0 0}} 0
+    } -result {*width 7 less than*} -returnCodes error -match glob
 
     #
     # table vput valuecolumn pos
@@ -154,14 +154,14 @@ namespace eval tarray::test {
     test table_vput-table-1.0 {
         Vput a single value into an empty table
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 1 0 {}
     } -result 0
         
     test table_vput-table-2.0 {
         Test storing of leading elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 100 0
     } -result 0 
 
@@ -175,49 +175,49 @@ namespace eval tarray::test {
     test table_vput-table-2.2 {
         Test storing of trailing elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 10 63 [samplerows $type 0 63]
     } -result 0 
 
     test table_vput-table-2.3 {
         Test storing of trailing elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 10 64 [samplerows $type 0 63]
     } -result 0 
 
     test table_vput-table-2.4 {
         Test storing of trailing elements (default end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 1
     } -result 0 
 
     test table_vput-table-2.5 {
         Test storing of trailing elements (specified end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 20 end
     } -result 0 
 
     test table_vput-table-2.6 {
         Test storing of middle elements
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 10 127
     } -result 0 
 
     test table_vput-table-2.7 {
         Test storing of middle elements (shared tclobj, extend length)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tvputtest_valuetable $type 500 400 [samplerows $type 0 450]
     } -result 0 
 
     test table_vput-table-3.0 {
         Test out of bound index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vput ta [sampletable $type 0 2] 12
         } -result {*index 12 out of bounds*} -returnCodes error -match glob
@@ -225,7 +225,7 @@ namespace eval tarray::test {
     test table_vput-table-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vput ta [sampletable $type 0 2] -1
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
@@ -241,10 +241,10 @@ namespace eval tarray::test {
     test table_vput-table-3.3 {
         Test invalid values (wrong table width)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         set ta [sampletable $type 0 10]
-        tarray::table vput ta [sampletable {any boolean byte double int uint}] 0
-    } -result {*width 6 less than*} -returnCodes error -match glob
+        tarray::table vput ta [sampletable {any string boolean byte double int uint}] 0
+    } -result {*width 7 less than*} -returnCodes error -match glob
 
     #
     # Verify string rep regeneration
@@ -277,7 +277,7 @@ namespace eval tarray::test {
         Verify putting range, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vput -columns {1 col0 3 col2} tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}}  0
@@ -288,7 +288,7 @@ namespace eval tarray::test {
         Verify growing table, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vput -columns {1 col0 3 col2} tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}} 5
@@ -341,7 +341,7 @@ namespace eval tarray::test {
         Verify putting subset columns unordered, discrete indices
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vput -columns {3 col0} tab {{99.0 0} {100.0 1}} 1

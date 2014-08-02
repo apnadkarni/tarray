@@ -14,14 +14,14 @@ namespace eval tarray::test {
     test table_vreverse-1.1 {
         Vreverse a one element table
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean string any int wide double byte uint}
         vtab_change_and_verify $types [samplerows $types 0 0] [samplerows $types 0 0] vreverse
     } -result 0
 
     test table_vreverse-2.0 {
         Vreverse a table
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean string any int wide double byte uint}
         vtab_change_and_verify $types [samplerows $types] [lreverse [samplerows $types]] vreverse
     } -result 0
 

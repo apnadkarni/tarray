@@ -406,7 +406,7 @@ namespace eval tarray::test {
     test table_fill-range-2.3 {
         Test filling of entire array (unshared)
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types]
         tab_change_and_verify_u $types $rows [listrepeat [llength $rows] [samplerow $types]] fill [samplerow $types] 0 end
     } -result 0
@@ -440,7 +440,7 @@ namespace eval tarray::test {
     test table_fill-range-4.0 {
         Test filling beyond last (unshared)
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types 0 100]
         tab_change_and_verify_u $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] fill [samplerow $types] 101 200
     } -result 0
@@ -448,7 +448,7 @@ namespace eval tarray::test {
     test table_fill-range-4.1 {
         Test filling beyond last (shared)
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types 0 100]
         tab_change_and_verify $types [samplerows $types 0 100] [concat [samplerows $types 0 50] [listrepeat 100 [samplerow $types]]] fill [samplerow $types] 51 150
     } -result 0

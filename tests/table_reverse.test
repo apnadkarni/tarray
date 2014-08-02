@@ -19,21 +19,21 @@ namespace eval tarray::test {
     test table_reverse-1.2 {
         Reverse a one element table (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean string any int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types 0 0] [samplerows $types 0 0] reverse
     } -result 0
 
     test table_reverse-2.0 {
         Reverse a table (unshared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any string int wide double byte uint}
         tab_change_and_verify_u $types [samplerows $types] [lreverse [samplerows $types]] reverse
     } -result 0
 
     test table_reverse-2.1 {
         Reverse a table (shared)
     } -body {
-        set types {boolean any int wide double byte uint}
+        set types {boolean any int wide double byte uint string}
         tab_change_and_verify $types [samplerows $types] [lreverse [samplerows $types]] reverse
     } -result 0
 }

@@ -31,7 +31,7 @@ namespace eval tarray::test {
     test table_vfill-index-2.0 {
         Vfill first in an non-empty table with a single element
     } -body {
-        set types {boolean int any byte}
+        set types {boolean int string byte}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 3 3 1 end] vfill [samplerow $types 3] 0
     } -result 0
 
@@ -45,7 +45,7 @@ namespace eval tarray::test {
     test table_vfill-index-2.2 {
         Extend non-empty table by one
     } -body {
-        set types {wide boolean uint any}
+        set types {wide boolean uint string}
         set rows [samplerows $types]
         vtab_change_and_verify $types $rows [samplerows $types 0 end 0 0] vfill [samplerow $types] [llength $rows]
     } -result 0
@@ -68,7 +68,7 @@ namespace eval tarray::test {
     test table_vfill-index-2.5 {
         Vfill intermediate element in non-empty table
     } -body {
-        set types {wide boolean uint any}
+        set types {wide boolean uint string}
         set rows [samplerows $types 0 100]
         vtab_change_and_verify $types $rows [samplerows $types 0 49 0 0 51 100] vfill [samplerow $types] 50
     } -result 0
@@ -94,7 +94,7 @@ namespace eval tarray::test {
     test table_vfill-indexlist-1.1 {
         Vfill empty table with a single element
     } -body {
-        set types {boolean int any wide byte uint double}
+        set types {boolean int any string wide byte uint double}
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
@@ -104,7 +104,7 @@ namespace eval tarray::test {
     test table_vfill-indexlist-2.0 {
         Test vfilling of leading elements
     } -body {
-        set types {boolean int any wide byte uint double}
+        set types {boolean int any string wide byte uint double}
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
@@ -128,7 +128,7 @@ namespace eval tarray::test {
     test table_vfill-indexlist-2.3 {
         Test extending table in order
     } -body {
-        set types {boolean int any wide any}
+        set types {boolean int string wide any}
         vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] vfill [samplerow $types] {48 49 50 51 52 53 54 55}
     } -result 0
 
@@ -142,7 +142,7 @@ namespace eval tarray::test {
     test table_vfill-indexlist-2.5 {
         Test extending table out of order
     } -body {
-        set types {any boolean}
+        set types {string boolean}
         vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 8 [samplerow $types]]] vfill [samplerow $types] {51 52 54 55 48 49 50 53}
     } -result 0
 
@@ -150,7 +150,7 @@ namespace eval tarray::test {
         Test vfilling of intermediate (ordered)
     } -body {
         set indices {1 7 8 9 31 32 33 63 64 65 254}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] $indices
     } -result 0
 
@@ -158,7 +158,7 @@ namespace eval tarray::test {
         Test vfilling of intermediate (reverse ordered)
     } -body {
         set indices {1 7 8 9 31 32 33 63 64 65 254}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [lsort -integer -decreasing $indices]
     } -result 0
 
@@ -168,7 +168,7 @@ namespace eval tarray::test {
     } -body {
         # Note duplicate
         set indices {63 254 254 32 65 1 7 33 8 9 31 33 64 63 1}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] $indices
     } -result 0
 
@@ -176,42 +176,42 @@ namespace eval tarray::test {
         Test vfilling of all (random order)
     } -body {
         set indices {0 9 3 8 6 4 2 5 7 1}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [listrepeat 10 [samplerow $types end]] vfill [samplerow $types end] $indices
     } -result 0
 
     test table_vfill-indexlist-4.0 {
         Test vfilling out-of-range (increasing indices)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  {5 7 9 11}
     } -result "*11*out of bounds" -match glob -returnCodes error
 
     test table_vfill-indexlist-4.1 {
         Test vfilling out-of-range (decreasing index list)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [lsort -integer -decreasing {5 7 9 11}]
     } -result "*11*out of bounds" -match glob -returnCodes error
 
     test table_vfill-indexlist-4.2 {
         Test vfilling out-of-range (unordered index list)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  {9 11 13 8}
     } -result "*out of bounds" -match glob -returnCodes error
 
     test table_vfill-indexlist-4.3 {
         Test vfilling with invalid syntax (index list)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types] vfill [samplerow $types end]  [lsort -integer -decreasing {0 badsyntax}]
     } -result "*expected integer*" -match glob -returnCodes error
 
     test table_vfill-indexlist-4.4 {
         Test vfilling with index list containing end
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types] vfill [samplerow $types end]  [lsort -integer -decreasing {0 end}]
     } -result "*expected integer*" -match glob -returnCodes error
 
@@ -229,7 +229,7 @@ namespace eval tarray::test {
     test table_vfill-indices-1.1 {
         Vfill empty table with a single element
     } -body {
-        set types {boolean int any wide byte uint double}
+        set types {boolean int any string wide byte uint double}
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
@@ -239,7 +239,7 @@ namespace eval tarray::test {
     test table_vfill-indices-2.0 {
         Test vfilling of leading elements
     } -body {
-        set types {boolean int any wide byte uint double}
+        set types {boolean int any string wide byte uint double}
         set indices {}
         set i -1
         time {lappend indices [incr i]} 1000
@@ -285,7 +285,7 @@ namespace eval tarray::test {
         Test vfilling of intermediate (ordered)
     } -body {
         set indices {1 7 8 9 31 32 33 63 64 65 254}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [tarray::column sort -increasing [indexcolumn $indices]]
     } -result 0
 
@@ -293,7 +293,7 @@ namespace eval tarray::test {
         Test vfilling of intermediate (reverse ordered)
     } -body {
         set indices {1 7 8 9 31 32 33 63 64 65 254}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [tarray::column sort -decreasing [indexcolumn $indices]]
     } -result 0 
 
@@ -302,7 +302,7 @@ namespace eval tarray::test {
     } -body {
         # Note duplicate
         set indices {63 254 254 32 65 1 7 33 8 9 31 33 64 63 1}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types] [samplerows $types 0 0 0 0 2 6 0 0 0 0 0 0 10 30 0 0 0 0 0 0 34 62 0 0 0 0 0 0 66 253 0 0 255 end] vfill [samplerow $types] [indexcolumn $indices]
     } -result 0
 
@@ -310,28 +310,28 @@ namespace eval tarray::test {
         Test vfilling of all (random order)
     } -body {
         set indices {0 9 3 8 6 4 2 5 7 1}
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [listrepeat 10 [samplerow $types end]] vfill [samplerow $types end] [indexcolumn $indices]
     } -result 0
 
     test table_vfill-indices-4.0 {
         Test vfilling out-of-range (increasing indices)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [tarray::column sort -increasing [indexcolumn {5 7 9 11}]]
     } -result "*11*out of bounds" -match glob -returnCodes error
 
     test table_vfill-indices-4.1 {
         Test vfilling out-of-range (decreasing index list)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [indexcolumn {5 7 9 11}]
     } -result "*11*out of bounds" -match glob -returnCodes error
 
     test table_vfill-indices-4.2 {
         Test vfilling out-of-range (unordered index list)
     } -body {
-        set types {any boolean wide int uint byte double}
+        set types {any string boolean wide int uint byte double}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vfill [samplerow $types end]  [indexcolumn {9 11 13 8}]
     } -result "*out of bounds" -match glob -returnCodes error
 
@@ -348,7 +348,7 @@ namespace eval tarray::test {
     test table_vfill-range-1.1 {
         Vfill empty table with a single element
     } -body {
-        set types {boolean int any}
+        set types {boolean int string}
         vtab_change_and_verify $types {} [list [samplerow $types]] vfill [samplerow $types] 0 0
     } -result 0
 
@@ -370,14 +370,14 @@ namespace eval tarray::test {
     test table_vfill-range-2.0 {
         Test vfilling of leading elements
     } -body {
-        set types {boolean int any}
+        set types {boolean int string}
         vtab_change_and_verify $types {} [listrepeat 3 [samplerow $types]] vfill [samplerow $types] 0 2
     } -result 0
 
     test table_vfill-range-2.1 {
         Test vfilling of trailing elements
     } -body {
-        set types {boolean int any wide any}
+        set types {boolean int string wide string}
         vtab_change_and_verify $types [samplerows $types 0 50] [concat [samplerows $types 0 47] [listrepeat 3 [samplerow $types]]] vfill [samplerow $types] 48 50
     } -result 0 
 
@@ -391,7 +391,7 @@ namespace eval tarray::test {
     test table_vfill-range-2.3 {
         Test vfilling of entire array
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types]
         vtab_change_and_verify $types $rows [listrepeat [llength $rows] [samplerow $types]] vfill [samplerow $types] 0 end
     } -result 0
@@ -399,7 +399,7 @@ namespace eval tarray::test {
     test table_vfill-range-2.4 {
         Test vfilling of intermediate array
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types]
         vtab_change_and_verify $types $rows [samplerows $types 0 50 0 0 0 0 0 0 0 0 55 end] vfill [samplerow $types] 51 54
     } -result 0
@@ -407,7 +407,7 @@ namespace eval tarray::test {
     test table_vfill-range-3.0 {
         Test vfilling with reversed range elements
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types]
         # Should be no change
         vtab_change_and_verify $types $rows $rows vfill [samplerow $types] 10 0
@@ -416,7 +416,7 @@ namespace eval tarray::test {
     test table_vfill-range-3.1 {
         Test vfilling with reversed range elements
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types]
         # Should be no change
         vtab_change_and_verify $types $rows $rows vfill [samplerow $types] end 0
@@ -425,7 +425,7 @@ namespace eval tarray::test {
     test table_vfill-range-4.0 {
         Test vfilling beyond last
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types 0 100]
         vtab_change_and_verify $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] vfill [samplerow $types] 101 200
     } -result 0
@@ -433,7 +433,7 @@ namespace eval tarray::test {
     test table_vfill-range-4.1 {
         Test vfilling beyond last
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types 0 100]
         vtab_change_and_verify $types [samplerows $types 0 100] [concat [samplerows $types 0 50] [listrepeat 100 [samplerow $types]]] vfill [samplerow $types] 51 150
     } -result 0
@@ -441,7 +441,7 @@ namespace eval tarray::test {
     test table_vfill-range-4.2 {
         Test vfilling out-of-range
     } -body {
-        set types {boolean int any wide any byte uint}
+        set types {boolean int any string wide double byte uint}
         set rows [samplerows $types 0 100]
         vtab_change_and_verify $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] vfill [samplerow $types] 102 200
     } -result "*102*out of bounds" -match glob -returnCodes error
@@ -477,7 +477,7 @@ namespace eval tarray::test {
         Verify filling range, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vfill -columns {1 col0 3 col2} tab {ninetynine 1 99.0 99} 0 end
@@ -488,7 +488,7 @@ namespace eval tarray::test {
         Verify growing table, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vfill -columns {1 col0 3 col2} tab {ninetynine 1 99.0 99} 0 end+1
@@ -532,7 +532,7 @@ namespace eval tarray::test {
         Verify filling subset columns
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vfill -columns {col1 2} tab {ninetynine 99} end
@@ -594,7 +594,7 @@ namespace eval tarray::test {
         Verify filling duplicate column positions
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vfill -columns {col2 col3 2} tab {0 0 0} end

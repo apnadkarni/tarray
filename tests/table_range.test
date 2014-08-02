@@ -5,7 +5,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    proc test_table_get_range_astable {low high {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_range_astable {low high {types {any string boolean byte double int uint wide}}} {
 
         set expected_rows [samplerows $types $low $high]
         set ta [tarray::table range -table [sampletable $types] $low $high]
@@ -17,7 +17,7 @@ namespace eval tarray::test {
         }
     }
 
-    proc test_table_get_range_aslist {low high {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_range_aslist {low high {types {any string boolean byte double int uint wide}}} {
 
         set expected_rows [samplerows $types $low $high]
         set rows [tarray::table range -list [sampletable $types] $low $high]
@@ -29,7 +29,7 @@ namespace eval tarray::test {
         }
     }
 
-    proc test_table_get_range_asdict {low high {types {any boolean byte double int uint wide}}} {
+    proc test_table_get_range_asdict {low high {types {any string boolean byte double int uint wide}}} {
 
         set expected_rows [samplerows $types $low $high]
         set result [tarray::table range -dict [sampletable $types] $low $high]
@@ -80,8 +80,8 @@ namespace eval tarray::test {
     test table_range-astable-1.3 {
         Get the first element in empty array
     } -body {
-        tarray::table range [newtable {boolean any}] 0 0
-    } -result [trep [list [crep boolean] [crep any]]]
+        tarray::table range [newtable {boolean string}] 0 0
+    } -result [trep [list [crep boolean] [crep string]]]
 
     test table_range-astable-2.0 {
         Get the first element
@@ -207,7 +207,7 @@ namespace eval tarray::test {
     test table_range-asdict-1.3 {
         Get the first element in empty array
     } -body {
-        tarray::table range -dict [newtable {any uint}] 0 0
+        tarray::table range -dict [newtable {string uint}] 0 0
     } -result {}
 
     test table_range-asdict-2.0 {
@@ -263,10 +263,10 @@ namespace eval tarray::test {
         Verify getting all columns out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        trequal [tarray::table range -columns {2 col0 col1 3} $tab 2 3] {col2 int col0 boolean col1 any col3 double} {{2 0 two 2.0} {3 1 three 3.0}}
+        trequal [tarray::table range -columns {2 col0 col1 3} $tab 2 3] {col2 int col0 boolean col1 string col3 double} {{2 0 two 2.0} {3 1 three 3.0}}
     } -result 1
 
     test table_range-columnsopt-2.0 {
@@ -293,7 +293,7 @@ namespace eval tarray::test {
         Verify getting subset of columns out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table range -list -columns {col3 1} $tab 0 0
@@ -333,7 +333,7 @@ namespace eval tarray::test {
         Verify getting duplicate columns
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table range -columns {0 1 0} $tab 1 4
