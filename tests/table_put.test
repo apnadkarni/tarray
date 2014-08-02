@@ -104,98 +104,97 @@ namespace eval tarray::test {
     test table_put-list-1.0 {
         Put a single value into an empty table (shared)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist $type 1 0 {}
     } -result 0
         
     test table_put-list-1.1 {
         Put a single value into an empty table (unshared tclobj, default position)
     } -body {
-        set type {any boolean byte double int uint wide}
         tarray::table put [tarray::table create {f0 any f1 boolean f2 int} {}] {{anything true 99}}
     } -result {tarray_table {f0 f1 f2} {{tarray_column any {anything}} {tarray_column boolean {1}} {tarray_column int {99}}}}
 
     test table_put-list-2.0 {
         Test storing of leading elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist $type 100 0
     } -result 0 
 
     test table_put-list-2.1 {
         Test storing of leading elements (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist_u $type 128 0
     } -result 0 
 
     test table_put-list-2.2 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist $type 10 63 [samplerows $type 0 63]
     } -result 0 
 
     test table_put-list-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist $type 10 64 [samplerows $type 0 63]
     } -result 0 
 
     test table_put-list-2.4 {
         Test storing of trailing elements (unshared tclobj, default end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist_u $type 1
     } -result 0 
 
     test table_put-list-2.5 {
         Test storing of trailing elements (unshared tclobj, specified end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist_u $type 20 end
     } -result 0 
 
     test table_put-list-2.6 {
         Test storing of middle elements (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist_u $type 10 127
     } -result 0 
 
     test table_put-list-2.7 {
         Test storing of middle elements (shared tclobj, extend length)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuelist_u $type 500 400 [samplerows $type 0 450]
     } -result 0 
 
     test table_put-list-3.0 {
         Test out of bound index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] [samplerows $type 0 2] 12
         } -result {*index 12 out of bounds*} -returnCodes error -match glob
 
     test table_put-list-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] [samplerows $type 0 2] -1
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
     test table_put-list-3.2 {
         Test invalid values
     } -body {
-        set type {any boolean byte double int uint wide}
-        tarray::table put [sampletable $type 0 10] {{anyvalue 0 0 0 0 1.0 0}} 0
+        set type {any string boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] {{anyvalue stringvalue 0 0 0 0 1.0 0}} 0
     } -result {*expected*but got*} -returnCodes error -match glob
 
     test table_put-list-3.3 {
         Test invalid values (wrong table width)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] {{anyvalue 0 0 0 0 0}} 0
     } -result {*width 6 less than*} -returnCodes error -match glob
 
@@ -205,84 +204,84 @@ namespace eval tarray::test {
     test table_put-table-1.0 {
         Put a single value into an empty table (shared)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable $type 1 0 {}
     } -result 0
         
     test table_put-table-1.1 {
         Put a single value into an empty table (unshared tclobj, default position)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table put [tarray::table create {f0 any f1 boolean f2 int} {}] [tarray::table create {r0 any r1 boolean r2 int} {{anything true 99}}]
     } -result {tarray_table {f0 f1 f2} {{tarray_column any {anything}} {tarray_column boolean {1}} {tarray_column int {99}}}}
 
     test table_put-table-2.0 {
         Test storing of leading elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable $type 100 0
     } -result 0 
 
     test table_put-table-2.1 {
         Test storing of leading elements (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable_u $type 128 0
     } -result 0 
 
     test table_put-table-2.2 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable $type 10 63 [samplerows $type 0 63]
     } -result 0 
 
     test table_put-table-2.3 {
         Test storing of trailing elements (shared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable $type 10 64 [samplerows $type 0 63]
     } -result 0 
 
     test table_put-table-2.4 {
         Test storing of trailing elements (unshared tclobj, default end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable_u $type 1
     } -result 0 
 
     test table_put-table-2.5 {
         Test storing of trailing elements (unshared tclobj, specified end)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable_u $type 20 end
     } -result 0 
 
     test table_put-table-2.6 {
         Test storing of middle elements (unshared tclobj)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable_u $type 10 127
     } -result 0 
 
     test table_put-table-2.7 {
         Test storing of middle elements (shared tclobj, extend length)
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tputtest_valuetable_u $type 500 400 [samplerows $type 0 450]
     } -result 0 
 
     test table_put-table-3.0 {
         Test out of bound index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] [sampletable $type 0 2] 12
         } -result {*index 12 out of bounds*} -returnCodes error -match glob
 
     test table_put-table-3.1 {
         Test negative index
     } -body {
-        set type {any boolean byte double int uint wide}
+        set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] [sampletable $type 0 2] -1
     } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
@@ -296,9 +295,9 @@ namespace eval tarray::test {
     test table_put-table-3.3 {
         Test invalid values (wrong table width)
     } -body {
-        set type {any boolean byte double int uint wide}
-        tarray::table put [sampletable $type 0 10] [sampletable {any boolean byte double int uint}] 0
-    } -result {*width 6 less than*} -returnCodes error -match glob
+        set type {any string boolean byte double int uint wide}
+        tarray::table put [sampletable $type 0 10] [sampletable {any string boolean byte double int uint}] 0
+    } -result {*width 7 less than*} -returnCodes error -match glob
 
     #
     # Verify string rep regeneration
@@ -330,7 +329,7 @@ namespace eval tarray::test {
         Verify putting range, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table put -columns {1 col0 3 col2} $tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}}  0]
@@ -341,7 +340,7 @@ namespace eval tarray::test {
         Verify growing table, all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table put -columns {1 col0 3 col2} $tab {{ninetynine 1 99.0 99} {hundred 0 100.0 100}} 5]
@@ -383,7 +382,7 @@ namespace eval tarray::test {
         Verify putting subset columns
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table put -columns {col1 2} $tab {{ninetynine 99}} 4]
@@ -394,7 +393,7 @@ namespace eval tarray::test {
         Verify putting subset columns unordered, discrete indices
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         set tab [tarray::table put -columns {3 col0} $tab {{99.0 0} {100.0 1}} 1]
@@ -426,7 +425,7 @@ namespace eval tarray::test {
         Verify putting non-existent column name
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {col5} $tab {{ninetynine 99}} 0
@@ -446,7 +445,7 @@ namespace eval tarray::test {
         Verify putting duplicate column positions
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {0 1 0} $tab {{0 astring 0}} 1
@@ -456,7 +455,7 @@ namespace eval tarray::test {
         Verify putting duplicate column positions
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {col2 col3 2} $tab {{0 0 0}} end
@@ -486,7 +485,7 @@ namespace eval tarray::test {
         Verify empty column list
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
-        set def {col0 boolean col1 any col2 int col3 double}
+        set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {} $tab {{0 0 0 0}} 0

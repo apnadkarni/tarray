@@ -16,7 +16,7 @@ namespace eval tarray::test {
     test table_vdelete-index-2.0 {
         Test deletion of last element
     } -body {
-        set types {uint int any}
+        set types {uint int string}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 8] vdelete end
     } -result 0
 
@@ -25,7 +25,7 @@ namespace eval tarray::test {
         test table_vdelete-index-3.[incr n] {
             Test deletion of intermediate element
         } -body {
-            set types {any boolean byte double int uint wide}
+            set types {any string boolean byte double int uint wide}
             vtab_change_and_verify $types \
                 [samplerows $types 0 255] \
                 [samplerows $types 0 [expr {$i-1}] [expr {$i+1}] 255] \
@@ -57,7 +57,7 @@ namespace eval tarray::test {
     test table_vdelete-index-5.3 {
         Test deletion of invalid syntax index
     } -body {
-        set types {int any}
+        set types {int string}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] vdelete badindex
     } -returnCodes error -match glob -result "*expected integer*badindex*"
 
@@ -71,14 +71,14 @@ namespace eval tarray::test {
     test table_vdelete-index-7.0 {
         Test attempt to vdelete element from empty table
     } -body {
-        set types {int uint any boolean}
+        set types {int uint string boolean}
         vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete 0
     } -result 0
 
     test table_vdelete-index-7.1 {
         Test attempt to vdelete invalid index from empty table
     } -body {
-        set types {any boolean}
+        set types {string boolean}
         vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete -1
     } -result 0
     
@@ -117,7 +117,7 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-2.0 {
         Test deletion of trailing elements
     } -body {
-        set types {wide byte any boolean}
+        set types {wide byte string boolean}
         vtab_change_and_verify $types [samplerows $types 0 258] [samplerows $types 0 255] vdelete [list 256 257 258]
     } -result 0
 
@@ -145,7 +145,7 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-3.0 {
         Test deletion of intermediate (ordered)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -155,7 +155,7 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-3.1 {
         Test deletion of intermediate (reverse order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 254] \
@@ -165,7 +165,7 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-3.2 {
         Test deletion of intermediate (random order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -189,7 +189,7 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-4.2 {
         Test deletion of out-of-range (random indices)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 100] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 100] \
@@ -206,7 +206,7 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-5.1 {
         Test deletion of invalid syntax indices
     } -body {
-        set types {int any}
+        set types {int string}
         vtab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 1 9] vdelete {1 end 63}
     } -returnCodes error -match glob -result "expected integer but got \"end\""
 
@@ -220,14 +220,14 @@ namespace eval tarray::test {
     test table_vdelete-indexlist-6.0 {
         Test deletion of all indices from table (reverse)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [list 10 9 8 7 6 5 4 3 2 1 0]
     } -result 0
 
     test table_vdelete-indexlist-6.3 {
         Test deletion of all indices from table (random order)
     } -body {
-        set types {int wide uint any boolean}
+        set types {int wide uint string boolean}
         vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [list 9 8 10 3 6 4 7 5 2 1 0]
     } -result 0
 
@@ -257,7 +257,7 @@ namespace eval tarray::test {
     test table_vdelete-indices-1.0 {
         Test deletion of leading elements
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete [indexcolumn 0 1 2]
     } -result 0 
 
@@ -313,7 +313,7 @@ namespace eval tarray::test {
     test table_vdelete-indices-3.0 {
         Test deletion of intermediate (ordered)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -323,7 +323,7 @@ namespace eval tarray::test {
     test table_vdelete-indices-3.1 {
         Test deletion of intermediate (reverse order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 254] \
@@ -333,7 +333,7 @@ namespace eval tarray::test {
     test table_vdelete-indices-3.2 {
         Test deletion of intermediate (random order)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 255] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 253 255 255] \
@@ -357,7 +357,7 @@ namespace eval tarray::test {
     test table_vdelete-indices-4.2 {
         Test deletion of out-of-range (random indices)
     } -body {
-        set types {any boolean byte double int uint wide}
+        set types {any string boolean byte double int uint wide}
         vtab_change_and_verify $types \
             [samplerows $types 0 100] \
             [samplerows $types 0 0 2 6 10 30 34 62 66 100] \
@@ -374,7 +374,7 @@ namespace eval tarray::test {
     test table_vdelete-indices-6.0 {
         Test deletion of all indices from table (reverse)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 0 -1] vdelete [indexcolumn 10 9 8 7 6 5 4 3 2 1 0]
     } -result 0
 
@@ -418,7 +418,7 @@ namespace eval tarray::test {
     test table_vdelete-range-1.1 {
         Test deletion of leading elements
     } -body {
-        set types {wide any double}
+        set types {wide string double}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 99 99] vdelete 0 98
     } -result 0
 
@@ -446,7 +446,7 @@ namespace eval tarray::test {
     test table_vdelete-range-3.1 {
         Test deletion of intermediate
     } -body {
-        set types {any boolean wide}
+        set types {string boolean wide}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 0 99 99] vdelete 1 98
     } -result 0
 
@@ -460,7 +460,7 @@ namespace eval tarray::test {
     test table_vdelete-range-4.1 {
         Test deletion of out-of-range (negative)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 99] vdelete 100 110
     } -result 0
 
@@ -474,7 +474,7 @@ namespace eval tarray::test {
     test table_vdelete-range-4.3 {
         Test deletion of out-of-range (partial)
     } -body {
-        set types {double any boolean uint}
+        set types {double string boolean uint}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 6 99] vdelete -5 5
     } -result 0
 
@@ -488,7 +488,7 @@ namespace eval tarray::test {
     test table_vdelete-range-5.0 {
         Test deletion of invalid syntax start index
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] vdelete foo 10
     } -returnCodes error -match glob -result "Invalid index 'foo'. Must be an integer or the keyword 'end'."
 
@@ -502,7 +502,7 @@ namespace eval tarray::test {
     test table_vdelete-range-6.0 {
         Test deletion of all indices from column
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 -1] vdelete 0 99
     } -result 0
 
@@ -516,7 +516,7 @@ namespace eval tarray::test {
     test table_vdelete-range-7.1 {
         Test attempt to vdelete element from empty column
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 -1] [samplerows $types 0 -1] vdelete 0 0
     } -result 0
 
@@ -530,7 +530,7 @@ namespace eval tarray::test {
     test table_vdelete-range-8.1 {
         Vdelete single element range (trailing)
     } -body {
-        set types {int any boolean}
+        set types {int string boolean}
         vtab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 0 98] vdelete end end
     } -result 0
 
