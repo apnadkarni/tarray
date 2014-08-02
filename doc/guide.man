@@ -82,7 +82,7 @@ Tables can be initialized in analogous fashion, for example, to create
 a initialized table
 
 [example_begin]
-set tab [lb]table create {country any population wide} {{China 1350000000} {Vatican 850}}[rb]
+set tab [lb]table create {country string population wide} {{China 1350000000} {Vatican 850}}[rb]
 [example_end]
 
 [subsection "Specifying Indices"]
@@ -196,7 +196,7 @@ from commands into another column.
 [para]
 The [cmd table] command has equivalent commands. For example
 [example_begin]
-set populations [lb]table create {country any population wide} {}[rb]
+set populations [lb]table create {country string population wide} {}[rb]
 table vput populations {{China 1350000000} {Vatican 850}}
 [example_end]
 Note that just like in the case of columns, the list of values can
@@ -214,7 +214,7 @@ There is no need to reorder the fields in the input data.
 [para]
 Secondly, the [cmd -columns] allows modification of a subset of the columns.
 [example_begin]
-set populations [lb]table create {country any population wide} {}[rb]
+set populations [lb]table create {country string population wide} {}[rb]
 table vput populations {{China 1350000000} {Vatican 850}}
 table vfill -columns {population} populations {851} 1
 [example_end]
@@ -229,7 +229,7 @@ must apply for this:
 where an index list or index column is specified, there must not
 be any gaps in indices that extend the array.
 [example_begin]
-set populations [lb]table create {country any population wide} {{Vatican 850}  {China 1350000000}}[rb]
+set populations [lb]table create {country string population wide} {{Vatican 850}  {China 1350000000}}[rb]
 table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2}
 table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
 [example_end]
@@ -373,7 +373,7 @@ particularly useful in combining searches as in the table example below.
 [para]
 To search tables, use the [cmd search] on individual columns. For example,
 [example_begin]
-set countries [lb]table create {country any population wide area double} {
+set countries [lb]table create {country string population wide area double} {
     {Vatican      850     0.44}
     {China 1350000000     9.55e6}
     {USA    314000000     9.63e6}
@@ -421,7 +421,7 @@ of elements in the column. An example will clarify this.
 [para]
 Consider a table that stores heights and weights.
 [example_begin]
-set tab [lb]table create {name any height int weight int} {
+set tab [lb]table create {name string height int weight int} {
     {Jeff 180 80}
     {John 175 80}
     {Jim 170 75}
@@ -457,6 +457,9 @@ these values compare equal is based on the order in [variable indices].
 
 [subsection "Other Commands"]
 
+The [cmd "column minmax"] command returns a pair containing the
+minimum and maximum values in a column.
+[para]
 The [cmd "column intersect3"] command returns the differences between
 two columns. The multiple column search example above could also
 have written as follows:
@@ -493,7 +496,7 @@ When specifying indices to commands, Tcl lists of integers and
 columns of type [const int] are usually interchangeable. Similarly, when
 passing multiple values to a command, either a Tcl list or a column
 of the appropriate type can be used. Note there is an ambiguity in the
-specific case where the target of the command is a column is of type
+specific case where the target of the command is a column of type
 [const any] and the passed operand is a string of the form
 [example {tarray any {...}}]
 where the operand can be interpreted either as a column or a Tcl 
