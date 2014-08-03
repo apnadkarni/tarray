@@ -15,7 +15,7 @@ namespace eval tarray::test {
         Get names from empty table
     } -body {
         tarray::table cnames [sampletable {}]
-    } -result {col0 col1 col2 col3 col4 col5 col6}
+    } -result {col0 col1 col2 col3 col4 col5 col6 col7}
 
 }
 ::tcltest::cleanupTests
