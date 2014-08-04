@@ -119,6 +119,10 @@ typedef struct ta_value_s {
     };
 } ta_value_t;
 
+/* Lookup table for string thdrs */
+typedef Tcl_HashTable *tas_lookup_t;
+#define TAS_LOOKUP_INVALID_HANDLE NULL
+
 extern const char *g_type_tokens[];
 
 #define TA_FORMAT_TARRAY 0
@@ -150,6 +154,7 @@ typedef union thdr_s {
     void *pointer_aligner;
     double double_aligner;
     struct {
+        tas_lookup_t lookup;  /* Index. Currently only used with type string */
         int nrefs;              /* Ref count when shared between Tcl_Objs */
         int usable;             /* Number of slots that can be used. This
                                    is one less than number allocated as
@@ -333,6 +338,34 @@ void tas_unref(tas_t *ptas);
 int tas_equal(tas_t *a, tas_t *b, int nocase);
 int tas_compare(tas_t *a, tas_t *b, int nocase);
 tas_t *tas_dup(tas_t *src);
+tas_lookup_t tas_new_lookup(void);
+void tas_lookup_free(tas_lookup_t lookup);
+int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval);
+void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val);
+TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
+    TA_ASSERT(thdr->type == TA_STRING);
+    TA_ASSERT(thdr->used > pos);
+    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
+        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), pos);
+}
+TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
+    tas_t **pptas;
+    int i;
+    TA_ASSERT((start+count) < thdr->used);
+    if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
+        return;
+    pptas = THDRELEMPTR(thdr, tas_t *, start);
+    for (i = 0; i < count; ++i, ++pptas)
+        tas_lookup_add(thdr->lookup, *pptas, start+i);
+}
+TA_INLINE void thdr_lookup_free(thdr_t *thdr) {
+    TA_ASSERT(thdr->type == TA_STRING);
+    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE) {
+        tas_lookup_free(thdr->lookup);
+        thdr->lookup = TAS_LOOKUP_INVALID_HANDLE;
+    }
+}
+
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
