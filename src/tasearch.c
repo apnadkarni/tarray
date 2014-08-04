@@ -1499,3 +1499,76 @@ vamoose:
 
     return status;
 }
+
+
+TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
+                           int objc, Tcl_Obj *const objv[])
+{
+    thdr_t *thdr;
+    tas_t *ptas, *pkey;
+    ClientData value;
+    int pos, delete_pos;
+
+    if (objc < 2 || objc > 3) {
+	Tcl_WrongNumArgs(ip, 1, objv, "column ?key?");
+	return TCL_ERROR;
+    }
+    
+    if (tcol_convert(ip, objv[1]) != TCL_OK)
+        return TCL_ERROR;
+    thdr = tcol_thdr(objv[1]);
+    if (thdr->type != TA_STRING)
+        return ta_bad_type_error(ip, thdr);
+
+    if (objc == 2) {
+        thdr_lookup_build(thdr);
+        return TCL_OK;
+    }
+
+    if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
+        thdr_lookup_init(thdr);
+
+    pkey = tas_from_obj(objv[2]);
+    pos = delete_pos = -1;
+
+    if (tas_lookup_entry(thdr->lookup, pkey, &value)) {
+        pos = (int) value;
+        /* Found it. See if it is still valid */
+        if (pos >= thdr->used)
+            pos = -1;
+        else {
+            /* See if the element actually matches */
+            ptas = *THDRELEMPTR(thdr, tas_t *, pos);
+            if (!tas_equal(ptas, pkey, 0)) {
+                delete_pos = pos;
+                pos = -1;
+            }
+        }
+    }
+
+    tas_unref(pkey);
+
+    if (pos == -1) {
+        /* Do a search */
+        ta_search_t search;
+        search.indices = NULL;
+        search.lower = 0;
+        search.upper = thdr->used-1;
+        search.flags = 0;
+        search.cur = 0;
+        search.op = TA_SEARCH_OPT_EQ;
+        if (thdr_search_string(ip, thdr, objv[2], &search) == TCL_OK) {
+            /* TBD - clean up search interface */
+            Tcl_Obj *resultObj = Tcl_GetObjResult(ip);
+            TA_NOFAIL(Tcl_GetIntFromObj(NULL, resultObj, &pos), TCL_OK);
+            thdr_lookup_add(thdr, pos);
+        } else {
+            pos = -1;
+            if (delete_pos > 0)
+                thdr_lookup_delete(thdr, delete_pos);
+        }
+    }
+
+    Tcl_SetObjResult(ip, Tcl_NewIntObj(pos));
+    return TCL_OK;
+}

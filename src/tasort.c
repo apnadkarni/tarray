@@ -473,6 +473,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
                 cmp = decr ? tclobjcmprev : tclobjcmp;
             break;
         case TA_STRING:
+            thdr_lookup_free(thdr); /* Lookup table won't be valid after sort */
             if (nocase)
                 cmp = decr ? tcltascmpnocaserev : tcltascmpnocase;
             else

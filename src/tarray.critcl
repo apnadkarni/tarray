@@ -393,6 +393,8 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TColObjPtr tcol} ok {
 
 critcl::ccommand tarray::column::search tcol_search_cmd
 
+critcl::ccommand tarray::column::lookup tcol_lookup_cmd
+
 critcl::ccommand tarray::column::minmax tcol_minmax_cmd
 
 critcl::ccommand tarray::column::insert {} {

@@ -338,25 +338,43 @@ void tas_unref(tas_t *ptas);
 int tas_equal(tas_t *a, tas_t *b, int nocase);
 int tas_compare(tas_t *a, tas_t *b, int nocase);
 tas_t *tas_dup(tas_t *src);
-tas_lookup_t tas_new_lookup(void);
+tas_lookup_t tas_lookup_new(void);
 void tas_lookup_free(tas_lookup_t lookup);
 int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval);
 void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val);
+int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas);
+
+TA_INLINE tas_lookup_t thdr_lookup_init(thdr_t *thdr) {
+    thdr->lookup = tas_lookup_new();
+    return thdr->lookup;
+}
 TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
     TA_ASSERT(thdr->type == TA_STRING);
-    TA_ASSERT(thdr->used > pos);
+    /* Note we do not check against thdr->used because some callers do
+       not update that until later */
+    TA_ASSERT(thdr->usable > pos);
     if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
-        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), pos);
+        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), (ClientData) pos);
 }
 TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
     tas_t **pptas;
     int i;
-    TA_ASSERT((start+count) < thdr->used);
+    /* Note we do not check against thdr->used because some callers do
+       not update that until later */
+    TA_ASSERT((start+count) < thdr->usable);
     if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
         return;
     pptas = THDRELEMPTR(thdr, tas_t *, start);
     for (i = 0; i < count; ++i, ++pptas)
-        tas_lookup_add(thdr->lookup, *pptas, start+i);
+        tas_lookup_add(thdr->lookup, *pptas, (ClientData) (start+i));
+}
+TA_INLINE void thdr_lookup_delete(thdr_t *thdr, int pos) {
+    TA_ASSERT(thdr->type == TA_STRING);
+    /* Note we do not check against thdr->used because some callers do
+       not update that until later */
+    TA_ASSERT(thdr->usable > pos);
+    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
+        tas_lookup_delete(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos));
 }
 TA_INLINE void thdr_lookup_free(thdr_t *thdr) {
     TA_ASSERT(thdr->type == TA_STRING);
@@ -365,7 +383,7 @@ TA_INLINE void thdr_lookup_free(thdr_t *thdr) {
         thdr->lookup = TAS_LOOKUP_INVALID_HANDLE;
     }
 }
-
+void thdr_lookup_build(thdr_t *thdr);
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
