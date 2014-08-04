@@ -653,6 +653,23 @@ TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
 }
 
 
+void thdr_lookup_build(thdr_t *thdr)
+{
+    int i, used;
+    tas_t **pptas;
+    tas_lookup_t lookup;
+
+    TA_ASSERT(thdr->type == TA_STRING);
+    thdr_lookup_free(thdr);
+    lookup = thdr_lookup_init(thdr);
+    for (i = 0, used = thdr->used, pptas = THDRELEMPTR(thdr, tas_t *, 0);
+         i < used;
+         ++i, ++pptas) {
+        tas_lookup_add(lookup, *pptas, (ClientData) i);
+    }
+}
+
+
 /* Increments the ref counts of tas_t elements in a tarray making sure not
    to run past end of array. Note the elements may be replaced if
    ref counts overflow.
@@ -4002,3 +4019,4 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
     return TCL_OK;
 }
+

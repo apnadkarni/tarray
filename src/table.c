@@ -1069,6 +1069,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                     }
                 }
                 *pptas = tas_from_obj(oval);
+                thdr_lookup_add(thdr, first + r);
             }
         }
     }
@@ -1205,9 +1206,11 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
         case TA_STRING:
             {
                 tas_t **pptas;
+                thdr_t *cur_thdr;
                 int j;
 
-                pptas = THDRELEMPTR(tcol_thdr(tcols[i]), tas_t *, 0);
+                cur_thdr = tcol_thdr(tcols[i]);
+                pptas = THDRELEMPTR(cur_thdr, tas_t *, 0);
 
                 /*
                  * Reference counts makes this tricky. If replacing an existing
@@ -1220,16 +1223,18 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                  * Hence what we do is to store NULL first in all unused slots
                  * that will be written to mark what is unused.
                  */
-                for (j = tcol_occupancy(tcols[i]); j < new_size; ++j)
+                for (j = cur_thdr->used; j < new_size; ++j)
                     pptas[j] = NULL;        /* TBD - optimization - memset ? */
                 while (pindex < end) {
                     /* Careful about the order here! */
-                    TA_ASSERT(*pindex < tcol_thdr(tcols[i])->usable);
+                    TA_ASSERT(*pindex < cur_thdr->usable);
                     TA_NOFAIL(Tcl_ListObjIndex(ip, *prow++, i, &o), TCL_OK);
                     TA_ASSERT(o != NULL);
                     if (pptas[*pindex] != NULL)
                         tas_unref(pptas[*pindex]);/* Deref original slot */
-                    pptas[*pindex++] = tas_from_obj(o);
+                    pptas[*pindex] = tas_from_obj(o);
+                    thdr_lookup_add(cur_thdr, *pindex);
+                    ++pindex;
                 }               
             }
             break;

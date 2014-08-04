@@ -73,12 +73,18 @@ void tas_unref(tas_t *ptas)
 int tas_equal(tas_t *a, tas_t *b, int nocase)
 {
     TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
+    if (a == b)
+        return 1;
+    if (a->s[0] != b->s[0])
+        return 0;
     return ta_utf8_equal(a->s, b->s, nocase);
 }
 
 int tas_compare(tas_t *a, tas_t *b, int nocase)
 {
     TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
+    if (a == b)
+        return 0;
     return ta_utf8_compare(a->s, b->s, nocase);
 }
 
@@ -88,7 +94,7 @@ static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey);
 static int tas_hash_compare(void *pkey, Tcl_HashEntry *he);
 static Tcl_HashEntry *tas_hash_alloc(Tcl_HashTable *phashtab, void *pkey);
 
-const Tcl_HashKeyType tas_hash_type = {
+Tcl_HashKeyType tas_hash_type = {
     TCL_HASH_KEY_TYPE_VERSION,	/* version */
     0,				/* flags */
     tas_hash_compute,		/* hashKeyProc */
@@ -105,8 +111,8 @@ static void tas_hash_table_init(Tcl_HashTable *phashtab)
 
 static Tcl_HashEntry *tas_hash_alloc(Tcl_HashTable *phashtab, void *pkey)
 {
-    Tcl_HashEntry *he = ckalloc(sizeof(Tcl_HashEntry));
-    he->key.oneWordValue = tas_ref(pkey);
+    Tcl_HashEntry *he = (Tcl_HashEntry *)ckalloc(sizeof(Tcl_HashEntry));
+    he->key.oneWordValue = (char *) tas_ref(pkey);
     he->clientData = NULL;
     return he;
 }
@@ -116,19 +122,15 @@ static int tas_hash_compare(void *pkey, Tcl_HashEntry *he)
     tas_t *ptas1 = pkey;
     tas_t *ptas2 = (tas_t *) he->key.oneWordValue;
 
-    register const char *p1, *p2;
-    register int l1, l2;
-
     if (ptas1 == ptas2)
         return 1;
-
     return tas_equal(ptas1, ptas2, 0);
 }
 
 static void tas_hash_free(Tcl_HashEntry *he)
 {
     tas_unref((tas_t *) he->key.oneWordValue);
-    ckfree(he);
+    ckfree((char *)he);
 }
 
 static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
@@ -148,7 +150,7 @@ static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
     return result;
 }
 
-tas_lookup_t tas_lookup_create()
+tas_lookup_t tas_lookup_new()
 {
     tas_lookup_t lookup = (Tcl_HashTable *) TAS_ALLOC(sizeof(Tcl_HashTable *));
     tas_hash_table_init(lookup);
@@ -164,9 +166,10 @@ void tas_lookup_free(tas_lookup_t lookup)
 int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval)
 {
     Tcl_HashEntry *he;
-    he = Tcl_FindHashEntry(lookup, ptas);
+    he = Tcl_FindHashEntry(lookup, (char *)ptas);
     if (he) {
-        *pval = Tcl_GetHashValue(he);
+        if (pval)
+            *pval = Tcl_GetHashValue(he);
         return 1;
     } else
         return 0;
@@ -174,13 +177,26 @@ int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval)
 
 void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val)
 {
-    int *newly_created;
+    int newly_created;
     Tcl_HashEntry *he;
 
-    he = Tcl_CreateHashEntry(lookup, ptas, &newly_created);
+    he = Tcl_CreateHashEntry(lookup, (char *)ptas, &newly_created);
     /* NOTE WE OVERWRITE EXISTING VALUE IF ANY */
     Tcl_SetHashValue(he, val);
 }
+
+int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas)
+{
+    Tcl_HashEntry *he;
+    he = Tcl_FindHashEntry(lookup, (char *)ptas);
+    if (he == NULL)
+        return 0;
+    else {
+        Tcl_DeleteHashEntry(he);
+        return 1;
+    }
+}
+
 
 /* TBD - delete from lookup when element removed from thdr? Or keep lazy
    in which case do we need to provide a "garbage collection" function?

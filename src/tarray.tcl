@@ -82,6 +82,10 @@ proc tarray::db::create {def {init {}} {size 0}} {
     return $tok
 }
 
+proc tarray::unsupported::crandom {type count} {
+    return [tarray::column create $type [lrandom $type $count]]
+}
+
 proc tarray::unsupported::lrandom {type count} {
     set l {}
     # TBD - return entire range of floats
@@ -118,6 +122,7 @@ namespace eval tarray {
             index index
             insert insert
             intersect3 intersect3
+            lookup lookup
             minmax minmax
             place place
             put put
