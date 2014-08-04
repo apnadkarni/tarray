@@ -12,8 +12,8 @@
 
 #include "tarray.h"
 
-#define TAS_ALLOC malloc
-#define TAS_FREE  free
+#define TAS_ALLOC TA_ALLOCMEM
+#define TAS_FREE  TA_FREEMEM
 
 
 /* Note len does not include trailing null and unlike Tcl_Obj's
@@ -27,8 +27,6 @@ tas_t *tas_alloc(char *s, int len)
 
     sz = sizeof(tas_t) + len; /* tas_t already accounts for trailing null */
     ptas = TAS_ALLOC(sz);
-    if (ptas == NULL)
-        ta_memory_panic(sz);
     memcpy(&ptas->s[0], s, len+1);
     ptas->nrefs = 1;
     return ptas;
@@ -84,7 +82,6 @@ int tas_compare(tas_t *a, tas_t *b, int nocase)
     return ta_utf8_compare(a->s, b->s, nocase);
 }
 
-
 /* The descriptor for our custom hash */
 static void tas_hash_free(Tcl_HashEntry *he);
 static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey);
@@ -100,7 +97,8 @@ const Tcl_HashKeyType tas_hash_type = {
     tas_hash_free		/* freeEntryProc */
 };
 
-void tas_hash_table_init(Tcl_HashTable *phashtab)
+
+static void tas_hash_table_init(Tcl_HashTable *phashtab)
 {
     Tcl_InitCustomHashTable(phashtab, TCL_CUSTOM_PTR_KEYS, &tas_hash_type);
 }
@@ -149,3 +147,44 @@ static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
 
     return result;
 }
+
+tas_lookup_t tas_lookup_create()
+{
+    tas_lookup_t lookup = (Tcl_HashTable *) TAS_ALLOC(sizeof(Tcl_HashTable *));
+    tas_hash_table_init(lookup);
+    return lookup;
+}
+
+void tas_lookup_free(tas_lookup_t lookup)
+{
+    Tcl_DeleteHashTable(lookup);
+    TAS_FREE(lookup);
+}
+
+int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval)
+{
+    Tcl_HashEntry *he;
+    he = Tcl_FindHashEntry(lookup, ptas);
+    if (he) {
+        *pval = Tcl_GetHashValue(he);
+        return 1;
+    } else
+        return 0;
+}
+
+void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val)
+{
+    int *newly_created;
+    Tcl_HashEntry *he;
+
+    he = Tcl_CreateHashEntry(lookup, ptas, &newly_created);
+    /* NOTE WE OVERWRITE EXISTING VALUE IF ANY */
+    Tcl_SetHashValue(he, val);
+}
+
+/* TBD - delete from lookup when element removed from thdr? Or keep lazy
+   in which case do we need to provide a "garbage collection" function?
+   Note that even if you delete, lookup and thdr may not be matched since
+   the item may occur elsewhere in the thdr and a linear search still
+   has to be done next time a lookup if made for that stirng */
+   

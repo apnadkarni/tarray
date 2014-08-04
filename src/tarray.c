@@ -88,6 +88,9 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
             if (pptas[i]->nrefs == 0)
                 Tcl_Panic("thdr TA_STRING: element ref count == 0");
         }
+        if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE) {
+            /* TBD - verify hash table */
+        }
         break;
     default:
         ta_type_panic(thdr->type);
@@ -839,12 +842,15 @@ void thdr_place_ta_strings(thdr_t *thdr,
      * Hence what we do is to store NULL first in all unused slots
      * that will be written to mark what is unused.
      */
+
+    /* TBD - we do not bother to erase thdr_lookup entries. Should we ? */
     for (i = thdr->used; i < new_size; ++i)
         pptas[i] = NULL;        /* TBD - optimization - memset ? */
     while (pindex < end) {
         if (pptas[*pindex] != NULL)
             tas_unref(pptas[*pindex]); /* Deref original slot content */
         pptas[*pindex] = tas_from_obj(*ovalues);
+        thdr_lookup_add(thdr, *pindex);
         pindex++;
         ovalues++;
     }
@@ -910,6 +916,9 @@ void thdr_fill_ta_strings(thdr_t *thdr,
     int *pindex, *end;
     tas_t **pptas;
 
+    if (pindices->used == 0)
+        return;                 /* Code below assumes at least one */
+
     pindex = THDRELEMPTR(pindices, int, 0);
     end = pindex + pindices->used;
     pptas = THDRELEMPTR(thdr, tas_t *, 0);
@@ -925,14 +934,21 @@ void thdr_fill_ta_strings(thdr_t *thdr,
      * Hence what we do is to store NULL first in all unused slots
      * that will be written to mark what is unused.
      */
+
+    /* TBD - we do not bother to erase thdr_lookup entries. Should we ? */
+
     for (i = thdr->used; i < new_size; ++i)
         pptas[i] = NULL;        /* TBD - optimization - memset ? */
     while (pindex < end) {
         TA_ASSERT(*pindex >= 0);
         if (pptas[*pindex] != NULL)
             tas_unref(pptas[*pindex]);/* Deref original slot content */
-        pptas[*pindex++] = tas_ref(ptas);
+        pptas[*pindex] = tas_ref(ptas);
+        ++pindex;
     }
+    /* Safe since we already checked indices has at least one element */
+    --pindex;
+    thdr_lookup_add(thdr, *pindex);
 
     TA_ASSERT(new_size <= thdr->usable);
     thdr->used = new_size;
@@ -1353,6 +1369,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     TA_ASSERT(thdr->type == ptav->type);
     TA_ASSERT(count >= 0);
 
+    /* Code below depends on this check ! */
     if (count == 0)
         return;
 
@@ -1445,6 +1462,10 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
             /* Now loop over new elements being appended */
             for (; i < pos+count; ++i)
                 *pptas++ = tas_ref(ptav->ptas);
+
+            /* Update the lookup if it exists. */
+            TA_ASSERT(count > 0);
+            thdr_lookup_add(thdr, pos+count-1);
         }
         break;
 
@@ -1697,8 +1718,13 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 void thdr_free(thdr_t *thdr)
 {
     switch (thdr->type) {
-    case TA_ANY: thdr_decr_obj_refs(thdr, 0, thdr->used); break;
-    case TA_STRING: thdr_decr_tas_refs(thdr, 0, thdr->used); break;
+    case TA_ANY:
+        thdr_decr_obj_refs(thdr, 0, thdr->used);
+        break;
+    case TA_STRING:
+        thdr_lookup_free(thdr);
+        thdr_decr_tas_refs(thdr, 0, thdr->used);
+        break;
     }
     TA_FREEMEM(thdr);
 }
@@ -1850,6 +1876,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
                     }
                 }
                 *pptas = tas_from_obj(elems[i]);
+                thdr_lookup_add(thdr, first + i);
             }
         }
         break;
@@ -2035,7 +2062,9 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
                 TA_ASSERT(*pindex < thdr->usable);
                 if (dst[*pindex] != NULL)
                     tas_unref(dst[*pindex]);/* Deref original slot */
-                dst[*pindex++] = ptas;
+                dst[*pindex] = ptas;
+                thdr_lookup_add(thdr, *pindex);
+                ++pindex;
                 ++src;
             }
         }
@@ -2150,6 +2179,7 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
             ta_memory_error(ip, sz);
         return NULL;
     }
+    thdr->lookup = TAS_LOOKUP_INVALID_HANDLE;
     thdr->nrefs = 0;
     thdr->usable = count;
     thdr->used = 0;
@@ -2346,6 +2376,8 @@ void thdr_reverse(thdr_t *thdr)
 {
     int orig_order;
 
+    TA_ASSERT(! thdr_shared(thdr));
+
     if (thdr->used == 0)
         return;
 
@@ -2370,7 +2402,10 @@ void thdr_reverse(thdr_t *thdr)
         ba_reverse(THDRELEMPTR(thdr, ba_t, 0), 0, thdr->used);
         break;
     case TA_ANY:    SWAPALL(thdr, Tcl_Obj*); break;
-    case TA_STRING: SWAPALL(thdr, tas_t*); break;
+    case TA_STRING:
+        SWAPALL(thdr, tas_t*);
+        thdr_lookup_free(thdr); /* Lookup table no longer valid */
+        break;
     case TA_UINT:   /* Fall thru */
     case TA_INT:    SWAPALL(thdr, int); break;
     case TA_WIDE:   SWAPALL(thdr, Tcl_WideInt); break;
@@ -2409,7 +2444,7 @@ void thdr_copy(thdr_t *pdst, int dst_first,
     if ((src_first + count) > psrc->used)
         count = psrc->used - src_first;
     if (count <= 0)
-        return;
+        return;                 /* Code below DEPENDS on this */
 
     new_used = thdr_recompute_occupancy(pdst, &dst_first, count, insert);
     TA_ASSERT(new_used <= pdst->usable); /* Caller should have ensured */
@@ -2450,8 +2485,10 @@ void thdr_copy(thdr_t *pdst, int dst_first,
             srctas = THDRELEMPTR(psrc, tas_t *, src_first);
             srcend = srctas + count;
             dsttas = THDRELEMPTR(pdst, tas_t *, dst_first);
-            while (srctas < srcend)
+            while (srctas < srcend) {
                 *dsttas++ = tas_ref(*srctas++);
+            }
+            thdr_lookup_addn(pdst, dst_first, count);
         }
         break;
 
@@ -2511,7 +2548,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
     if ((src_first + count) > psrc->used)
         count = psrc->used - src_first;
     if (count <= 0)
-        return;
+        return;                 /* Code below DEPENDS on this */
     TA_ASSERT((dst_first + count) <= pdst->usable);
 
     if (dst_first < 0)
@@ -2574,6 +2611,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
             dsttas += dst_first + i - 1;
             while (i--)
                 *dsttas-- = tas_ref(*srctas++);
+            thdr_lookup_addn(pdst, dst_first, count);
         }
         break;
 
