@@ -97,7 +97,7 @@ void ta_mt_group_retain(ta_mt_group_t grp)
 void ta_mt_group_release(ta_mt_group_t grp) 
 {
     if (InterlockedDecrement(&grp->nrefs) <= 0) {
-        int i;
+        unsigned int i;
         for (i = 0; i < grp->nworkitems; ++i) {
             TA_ASSERT(grp->workitems[i].owner == grp);
             if (grp->workitems[i].sig != NULL)
