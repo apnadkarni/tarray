@@ -136,13 +136,12 @@ static void tas_hash_free(Tcl_HashEntry *he)
 static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
 {
     const char *s = ((tas_t *)pkey)->s;
-    const unsigned char *string = pkey;
     unsigned int result;
     unsigned char c;
 
     /* Exact copy of Tcl's string hash */
-    if ((result = *string) != 0) {
-	while ((c = *++string) != 0) {
+    if ((result = *s) != 0) {
+	while ((c = *++s) != 0) {
 	    result += (result << 3) + c;
 	}
     }
@@ -152,7 +151,7 @@ static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
 
 tas_lookup_t tas_lookup_new()
 {
-    tas_lookup_t lookup = (Tcl_HashTable *) TAS_ALLOC(sizeof(Tcl_HashTable *));
+    tas_lookup_t lookup = (Tcl_HashTable *) TAS_ALLOC(sizeof(Tcl_HashTable));
     tas_hash_table_init(lookup);
     return lookup;
 }
