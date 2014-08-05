@@ -13,6 +13,7 @@
 #include "tarray.h"
 
 int ta_experiment;
+int ta_full_validation;         /* Can really slow down! */
 
 #ifdef TA_MT_ENABLE
 /*
@@ -63,6 +64,9 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
     tas_t **pptas;
     int i;
 
+    if (!ta_full_validation)
+        return 1;
+
     if (thdr->used > thdr->usable) {
         Tcl_Panic("thdr->used (%d) > thdr->usable (%d)", thdr->used, thdr->usable);
     }
@@ -103,6 +107,9 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
 int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
 {
     thdr_t *thdr;
+
+    if (!ta_full_validation)
+        return 1;
 
     if (tcol_convert(ip, tcol) != TCL_OK || ! tcol_affirm(tcol))
         Tcl_Panic("Tcl_Obj is not a column");

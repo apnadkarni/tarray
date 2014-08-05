@@ -584,6 +584,7 @@ Tcl_ObjCmdProc ta_dump_cmd;
 Tcl_ObjCmdProc tcol_minmax_cmd;
 
 extern int ta_experiment;
+extern int ta_full_validation;
 
 #ifdef TA_MT_ENABLE
 /* Threshold for when sorts are multithreaded */

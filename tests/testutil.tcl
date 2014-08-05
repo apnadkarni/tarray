@@ -614,7 +614,7 @@ if {![info exists tarray::test::known]} {
             variable largelists
             # Note: must return the same list for a particular type
             if {![info exists largelists($type)]} {
-                set largelists($type) [tarray::unsupported::lrandom $type 100000]
+                tarray::unsupported::lrandom largelists($type) $type 100000
             }
             return $largelists($type)
         }
