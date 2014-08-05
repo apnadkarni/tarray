@@ -1,4 +1,4 @@
-# column search tests
+# column minmax tests
 
 source testutil.tcl
 

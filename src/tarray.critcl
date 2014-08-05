@@ -108,6 +108,8 @@ if {$build_opts(mt_enable)} {
             pval = &ta_minmax_mt_threshold;
         else if (ta_strequal(vname, "experiment"))
             pval = &ta_experiment;
+        else if (ta_strequal(vname, "full_validation"))
+            pval = &ta_full_validation;
         else {
             Tcl_SetResult(interp, "Invalid config setting name.", TCL_STATIC);
             return TCL_ERROR;

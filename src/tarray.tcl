@@ -82,11 +82,34 @@ proc tarray::db::create {def {init {}} {size 0}} {
     return $tok
 }
 
-proc tarray::unsupported::crandom {type count} {
-    return [tarray::column create $type [lrandom $type $count]]
+proc tarray::unsupported::crandom {varname type count} {
+    # Do not use lrandom because that will affect memory usage
+    upvar 1 $varname col
+    set col [tarray::column create $type {} $count]
+    # TBD - return entire range of floats
+    # TBD - larger numbers are more likely. Change to return equal
+    # number from each range 0-9, 10-99, 100-999 etc.
+    switch $type {
+        boolean { time {tarray::column vput col [expr {rand() > 0.5}]} $count }
+        uint { time {tarray::column vput col [expr {wide(0xffffffff*rand())}]} $count }
+        int { time {tarray::column vput col [expr {wide(0x7fffffff*(rand()-0.5))}]} $count }
+        wide { time {tarray::column vput col [expr {wide(0x7fffffffffffffff*rand())}]} $count }
+        byte { time {tarray::column vput col [expr {round(255*rand())}]} $count }
+        double {time {tarray::column vput col [tcl::mathfunc::rand]} $count}
+        string -
+        any {
+            time {
+                set n [expr {round(100*rand())}]
+                tarray::column vput col $type[string repeat $n $n]
+            } $count
+        }
+        default {error "Unknown type $type"}
+    }
+    return
 }
 
-proc tarray::unsupported::lrandom {type count} {
+proc tarray::unsupported::lrandom {varname type count} {
+    upvar 1 $varname l
     set l {}
     # TBD - return entire range of floats
     # TBD - larger numbers are more likely. Change to return equal
@@ -107,7 +130,7 @@ proc tarray::unsupported::lrandom {type count} {
         }
         default {error "Unknown type $type"}
     }
-    return $l
+    return
 }
 
 namespace eval tarray {
