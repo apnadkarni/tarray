@@ -1561,8 +1561,11 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
             /* TBD - clean up search interface */
             Tcl_Obj *resultObj = Tcl_GetObjResult(ip);
             TA_NOFAIL(Tcl_GetIntFromObj(NULL, resultObj, &pos), TCL_OK);
+        }
+        if (pos >= 0)
             thdr_lookup_add(thdr, pos);
-        } else {
+        else {
+            /* Not in table. Remove from lookup if it necessary */
             pos = -1;
             if (delete_pos > 0)
                 thdr_lookup_delete(thdr, delete_pos);
