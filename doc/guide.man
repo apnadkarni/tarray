@@ -152,6 +152,7 @@ and assuming the content is not shared, no copy needs to be made.
 Almost every command that modifies a typed array has this dual equivalent.
 
 [comment "TBD - expand on the efficiency issues and benefits"]
+[comment "TBD - expand on the string versus any column type"]
 
 [subsection "Modifying Data"]
 
@@ -457,6 +458,10 @@ these values compare equal is based on the order in [variable indices].
 
 [subsection "Other Commands"]
 
+The [cmd "column lookup"] provides for a faster, dictionary based
+retrieval for string columns. This may be beneficial for columns used
+as keys in a table.
+[para]
 The [cmd "column minmax"] command returns a pair containing the
 minimum and maximum values in a column.
 [para]
