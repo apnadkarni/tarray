@@ -10,6 +10,13 @@
 [section Version [vset tarray_version]]
 
 [list_begin itemized]
+[item]Added column type [const string].
+[item]Added command [cmd "column minmax"].
+[item]Added command [cmd "column lookup"].
+[item]Parallelized more operations.
+[list_end]
+
+[list_begin itemized]
 [item] Added support for referencing columns by name.
 [item] Added [cmd -columns] option for appropriate commands
 to allow subsetting and reordering of columns in table commands.
