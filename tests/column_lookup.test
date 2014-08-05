@@ -1,0 +1,149 @@
+# column lookup tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    foreach type {any boolean byte double int uint wide} {
+        test column_lookup-$type-1.0 {
+            Lookup a column other than type string
+        } -body {
+            tarray::column lookup [samplecolumn $type]
+        } -result "tarray is of the wrong type ($type)" -returnCodes error
+
+        test column_lookup-$type-1.1 {
+            Lookup a column other than type string
+        } -body {
+            tarray::column lookup [samplecolumn $type] [samplevalue $type]
+        } -result "tarray is of the wrong type ($type)" -returnCodes error
+    }
+
+    test column_lookup-1.0 {
+        Build lookup for an empty column
+    } -body {
+        tarray::column lookup [newcolumn string]
+    } -result ""
+
+    test column_lookup-1.1 {
+        lookup an empty column
+    } -body {
+        tarray::column lookup [newcolumn string] anystring
+    } -result -1
+
+   test column_lookup-2.0 {
+       First lookup adds a key
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s end
+        set t1 [time {set i1 [tarray::column lookup $col $s]}]
+        set t2 [time {set i2 [tarray::column lookup $col $s]}]
+        list \
+            [string equal $s [tarray::column index $col $i2]] \
+            [expr {[lindex $t1 0] > 20*[lindex $t2 0]}]
+    } -result {1 1}
+
+   test column_lookup-2.1 {
+       Explicit builds adds keys
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col "${s}1" end-1
+        tarray::column vfill col "${s}2" end
+        set t0 [time {tarray::column search $col "${s}1"}]
+        tarray::column lookup $col
+        set t1 [time {set i1 [tarray::column lookup $col "${s}1"]}]
+        set t2 [time {set i2 [tarray::column lookup $col "${s}2"]}]
+        list \
+            [string equal ${s}1 [tarray::column index $col $i1]] \
+            [string equal ${s}2 [tarray::column index $col $i2]] \
+            [expr {[lindex $t0 0] > 20*[lindex $t1 0]}] \
+            [expr {[lindex $t0 0] > 20*[lindex $t2 0]}]
+    } -result {1 1 1 1}
+
+   test column_lookup-2.2 {
+       New key added
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col $s 10000
+        set i2 [tarray::column lookup $col $s]
+        list $i1 $i2
+    } -result {-1 10000}
+
+   test column_lookup-3.0 {
+       Nonexistent key
+    } -body {
+        set col [largecolumn string]
+        # Ensure we get -1 even after lookup is built
+        list \
+            [tarray::column lookup $col nosuchstring] \
+            [tarray::column lookup $col nosuchstring]
+    } -result {-1 -1}
+
+   test column_lookup-3.1 {
+       Nonexistent key after deletion
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s end
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vdelete col $i1
+        set i2 [tarray::column lookup $col $s]
+        list [expr {$i1 == [tarray::column size $col]}] $i2
+    } -result {1 -1}
+
+   test column_lookup-3.2 {
+       Another key exists after deletion
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 100
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vdelete col $i1
+        set i2 [tarray::column lookup $col $s]
+        # Note i2 will be 999 since we deleted an earlier item
+        list $i1 $i2
+    } -result {100 999}
+
+   test column_lookup-4.0 {
+       Nonexistent key after overwriting
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col "someotherstring" $i1
+        set i2 [tarray::column lookup $col $s]
+        list $i1 $i2
+    } -result {1000 -1}
+
+   test column_lookup-4.1 {
+       Another key exists after overwriting
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 100
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col "someotherstring" $i1
+        set i2 [tarray::column lookup $col $s]
+        list $i1 $i2
+    } -result {100 1000}
+
+   test column_lookup-5.0 {
+       Key moved
+    } -body {
+        set col [largecolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col "someotherstirng" $i1
+        tarray::column vfill col $s 100
+        set i2 [tarray::column lookup $col $s]
+        # Note i2 will be 999 since we deleted an earlier item
+        list $i1 $i2
+    } -result {1000 100}
+
+}
