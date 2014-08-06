@@ -261,7 +261,8 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
     } else
         pctx->first_value.type = type;
 
-#define SEARCHLOOP_(type_, value_) \
+
+#define SEARCHLOOP2_(type_, value_, op_)                                \
     do {                                                                \
         type_ *p, *end;                                                 \
         type_ needle = value_;                                          \
@@ -270,13 +271,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
         end = p + pctx->count;                                          \
         while (p < end) {                                               \
             int compare_result;                                         \
-            switch (pctx->op) {                                         \
-            case TA_SEARCH_OPT_GT: compare_result = (*p > needle); break; \
-            case TA_SEARCH_OPT_LT: compare_result = (*p < needle); break; \
-            case TA_SEARCH_OPT_EQ: compare_result = (*p == needle); break; \
-            default: goto op_panic;                                     \
-            }                                                           \
-                                                                        \
+            compare_result = (*p op_ needle); \
             if (compare_result == compare_wanted) {                     \
                 /* Have a match, add it to found items */               \
                 if (pctx->flags & TA_SEARCH_ALL) {                      \
@@ -305,6 +300,17 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
             ++p;                                                        \
         }                                                               \
     } while (0)
+
+#define SEARCHLOOP_(type_, value_) \
+    do { \
+        switch (pctx->op) {                                             \
+        case TA_SEARCH_OPT_GT: SEARCHLOOP2_(type_, value_, >); break;   \
+        case TA_SEARCH_OPT_LT: SEARCHLOOP2_(type_, value_, <); break;   \
+        case TA_SEARCH_OPT_EQ: SEARCHLOOP2_(type_, value_, ==); break;   \
+        default: goto op_panic;                                         \
+        }                                                               \
+    } while (0)
+
 
     switch (type) {
     case TA_INT:
