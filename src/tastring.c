@@ -12,10 +12,6 @@
 
 #include "tarray.h"
 
-#define TAS_ALLOC TA_ALLOCMEM
-#define TAS_FREE  TA_FREEMEM
-
-
 /* Note len does not include trailing null and unlike Tcl_Obj's
    returned ref count is 1 on allocation */
 tas_t *tas_alloc(char *s, int len)
@@ -26,67 +22,12 @@ tas_t *tas_alloc(char *s, int len)
     TA_ASSERT(len >= 0);
 
     sz = sizeof(tas_t) + len; /* tas_t already accounts for trailing null */
-    ptas = TAS_ALLOC(sz);
+    ptas = TAS_ALLOCMEM(sz);
     memcpy(&ptas->s[0], s, len+1);
     ptas->nrefs = 1;
     return ptas;
 }
 
-tas_t * tas_from_obj(Tcl_Obj *o)
-{
-    int len;
-    char *s;
-    s = Tcl_GetStringFromObj(o, &len);
-    return tas_alloc(s, len);
-}
-
-Tcl_Obj *tas_to_obj(tas_t *ptas)
-{
-    return Tcl_NewStringObj(ptas->s, -1);
-}
-
-tas_t *tas_dup(tas_t *src)
-{
-    TA_ASSERT(src->nrefs > 0);
-    return tas_alloc(&src->s[0], strlen(src->s));
-}
-
-/* Returned tas may not be same as src ! */
-tas_t *tas_ref(tas_t *src)
-{
-    TA_ASSERT(src->nrefs > 0);
-    if (src->nrefs < TAS_MAX_NREFS) {
-        src->nrefs += 1;
-        return src;
-    } else
-        return tas_dup(src);
-}
-
-void tas_unref(tas_t *ptas)
-{
-    TA_ASSERT(ptas->nrefs > 0);
-    ptas->nrefs -= 1;
-    if (ptas->nrefs == 0)
-        TAS_FREE(ptas);
-}
-
-int tas_equal(tas_t *a, tas_t *b, int nocase)
-{
-    TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
-    if (a == b)
-        return 1;
-    if (a->s[0] != b->s[0])
-        return 0;
-    return ta_utf8_equal(a->s, b->s, nocase);
-}
-
-int tas_compare(tas_t *a, tas_t *b, int nocase)
-{
-    TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
-    if (a == b)
-        return 0;
-    return ta_utf8_compare(a->s, b->s, nocase);
-}
 
 /* The descriptor for our custom hash */
 static void tas_hash_free(Tcl_HashEntry *he);
@@ -151,7 +92,7 @@ static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
 
 tas_lookup_t tas_lookup_new()
 {
-    tas_lookup_t lookup = (Tcl_HashTable *) TAS_ALLOC(sizeof(Tcl_HashTable));
+    tas_lookup_t lookup = (Tcl_HashTable *) TAS_ALLOCMEM(sizeof(Tcl_HashTable));
     tas_hash_table_init(lookup);
     return lookup;
 }
@@ -159,7 +100,7 @@ tas_lookup_t tas_lookup_new()
 void tas_lookup_free(tas_lookup_t lookup)
 {
     Tcl_DeleteHashTable(lookup);
-    TAS_FREE(lookup);
+    TAS_FREEMEM(lookup);
 }
 
 int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval)
