@@ -297,6 +297,11 @@ int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 const char *ta_type_string(int tatype);
 void ta_update_string_for_variable_element_size(Tcl_Obj *o);
 
+int ta_utf8_compare(char *, char *, int ignorecase);
+int ta_utf8_equal(char *, char *, int ignorecase);
+int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
+int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
+
 /*
  * Error and panic routines
  */
@@ -568,11 +573,6 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip, int ntcols,
 /*
  * Search and sort routines
  */
-int ta_utf8_compare(char *, char *, int ignorecase);
-int ta_utf8_equal(char *, char *, int ignorecase);
-int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
-int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
-
 void tarray_qsort_r(void *a, size_t n, size_t es, void *thunk, int (*cmp)(void *, const void *, const void *));
 int intcmp(const void *a, const void *b);
 int intcmprev(const void *a, const void *b);
