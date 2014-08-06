@@ -435,9 +435,45 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
         break;
 
     case TA_STRING:
+#define SEARCHLOOPSTRING_(CMP_)                                         \
+        do {                                                            \
+            while (p < end) {                                           \
+            int compare_result;                                         \
+            compare_result = CMP_;                                      \
+            if (compare_result < 0)                                     \
+                goto cmp_error;                                         \
+            if (compare_result == compare_wanted) {                     \
+                /* Have a match, add it to found items */               \
+                if (pctx->flags & TA_SEARCH_ALL) {                      \
+                    if (thdr->used >= thdr->usable) {                   \
+                        thdr_t *pnew;                                   \
+                        pnew = thdr_realloc(NULL, thdr, thdr->used + TA_EXTRA(thdr->used)); \
+                        if (pnew)                                       \
+                            thdr = pnew;                                \
+                        else                                            \
+                            goto cmp_error;                             \
+                    }                                                   \
+                    if (pctx->flags & TA_SEARCH_INLINE) {               \
+                        /* Note this operation is not thread-safe. The  \
+                           assumption is caller is using only the interp \
+                           thread so ok to do this*/                    \
+                        *THDRELEMPTR(thdr, tas_t *, thdr->used) = tas_ref(*p); \
+                    } else                                              \
+                        *THDRELEMPTR(thdr, int, thdr->used) = pos;      \
+                    thdr->used++;                                       \
+                } else {                                                \
+                    pctx->first_match = pos;                            \
+                    break;                                              \
+                }                                                       \
+            }                                                           \
+            ++pos;                                                      \
+            ++p;                                                        \
+        }                                                               \
+    } while (0)
+
         do {
             tas_t **p, **end;
-            tas_t *needle = pctx->needle.ptas; 
+            tas_t *needle = pctx->needle.ptas;
             int pos = pctx->start;
             int nocase = pctx->flags & TA_SEARCH_NOCASE;
             Tcl_RegExp re;
@@ -450,7 +486,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                     re = Tcl_RegExpCompile(NULL, needle->s);
                 else {
                     /* Tcl_RegExpCompile does not have flags for
-                     * case-insensitive comparisons so prefix the option 
+                     * case-insensitive comparisons so prefix the option
                     */
                     /* Note sizeof includes the terminating null */
                     char *nocase_s = TA_ALLOCMEM(sizeof("(?i)")+strlen(needle->s));
@@ -470,67 +506,27 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
             p = THDRELEMPTR(pctx->haystack, tas_t *, pctx->start);
             end = p + pctx->count;
 
-            while (p < end) {
-                int compare_result;
-                switch (pctx->op) {
-                case TA_SEARCH_OPT_GT:
-                    compare_result = tas_compare(*p, needle, nocase) > 0;
-                    break;
-                case TA_SEARCH_OPT_LT: 
-                    compare_result = tas_compare(*p, needle, nocase) < 0;
-                    break;
-                case TA_SEARCH_OPT_EQ:
-                    compare_result = tas_equal(*p, needle, nocase);
-                    break;
-                case TA_SEARCH_OPT_PAT:
-                    compare_result =
-                        Tcl_StringCaseMatch((*p)->s, needle->s, nocase);
-                    break;
-                case TA_SEARCH_OPT_RE:
-                    compare_result = Tcl_RegExpExec(NULL, re, (*p)->s, (*p)->s);
-                    if (compare_result < 0) {
-                        /* Note this unrefs elements if needed. OK because
-                         RE operator should only be used in interp thread */
-                        thdr_decr_refs(thdr);
-                        pctx->res = TCL_ERROR;
-                        return;
-                    }
-                    break;
-                default:
-                    goto op_panic;
-                }
-
-                if (compare_result == compare_wanted) {
-                    /* Have a match, add it to found items */
-                    if (pctx->flags & TA_SEARCH_ALL) {
-                        if (thdr->used >= thdr->usable) {
-                            thdr_t *pnew;
-                            pnew = thdr_realloc(NULL, thdr, thdr->used + TA_EXTRA(thdr->used));
-                            if (pnew)
-                                thdr = pnew;
-                            else {
-                                thdr_decr_refs(thdr);
-                                pctx->res = TCL_ERROR;
-                                return;
-                            }
-                        }
-                        if (pctx->flags & TA_SEARCH_INLINE) {
-                            /* Note this operation is not thread-safe. The
-                               assumption is caller is using only the interp
-                               thread so ok to do this*/
-                            *THDRELEMPTR(thdr, tas_t *, thdr->used) = tas_ref(*p);
-                        } else
-                            *THDRELEMPTR(thdr, int, thdr->used) = pos;
-                        thdr->used++;
-                    } else {
-                        pctx->first_match = pos;
-                        break;
-                    }
-                }
-                ++pos;
-                ++p;
+            switch (pctx->op) {
+            case TA_SEARCH_OPT_GT:
+                SEARCHLOOPSTRING_((tas_compare(*p, needle, nocase) > 0));
+                break;
+            case TA_SEARCH_OPT_LT:
+                SEARCHLOOPSTRING_((tas_compare(*p, needle, nocase) < 0));
+                break;
+            case TA_SEARCH_OPT_EQ:
+                SEARCHLOOPSTRING_((tas_equal(*p, needle, nocase)));
+                break;
+            case TA_SEARCH_OPT_PAT:
+                SEARCHLOOPSTRING_((Tcl_StringCaseMatch((*p)->s, needle->s, nocase)));
+                break;
+            case TA_SEARCH_OPT_RE:
+                SEARCHLOOPSTRING_((Tcl_RegExpExec(NULL, re, (*p)->s, (*p)->s)));
+                break;
+            default:
+                goto op_panic;
             }
         } while (0);
+
         /* NOTE:
          * Do not use tas_ref because that is not MT-safe and this point
          * in the code is reached even for operations that allow MT.
@@ -558,6 +554,11 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
 op_panic:
     ta_operator_panic(pctx->op);
     return;                     /* To keep compiler happy */
+
+cmp_error:
+    thdr_decr_refs(thdr);
+    pctx->res = TCL_ERROR;
+    return;
 }
 
 /* Returns TCL_OK, if search completed, TCL_CONTINUE if mt search is not possible and TCL_ERROR for errors */
