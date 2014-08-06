@@ -330,14 +330,53 @@ TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 
 /* tas_t interface */
+#define TAS_ALLOCMEM TA_ALLOCMEM
+#define TAS_FREEMEM  TA_FREEMEM
 tas_t *tas_alloc(char *s, int len);
-tas_t * tas_from_obj(Tcl_Obj *o);
-Tcl_Obj *tas_to_obj(tas_t *src);
-tas_t *tas_ref(tas_t *src);
-void tas_unref(tas_t *ptas);
-int tas_equal(tas_t *a, tas_t *b, int nocase);
-int tas_compare(tas_t *a, tas_t *b, int nocase);
-tas_t *tas_dup(tas_t *src);
+TA_INLINE tas_t * tas_from_obj(Tcl_Obj *o) {
+    int len;
+    char *s = Tcl_GetStringFromObj(o, &len);
+    return tas_alloc(s, len);
+}
+TA_INLINE Tcl_Obj *tas_to_obj(tas_t *ptas) {
+    return Tcl_NewStringObj(ptas->s, -1);
+}
+TA_INLINE tas_t *tas_dup(tas_t *src) {
+    TA_ASSERT(src->nrefs > 0);
+    return tas_alloc(&src->s[0], strlen(src->s));
+}
+/* Returned tas may not be same as src ! */
+TA_INLINE tas_t *tas_ref(tas_t *src) {
+    TA_ASSERT(src->nrefs > 0);
+    if (src->nrefs < TAS_MAX_NREFS) {
+        src->nrefs += 1;
+        return src;
+    } else
+        return tas_dup(src);
+}
+TA_INLINE void tas_unref(tas_t *ptas)
+{
+    TA_ASSERT(ptas->nrefs > 0);
+    ptas->nrefs -= 1;
+    if (ptas->nrefs == 0)
+        TAS_FREEMEM(ptas);
+}
+TA_INLINE int tas_equal(tas_t *a, tas_t *b, int nocase)
+{
+    TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
+    if (a == b)
+        return 1;
+    if (a->s[0] != b->s[0])
+        return 0;
+    return ta_utf8_equal(a->s, b->s, nocase);
+}
+TA_INLINE int tas_compare(tas_t *a, tas_t *b, int nocase)
+{
+    TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
+    if (a == b)
+        return 0;
+    return ta_utf8_compare(a->s, b->s, nocase);
+}
 tas_lookup_t tas_lookup_new(void);
 void tas_lookup_free(tas_lookup_t lookup);
 int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval);
