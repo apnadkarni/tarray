@@ -369,11 +369,15 @@ TA_INLINE void tas_unref(tas_t *ptas)
 TA_INLINE int tas_equal(tas_t *a, tas_t *b, int nocase)
 {
     TA_ASSERT(a->nrefs > 0 && b->nrefs > 0);
+#if 0
     if (a == b)
         return 1;
     if (a->s[0] != b->s[0] && !nocase)
         return 0;
-    return ta_utf8_equal(a->s, b->s, nocase);
+#endif
+    /* TBD - should we call ta_utf8_equal instead. Currently that
+       just calls str*cmp but that might change in future */
+    return nocase ? ! _stricmp(a->s, b->s) : ! strcmp(a->s, b->s);
 }
 TA_INLINE int tas_compare(tas_t *a, tas_t *b, int nocase)
 {
