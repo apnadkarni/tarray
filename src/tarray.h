@@ -570,9 +570,6 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip, int ntcols,
                       Tcl_Obj * const *srccols, int src_elem_first,
                       int count, int insert);
 
-/*
- * Search and sort routines
- */
 void tarray_qsort_r(void *a, size_t n, size_t es, void *thunk, int (*cmp)(void *, const void *, const void *));
 int intcmp(const void *a, const void *b);
 int intcmprev(const void *a, const void *b);

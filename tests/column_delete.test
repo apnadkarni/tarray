@@ -20,7 +20,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-1.0 {
             Test deletion of first element (shared tclobj)
         } -body {
-            array::unsupported::lrandom l $type 100000
+            tarray::unsupported::lrandom l $type 100000
             change_and_verify_col $type $l delete 0 [lrange $l 1 end]
         } -result 0
 
