@@ -147,3 +147,4 @@ namespace eval tarray::test {
     } -result {1000 100}
 
 }
+::tcltest::cleanupTests
