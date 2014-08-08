@@ -1093,54 +1093,6 @@ cmp_error:
     return TCL_ERROR;
 }
 
-static TCL_RESULT thdr_search_entier(Tcl_Interp *ip, thdr_t * haystackP,
-                                     Tcl_Obj *needleObj, ta_search_t *psearch)
-{
-    if (psearch->indices)
-        return thdr_indices_search(ip, haystackP, needleObj, psearch);
-    else
-        return thdr_basic_search_mt(ip, haystackP, needleObj, psearch);
-}
-
-
-static TCL_RESULT thdr_search_double(Tcl_Interp *ip, thdr_t * haystackP,
-                                     Tcl_Obj *needleObj, ta_search_t *psearch)
-{
-    TA_ASSERT(haystackP->type == TA_DOUBLE);
-
-    if (psearch->indices)
-        return thdr_indices_search(ip, haystackP, needleObj, psearch);
-    else 
-        return thdr_basic_search_mt(ip, haystackP, needleObj, psearch);
-}
-
-static TCL_RESULT thdr_search_obj(Tcl_Interp *ip, thdr_t * haystackP,
-                                  Tcl_Obj *needleObj, ta_search_t *psearch)
-{
-    /* TBD - do we need to increment the haystacP ref to guard against shimmering */
-    TA_ASSERT(haystackP->type == TA_ANY);
-    
-    if (psearch->indices)
-        return thdr_indices_search(ip, haystackP, needleObj, psearch);
-    else
-        return thdr_basic_search_mt(ip, haystackP, needleObj, psearch);
-}
-
-
-static TCL_RESULT thdr_search_string(Tcl_Interp *ip, thdr_t *haystackP,
-                                     Tcl_Obj *needleObj, ta_search_t *psearch)
-{
-    /* TBD - do we need to increment the haystacP ref to guard against shimmering */
-    TA_ASSERT(haystackP->type == TA_STRING);
-    
-    if (psearch->indices)
-        return thdr_indices_search(ip, haystackP, needleObj, psearch);
-    else
-        return thdr_basic_search_mt(ip, haystackP, needleObj, psearch);
-}
-
-
-
 TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
@@ -1249,6 +1201,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     else
         search.cur = search.lower;
 
+#if 0
     switch (haystackP->type) {
     case TA_BOOLEAN: searchfn = thdr_search_boolean; break;
     case TA_INT:
@@ -1263,7 +1216,14 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_ERROR;       /* To avoid compiler warning about return */
     }
     status = (*searchfn)(ip, haystackP, objv[objc-1], &search);
-
+#else
+    if (haystackP->type == TA_BOOLEAN)
+        status = thdr_search_boolean(ip, haystackP, objv[objc-1], &search);
+    else if (search.indices)
+        return thdr_indices_search(ip, haystackP, objv[objc-1], &search);
+    else
+        return thdr_basic_search_mt(ip, haystackP, objv[objc-1], &search);
+#endif
 vamoose:
     if (search.indices)
         thdr_decr_refs(search.indices);
@@ -1328,8 +1288,8 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
         search.flags = 0;
         search.cur = 0;
         search.op = TA_SEARCH_OPT_EQ;
-        if (thdr_search_string(ip, thdr, objv[2], &search) == TCL_OK) {
-            /* TBD - clean up search interface */
+        if (thdr_basic_search_mt(ip, thdr, objv[2], &search) == TCL_OK) {
+            /* TBD - clean up search interface to return value, not interp result */
             Tcl_Obj *resultObj = Tcl_GetObjResult(ip);
             TA_NOFAIL(Tcl_GetIntFromObj(NULL, resultObj, &pos), TCL_OK);
         }
