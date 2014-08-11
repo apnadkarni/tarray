@@ -11,6 +11,7 @@
 
 [list_begin itemized]
 [item]Added column type [const string].
+[item]Added command [cmd "column count"].
 [item]Added command [cmd "column minmax"].
 [item]Added command [cmd "column lookup"].
 [item]Parallelized more operations.

@@ -19,16 +19,17 @@ int ta_search_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
  * Options for 'tarray search'
  */
 static const char *ta_search_switches_e[] = {
-    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-among", NULL
+    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-among", "-count", NULL
 };
 enum ta_search_switches_e {
-    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_AMONG
+    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_AMONG, TA_SEARCH_OPT_COUNT
 };
 /* Search flags */
 #define TA_SEARCH_INLINE 1  /* Return values, not indices */
 #define TA_SEARCH_INVERT 2  /* Invert matching expression */
 #define TA_SEARCH_ALL    4  /* Return all matches */
 #define TA_SEARCH_NOCASE 8  /* Ignore case */
+#define TA_SEARCH_COUNT  16 /* Only count matches */
 
 /* Contains search criteria */
 typedef struct ta_search_s {
@@ -59,6 +60,13 @@ TCL_RESULT ta_search_op_error(Tcl_Interp *ip, int op)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_search_bad_options(Tcl_Interp *ip)
+{
+    Tcl_SetResult(ip, "Unknown or invalid combination of search options", TCL_STATIC);
+    return TCL_ERROR;
+}
+
+
 TCL_RESULT ta_search_nomatches(Tcl_Interp *ip, thdr_t *haystackP, ta_search_t *psearch)
 {
     Tcl_Obj *o;
@@ -70,6 +78,8 @@ TCL_RESULT ta_search_nomatches(Tcl_Interp *ip, thdr_t *haystackP, ta_search_t *p
         if (thdr == NULL)
             return TCL_ERROR;
         o = tcol_new(thdr);
+    } else if (psearch->flags & TA_SEARCH_COUNT) {
+        o = Tcl_NewIntObj(0);
     } else {
         o = psearch->flags & TA_SEARCH_INLINE ? Tcl_NewObj() : Tcl_NewIntObj(-1);
     }
@@ -86,7 +96,7 @@ static int ta_search_calc_slot_indices(ta_search_t *psearch)
     while (psearch->cur < psearch->indices->used) {
         slot = *THDRELEMPTR(psearch->indices, int, psearch->cur);
         if (slot >= psearch->lower && slot <= psearch->upper) {
-            /* This index within range. Loop to try next */
+            /* This index within range. */
             return slot;
         }
         /* Not in range, try next */
@@ -109,9 +119,8 @@ static TA_INLINE int ta_search_calc_slot(ta_search_t *psearch)
 static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
                                       Tcl_Obj *needleObj, ta_search_t *psearch)
 {
-    int bval;
     ba_t *baP;
-    int pos;
+    int bval, pos;
     Tcl_Obj *oresult;
     thdr_t *thdr;
     thdr_t *newP;
@@ -131,15 +140,17 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
 
     if (psearch->indices == NULL) {
         /* Search a range */
+        if (psearch->upper < psearch->lower)
+            return ta_search_nomatches(ip, haystackP, psearch);
+
         if (psearch->flags & TA_SEARCH_ALL) {
             thdr = thdr_alloc(ip, 
                               psearch->flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
-                              10);                /* Assume 10 hits */
+                              10);                /* TBD Assume 10 hits */
             if (thdr == NULL)
                 return TCL_ERROR;
             pos = psearch->lower;
-            while ((pos = ba_find(baP, bval, pos, haystackP->used)) != -1
-                   && pos <= psearch->upper) {
+            while ((pos = ba_find(baP, bval, pos, psearch->upper+1)) != -1) {
                 /* Ensure enough space in target array */
                 if (thdr->used >= thdr->usable) {
                     newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
@@ -160,9 +171,16 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
             if ((psearch->flags & TA_SEARCH_INLINE) == 0)
                 thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
             oresult = tcol_new(thdr);
+        } else if (psearch->flags & TA_SEARCH_COUNT) {
+            int nmatches;
+            if (bval)
+                nmatches = ba_count_ones(baP, psearch->lower, psearch->upper+1);
+            else
+                nmatches = ba_count_zeroes(baP, psearch->lower, psearch->upper+1);
+            oresult = Tcl_NewIntObj(nmatches);
         } else {
             /* Return first found element */
-            pos = ba_find(baP, bval, psearch->lower, haystackP->used);
+            pos = ba_find(baP, bval, psearch->lower, psearch->upper + 1);
             if (pos > psearch->upper)
                 pos = -1;
             if (psearch->flags & TA_SEARCH_INLINE)
@@ -209,6 +227,19 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
 
             oresult = tcol_new(thdr);
 
+        } else if (psearch->flags & TA_SEARCH_COUNT) {
+            int nmatches = 0;
+            while (1) {
+                pos = ta_search_calc_slot_indices(psearch);
+                if (pos == -1)
+                    break;
+
+                TA_ASSERT(pos < haystackP->used);
+                if (ba_get(baP, pos) == bval)
+                    ++nmatches;
+                psearch->cur += 1;  /* Next index to check */
+            }
+            oresult = Tcl_NewIntObj(nmatches);
         } else {
             /* Return first found element among given indices */
             while (1) {
@@ -240,6 +271,7 @@ struct thdr_search_mt_context {
                                                 in assertion checking */
     ta_value_t first_value;           /* Value of first match */
     int first_match;           /* Index of first match */
+    int nmatches;              /* Number of matches (TA_SEARCH_COUNT) */
     int start;                  /* Starting position to look in haystack */
     int count;                  /* Number of elements to examine */
     int flags;                  /* TA_SEARCH_* flags */
@@ -252,6 +284,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
     int compare_wanted;
     thdr_t *thdr = NULL;
     unsigned char type = pctx->haystack->type;
+    int nmatches;
     
     TA_ASSERT((pctx->start + pctx->count) <= pctx->haystack->used);
     /* If regexp operation, must not multithread */
@@ -268,6 +301,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
 
     pctx->thdr = NULL;
     pctx->first_match = -1;
+    pctx->nmatches = 0;
     if (pctx->flags & TA_SEARCH_ALL) {
         thdr = thdr_alloc(NULL,
                           pctx->flags & TA_SEARCH_INLINE ? type : TA_INT,
@@ -276,9 +310,10 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
             pctx->res = TCL_ERROR;
             return;
         }
+    } else if (pctx->flags & TA_SEARCH_COUNT) {
+        nmatches = 0;
     } else
         pctx->first_value.type = type;
-
 
 #define SEARCHLOOP2_(type_, value_, op_)                                \
     do {                                                                \
@@ -309,6 +344,8 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                     else                                                \
                         *THDRELEMPTR(thdr, int, thdr->used) = pos;      \
                     thdr->used++;                                       \
+                } else if (pctx->flags & TA_SEARCH_COUNT) { \
+                    ++nmatches;                                           \
                 } else {                                                \
                     pctx->first_match = pos;                            \
                     break;                                              \
@@ -333,27 +370,27 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
     switch (type) {
     case TA_INT:
         SEARCHLOOP_(int, pctx->needle.ival);
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.ival = *THDRELEMPTR(pctx->haystack, int, pctx->first_match);
         break;
     case TA_UINT:
         SEARCHLOOP_(unsigned int, pctx->needle.uival);
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.uival = *THDRELEMPTR(pctx->haystack, unsigned int, pctx->first_match);
         break;
     case TA_WIDE:
         SEARCHLOOP_(Tcl_WideInt, pctx->needle.wval);
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.wval = *THDRELEMPTR(pctx->haystack, Tcl_WideInt, pctx->first_match);
         break;
     case TA_DOUBLE:
         SEARCHLOOP_(double, pctx->needle.dval);
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.dval = *THDRELEMPTR(pctx->haystack, double, pctx->first_match);
         break;
     case TA_BYTE:
         SEARCHLOOP_(unsigned char, pctx->needle.ucval);
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.ucval = *THDRELEMPTR(pctx->haystack, unsigned char, pctx->first_match);
         break;
 #undef SEARCHLOOP_
@@ -387,6 +424,8 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                     } else                                              \
                         *THDRELEMPTR(thdr, int, thdr->used) = pos;      \
                     thdr->used++;                                       \
+                } else if (pctx->flags & TA_SEARCH_COUNT) { \
+                    ++nmatches;                                           \
                 } else {                                                \
                     pctx->first_match = pos;                            \
                     break;                                              \
@@ -453,7 +492,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
         } while (0);
         /* Note here we do not incr ref count on the object as that will
            done in the "master" object when returning the value */
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.oval = *THDRELEMPTR(pctx->haystack, Tcl_Obj *, pctx->first_match);
         break;
 
@@ -484,6 +523,8 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                     } else                                              \
                         *THDRELEMPTR(thdr, int, thdr->used) = pos;      \
                     thdr->used++;                                       \
+                } else if (pctx->flags & TA_SEARCH_COUNT) { \
+                    ++nmatches;                                           \
                 } else {                                                \
                     pctx->first_match = pos;                            \
                     break;                                              \
@@ -556,7 +597,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
          * Correspondingly caller should not use ta_value_clear
          * on pctx->first_value 
          */
-        if ((pctx->flags & TA_SEARCH_ALL) == 0 && pctx->first_match >= 0)
+        if ((pctx->flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && pctx->first_match >= 0)
             pctx->first_value.ptas = *THDRELEMPTR(pctx->haystack, tas_t *, pctx->first_match);
         break;
 #undef SEARCHLOOPSTRING_
@@ -569,7 +610,8 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
         if ((pctx->flags & TA_SEARCH_INLINE) == 0)
             thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
         pctx->thdr = thdr;
-    }
+    } else if (pctx->flags & TA_SEARCH_COUNT)
+        pctx->nmatches = nmatches;
 
     pctx->res = TCL_OK;
     return;
@@ -727,6 +769,13 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                 }
             }
             Tcl_SetObjResult(ip, tcol_new(result_thdr));
+        } else if (psearch->flags & TA_SEARCH_COUNT) {
+            /* Just return the number of matches */
+            int total;
+            for (total = 0, i = 0; i < ncontexts; ++i) {
+                total += mt_context[i].nmatches;
+            }
+            Tcl_SetObjResult(ip, Tcl_NewIntObj(total));
         } else {
             /* Single value to be returned */
             Tcl_Obj *resultObj;
@@ -781,6 +830,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
     int flags = psearch->flags;
     int first_match;
     Tcl_Obj *o;
+    int nmatches;
     
     TA_ASSERT(psearch->indices);
 
@@ -795,7 +845,9 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
                           10);                /* Assume 10 hits TBD */
         if (thdr == NULL)
             return TCL_ERROR;
-    }
+    } else if (flags & TA_SEARCH_COUNT)
+        nmatches = 0;
+
     found_val.type = type;
 
 #define SEARCHINDICESLOOP2_(type_, needle_, op_)                        \
@@ -805,7 +857,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
             int compare_result;                                         \
             int slot;                                                   \
             type_ target_val;                                           \
-            slot = ta_search_calc_slot(psearch);                        \
+            slot = ta_search_calc_slot_indices(psearch);                \
             if (slot == -1)                                             \
                 break;                                                  \
             target_val = *THDRELEMPTR(haystackP, type_, slot);       \
@@ -828,6 +880,8 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
                     else                                                \
                         *THDRELEMPTR(thdr, int, thdr->used) = slot;     \
                     thdr->used++;                                       \
+                } else if (flags & TA_SEARCH_COUNT) { \
+                    ++nmatches;                                           \
                 } else {                                                \
                     first_match = slot;                                 \
                     break;                                              \
@@ -851,27 +905,27 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
     switch (type) {
     case TA_INT:
         SEARCHINDICESLOOP_(int, needle_tav.ival);
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.ival = *THDRELEMPTR(haystackP, int, first_match);
         break;
     case TA_UINT:
         SEARCHINDICESLOOP_(unsigned int, needle_tav.uival);
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.uival = *THDRELEMPTR(haystackP, unsigned int, first_match);
         break;
     case TA_WIDE:
         SEARCHINDICESLOOP_(Tcl_WideInt, needle_tav.wval);
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.wval = *THDRELEMPTR(haystackP, Tcl_WideInt, first_match);
         break;
     case TA_DOUBLE:
         SEARCHINDICESLOOP_(double, needle_tav.dval);
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.dval = *THDRELEMPTR(haystackP, double, first_match);
         break;
     case TA_BYTE:
         SEARCHINDICESLOOP_(unsigned char, needle_tav.ucval);
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.ucval = *THDRELEMPTR(haystackP, unsigned char, first_match);
         break;
     case TA_ANY:
@@ -880,7 +934,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         while (1) {                                                     \
             int slot, compare_result;                                   \
             Tcl_Obj *target_obj;                                          \
-            slot = ta_search_calc_slot(psearch);                        \
+            slot = ta_search_calc_slot_indices(psearch);                \
             if (slot == -1)                                             \
                 break;                                                  \
             target_obj = *THDRELEMPTR(haystackP, Tcl_Obj *, slot);        \
@@ -907,6 +961,8 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
                     } else                                              \
                         *THDRELEMPTR(thdr, int, thdr->used) = slot;     \
                     thdr->used++;                                       \
+                } else if (flags & TA_SEARCH_COUNT) { \
+                    ++nmatches;                                           \
                 } else {                                                \
                     first_match = slot;                                 \
                     break;                                              \
@@ -963,7 +1019,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
             }
         } while (0);
 
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.oval = *THDRELEMPTR(haystackP, Tcl_Obj *, first_match);
 
         break;
@@ -974,7 +1030,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         while (1) {                                                     \
             int slot, compare_result;                                   \
             tas_t *target_tas;                                          \
-            slot = ta_search_calc_slot(psearch);                        \
+            slot = ta_search_calc_slot_indices(psearch);                \
             if (slot == -1)                                             \
                 break;                                                  \
             target_tas = *THDRELEMPTR(haystackP, tas_t *, slot);        \
@@ -1000,6 +1056,8 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
                     } else                                              \
                         *THDRELEMPTR(thdr, int, thdr->used) = slot;     \
                     thdr->used++;                                       \
+                } else if (flags & TA_SEARCH_COUNT) { \
+                    ++nmatches;                                           \
                 } else {                                                \
                     first_match = slot;                                 \
                     break;                                              \
@@ -1062,7 +1120,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
          * We do not use tas_ref and correspondingly not use ta_value_clear
          * on found_val below
          */
-        if ((flags & TA_SEARCH_ALL) == 0 && first_match >= 0)
+        if ((flags & (TA_SEARCH_ALL|TA_SEARCH_COUNT)) == 0 && first_match >= 0)
             found_val.ptas = *THDRELEMPTR(haystackP, tas_t *, first_match);
         break;
 
@@ -1072,6 +1130,8 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
 
     if (flags & TA_SEARCH_ALL)
         o = tcol_new(thdr);
+    else if (flags & TA_SEARCH_COUNT)
+        o = Tcl_NewIntObj(nmatches);
     else {
         if (flags & TA_SEARCH_INLINE)
             o = first_match >= 0 ? ta_value_to_obj(&found_val) : Tcl_NewObj();
@@ -1124,6 +1184,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
 
         switch ((enum ta_search_switches_e) opt) {
         case TA_SEARCH_OPT_ALL: search.flags |= TA_SEARCH_ALL; break;
+        case TA_SEARCH_OPT_COUNT: search.flags |= TA_SEARCH_COUNT; break;
         case TA_SEARCH_OPT_INLINE: search.flags |= TA_SEARCH_INLINE; break;
         case TA_SEARCH_OPT_INVERT: search.flags |= TA_SEARCH_INVERT; break;
         case TA_SEARCH_OPT_NOCASE: search.flags |= TA_SEARCH_NOCASE; break;
@@ -1191,6 +1252,11 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         }
     }
 
+    if (search.flags & TA_SEARCH_COUNT) {
+        if (search.flags & (TA_SEARCH_ALL|TA_SEARCH_INLINE))
+            return ta_search_bad_options(ip);
+    }
+
     if (search.lower < 0)
         search.lower = 0;
     if (search.upper >= haystackP->used)
@@ -1200,29 +1266,13 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     else
         search.cur = search.lower;
 
-#if 0
-    switch (haystackP->type) {
-    case TA_BOOLEAN: searchfn = thdr_search_boolean; break;
-    case TA_INT:
-    case TA_UINT:
-    case TA_BYTE:
-    case TA_WIDE:   searchfn = thdr_search_entier; break;
-    case TA_DOUBLE: searchfn = thdr_search_double; break;
-    case TA_ANY:    searchfn = thdr_search_obj; break;
-    case TA_STRING:    searchfn = thdr_search_string; break;
-    default:
-        ta_type_panic(haystackP->type);
-        return TCL_ERROR;       /* To avoid compiler warning about return */
-    }
-    status = (*searchfn)(ip, haystackP, objv[objc-1], &search);
-#else
     if (haystackP->type == TA_BOOLEAN)
         status = thdr_search_boolean(ip, haystackP, objv[objc-1], &search);
     else if (search.indices)
         return thdr_indices_search(ip, haystackP, objv[objc-1], &search);
     else
         return thdr_basic_search_mt(ip, haystackP, objv[objc-1], &search);
-#endif
+
 vamoose:
     if (search.indices)
         thdr_decr_refs(search.indices);
