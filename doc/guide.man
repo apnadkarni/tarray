@@ -458,6 +458,9 @@ these values compare equal is based on the order in [variable indices].
 
 [subsection "Other Commands"]
 
+The [cmd "column count"] can be used to count the number values
+in a column that match specified criteria.
+[para]
 The [cmd "column lookup"] provides for a faster, dictionary based
 retrieval for string columns. This may be beneficial for columns used
 as keys in a table.

@@ -45,6 +45,13 @@ Note: All commands are located in the [cmd tarray] namespace.
 
 [list_begin definitions]
 
+[call [cmd "column count"] [opt "[option -range] [arg RANGE]"] [opt "[option -among] [arg INDICES]"] [opt [option -not]] [opt [option -nocase]] [arg [opt OPER]] [arg COLUMN] [arg VALUE]]
+Counts the number of matches for a value in the elements in a column.
+See the [cmd "column search"] command for a description of the
+various options.
+Note that if the [option -among] is specified and an index occurs multiple
+times in [arg INDICES], it will be counted multiple times.
+
 [call [cmd "column create"] [arg TYPE] [arg [opt INITIALIZER]] [arg [opt INITSIZE]]]
 Returns a typed array of the type [arg TYPE] which must be one of one
 of valid types described in [sectref "Types"]. If 

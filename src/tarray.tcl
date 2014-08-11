@@ -6,6 +6,7 @@ namespace eval tarray {
     namespace eval test {}
 }
 
+interp alias {} tarray::column::count {} tarray::column::search -count
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}
     set cols {}
@@ -137,6 +138,7 @@ namespace eval tarray {
 
     namespace eval column {
         namespace ensemble create -map {
+            count count
             create create
             delete delete
             dump dump
