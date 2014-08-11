@@ -367,7 +367,7 @@ int ba_count_ones(ba_t *baP, int off, int count)
     nbits = 0;
     baP += off / BA_UNIT_SIZE;
     ba = *baP & BITPOSMASKGE(off % BA_UNIT_SIZE);
-    n = ((count + off) / BA_UNIT_SIZE) * BA_UNIT_SIZE;
+    n = (count / BA_UNIT_SIZE) * BA_UNIT_SIZE;
     /* At this point,
      * baP points to ba_t containing first bit of interest
      * ba contains *baP with top bits not of interest masked off
@@ -383,8 +383,8 @@ int ba_count_ones(ba_t *baP, int off, int count)
     /* When above loop terminates, ba contains any partial bits (if any)
      * in the last ba_t of the specified range
      */
-    if (off < count) {
-        ba = ba & BITPOSMASKLT(count-off);
+    if (n < count) {
+        ba = ba & BITPOSMASKLT(count-n);
         nbits += ba_count_unit_ones(ba);
     }
 
