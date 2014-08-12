@@ -121,19 +121,19 @@ The command returns the index of an element in [arg COLUMN] that
 exactly matches [arg LOOKUPKEY] or -1 if not found. If [arg LOOKUPKEY]
 is not specified, command builds an internal dictionary (see below)
 and the return value is an empty string.
-[nl]
+[para]
 [arg COLUMN] must be a column of type [const string]. Unlike the
 [cmd "column search"] command, the returned index is not necessarily that
 of the first occurence in cases where [arg LOOKUPKEY] occurs multiple
 times in the column. 
-[nl]
+[para]
 The command is usually much faster than
 [cmd "column search"] because it is based on an internal dictionary that
 maps string values to their position indices in the column. This
 internal dictionary is either created when the command is called
 without the optional [arg LOOKUPKEY] argument, or is built in incremental
 fashion with each [cmd "column lookup"] call.
-[nl]
+[para]
 In the current implementation, this dictionary is maintained in a
 loose or lazy manner and internally does not always reflect the actual
 content of the column. However, the return value of the command is always
@@ -144,14 +144,14 @@ Searches the specified column for the minimum and maximum values, returning
 them as a pair. If [cmd -indices] is specified, their indices
 are returned instead of their values. In case either value occurs 
 at multiple indices in the column, the lowest index is returned.
-[nl]
+[para]
 The option [cmd -range] can be specified to limit the search to a subrange
 of the column. It takes a pair of indices,
 in the one of the forms described in [sectref Indices],
 that inclusively specify
 the subrange. The second element of the pair may be omitted in which case 
 it defaults to the last element in the column.
-[nl]
+[para]
 The option [cmd -nocase] may be specified to indicate case-insensitive 
 comparisons. This is only effective for column type [const any]
 and ignored for the others.
