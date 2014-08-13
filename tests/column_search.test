@@ -5217,9 +5217,6 @@ namespace eval tarray::test {
         } -body {
             set l [lsearch -inline -all -not [largelist $type] 0]
             set n [llength $l]
-            if {$n < [tarray::unsupported::config search_mt_threshold]} {
-                error "Not enough elements for MT search"
-            }
             set pos1 [expr {$n/2 - 10}]; # Toward end of first half
             set pos2 [expr {$n/2 + 10}]; # Toward beginning of second half so second thread should find it quicker
             lset l $pos1 0
@@ -5236,9 +5233,6 @@ namespace eval tarray::test {
         } -body {
             set l [lsearch -inline -all -not [largelist $type] 0]
             set n [llength $l]
-            if {$n < [tarray::unsupported::config search_mt_threshold]} {
-                error "Not enough elements for MT search"
-            }
             set pos [expr {$n/2 + 10}]; # Toward beginning of second half so second thread should find it quicker
             lset l $pos 0
             lset l end 0
@@ -5254,9 +5248,6 @@ namespace eval tarray::test {
         } -body {
             set l [lsearch -inline -all -not [largelist $type] 0]
             set n [llength $l]
-            if {$n < [tarray::unsupported::config search_mt_threshold]} {
-                error "Not enough elements for MT search"
-            }
             list \
                 [tarray::column search [tarray::column create $type $l] 0] \
                 [tarray::column search -all [tarray::column create $type $l] 0] \
@@ -5271,9 +5262,6 @@ namespace eval tarray::test {
             # Make sure we control number of times 0 occurs
             set l [lsearch -inline -all -not [largelist $type] 0]
             set n [llength $l]
-            if {$n < [tarray::unsupported::config search_mt_threshold]} {
-                error "Not enough elements for MT search"
-            }
             set pos1 [expr {$n/2 - 10}]; # Toward end of first half
             set pos2 [expr {$n/2 + 10}]; # Toward beginning of second half so second thread should find it quicker
             lset l $pos1 0
@@ -5289,9 +5277,6 @@ namespace eval tarray::test {
             # Make sure we control number of times 0 occurs
             set l [lsearch -inline -all -not [largelist $type] 0]
             set n [llength $l]
-            if {$n < [tarray::unsupported::config search_mt_threshold]} {
-                error "Not enough elements for MT search"
-            }
             set pos1 [expr {$n/2 - 10}]; # Toward end of first half
             set pos2 [expr {$n/2 + 10}]; # Toward beginning of second half so second thread should find it quicker
             lset l $pos1 0
@@ -5313,7 +5298,7 @@ namespace eval tarray::test {
             byte {0 128 255}
         } $type] low elem high
 
-        set n [tarray::unsupported::config search_mt_threshold]
+        set n 100000
         set l [lrepeat $n $elem]
         set lowpos1 [expr {$n/2 - 10}]; # Toward end of first half
         set highpos1 [expr {$lowpos1-1}]
