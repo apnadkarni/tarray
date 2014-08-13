@@ -16,7 +16,7 @@
 #include "tcl.h"
 
 #ifdef TA_USE_LIBDISPATCH
-# include "dispatch.h"
+# include <dispatch/dispatch.h>
 #endif
 
 #ifdef _MSC_VER
