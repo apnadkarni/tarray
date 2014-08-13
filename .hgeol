@@ -22,3 +22,5 @@ makefile = native
 **.docx = BIN
 **.doc = BIN
 **.msi = BIN
+
+**.critcl = native
