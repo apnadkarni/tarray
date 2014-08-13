@@ -420,7 +420,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
                            assumption is caller is using only the interp \
                            thread so ok to do this*/                    \
                         Tcl_IncrRefCount(*p); \
-                        *THDRELEMPTR(thdr, tas_t *, thdr->used) = *p; \
+                        *THDRELEMPTR(thdr, Tcl_Obj *, thdr->used) = *p; \
                     } else                                              \
                         *THDRELEMPTR(thdr, int, thdr->used) = pos;      \
                     thdr->used++;                                       \
@@ -1161,7 +1161,6 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_Obj *orange;
     Tcl_Obj **range;
     TCL_RESULT status;
-    TCL_RESULT (*searchfn)(Tcl_Interp *, thdr_t *, Tcl_Obj *, ta_search_t *);
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "?options? tarray pattern");
