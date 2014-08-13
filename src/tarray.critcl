@@ -29,9 +29,6 @@ if {$build_opts(mt_enable) && ![win32_target]} {
     set build_opts(use_libdispatch) 1
 }
 
-# Path to libdispatch (optional, set only if use_libdispatch is true)
-#set build_opts(libdispatch_dir) "../xdispatch_0.7.2_Visual Studio 10 Win64_i386"
-
 # Enable compiling of unsupported functions
 set build_opts(unsupported) 1
 
@@ -129,9 +126,7 @@ critcl::ccommand tarray::unsupported::config {} {
 
 
 if {$build_opts(use_libdispatch)} {
-    critcl::clibraries [file join $build_opts(libdispatch_dir) lib dispatch.lib]
-    critcl::cheaders [file join $build_opts(libdispatch_dir) include dispatch dispatch.h]
-
+    critcl::clibraries -ldispatch
     critcl::cflags -DTA_USE_LIBDISPATCH
 }
 
