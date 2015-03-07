@@ -207,6 +207,7 @@ critcl::cinit {
 ################################################################
 # Commands
 
+
 critcl::ccommand tarray::column::create {} {
     int init_size;
     int tatype;
@@ -1392,6 +1393,22 @@ critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
 critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
 critcl::cdata tarray::unsupported::hg_id       [exec hg identify]
 
-package provide tarray 0.6
+critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int first int count int min_hint int nsizes} ok {
+    int sizes[16];
+    Tcl_Obj *ores;
+    int i, split_count;
+    if (nsizes > ARRAYSIZE(sizes)) {
+        Tcl_SetResult(interp, "Invalid array size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+    split_count = thdr_calc_mt_split_ex(tatype, first, count, min_hint, nsizes, sizes);
+    ores = Tcl_NewListObj(nsizes, NULL);
+    for (i = 0; i < split_count; ++i)
+        Tcl_ListObjAppendElement(interp, ores, Tcl_NewIntObj(sizes[i]));
+    Tcl_SetObjResult(interp, ores);
+    return TCL_OK;
+}
+
+package provide tarray 0.7
 
 critcl::load
