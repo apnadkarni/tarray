@@ -622,6 +622,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
 Tcl_ObjCmdProc tcol_search_cmd;
 Tcl_ObjCmdProc ta_dump_cmd;
 Tcl_ObjCmdProc tcol_minmax_cmd;
+Tcl_ObjCmdProc tcol_lookup_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;
@@ -636,6 +637,8 @@ extern int ta_fill_mt_threshold;
 extern int ta_minmax_mt_threshold;
 /* Multithreading support */
 int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size);
+int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
+                          int nsizes, int sizes[]);
 
 # ifdef TA_USE_LIBDISPATCH
 

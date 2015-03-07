@@ -835,6 +835,120 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
     *psecond_block_size = second_block_size;
     return count - second_block_size;
 }
+
+/*
+ * For multithreaded operations, the array needs to be split up such that
+ * the boundary is aligned at a point where the threads will not interfere
+ * with one another. This is an issue only for the sizes smaller
+ * than an atomic memory unit (assumed to be int).
+ *
+ * Caller should pass in nsizes the size of the sizes[] array which
+ * should also correspond to *max* number threads to split into.
+ * On return, sizes[] will contain the number of elements to assign
+ * to each thread, some of which may be set to 0.
+ * 
+ * Caller should pass min_hint as minimum number of elements a thread
+ * should process. This is only treated as a hint.
+ *
+ * first is the offset of the first element. Caller should set this
+ * appropriately to ensure split is done taking alignment into account.
+ *
+ * Returns number of threads to use or equivalently how many slots
+ * of sizes[] are filled. Remaining slots in sizes[] are NOT INITIALIZED.
+ */
+int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
+                          int nsizes, int sizes[])
+{
+    int nthreads;
+    int split_size;
+    int i;
+    int aligned_first;
+
+    if (min_hint < 1000)
+        min_hint = 1000;
+
+    /* Assumes the thdr array is aligned properly (into which first is
+     * an offset) and that processors access ints, wides and doubles atomically.
+     */
+
+    /*
+     * Figure out how many threads we should use. We would like every thread
+     * to have at least min_hint elements to work with under the assumption
+     * that otherwise it is not worth assigning a separate thread.
+     */
+    if (count <= (2*min_hint) || nsizes == 1) {
+        sizes[0] = count;
+        return 1;
+    }
+
+    nthreads = count / min_hint;
+    if (nthreads > nsizes)
+        nthreads = nsizes;
+
+    TA_ASSERT(nthreads > 1);    /* Loops below assume this */
+
+    switch (tatype) {
+    case TA_STRING:
+    case TA_ANY:
+    case TA_INT:
+    case TA_UINT:
+    case TA_DOUBLE:
+    case TA_WIDE:
+        split_size = count / nthreads;
+        for (i = 1; i < nthreads; ++i) {
+            sizes[i] = split_size;
+            count -= split_size;
+        }
+        TA_ASSERT(count > 0);
+        sizes[0] = count;
+        break;
+        
+    case TA_BYTE:
+        /* Assumes count > 2*sizeof(int) because of checks at top */
+
+        /*
+         * Assume int is appropriate for memory atomicity. So the boundaries
+         * for splitting have to be aligned. 
+         * Remember 'first' may not be aligned appropriately so do that first.
+         */
+        aligned_first = (first + sizeof(int) - 1) & (- (int) sizeof(int));
+        sizes[0] = aligned_first - first;
+        count -= sizes[0];
+
+        split_size = count / nthreads;
+        /* We have to make sure split_size is also aligned */
+        split_size = (split_size + sizeof(int) - 1) & (- (int) sizeof(int));
+        sizes[0] += split_size;
+        TA_ASSERT(count >= split_size);
+        count -= split_size;
+        for (i = 1; i < nthreads; ++i) {
+            if (count > split_size) {
+                sizes[i] = split_size;
+                count -= split_size;
+            } else {
+                sizes[i] = count;
+                count = 0;
+                break;
+            }
+        }
+        if (i == nthreads) {
+            if (count > 0) {
+                /* Can this actually happen ? */
+                sizes[nthreads-1] += count;
+            }
+        } else {
+            TA_ASSERT(count == 0);
+        }
+        break;
+
+    /* BOOLEAN and ANY cannot be multithreaded */
+    case TA_BOOLEAN:
+    default:
+        ta_type_panic(tatype);
+    }
+
+    return nthreads;
+}
 #endif
 
 /*
