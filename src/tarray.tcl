@@ -84,7 +84,7 @@ proc tarray::db::create {def {init {}} {size 0}} {
 }
 
 proc tarray::unsupported::crandom {varname type count} {
-    # Do not use lrandom because that will affect memory usage
+    # Do not use lrandom because that will affect memory usage in benchmarks
     upvar 1 $varname col
     set col [tarray::column create $type {} $count]
     # TBD - return entire range of floats
@@ -101,7 +101,7 @@ proc tarray::unsupported::crandom {varname type count} {
         any {
             time {
                 set n [expr {round(100*rand())}]
-                tarray::column vput col $type[string repeat $n $n]
+                tarray::column vput col [string repeat $n $n]$type
             } $count
         }
         default {error "Unknown type $type"}
@@ -126,7 +126,7 @@ proc tarray::unsupported::lrandom {varname type count} {
         any {
             time {
                 set n [expr {round(100*rand())}]
-                lappend l $type[string repeat $n $n]
+                lappend l [string repeat $n $n]$type
             } $count
         }
         default {error "Unknown type $type"}
