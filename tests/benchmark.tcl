@@ -48,49 +48,66 @@ proc make_list_of_unique_strings {count} {
 proc mt_disable {} {
     tarray::unsupported::config sort_mt_threshold 100000000
     tarray::unsupported::config sort_mt_enable_any 0
+    tarray::unsupported::config search_mt_threshold 100000000
 }
 proc mt_enable {} {
     tarray::unsupported::config sort_mt_threshold 10
     tarray::unsupported::config sort_mt_enable_any 1
+    tarray::unsupported::config search_mt_threshold 1
 }
 
 proc searchbench {n} {
     set results {}
 
+
+    # TA_STRING
+    set lstr [make_list_of_unique_strings $n]
+    set needle [lindex $lstr end]
+    dict set results $n strings list [time {lsearch -all -exact $lstr $needle}]
+    set tstr [tarray::column create string $lstr]
+    mt_disable
+    dict set results $n strings unthreaded [time {tarray::column search -all $tstr $needle}]
+    mt_enable
+    dict set results $n strings threaded [time {tarray::column search -all $tstr $needle}]
+     # Now list -> tarray
+    dict set results $n strings mixed [time {tarray::column search -all [tarray::column create string $lstr] $needle}]
+
+    unset lstr tstr;                 # Recover memory
+
     # TA_ANY
     set lstr [make_list_of_unique_strings $n]
     set needle [lindex $lstr end]
-    dict set results $n strings list [time {lsearch -exact $lstr $needle}]
+    dict set results $n any list [time {lsearch -all -exact $lstr $needle}]
     set tstr [tarray::column create any $lstr]
     mt_disable
-    dict set results $n strings unthreaded [time {tarray::column search $tstr $needle}]
+    dict set results $n any unthreaded [time {tarray::column search -all $tstr $needle}]
     mt_enable
-    dict set results $n strings threaded [time {tarray::column search $tstr $needle}]
+    dict set results $n any threaded [time {tarray::column search -all $tstr $needle}]
      # Now list -> tarray
-    dict set results $n strings mixed [time {tarray::column search [tarray::column create any $lstr] $needle}]
+    dict set results $n any mixed [time {tarray::column search -all [tarray::column create any $lstr] $needle}]
 
     unset lstr tstr;                 # Recover memory
 
     set ldbl [make_list_of_unique_doubles $n]
     set needle [lindex $ldbl end]
-    dict set results $n doubles list [time {lsearch -real $ldbl $needle}]
+    dict set results $n doubles list [time {lsearch -all -real $ldbl $needle}]
     set tdbl [tarray::column create double $ldbl]
     mt_disable
-    dict set results $n doubles unthreaded [time {tarray::column search $tdbl $needle}]
+    dict set results $n doubles unthreaded [time {tarray::column search -all $tdbl $needle}]
     mt_enable
-    dict set results $n doubles threaded [time {tarray::column search $tdbl $needle}]
-    dict set results $n doubles mixed [time {tarray::column search [tarray::column create double $ldbl] $needle}]
+    dict set results $n doubles threaded [time {tarray::column search -all $tdbl $needle}]
+    dict set results $n doubles mixed [time {tarray::column search -all [tarray::column create double $ldbl] $needle}]
     unset ldbl tdbl
 
     set lint [make_list_of_unique_ints $n]
     set needle [lindex $lint end]
-    dict set results $n ints list [time {lsearch -integer $lint $needle}]
+    dict set results $n ints list [time {lsearch -all -integer $lint $needle}]
     set tint [tarray::column create int $lint]
     mt_disable
-    dict set results $n ints unthreaded [time {tarray::column search $tint $needle}]
+    dict set results $n ints unthreaded [time {tarray::column search -all $tint $needle}]
     mt_enable
-    dict set results $n ints threaded [time {tarray::column search $tint $needle}]
-    dict set results $n ints mixed [time {tarray::column search [tarray::column create int $lint] $needle}]
+    dict set results $n ints threaded [time {tarray::column search -all $tint $needle}]
+    dict set results $n ints mixed [time {tarray::column search -all [tarray::column create int $lint] $needle}]
     unset lint tint
 
     return $results
@@ -99,37 +116,50 @@ proc searchbench {n} {
 proc sortbench {n} {
     set results {}
 
+    # TA_STRING
+    set lstr [make_list_of_strings $n]
+    dict set results $n strings list [time {lsort $lstr} 10]
+    set tstr [tarray::column create string $lstr]
+    mt_disable
+    dict set results $n strings unthreaded [time {tarray::column sort $tstr} 10]
+    mt_enable
+    dict set results $n strings threaded [time {tarray::column sort $tstr} 10]
+     # Now list -> tarray -> list
+    dict set results $n strings mixed [time {tarray::column range -list [tarray::column sort [tarray::column create string $lstr]] 0 end} 10]
+
+    unset lstr tstr;                 # Recover memory
+
     # TA_ANY
     set lstr [make_list_of_strings $n]
-    dict set results $n strings list [time {lsort $lstr}]
+    dict set results $n any list [time {lsort $lstr} 10]
     set tstr [tarray::column create any $lstr]
     mt_disable
-    dict set results $n strings unthreaded [time {tarray::column sort $tstr}]
+    dict set results $n any unthreaded [time {tarray::column sort $tstr} 10]
     mt_enable
-    dict set results $n strings threaded [time {tarray::column sort $tstr}]
+    dict set results $n any threaded [time {tarray::column sort $tstr} 10]
      # Now list -> tarray -> list
-    dict set results $n strings mixed [time {tarray::column get -list [tarray::column sort [tarray::column create any $lstr]] 0 end}]
+    dict set results $n any mixed [time {tarray::column range -list [tarray::column sort [tarray::column create any $lstr]] 0 end} 10]
 
     unset lstr tstr;                 # Recover memory
 
     set ldbl [make_list_of_doubles $n]
-    dict set results $n doubles list [time {lsort -real $ldbl}]
+    dict set results $n doubles list [time {lsort -real $ldbl} 10]
     set tdbl [tarray::column create double $ldbl]
     mt_disable
-    dict set results $n doubles unthreaded [time {tarray::column sort $tdbl}]
+    dict set results $n doubles unthreaded [time {tarray::column sort $tdbl} 10]
     mt_enable
-    dict set results $n doubles threaded [time {tarray::column sort $tdbl}]
-    dict set results $n doubles mixed [time {tarray::column get -list [tarray::column sort [tarray::column create double $ldbl]] 0 end}]
+    dict set results $n doubles threaded [time {tarray::column sort $tdbl} 10]
+    dict set results $n doubles mixed [time {tarray::column range -list [tarray::column sort [tarray::column create double $ldbl]] 0 end} 10]
     unset ldbl tdbl
 
     set lint [make_list_of_ints $n]
-    dict set results $n ints list [time {lsort -integer $lint}]
+    dict set results $n ints list [time {lsort -integer $lint} 10]
     set tint [tarray::column create int $lint]
     mt_disable
-    dict set results $n ints unthreaded [time {tarray::column sort $tint}]
+    dict set results $n ints unthreaded [time {tarray::column sort $tint} 10]
     mt_enable
-    dict set results $n ints threaded [time {tarray::column sort $tint}]
-    dict set results $n ints mixed [time {tarray::column get -list [tarray::column sort [tarray::column create int $lint]] 0 end}]
+    dict set results $n ints threaded [time {tarray::column sort $tint} 10]
+    dict set results $n ints mixed [time {tarray::column range -list [tarray::column sort [tarray::column create int $lint]] 0 end} 10]
     unset lint tint
 
     return $results
@@ -149,14 +179,14 @@ proc pdict {results {out stdout} {indent ""}} {
 proc scale {base timing} {
     set timing [lindex $timing 0]
     set ratio [expr {double($base)/$timing}]
-    return [format "%10d (%2.2f)" $timing $ratio]
+    return [format "%10d (%2.2f)" [expr {round($timing)}] $ratio]
 }
 
 proc printbenchmark {results {out stdout}} {
     dict for {size sizedata} $results {
         dict for {type typedata} $sizedata {
             dict with typedata {
-                set base [lindex $list 0]
+                set base [expr {round([lindex $list 0])}]
                 puts $out [format "%9d %10s %10d %s %s %s" $size $type $base [scale $base $unthreaded] [scale $base $threaded] [scale $base $mixed]]
             }
         }
