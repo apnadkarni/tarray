@@ -430,6 +430,11 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
 {
     int (*cmp)(const void*, const void*);
     int (*cmpind)(void *, const void*, const void*);
+#if defined (TA_MT_ENABLE)
+    int mt_sizes[4];
+    struct ta_sort_mt_context sort_context[4];
+    int ncontexts, elem_size, i;
+#endif
 
     TA_ASSERT(thdr->nrefs < 2);
 
@@ -486,16 +491,30 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
         }
     }
 
+    elem_size = thdr->elem_bits / CHAR_BIT;
 
 #ifdef TA_MT_ENABLE
-    if (thdr->used >= ta_sort_mt_threshold &&
-        (ta_sort_mt_enable_any ||
-         (thdr->type != TA_ANY &&
-          (psrc == NULL || psrc->type != TA_ANY)))) {
+    ncontexts = 1;
+    if (ta_sort_mt_enable_any ||
+        (thdr->type != TA_ANY &&
+          (psrc == NULL || psrc->type != TA_ANY))) {
 
+        ncontexts = thdr_calc_mt_split_ex(thdr->type, 0, thdr->used,
+                                          ta_sort_mt_threshold,
+                                          ARRAYSIZE(mt_sizes), mt_sizes);
+#ifdef TA_ENABLE_ASSERT
+        {
+            int total = 0;
+            for (i = 0; i < ncontexts; ++i) {
+                total += mt_sizes[i];
+            }
+            TA_ASSERT(total == thdr->used);
+        }
+#endif
+    }
+
+    if (ncontexts > 1) {
         ta_mt_group_t grp;
-        int elem_size;
-        struct ta_sort_mt_context sort_context[2];
 
         /* Tcl is not multithreaded within a single interp. To avoid
            conflicts make sure strings have been generated for
@@ -506,11 +525,9 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
         if (psrc && psrc->type == TA_ANY)
             thdr_ensure_obj_strings(psrc);
 
-        elem_size = thdr->elem_bits / CHAR_BIT;
-        sort_context[0].nelems = thdr_calc_mt_split(thdr->type, 0, thdr->used, &sort_context[1].nelems);
-        TA_ASSERT((sort_context[0].nelems + sort_context[1].nelems) == thdr->used);
         sort_context[0].base = THDRELEMPTR(thdr, unsigned char, 0);
         sort_context[0].elem_size = elem_size;
+        sort_context[0].nelems = mt_sizes[0];
         if (psrc) {
             sort_context[0].cmpfn = NULL;
             sort_context[0].cmpindexedfn = cmpind;
@@ -520,27 +537,35 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
             sort_context[0].cmpindexedfn = NULL;
             sort_context[0].arg = NULL;
         }
-        sort_context[1].base = elem_size*sort_context[0].nelems + (char *)sort_context[0].base;
-        sort_context[1].elem_size = elem_size;
-        sort_context[1].cmpfn = sort_context[0].cmpfn;
-        sort_context[1].cmpindexedfn = sort_context[0].cmpindexedfn;
-        sort_context[1].arg = sort_context[0].arg;
-        
-        if (sort_context[1].nelems) {
-            grp = ta_mt_group_create();
-            TA_ASSERT(grp != NULL); /* TBD, do not treat as catastrophic */
-            if (psrc) {
-                /* TBD - check errors */
-                ta_mt_group_async_f(grp, &sort_context[1], ta_sort_mt_worker_r);
-                timsort_r(sort_context[0].base, sort_context[0].nelems, elem_size, sort_context[0].arg, cmpind);
-            } else {
-                /* TBD - check errors */
-                ta_mt_group_async_f(grp, &sort_context[1], ta_sort_mt_worker);
-                timsort(sort_context[0].base, sort_context[0].nelems, elem_size, cmp);
-            }
-            ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
-            ta_mt_group_release(grp);
+        for (i = 1; i < ncontexts; ++i) {
+            sort_context[i].base = elem_size*sort_context[i-1].nelems + (char *)sort_context[i-1].base;
+            sort_context[i].elem_size = elem_size;
+            sort_context[i].nelems = mt_sizes[i];
+            /* Remaining fields are same for all */
+            sort_context[i].cmpfn = sort_context[0].cmpfn;
+            sort_context[i].cmpindexedfn = sort_context[0].cmpindexedfn;
+            sort_context[i].arg = sort_context[0].arg;
         }
+
+        grp = ta_mt_group_create();
+        TA_ASSERT(grp != NULL); /* TBD, do not treat as catastrophic */
+        if (psrc) {
+            /* TBD - check errors */
+            /* Fire off other threads */
+            for (i = 1; i < ncontexts; ++i) {
+                ta_mt_group_async_f(grp, &sort_context[i], ta_sort_mt_worker_r);
+            }
+            /* Do our share */
+            timsort_r(sort_context[0].base, sort_context[0].nelems, elem_size, sort_context[0].arg, cmpind);
+        } else {
+            /* TBD - check errors */
+            for (i = 1; i < ncontexts; ++i) {
+                ta_mt_group_async_f(grp, &sort_context[i], ta_sort_mt_worker);
+            }
+            timsort(sort_context[0].base, sort_context[0].nelems, elem_size, cmp);
+        }
+        ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
+        ta_mt_group_release(grp);
     }
 
     /* Now fall through below to sort the entire array.
@@ -551,11 +576,11 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
     
     if (psrc) {
         timsort_r(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
-                  thdr->elem_bits / CHAR_BIT,
+                  elem_size,
                   THDRELEMPTR(psrc, unsigned char, 0), cmpind);
     } else {
         timsort(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
-                thdr->elem_bits / CHAR_BIT, cmp);
+                elem_size, cmp);
     }
 
     /* Note when indirect/indexed sorting, returned indices are NOT sorted! */
