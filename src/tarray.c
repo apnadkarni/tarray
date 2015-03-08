@@ -2273,7 +2273,9 @@ static TCL_RESULT thdr_roundup_alloc_size(int current_count, int requested_count
 }
 
 
-/* ip may be NULL */
+/* ip may be NULL. oldP must not be shared (ref count must be 0 or 1)
+   Ref count of new returned thdr same as that of oldP
+ */
 thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
 {
     thdr_t *thdr;
