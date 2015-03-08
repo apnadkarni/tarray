@@ -682,6 +682,15 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                                           psearch->lower,
                                           count, ta_search_mt_threshold,
                                           ARRAYSIZE(mt_sizes), mt_sizes);
+#ifdef TA_ENABLE_ASSERT
+        {
+            int total = 0;
+            for (i = 0; i < ncontexts; ++i) {
+                total += mt_sizes[i];
+            }
+            TA_ASSERT(total == count);
+        }
+#endif
     }
 
 #endif
