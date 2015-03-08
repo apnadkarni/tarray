@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, Ashok P. Nadkarni
+ * Copyright (c) 2012-2015, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -631,91 +631,99 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                                        Tcl_Obj *needleObj, ta_search_t *psearch)
 {
     TCL_RESULT res;
-    struct thdr_search_mt_context mt_context[2];
+    struct thdr_search_mt_context mt_context[4];
+    int mt_sizes[4];
     int i, ncontexts, count;
 
     TA_ASSERT(haystackP->type != TA_BOOLEAN);
     TA_ASSERT(psearch->op == TA_SEARCH_OPT_GT || psearch->op == TA_SEARCH_OPT_LT || psearch->op == TA_SEARCH_OPT_EQ || psearch->op == TA_SEARCH_OPT_PAT || psearch->op == TA_SEARCH_OPT_RE);
     TA_ASSERT(psearch->indices == NULL);
-
+    
     if (psearch->upper < psearch->lower)
         return ta_search_nomatches(ip, haystackP, psearch);
 
     count = psearch->upper - psearch->lower + 1;
-
+    
     res = ta_value_from_obj(ip, needleObj, haystackP->type, &mt_context[0].needle);
     if (res != TCL_OK)
         return res;
-
-    /* OK, looks like we can do a MT search */
-
+    
+    /* Ensure string rep exists before any MT code runs */
     if (haystackP->type == TA_ANY)
         thdr_ensure_obj_strings(haystackP);
 
+#if !defined(TA_MT_ENABLE)
+    ncontexts = 1;
+    mt_sizes[0] = count;
+#else
+    /* 
+     * Note that TA_ANY/TA+STRING requires manipulation of ref counts
+     * for INLINE+ALL search. That is not thread-safe so we use
+     * only one thread for those cases. This is a REQUIREMENT.
+     * 
+     * In addition if TA_SEARCH_ALL is not set, we do not use MT.
+     * This is NOT a REQUIREMENT. Rather it is to avoid both unnecessary
+     * work as well as holding up the first thread if the match is found
+     * in the first thread itself.
+     * 
+     * Finally, use single thread if regexp matching as regexp engine is 
+     * not thread safe as it stores Tcl_Obj* in compiled regexps and
+     * potentially updates them.
+     */
+    if (psearch->op == TA_SEARCH_OPT_RE ||
+        ((psearch->flags & TA_SEARCH_ALL) == 0) ||
+        ((haystackP->type == TA_ANY || haystackP->type == TA_STRING) &&
+         ((psearch->flags & (TA_SEARCH_INLINE|TA_SEARCH_ALL)) == (TA_SEARCH_INLINE|TA_SEARCH_ALL)))) {
+        /* Use single thread */
+        ncontexts = 1;
+        mt_sizes[0] = count;
+    } else {
+        ncontexts = thdr_calc_mt_split_ex(haystackP->type,
+                                          psearch->lower,
+                                          count, ta_search_mt_threshold,
+                                          ARRAYSIZE(mt_sizes), mt_sizes);
+    }
+
+#endif
+
     mt_context[0].haystack = haystackP;
+    mt_context[0].count = mt_sizes[0];
     mt_context[0].start = psearch->lower;
     mt_context[0].flags = psearch->flags;
     mt_context[0].op = psearch->op;
     mt_context[0].context0 = mt_context;
-    
-#ifdef TA_MT_ENABLE
-    /* TBD - see if this can be reworked to avoid call to thdr_calc_mt_split
-       if we are not going to multi thread for other reasons */
-    mt_context[0].count =
-        thdr_calc_mt_split(haystackP->type, psearch->lower, count, &mt_context[1].count);
-    TA_ASSERT((mt_context[0].count + mt_context[1].count) == count);
-    
-    /* Note that TA_ANY/TA+STRING requires manipulation of ref counts
-       which is not thread-safe so we use only one thread for those
-       cases if INLINE+ALL search. This is a REQUIREMENT.
-
-       In addition if TA_SEARCH_ALL is not set, we do not use MT.
-       This is NOT a REQUIREMENT. Rather it is to avoid both unnecessary
-       work as well as holding up the first thread if the match is found
-       in the first thread itself.
-    */
-    /* Use single thread if regexp matching as regexp engine is not thread
-       safe (stores Tcl_Obj* in compiled regexps and potentially updates them)
-    */
-    if (count < ta_search_mt_threshold ||
-        psearch->op == TA_SEARCH_OPT_RE ||
-        ((psearch->flags & TA_SEARCH_ALL) == 0) ||
-        mt_context[1].count == 0 ||
-        ((haystackP->type == TA_ANY || haystackP->type == TA_STRING) &&
-         ((psearch->flags & (TA_SEARCH_INLINE|TA_SEARCH_ALL)) == (TA_SEARCH_INLINE|TA_SEARCH_ALL)))) {
-        mt_context[0].count = count;
+    if (ncontexts == 1) {
         thdr_basic_search_mt_worker(&mt_context[0]);
-        ncontexts = 1;
+#if defined(TA_MT_ENABLE)
     } else {
         ta_mt_group_t grp;
 
-        mt_context[1].haystack = haystackP;
-        mt_context[1].start = psearch->lower + mt_context[0].count;
-        mt_context[1].flags = psearch->flags;
-        mt_context[1].op = psearch->op;
-        mt_context[1].needle = mt_context[0].needle;
-        mt_context[1].context0 = mt_context;
+        for (i = 1; i < ncontexts; ++i) {
+            mt_context[i].haystack = haystackP;
+            mt_context[i].count = mt_sizes[i];
+            mt_context[i].start = mt_context[i-1].start + mt_context[i-1].count;
+            mt_context[i].flags = psearch->flags;
+            mt_context[i].op = psearch->op;
+            mt_context[i].needle = mt_context[0].needle;
+            mt_context[i].context0 = mt_context;
+        }
 
         grp = ta_mt_group_create();
         TA_ASSERT(grp != NULL); /* TBD */
-        /* TBD - check return code */ ta_mt_group_async_f(grp, &mt_context[1], thdr_basic_search_mt_worker);
+        /* Fire off other threads. Context 0 we will handle ourselves */
+        for (i = 1; i < ncontexts; ++i) {
+            /* TBD - check return code */ ta_mt_group_async_f(grp, &mt_context[i], thdr_basic_search_mt_worker);
+        }
         thdr_basic_search_mt_worker(&mt_context[0]);
         ta_mt_group_wait(grp, TA_MT_TIME_FOREVER);
         ta_mt_group_release(grp);
-
-        ncontexts = 2;
+#endif /* TA_MT_ENABLE */
     }
 
-#else
 
-    mt_context[0].count = count;
-    thdr_basic_search_mt_worker(&mt_context[0]);
-    ncontexts = 1;
-
-#endif
-
-    /* Note if set, mt_context[1].needle is SAME so do NOT clear it as well
-       else you will have double freeing */
+    /* Note if set, mt_context[i].needle are SAME so do NOT clear them
+     * as well else you will have double freeing
+     */
     ta_value_clear(&mt_context[0].needle);
 
     /*
@@ -734,41 +742,76 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
 
     if (res == TCL_OK) {
         if (psearch->flags & TA_SEARCH_ALL) {
-            thdr_t *result_thdr;
-            /* Based on above checks that all contexts that exist have status OK */
-            /* Context 0 always exists. See if it has any matches */
-            result_thdr = mt_context[0].thdr; /* Assume */
-            if (mt_context[0].thdr->used > 0) {
-                /* Have something here. See if second context also does. */
-                if (ncontexts > 1) {
-                    if (mt_context[1].thdr->used > 0) {
-                        int total = mt_context[0].thdr->used + mt_context[1].thdr->used;
-                        if (result_thdr->usable < total) {
-                            result_thdr = thdr_realloc(ip, result_thdr, total);
-                            if (result_thdr == NULL) {
-                                thdr_decr_refs(mt_context[0].thdr);
-                                thdr_decr_refs(mt_context[1].thdr);
-                                return TCL_ERROR;
-                            }
-                            mt_context[0].thdr = result_thdr;
-                        }
-                        thdr_copy(result_thdr,
-                                  result_thdr->used,
-                                  mt_context[1].thdr,
-                                  0,
-                                  mt_context[1].thdr->used,
-                                  0);
-                    }
-                    thdr_decr_refs(mt_context[1].thdr);
-                }
-            } else {
-                /* First context had no match. Check second if any */
-                if (ncontexts > 1) {
-                    thdr_decr_refs(mt_context[0].thdr);
-                    result_thdr = mt_context[1].thdr; /* May also be empty */
+            thdr_t *result_thdr = NULL;
+            int total;
+            int matching_contexts;
+            int first_matching_context;
+
+            /*
+             * Based on above checks, all contexts that exist have status OK.
+             * Loop through to find total number of matches, then
+             * allocate a thdr of that size as the result. As an optimization,
+             * if only one contains matches, just pass that thdr without
+             * making a copy.
+             */
+            first_matching_context = -1;
+            matching_contexts = 0;
+            total = 0;
+            for (i = 0; i < ncontexts; ++i) {
+                if (mt_context[i].thdr->used) {
+                    if (first_matching_context == -1)
+                        first_matching_context = i;
+                    total += mt_context[i].thdr->used;
+                    ++matching_contexts;
                 }
             }
-            Tcl_SetObjResult(ip, tcol_new(result_thdr));
+            
+            if (matching_contexts == 0) {
+                /* No matches. Just pass back the first (empty) thdr */
+                result_thdr = mt_context[0].thdr;
+                thdr_incr_refs(result_thdr); /* See below */
+            } else if (matching_contexts == 1) {
+                /* Exactly one context found matches. Just return its thdr */
+                result_thdr = mt_context[first_matching_context].thdr;
+                thdr_incr_refs(result_thdr); /* See below */
+            } else {
+                /*
+                 * Multiple matches in multiple contexts. Gather them up
+                 * into the first matching context.
+                 */
+                result_thdr = thdr_realloc(ip, mt_context[first_matching_context].thdr, total);
+                if (result_thdr) {
+                    mt_context[first_matching_context].thdr = result_thdr;
+                    thdr_incr_refs(result_thdr); /* See below */
+                    for (i = first_matching_context+1; i < ncontexts; ++i) {
+                        thdr_copy(result_thdr, result_thdr->used,
+                                  mt_context[i].thdr, 0,
+                                  mt_context[i].thdr->used, 0);
+                    }
+                }
+            }
+            /* At this point result_thdr is NULL iff error */
+            if (result_thdr)
+                Tcl_SetObjResult(ip, tcol_new(result_thdr));
+
+            /*
+             * A note on reference counting. The thdr's in the contexts
+             * are allocated with a reference count of 0. We deallocate
+             * them here. However, a special case must be considered -
+             * if a thdr allocated from the context is directly used
+             * as the result_thdr, it's ref count will be 1 thanks
+             * to the tcol_new() when setting the interp result. Nevertheless
+             * the thdr_decr_refs will drop it back to 0 and free it.
+             * To take care of this case, when setting result_thdr
+             * to one of the allocated thdr's above, we thdr_incr_refs it
+             * so it's ref count will be 2 at this point and not get
+             * freed after the decrement.
+             */
+            for (i = 0; i < ncontexts; ++i)
+                thdr_decr_refs(mt_context[i].thdr);
+
+            res = result_thdr ? TCL_OK : TCL_ERROR;
+
         } else if (psearch->flags & TA_SEARCH_COUNT) {
             /* Just return the number of matches */
             int total;
@@ -780,19 +823,18 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
             /* Single value to be returned */
             Tcl_Obj *resultObj;
             int matching_context;
-            if (mt_context[0].first_match >= 0)
-                matching_context = 0;
-            else if (ncontexts > 1 && mt_context[1].first_match >= 0)
-                matching_context = 1;
-            else
-                matching_context = -1;
+            for (matching_context = 0; matching_context < ncontexts; ++matching_context) {
+                if (mt_context[matching_context].first_match >= 0)
+                    break;
+            }
+            /* matching_context == ncontexts means no match */
             if (psearch->flags & TA_SEARCH_INLINE) {
-                if (matching_context >= 0)
+                if (matching_context != ncontexts)
                     resultObj = ta_value_to_obj(&mt_context[matching_context].first_value);
                 else
                     resultObj = Tcl_NewObj();
             } else {
-                if (matching_context >= 0)
+                if (matching_context != ncontexts)
                     resultObj = Tcl_NewIntObj(mt_context[matching_context].first_match);
                 else
                     resultObj = Tcl_NewIntObj(-1);
