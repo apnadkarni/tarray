@@ -1,13 +1,16 @@
 PEG TASelector (Selector)
    Selector <- AndTerm (WS OrOp WS AndTerm)*;
    AndTerm  <- BoolTerm (WS AndOp WS BoolTerm)*;
-   BoolTerm <- '1' / '0' / 'true' / 'false' / BaseTerm (WS RelOp WS BaseTerm)*;
-   BaseTerm <- RealNumber / '(' WS Selector WS ')' / Var / StringLiteral;
+   BoolTerm <- BaseTerm (WS RelOp WS BaseTerm)?;
+   BaseTerm <- NotOp? (RealNumber / '(' WS Selector WS ')' / Var / StringLiteral);
 
 leaf: RealNumber <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
 leaf: Var   <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Sign  <- [-+];
-leaf: RelOp <- '==' / '<=' / '>=' / '<' / '>' / '!=';
+leaf: NotOp <- '!';
+leaf: RelOp <- '==' / '!=' / '<=' / '>='
+         / '<' / '>' / '=^' / '!^' / '=~' / '!~' / '=^~'
+	 / '!^~' / '=*' / '!*' / '=^*' / '!^*';
 leaf: AndOp <- '&&';
 leaf: OrOp  <- '||';
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
