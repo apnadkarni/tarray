@@ -5,7 +5,7 @@ package require fileutil
 # Next line because the generated code has a return which
 # causes script to exit if not caught
 switch [catch {
-    eval [pt::pgen peg [fileutil::cat selector.peg] oo -class ::tarray::Selector]
+    eval [pt::pgen peg [fileutil::cat selector.peg] oo -class ::tarray::SelectorBase]
 } msg opts] {
     0 - 2 {}
     default {
@@ -16,6 +16,17 @@ switch [catch {
 proc prast {s} {
     set ast [parser parset $s]
     tarray::selector::print $s $ast
+}
+
+oo::class create tarray::Selector {
+    superclass tarray::SelectorBase
+    method parset text {
+        my variable Asts
+        if {! [info exists Asts($text)]} {
+            set Asts($text) [next $text]
+        }
+        return $Asts($text)
+    }
 }
 tarray::Selector create parser
 
@@ -54,19 +65,14 @@ proc tarray::selector::topdown::compute {expr} {
 }
 
 oo::class create tarray::selector::topdown::Calculator {
-    variable Parser Expr FrameLevel Asts
+    variable Parser Expr FrameLevel
     constructor {parser} {
         set Parser $parser
     }
 
     method compute {expr} {
         set Expr $expr
-        if {[info exists Asts($expr)]} {
-            set ast $Asts($expr)
-        } else {
-            set ast [$Parser parset $expr]
-            set Asts($expr) $ast
-        }
+        set ast [$Parser parset $expr]
         set FrameLevel "#[expr {[info level]-1}]"
         return [my {*}$ast]
     }
