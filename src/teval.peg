@@ -1,0 +1,85 @@
+PEG TEval (Program)
+    # A Program is a sequence of statements
+    Program <- Statements;
+    Statements <- WS Statement (WS Separator WS Statement)* WS ;
+
+    # A Statement is a function call or an assignment. In particular
+    # an arbitrary expression that is not a function call is not allowed.
+    Statement <- Assignment / Function / MultiAssignment / Empty ;
+    Empty <- WS ;
+
+    # Assignment to a single LValue
+    Assignment <- LValue WS AssignOp WS Expr;
+
+    # Assigns multiple variables from a list / tarray. Expr here
+    # will be checked at run time to provide multiple values.
+    MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expr;
+
+    # Expressions are divided into 4 categories. Thus booleans,
+    # numbers, strings, and lists/arrays cannot be mixed. For example
+    # if (10) ... will fail. In case of variables, the failure will
+    # be at runtime
+    Expr <- NumericExpr / BooleanExpr / StringExpr / MultiExpr;
+
+    BooleanExpr <- AndTerm (WS OrOp WS AndTerm)*  ;
+    AndTerm  <- BoolTerm (WS AndOp WS BoolTerm)*        ;
+    BoolTerm <- NegTerm (WS RelOp WS NegTerm)?          ;
+    NegTerm <- NotOp? RValue                            ;
+
+    NumericExpr <- NumericTerm (WS AddOp WS NumericTerm)* ;
+    NumericTerm <- Factor (WS MulOp WS Factor)*                 ;
+    Factor      <- RValue (WS PowOp WS RValue)*                 ;
+
+    # Any term that can be used as a value. Some type checking
+    # (for variables) happens at runtime
+    RValue <- VarSlice / Literal / '(' WS Expr WS ')';
+
+    # Any term that can be assigned to. Note only range based slices
+    # are allowed so cannot use VarSlice here.
+    LValue <- Var (WS '[' WS Range WS ']')? ;
+
+    VarSlice <- Var (WS '[' WS SliceExpr WS ']')? ;
+
+    # A SliceExpr combines range and boolean conditions
+    SliceExpr <- (Range WSob)? BooleanExpr? ;
+
+    # A range is two integers, both optional, but validity checks are done
+    # mostly at run time
+    Range <- NumericExpr? ':' NumericExpr? ;
+
+    Literal <- Number / String / Sequence;
+leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
+leaf: Sequence <- '{' (WS RValue)* '}' ;
+leaf: String <- Quote (!Quote Char)* Quote;
+void: Char   <- BackSlash ( Quote 
+                     / BackSlash
+                     / [bfnrt]
+                     / 'x' <xdigit> <xdigit> <xdigit>
+                     / 'u' <xdigit> <xdigit> <xdigit> <xdigit>
+                     / 'U' <xdigit> <xdigit> <xdigit> <xdigit> <xdigit> <xdigit> <xdigit> <xdigit>
+                    )
+           / . ;
+void: Quote <- '"';
+void: Backslash <- '\\';
+
+void: Separator <- EOL / ';';
+
+leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
+
+leaf: Sign  <- [-+];
+leaf: MulOp       <- '*' / '/'                                    ;
+leaf: AddOp       <- '+' / '-'                                    ;
+leaf: PowOp       <- '**'                                         ;
+
+leaf: AndOp <- '&&';
+leaf: OrOp  <- '||';
+leaf: NotOp <- '!';
+leaf: RelOp <- '==' / '!=' / '<=' / '>=' /
+               '<' / '>' / '=^' / '!^' / '=~' / '!~' / '=^~' /
+               '!^~' / '=*' / '!*' / '=^*' / '!^*';
+
+
+void: WS    <- (('\\' EOL) / (!EOL <space>))*;
+void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
+
+END;

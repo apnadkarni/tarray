@@ -59,11 +59,11 @@ proc tarray::selector::print {s ast} {
 namespace eval tarray::selector::interpreter {}
 
 proc tarray::selector::interpret {expr} {
-    set calc [Interpreter new]
+    set ip [Interpreter new]
     try {
-        uplevel 1 [list $calc compute $expr]
+        uplevel 1 [list $ip interpret $expr]
     } finally {
-        $calc destroy
+        $ip destroy
     }
 }
 
@@ -73,11 +73,123 @@ oo::class create tarray::selector::Interpreter {
         set Parser tarray::selector::parser
     }
 
-    method compute {expr} {
+    method interpret {expr} {
         set Expr $expr
         set ast [$Parser parset $expr]
         set FrameLevel "#[expr {[info level]-1}]"
         return [my {*}$ast]
+    }
+
+    method Selector {from to firstarg args} {
+        # firstarg broken out as separate argument because it is always required
+
+        set result [my {*}$firstarg]
+        foreach {orop andterm} $args {
+            if {$result} break; # Shortcut evaluation
+            set result [my {*}$andterm]
+        }
+        return [expr {!!$result}]
+    }
+
+    method AndTerm {from to firstarg args} {
+        # firstarg broken out as separate argument because it is always required
+
+        set result [my {*}$firstarg]
+        foreach {andop boolterm} $args {
+            if {! $result} break; # Shortcut evaluation
+            set result [my {*}$boolterm]
+        }
+        return [expr {!!$result}]
+    }
+
+    method BoolTerm {from to firstarg args} {
+        set result [my {*}$firstarg]
+        if {[llength $args]} {
+            lassign $args relop baseterm
+            set baseterm [my {*}$baseterm]
+            # Instead of defining a method for each operator, just
+            # pick it out from the child node
+            set op [string range $Expr {*}[lrange $relop 1 2]]
+            set result [switch -exact -- $op {
+                == - != - <= - >= - < - > {
+                    tcl::mathop::$op $result $baseterm
+                }            
+
+                =^ { string equal -nocase $baseterm $result }
+                !^ { string compare -nocase $baseterm $result }
+
+                =~ { regexp -- $baseterm $result }
+                !~ { expr {![regexp -- $baseterm $result]} }
+                =^~ { regexp -nocase -- $baseterm $result }
+                !^~ { expr {![regexp -nocase -- $baseterm $result]} }
+
+                =* { string match $baseterm $result }
+                !* { expr {![string match $baseterm $result]} }
+                =^* { string match -nocase $baseterm $result }
+                !^* { expr {![string match -nocase $baseterm $result]} }
+
+                default { error "Invalid operator $op" }
+            }]
+        }
+        return [expr {!!$result}]
+    }
+
+    method BaseTerm {from to args} {
+        set val [my {*}[lindex $args end]]
+        if {[llength $args] == 1} {
+            return $val
+        }
+        if {[lindex [lindex $args 0] 0] ne "NotOp"} {
+            error "Internal error in compiler: Expected NotOp, got [lindex [lindex $args 0] 0]"
+        }
+        return [expr {! $val}]
+    }
+
+    method RealNumber {from to} {
+        return [string range $Expr $from $to]
+    }
+
+    method StringLiteral {from to} {
+        # Need to adjust by one char to remove enclosing quotes
+        return [string range $Expr [incr from] [incr to -1]]
+    }
+
+    method Var {from to} {
+        return [uplevel $FrameLevel [list set [string range $Expr $from $to]]]
+    }
+}
+
+#
+# Implementation generating Tcl code
+
+namespace eval tarray::selector::interpreter {}
+
+proc tarray::selector::evaluator {expr} {
+    set e [Evaluator new]
+    try {
+        uplevel 1 [list $e evaluate $expr]
+    } finally {
+        $e destroy
+    }
+}
+
+oo::class create tarray::selector::Compiler {
+    variable Parser Expr Compilations
+    constructor {} {
+        set Parser tarray::selector::parser
+    }
+
+    method compile {expr} {
+        if {![info exists Compilations($expr)]} {
+            set Expr $expr
+            set ast [$Parser parset $expr]
+            set Compilations($expr) [my {*}$ast]
+        }
+        return $Compilations($expr)
+    }
+
+    method evaluate {expr} {
+        return [uplevel 1 [my compile $expr]]
     }
 
     method Selector {from to firstarg args} {
