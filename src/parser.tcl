@@ -5,7 +5,7 @@ package require fileutil
 # Next line because the generated code has a return which
 # causes script to exit if not caught
 switch [catch {
-    eval [pt::pgen peg [fileutil::cat selector.peg] oo -class ::tarray::SelectorBase]
+    eval [pt::pgen peg [fileutil::cat selector.peg] oo -class ::tarray::SelectorBase -package ::tarray::selector -version 0.1]
 } msg opts] {
     0 - 2 {}
     default {
@@ -27,8 +27,11 @@ oo::class create tarray::Selector {
         }
         return $Asts($text)
     }
+    method print text {
+        tarray::selector::print $text [my parset $text]
+    }
 }
-tarray::Selector create parser
+tarray::Selector create tarray::selector::parser
 
 namespace eval tarray::selector {
     namespace export print
@@ -53,10 +56,10 @@ proc tarray::selector::print {s ast} {
     return [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
 }
 
-namespace eval tarray::selector::topdown {}
+namespace eval tarray::selector::interpreter {}
 
-proc tarray::selector::topdown::compute {expr} {
-    set calc [Calculator new ::parser]
+proc tarray::selector::interpret {expr} {
+    set calc [Interpreter new]
     try {
         uplevel 1 [list $calc compute $expr]
     } finally {
@@ -64,10 +67,10 @@ proc tarray::selector::topdown::compute {expr} {
     }
 }
 
-oo::class create tarray::selector::topdown::Calculator {
+oo::class create tarray::selector::Interpreter {
     variable Parser Expr FrameLevel
-    constructor {parser} {
-        set Parser $parser
+    constructor {} {
+        set Parser tarray::selector::parser
     }
 
     method compute {expr} {
@@ -81,9 +84,9 @@ oo::class create tarray::selector::topdown::Calculator {
         # firstarg broken out as separate argument because it is always required
 
         set result [my {*}$firstarg]
-        foreach arg $args {
+        foreach {orop andterm} $args {
             if {$result} break; # Shortcut evaluation
-            set result [my {*}$arg]
+            set result [my {*}$andterm]
         }
         return [expr {!!$result}]
     }
@@ -92,9 +95,9 @@ oo::class create tarray::selector::topdown::Calculator {
         # firstarg broken out as separate argument because it is always required
 
         set result [my {*}$firstarg]
-        foreach arg $args {
+        foreach {andop boolterm} $args {
             if {! $result} break; # Shortcut evaluation
-            set result [my {*}$arg]
+            set result [my {*}$boolterm]
         }
         return [expr {!!$result}]
     }
@@ -152,7 +155,7 @@ oo::class create tarray::selector::topdown::Calculator {
     }
 
     method Var {from to} {
-        upvar $FrameLevel [string range $Expr $from $to] val
-        return $val
+        return [uplevel $FrameLevel [list set [string range $Expr $from $to]]]
     }
 }
+
