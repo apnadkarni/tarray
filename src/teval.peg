@@ -1,7 +1,8 @@
 PEG TEval (Program)
     # A Program is a sequence of statements
-    Program <- Statements;
+    Program <- Statements? WS EOF;
     Statements <- WS Statement (WS Separator WS Statement)* WS ;
+    EOF <- !.;
 
     # A Statement is a function call or an assignment. In particular
     # an arbitrary expression that is not a function call is not allowed.
@@ -22,13 +23,13 @@ PEG TEval (Program)
     Expr <- NumericExpr / BooleanExpr / StringExpr / MultiExpr;
 
     BooleanExpr <- AndTerm (WS OrOp WS AndTerm)*  ;
-    AndTerm  <- BoolTerm (WS AndOp WS BoolTerm)*        ;
-    BoolTerm <- NegTerm (WS RelOp WS NegTerm)?          ;
-    NegTerm <- NotOp? RValue                            ;
+    AndTerm  <- BoolTerm (WS AndOp WS BoolTerm)*  ;
+    BoolTerm <- NegTerm (WS RelOp WS NegTerm)?    ;
+    NegTerm <- RValue                   ;
 
     NumericExpr <- NumericTerm (WS AddOp WS NumericTerm)* ;
-    NumericTerm <- Factor (WS MulOp WS Factor)*                 ;
-    Factor      <- RValue (WS PowOp WS RValue)*                 ;
+    NumericTerm <- Factor (WS MulOp WS Factor)*           ;
+    Factor      <- RValue (WS PowOp WS RValue)*           ;
 
     # Any term that can be used as a value. Some type checking
     # (for variables) happens at runtime
@@ -36,16 +37,18 @@ PEG TEval (Program)
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Var (WS '[' WS Range WS ']')? ;
+    LValue <- Var (WS '[' WS (Index / Range) WS ']')? ;
 
-    VarSlice <- Var (WS '[' WS SliceExpr WS ']')? ;
+    VarSlice <- Var WS '[' WS SliceExpr WS ']' / Sign? Var ;
+leaf: Var <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 
-    # A SliceExpr combines range and boolean conditions
-    SliceExpr <- (Range WSob)? BooleanExpr? ;
+    # A SliceExpr may be a single index or combine range and boolean conditions
+    SliceExpr <- Index / Var / ((Range WSob)? BooleanExpr) ;
 
     # A range is two integers, both optional, but validity checks are done
     # mostly at run time
     Range <- NumericExpr? ':' NumericExpr? ;
+    Index <- <ddigit>+ / 'end';
 
     Literal <- Number / String / Sequence;
 leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
