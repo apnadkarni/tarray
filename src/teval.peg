@@ -1,3 +1,5 @@
+# Much of this based on Phillippe Segaude's example C grammar
+# from https://github.com/PhilippeSigaud/Pegged/blob/master/pegged/examples/c.d
 PEG TEval (Program)
     # A Program is a sequence of statements
     Program <- Statements? WS EOF;
@@ -10,49 +12,46 @@ PEG TEval (Program)
     Empty <- WS ;
 
     # Assignment to a single LValue
-    Assignment <- LValue WS AssignOp WS Expr;
+    Assignment <- LValue WS AssignOp WS Expression;
+
 
     # Assigns multiple variables from a list / tarray. Expr here
     # will be checked at run time to provide multiple values.
     MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expr;
 
-    # Expressions are divided into 4 categories. Thus booleans,
-    # numbers, strings, and lists/arrays cannot be mixed. For example
-    # if (10) ... will fail. In case of variables, the failure will
-    # be at runtime
-    Expr <- NumericExpr / BooleanExpr / StringExpr / MultiExpr;
-
-    BooleanExpr <- AndTerm (WS OrOp WS AndTerm)*  ;
-    AndTerm  <- BoolTerm (WS AndOp WS BoolTerm)*  ;
-    BoolTerm <- NegTerm (WS RelOp WS NegTerm)?    ;
-    NegTerm <- RValue                   ;
-
-    NumericExpr <- NumericTerm (WS AddOp WS NumericTerm)* ;
-    NumericTerm <- Factor (WS MulOp WS Factor)*           ;
-    Factor      <- RValue (WS PowOp WS RValue)*           ;
-
-    # Any term that can be used as a value. Some type checking
-    # (for variables) happens at runtime
-    RValue <- VarSlice / Literal / '(' WS Expr WS ')';
+    Expression <- LogicalOrExpr ;
+    LogicalOrExpr <- LogicalAndExpr ( WS '||' WS LogicalOrExpr)* ;
+    LogicalAndExpr <- BitOrExpr (WS  '&&' WS LogicalAndExpr)* ;
+    BitOrExpr <- BitXorExpr (WS '|' WS BitOrExpr)* ;
+    BitXorExpr <- BitAndExpr (WS '&' WS BitXorExpr)* ;
+    BitAndExpr <- EqExpr (WS '&' BitAndExpr)* ;
+    EqExpr <- AddExpr (WS RelOp WS EqExpr)* ;
+    AddExpr  <- MulExpr (WS AddOp WS AddExpr)* ;
+    MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
+    UnaryExpr <- PostfixExpr / UnaryOp UnaryExpr ;
+    PostfixExpr  <- PrimaryExpr ( WS '[' WS (Selector / Index) WS ']' /
+                                  WS '.' WS (Identifier / IdentifierList)
+                                )* /
+                    CallExpr ;
+    PrimaryExpr  <- Identifier / Number / String / Sequence / '(' Expression ')' ;
+    CallExpr <- Identifier WS '(' WS (Expression (WS ',' WS Expression)*)? WS ')' ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Var (WS '[' WS (Index / Range) WS ']')? ;
+    LValue <- Identifier (WS '[' WS (Index / Range) WS ']')? ;
 
-    VarSlice <- Var WS '[' WS SliceExpr WS ']' / Sign? Var ;
-leaf: Var <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
+    IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
-    # A SliceExpr may be a single index or combine range and boolean conditions
-    SliceExpr <- Index / Var / ((Range WSob)? BooleanExpr) ;
+    Selector <- Range WS Expr ;
+    Index    <- 'end' / Expr;
 
     # A range is two integers, both optional, but validity checks are done
     # mostly at run time
     Range <- NumericExpr? ':' NumericExpr? ;
-    Index <- <ddigit>+ / 'end';
 
-    Literal <- Number / String / Sequence;
+leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
-leaf: Sequence <- '{' (WS RValue)* '}' ;
+leaf: Sequence <- '{' (WS Expr)* '}' ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
                      / BackSlash
@@ -74,15 +73,17 @@ leaf: MulOp       <- '*' / '/'                                    ;
 leaf: AddOp       <- '+' / '-'                                    ;
 leaf: PowOp       <- '**'                                         ;
 
-leaf: AndOp <- '&&';
-leaf: OrOp  <- '||';
-leaf: NotOp <- '!';
 leaf: RelOp <- '==' / '!=' / '<=' / '>=' /
                '<' / '>' / '=^' / '!^' / '=~' / '!~' / '=^~' /
                '!^~' / '=*' / '!*' / '=^*' / '!^*';
-
+leaf: UnaryOp <- [-+~!] ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
+
+
+
+
+
 
 END;
