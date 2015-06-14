@@ -30,11 +30,12 @@ PEG TEval (Program)
     MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
     UnaryExpr <- PostfixExpr / UnaryOp UnaryExpr ;
     PostfixExpr  <- PrimaryExpr ( WS '[' WS (Selector / Index) WS ']' /
+    		                  WS '(' WS ')' /
+    		                  WS '(' WS ArgumentExprList WS ')' /
                                   WS '.' WS (Identifier / IdentifierList)
-                                )* /
-                    CallExpr ;
+                                )* ;
     PrimaryExpr  <- Identifier / Number / String / Sequence / '(' Expression ')' ;
-    CallExpr <- Identifier WS '(' WS (Expression (WS ',' WS Expression)*)? WS ')' ;
+    ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
@@ -42,12 +43,12 @@ PEG TEval (Program)
 
     IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
-    Selector <- Range WS Expr ;
-    Index    <- 'end' / Expr;
+    Selector <- Range (WS Expression)? ;
+    Index    <- 'end' / Expression;
 
     # A range is two integers, both optional, but validity checks are done
     # mostly at run time
-    Range <- NumericExpr? ':' NumericExpr? ;
+    Range <- Expression? ':' Expression? ;
 
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
