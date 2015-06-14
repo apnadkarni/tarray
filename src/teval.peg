@@ -39,7 +39,7 @@ PEG TEval (Program)
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Identifier (WS '[' WS (Index / Range) WS ']')? ;
+    LValue <- Identifier (WS '[' WS (Range / Index) WS ']')? ;
 
     IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
@@ -48,7 +48,7 @@ PEG TEval (Program)
 
     # A range is two integers, both optional, but validity checks are done
     # mostly at run time
-    Range <- Expression? ':' Expression? ;
+    Range <- Expression? WS ':' WS Expression? ;
 
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
