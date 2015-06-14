@@ -36,7 +36,7 @@ proc tarray::teval {script} {
     }
 }
 
-oo::class create tarray::TEvalInterpreter {
+oo::class create tarray::TEvalCompiler {
     variable Script FrameLevel Result
 
     constructor {} {
@@ -45,31 +45,57 @@ oo::class create tarray::TEvalInterpreter {
 
     forward print parser print
 
-    method interpret {script} {
+    method compile {script} {
         set Script $script
         set ast [parser parset $script]
         set FrameLevel "#[expr {[info level]-1}]"
         return [my {*}$ast]
     }
 
-    method Program {from to args} {
-        set Result ""
-        foreach statement $args {
-            my {*}$statement
-        }
-        return $Result
+    method _child {from to child} {
+        return [my {*}$child]
+    }
+    method _extract {from to args} {
+        return [string range $Script $from $to]
     }
 
-    method Statements {from to args} {
+    method Program {from to args} {
+        set result ""
         foreach statement $args {
-            puts $args
-            #my {*}$statement
+            append result [my {*}$statement]\n
+        }
+        return $result
+    }
+
+    forward Statement my _child
+
+    method Assignment {from to lvalue op expr} {
+        return "set [my {*}$lvalue] [my {*}$expr]"
+    }
+
+    forward LValue my _child
+    forward Identifier my _extract
+    forward Expression my _child
+    forward LogicalOrExpr my _child
+    forward LogicalAndExpr my _child
+    forward BitOrExpr my _child
+    forward BitXorExpr my _child
+    forward BitAndExpr my _child
+    forward EqExpr my _child
+    forward AddExpr my _child
+    forward MulExpr my _child
+    forward UnaryExpr my _child
+    forward PostfixExpr my _child
+    method PrimaryExpr {from to child} {
+        if {[lindex $child 0] eq "Identifier"} {
+            # Because of our rules for identifiers, we do not have to
+            # worry about escaping funky identifier names.
+            return "\[set [string range $Script $from $to]\]"
+        } else {
+            return [my {*}$child]
         }
     }
 }
-
-
-
 
 proc prast {parser s} {
     if {[catch {
@@ -104,3 +130,5 @@ proc tarray::ast::Print {s ast} {
 proc tarray::ast::print {s ast} {
     puts [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
 }
+
+tarray::TEvalCompiler create tc
