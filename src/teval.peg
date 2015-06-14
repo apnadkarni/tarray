@@ -4,12 +4,12 @@ PEG TEval (Program)
     # A Program is a sequence of statements
     Program <- Statements? WS EOF;
     Statements <- WS Statement (WS Separator WS Statement)* WS ;
-    EOF <- !.;
+void:  EOF <- !.;
 
     # A Statement is a function call or an assignment. In particular
     # an arbitrary expression that is not a function call is not allowed.
     Statement <- Assignment / Function / MultiAssignment / Empty ;
-    Empty <- WS ;
+void:    Empty <- WS ;
 
     # Assignment to a single LValue
     Assignment <- LValue WS AssignOp WS Expression;
