@@ -2,8 +2,7 @@
 # from https://github.com/PhilippeSigaud/Pegged/blob/master/pegged/examples/c.d
 PEG TEval (Program)
     # A Program is a sequence of statements
-    Program <- Statements? WS EOF;
-    Statements <- WS Statement (WS Separator WS Statement)* WS ;
+    Program <- WS (Statement (WS Separator WS Statement)*)? WS EOF;
 void:  EOF <- !.;
 
     # A Statement is a function call or an assignment. In particular
