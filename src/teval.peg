@@ -7,7 +7,7 @@ void:  EOF <- !.;
 
     # A Statement is a function call or an assignment. In particular
     # an arbitrary expression that is not a function call is not allowed.
-    Statement <- Assignment / Function / MultiAssignment / Empty ;
+    Statement <- Assignment / MultiAssignment / Expression / Empty ;
 void:    Empty <- WS ;
 
     # Assignment to a single LValue
