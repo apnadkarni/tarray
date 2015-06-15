@@ -57,7 +57,7 @@ RangeLowHigh <- AddExpr WS ':' WS AddExpr;
 
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
-leaf: Sequence <- '{' (WS Expr)* '}' ;
+Sequence <- '{' WS (Expression (WS ',' WS Expression)*)? WS '}' ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
                      / BackSlash
