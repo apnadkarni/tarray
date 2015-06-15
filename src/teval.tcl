@@ -168,6 +168,8 @@ oo::class create tarray::TEvalCompiler {
     method Sequence {from to args} {
         return "\[list [join [lmap child $args {my {*}$child}] { }]\]"
     }
+
+    forward String my _extract
 }
 
 proc prast {parser s} {
