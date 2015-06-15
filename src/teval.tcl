@@ -37,7 +37,7 @@ proc tarray::teval {script} {
 }
 
 oo::class create tarray::TEvalCompiler {
-    variable Script FrameLevel Result
+    variable Script FrameLevel Result Compilations
 
     constructor {} {
         tarray::TEvalParser create parser
@@ -46,10 +46,14 @@ oo::class create tarray::TEvalCompiler {
     forward print parser print
 
     method compile {script} {
+        if {[info exists Compilations($script)]} {
+            return $Compilations($script)
+        }
+
         set Script $script
         set ast [parser parset $script]
         set FrameLevel "#[expr {[info level]-1}]"
-        return [my {*}$ast]
+        return [set Compilations($script) [my {*}$ast]]
     }
 
     method _child {from to child} {
@@ -160,6 +164,10 @@ oo::class create tarray::TEvalCompiler {
     forward UnaryOp my _extract
     forward AddOp my   _extract
     forward MulOp my   _extract
+
+    method Sequence {from to args} {
+        return "\[list [join [lmap child $args {my {*}$child}] { }]\]"
+    }
 }
 
 proc prast {parser s} {
