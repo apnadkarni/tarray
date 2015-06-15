@@ -42,12 +42,12 @@ void:    Empty <- WS ;
 
     IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
-    Selector <- Range (WS Expression)? ;
+    Selector <- Range (WS '&&' WS Expression)? ;
     Index    <- 'end' / Expression;
 
     # A range is two integers, both optional, but validity checks are done
     # mostly at run time
-    Range <- Expression? WS ':' WS Expression? ;
+    Range <- Expression? WS RangeOp WS Expression? ;
 
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
@@ -77,6 +77,7 @@ leaf: RelOp <- '==' / '!=' / '<=' / '>=' /
                '<' / '>' / '=^' / '!^' / '=~' / '!~' / '=^~' /
                '!^~' / '=*' / '!*' / '=^*' / '!^*';
 leaf: UnaryOp <- [-+~!] ;
+leaf: RangeOp <- ':' ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
