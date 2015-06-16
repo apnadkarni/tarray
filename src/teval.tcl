@@ -150,16 +150,7 @@ oo::class create tarray::teval::Compiler {
     method PostfixOp {from to child expr} {
         switch -exact -- [lindex $child 0] {
             Index {
-                set str {
-                    set %1$s %2$s
-                    switch -exact -- [set %1$s] {
-                        default {
-                            return -level 0 [lindex [set %1$s] %3$s]
-                        }
-                    }
-                    unset %1$s
-                }
-                return "\[eval {[format $str [tempvar] $expr [my {*}$child]]}\]"
+                return "\[tarray::teval::runtime::Index $expr [my {*}$child]\]"
             }
             Selector {
             }
@@ -246,5 +237,22 @@ proc tarray::ast::Print {s ast} {
 proc tarray::ast::print {s ast} {
     puts [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
 }
+
+namespace eval tarray::teval::runtime {
+    proc Index {val index} {
+        return [switch -exact -- [tarray::type $val] {
+            tarray_column {
+                tarray::column::index $val $index
+            }
+            tarray_table {
+                tarray::table::index $val $index
+            }
+            default {
+                lindex $val $index
+            }
+        }]
+    }
+}
+
 
 tarray::teval::Compiler create tc
