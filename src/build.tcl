@@ -3,7 +3,8 @@
 # Should be one of the built-in Critcl targets or if -config tarray.cfg
 # is specified, one of the targets in that file.
 # No checks are made that the build env and target match
-
+#
+# Example: tclsh build.tcl -config tarray.cfg -keep -target win32-dev64
 # NOTE: if you need to use a debugger, use -keep option so that source
 # files are preserved
 

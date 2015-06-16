@@ -205,9 +205,40 @@ critcl::cinit {
 }
 
 ################################################################
-# Commands
+# General commands
+
+critcl::ccommand tarray::type {} {
+    Tcl_Obj *o;
+    if (objc != 2) {
+	Tcl_WrongNumArgs(interp, 1, objv, "VALUE");
+	return TCL_ERROR;
+    }
+
+    o = objv[1];
+
+    /* Try to convert to a tarray type but only if the type pointer is
+     * a list or NULL. We don't want to disturb other types
+     */
+    if (o->typePtr == NULL || o->typePtr == g_tcl_list_type_ptr) {
+        if (table_convert(NULL, o) != TCL_OK)
+            tcol_convert(NULL, o);
+    }
+
+    if (table_affirm(o)) {
+        Tcl_SetObjResult(interp, Tcl_NewStringObj("table", sizeof("table")-1));
+        return TCL_OK;
+    }
+    if (tcol_affirm(o)) {
+        Tcl_SetObjResult(interp,
+                         Tcl_NewStringObj(ta_type_string(tcol_type(o)), -1));
+        return TCL_OK;
+    } else
+        return TCL_OK; /* Leave result as empty string */
+}
 
 
+################################################################
+# Column commands
 critcl::ccommand tarray::column::create {} {
     int init_size;
     int tatype;
@@ -944,6 +975,9 @@ critcl::ccode {
         return TCL_OK;
     }
 }
+
+################################################################
+# Table commands
 
 critcl::ccommand tarray::table::put {} {
     Tcl_Obj *table, *ovalues, *omap, *ofirst;
