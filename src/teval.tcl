@@ -85,9 +85,9 @@ oo::class create tarray::teval::Compiler {
         lassign [my {*}$lvalue] name index_or_range
         set rvalue [my {*}$expr]
         if {[llength $index_or_range] == 0} {
-            return "set [list $name] $rvalue"
+            return "set [list $name] \[$rvalue\]"
         } else {
-            return "tarray::column::vfill [list $name] $rvalue $index_or_range"
+            return "tarray::column::vfill [list $name] \[$rvalue\] $index_or_range"
         }
     }
 
@@ -101,7 +101,7 @@ oo::class create tarray::teval::Compiler {
 
     forward Identifier my _extract
     method Expression {from to child} {
-        return "\[expr {[my {*}$child]}\]"
+        return "expr {[my {*}$child]}"
     }
     
     method _join_specific_operator {op from to args} {
