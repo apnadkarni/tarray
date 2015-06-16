@@ -22,15 +22,44 @@ namespace eval tarray::teval {
 
 oo::class create tarray::teval::Parser {
     superclass tarray::teval::ParserBase
+    variable Optimize Asts
+
+    constructor {{optimize 1}} {
+        set Optimize $optimize
+        next
+    }
+
     method parset text {
-        my variable Asts
         if {! [info exists Asts($text)]} {
-            set Asts($text) [next $text]
+            if {$Optimize} {
+                set Asts($text) [my _optimize [next $text]]
+            } else {
+                set Asts($text) [next $text]
+            }
         }
         return $Asts($text)
     }
-    method print text {
+
+    method print {text} {
         tarray::ast::print $text [my parset $text]
+    }
+
+    method prune {ast} {
+        if {[llength $ast] == 4 &&
+            [lindex $ast 0] in {
+                LogicalOrExpr LogicalAndExpr
+                BitOrExpr BitXorExpr BitAndExpr
+                RelExpr AddExpr MulExpr UnaryExpr
+                PostfixExpr
+            }} {
+            return [lindex $ast 3]
+        }
+        return $ast
+    }
+
+    method _optimize {ast} {
+        return [pt::ast bottomup [list [namespace which my] prune] $ast]
+        return $ast
     }
 }
 
@@ -46,9 +75,9 @@ proc tarray::teval::eval {script} {
 oo::class create tarray::teval::Compiler {
     variable Script FrameLevel Result Compilations
 
-    constructor {} {
+    constructor {{optimize 1}} {
         namespace path ::tarray::teval
-        tarray::teval::Parser create parser
+        tarray::teval::Parser create parser $optimize
     }
 
     forward print parser print
@@ -256,3 +285,5 @@ namespace eval tarray::teval::runtime {
 
 
 tarray::teval::Compiler create tc
+tarray::teval::Compiler create td 0
+
