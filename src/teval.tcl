@@ -241,14 +241,14 @@ proc tarray::ast::print {s ast} {
 namespace eval tarray::teval::runtime {
     proc Index {val index} {
         return [switch -exact -- [tarray::type $val] {
-            tarray_column {
-                tarray::column::index $val $index
-            }
-            tarray_table {
+            table {
                 tarray::table::index $val $index
             }
-            default {
+            "" {
                 lindex $val $index
+            }
+            default {
+                tarray::column::index $val $index
             }
         }]
     }

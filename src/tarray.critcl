@@ -201,6 +201,7 @@ critcl::ccode {
 critcl::cinit {
     TA_ASSERT(ba_sanity_check() == 0);
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
+    g_tcl_string_type_ptr = Tcl_GetObjType("string");
 } {
 }
 
@@ -217,9 +218,11 @@ critcl::ccommand tarray::type {} {
     o = objv[1];
 
     /* Try to convert to a tarray type but only if the type pointer is
-     * a list or NULL. We don't want to disturb other types
+     * a list, string or NULL. We don't want to disturb other types
      */
-    if (o->typePtr == NULL || o->typePtr == g_tcl_list_type_ptr) {
+    if (o->typePtr == NULL ||
+        o->typePtr == g_tcl_string_type_ptr ||
+        o->typePtr == g_tcl_list_type_ptr) {
         if (table_convert(NULL, o) != TCL_OK)
             tcol_convert(NULL, o);
     }
