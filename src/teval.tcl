@@ -5,7 +5,7 @@ package require fileutil
 # Next line because the generated code has a return which
 # causes script to exit if not caught
 switch [catch {
-    eval [pt::pgen peg [fileutil::cat teval.peg] oo -class tarray::TEvalParserBase -package tarray::teval -version 0.1]
+    eval [pt::pgen peg [fileutil::cat teval.peg] oo -class tarray::teval::ParserBase -package tarray::teval -version 0.1]
 } msg opts] {
     0 - 2 {}
     default {
@@ -13,8 +13,15 @@ switch [catch {
     }
 }
 
-oo::class create tarray::TEvalParser {
-    superclass tarray::TEvalParserBase
+namespace eval tarray::teval {
+    proc tempvar {} {
+        variable _tempname_ctr
+        return _teval[incr _tempname_ctr]
+    }
+}
+
+oo::class create tarray::teval::Parser {
+    superclass tarray::teval::ParserBase
     method parset text {
         my variable Asts
         if {! [info exists Asts($text)]} {
@@ -27,20 +34,21 @@ oo::class create tarray::TEvalParser {
     }
 }
 
-proc tarray::teval {script} {
-    set ip [TEvalInterpreter new]
+proc tarray::teval::eval {script} {
+    set tc [Compiler new]
     try {
-        uplevel 1 [list $ip interpret $expr]
+        uplevel 1 [list $tc compile $script]
     } finally {
-        $ip destroy
+        $tc destroy
     }
 }
 
-oo::class create tarray::TEvalCompiler {
+oo::class create tarray::teval::Compiler {
     variable Script FrameLevel Result Compilations
 
     constructor {} {
-        tarray::TEvalParser create parser
+        namespace path ::tarray::teval
+        tarray::teval::Parser create parser
     }
 
     forward print parser print
@@ -128,7 +136,40 @@ oo::class create tarray::TEvalCompiler {
         }
     }
 
-    forward PostfixExpr my _child
+    method PostfixExpr {from to first_child args} {
+        set expr [my {*}$first_child]
+        if {[llength $args] == 0} {
+            return $expr
+        }
+        foreach child $args {
+            set expr [my {*}$child $expr]
+        }
+        return $expr
+    }
+
+    method PostfixOp {from to child expr} {
+        switch -exact -- [lindex $child 0] {
+            Index {
+                set str {
+                    set %1$s %2$s
+                    switch -exact -- [set %1$s] {
+                        default {
+                            return -level 0 [lindex [set %1$s] %3$s]
+                        }
+                    }
+                    unset %1$s
+                }
+                return "\[eval {[format $str [tempvar] $expr [my {*}$child]]}\]"
+            }
+            Selector {
+            }
+            FunctionOp {
+            }
+            SliceOp {
+            }
+        }
+    }
+
     method PrimaryExpr {from to child} {
         if {[lindex $child 0] eq "Identifier"} {
             # Because of our rules for identifiers, we do not have to
@@ -206,4 +247,4 @@ proc tarray::ast::print {s ast} {
     puts [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
 }
 
-tarray::TEvalCompiler create tc
+tarray::teval::Compiler create tc
