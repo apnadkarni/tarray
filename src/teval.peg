@@ -28,13 +28,14 @@ void:    Empty <- WS ;
     AddExpr  <- MulExpr (WS AddOp WS AddExpr)* ;
     MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
     UnaryExpr <- PostfixExpr / UnaryOp UnaryExpr ;
-    PostfixExpr  <- PrimaryExpr ( WS '[' WS (Selector / Index) WS ']' /
-    		                  WS '(' WS ')' /
-    		                  WS '(' WS ArgumentExprList WS ')' /
-                                  WS '.' WS (Identifier / IdentifierList)
-                                )* ;
+    PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
+    PostfixOp <-   '[' WS (Selector / Index) WS ']' /
+    	      	   FunctionOp /
+		   SliceOp ;
     PrimaryExpr  <- Identifier / Number / String / Sequence / '(' Expression ')' ;
+    FunctionOp <- '(' WS ArgumentExprList? WS ')' ;
     ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
+    SliceOp <- '.' WS (Identifier / IdentifierList) ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
