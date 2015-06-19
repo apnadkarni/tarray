@@ -61,19 +61,6 @@ oo::class create tarray::teval::Parser {
         return [my {*}$ast]
     }
 
-    method prune {ast} {
-        if {[llength $ast] == 4 &&
-            [lindex $ast 0] in {
-                LogicalOrExpr LogicalAndExpr
-                BitOrExpr BitXorExpr BitAndExpr
-                RelExpr AddExpr MulExpr UnaryExpr
-                PostfixExpr
-            }} {
-            return [lindex $ast 3]
-        }
-        return $ast
-    }
-
     method _child {from to ast} {
         return $ast
     }
@@ -129,9 +116,12 @@ oo::class create tarray::teval::Parser {
     }
 
     method _binop {nodename from to first_child args} {
+        # $args contains remaining children (currently at most 1)
         if {[llength $args] == 0} {
+            # Node has only one child, just promote it.
             return $first_child
         } else {
+            # Fold constants if first child and second are both numbers.
             if {[lindex $first_child 0] eq "Number" &&
                 [lindex $args 1 0] eq "Number"} {
                 return [list Number [expr "[lindex $first_child 1][lindex $args 0 1][lindex $args 1 1]"]]
@@ -143,11 +133,39 @@ oo::class create tarray::teval::Parser {
 
     forward MulExpr my _binop MulExpr
     forward AddExpr my _binop AddExpr
-
+    forward RelExpr my _binop RelExpr
+    forward BitAndExpr my _binop BitAndExpr
+    forward BitOrExpr my _binop BitOrExpr
+    forward BitXorExpr my _binop BitXorExpr
+    forward LogicalAndExpr my _binop LogicalAndExpr
+    forward LogicalOrExpr my _binop LogicalOrExpr
+    forward Expression my _child
+    method Statement {from to args} {
+        if {[llength $args]} {
+            return [lindex $args 0]
+        } else {
+            return {}
+        }
+    }
+    
     forward UnaryOp my _extract UnaryOp
     forward Number my _extract Number
     forward MulOp my _extract MulOp
     forward AddOp my _extract AddOp
+    forward RelOp my _extract RelOp
+    forward BitAndOp my _extract BitAndOp
+    forward BitOrOp my _extract BitOrOp
+    forward BitXorOp my _extract BitXorOp
+    forward LogicalAndOp my _extract LogicalAndOp
+    forward LogicalOrOp my _extract LogicalOrOp
+
+    method LValue {from to first_child args} {
+        if {[llength $args] == 0} {
+            return $first_child;
+        } else {
+            return [list Tarray [lindex $first_child 1] {*}$args]
+        }
+    }
 
     method unknown {args} {
         return $args
