@@ -14,16 +14,16 @@ void:    Empty <- WS ;
     Assignment <- LValue WS AssignOp WS Expression;
 
 
-    # Assigns multiple variables from a list / tarray. Expr here
+    # Assigns multiple variables from a list / tarray. Expression here
     # will be checked at run time to provide multiple values.
-    MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expr;
+    MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expression;
 
     Expression <- LogicalOrExpr ;
-    LogicalOrExpr <- LogicalAndExpr ( WS '||' WS LogicalOrExpr)* ;
-    LogicalAndExpr <- BitOrExpr (WS  '&&' WS LogicalAndExpr)* ;
-    BitOrExpr <- BitXorExpr (WS '|' WS BitOrExpr)* ;
-    BitXorExpr <- BitAndExpr (WS '&' WS BitXorExpr)* ;
-    BitAndExpr <- RelExpr (WS '&' BitAndExpr)* ;
+    LogicalOrExpr <- LogicalAndExpr ( WS LogicalOrOp WS LogicalOrExpr)* ;
+    LogicalAndExpr <- BitOrExpr (WS  LogicalAndOp WS LogicalAndExpr)* ;
+    BitOrExpr <- BitXorExpr (WS BitOrOp WS BitOrExpr)* ;
+    BitXorExpr <- BitAndExpr (WS BitXorOp WS BitXorExpr)* ;
+    BitAndExpr <- RelExpr (WS BitAndOp WS BitAndExpr)* ;
     RelExpr <- AddExpr (WS RelOp WS RelExpr)* ;
     AddExpr  <- MulExpr (WS AddOp WS AddExpr)* ;
     MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
@@ -87,6 +87,12 @@ leaf: RelOp <- '==' / '!=' / '<=' / '>=' /
                '!^~' / '=*' / '!*' / '=^*' / '!^*';
 leaf: UnaryOp <- [-+~!] ;
 leaf: RangeOp <- ':' ;
+leaf: BitAndOp <- '&' ;
+leaf: BitOrOp <- '|' ;
+leaf: BitXorOp <- '^' ;
+leaf: LogicalAndOp <- '&&' ;
+leaf: LogicalOrOp <- '||' ;
+
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
