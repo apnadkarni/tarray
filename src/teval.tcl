@@ -13,6 +13,25 @@ switch [catch {
     }
 }
 
+namespace eval tarray::ast {
+    proc Print {s ast} {
+        set children [lassign $ast type start end]
+        set result   [list [list <$type> :: $start $end [string range $s $start $end]]]
+
+        # The arguments are already processed for printing
+        foreach c $children {
+            foreach line $c {
+                lappend result "    $line"
+            }
+        }
+        return $result
+    }
+
+    proc print {s ast} {
+        puts [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
+    }
+}
+
 namespace eval tarray::teval {
     proc tempvar {} {
         variable _tempname_ctr
@@ -22,26 +41,24 @@ namespace eval tarray::teval {
 
 oo::class create tarray::teval::Parser {
     superclass tarray::teval::ParserBase
-    variable Optimize Asts
+    variable Script
 
-    constructor {{optimize 1}} {
-        set Optimize $optimize
-        next
-    }
-
-    method parset text {
-        if {! [info exists Asts($text)]} {
-            if {$Optimize} {
-                set Asts($text) [my _optimize [next $text]]
-            } else {
-                set Asts($text) [next $text]
-            }
-        }
-        return $Asts($text)
+    constructor {args} {
+        next {*}$args
     }
 
     method print {text} {
         tarray::ast::print $text [my parset $text]
+    }
+
+    method compile {text} {
+        set Script $text
+        set ast [my parset $text]
+        return [pt::ast bottomup [list [namespace which my] node] $ast]
+    }
+
+    method node {ast} {
+        return [my {*}$ast]
     }
 
     method prune {ast} {
@@ -57,9 +74,83 @@ oo::class create tarray::teval::Parser {
         return $ast
     }
 
-    method _optimize {ast} {
-        return [pt::ast bottomup [list [namespace which my] prune] $ast]
+    method _child {from to ast} {
         return $ast
+    }
+
+    method _extract {name from to} {
+        return [list $name [string range $Script $from $to]]
+    }
+
+    method Identifier {from to} {
+        return [list Identifier [string range $Script $from $to]]
+    }
+
+    forward PrimaryExpr my _child
+    forward PostfixOp my _child
+
+    method PostfixExpr {from to primary_expr args} {
+        if {[llength $args] == 0} {
+            return $primary_expr
+        }
+        return [list PostfixExpr $primary_expr {*}$args]
+    }
+
+    method UnaryExpr {from to postfix_expr args} {
+        if {[llength $args] == 0} {
+            return $postfix_expr
+        } else {
+            # postfix_expr is actually UnaryOp.
+            # $args should be a single argument again of type UnaryExpr
+            # or a descendant
+            switch -exact -- [lindex $args 0 0] {
+                Number {
+                    #NOTE: cannot combine this with the UnaryExpr case below!
+                    return [list Number [expr "[lindex $postfix_expr 1][lindex $args 0 1]"]]
+                }
+                UnaryExpr {
+                    if {[lindex $postfix_expr 1] eq "+"} {
+                        # {UnaryExpr + {UnaryExpr ...}}
+                        #   -> {UnaryExpr ...} (the + is a no-op)
+                        return [lindex $args 0]
+                    } else {
+                        # {UnaryExpr - {UnaryExpr - X}}
+                        #   -> X
+                        # (because of above we know the sign in
+                        # a UnaryExpr is always "-" hence the two "-" cancel)
+                        return [lindex $args 0 2]
+                    }
+                } 
+                default {
+                    return [list UnaryExpr [lindex $postfix_expr 1] {*}$args]
+                }
+            }
+        }
+    }
+
+    method _binop {nodename from to first_child args} {
+        if {[llength $args] == 0} {
+            return $first_child
+        } else {
+            if {[lindex $first_child 0] eq "Number" &&
+                [lindex $args 1 0] eq "Number"} {
+                return [list Number [expr "[lindex $first_child 1][lindex $args 0 1][lindex $args 1 1]"]]
+            } else {
+                return [list $nodename [lindex $args 0 1] [lindex $args 1]]
+            }
+        }
+    }
+
+    forward MulExpr my _binop MulExpr
+    forward AddExpr my _binop AddExpr
+
+    forward UnaryOp my _extract UnaryOp
+    forward Number my _extract Number
+    forward MulOp my _extract MulOp
+    forward AddOp my _extract AddOp
+
+    method unknown {args} {
+        return $args
     }
 }
 
@@ -73,7 +164,8 @@ proc tarray::teval::eval {script} {
 }
 
 oo::class create tarray::teval::Compiler {
-    variable Script FrameLevel Result Compilations
+    variable Script Compilations IndexNestingLevel 
+    variable Code NConstants Constants NVariables Variables
 
     constructor {{optimize 1}} {
         namespace path ::tarray::teval
@@ -87,10 +179,36 @@ oo::class create tarray::teval::Compiler {
             return $Compilations($script)
         }
 
+        set ir [parser compile $script]
+
+        # Initialize the per-compile variables
         set Script $script
-        set ast [parser parset $script]
-        set FrameLevel "#[expr {[info level]-1}]"
-        return [set Compilations($script) [my {*}$ast]]
+        set Code [list ]
+        set NConstants 0
+        set Constants [list ]
+        set NVariables 0
+        set Variables [list ]
+        set IndexNestingLevel 0
+
+        return [set Compilations($script) [list $Variables [my {*}$ast]]]
+    }
+
+        method _constslot {const type} {
+        if {[dict exists $Constants $const $type]} {
+            return [dict get $Constants $const $type]
+        }
+        dict set Constants $const $type [set slot __k$NConstants]
+        incr NConstants
+        return $slot
+    }
+
+    method _varslot {varname} {
+        if {[dict exists $Variables $varname]} {
+            return [dict get $Variables $varname Slot]
+        }
+        dict set Variables $varname Slot [set slot __v$NVariables]
+        incr NVariables
+        return $slot
     }
 
     method _child {from to child} {
@@ -98,6 +216,10 @@ oo::class create tarray::teval::Compiler {
     }
     method _extract {from to args} {
         return [string range $Script $from $to]
+    }
+
+    method _literal {type from to} {
+        return [list $type [string range $Script $from $to]]
     }
 
     method Program {from to args} {
@@ -128,15 +250,16 @@ oo::class create tarray::teval::Compiler {
         return [list $name {*}[my {*}$index_or_range]]
     }
 
-    forward Identifier my _extract
     method Expression {from to child} {
         return "expr {[my {*}$child]}"
     }
     
     method _join_specific_operator {op from to args} {
-        join [lmap child $args {
-            my {*}$child
-        }] $op
+        if {[llength $args] == 1} {
+            return [lindex $args 0]
+        } else {
+            return "\[tarray::teval::runtime::$op [join [lmap child $args {my {*}$child}] { }]\]"
+        }
     }
 
     method _join_operator {from to first_child args} {
@@ -220,7 +343,6 @@ oo::class create tarray::teval::Compiler {
         return [list 0 "end"]
     }
 
-    forward Number my  _extract
     forward RelOp my   _extract
     forward UnaryOp my _extract
     forward AddOp my   _extract
@@ -230,41 +352,28 @@ oo::class create tarray::teval::Compiler {
         return "\[list [join [lmap child $args {my {*}$child}] { }]\]"
     }
 
-    forward String my _extract
-}
+    forward String my _literal String
+    forward Number my  _literal Number
 
-proc prast {parser s} {
-    if {[catch {
-        set ast [$parser parset $s]
-    } msg]} {
-        # Note we use string match and not lindex because other messages
-        # may not be well formed lists
-        if {[string match pt::rde* $msg]} {
-            puts "ERROR: [pt::util::error2readable $msg $s]"
-        } else {
-            puts "ERROR: $msg"
+    method Identifier {from to} {
+        return [list Identifier [my _varslot [string range $from $to]]]
+    }
+
+    method BuiltinIdentifier {from to args} {
+        puts "NEST: $IndexNestingLevel"
+        if {$IndexNestingLevel == 0} {
+            error "Built-in identifier [string range $Script $from $to] can only be used within a column or table indexing scope."
         }
-    } else {
-        tarray::ast::print $s $ast
+        return "load [string range $Script [incr from] $to]"
     }
-}
-namespace eval tarray::ast {}
-proc tarray::ast::Print {s ast} {
-    set children [lassign $ast type start end]
-    set result   [list [list <$type> :: $start $end [string range $s $start $end]]]
 
-    # The arguments are already processed for printing
-    foreach c $children {
-	foreach line $c {
-	    lappend result "    $line"
-	}
+    method ColumnIdentifier {from to args} {
+        if {$IndexNestingLevel == 0} {
+            error "Built-in identifier [string range $Script $from $to] can only be used within a column or table indexing scope."
+        }
+        return "load [string range $Script [incr from] $to]"
     }
-    return $result
-}
 
-
-proc tarray::ast::print {s ast} {
-    puts [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
 }
 
 namespace eval tarray::teval::runtime {
@@ -284,6 +393,9 @@ namespace eval tarray::teval::runtime {
 }
 
 
-tarray::teval::Compiler create tc
-tarray::teval::Compiler create td 0
+
+
+tarray::teval::Parser create tp
+#tarray::teval::Compiler create tc
+#tarray::teval::Compiler create td 0
 
