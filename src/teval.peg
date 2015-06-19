@@ -27,12 +27,12 @@ void:    Empty <- WS ;
     RelExpr <- AddExpr (WS RelOp WS RelExpr)* ;
     AddExpr  <- MulExpr (WS AddOp WS AddExpr)* ;
     MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
-    UnaryExpr <- PostfixExpr / UnaryOp UnaryExpr ;
+    UnaryExpr <- PostfixExpr / UnaryOp WS UnaryExpr ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
     PostfixOp <-   '[' WS (Selector / Index) WS ']' /
     	      	   FunctionOp /
 		   SliceOp ;
-    PrimaryExpr  <- Identifier / Number / String / Sequence / '(' Expression ')' ;
+    PrimaryExpr  <- BuiltinIdentifier / ColumnIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
     FunctionOp <- '(' WS ArgumentExprList? WS ')' ;
     ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
     SliceOp <- '.' WS (Identifier / IdentifierList) ;
@@ -56,8 +56,10 @@ RangeHigh <- ':' WS AddExpr ;
 RangeLowHigh <- AddExpr WS ':' WS AddExpr;   
 
 
+leaf: BuiltinIdentifier <- [$] Identifier ;
+leaf: ColumnIdentifier <- BuiltinIdentifier '.' Identifier ;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
-leaf: Number <- Sign? <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
+leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
 Sequence <- '{' WS (Expression (WS ',' WS Expression)*)? WS '}' ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
