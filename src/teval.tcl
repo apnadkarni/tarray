@@ -55,7 +55,7 @@ oo::class create tarray::teval::Parser {
         set Script $text
         if {[catch {my parset $text} ast eropts]} {
             if {[string match {pt::rde *} $ast]} {
-                error [pt::util::error2readable $text $ast]
+                error [pt::util::error2readable $ast $text]
             } else {
                 return -options $eropts $ast
             }
@@ -73,6 +73,23 @@ oo::class create tarray::teval::Parser {
 
     method _extract {name from to} {
         return [list $name [string range $Script $from $to]]
+    }
+
+    # Common method used by most binary operator expressions
+    method _binop {nodename from to first_child args} {
+        # $args contains remaining children (currently at most 1)
+        if {[llength $args] == 0} {
+            # Node has only one child, just promote it.
+            return $first_child
+        } else {
+            # Fold constants if first child and second are both numbers.
+            if {[lindex $first_child 0] eq "Number" &&
+                [lindex $args 1 0] eq "Number"} {
+                return [list Number [expr "[lindex $first_child 1][lindex $args 0 1][lindex $args 1 1]"]]
+            } else {
+                return [list [lindex $args 0 1] $first_child [lindex $args 1]]
+            }
+        }
     }
 
     method Program {from to args} {
@@ -94,22 +111,31 @@ oo::class create tarray::teval::Parser {
     method MultiAssignment {from to args} {
         error "Multi assignments not implemented"
     }
-    forward Expression my _child
 
-    method Identifier {from to} {
-        return [list Identifier [string range $Script $from $to]]
-    }
-
-    forward PrimaryExpr my _child
-    forward PostfixOp my _child
-
-    method PostfixExpr {from to primary_expr args} {
+    method LValue {from to first_child args} {
         if {[llength $args] == 0} {
-            return $primary_expr
+            return $first_child;
+        } else {
+            return [list Tarray [lindex $first_child 1] {*}$args]
         }
-        return [list PostfixExpr $primary_expr {*}$args]
     }
 
+    forward Expression my _child
+    forward LogicalOrExpr my _binop LogicalOrExpr
+    forward LogicalAndExpr my _binop LogicalAndExpr
+    method RangeExpr {from to first_child args} {
+        if {[llength $args] == 0} {
+            return $first_child
+        } else {
+            return [list Range $first_child [lindex $args 0]]
+        }
+    }
+    forward BitOrExpr my _binop BitOrExpr
+    forward BitXorExpr my _binop BitXorExpr
+    forward BitAndExpr my _binop BitAndExpr
+    forward RelExpr my _binop RelExpr
+    forward AddExpr my _binop AddExpr
+    forward MulExpr my _binop MulExpr
     method UnaryExpr {from to postfix_expr args} {
         if {[llength $args] == 0} {
             return $postfix_expr
@@ -141,62 +167,19 @@ oo::class create tarray::teval::Parser {
             }
         }
     }
-
-    method _binop {nodename from to first_child args} {
-        # $args contains remaining children (currently at most 1)
-        if {[llength $args] == 0} {
-            # Node has only one child, just promote it.
-            return $first_child
-        } else {
-            # Fold constants if first child and second are both numbers.
-            if {[lindex $first_child 0] eq "Number" &&
-                [lindex $args 1 0] eq "Number"} {
-                return [list Number [expr "[lindex $first_child 1][lindex $args 0 1][lindex $args 1 1]"]]
-            } else {
-                return [list [lindex $args 0 1] $first_child [lindex $args 1]]
-            }
-        }
-    }
-
-    forward MulExpr my _binop MulExpr
-    forward AddExpr my _binop AddExpr
-    forward RelExpr my _binop RelExpr
-    forward BitAndExpr my _binop BitAndExpr
-    forward BitOrExpr my _binop BitOrExpr
-    forward BitXorExpr my _binop BitXorExpr
-    forward LogicalAndExpr my _binop LogicalAndExpr
-    forward LogicalOrExpr my _binop LogicalOrExpr
     
-    forward UnaryOp my _extract UnaryOp
-    forward Number my _extract Number
-    forward String my _extract String
-    forward MulOp my _extract MulOp
-    forward AddOp my _extract AddOp
-    forward RelOp my _extract RelOp
-    forward BitAndOp my _extract BitAndOp
-    forward BitOrOp my _extract BitOrOp
-    forward BitXorOp my _extract BitXorOp
-    forward LogicalAndOp my _extract LogicalAndOp
-    forward LogicalOrOp my _extract LogicalOrOp
-    forward AssignOp my _extract AssignOp
-
-    method LValue {from to first_child args} {
+    method PostfixExpr {from to primary_expr args} {
         if {[llength $args] == 0} {
-            return $first_child;
-        } else {
-            return [list Tarray [lindex $first_child 1] {*}$args]
+            return $primary_expr
         }
+        return [list PostfixExpr $primary_expr {*}$args]
     }
 
+    forward PrimaryExpr my _child
+
+    forward PostfixOp my _child
     method Selector {from to child} {
         return [list Selector $child]
-    }
-    method RangeExpr {from to first_child args} {
-        if {[llength $args] == 0} {
-            return $first_child
-        } else {
-            return [list Range $first_child [lindex $args 0]]
-        }
     }
 
     method FunctionCall {from to {child {}}} {
@@ -216,6 +199,22 @@ oo::class create tarray::teval::Parser {
         }
     }
 
+    forward UnaryOp my _extract UnaryOp
+    forward MulOp my _extract MulOp
+    forward AddOp my _extract AddOp
+    forward RelOp my _extract RelOp
+    forward BitAndOp my _extract BitAndOp
+    forward BitOrOp my _extract BitOrOp
+    forward BitXorOp my _extract BitXorOp
+    forward LogicalAndOp my _extract LogicalAndOp
+    forward LogicalOrOp my _extract LogicalOrOp
+    forward AssignOp my _extract AssignOp
+
+
+    method Identifier {from to} {
+        return [list Identifier [string range $Script $from $to]]
+    }
+
     method IdentifierList {from to args} {
         return [list IdentifierList [lmap arg $args {
             lindex $arg 1
@@ -225,6 +224,13 @@ oo::class create tarray::teval::Parser {
     method BuiltinIdentifier {from to} {
         return [list BuiltinIdentifier [string range $Script $from $to]]
     }
+
+    forward Number my _extract Number
+    forward String my _extract String
+    method Sequence {from to args} {
+        return [list Sequence $args]
+    }
+
 }
 
 proc tarray::teval::eval {script} {

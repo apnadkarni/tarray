@@ -18,6 +18,11 @@ void:    Empty <- WS ;
     # will be checked at run time to provide multiple values.
     MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expression;
 
+    # Any term that can be assigned to. Note only range based slices
+    # are allowed so cannot use VarSlice here.
+    LValue <- Identifier (WS '[' WS Expression WS ']')? ;
+
+    # Expressions in ascending precedence order
     Expression <- LogicalOrExpr ;
     LogicalOrExpr <- LogicalAndExpr ( WS LogicalOrOp WS LogicalOrExpr)* ;
     LogicalAndExpr <- RangeExpr (WS  LogicalAndOp WS LogicalAndExpr)* ;
@@ -30,19 +35,19 @@ void:    Empty <- WS ;
     MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
     UnaryExpr <- PostfixExpr / UnaryOp WS UnaryExpr ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
-    PostfixOp <-   Selector / FunctionCall / ColumnSlice ;
+
+    # Basic terms
     PrimaryExpr  <- BuiltinIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
+
+    # Postfix operators
+    PostfixOp <-   Selector / FunctionCall / ColumnSlice ;
+    Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentExprList? WS ')' ;
     ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
     ColumnSlice <- '.' WS (Identifier / IdentifierList) ;
-
-    # Any term that can be assigned to. Note only range based slices
-    # are allowed so cannot use VarSlice here.
-    LValue <- Identifier (WS '[' WS Expression WS ']')? ;
-
     IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
-    Selector <- '[' WS ('end' / Expression) WS ']' ;
+    # Syntax based definitions
 
 leaf: BuiltinIdentifier <- [$] Identifier ;
 leaf: ColumnIdentifier <- BuiltinIdentifier '.' Identifier ;
