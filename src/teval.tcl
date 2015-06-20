@@ -69,6 +69,27 @@ oo::class create tarray::teval::Parser {
         return [list $name [string range $Script $from $to]]
     }
 
+    method Program {from to args} {
+        return $args
+    }
+
+    method Statement {from to args} {
+        if {[llength $args]} {
+            return [lindex $args 0]
+        } else {
+            return {}
+        }
+    }
+
+    method Assignment {from to lvalue assignop expr} {
+        return [list $assignop $lvalue $expr]
+    }
+
+    method MultiAssignment {from to args} {
+        error "Multi assignments not implemented"
+    }
+    forward Expression my _child
+
     method Identifier {from to} {
         return [list Identifier [string range $Script $from $to]]
     }
@@ -126,7 +147,7 @@ oo::class create tarray::teval::Parser {
                 [lindex $args 1 0] eq "Number"} {
                 return [list Number [expr "[lindex $first_child 1][lindex $args 0 1][lindex $args 1 1]"]]
             } else {
-                return [list $nodename [lindex $args 0 1] [lindex $args 1]]
+                return [list [lindex $args 0 1] $first_child [lindex $args 1]]
             }
         }
     }
@@ -139,14 +160,6 @@ oo::class create tarray::teval::Parser {
     forward BitXorExpr my _binop BitXorExpr
     forward LogicalAndExpr my _binop LogicalAndExpr
     forward LogicalOrExpr my _binop LogicalOrExpr
-    forward Expression my _child
-    method Statement {from to args} {
-        if {[llength $args]} {
-            return [lindex $args 0]
-        } else {
-            return {}
-        }
-    }
     
     forward UnaryOp my _extract UnaryOp
     forward Number my _extract Number
@@ -158,6 +171,7 @@ oo::class create tarray::teval::Parser {
     forward BitXorOp my _extract BitXorOp
     forward LogicalAndOp my _extract LogicalAndOp
     forward LogicalOrOp my _extract LogicalOrOp
+    forward AssignOp my _extract AssignOp
 
     method LValue {from to first_child args} {
         if {[llength $args] == 0} {
@@ -167,8 +181,27 @@ oo::class create tarray::teval::Parser {
         }
     }
 
-    method unknown {args} {
+    method Index {from to child} {
+        return [list Index $child]
+    }
+    method Selector {from to child} {
+        return [list Selector $child]
+    }
+    method RangeAndExpression {from to args} {
         return $args
+    }
+    forward Range my _child
+    method RangeFull {from to} {
+        return [list Range [list Number 0] [list Index end]]
+    }
+    method RangeLow {from to low} {
+        return [list Range $low [list Index end]]
+    }
+    method RangeHigh {from to high} {
+        return [list Range [list Number 0] $high]
+    }
+    method RangeLowHigh {from to low high} {
+        return [list Range $low $high]
     }
 }
 
