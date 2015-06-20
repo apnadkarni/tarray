@@ -20,7 +20,8 @@ void:    Empty <- WS ;
 
     Expression <- LogicalOrExpr ;
     LogicalOrExpr <- LogicalAndExpr ( WS LogicalOrOp WS LogicalOrExpr)* ;
-    LogicalAndExpr <- BitOrExpr (WS  LogicalAndOp WS LogicalAndExpr)* ;
+    LogicalAndExpr <- RangeExpr (WS  LogicalAndOp WS LogicalAndExpr)* ;
+    RangeExpr  <- BitOrExpr WS ':' WS BitOrExpr / BitOrExpr ;
     BitOrExpr <- BitXorExpr (WS BitOrOp WS BitOrExpr)* ;
     BitXorExpr <- BitAndExpr (WS BitXorOp WS BitXorExpr)* ;
     BitAndExpr <- RelExpr (WS BitAndOp WS BitAndExpr)* ;
@@ -39,23 +40,11 @@ void:    Empty <- WS ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Identifier (WS '[' WS (Range / Expression) WS ']')? ;
+    LValue <- Identifier (WS '[' WS Expression WS ']')? ;
 
     IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
-    Selector <- RangeAndExpression / Index ;
-    RangeAndExpression <- Range (WS '&&' WS Expression)? ;
-    Index    <- 'end' / Expression;
-
-    # A range is two integers, both optional, but validity checks are done
-    # mostly at run time
-    Range <- RangeHigh / RangeFull / RangeLowHigh / RangeLow;
-
-leaf: RangeFull <- ':' ;
-RangeLow <- AddExpr WS ':' ;
-RangeHigh <- ':' WS AddExpr ;
-RangeLowHigh <- AddExpr WS ':' WS AddExpr;   
-
+    Selector <- 'end' / Expression ;
 
 leaf: BuiltinIdentifier <- [$] Identifier ;
 leaf: ColumnIdentifier <- BuiltinIdentifier '.' Identifier ;
@@ -87,7 +76,6 @@ leaf: RelOp <- '==' / '!=' / '<=' / '>=' /
                '<' / '>' / '=^' / '!^' / '=~' / '!~' / '=^~' /
                '!^~' / '=*' / '!*' / '=^*' / '!^*';
 leaf: UnaryOp <- [-+~!] ;
-leaf: RangeOp <- ':' ;
 leaf: BitAndOp <- '&' ;
 leaf: BitOrOp <- '|' ;
 leaf: BitXorOp <- '^' ;
