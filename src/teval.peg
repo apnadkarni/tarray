@@ -30,13 +30,11 @@ void:    Empty <- WS ;
     MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
     UnaryExpr <- PostfixExpr / UnaryOp WS UnaryExpr ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
-    PostfixOp <-   '[' WS Selector WS ']' /
-    	      	   FunctionOp /
-		   SliceOp ;
-    PrimaryExpr  <- BuiltinIdentifier / ColumnIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
-    FunctionOp <- '(' WS ArgumentExprList? WS ')' ;
+    PostfixOp <-   Selector / FunctionCall / ColumnSlice ;
+    PrimaryExpr  <- BuiltinIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
+    FunctionCall <- '(' WS ArgumentExprList? WS ')' ;
     ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
-    SliceOp <- '.' WS (Identifier / IdentifierList) ;
+    ColumnSlice <- '.' WS (Identifier / IdentifierList) ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
@@ -44,7 +42,7 @@ void:    Empty <- WS ;
 
     IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
 
-    Selector <- 'end' / Expression ;
+    Selector <- '[' WS ('end' / Expression) WS ']' ;
 
 leaf: BuiltinIdentifier <- [$] Identifier ;
 leaf: ColumnIdentifier <- BuiltinIdentifier '.' Identifier ;

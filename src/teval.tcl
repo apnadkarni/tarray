@@ -169,6 +169,7 @@ oo::class create tarray::teval::Parser {
     
     forward UnaryOp my _extract UnaryOp
     forward Number my _extract Number
+    forward String my _extract String
     forward MulOp my _extract MulOp
     forward AddOp my _extract AddOp
     forward RelOp my _extract RelOp
@@ -196,6 +197,33 @@ oo::class create tarray::teval::Parser {
         } else {
             return [list Range $first_child [lindex $args 0]]
         }
+    }
+
+    method FunctionCall {from to {child {}}} {
+        return [linsert $child 0 FunctionCall]
+    }
+
+    method ArgumentExprList {from to args} {
+        return $args
+    }
+
+    method ColumnSlice {from to child} {
+        # assert - child is Identifier or IdentifierList
+        if {[lindex $child 0] eq "Identifier"} {
+            return [list Column [lindex $child 1]]
+        } else {
+            return [list Table [lindex $child 1]]
+        }
+    }
+
+    method IdentifierList {from to args} {
+        return [list IdentifierList [lmap arg $args {
+            lindex $arg 1
+        }]]
+    }
+
+    method BuiltinIdentifier {from to} {
+        return [list BuiltinIdentifier [string range $Script $from $to]]
     }
 }
 
@@ -238,7 +266,7 @@ oo::class create tarray::teval::Compiler {
         return [set Compilations($script) [list $Variables [my {*}$ast]]]
     }
 
-        method _constslot {const type} {
+    method _constslot {const type} {
         if {[dict exists $Constants $const $type]} {
             return [dict get $Constants $const $type]
         }
