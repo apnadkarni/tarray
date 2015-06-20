@@ -53,7 +53,13 @@ oo::class create tarray::teval::Parser {
 
     method compile {text} {
         set Script $text
-        set ast [my parset $text]
+        if {[catch {my parset $text} ast eropts]} {
+            if {[string match {pt::rde *} $ast]} {
+                error [pt::util::error2readable $text $ast]
+            } else {
+                return -options $eropts $ast
+            }
+        }
         return [pt::ast bottomup [list [namespace which my] node] $ast]
     }
 
@@ -82,7 +88,7 @@ oo::class create tarray::teval::Parser {
     }
 
     method Assignment {from to lvalue assignop expr} {
-        return [list $assignop $lvalue $expr]
+        return [list [lindex $assignop 1] $lvalue $expr]
     }
 
     method MultiAssignment {from to args} {
@@ -181,27 +187,15 @@ oo::class create tarray::teval::Parser {
         }
     }
 
-    method Index {from to child} {
-        return [list Index $child]
-    }
     method Selector {from to child} {
         return [list Selector $child]
     }
-    method RangeAndExpression {from to args} {
-        return $args
-    }
-    forward Range my _child
-    method RangeFull {from to} {
-        return [list Range [list Number 0] [list Index end]]
-    }
-    method RangeLow {from to low} {
-        return [list Range $low [list Index end]]
-    }
-    method RangeHigh {from to high} {
-        return [list Range [list Number 0] $high]
-    }
-    method RangeLowHigh {from to low high} {
-        return [list Range $low $high]
+    method RangeExpr {from to first_child args} {
+        if {[llength $args] == 0} {
+            return $first_child
+        } else {
+            return [list Range $first_child [lindex $args 0]]
+        }
     }
 }
 
