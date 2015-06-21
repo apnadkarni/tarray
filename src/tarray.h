@@ -695,8 +695,6 @@ TA_INLINE int ta_strequal(const char *a, const char *b)
     return a[0] == b[0] && strcmp(a, b) == 0;
 }
 
-
-
 TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) {
     return tcol_affirm(o) ? TCL_OK : tcol_convert_from_other(ip, o);
 }

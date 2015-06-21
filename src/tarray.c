@@ -3354,6 +3354,42 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
      * For efficiencies sake, we need to avoid shimmering. So we first
      * check for specific types and default to a list otherwise.
      */
+    if (! tcol_affirm(o)) {
+        /* If pindex is NULL, caller never wants to be treated as a single index */
+        if (pindex != NULL) {
+            /* To prevent shimmering, first check known to be a list */
+            if (o->typePtr != g_tcl_list_type_ptr) {
+                status = ta_convert_index(NULL, o, &n, end, INT_MIN, INT_MAX);
+                if (status == TCL_OK) {
+                    *pindex = n;
+                    return TA_INDEX_TYPE_INT;
+                }
+            }
+            /* else fall through to try as list */
+        }
+
+        if (Tcl_ListObjGetElements(NULL, o, &n, &elems) != TCL_OK) {
+            ta_indices_error(ip, o);
+            return TA_INDEX_TYPE_ERROR;
+        }
+
+        /* Even as a list, it may be the single element "end". Check for that */
+        if (n == 1) {
+            if (pindex != NULL) {
+                if (ta_convert_index(NULL, elems[0], &n, end, INT_MIN, INT_MAX) == TCL_OK) {
+                    *pindex = n;
+                    return TA_INDEX_TYPE_INT;
+                }
+            }
+        }
+
+        /*
+         * Now that we know it is a list, see if it is actually a tarray
+         * in list disguise
+         */
+        tcol_convert(NULL, o);  /* Ignore error - handled below */
+    }
+
     if (tcol_affirm(o)) {
         if (tcol_type(o) == TA_INT) {
             thdr = tcol_thdr(o);
@@ -3371,36 +3407,6 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
             /* TBD - write conversion from other type tarrays */
             ta_indices_error(ip, o);
             return TA_INDEX_TYPE_ERROR;
-        }
-    }
-
-    /* TBD - should we not try to convert to a tcol ? Above only checks if already a tcol */
-
-    /* If pindex is NULL, caller never wants to be treated as a single index */
-    if (pindex != NULL) {
-        /* To prevent shimmering, first check known to be a list */
-        if (o->typePtr != g_tcl_list_type_ptr && pindex != NULL) {
-            status = ta_convert_index(NULL, o, &n, end, INT_MIN, INT_MAX);
-            if (status == TCL_OK) {
-                *pindex = n;
-                return TA_INDEX_TYPE_INT;
-            }
-        }
-        /* else fall through to try as list */
-    }
-
-    if (Tcl_ListObjGetElements(NULL, o, &n, &elems) != TCL_OK) {
-        ta_indices_error(ip, o);
-        return TA_INDEX_TYPE_ERROR;
-    }
-
-    /* Even as a list, it may be the single element "end". Check for that */
-    if (n == 1) {
-        if (pindex != NULL) {
-            if (ta_convert_index(NULL, elems[0], &n, end, INT_MIN, INT_MAX) == TCL_OK) {
-                *pindex = n;
-                return TA_INDEX_TYPE_INT;
-            }
         }
     }
 
