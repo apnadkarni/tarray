@@ -279,6 +279,10 @@ oo::class create tarray::teval::Compiler {
         return [set Compilations($script) [list $Variables $Code]]
     }
 
+    method _code {fragment} {
+        append Code $fragment \n
+    }
+
     method _reg {} {
         return __reg[incr NRegisters]
     }
@@ -302,11 +306,9 @@ oo::class create tarray::teval::Compiler {
     }
 
     method Program {from to args} {
-        set result ""
         foreach statement $args {
-            append result [my {*}$statement]\n
+            my {*}$statement]
         }
-        return $result
     }
 
     forward Statement my _child
@@ -315,7 +317,7 @@ oo::class create tarray::teval::Compiler {
         lassign $lvalue type ident indexexpr
         switch -exact -- $type {
             Identifier {
-                append Code "set $ident \[[my {*}$rvalue]\]\n"
+                my _code "set $ident [my {*}$rvalue]\n"
             }
             Tarray {
                 # We are assigning to elements in a tarray. The elements
@@ -330,18 +332,8 @@ oo::class create tarray::teval::Compiler {
                         # If the variable does not exist, it will be
                         # treated as a column. If it is not a column
                         # or table, an error is raised.
-                        set tmpl {
-                            if {[info exists %IDENT%]} {
-                                switch -exact -- [tarray::type [set %IDENT%]] {
-                                    table { tarray::table::vfill %IDENT% %VALUE% %INDEX% }
-                                    "" { error "%IDENT% is not a column or table." }
-                                    default { tarray::column::vfill %IDENT% %VALUE% %INDEX% }
-                                }
-                            } else {
-                                tarray::column::vfill %IDENT% %VALUE% %INDEX%
-                            }
-                        }
-                        append Code [string map [list %IDENT% $ident %INDEX% [lindex $indexexpr 1] %VALUE% [my {*}$rvalue]] $tmpl]
+                        my _code "tarray::teval::runtime::index= $ident [lindex $indexexpr 1] [my {*}$rvalue]"
+                        return
                     }
                     default {
                         # Index is general expression (including single vars)
@@ -459,7 +451,7 @@ oo::class create tarray::teval::Compiler {
         return "\[list [join [lmap child $args {my {*}$child}] { }]\]"
     }
 
-    forward String my _literal String
+    method String s {return $s}
     method Number {n} {return $n}
 
     method Identifier {ident} {
@@ -484,6 +476,16 @@ oo::class create tarray::teval::Compiler {
 }
 
 namespace eval tarray::teval::runtime {
+    proc index= {varname index value} {
+        upvar 1 $varname var
+        switch -exact -- [tarray::type $var] {
+            table { tarray::table::vfill var $value $index }
+            "" { error "$varname is not a column or table." }
+            default { tarray::column::vfill var $value $index }
+        }
+    }
+
+
     proc Index {val index} {
         return [switch -exact -- [tarray::type $val] {
             table {
