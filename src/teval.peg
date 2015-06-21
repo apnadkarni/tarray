@@ -40,17 +40,18 @@ void:    Empty <- WS ;
     PrimaryExpr  <- BuiltinIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
 
     # Postfix operators
-    PostfixOp <-   Selector / FunctionCall / ColumnSlice ;
+    PostfixOp <-   Selector / FunctionCall / Column / Columns ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentExprList? WS ')' ;
     ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
-    ColumnSlice <- '.' WS (Identifier / IdentifierList) ;
-    IdentifierList <- '(' WS Identifier (WS ',' WS Identifier)* WS ')';
+    Column <- '.' WS ColumnIdentifier ;
+    Columns <- '.' WS '(' WS ColumnList? WS ')' ;
+    ColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
 
     # Syntax based definitions
 
 leaf: BuiltinIdentifier <- [$] Identifier ;
-leaf: ColumnIdentifier <- BuiltinIdentifier '.' Identifier ;
+ColumnIdentifier <- BuiltinIdentifier '.' Identifier / Identifier / Number;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
 Sequence <- '{' WS (Expression (WS ',' WS Expression)*)? WS '}' ;

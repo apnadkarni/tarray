@@ -190,13 +190,20 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
-    method ColumnSlice {from to child} {
-        # assert - child is Identifier or IdentifierList
-        if {[lindex $child 0] eq "Identifier"} {
-            return [list Column [lindex $child 1]]
-        } else {
-            return [list Table [lindex $child 1]]
-        }
+    method Column {from to child} {
+        return [list Column $child]
+    }
+
+    method Columns {from to {child {}}} {
+        return [linsert $child 0 Columns]
+    }
+
+    method ColumnList {from to args} {
+        return $args
+    }
+
+    method ColumnIdentifier {from to args} {
+        return $args
     }
 
     forward UnaryOp my _extract UnaryOp
@@ -210,15 +217,8 @@ oo::class create tarray::teval::Parser {
     forward LogicalOrOp my _extract LogicalOrOp
     forward AssignOp my _extract AssignOp
 
-
     method Identifier {from to} {
         return [list Identifier [string range $Script $from $to]]
-    }
-
-    method IdentifierList {from to args} {
-        return [list IdentifierList [lmap arg $args {
-            lindex $arg 1
-        }]]
     }
 
     method BuiltinIdentifier {from to} {
@@ -246,9 +246,9 @@ oo::class create tarray::teval::Compiler {
     variable Script Compilations IndexNestingLevel 
     variable Code NConstants Constants NVariables Variables
 
-    constructor {{optimize 1}} {
+    constructor {} {
         namespace path ::tarray::teval
-        tarray::teval::Parser create parser $optimize
+        tarray::teval::Parser create parser
     }
 
     forward print parser print
@@ -476,5 +476,5 @@ namespace eval tarray::teval::runtime {
 
 tarray::teval::Parser create tp
 #tarray::teval::Compiler create tc
-#tarray::teval::Compiler create td 0
+
 
