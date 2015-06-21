@@ -281,7 +281,7 @@ oo::class create tarray::teval::Compiler {
         return [set Compilations($script) [list $Variables $Code]]
     }
 
-    method _code {fragment} {
+    method _emit {fragment} {
         append Code $fragment \n
     }
 
@@ -319,7 +319,7 @@ oo::class create tarray::teval::Compiler {
         lassign $lvalue type ident indexexpr
         switch -exact -- $type {
             Identifier {
-                my _code "set $ident [my {*}$rvalue]\n"
+                my _emit "set $ident [my {*}$rvalue]\n"
             }
             Tarray {
                 # We are assigning to elements in a tarray. The elements
@@ -327,22 +327,19 @@ oo::class create tarray::teval::Compiler {
                 # a general expression that results in an index or index list.
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        TBD
+                        my _emit "tarray::teval::runtime::tfill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
-                        # Single index
-                        # If the variable does not exist, it will be
-                        # treated as a column. If it is not a column
-                        # or table, an error is raised.
-                        my _code "tarray::teval::runtime::index= $ident [lindex $indexexpr 1] [my {*}$rvalue]"
-                        return
+                        # Single numeric index
+                        my _emit "tarray::teval::runtime::tfill $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
-                        TBD
+                        # The actual operation depends on both the
+                        # lvalue and the rvalue
+                        my _emit "tarray::teval::runtime::tassign $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
-
             }
             default {
                 error "Internal error: Unexpected node type [lindex $lvalue 0]"
@@ -455,6 +452,9 @@ oo::class create tarray::teval::Compiler {
 
     method String s {return "{$s}"}
     method Number {n} {return $n}
+    method Range {low high} {
+        return "\[list [my {*}$low] [my {*}$high]\]"
+    }
 
     method Identifier {ident} {
         return "\[[list set $ident]\]"
@@ -478,15 +478,62 @@ oo::class create tarray::teval::Compiler {
 }
 
 namespace eval tarray::teval::runtime {
-    proc index= {varname index value} {
+    proc tfill {varname value args} {
         upvar 1 $varname var
-        switch -exact -- [tarray::type $var] {
-            table { tarray::table::vfill var $value $index }
+        # args is either a single numeric literal or a range low high pair
+        return [switch -exact -- [tarray::type $var] {
+            table { tarray::table::vfill var $value {*}$args }
             "" { error "$varname is not a column or table." }
-            default { tarray::column::vfill var $value $index }
-        }
+            default { tarray::column::vfill var $value {*}$args }
+        }]
     }
 
+    proc tassign {varname value index} {
+        upvar 1 $varname var
+
+        # varname is the name of a column or table variable (must exist)
+        # value is the value to be assigned
+        # index is a general expression
+        #
+        # If value is a tarray of the same type as target variable,
+        # we use place to update the target array. In this case
+        # indexlist must be a int tarray or an int list else
+        # vplace will throw an error.
+        #
+        # If the above is not true, value is filled in all locations
+        # specified by the index. If its type is not compatible with
+        # the target array, an error is raised by vfill.
+        #
+        # index might be a single integer value, a list of integers or
+        # something else. For the first two, vplace/vfill do the right
+        # thing. For others, they will raise an error.
+
+        set vartype [tarray::type $var]
+        if {$vartype eq ""} {
+            error "$varname is not a column or table."
+        }
+        set valuetype [tarray::type $value]
+
+        if {$valuetype eq $vartype} {
+            if {$vartype eq "table"} {
+                return [tarray::table::vplace var $value $index]
+            } else {
+                return [tarray::column::vplace var $value $index]
+            }
+        }            
+
+        # Either value is not a tarray or is a tarray of the wrong type.
+        # In the latter case, we simply treat it as a single value to
+        # fill into the target (possibly raising an error in case incompatible).
+        # In the former case, there is actually ambiguity since value may
+        # be a list compatible with the target array. For now we 
+        # always treat it as a single value to be filled into target.
+        if {$vartype eq "table"} {
+            return [tarray::table::vfill var $value $index]
+        } else {
+            return [tarray::column::vfill var $value $index]
+        }
+    }
 
     proc Index {val index} {
         return [switch -exact -- [tarray::type $val] {
