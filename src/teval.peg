@@ -20,7 +20,7 @@ void:    Empty <- WS ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Identifier (WS '[' WS Expression WS ']')? ;
+    LValue <- Identifier (WS '[' WS (Range / Expression) WS ']')? ;
 
     # Expressions in ascending precedence order
     Expression <- LogicalOrExpr ;

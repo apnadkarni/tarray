@@ -209,6 +209,7 @@ critcl::cinit {
 # General commands
 
 critcl::ccommand tarray::type {} {
+# TBD - tests for the type command
     Tcl_Obj *o;
     if (objc != 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "VALUE");

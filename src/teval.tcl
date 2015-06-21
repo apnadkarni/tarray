@@ -245,6 +245,7 @@ proc tarray::teval::eval {script} {
 oo::class create tarray::teval::Compiler {
     variable Script Compilations IndexNestingLevel 
     variable Code NConstants Constants NVariables Variables
+    variable NRegisters
 
     constructor {} {
         namespace path ::tarray::teval
@@ -268,8 +269,18 @@ oo::class create tarray::teval::Compiler {
         set NVariables 0
         set Variables [list ]
         set IndexNestingLevel 0
+        set NRegisters 0
 
-        return [set Compilations($script) [list $Variables [my {*}$ast]]]
+        set compilation {}
+        foreach stmt $ir {
+            my {*}$stmt
+        }
+        
+        return [set Compilations($script) [list $Variables $Code]]
+    }
+
+    method _reg {} {
+        return __reg[incr NRegisters]
     }
 
     method _constslot {const type} {
@@ -290,17 +301,6 @@ oo::class create tarray::teval::Compiler {
         return $slot
     }
 
-    method _child {from to child} {
-        return [my {*}$child]
-    }
-    method _extract {from to args} {
-        return [string range $Script $from $to]
-    }
-
-    method _literal {type from to} {
-        return [list $type [string range $Script $from $to]]
-    }
-
     method Program {from to args} {
         set result ""
         foreach statement $args {
@@ -311,23 +311,51 @@ oo::class create tarray::teval::Compiler {
 
     forward Statement my _child
 
-    method Assignment {from to lvalue op expr} {
-        lassign [my {*}$lvalue] name index_or_range
-        set rvalue [my {*}$expr]
-        if {[llength $index_or_range] == 0} {
-            return "set [list $name] \[$rvalue\]"
-        } else {
-            return "tarray::column::vfill [list $name] \[$rvalue\] $index_or_range"
+    method = {lvalue rvalue} {
+        lassign $lvalue type ident indexexpr
+        switch -exact -- $type {
+            Identifier {
+                append Code "set $ident \[[my {*}$rvalue]\]\n"
+            }
+            Tarray {
+                # We are assigning to elements in a tarray. The elements
+                # to be assigned may be specified through a range or
+                # a general expression that results in an index or index list.
+                switch -exact -- [lindex $indexexpr 0] {
+                    Range {
+                        TBD
+                    }
+                    Number {
+                        # Single index
+                        # If the variable does not exist, it will be
+                        # treated as a column. If it is not a column
+                        # or table, an error is raised.
+                        set tmpl {
+                            if {[info exists %IDENT%]} {
+                                switch -exact -- [tarray::type [set %IDENT%]] {
+                                    table { tarray::table::vfill %IDENT% %VALUE% %INDEX% }
+                                    "" { error "%IDENT% is not a column or table." }
+                                    default { tarray::column::vfill %IDENT% %VALUE% %INDEX% }
+                                }
+                            } else {
+                                tarray::column::vfill %IDENT% %VALUE% %INDEX%
+                            }
+                        }
+                        append Code [string map [list %IDENT% $ident %INDEX% [lindex $indexexpr 1] %VALUE% [my {*}$rvalue]] $tmpl]
+                    }
+                    default {
+                        # Index is general expression (including single vars)
+                        TBD
+                    }
+                }
+
+            }
+            default {
+                error "Internal error: Unexpected node type [lindex $lvalue 0]"
+            }
         }
     }
 
-    method LValue {from to ident {index_or_range {}}} {
-        set name [my {*}$ident]
-        if {[llength $index_or_range] == 0} {
-            return [list $name]
-        }
-        return [list $name {*}[my {*}$index_or_range]]
-    }
 
     method Expression {from to child} {
         return "expr {[my {*}$child]}"
@@ -432,10 +460,10 @@ oo::class create tarray::teval::Compiler {
     }
 
     forward String my _literal String
-    forward Number my  _literal Number
+    method Number {n} {return $n}
 
-    method Identifier {from to} {
-        return [list Identifier [my _varslot [string range $from $to]]]
+    method Identifier {ident} {
+        return "\[[list set $ident]\]"
     }
 
     method BuiltinIdentifier {from to args} {
@@ -475,6 +503,6 @@ namespace eval tarray::teval::runtime {
 
 
 tarray::teval::Parser create tp
-#tarray::teval::Compiler create tc
+tarray::teval::Compiler create tc
 
 
