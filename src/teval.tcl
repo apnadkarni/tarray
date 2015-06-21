@@ -226,7 +226,9 @@ oo::class create tarray::teval::Parser {
     }
 
     forward Number my _extract Number
-    forward String my _extract String
+    method String {from to} {
+        return [list String [subst -novariables -nocommands [string range $Script $from+1 $to-1]]]
+    }
     method Sequence {from to args} {
         return [list Sequence $args]
     }
@@ -307,7 +309,7 @@ oo::class create tarray::teval::Compiler {
 
     method Program {from to args} {
         foreach statement $args {
-            my {*}$statement]
+            my {*}$statement
         }
     }
 
@@ -451,7 +453,7 @@ oo::class create tarray::teval::Compiler {
         return "\[list [join [lmap child $args {my {*}$child}] { }]\]"
     }
 
-    method String s {return $s}
+    method String s {return "{$s}"}
     method Number {n} {return $n}
 
     method Identifier {ident} {
