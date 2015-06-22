@@ -1,3 +1,7 @@
+if {1} {
+    lappend auto_path ../build/lib
+    package require tarray
+}
 package require pt::pgen
 package require pt::ast
 package require pt::util
@@ -87,18 +91,18 @@ oo::class create tarray::teval::Parser {
     }
 
     # Common method used by most binary operator expressions
-    method _binop {nodename from to first_child args} {
+    method _binop {nodename from to first_child {op {}} {second_child {}}} {
         # $args contains remaining children (currently at most 1)
-        if {[llength $args] == 0} {
+        if {[llength $op] == 0} {
             # Node has only one child, just promote it.
             return $first_child
         } else {
             # Fold constants if first child and second are both numbers.
             if {[lindex $first_child 0] eq "Number" &&
-                [lindex $args 1 0] eq "Number"} {
-                return [list Number [expr "[lindex $first_child 1][lindex $args 0 1][lindex $args 1 1]"]]
+                [lindex $second_child 0] eq "Number"} {
+                return [list Number [expr "[lindex $first_child 1][lindex $op 1][lindex $second_child 1]"]]
             } else {
-                return [list [lindex $args 0 1] $first_child [lindex $args 1]]
+                return [list [lindex $op 1] $first_child $second_child]
             }
         }
     }
@@ -107,9 +111,9 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
-    method Statement {from to args} {
-        if {[llength $args]} {
-            return [lindex $args 0]
+    method Statement {from to {child {}}} {
+        if {[llength $child]} {
+            return [list Statement $child]
         } else {
             return {}
         }
@@ -257,7 +261,7 @@ proc tarray::teval::eval {script} {
 
 oo::class create tarray::teval::Compiler {
     variable Script Compilations IndexNestingLevel 
-    variable Code NConstants Constants NVariables Variables
+    variable NConstants Constants NVariables Variables
     variable NRegisters
 
     constructor {} {
@@ -276,7 +280,6 @@ oo::class create tarray::teval::Compiler {
 
         # Initialize the per-compile variables
         set Script $script
-        set Code [list ]
         set NConstants 0
         set Constants [list ]
         set NVariables 0
@@ -284,20 +287,12 @@ oo::class create tarray::teval::Compiler {
         set IndexNestingLevel 0
         set NRegisters 0
 
-        set compilation {}
+        set code {}
         foreach stmt $ir {
-            my {*}$stmt
+            append code [my {*}$stmt]\n
         }
         
-        return [set Compilations($script) [list $Variables $Code]]
-    }
-
-    method _emit {fragment} {
-        append Code $fragment \n
-    }
-
-    method _reg {} {
-        return __reg[incr NRegisters]
+        return [set Compilations($script) [list $Variables $code]]
     }
 
     method _constslot {const type} {
@@ -318,19 +313,22 @@ oo::class create tarray::teval::Compiler {
         return $slot
     }
 
-    method Program {from to args} {
-        foreach statement $args {
-            my {*}$statement
+    method Statement {child} {
+        # If not an assignment operator, for example just a function call
+        # or variable name, need explicit return else we land up with
+        # something like {[set x]} as the compiled code
+        if {[lindex $child 0] in {= += -= *= /=}} {
+            return [my {*}$child]
+        } else {
+            return "return -level 0 [my {*}$child]"
         }
     }
-
-    forward Statement my _child
 
     method = {lvalue rvalue} {
         lassign $lvalue type ident indexexpr
         switch -exact -- $type {
             Identifier {
-                my _emit "set $ident [my {*}$rvalue]\n"
+                return "set $ident [my {*}$rvalue]"
             }
             Tarray {
                 # We are assigning to elements in a tarray. The elements
@@ -338,17 +336,17 @@ oo::class create tarray::teval::Compiler {
                 # a general expression that results in an index or index list.
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        my _emit "tarray::teval::runtime::tfill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::runtime::tfill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        my _emit "tarray::teval::runtime::tfill $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::runtime::tfill $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        my _emit "tarray::teval::runtime::tassign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::runtime::tassign $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
@@ -358,8 +356,11 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
+    method _mathop {op first second} {
+        return "tarray::teval::runtime::mathop $op [my {*}$first] [my {*}$second]"
+    }
 
-    method Expression {from to child} {
+    method xxExpression {from to child} {
         return "expr {[my {*}$child]}"
     }
     
@@ -385,9 +386,10 @@ oo::class create tarray::teval::Compiler {
     forward BitXorExpr my _join_specific_operator     ^
     forward BitAndExpr my _join_specific_operator     &
 
-    forward RelExpr my _join_operator
-    forward AddExpr my _join_operator
-    forward MulExpr my _join_operator
+    forward + my _mathop +
+    forward - my _mathop -
+    forward * my _mathop *
+    forward / my _mathop /
 
     method UnaryExpr {from to args} {
         if {[llength $args] == 1} {
@@ -436,20 +438,6 @@ oo::class create tarray::teval::Compiler {
             return [string range $Script $from $to]
         }
         return [my {*}$expr]
-    }
-
-    forward Range my _child
-    method RangeLow {from to expr} {
-        return [list [{*}$expr] "end"]
-    }
-    method RangeHigh {from to expr} {
-        return [list 0 [{*}$expr]]
-    }
-    method RangeLowHigh {from to lowexpr highexpr} {
-        return [list [{*}$lowexpr] [{*}$highexpr]]
-    }
-    method RangeFull {from to} {
-        return [list 0 "end"]
     }
 
     forward RelOp my   _extract
