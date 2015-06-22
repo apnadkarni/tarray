@@ -47,8 +47,19 @@ oo::class create tarray::teval::Parser {
         next {*}$args
     }
 
+    
+    method _print {node {indent {}}} {
+        set children [lassign $node name]
+        puts "${indent}$name"
+        foreach child $children {
+            my _print $child "  ${indent}"
+        }
+    }
+
     method print {text} {
-        tarray::ast::print $text [my parset $text]
+        foreach stmt [my compile $text] {
+            my _print $stmt
+        }
     }
 
     method compile {text} {
