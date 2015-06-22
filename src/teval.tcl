@@ -292,7 +292,7 @@ oo::class create tarray::teval::Compiler {
             append code [my {*}$stmt]\n
         }
         
-        return [set Compilations($script) [list $Variables $code]]
+        return [set Compilations($script) $code]
     }
 
     method _constslot {const type} {
@@ -357,7 +357,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     method _mathop {op first second} {
-        return "tarray::teval::runtime::mathop $op [my {*}$first] [my {*}$second]"
+        return "\[tarray::teval::runtime::mathop $op [my {*}$first] [my {*}$second]\]"
     }
 
     method xxExpression {from to child} {
@@ -531,6 +531,19 @@ namespace eval tarray::teval::runtime {
             return [tarray::table::vfill var $value $index]
         } else {
             return [tarray::column::vfill var $value $index]
+        }
+    }
+
+    proc mathop {op a b} {
+        set atype [tarray::type $a]
+        set btype [tarray::type $b]
+        if {$atype ne ""} {
+            return [tarray::column::$op $a $b]
+        } elseif {$btype ne ""} {
+            return [tarray::column::$op $b $a]
+        } else {
+            # Neither is a tarray
+            return [tcl::mathop::$op $a $b]
         }
     }
 
