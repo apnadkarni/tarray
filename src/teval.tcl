@@ -151,6 +151,7 @@ oo::class create tarray::teval::Parser {
     forward RelExpr my _binop RelExpr
     forward AddExpr my _binop AddExpr
     forward MulExpr my _binop MulExpr
+
     method UnaryExpr {from to postfix_expr args} {
         if {[llength $args] == 0} {
             return $postfix_expr
@@ -158,28 +159,27 @@ oo::class create tarray::teval::Parser {
             # postfix_expr is actually UnaryOp.
             # $args should be a single argument again of type UnaryExpr
             # or a descendant
-            switch -exact -- [lindex $args 0 0] {
-                Number {
-                    #NOTE: cannot combine this with the UnaryExpr case below!
-                    return [list Number [expr "[lindex $postfix_expr 1][lindex $args 0 1]"]]
+            set op [lindex $postfix_expr 1]
+            set postfix_expr [lindex $args 0]
+            # Note: A unary + is a no-op so we could ignore it. However
+            # we don't discard it because it is an error if the operand
+            # is not numeric (which we cannot know if it is not a literal).
+            # Consecutive ++ can be shrunk to +. Consecutive
+            # "--" or "~~" can be completely discarded. "!" changes
+            # the value of numerics (!! is not a no-op) so we leave it
+            # alone.
+            if {[lindex $postfix_expr 0] eq "UnaryExpr" &&
+                $op eq [lindex $postfix_expr 1]} {
+                if {$op in {- ~}} {
+                    return [lindex $postfix_expr 2]
                 }
-                UnaryExpr {
-                    if {[lindex $postfix_expr 1] eq "+"} {
-                        # {UnaryExpr + {UnaryExpr ...}}
-                        #   -> {UnaryExpr ...} (the + is a no-op)
-                        return [lindex $args 0]
-                    } else {
-                        # {UnaryExpr - {UnaryExpr - X}}
-                        #   -> X
-                        # (because of above we know the sign in
-                        # a UnaryExpr is always "-" hence the two "-" cancel)
-                        return [lindex $args 0 2]
-                    }
-                } 
-                default {
-                    return [list UnaryExpr [lindex $postfix_expr 1] {*}$args]
+                if {$op eq "+"} {
+                    return $postfix_expr
                 }
             }
+
+            # If the child is also a Unary expression
+            return [list UnaryExpr $op {*}$args]
         }
     }
     
@@ -360,43 +360,19 @@ oo::class create tarray::teval::Compiler {
         return "\[tarray::teval::runtime::mathop $op [my {*}$first] [my {*}$second]\]"
     }
 
-    method xxExpression {from to child} {
-        return "expr {[my {*}$child]}"
-    }
-    
-    method _join_specific_operator {op from to args} {
-        if {[llength $args] == 1} {
-            return [lindex $args 0]
-        } else {
-            return "\[tarray::teval::runtime::$op [join [lmap child $args {my {*}$child}] { }]\]"
-        }
-    }
-
-    method _join_operator {from to first_child args} {
-        if {[llength $args] == 0} {
-            return [my {*}$first_child]
-        } else {
-            return [my _join_specific_operator [my {*}[lindex $args 0]] $from $to $first_child {*}[lrange $args 1 end]]
-        }
-    }
-
     forward LogicalOrExpr my _join_specific_operator  ||
     forward LogicalAndExpr my _join_specific_operator &&
-    forward BitOrExpr my _join_specific_operator      |
-    forward BitXorExpr my _join_specific_operator     ^
-    forward BitAndExpr my _join_specific_operator     &
 
     forward + my _mathop +
     forward - my _mathop -
     forward * my _mathop *
     forward / my _mathop /
+    forward | my _mathop |
+    forward ^ my _mathop ^
+    forward & my _mathop &
 
-    method UnaryExpr {from to args} {
-        if {[llength $args] == 1} {
-            return [my {*}[lindex $args 0]]
-        } else {
-            return "[my {*}[lindex $args 0]][my {*}[lindex $args 1]]"
-        }
+    method UnaryExpr {op child} {
+        return "\[tarray::teval::runtime::unary $op [my {*}$child]\]"
     }
 
     method PostfixExpr {from to first_child args} {
@@ -544,6 +520,14 @@ namespace eval tarray::teval::runtime {
         } else {
             # Neither is a tarray
             return [tcl::mathop::$op $a $b]
+        }
+    }
+
+    proc unary {op a} {
+        if {[tarray::type $a] eq ""} {
+            return [expr "$op\$a"]
+        } else {
+            return [tarray::column::unary $op $a]
         }
     }
 

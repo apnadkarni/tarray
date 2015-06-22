@@ -71,7 +71,6 @@ void: Separator <- EOL / ';';
 
 leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
 
-leaf: Sign  <- [-+];
 leaf: MulOp       <- '*' / '/'                                    ;
 leaf: AddOp       <- '+' / '-'                                    ;
 leaf: PowOp       <- '**'                                         ;
