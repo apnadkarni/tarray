@@ -208,36 +208,42 @@ critcl::cinit {
 ################################################################
 # General commands
 
-critcl::ccommand tarray::type {} {
-    /* TBD - tests for the type command */
+critcl::ccommand tarray::types {} {
+    /* TBD - tests for the types command */
+    int i;
     Tcl_Obj *o;
-    if (objc != 2) {
-	Tcl_WrongNumArgs(interp, 1, objv, "VALUE");
+    Tcl_Obj *res;
+
+    if (objc < 2) {
+	Tcl_WrongNumArgs(interp, 1, objv, "?VALUE...?");
 	return TCL_ERROR;
     }
 
-    o = objv[1];
+    res = Tcl_NewListObj(objc-1, NULL);
+    for (i = 1; i < objc; ++i) {
+        o = objv[i];
 
-    /* Try to convert to a tarray type but only if the type pointer is
-     * a list, string or NULL. We don't want to disturb other types
-     */
-    if (o->typePtr == NULL ||
-        o->typePtr == g_tcl_string_type_ptr ||
-        o->typePtr == g_tcl_list_type_ptr) {
-        if (table_convert(NULL, o) != TCL_OK)
-            tcol_convert(NULL, o);
-    }
+	    /* Try to convert to a tarray type but only if the type pointer is
+	     * a list, string or NULL. We don't want to disturb other types
+             */
+        if (o->typePtr == NULL ||
+            o->typePtr == g_tcl_string_type_ptr ||
+            o->typePtr == g_tcl_list_type_ptr) {
+            if (table_convert(NULL, o) != TCL_OK)
+                tcol_convert(NULL, o);
+        }
 
-    if (table_affirm(o)) {
-        Tcl_SetObjResult(interp, Tcl_NewStringObj("table", sizeof("table")-1));
-        return TCL_OK;
+        if (table_affirm(o)) {
+            Tcl_ListObjAppendElement(interp, res, Tcl_NewStringObj("table", sizeof("table")-1));
+        } else if (tcol_affirm(o)) {
+            Tcl_ListObjAppendElement(interp, res,
+                             Tcl_NewStringObj(ta_type_string(tcol_type(o)), -1));
+        } else {
+            Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
+        }
     }
-    if (tcol_affirm(o)) {
-        Tcl_SetObjResult(interp,
-                         Tcl_NewStringObj(ta_type_string(tcol_type(o)), -1));
-        return TCL_OK;
-    } else
-        return TCL_OK; /* Leave result as empty string */
+    Tcl_SetObjResult(interp, res);
+    return TCL_OK;
 }
 
 
@@ -630,6 +636,10 @@ critcl::ccommand tarray::column::intersect3 {} {
 
     acol = objv[objc-2];
     bcol = objv[objc-1];
+
+    if ((status = tcol_convert(interp, acol)) != TCL_OK ||
+        (status = tcol_convert(interp, bcol)) != TCL_OK)
+        return status;
 
     athdr = tcol_thdr(acol);
     atype = athdr->type;
