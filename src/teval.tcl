@@ -381,10 +381,17 @@ oo::class create tarray::teval::Compiler {
     }
 
     method PostfixExpr {primary_expr args} {
-        set primary [my {*}$primary_expr]
-
         if {[llength $args] == 0} {
-            return $primary
+            return [my {*}$primary_expr]
+        }
+
+        # For functions, we take identifier as the name of the function,
+        # not as a variable containing the name of a function.
+        if {[lindex $args 0 0] eq "FunctionCall" &&
+            [lindex $primary_expr 0] eq "Identifier" } {
+            set primary [lindex $primary_expr 1]
+        } else {
+            set primary [my {*}$primary_expr]
         }
 
         foreach postexpr $args {
@@ -401,7 +408,11 @@ oo::class create tarray::teval::Compiler {
                     set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
                 }
                 FunctionCall {                
-                    TBD
+                    set fnargs {}
+                    foreach fnarg [lrange $postexpr 1 end] {
+                        lappend fnargs [my {*}$fnarg]
+                    }
+                    set primary "\[$primary [join $fnargs { }]\]"
                 }
                 Column {
                     TBD
@@ -417,7 +428,6 @@ oo::class create tarray::teval::Compiler {
     method Selector {child} {
         return [my {*}$child]
     }
-
 
     method PrimaryExpr {from to child} {
         if {[lindex $child 0] eq "Identifier"} {
