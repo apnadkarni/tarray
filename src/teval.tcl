@@ -336,17 +336,17 @@ oo::class create tarray::teval::Compiler {
                 # a general expression that results in an index or index list.
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        return "tarray::teval::runtime::tfill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::rt::tfill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::runtime::tfill $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::tfill $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::runtime::tassign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::tassign $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
@@ -357,7 +357,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     method _mathop {op first second} {
-        return "\[tarray::teval::runtime::mathop $op [my {*}$first] [my {*}$second]\]"
+        return "\[tarray::teval::rt::mathop $op [my {*}$first] [my {*}$second]\]"
     }
 
     forward LogicalOrExpr my _join_specific_operator  ||
@@ -370,35 +370,54 @@ oo::class create tarray::teval::Compiler {
     forward | my _mathop |
     forward ^ my _mathop ^
     forward & my _mathop &
+    forward == my _mathop ==
+    forward < my _mathop <
+    forward <= my _mathop <=
+    forward > my _mathop >
+    forward >= my _mathop >=
 
     method UnaryExpr {op child} {
-        return "\[tarray::teval::runtime::unary $op [my {*}$child]\]"
+        return "\[tarray::teval::rt::unary $op [my {*}$child]\]"
     }
 
-    method PostfixExpr {from to first_child args} {
-        set expr [my {*}$first_child]
+    method PostfixExpr {primary_expr args} {
+        set primary [my {*}$primary_expr]
+
         if {[llength $args] == 0} {
-            return $expr
+            return $primary
         }
-        foreach child $args {
-            set expr [my {*}$child $expr]
+
+        foreach postexpr $args {
+            switch -exact -- [lindex $postexpr 0] {
+                Selector {
+                    set frag {
+                        tarray::teval::rt::push_selector_context %VALUE%
+                        try {
+                            return -level 0 [tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%]
+                        } finally {
+                            tarray::teval::rt::pop_selector_context
+                        }
+                    }
+                    set primary [string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]
+                }
+                FunctionCall {
+                    TBD
+                }
+                Column {
+                    TBD
+                }
+                Columns {
+                    TBD
+                }
+            }
         }
-        return $expr
+            return "\[$primary\]"
     }
 
-    method PostfixOp {from to child expr} {
-        switch -exact -- [lindex $child 0] {
-            Index {
-                return "\[tarray::teval::runtime::Index $expr [my {*}$child]\]"
-            }
-            Selector {
-            }
-            FunctionOp {
-            }
-            SliceOp {
-            }
-        }
+    method Selector {child} {
+        return [my {*}$child]
     }
+
 
     method PrimaryExpr {from to child} {
         if {[lindex $child 0] eq "Identifier"} {
@@ -452,11 +471,31 @@ oo::class create tarray::teval::Compiler {
 
 }
 
-namespace eval tarray::teval::runtime {
+namespace eval tarray::teval::rt {
+    variable _selector_contexts {}
+
+    proc selector_context {} {
+        variable _selector_contexts
+        return [lindex $_selector_contexts 0]
+    }
+
+    proc push_selector_context {val} {
+        variable _selector_contexts
+        lappend _selector_contexts $val
+    }
+
+    proc pop_selector_context {} {
+        variable _selector_contexts
+        # Fastest Pop list from http://wiki.tcl.tk/22619
+        set r [lindex $_selector_contexts end]
+        set _selector_contexts [lreplace $_selector_contexts [set _selector_contexts end] end] ; # Make sure [lreplace] operates on unshared object
+        return $r
+    }
+
     proc tfill {varname value args} {
         upvar 1 $varname var
         # args is either a single numeric literal or a range low high pair
-        return [switch -exact -- [tarray::type $var] {
+        return [switch -exact -- [tarray::types $var] {
             table { tarray::table::vfill var $value {*}$args }
             "" { error "$varname is not a column or table." }
             default { tarray::column::vfill var $value {*}$args }
@@ -483,11 +522,10 @@ namespace eval tarray::teval::runtime {
         # something else. For the first two, vplace/vfill do the right
         # thing. For others, they will raise an error.
 
-        set vartype [tarray::type $var]
+        lassign [tarray::types $var $value] vartype valuetype
         if {$vartype eq ""} {
             error "$varname is not a column or table."
         }
-        set valuetype [tarray::type $value]
 
         if {$valuetype eq $vartype} {
             if {$vartype eq "table"} {
@@ -510,13 +548,16 @@ namespace eval tarray::teval::runtime {
         }
     }
 
+    proc col< {col val} {
+        return [tarray::column::search -all -lt $col $val]
+    }
+
     proc mathop {op a b} {
-        set atype [tarray::type $a]
-        set btype [tarray::type $b]
+        lassign [tarray::types $a $b] atype btype
         if {$atype ne ""} {
-            return [tarray::column::$op $a $b]
+            return [col$op $a $b]
         } elseif {$btype ne ""} {
-            return [tarray::column::$op $b $a]
+            return [col$op $b $a]
         } else {
             # Neither is a tarray
             return [tcl::mathop::$op $a $b]
@@ -524,15 +565,101 @@ namespace eval tarray::teval::runtime {
     }
 
     proc unary {op a} {
-        if {[tarray::type $a] eq ""} {
+        if {[tarray::types $a] eq ""} {
             return [expr "$op\$a"]
         } else {
             return [tarray::column::unary $op $a]
         }
     }
 
+    proc and {a b} {
+        lassign [tarray::types $a $b] atype btype
+
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [expr {$a && $b}]
+        }
+        
+        if {$atype eq ""} {
+            # Only b is a tarray. Return as is if a is true
+            if {$a} {
+                return $b
+            } else {
+                return [tarray::column int {}]
+            }
+        }
+
+        if {$btype eq ""} {
+            # Only a is a tarray. Return as is if b is true
+            if {$b} {
+                return $a
+            } else {
+                return [tarray::column int {}]
+            }
+        }
+
+        # Both are tarrays. Return the intersection
+        # TBD - optimize if a or b are empty or does intersect3 already do that
+        # TBD - are the elements in increasing order after intersect?
+        return [lindex [tarray::column::intersect3 $a $b] 0]
+    }
+
+    proc or {a b} {
+        lassign [tarray::types $a $b] atype btype
+
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [expr {$a || $b}]
+        }
+        
+        if {$atype eq ""} {
+            # Only b is a tarray. Return as is if a is true
+            if {$a} {
+                # TBD - return ENTIRE array indices since a is true
+                return $b
+            } else {
+                return $b
+            }
+        }
+
+        if {$btype eq ""} {
+            # Only a is a tarray. Return as is if b is true
+            if {$b} {
+                # TBD - should return ENTIRE array indices since b is true,
+                # not just $a 
+                return $a
+            } else {
+                return $a
+            }
+        }
+
+        # Both are tarrays. Return the intersection
+        # TBD - are the elements in increasing order after union?
+        # TBD - implement union
+        return [tarray::column::union $a $b]
+    }
+
+    proc selector {a selexpr} {
+        lassign [tarray::types $a] atype
+        if {[tarray::types $selexpr] eq ""} {
+            # Not a column, treat as an index
+            if {$atype eq "table"} {
+                return [tarray::table::index $a $selexpr]
+            } else {
+                return [tarray::column::index $a $selexpr]
+            }
+        } else {
+            # Treat $selexpr as a index column
+            if {$atype eq "table"} {
+                return [tarray::table::get $a $selexpr]
+            } else {
+                return [tarray::column::get $a $selexpr]
+            }
+        }
+    }
+
     proc Index {val index} {
-        return [switch -exact -- [tarray::type $val] {
+        return [switch -exact -- [tarray::types $val] {
             table {
                 tarray::table::index $val $index
             }
