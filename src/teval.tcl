@@ -360,9 +360,6 @@ oo::class create tarray::teval::Compiler {
         return "\[tarray::teval::rt::mathop $op [my {*}$first] [my {*}$second]\]"
     }
 
-    forward LogicalOrExpr my _join_specific_operator  ||
-    forward LogicalAndExpr my _join_specific_operator &&
-
     forward + my _mathop +
     forward - my _mathop -
     forward * my _mathop *
@@ -429,31 +426,6 @@ oo::class create tarray::teval::Compiler {
         return [my {*}$child]
     }
 
-    method PrimaryExpr {from to child} {
-        if {[lindex $child 0] eq "Identifier"} {
-            # Because of our rules for identifiers, we do not have to
-            # worry about escaping funky identifier names.
-            return "\[set [string range $Script $from $to]\]"
-        } else {
-            return [my {*}$child]
-        }
-    }
-    method Index {from to {expr {}}} {
-        if {[llength $expr] == 0} {
-            return [string range $Script $from $to]
-        }
-        return [my {*}$expr]
-    }
-
-    forward RelOp my   _extract
-    forward UnaryOp my _extract
-    forward AddOp my   _extract
-    forward MulOp my   _extract
-
-    method Sequence {from to args} {
-        return "\[list [join [lmap child $args {my {*}$child}] { }]\]"
-    }
-
     method String s {return "{$s}"}
     method Number {n} {return $n}
     method Range {low high} {
@@ -463,22 +435,6 @@ oo::class create tarray::teval::Compiler {
     method Identifier {ident} {
         return "\[[list set $ident]\]"
     }
-
-    method BuiltinIdentifier {from to args} {
-        puts "NEST: $IndexNestingLevel"
-        if {$IndexNestingLevel == 0} {
-            error "Built-in identifier [string range $Script $from $to] can only be used within a column or table indexing scope."
-        }
-        return "load [string range $Script [incr from] $to]"
-    }
-
-    method ColumnIdentifier {from to args} {
-        if {$IndexNestingLevel == 0} {
-            error "Built-in identifier [string range $Script $from $to] can only be used within a column or table indexing scope."
-        }
-        return "load [string range $Script [incr from] $to]"
-    }
-
 }
 
 namespace eval tarray::teval::rt {
