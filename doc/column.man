@@ -113,7 +113,8 @@ and [arg COLUMNB] contains only 3 such elements, then the first column
 in the result will contain two [const A] elements and the second
 column will contain three.
 [para]
-Option [arg -nocase] only has effect if the column type is [const any]. If
+Option [arg -nocase] only has effect if the column type is [const any]
+or [const string]. If
 specified, elements are compared in case-insensitive mode.
 
 [call [cmd "column lookup"] [arg COLUMN] [opt [arg LOOKUPKEY]]]
@@ -153,8 +154,8 @@ the subrange. The second element of the pair may be omitted in which case
 it defaults to the last element in the column.
 [para]
 The option [cmd -nocase] may be specified to indicate case-insensitive 
-comparisons. This is only effective for column type [const any]
-and ignored for the others.
+comparisons. This is only effective if the column type is [const any]
+or [const string] and ignored for the others.
 
 [call [cmd "column place"] [arg COLUMN] [arg VALUES] [arg INDICES]]
 Returns a typed column with the specified values at the 
@@ -232,7 +233,7 @@ The sense of the match can be inverted by specifying the [option -not] option
 so for example specifying [option "-not -gt"] will match all elements that are
 less than or equal to [arg VALUE]. For case insensitive matching, the
 [option -nocase] option may be specified. This is ignored for all array types
-except type [const any].
+except types [const any] and [const string].
 
 
 [call [cmd "column size"] [arg COLUMN]]
@@ -250,7 +251,7 @@ themselves.
 [para]
 If [option -nocase] is specified, the comparisons are done in
 case-insensitive manner. This option is only applicable when the
-column type is [const any] and is ignored otherwise.
+column type is [const any] or [const string] and is ignored otherwise.
 [para]
 Option [option -indirect] may only be used when [arg COLUMN] is of
 type [const int]. In this case, the elements of [arg COLUMN] are
