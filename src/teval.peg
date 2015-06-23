@@ -54,7 +54,8 @@ leaf: BuiltinIdentifier <- [$] Identifier ;
 ColumnIdentifier <- BuiltinIdentifier '.' Identifier / Identifier / Number;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
-Sequence <- '{' WS (Expression (WS ',' WS Expression)*)? WS '}' ;
+Sequence <- '{' WS SequenceElements? WS '}' ;
+SequenceElements <- Expression (WS ',' WS Expression)* ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
                      / BackSlash

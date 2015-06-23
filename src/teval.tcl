@@ -244,8 +244,12 @@ oo::class create tarray::teval::Parser {
     method String {from to} {
         return [list String [subst -novariables -nocommands [string range $Script $from+1 $to-1]]]
     }
-    method Sequence {from to args} {
-        return [list Sequence $args]
+
+    method Sequence {from to {child {}}} {
+        return [linsert $child 0 Sequence]
+    }
+    method SequenceElements {from to args} {
+        return $args
     }
 
 }
@@ -426,6 +430,11 @@ oo::class create tarray::teval::Compiler {
         return [my {*}$child]
     }
 
+    method Sequence {args} {
+        return "\[list [join [lmap arg $args {
+            my {*}$arg
+        }] { }]\]"
+    }
     method String s {return "{$s}"}
     method Number {n} {return $n}
     method Range {low high} {
