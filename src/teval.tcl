@@ -398,9 +398,9 @@ oo::class create tarray::teval::Compiler {
                             tarray::teval::rt::pop_selector_context
                         }
                     }
-                    set primary [string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]
+                    set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
                 }
-                FunctionCall {
+                FunctionCall {                
                     TBD
                 }
                 Column {
@@ -411,7 +411,7 @@ oo::class create tarray::teval::Compiler {
                 }
             }
         }
-            return "\[$primary\]"
+        return "$primary"
     }
 
     method Selector {child} {
@@ -548,8 +548,68 @@ namespace eval tarray::teval::rt {
         }
     }
 
+    proc col== {col val} {
+        return [tarray::column::search -all -eq $col $val]
+    }
+
+    proc col!= {col val} {
+        return [tarray::column::search -all -not -eq $col $val]
+    }
+
     proc col< {col val} {
         return [tarray::column::search -all -lt $col $val]
+    }
+
+    proc col<= {col val} {
+        return [tarray::column::search -all -not -gt $col $val]
+    }
+
+    proc col> {col val} {
+        return [tarray::column::search -all -gt $col $val]
+    }
+
+    proc col>= {col val} {
+        return [tarray::column::search -all -not -lt $col $val]
+    }
+
+    proc col=^ {col val} {
+        return [tarray::column::search -all -nocase -eq $col $val]
+    }
+
+    proc col!^ {col val} {
+        return [tarray::column::search -all -nocase -not -eq $col $val]
+    }
+
+    proc col=~ {col val} {
+        return [tarray::column::search -all -re $col $val]
+    }
+
+    proc col!~ {col val} {
+        return [tarray::column::search -all -not -re $col $val]
+    }
+
+    proc col=^~ {col val} {
+        return [tarray::column::search -all -nocase -re $col $val]
+    }
+
+    proc col!^~ {col val} {
+        return [tarray::column::search -all -nocase -not -re $col $val]
+    }
+
+    proc col=* {col val} {
+        return [tarray::column::search -all -pat $col $val]
+    }
+
+    proc col!* {col val} {
+        return [tarray::column::search -all -not -pat $col $val]
+    }
+
+    proc col=^* {col val} {
+        return [tarray::column::search -all -nocase -pat $col $val]
+    }
+
+    proc col!^* {col val} {
+        return [tarray::column::search -all -nocase -not -pat $col $val]
     }
 
     proc mathop {op a b} {
