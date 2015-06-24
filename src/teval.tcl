@@ -269,10 +269,7 @@ proc tarray::teval::eval {script} {
 }
 
 oo::class create tarray::teval::Compiler {
-    variable Script Compilations
-    variable NConstants Constants NVariables Variables
-    variable NRegisters
-    variable SelectorNestingLevel
+    variable Script Compilations SelectorNestingLevel
 
     constructor {} {
         namespace path ::tarray::teval
@@ -290,11 +287,6 @@ oo::class create tarray::teval::Compiler {
 
         # Initialize the per-compile variables
         set Script $script
-        set NConstants 0
-        set Constants [list ]
-        set NVariables 0
-        set Variables [list ]
-        set NRegisters 0
         set SelectorNestingLevel 0
 
         set code {}
@@ -307,24 +299,6 @@ oo::class create tarray::teval::Compiler {
 
     method eval {script} {
         uplevel 1 [my compile $script]
-    }
-
-    method _constslot {const type} {
-        if {[dict exists $Constants $const $type]} {
-            return [dict get $Constants $const $type]
-        }
-        dict set Constants $const $type [set slot __k$NConstants]
-        incr NConstants
-        return $slot
-    }
-
-    method _varslot {varname} {
-        if {[dict exists $Variables $varname]} {
-            return [dict get $Variables $varname Slot]
-        }
-        dict set Variables $varname Slot [set slot __v$NVariables]
-        incr NVariables
-        return $slot
     }
 
     method Statement {child} {
