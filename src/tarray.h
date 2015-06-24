@@ -410,7 +410,7 @@ TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
     int i;
     /* Note we do not check against thdr->used because some callers do
        not update that until later */
-    TA_ASSERT((start+count) < thdr->usable);
+    TA_ASSERT((start+count) <= thdr->usable);
     if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
         return;
     pptas = THDRELEMPTR(thdr, tas_t *, start);
