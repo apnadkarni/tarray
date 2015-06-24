@@ -305,6 +305,10 @@ oo::class create tarray::teval::Compiler {
         return [set Compilations($script) $code]
     }
 
+    method eval {script} {
+        uplevel 1 [my compile $script]
+    }
+
     method _constslot {const type} {
         if {[dict exists $Constants $const $type]} {
             return [dict get $Constants $const $type]
