@@ -193,6 +193,11 @@ oo::class create tarray::teval::Parser {
     forward PrimaryExpr my _child
 
     forward PostfixOp my _child
+
+    method IndexSelector {from to child} {
+        return [list IndexSelector $child]
+    }
+
     method Selector {from to child} {
         return [list Selector $child]
     }
@@ -264,7 +269,7 @@ proc tarray::teval::eval {script} {
 }
 
 oo::class create tarray::teval::Compiler {
-    variable Script Compilations IndexNestingLevel 
+    variable Script Compilations
     variable NConstants Constants NVariables Variables
     variable NRegisters
     variable SelectorNestingLevel
@@ -289,7 +294,6 @@ oo::class create tarray::teval::Compiler {
         set Constants [list ]
         set NVariables 0
         set Variables [list ]
-        set IndexNestingLevel 0
         set NRegisters 0
         set SelectorNestingLevel 0
 
@@ -420,6 +424,19 @@ oo::class create tarray::teval::Compiler {
 
         foreach postexpr $args {
             switch -exact -- [lindex $postexpr 0] {
+                IndexSelector {
+                    set frag {
+                        tarray::teval::rt::push_selector_context %VALUE%
+                        try {
+                            return -level 0 %SELECTEXPR%
+                        } finally {
+                            tarray::teval::rt::pop_selector_context
+                        }
+                    }
+                    incr SelectorNestingLevel
+                    set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
+                    incr SelectorNestingLevel -1
+                }
                 Selector {
                     set frag {
                         tarray::teval::rt::push_selector_context %VALUE%
@@ -449,6 +466,10 @@ oo::class create tarray::teval::Compiler {
             }
         }
         return "$primary"
+    }
+
+    method IndexSelector {child} {
+        return [my {*}$child]
     }
 
     method Selector {child} {

@@ -40,7 +40,8 @@ void:    Empty <- WS ;
     PrimaryExpr  <- BuiltinIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
 
     # Postfix operators
-    PostfixOp <-   Selector / FunctionCall / Column / Columns ;
+    PostfixOp <-  IndexSelector / Selector / FunctionCall / Column / Columns ;
+    IndexSelector <- '[[' WS ('end' / Expression) WS ']]' ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentExprList? WS ')' ;
     ArgumentExprList <- Expression WS (WS ',' WS Expression)* ;
