@@ -222,8 +222,8 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
-    method ColumnIdentifier {from to args} {
-        return $args
+    method ColumnIdentifier {from to child} {
+        return $child
     }
 
     forward UnaryOp my _extract UnaryOp
@@ -458,10 +458,10 @@ oo::class create tarray::teval::Compiler {
                     set primary "\[$primary [join $fnargs { }]\]"
                 }
                 Column {
-                    TBD
+                    set primary "\[tarray::table::column $primary [my {*}$postexpr]\]"
                 }
                 Columns {
-                    TBD
+                    set primary "\[tarray::table::slice $primary [my {*}$postexpr]\]"
                 }
             }
         }
@@ -474,6 +474,25 @@ oo::class create tarray::teval::Compiler {
 
     method Selector {child} {
         return [my {*}$child]
+    }
+
+    method Column {child} {
+        if {[lindex $child 0] eq "Identifier"} {
+            return [lindex $child 1]
+        } else {
+            return [my {*}$child]
+        }
+    }
+
+    method Columns {args} {
+        set cols [lmap colarg $args {
+            if {[lindex $colarg 0] eq "Identifier"} {
+                lindex $colarg 1
+            } else {
+                my {*}$colarg
+            }
+        }]
+        return "\[list [join $cols]\]"
     }
 
     method Sequence {args} {
@@ -817,3 +836,6 @@ tarray::teval::Parser create tp
 tarray::teval::Compiler create tc
 
 
+namespace path tarray
+set I [column create int {10 20 30 40 50}]
+set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
