@@ -76,9 +76,11 @@ leaf: MulOp       <- '*' / '/'                                    ;
 leaf: AddOp       <- '+' / '-'                                    ;
 leaf: PowOp       <- '**'                                         ;
 
-leaf: RelOp <- '==' / '!=' / '<=' / '>=' /
-               '<' / '>' / '=^' / '!^' / '=~' / '!~' / '=^~' /
-               '!^~' / '=*' / '!*' / '=^*' / '!^*';
+# NOTE tokens whose prefixes match shorter tokens need to be listed first!
+leaf: RelOp <- '==' / '!=' / '<=' / '>=' / '<' / '>' /
+               '=^' / '!^' /
+               '=~^' / '=~' / '!~^' / '!~' / 
+	       '=*^' / '=*' / '!*^' / '!*';
 leaf: UnaryOp <- [-+~!] ;
 leaf: BitAndOp <- '&' ;
 leaf: BitOrOp <- '|' ;

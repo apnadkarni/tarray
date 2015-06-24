@@ -386,6 +386,20 @@ oo::class create tarray::teval::Compiler {
     forward && my _boolop and
     forward || my _boolop or
 
+    method _strop {op first second} {
+        return "\[tarray::teval::rt::strop $op [my {*}$first] [my {*}$second]\]"
+    }
+    forward =^ my _strop =^
+    forward !^ my _strop !^
+    forward =~ my _strop =~
+    forward !~ my _strop !~
+    forward =~^ my _strop =~^
+    forward !~^ my _strop !~^
+    forward =* my _strop =*
+    forward !* my _strop !*
+    forward =*^ my _strop =*^
+    forward !*^ my _strop !*^
+
     method UnaryExpr {op child} {
         return "\[tarray::teval::rt::unary $op [my {*}$child]\]"
     }
@@ -578,11 +592,11 @@ namespace eval tarray::teval::rt {
         return [tarray::column::search -all -not -re $col $val]
     }
 
-    proc col=^~ {col val} {
+    proc col=~^ {col val} {
         return [tarray::column::search -all -nocase -re $col $val]
     }
 
-    proc col!^~ {col val} {
+    proc col!~^ {col val} {
         return [tarray::column::search -all -nocase -not -re $col $val]
     }
 
@@ -594,11 +608,11 @@ namespace eval tarray::teval::rt {
         return [tarray::column::search -all -not -pat $col $val]
     }
 
-    proc col=^* {col val} {
+    proc col=*^ {col val} {
         return [tarray::column::search -all -nocase -pat $col $val]
     }
 
-    proc col!^* {col val} {
+    proc col!*^ {col val} {
         return [tarray::column::search -all -nocase -not -pat $col $val]
     }
 
@@ -611,6 +625,29 @@ namespace eval tarray::teval::rt {
         } else {
             # Neither is a tarray
             return [tcl::mathop::$op $a $b]
+        }
+    }
+
+    proc strop {op a b} {
+        lassign [tarray::types $a $b] atype btype
+        if {$atype ne ""} {
+            return [col$op $a $b]
+        } elseif {$btype ne ""} {
+            return [col$op $b $a]
+        } else {
+            # Neither is a tarray
+            return [switch -exact -- $op {
+                =^ {string equal -nocase $a $b}
+                !^ {expr {![string equal -nocase $a $b]}}
+                =~ {regexp -- $b $a}
+                !~ {expr {![regexp -- $b $a]}}
+                =~^ {regexp -nocase -- $b $a}
+                !~^ {expr {![regexp -nocase -- $b $a]}}
+                =* {string match $b $a}
+                !* {expr {![string match $b $a]}}
+                =*^ {string match -nocase $b $a}
+                !*^ {expr {![string match -nocase $b $a]}}
+            }]
         }
     }
 
