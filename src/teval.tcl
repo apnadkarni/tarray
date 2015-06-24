@@ -267,6 +267,7 @@ oo::class create tarray::teval::Compiler {
     variable Script Compilations IndexNestingLevel 
     variable NConstants Constants NVariables Variables
     variable NRegisters
+    variable SelectorNestingLevel
 
     constructor {} {
         namespace path ::tarray::teval
@@ -290,6 +291,7 @@ oo::class create tarray::teval::Compiler {
         set Variables [list ]
         set IndexNestingLevel 0
         set NRegisters 0
+        set SelectorNestingLevel 0
 
         set code {}
         foreach stmt $ir {
@@ -406,7 +408,9 @@ oo::class create tarray::teval::Compiler {
                             tarray::teval::rt::pop_selector_context
                         }
                     }
+                    incr SelectorNestingLevel
                     set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
+                    incr SelectorNestingLevel -1
                 }
                 FunctionCall {                
                     set fnargs {}
@@ -438,7 +442,11 @@ oo::class create tarray::teval::Compiler {
     method String s {return "{$s}"}
     method Number {n} {return $n}
     method Range {low high} {
-        return "\[list [my {*}$low] [my {*}$high]\]"
+        if {$SelectorNestingLevel} {
+            return "\[tarray::teval::rt::selector_range \[list [my {*}$low] [my {*}$high]\]\]"
+        } else {
+            return "\[list [my {*}$low] [my {*}$high]\]"
+        }
     }
 
     method Identifier {ident} {
@@ -690,6 +698,30 @@ namespace eval tarray::teval::rt {
             } else {
                 return [tarray::column::get $a $selexpr]
             }
+        }
+    }
+
+    proc selector_range {range} {
+        # TBD - replace with C version
+        lassign $range low high
+        if {$low < 0} {
+            set low 0
+        }
+        if {$high eq "end"} {
+            set high [expr {[size [selector_context]] - 1}]
+        }
+        set l {}
+        for {set i $low} {$i <= $high} {incr i} {
+            lappend l $i
+        }
+        return [tarray::column::create int $l]
+    }
+
+    proc size {tab_or_col} {
+        if {[tarray::types $tab_or_col] eq "table"} {
+            return [tarray::table::size [selector_context]]
+        } else {
+            return [tarray::column::size [selector_context]]
         }
     }
 
