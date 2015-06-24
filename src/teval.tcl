@@ -379,6 +379,13 @@ oo::class create tarray::teval::Compiler {
     forward > my _mathop >
     forward >= my _mathop >=
 
+    method _boolop {op first second} {
+        # TBD - short circuit ?
+        return "\[tarray::teval::rt::$op [my {*}$first] [my {*}$second]\]"
+    }
+    forward && my _boolop and
+    forward || my _boolop or
+
     method UnaryExpr {op child} {
         return "\[tarray::teval::rt::unary $op [my {*}$child]\]"
     }
@@ -677,9 +684,14 @@ namespace eval tarray::teval::rt {
         }
 
         # Both are tarrays. Return the intersection
+        # Can't use tarray::intersect3+tarray::sort because of 
+        # uniqueness requirement
         # TBD - are the elements in increasing order after union?
-        # TBD - implement union
-        return [tarray::column::union $a $b]
+        # TBD - implement union in C
+        return [tarray::column::create int \
+                    [lsort -integer -unique \
+                         [concat [tarray::column::range -list $a 0 end] \
+                              [tarray::column::range -list $b 0 end]]]]
     }
 
     proc selector {a selexpr} {
