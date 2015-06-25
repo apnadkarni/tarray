@@ -10,7 +10,7 @@ text {
     == Introduction
 
     The tarray extension implements typed arrays and associated
-    commands `column` and table.html[table]. This page provides
+    commands `column` and ((^ chap_table_ref table)). This page provides
     reference documentation for commands related to typed columns. See
     the index.html[main contents] for guides and other reference
     documentation.
@@ -105,7 +105,7 @@ text {
     extended if necessary provided the specified indices do not have gaps
     beyond the current column size.
 
-    ((cmddef column_get "column get ?OPTIONS? _COLUMN_ _INDEXLIST_"))
+    ((cmddef column_get "column get ?_OPTIONS_? _COLUMN_ _INDEXLIST_"))
 
     Returns the values from a typed column at the indices specified as 
     ((^ sect_column_indices "index list")). Any of the
@@ -168,7 +168,7 @@ text {
     of the column. However, the return value of the command is always
     accurate.
     
-    ((cmddef column_minmax "column minmax ?OPTIONS? _COLUMN_"))
+    ((cmddef column_minmax "column minmax ?_OPTIONS_? _COLUMN_"))
 
     Searches the specified column for the minimum and maximum values,
     returning them as a pair. If `-indices` is specified, their indices are
@@ -203,7 +203,7 @@ text {
     to the array. The command interprets `end` as the position after the
     last element in the array.
 
-    ((cmddef column_range "column range ?OPTIONS? _COLUMN_ _LOW_ _HIGH_"))
+    ((cmddef column_range "column range ?_OPTIONS_? _COLUMN_ _LOW_ _HIGH_"))
 
     Returns the values from a typed column for indices in a specified range.
     Any of the ((^ tab_column_stdopts)) may be specified with this command.
