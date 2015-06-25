@@ -1,0 +1,295 @@
+text {
+    ((= chap_table_ref "tarray::table command reference"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+    == Introduction
+
+    The tarray extension implements typed arrays and associated commands
+    ((^ chap_column_ref `column`)) and `table`.
+    This page provides reference documentation for
+    commands related to typed tables. See ((^ chap_intro)) for an overview and
+    ((^ chap_guide)) for a programming guide.
+
+    === Tables
+
+    A typed table is an ordered sequence of _typed columns_ of
+    equal size. It can be viewed as an array of records where the record fields
+    happen to use column-wise storage. The corresponding table command
+    operates on typed tables.
+
+    The columns in a table are defined with a name, type and order
+    when the table is created. Commands that operate on tables allow
+    columns to be specified using either the column name or its position.
+} text {
+    ((=== sect_table_types Types))
+
+    include::types.ad[]
+
+    ((=== sect_table_indices Indices))
+
+    include::indices.ad[]
+} text {
+    == Command reference
+
+    All commands are located in the `tarray` namespace.
+
+    === Standard Options
+
+    Many commands take one or more of the standard options shown
+    in ((^ tab_table_stdopts)) below. The `-list`, `-dict` and `-table`
+    options control the format of the returned values. The
+    `-columns` option allows selection and ordering of specific columns
+    from the table.
+
+    ((.Table tab_table_stdopts "Standard options"))
+    [cols="20,80"]
+    |===
+
+    |`-columns _COLUMNS_`
+    |Selects a subset of columns from the table and their order. If this
+    option is not specified, all columns in the table are selected as the
+    target of the command and in the same order as in the table definition.
+    If this option is specified, _COLUMNS_ is a list of column indexes and
+    names. For commands that retrieve data, like table get, only data from
+    the specified columns is retrieved and in the column order specified in
+    _COLUMNS_. For commands that modify data, only data in the specified
+    columns is modified. The input data values are taken in the same order
+    as specified in _COLUMNS_. Note that when a command invocation that causes
+    a table to grow specifies the -columns option, all columns must be
+    included in _COLUMNS_ although they may be specified in any order
+    depending on the order of the source data.
+
+    |`-dict`
+    |Specifies that the return values must be in the form of a dictionary
+    keyed by the corresponding indices. The value of each key is a row which
+    is a list each element of which is the value at that index in the
+    corresponding column.
+
+    |`-list`
+    Specifies that the return value must be in the form of a list of rows,
+    one per index. Each row is itself a list, each element of which is the
+    value at that index in the corresponding column.
+
+    |`-table`
+    |Specifies that the values are to be returned as a table. This is the
+    default if neither -list nor -dict is specified.
+
+    |===
+} text {
+    === Commands
+
+    // Turn off section numbering
+    :!sectnums:
+
+    ((cmddef table_column "table column _TABLE_ _COLSPEC_"))
+
+    Returns a typed column from a table. _COLSPEC_ may be either the column
+    name or its position.
+
+    ((cmddef table_cnames "table cnames _TABLE_"))
+
+    Returns the list of column names for the table.
+    
+    ((cmddef table_create "table create _DEFINITION_ _ROWVALUES_"))
+
+    Returns a typed table containing a sequence of columns. DEFINITION is a
+    list of alternating column names and column types. A column name is an
+    identifier for a column that can be used in lieu of a column index. The
+    type for a column must be one of the valid types described in ((^ sect_table_types)).
+
+    _ROWVALUES_ is the initial content of the table array specified as a
+    nested list with each sublist being a row whose element types are
+    compatible with the corresponding column types in DEFINITION.
+
+    ((cmddef table_delete "table delete _TABLE_ _INDEX_"))
+
+    ((cmddef table_delete_1 "table delete _TABLE_ _INDEXLIST_"))
+    
+    ((cmddef table_delete_2 "table delete _TABLE_ _LOW_ _HIGH_"))
+    
+    Returns a typed table with all specified rows deleted. The row indices
+    are specified in any of the forms described in ((^ sect_table_indices)).
+
+    ((cmddef table_fill "table fill ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _INDEX_"))
+
+    ((cmddef table_fill_1 "table fill ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _INDEXLIST_"))
+    
+    ((cmddef table_fill_2 "table fill ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _LOW_ _HIGH_"))
+    
+    Returns a typed table with specified rows set to _ROWVALUE_. Each element
+    from the list _ROWVALUE_ is assigned to the corresponding column of the
+    table at the specified indices. Any additional elements in _ROWVALUE_ are
+    ignored. An error is generated if any element of _ROWVALUE_ does not match
+    the type of the corresponding column or if _ROWVALUE_ contains fewer
+    elements than the table width. Indices are specified in any of the forms
+    described in ((^ sect_table_indices)). The size of the array will be extended if
+    necessary.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
+    columns of the table or to match the order of columns to the supplied
+    data.
+
+    ((cmddef table_get "table get ?_OPTIONS_? _TABLE_ _INDEXLIST_"))
+
+    Returns the values from a table at the indices specified as -> index
+    list. Any of the -> standard options may be specified with this command.
+
+    ((cmddef table_index "table index _TABLE_ _INDEX_"))
+
+    Returns the value of the row at the position specified by _INDEX_.
+    
+    ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ COUNT"))
+
+    ((cmddef table_insert_1 "table insert _TABLE_ _ROWVALUES_ _FIRST_"))
+    
+    In the first form, inserts COUNT rows with value _ROWVALUE_ at position
+    _FIRST_ and returns the new table. In the second form, _ROWVALUES_ may be a
+    list of row values or a compatible table. The rows are inserted at the
+    specified position. In both cases, the command may extend the array if
+    necessary.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to match the order of
+    columns to the supplied data. Note that _COLUMNS_ must include all columns
+    in the table as the command would not know what values to use for the
+    unspecified columns.
+
+    ((cmddef table_place "table place ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ _INDICES_"))
+
+    Returns a table with the specified values at the corresponding indices.
+    _ROWVALUES_ may be a list of row values or a compatible table. The number
+    of rows in _ROWVALUES_ must not be less than the number of indices
+    specified in _INDICES_ and the width of each row must be no smaller than
+    the width of the table. _INDICES_ must be a index list in the one of the
+    forms described in ((^ sect_table_indices)) and may extend the column
+    if the condition listed there are satisfied.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
+    columns of the table or to match the order of columns to the supplied
+    data.
+
+    ((cmddef table_put "table put ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ ?_FIRST_?"))
+
+    Returns a table with the elements starting at index _FIRST_ replaced by
+    the corresponding elements of _ROWVALUES_. _ROWVALUES_ may be a list of
+    values or a table of the same type. The command may extend the array if
+    necessary. If _FIRST_ is not specified the elements are appended.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
+    columns of the table or to match the order of columns to the supplied
+    data.
+
+    ((cmddef table_range "table range ?_OPTIONS_? _TABLE_ _LOW_ ?_HIGH_?"))
+
+    Returns all values from a table between the indices specified as a ->
+    range. Any of the -> standard options may be specified with this
+    command.
+
+    ((cmddef table_reverse "table reverse _TABLE_"))
+
+    Returns the table with order of elements reversed.
+    
+    ((cmddef table_size "table size _TABLE_"))
+
+    Returns the number of rows in the table.
+    
+    ((cmddef table_slice "table slice _TABLE_ COLUMNLIST"))
+
+    Returns a table containing only the specified columns from _TABLE_. The
+    columns are specified by their positions or names as a list. A column
+    must not be included more than once. The returned table contains columns
+    in the same order as COLUMNLIST.
+
+    ((cmddef table_vdelete "table vdelete __TABLEVAR_ _INDEX_"))
+
+    ((cmddef table_vdelete_1 "table vdelete __TABLEVAR_ _INDEXLIST_"))
+    
+    ((cmddef table_vdelete_2 "table vdelete __TABLEVAR_ _LOW_ _HIGH_"))
+    
+    Deletes rows from the table in variable __TABLEVAR_. The new value is
+    assigned back to the variable. The resulting value of the variable
+    (which may differ because of traces) is returned as the result of the
+    command. Indices are specified in any of the forms described in ->
+    Indices.
+
+    ((cmddef table_vfill "table vfill ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _INDEX_"))
+
+    ((cmddef table_vfill_1 "table vfill ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _INDEXLIST_"))
+    
+    ((cmddef table_vfill_2 "table vfill ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _LOW_ _HIGH_"))
+    
+    Set the elements of the table in variable __TABLEVAR_ at the specified
+    indices to _ROWVALUE_. The new value is assigned back to the variable. The
+    resulting value of the variable (which may differ because of traces) is
+    returned as the result of the command.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
+    columns of the table or to match the order of columns to the supplied
+    data.
+
+    See fill for more information.
+
+    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _FIRST_ COUNT"))
+
+    ((cmddef table_vinsert_1 "table vinsert __TABLEVAR_ _ROWVALUES_ _FIRST_"))
+    
+    In the first form, inserts COUNT rows with value _ROWVALUE_ at position
+    _FIRST_ in the table stored in variable __TABLEVAR_. In the second form,
+    _ROWVALUES_ may be a list of row values or a compatible table. The rows
+    are inserted at the specified position. In both cases, the new value is
+    assigned back to the variable. The resulting value of the variable
+    (which may differ because of traces) is returned as the result of the
+    command.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to match the order of
+    columns to the supplied data. Note that _COLUMNS_ must include all columns
+    in the table as the command would not know what values to use for the
+    unspecified columns.
+
+    ((cmddef table_vplace "table vplace ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUES_ _INDICES_"))
+
+    Modifies a table stored in the variable __TABLEVAR_ with the specified
+    values at the corresponding indices. The new value is assigned back to
+    the variable. The resulting value of the variable
+    (which may differ because of traces) is returned as the result of
+    the command.
+
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
+    columns of the table or to match the order of columns to the supplied
+    data.
+
+    See the command table place for other details.
+
+    ((cmddef table_vput "table vput ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUES_ _FIRST_"))
+
+    Modifies a variable __TABLEVAR_ containing a typed column. The elements of
+    the column starting at index _FIRST_ are replaced by the corresponding
+    elements of _ROWVALUES_. If _FIRST_ is not specified the elements are
+    appended to the array. The new value is assigned back to the variable.
+    The resulting value of the variable (which may differ because of traces)
+    is returned as the result of the command.
+
+    The standard option ((^ tab_table_stdopts -columns))
+    may be specified to target specific
+    columns of the table or to match the order of columns to the supplied
+    data.
+
+    See the command table put for other details.
+
+    ((cmddef table_vreverse "table vreverse __TABLEVAR_"))
+
+    Reverses the order of elements in the table in variable __TABLEVAR_, stores
+    it back in the variable. The result of the command is the resulting
+    value stored in the variable.
+
+    ((cmddef table_width "table width _TABLE_"))
+
+    Returns the number of columns in the table.
+    
+} text {
+    // Turn section numbering back on
+    :sectnums:
+}
