@@ -1,0 +1,382 @@
+text {
+    ((= chap_column_ref "tarray::column command reference"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+
+text {
+    == Introduction
+
+    The tarray extension implements typed arrays and associated
+    commands `column` and table.html[table]. This page provides
+    reference documentation for commands related to typed columns. See
+    the index.html[main contents] for guides and other reference
+    documentation.
+
+    === Columns
+
+    A typed array column contains elements of a single
+    type, such as `int` or `string`, that is specified
+    when it is created. The command `tarray::column` operates on
+    typed columns including searching and sorting operations.
+
+    Related to columns, are table.html[tables] which are ordered sequences of
+    typed columns.
+
+} text {
+    ((=== sect_column_types Types))
+
+    include::types.ad[]
+
+    ((=== sect_column_indices Indices))
+
+    include::indices.ad[]
+} text {
+    == Command reference
+
+    All commands are located in the `tarray` namespace.
+
+    === Standard Options
+
+    Commands returning values from columns support the standard options
+    shown in ((^ tab_column_stdopts)).
+
+    ((.Table tab_column_stdopts "Standard options"))
+    [cols="20,80"]
+    |===
+
+    |`-list`
+    |The values are returned as a Tcl list.
+
+    |`-dict`
+    |The values are returned as a dictionary keyed by the corresponding
+     indices.
+
+    |`-column`
+    |The values are returned as a typed column. This is the default if none
+     of the other options is specified.
+    
+    |===
+} text {
+    === Commands
+
+    // Turn off section numbering for command definitions
+    :!sectnums:
+
+    ((cmddef column_count "column count ?-range RANGE? ?-among INDICES? ?-not? ?-nocase? ?OPER? COLUMN VALUE"))
+
+    Counts the number of matches for a value in the elements in a column.
+    See the column search command for a description of the various options.
+    Note that if the -among is specified and an index occurs multiple times
+    in INDICES, it will be counted multiple times.
+} text {
+    ((cmddef column_create "column create TYPE ?INITIALIZER? ?INITSIZE?"))
+
+    Returns a typed array of the type _TYPE_ which must be one of one of valid
+    types described in ((^ sect_column_types Types)).
+    If _INITIALIZER_ is specified, it is the
+    initial content of the typed array and must be a list with elements of
+    the appropriate type. For performance reasons, the _INITSIZE_ argument may
+    be specified to indicate how many slots to preallocate for the array.
+    This is only treated as a hint and actual size allocated may differ.
+} text {
+    ((cmddef column_delete "column delete COLUMN INDEX"))
+
+    ((cmddef column_delete "column delete COLUMN INDEXLIST"))
+
+    ((cmddef column_delete "column delete COLUMN LOW HIGH"))
+
+    Returns a typed column with all specified elements deleted. Indices are
+    specified in any of the forms described in ((^ sect_column_indices)) and may contain
+    duplicates. Out-of-range indices are ignored.
+
+    ((cmddef column_fill "column fill COLUMN VALUE INDEX"))
+
+    ((cmddef column_fill "column fill COLUMN VALUE INDEXLIST"))
+
+    ((cmddef column_fill "column fill COLUMN VALUE LOW HIGH"))
+
+    Returns a typed column with specified indices set to VALUE. Indices are
+    specified in any of the forms described in ((^ sect_column_indices)) and must follow
+    the rules described there. The index keyword *end* refers to the current
+    last occupied position in the column. The size of the array will be
+    extended if necessary provided the specified indices do not have gaps
+    beyond the current column size.
+
+    ((cmddef column_get "column get ?OPTIONS? COLUMN INDEXLIST"))
+
+    Returns the values from a typed column at the indices specified as 
+    ((^ sect_column_indices "index list")). Any of the
+    ((^ tab_column_stdopts)) may be specified with this
+    command.
+
+    ((cmddef column_index "column index COLUMN INDEX"))
+
+    Returns the value of the element at the position specified by INDEX
+    which is a single ((^ sect_column_indices index)).
+
+    ((cmddef column_insert "column insert COLUMN VALUE FIRST COUNT"))
+
+    ((cmddef column_insert "column insert COLUMN VALUES FIRST"))
+
+    In the first form, inserts COUNT elements with value VALUE at position
+    FIRST and returns the new column. In the second form, VALUES may be a
+    list of values or a typed column of the same type. The values are
+    inserted at the specified position. If FIRST is *end*, the values are
+    appended to the column. In all cases, the command may extend the array
+    if necessary.
+
+    ((cmddef column_intersect3 "column intersect3 ?-nocase? COLUMNA COLUMNB"))
+
+    Returns a list of three columns, the first containing elements common to
+    both COLUMNA and COLUMNB, the second containing elements only present in
+    COLUMNA and the third containing elements only present in COLUMNB. Both
+    columns must be of the same type. The elements in each returned column
+    are in arbitrary order.
+
+    The columns may contain duplicate elements. These are treated as
+    distinct so for example if COLUMNA contain 5 elements with value *A*,
+    and COLUMNB contains only 3 such elements, then the first column in the
+    result will contain two *A* elements and the second column will contain
+    three.
+
+    Option -nocase only has effect if the column type is *any* or *string*.
+    If specified, elements are compared in case-insensitive mode.
+
+    ((cmddef column_lookup "column lookup COLUMN ?LOOKUPKEY?"))
+
+    The command returns the index of an element in COLUMN that exactly
+    matches LOOKUPKEY or -1 if not found. If LOOKUPKEY is not specified,
+    command builds an internal dictionary (see below) and the return value
+    is an empty string.
+
+    COLUMN must be a column of type *string*. Unlike the column search
+    command, the returned index is not necessarily that of the first
+    occurence in cases where LOOKUPKEY occurs multiple times in the column.
+
+    The command is usually much faster than column search because it is
+    based on an internal dictionary that maps string values to their
+    position indices in the column. This internal dictionary is either
+    created when the command is called without the optional LOOKUPKEY
+    argument, or is built in incremental fashion with each column lookup
+    call.
+
+    In the current implementation, this dictionary is maintained in a loose
+    or lazy manner and internally does not always reflect the actual content
+    of the column. However, the return value of the command is always
+    accurate.
+    
+    ((cmddef column_minmax "column minmax ?OPTIONS? COLUMN"))
+
+    Searches the specified column for the minimum and maximum values,
+    returning them as a pair. If -indices is specified, their indices are
+    returned instead of their values. In case either value occurs at
+    multiple indices in the column, the lowest index is returned.
+
+    The option -range can be specified to limit the search to a subrange of
+    the column. It takes a pair of indices, in the one of the forms
+    described in ((^ sect_column_indices)), that inclusively specify the subrange. The
+    second element of the pair may be omitted in which case it defaults to
+    the last element in the column.
+
+    The option -nocase may be specified to indicate case-insensitive
+    comparisons. This is only effective if the column type is *any* or
+    *string* and ignored for the others.
+
+    ((cmddef column_place "column place COLUMN VALUES INDICES"))
+
+    Returns a typed column with the specified values at the corresponding
+    indices. VALUES may be a list of values or a column of the same type.
+    The number of values in VALUES must not be less than the number of
+    indices specified in INDICES. INDICES must be a index list in the one of
+    the forms described in ((^ sect_column_indices)) and may extend the column if the
+    conditions listed there are satisfied.
+
+    ((cmddef column_put "column put COLUMN VALUES ?FIRST?"))
+
+    Returns a typed column with the elements starting at index FIRST
+    replaced by the corresponding elements of VALUES. VALUES may be a list
+    of values or a typed column of the same type. The command may extend the
+    array if necessary. If FIRST is not specified the elements are appended
+    to the array. The command interprets *end* as the position after the
+    last element in the array.
+
+    ((cmddef column_range "column range ?OPTIONS? COLUMN LOW HIGH"))
+
+    Returns the values from a typed column for indices in a specified range.
+    Any of the ((^ tab_column_stdopts)) may be specified with this command.
+
+    ((cmddef column_reverse "column reverse COLUMN"))
+
+    Returns the typed column with order of elements reversed.
+
+    ((cmddef column_search "column search ?-range RANGE? ?-among INDICES? ?-all? ?-inline? ?-not? ?-nocase? ?OPER? COLUMN VALUE"))
+
+    Searches the specified typed column for a matching value. By default,
+    the search starts at index 0 and returns the index of the first match,
+    returning -1 if no matching value is found.
+
+    Options -range and -among modify which elements of the column are
+    examined. The -range option limits the search to the range
+    specified by RANGE which either consists of two integer indices
+    denoting the starting and ending elements of the range
+    (inclusive), or a single integer index denoting the start of the
+    range with the end defaulting to the last element of the
+    column. The -among option specifies a list of indices to be
+    examined. INDICES is an
+    ((^ sect_column_indices "index list or index column")). Indices are
+    allowed to be specified multiple times in arbitrary
+    order. Elements are examined and matches returned in that same
+    order. Indices that fall outside the range (either explicitly
+    specified through -range or defaulting to the entire column) are
+    ignored. Thus if both -range and -among options are specified,
+    only those positions that meet both criteria are examined.
+
+    The command normally returns the index of the first succeeding
+    match.  Note this is not necessarily the lowest matching index
+    since -among may specify indices in any order. If -all is
+    specified, the search does not stop at the first match but instead
+    returns a list containing the indices of all matched
+    elements. This may be an empty list if no elements matched.
+
+    If the -inline option is specified, the command returns the
+    matched value(s) instead of their indices.
+
+
+    _OPER_ specifies the comparison operator and must be one of those
+    shown in ((^ tab_column_search_ops)).
+
+    ((.Table tab_column_search_ops "Search comparison operators"))
+    [cols="30,70"]
+    |===
+
+    |`-eq`
+    |Matches when equal to value (default)
+
+    |`-gt`
+    |Matches when greater than VALUE. Not valid for *boolean* type.
+
+    |`-lt`
+    |Matches when less than VALUE. Not valid for *boolean* type.
+
+    |`-pat`
+    |Matches VALUE using string match pattern rules. Only valid for type
+     *any*.
+
+    |`-re`
+    |Matches VALUE as a regular expression. Only valid for type *any*.
+
+    |===
+
+    The sense of the match can be inverted by specifying the -not option so
+    for example specifying -not -gt will match all elements that are less
+    than or equal to VALUE. For case insensitive matching, the -nocase
+    option may be specified. This is ignored for all array types except
+    types *any* and *string*.
+
+    ((cmddef column_size "column size COLUMN"))
+
+    Returns the number of elements in the typed column.
+
+    ((cmddef column_sort "column sort ?-indices? ?-increasing? ?-decreasing? ?-nocase? ?-indirect TARGETCOLUMN? COLUMN"))
+
+    Returns a sorted typed column. COLUMN is the typed column to be sorted.
+    The comparison is done in a column type-specific manner. Sorting is
+    sorted in increasing order by default. The -decreasing option may be
+    specified to change this.
+
+    If the -indices option is specified, the command returns a typed array
+    containing the indices of the sorted values instead of the values
+    themselves.
+
+    If -nocase is specified, the comparisons are done in case-insensitive
+    manner. This option is only applicable when the column type is *any* or
+    *string* and is ignored otherwise.
+
+    Option -indirect may only be used when COLUMN is of type *int*. In this
+    case, the elements of COLUMN are treated as indices into TARGETCOLUMN
+    and are compared using the corresponding values from TARGETCOLUMN. This
+    option is useful when sorting a column or multiple columns in a table
+    using different criteria while keeping a stable order.
+
+    ((cmddef column_type "column type COLUMN"))
+
+    Returns the ((^ sect_column_types type)) of the typed column.
+
+    ((cmddef column_vdelete "column vdelete COLUMNVAR INDEX"))
+
+    ((cmddef column_vdelete "column vdelete COLUMNVAR INDEXLIST"))
+
+    ((cmddef column_vdelete "column vdelete COLUMNVAR LOW HIGH"))
+
+    Deletes elements from the typed array column in variable COLUMNVAR. The
+    new value is assigned back to the variable. The resulting value of the
+    variable (which may differ because of traces) is returned as the result
+    of the command. Indices are specified in any of the forms described in
+    ((^ sect_column_indices)) and may contain duplicates. Out-of-range indices are ignored.
+
+    ((cmddef column_vfill "column vfill COLUMNVAR VALUE INDEX"))
+
+    ((cmddef column_vfill "column vfill COLUMNVAR VALUE INDEXLIST"))
+
+    ((cmddef column_vfill "column vfill COLUMNVAR VALUE LOW HIGH"))
+
+    Set the elements of the typed column in variable COLUMNVAR to VALUE. The
+    new value is assigned back to the variable. The resulting value of the
+    variable (which may differ because of traces) is returned as the result
+    of the command.
+
+    See fill for more information.
+
+    ((cmddef column_vinsert "column vinsert COLUMNVAR VALUE FIRST COUNT"))
+
+    ((cmddef column_vinsert "column vinsert COLUMNVAR VALUES FIRST"))
+
+    In the first form, inserts COUNT elements with value VALUE at position
+    FIRST in the type column stored in variable COLUMNVAR. In the second
+    form, VALUES may be a list of values or a typed column of the same type.
+    The values are inserted at the specified position. The new value is
+    assigned back to the variable. The resulting value of the variable
+    (which may differ because of traces) is returned as the result of the
+    command.
+
+    ((cmddef column_vplace "column vplace COLUMNVAR VALUES INDICES"))
+
+    Modifies a typed column stored in the variable COLUMNVAR with the
+    specified values at the corresponding indices. The new value is assigned
+    back to the variable. The resulting value of the variable
+    (which may differ because of traces)
+    is returned as the result of the command.
+
+    See the command column place for other details.
+
+    ((cmddef column_vput "column vput COLUMNVAR VALUES FIRST"))
+
+    Modifies a variable COLUMNVAR containing a typed column. The elements of
+    the column starting at index FIRST are replaced by the corresponding
+    elements of VALUES. If FIRST is not specified the elements are appended
+    to the array. The new value is assigned back to the variable. The
+    resulting value of the variable (which may differ because of traces) is
+    returned as the result of the command.
+
+    See the command column put for other details.
+
+    ((cmddef column_vreverse "column vreverse COLUMNVAR"))
+
+    Reverses the order of elements in the typed column in variable
+    COLUMNVAR. The new value is assigned back to the variable. The resulting
+    value of the variable (which may differ because of traces) is returned
+    as the result of the command.
+
+    ((cmddef column_vsort "column vsort ?-increasing? ?-decreasing? ?-nocase? ?-indirect TARGETCOLUMN? COLUMNVAR"))
+
+    Sorts a typed column stored in variable. COLUMNVAR is variable
+    containing the typed column to be sorted. The sorted column is also
+    returned as the command result. See the column sort command for a
+    description of the options.
+} text {
+    // Turn section numbering on again
+    :sectnums:
+}

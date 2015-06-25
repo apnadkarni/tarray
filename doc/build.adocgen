@@ -1,0 +1,49 @@
+text {
+    ((= chap_build "Building tarray"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+    Binary distributions of `tarray` are available from the SourceForge download
+    area at <URL:http://sourceforge.net/projects/tarray/files>. This document
+    describes building `tarray` from sources.
+
+    == Building `tarray` from sources
+
+    The `tarray` extension is built using the 
+    http://andreas-kupries.github.com/critcl/[Critcl] package which
+    allows for an extension to be built in several forms. This document only
+    summarizes building the `tarray` extension as a binary package.
+
+    . Download a copy of the `tarray` sources by either cloning its Mercurial
+    repository or downloading a snapshot of the sources. See
+    https://sourceforge.net/p/tarray/code/ci/tip/tree/ for details.
+
+    . Download and install the `critcl` package (3.1 or later) as described in
+    http://andreas-kupries.github.com/critcl/doc/files/critcl_installer.html.
+
+    . Set up your compiler environment, for example, running the `vcvars.bat`
+    file on Windows.
+
+    . Change to the `src` directory in the `tarray` source distribution and
+    run a command of the form
+    (where TARGETNAME is one of the `critcl` build targets):
+} syntax {
+    tclsh build.tcl -target TARGETNAME
+} text {
+    This will create a
+    `tarray` package under the "build" directory in your `tarray` source tree.
+
+    You can of course create your own build scripts with different
+    `Critcl` options using the `build.tcl` file as a template. 
+
+    == Enabling parallelized operations
+    By default,
+    the Windows builds have support for parallelized operations. 
+    To build parallelized versions for other platforms,
+    edit `tarray.critcl` to set the `build_opts(mt_enable)` variable to
+    true. For non-Windows platforms, the `libdispatch` library will need to
+    be installed on the system if parallelization is enabled.
+}

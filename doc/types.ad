@@ -1,0 +1,50 @@
+All elements in a typed column must be of the type specified when the column is
+created. The following element types are available:
+
+.Table Column types
+[cols="30,70", options="header"]
+|===
+|Keyword
+|Type
+
+|`any`
+|Any Tcl value
+
+|`string`
+|A string value
+
+|`boolean`
+|A boolean value
+
+|`byte`
+|Unsigned 8-bit integer
+
+|`double`
+|Floating point value
+
+|`int`
+|Signed 32-bit integer
+
+|`uint`
+|Unsigned 32-bit integer
+
+|`wide`
+|Signed 64-bit integer
+
+|===
+
+The primary purpose of the type is to specify what values can be stored in that
+column. This impacts the compactness of the internal storage (really the primary
+purpose of the extension) as well certain operations (like sort or search)
+invoked on the column.
+
+The types any and string are similar in that they can hold any Tcl value. Both
+are treated as string values for purposes of comparisons and operators. The
+difference is that the former stores the value using the Tcl internal
+representation while the latter stores it as a string. The advantage of the
+former is that internal structure, like a dictionary, is preserved. The
+advantage of the latter is significantly more compact representation,
+particularly for smaller strings.
+
+Attempts to store values in a column that are not valid for that
+column will result in an error being generated.

@@ -1,0 +1,28 @@
+text {
+    ((= chap_intro "Introduction to typed arrays"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+    [NOTE]
+    Note that this extension is very much in an experimental stage. It should be
+    robust enough with a fairly comprehensive test suite. However, the API is
+    incomplete and subject to change.
+
+    == Introduction
+    The tarray extension implements a new Tcl collection data type -
+    typed array - and associated commands ((^ chap_column_ref column))
+    and ((^ chap_table_ref table)).  A typed array stores elements of a
+    specific data type in native format. The primary motivation for
+    this extension is efficient memory utilization and speed of
+    certain operations in applications dealing with large numbers of
+    elements.  Typed columns and tables do not really provide any
+    additional capabilities over Tcl's built-in commands, particularly
+    list and dict and the script libraries based on these. Their
+    primary use is in applications with large number of data items
+    where memory consumption and cost of operations, such as searching
+    and sorting, is greatly reduced by storing data in native format
+    and parallelizing of operations.
+}
