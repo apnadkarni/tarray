@@ -22,7 +22,7 @@ if {$output_dir eq ""} {
 }
 
 if {1} {
-    exec [info nameofexecutable] $dtplite -postnav Introduction files/tarray.html -postnav "Programmmer's Guide" files/guide.html -postnav "Column Reference" files/column.html -postnav "Table Reference" files/table.html -postnav "Building Tarray" files/build.html -toc tarray.tocdoc -o $output_dir html [file dirname [ info script]]
+    exec [info nameofexecutable] $dtplite -toc tarray.tocdoc -o $output_dir text [file dirname [ info script]]
 } else {
     # Merge version for testing dtplite
     exec [info nameofexecutable] $dtplite -merge -o $output_dir html [file dirname [ info script]]
