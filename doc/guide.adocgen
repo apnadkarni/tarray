@@ -1,0 +1,609 @@
+text {
+    ((= chap_intro "Tarray programmer's guide"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+
+    This document is a programmer's guide for installing and using the tarray
+    extension (Version 0.6) from Tcl. For detailed command reference,
+    see ((^ chap_column_ref)) and ((^ chap_table_ref)).
+
+}
+
+text {
+    == Installation and Loading
+
+    Binary packages for some platforms are available from the
+    http://www.sourceforge.net/projects/tarray[Sourceforge download area].
+    See ((^ chap_build)) for instructions to build the extension for other
+    platforms.
+
+    To install the extension, extract the files from the distribution to any
+    directory that is included in your Tcl installation's `auto_path` variable.
+
+    Once installed, the extension can be loaded with the standard Tcl package
+    require command.
+} shell {
+    package require tarray
+    namespace import tarray::column tarray::table
+}
+
+text {
+    == Concepts
+
+    === Columns and Tables
+
+    The extension implements two data types - ((^ chap_column_ref _columns_))
+    and ((^ chap_table_ref _tables_)). The general term _typed array_ is used
+    to refer to either of these. A typed column is an array containing elements
+    of a single ((^ sect_guide_types _type_))
+    that is specified when the column is created. The command
+    ((^ chap_column_ref `tarray::column`))
+    can be used to create and manipulate typed columns.
+
+    A typed table is an ordered sequence of named columns of equal
+    size. It can be also be viewed as an array of records where the
+    record fields happen to use column-wise storage. The corresponding
+    ((^ chap_table_ref `tarray::table`)) command operates on typed
+    tables. Columns in a table can be referenced using either their
+    name or their position in the ordered sequence.
+
+} text {
+    ((=== sect_guide_types Types))
+
+    include::types.ad[]
+
+    ((=== sect_guide_indices Indices))
+
+    include::indices.ad[]
+}
+
+text {
+    == Using typed arrays
+
+    The tarray extension implements two commands,
+    ((^ chap_column_ref `column`)) and
+    ((^ chap_table_ref `table`)), both in the `tarray::` namespace.
+    Each is an ensemble of subcommands that operate on columns and
+    table respectively. The examples below assume the commands have
+    been imported into the calling namespace or are in its namespace
+    path.
+}
+
+text {
+    === Creating typed arrays
+
+    The `create` subcommand creates columns and tables.
+} shell {
+    column create int
+} text {
+    will create a typed column that can hold element of the int type. 
+    Note that the command returns a _value_ that would normally be assigned
+    to a variable.
+
+    The column can be initialized at creation time.
+} shell {
+    column create int {0 1 2 3}
+} text {
+    creates a column and initializes the first four elements.
+
+    [WARNING]
+    Applications should not depend on the string representation of a column
+    or table as that is liable to change. Use only the `tarray` package
+    commands to create and manipulated typed arrays.
+
+    The array will be grown as needed but as an optimization, preallocation
+    may be requested.
+} shell {
+    column create int {0 1 2 3} 1000
+} text {
+    will request a preallocation of a thousand elements with the first
+    four being initialized.
+
+    Tables can be created and initialized in analogous
+    fashion, for example, to create a initialized table
+} shell {
+    set tab [table create {country string population wide} {{China 1350000000} {Vatican 850}}]
+}
+
+text {
+    === Specifying Indices
+
+    Most commands require specification of the array locations to be targeted.
+    This specification can be
+
+    * a single index,
+
+    * a contiguous range of indices, or
+
+    * a list of indexes in arbitrary order specified as a list of integers or a
+    column of type integer.
+
+    The various possibilities are illustrated below.
+} shell {
+    set col [column create double {}];  # Creates a new column
+    set col [column fill $col 1.0 0 9]; # Indices specified as range 0 to 9
+    set col [column fill $col 2.0 3];   # Single index 3
+    set col [column fill $col 2.0 end-2 end]; # Range relative to end
+    set col [column fill $col 3.0 {2 7}];     # Indices specified as a list
+    set col [column fill $col 3.0 [column create int {2 7}]]; # Indices specified as an `int` column
+} text {
+    The last form, an integer column, is useful because some commands
+    return indices in that form. For example, the following will
+    replace all elements greater than `2.0` with `0.0`.
+} shell {
+    set col [column fill $col 0.0 [column search -all -gt $col 2.0]]
+} text {
+    Although the above example used columns, table indices are specified in
+    identical fashion.
+}
+
+text {
+    === Values and Variables
+
+    Commands that modify typed arrays come in two flavors:
+
+    * Commands that operate on column and table values and return the modified
+    column or table as a result (for example `fill`), and
+
+    * Commands that modify a Tcl _variable_ containing the column or table
+    (for example `vfill`).
+
+    The difference is similar to how different Tcl list commands behave, e.g.
+    linsert and lreplace versus lset and lappend.
+
+    The examples above used the value-oriented form of the commands
+    where the `fill` modifies a copy of the contents of the and returns
+    the modified copy which is then stored back into . For large typed
+    arrays, this is inefficient and the above would be better written
+    as
+} shell {
+    set col [column create double {}]
+    column vfill col 1.0 0 9
+    column vfill col 2.0 3
+    column vfill col 3.0 {2 7}
+    column vfill col 3.0 [column create int {2 7}]
+} text {
+    Here the `vfill` command is directly modifying the variable and assuming the
+    content is not shared, no copy needs to be made.
+
+    Almost every command that modifies a typed array has this dual equivalent.
+}
+
+text {
+    === Modifying Data
+
+    Modifying a typed array may involve either storing a _single_
+    value at multiple target locations or a different value at each
+    target location. Further, the locations may be a contiguous range
+    or a noncontiguous set of indices.
+
+    * The `fill`/`vfill` commands store a _single_ value at one or more locations,
+    either contiguous or noncontiguous.
+
+    * The place/vplace commands store each value from a sequence of
+    values at one or more _non-contiguous_ locations in a _specified_ order
+    (not necessarily sequential)
+
+    * The put/`vput` commands store each value from a sequence of values in
+    _contiguous_ locations starting at a specified index.
+
+    The sequence of values to be stored may be specified as a Tcl list
+    or a typed array. When multiple noncontiguous target locations are
+    specified, they may be specified as a Tcl list of integers or an
+    `int` column.
+} shell {
+    column vplace col {300.0 200.0 500.0} {3 2 5}; # Stores specified values at indices 3, 2 and 5
+    column vput col {7.0 8.0 9.0} 6;               # Stores specified values at indices 6, 7, 8
+    column vput col {11.0 12.0};                   # Appends specified values
+} text {
+    Instead of specifying values as a list, they may also be specified as a
+    column of the same type.
+} shell {
+    set colA [column create double {1.0 2.0 4.0}]
+    set colB [column create double {}]
+    column vplace colB $colA {1 0 2}
+} text {
+    Again, this form is particularly useful when storing columns returned from
+    commands into another column.
+
+    The table command has equivalent commands. For example
+} shell {
+    set populations [table create {country string population wide} {}]
+    table vput populations {{China 1350000000} {Vatican 850}}
+} text {
+
+    Note that just like in the case of columns, the list of values can
+    be specified as a table instead, provided the column types are the
+    same.
+
+    When storing data, the -columns option comes in handy for two
+    different purposes. First, it allows data to be specified in a
+    different order than that specified in the column definition. For
+    example, in the above example, if the order of the supplied data
+    was population followed by country, the command could have been
+    written as follows:
+} shell {
+    table vput -columns {population country} populations {{1350000000 China} {850 Vatican}}
+} text {
+    There is no need to reorder the fields in the input data.
+
+    Secondly, the -columns allows modification of a subset of the columns.
+    For example,
+} shell {
+    set populations [table create {country string population wide} {}]
+    table vput populations {{China 1350000000} {Vatican 850}}
+    table vfill -columns {population} populations {851} 1
+} text {
+    The population of the second table row is changed to 851.
+
+    A point to be noted about all the above commands is that they may
+    extend the size of the array if necessary. However, two conditions
+    must apply for this:
+
+    * where an index list or index column is specified, there must not be
+    any gaps in indices that extend the array.
+
+    * Second, if the -columns option is specified, it must include all columns
+    (in any order) of the table. Otherwise, the command will not know what
+    value to use for the other columns when extending the table.
+
+    As an illustration,
+} errorok 1 shell {
+    set populations [table create {country string population wide} {{Vatican 850} {China 1350000000}}]
+    table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2} table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
+} text {
+    The first put will succeed, changing the existing value at index 1 and
+    extending the array by two rows (note order of indices does not matter).
+    The second put will raise an error since index `2` neither exists nor is
+    supplied in the command.
+
+    All the commands dicussed to this point overwrite an existing
+    values, at the target locations. The column insert and column
+    vinsert commands and their table equivalents store one value, or
+    multiple values (passed as a list or a typed array), into the type
+    array, pushing existing elements further up.
+} shell {
+    column insert $col 3.0 2 10
+    column insert $col {1.0 2.0 3.0} 2
+    column insert $col $col 2
+} text {
+
+    The first command returns a new column with the same value, `3.0`,
+    inserted `10` times at index `2`. The second command returns a new
+    column with all values in the passed list, `1.0`, `2.0`, `3.0`,
+    inserted at index `2`. The last command returns a new column where
+    all existing values in the column are reinserted at index `2`.
+
+    Elements in a typed array can be deleted with the delete/vdelete
+    commands.  Succeeding elements are moved up to occupy the deleted
+    slots. Like the `fill` command, the indices of the elements to be
+    deleted may be specified as a single index, a range, a list of
+    indices or a index column.
+} shell {
+    column vdelete col [column search -all -lt $col 0]
+} text {
+    will delete all negative elements from the column.
+
+    Finally, typed arrays support reverse/vreverse commands which
+    reverse the order of elements, an operation that is useful in many
+    algorithms.
+}
+
+text {
+    === Retrieving Data
+
+    Retrieving data from a typed array involves specifying which
+    elements to retrieve and what format to retrieve them in when
+    multiple elements are retrieved.
+
+    As usual, the elements to be retrieved can be specified as a
+    single index, an index range, a list of indices or an index
+    column. In the simplest cast, the index command can be used to
+    retrieve a single element.
+} shell {
+    column index $col 4
+    table index $tab end
+} text {
+    Multiple elements can be retrieved with the get and range
+    commands. The get command can be passed a sequence of
+    noncontiguous indices specified as a Tcl list or a `int` column:
+} shell {
+    column get $col {10 7 4}
+    table get $tab [column search -all -lt [table column $tab 0] 0]
+} text {
+    The range command retrieves elements in a specified index range.
+} shell {
+    column range $col 3 5
+    table range $tab 0 10
+} text {
+
+    By default, both commands returns values as a typed array. The
+    -list and -dict commands can be used to return the values as a Tcl
+    list or dictionary instead.  In the latter case, the dictionary
+    keys are the indices being retrieved.
+} shell {
+    column get -list $col {3 5}
+    table get -dict $tab [column search -all -lt [table column $tab 0] 0]
+} text {
+
+    In the case of tables, both commands also provide for retrieval of
+    a subset of columns and in a different order than in the
+    definition.
+} shell {
+    table range -columns {population country} $populations 0 end
+    table range -columns {1} $populations 0 end
+} text {
+    Note columns may be specified either by position or name.
+
+    Tables provide additional commands for retrieving entire columns.
+
+    * table column returns a column from a table. This is useful for sorting and
+    searching columns as shown in table search examples below.
+
+    * table slice returns a new table containing a subset of the columns of a
+    table.
+}
+
+text {
+    === Searching
+
+    The column search command works similarly to Tcl's lsearch. It
+    returns the indices (by default) or the values (with the -inline
+    option) of matching elements in a column. Like lsearch, column
+    search stops on the first match and returns the matching index or
+    value but the -all option can be used to return all matches. The
+    command supports several matching operators. See the
+    ((^ column_search "`column search`")) command reference for a full list.
+} shell {
+    column search $col 0
+} text {
+    returns the index of the first element that is 0 using the default matching
+    operator that tests for equality (assumes is a numeric column).
+} shell {
+    column search -inline -gt $col 0
+} text {
+    returns the value of the first positive element.
+} shell {
+    column search -all -gt $col 0
+} text {
+    returns the indices of all positive elements. The return value is an `int`
+    column.
+} shell {
+    set exes [column create string {tclsh.exe tclsh.man wish.exe}]
+    column search -all -inline -nocase -pat $exes *.exe
+} text {
+    returns the values of all elements that match **.exe* using case-insensitive
+    matching as in Tcl's string match -nocase.
+
+    The search can be restricted to only look at specific elements using a
+    combination of -range and -among options.
+} shell {
+    column search -range {0 9} $col 0
+} text {
+    limits the search to the first ten elements.
+} shell {
+    column search -among {1 5 3} $col 0
+} text {
+    only examines the elements at positions `1`, `5`, and `3` _in that
+    order_. The option -among is particularly useful in combining
+    searches as in the table example below.
+
+    To search tables, use the search on individual columns. For example,
+} shell {
+    set countries [table create {country string population wide area double} {
+        {Vatican 850 0.44}
+        {China 1350000000 9.55e6}
+        {USA 314000000 9.63e6}
+        {India 1250000000 3.3e6}
+        {Russia 141930000 17e6} }]
+    set pop_col [table column $countries 1]; # Column specified by position
+    set area_col [table column $countries area]; # Column specified by name
+    table get -list -columns {country} $countries [column search -all -among [column search -all -gt $pop_col 250000000] -gt $area_col 5e6]
+} text {
+
+    returns names of countries that are populous and large in area. Note how the
+    outside search is limited to specific indices using the -among option.
+
+    The intersect3 command offers another way to search across
+    multiple columns as described later.
+}
+
+text {
+    === Sorting
+
+    Columns can be sorted using the column sort command or its
+    variable targeting analogue column vsort. The commands take the
+    -increasing and -decreasing options to determine the sort order.
+
+    The column sort command also takes the -indices option which
+    results in the indices being returned instead of the values
+    themselves. This is useful for sorting tables based on a
+    column. For example, assuming variable `countries` has been
+    initialized as above,
+} shell {
+    table get -list $countries [column sort -indices -nocase [table column $countries 0]]
+} text {
+    returns rows in the sorted order based on country name.
+
+    When sorting tables, for display purposes for example, it is often
+    necessary to display elements that have the same value in the sort
+    column in the same order that they were previously
+    displayed. Although, individual column sorts are stable, this is
+    not enough when sorting across multiple columns. In such cases,
+    the -indirect option to the sort command provides a
+    solution. Using this option allows sorting where the "initial"
+    ordering of elements is different from the actual order of
+    elements in the column. An example will clarify this.
+
+    Consider a table that stores heights and weights.
+} shell {
+    set tab [table create {name string height int weight int} {
+        {Jeff 180 80}
+        {John 175 80}
+        {Jim 170 75} }]
+} text {
+
+    The user may choose to sort the table by height which boils down to the
+    following code:
+} shell {
+    table get -list $tab [column sort -indices [table column $tab height]]
+} text {
+    This results in the table being displayed in the order `Jim`, `John`, `Jeff`.
+    The user may then choose to sort by weight.
+} shell {
+    table get -list $tab [column sort -indices [table column $tab weight]]
+} text {
+
+    resulting in a display in order `Jim`, `Jeff`, `John`. Since they
+    actually have the same value in the new sort column, this
+    interchange of positions between `Jeff` and `John` is
+    disconcerting to the user. Use of the -indirect option overcomes
+    this problem.
+} shell {
+    set indices [column sort -indices [table column $tab height]]
+    table get -list $tab $indices
+} text {
+    Now use previous order of indices to order elements
+    when their values in the weight column are equal
+} shell {
+    table get -list $tab [column sort -indirect [table column $tab weight] $indices]
+} text {
+    In this last statement, the sort is done indirectly using values
+    from table but the positioning of elements when these values
+    compare equal is based on the order in the original table.
+} 
+
+text {
+    === Other Commands
+
+    The column count can be used to count the number values in a
+    column that match specified criteria.
+
+    The column lookup provides for a faster, dictionary based
+    retrieval for string columns. This may be beneficial for columns
+    used as keys in a table.
+
+    The column minmax command returns a pair containing the minimum
+    and maximum values in a column.
+
+    The column intersect3 command returns the differences between two
+    columns. The multiple column search example above could also have
+    written as follows:
+} shell {
+    set pop_col [table column $countries population]
+    set area_col [table column $countries area]
+    set populous [column search -all -gt $pop_col 250000000]
+    set large [column search -all -gt $area_col 5e6]
+    table get -list $countries [lindex [column intersect $populous $large] 0]
+} text {
+
+    In most cases, the previous method using column search -among is
+    likely to be faster. However, the column intersect3 may be faster
+    in some cases, for example, when multiple combinations are
+    desired.
+} shell {
+    lassign [column intersect $populous $large] populous_and_large populous_but_small sparse_but_large
+} text {
+
+    The column size command returns the number of elements in a
+    column. The table size and table width commands return the number
+    of rows and columns respectively in a table.
+} text {
+
+    The column type command returns the type of elements in a column
+    while the table types command returns a list of the types of each
+    column in the table.
+} 
+
+text {
+    == Usage Hints
+
+    * When specifying indices to commands, Tcl lists of integers and columns of
+    type `int` are usually interchangeable. Similarly, when passing multiple
+    values to a command, either a Tcl list or a column of the appropriate type
+    can be used. Note there is an ambiguity in the specific case where the
+    target of the command is a column of type `any` and the passed operand is a
+    string of the form `tarray any {...}`
+    where the operand can be interpreted either as a column or a Tcl list with
+    three elements `tarray`, `any` and the `{...}`. In this case the operand
+    gets interpreted as a column.
+
+    * Given that the `tarray` extension is meant for dealing with
+    large amounts of data, it is useful to keep in mind Tcl's
+    object reference counting and copy-on-write
+    implementation. Modifying a typed array that is shared will
+    result in a copy being made, which can be expensive if the
+    array is large.  So, to modify a variable that contains a
+    typed array, the command
+} shell {
+    column vput col [list 1.0 2.0]
+} text {
+    is far more efficient than
+} shell {
+    set col [column put $col [list 1.0 2.0]]
+} text {
+    assuming the value in is not itself shared. This is similar to use of Tcl's
+    `lset` command to modify lists.
+
+    * As arrays get large `tarray` prioritizes memory usage over efficiency. As
+    arrays grow, the additional extra memory is conservatively allocated
+    (unlike Tcl which aggressively allocates extra memory).
+    If the size of a typed array
+    can be estimated in advance, for example, reading records from a database,
+    the memory can be preallocated.
+} shell {
+    column create int {} 1000000
+} text {
+    preallocates space for a million elements.
+
+    * Typed arrays are by design implemented as consecutive elements
+    in contiguous memory. Certain operations, such as insertion and
+    deletion, will not be efficient when arrays get very large. For
+    applications where such operations are common, other structures
+    should be built on top using typed arrays as the lower level
+    building blocks. Such higher level structures can be scripted and
+    customized for specific usage patterns easily as they can be
+    implemented at the script level using the low level typed array
+    operations for efficiency. Whether this is required or not should
+    be determined based on application benchmarks.
+
+    * Both lists and columns have some differences in terms of
+    functionality.  Columns do not have the -stride option but the
+    same functionality can be implemented through tables. List
+    indexing offers nesting while although columns can be nested, the
+    nested columns have to be explicitly accessed. On the other hand,
+    columns offer some additional functions such as intersect3 and
+    indexing operations (eg. extraction or storing of multiple
+    elements through index lists).
+
+    * Columns of type `any` are stored as Tcl_Obj objects internally
+    and thus are very similar to Tcl lists. Any advantage of an `any`
+    typed array over using a simple Tcl list in terms of the memory
+    footprint comes only from conservative memory overallocation, not
+    from reduced memory size of individual elements. It is therefore
+    not as big a benefit as for other types. Thus columns of type
+    `any` are mostly beneficial when used in conjunction with other
+    column types, for example in a table.
+
+    * The type `any` can be any Tcl value, including typed
+    arrays. Typed arrays can therefore be nested (tables are currently
+    implemented as nested columns). However, unlike some of the Tcl
+    list commands, `tarray` does not have commands that implicitly
+    support nesting. Nested typed arrays have to be explicitly
+    accessed as such.
+} syntax {
+    column index [column index $outer_column 4] 0
+} text {
+    * The package internally keeps track of the sorting state of a column. A
+    column is internally marked after certain operations where the result is
+    known to be sorted. An obvious example is the column sort command. A less
+    obvious case is an index column returned from certain search operations.
+    Several commands make use of this for more efficient operation. For example,
+    the column intersect3 command is much faster when columns are known to be
+    sorted. Thus finding the intersection of two index columns resulting from
+    searches is an O(n) operation.
+}
