@@ -23,4 +23,8 @@ makefile = native
 **.doc = BIN
 **.msi = BIN
 
+**.png = BIN
+**.gif = BIN
+**.ico = BIN
+
 **.critcl = native
