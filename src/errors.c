@@ -137,7 +137,7 @@ TCL_RESULT ta_table_length_error(Tcl_Interp *ip)
         Tcl_SetResult(ip,
                       "Columns in tarray table have differing lengths.",
                       TCL_STATIC);
-        Tcl_SetErrorCode(ip, "TARRAY", "GRID", "LENGTH", NULL);
+        Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "LENGTH", NULL);
     }
     return TCL_ERROR;
 }
@@ -251,6 +251,17 @@ TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex)
     if (ip) {
         Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index '%d' specified multiple times in column list.", colindex));
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip)
+{
+    if (ip) {
+        Tcl_SetResult(ip,
+                      "Columns have differing lengths.",
+                      TCL_STATIC);
+        Tcl_SetErrorCode(ip, "TARRAY", "COLUMN", "LENGTH", NULL);
     }
     return TCL_ERROR;
 }

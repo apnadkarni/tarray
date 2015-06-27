@@ -5,11 +5,6 @@
  * See the file LICENSE for license
  */
 
-#if __GNUC__ && !__GNUC_STDC_INLINE__
-/* Force generation of code for inline - older gnu compilers */
-#define TA_INLINE
-#endif
-
 #include "tarray.h"
 
 /* Note len does not include trailing null and unlike Tcl_Obj's
