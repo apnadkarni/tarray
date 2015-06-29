@@ -440,6 +440,8 @@ critcl::ccommand tarray::column::lookup tcol_lookup_cmd
 
 critcl::ccommand tarray::column::minmax tcol_minmax_cmd
 
+critcl::ccommand tarray::column::math tcol_math_cmd
+
 critcl::ccommand tarray::column::insert {} {
     Tcl_Obj *tcol;
     int status;

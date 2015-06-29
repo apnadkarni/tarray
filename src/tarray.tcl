@@ -134,6 +134,13 @@ proc tarray::unsupported::lrandom {varname type count} {
     return
 }
 
+interp alias {} tarray::column::+ {} tarray::column::math +
+interp alias {} tarray::column::- {} tarray::column::math -
+interp alias {} tarray::column::* {} tarray::column::math *
+interp alias {} tarray::column::/ {} tarray::column::math /
+interp alias {} tarray::column::& {} tarray::column::math &
+interp alias {} tarray::column::| {} tarray::column::math |
+
 namespace eval tarray {
 
     namespace eval column {
@@ -148,6 +155,7 @@ namespace eval tarray {
             insert insert
             intersect3 intersect3
             lookup lookup
+            math math
             minmax minmax
             place place
             put put
@@ -164,6 +172,12 @@ namespace eval tarray {
             vput vput
             vreverse vreverse
             vsort vsort
+            + +
+            - -
+            * *
+            / /
+            & &
+            | |
         }
     }
 
