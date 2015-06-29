@@ -23,13 +23,17 @@ enum ta_math_op_e {
 };
 
 
+struct ta_math_operand {
+    thdr_t *thdr_operand;
+    ta_value_t scalar_operand; /* Only valid if thdr_operand is NULL */
+};
+
 struct thdr_math_mt_context {
     thdr_t  *thdr;              /* Will hold result (SHARED among threads)
                                    thdr->header must NOT be modified except
                                    by main thread!!!
                                  */
-    thdr_t  **poperands;        /* Operands */
-    ta_value_t scalar;          /* Scalar total */
+    struct ta_math_operand  *poperands;        /* Operands */
     int      noperands;         /* Number of operands */
     int      start;             /* Starting position in source thdr
                                    for this thread */
@@ -38,65 +42,211 @@ struct thdr_math_mt_context {
     enum ta_math_op_e op;                /* Operation */
 };    
 
+static double ta_math_double_from_operand(struct ta_math_operand *poperand,
+                                          int thdr_index)
+{
+    thdr_t *thdr = poperand->thdr_operand;
+    if (thdr) {
+        TA_ASSERT(thdr->used > thdr_index);
+        switch (thdr->type) {
+        case TA_BYTE:
+            return *THDRELEMPTR(thdr, unsigned char, thdr_index);
+        case TA_INT:
+            return *THDRELEMPTR(thdr, int, thdr_index);
+        case TA_UINT:
+            return *THDRELEMPTR(thdr, unsigned int, thdr_index);
+        case TA_WIDE:
+            return (double) *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index);
+        case TA_DOUBLE:
+            return *THDRELEMPTR(thdr, double, thdr_index);
+        default:
+            ta_type_panic(poperand->thdr_operand->type);
+            return 0;           /* To keep compiler happy */
+        }
+    } else {
+        TA_ASSERT(poperand->scalar_operand.type == TA_DOUBLE || poperand->scalar_operand.type == TA_WIDE);
+        if (poperand->scalar_operand.type == TA_DOUBLE)
+            return poperand->scalar_operand.dval;
+        else
+            return (double) poperand->scalar_operand.wval;
+    }
+}
+
+static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
+                                          int thdr_index)
+{
+    thdr_t *thdr = poperand->thdr_operand;
+    if (thdr) {
+        TA_ASSERT(thdr->used > thdr_index);
+        switch (thdr->type) {
+        case TA_BYTE:
+            return *THDRELEMPTR(thdr, unsigned char, thdr_index);
+        case TA_INT:
+            return *THDRELEMPTR(thdr, int, thdr_index);
+        case TA_UINT:
+            return *THDRELEMPTR(thdr, unsigned int, thdr_index);
+        case TA_WIDE:
+            return *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index);
+        case TA_DOUBLE:
+            /* Any double operands would have forced result type to be
+               TA_DOUBLE, not TA_WIDE, so fallthru to panic */
+        default:
+            ta_type_panic(poperand->thdr_operand->type);
+            return 0;           /* To keep compiler happy */
+        }
+    } else {
+        /* All scalar non-double operands must have been promoted to wide */
+        TA_ASSERT(poperand->scalar_operand.type == TA_WIDE);
+        return poperand->scalar_operand.wval;
+    }
+}
+
+static double ta_math_double_operation(enum ta_math_op_e op, double accumulator, ta_value_t *poperand)
+{
+    double operand;
+
+    TA_ASSERT(op != TAM_OP_BITAND && op != TAM_OP_BITOR);
+    TA_ASSERT(poperand->type == TA_DOUBLE || poperand->type == TA_WIDE);
+
+    if (poperand->type == TA_DOUBLE)
+        operand = poperand->dval;
+    else
+        operand = (double) poperand->wval;
+
+    switch (op) {
+    case TAM_OP_PLUS: return accumulator + operand;
+    case TAM_OP_MINUS: return accumulator - operand;
+    case TAM_OP_MUL: return accumulator * operand;
+    case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
+    }
+}    
+
+static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accumulator, Tcl_WideInt operand)
+{
+    switch (op) {
+    case TAM_OP_PLUS: return accumulator + operand;
+    case TAM_OP_MINUS: return accumulator - operand;
+    case TAM_OP_MUL: return accumulator * operand;
+    case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
+    }
+}
 
 static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
 {
-    TA_ASSERT((pctx->start + pctx->count) <= pctx->thdr->usable);
-    TA_ASSERT((pctx->start + pctx->count) <= pctx->poperands[0]->used);
+    struct ta_math_operand *poperands;
+    int noperands;
+    int start, end;
+    unsigned char type;
 
-#define OPLOOP_ (op_, initval_, accumulator_type_, srctype_) 
-    do {
-        int i, j, end;
-        accumulator_type_ accumulator = initval_;
-        for (i = pctx->start, end = pctx->start + pctx->count; i < end; ++i) {
-            accumulator = (initval_);
-            for (j = 0; j < pctx->noperands;);
-        }
+    TA_ASSERT(pctx->count > 0);
+    TA_ASSERT((pctx->start + pctx->count) <= pctx->thdr->usable);
+
+    type = pctx->thdr->type;
+    poperands = pctx->poperands;
+    noperands = pctx->noperands;
+    start = pctx->start;
+    end = start + pctx->count;
+
+    TA_ASSERT(noperands > 0);
+
+#define DOUBLELOOP(op_)                                               \
+    do {                                                                \
+        int i, j;                                                       \
+        for (i = start; i < end; ++i) {                                 \
+            double accum = ta_math_double_from_operand(&poperands[0], i); \
+            for (j = 1; j < noperands; ++j) {                           \
+                accum op_ ta_math_double_from_operand(&poperands[j], i); \
+            }                                                           \
+            *THDRELEMPTR(pctx->thdr, double, i) = accum;                \
+        }                                                               \
     } while (0)
+
+#define INTEGERLOOP(op_, type_)                                       \
+    do {                                                                \
+        int i, j;                                                       \
+        for (i = start; i < end; ++i) {                                 \
+            Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
+            for (j = 1; j < noperands; ++j) {                           \
+                accum op_ ta_math_wide_from_operand(&poperands[j], i); \
+            }                                                           \
+            *THDRELEMPTR(pctx->thdr, type_, i) = (type_) accum;         \
+        }                                                               \
+    } while (0)
+
 
     switch (pctx->op) {
     case TAM_OP_PLUS:
         switch (pctx->thdr->type) {
-        case TA_BYTE:
-        case TA_INT:
-        case TA_UINT:
-        case TA_WIDE:
-        case TA_DOUBLE:{
-            
-        }
-            
+        case TA_BYTE: INTEGERLOOP(+=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(+=, int); break;
+        case TA_UINT: INTEGERLOOP(+=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(+=, Tcl_WideInt); break;
+        case TA_DOUBLE: DOUBLELOOP(+=); break;
         }
         break;
     case TAM_OP_MINUS:
+        switch (pctx->thdr->type) {
+        case TA_BYTE: INTEGERLOOP(-=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(-=, int); break;
+        case TA_UINT: INTEGERLOOP(-=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(-=, Tcl_WideInt); break;
+        case TA_DOUBLE: DOUBLELOOP(-=); break;
+        }
         break;
     case TAM_OP_MUL:
+        switch (pctx->thdr->type) {
+        case TA_BYTE: INTEGERLOOP(*=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(*=, int); break;
+        case TA_UINT: INTEGERLOOP(*=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(*=, Tcl_WideInt); break;
+        case TA_DOUBLE: DOUBLELOOP(*=); break;
+        }
         break;
     case TAM_OP_DIV:
+        switch (pctx->thdr->type) {
+        case TA_BYTE: INTEGERLOOP(/=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(/=, int); break;
+        case TA_UINT: INTEGERLOOP(/=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(/=, Tcl_WideInt); break;
+        case TA_DOUBLE: DOUBLELOOP(/=); break;
+        }
         break;
     case TAM_OP_BITAND:
+        TA_ASSERT(pctx->thdr->type != TA_DOUBLE);
+        switch (pctx->thdr->type) {
+        case TA_BYTE: INTEGERLOOP(&=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(&=, int); break;
+        case TA_UINT: INTEGERLOOP(&=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(&=, Tcl_WideInt); break;
+        }
         break;
     case TAM_OP_BITOR:
+        TA_ASSERT(pctx->thdr->type != TA_DOUBLE);
+        switch (pctx->thdr->type) {
+        case TA_BYTE: INTEGERLOOP(|=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(|=, int); break;
+        case TA_UINT: INTEGERLOOP(|=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(|=, Tcl_WideInt); break;
+        }
         break;
     }
 }
 
+
 TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
-    int nscalars, nthdrs;
-    int op;
-    thdr_t *thdr;
-    thdr_t *thdrs[2], **pthdrs;
-    ta_value_t scalars[2], *pscalars;
-    ta_value_t scalar_result;
+    struct ta_math_operand operands[2];
+    struct ta_math_operand *poperands;
+    int i, j, ncontexts, noperands;
+    struct thdr_math_mt_context mt_context[4];
+    thdr_t *result_thdr = NULL;
     TCL_RESULT status;
     int result_type;
-    struct thdr_math_mt_context mt_context[4];
-    int j, ncontexts, noperands;
     int mt_sizes[4];
     int thdr_size = 0;
-    thdr_t *first_operand_thdr = NULL;
-    ta_value_t first_operand_scalar;
+    int op;
+    int only_scalars = 1;
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "operation tarray ?tarray...?");
@@ -112,28 +262,23 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
      * Common case of two operands, save on allocation.
      * Note noperands is the *maximum* number of entries that will be needed.
      */
-    if (noperands > ARRAYSIZE(thdrs)) {
-        pthdrs = TA_ALLOCMEM(noperands * sizeof(*pthdrs));
-        pscalars = TA_ALLOCMEM(noperands * sizeof(*pscalars));
-    } else {
-        pthdrs = thdrs;
-        pscalars = scalars;
-    }
+    if (noperands > ARRAYSIZE(operands))
+        poperands = TA_ALLOCMEM(noperands * sizeof(*poperands));
+    else
+        poperands = operands;
 
     /*
      * The loop does three related things:
      *
      * - ensure compatibility of each operand
      * - figure out type promotion
-     * - collect the scalars and columns
+     * - collect the operands
      */
     result_type = TA_BYTE;      /* Assume smallest width */
-    nthdrs =  0;
-    nscalars = 0;
-    for (j = 2; j < objc; ++j) {
+    for (i = 0, j = 2; j < objc; ++i, ++j) {
         if (tcol_convert(NULL, objv[j]) == TCL_OK) {
             /* Check if size is consistent with previous thdrs */
-            thdr = tcol_thdr(objv[j]);
+            thdr_t *thdr = tcol_thdr(objv[j]);
             if (thdr_size) {
                 if (thdr->used != thdr_size) {
                     status = ta_column_lengths_error(ip);
@@ -162,99 +307,74 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 status = ta_bad_type_error(ip, tcol_thdr(objv[j]));
                 goto vamoose;
             }
-            pthdrs[nthdrs] = tcol_thdr(objv[j]);
-            if (j == 2) {
-                /*
-                 * The first operand is treated differently for operations
-                 * like minus. Remember what it was
-                 */
-                TA_ASSERT(nthdrs == 0);
-                first_operand_thdr = pthdrs[0];
-            }
-            ++nthdrs;
+            poperands[i].thdr_operand = tcol_thdr(objv[j]);
+            only_scalars = 0;
         } else {
             /* Check if an integer, wide or double */
-            if (Tcl_GetWideIntFromObj(NULL, objv[j], &pscalars[nscalars].wval)
-                == TCL_OK) {
-                pscalars[nscalars].type = TA_WIDE;
+            ta_value_t *ptav = &poperands[i].scalar_operand;
+            if (Tcl_GetWideIntFromObj(NULL, objv[j], &ptav->wval) == TCL_OK) {
                 /* Note integers are also stored as wides during computation */
-                if (pscalars[nscalars].wval >= INT_MIN &&
-                    pscalars[nscalars].wval <= INT_MAX) {
+                ptav->type = TA_WIDE;
+                if (ptav->wval >= INT_MIN && ptav->wval <= INT_MAX) {
                     if (result_type == TA_BYTE)
                         result_type = TA_INT;
                 } else if (result_type != TA_DOUBLE)
-                        result_type = TA_DOUBLE;
+                    result_type = TA_WIDE;
             } else {
-                status = Tcl_GetDoubleFromObj(ip, objv[j], &pscalars[nscalars].dval);
+                status = Tcl_GetDoubleFromObj(ip, objv[j], &ptav->dval);
                 if (status == TCL_OK) {
-                    pscalars[nscalars].type = TA_DOUBLE;
+                    ptav->type = TA_DOUBLE;
                     result_type = TA_DOUBLE;
                 } else
                     goto vamoose;
             }
-            if (j == 2) {
-                TA_ASSERT(nscalars == 0);
-                first_operand_scalar = pscalars[0];
-            }
-            ++nscalars;
+            poperands[i].thdr_operand = NULL; /* Indicate scalar_operand is valid */
         }
     }
     
-    
+    if (result_type == TA_DOUBLE &&
+        (op == TAM_OP_BITAND || op == TAM_OP_BITOR)) {
+        Tcl_SetObjResult(ip, Tcl_NewStringObj("Bit operations not valid for type double", -1));
+        status = TCL_ERROR;
+        goto vamoose;
+    }
 
-    /* Add up (or whatever) the scalar values. Note that all integer
-       values are stored as wides irrespective of their actual width */
-    if (result_type == TA_DOUBLE) {
-        if (op == TAM_OP_BITAND || op == TAM_OP_BITOR) {
-            Tcl_SetObjResult(interp, Tcl_NewStringObject("Bit operations not valid for type double", -1));
-            status = TCL_ERROR;
-            goto vamoose;
-        }
+    /* If we are only passed scalars, compute and return the result */
+    if (only_scalars) {
+        if (result_type == TA_DOUBLE) {
+            double dresult;
 
-        /* When combining scalars, remember that the first operand
-         * is treated differently (consider subtraction for instance).
-         * If the first operand was a scalar, initialize with it else
-         * initialize based on the operation.
-         */
-        if (first_operand_thdr == NULL) {
-            TBD;
-        } else {
-            switch (op) {
-            case TAM_OP_PLUS:
-            }
-        }
-
-        scalar_result.type = TA_DOUBLE;
-        scalar_result.dval = 0.0;
-        for (j = 0 ; j < nscalars; ++j) {
-            TA_ASSERT(pscalars[j].type == TA_WIDE || pscalars[j].type == TA_DOUBLE);
-            if (pscalars[j].type == TA_DOUBLE)
-                scalar_result.dval += pscalars[j].dval;
+            if (poperands[0].scalar_operand.type == TA_DOUBLE)
+                dresult = poperands[0].scalar_operand.dval;
             else
-                scalar_result.dval += (double) pscalars[j].wval;
+                dresult = (double) poperands[0].scalar_operand.wval;
+            
+            for (j = 1 ; j < noperands; ++j) {
+                TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE );
+                dresult = ta_math_double_operation(op, dresult, &poperands[j].scalar_operand);
+            }
+            Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
+        } else {
+            Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
+            for (j = 1 ; j < noperands; ++j) {
+                TA_ASSERT(poperands[j].scalar_operand.type == TA_WIDE);
+                wresult = ta_math_wide_operation(op, wresult, poperands[j].scalar_operand.wval);
+            }
+            Tcl_SetObjResult(ip, Tcl_NewWideIntObj(wresult));
         }
-    } else {
-        scalar_result.wval = 0;
-        for (j = 0 ; j < nscalars; ++j) {
-            TA_ASSERT(pscalars[j].type == TA_WIDE);
-            scalar_result.wval += pscalars[j].wval;
-        }
+        status = TCL_OK;
+        goto vamoose;           /* yea yea gotos are bad */
     }
 
-    /* If no columns specified, just return the scalar */
-    if (nthdrs == 0) {
-        switch (result_type) {
-        case TA_BYTE:
-            scalar_result.ucval = (unsigned char) scalar_result.wval;
-            break;
-        case TA_INT:
-            scalar_result.ival = (int) scalar_result.wval;
-            break;
-        }
-        Tcl_SetObjResult(ip, ta_value_to_obj(&scalar_result));
-        return TCL_OK;
+    if (thdr_size == 0) {
+        /* Empty columns. Return an empty column */
+        Tcl_SetObjResult(ip, tcol_new(thdr_alloc(ip, result_type, 0)));
+        status = TCL_OK;
+        goto vamoose;
     }
-        
+
+    /* We have at least one column and with at least one element */
+
 #if !defined(TA_MT_ENABLE)
     ncontexts = 1;
     mt_sizes[0] = thdr_size;
@@ -275,12 +395,15 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
 #endif
 
     /* Allocate the result thdr based on the type we want to return */
-    mt_context[0].thdr = thdr_alloc(ip, result_type, thdr_size);
-    if (mt_context[0].thdr == NULL)
-        return TCL_ERROR;
+    result_thdr = thdr_alloc(ip, result_type, thdr_size);
+    if (result_thdr == NULL) {
+        status = TCL_ERROR;
+        goto vamoose;
+    }
 
-    mt_context[0].poperands = pthdrs;
-    mt_context[0].noperands = nthdrs;
+    mt_context[0].thdr = result_thdr;
+    mt_context[0].poperands = poperands;
+    mt_context[0].noperands = noperands;
     mt_context[0].res = TCL_OK;
     mt_context[0].op = op;
     mt_context[0].start = 0;
@@ -294,8 +417,8 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         ta_mt_group_t grp;
         for (j = 1; j < ncontexts; ++j) {
             mt_context[j].thdr = mt_context[0].thdr;
-            mt_context[j].poperands = pthdrs;
-            mt_context[j].noperands = nthdrs;
+            mt_context[j].poperands = poperands;
+            mt_context[j].noperands = noperands;
             mt_context[j].res = TCL_OK;
             mt_context[j].op = op;
             mt_context[j].count = mt_sizes[j];
@@ -318,19 +441,26 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     /* First verify all threads ran successfully */
     status = TCL_OK;
     for (j = 0; j < ncontexts; ++j) {
-        if (mt_context[j].res != TCL_OK) {
+       if (mt_context[j].res != TCL_OK) {
             status = TCL_ERROR;
             break;
         }
     }
 
-    
+    if (status == TCL_OK) {
+        result_thdr->used = thdr_size;
+        Tcl_SetObjResult(ip, tcol_new(result_thdr));
+        result_thdr = NULL;     /* So it does not get freed below */
+    }
+
 
 vamoose:
-    if (pthdrs != thdrs)
-        TA_FREEMEM(pthdrs);
-    if (pscalars != scalars)
-        TA_FREEMEM(pscalars);
+    if (poperands != operands)
+        TA_FREEMEM(poperands);
+    if (result_thdr != NULL) {
+        /* May be because of pure scalar result or error */
+        thdr_decr_refs(result_thdr);
+    }
 
     return status;
 }
