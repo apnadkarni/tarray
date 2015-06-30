@@ -203,25 +203,25 @@ text {
     must not be included more than once. The returned table contains columns
     in the same order as COLUMNLIST.
 
-    ((cmddef table_vdelete "table vdelete __TABLEVAR_ _INDEX_"))
+    ((cmddef table_vdelete "table vdelete _TABLEVAR_ _INDEX_"))
 
-    ((cmddef table_vdelete_1 "table vdelete __TABLEVAR_ _INDEXLIST_"))
+    ((cmddef table_vdelete_1 "table vdelete _TABLEVAR_ _INDEXLIST_"))
     
-    ((cmddef table_vdelete_2 "table vdelete __TABLEVAR_ _LOW_ _HIGH_"))
+    ((cmddef table_vdelete_2 "table vdelete _TABLEVAR_ _LOW_ _HIGH_"))
     
-    Deletes rows from the table in variable __TABLEVAR_. The new value is
+    Deletes rows from the table in variable _TABLEVAR_. The new value is
     assigned back to the variable. The resulting value of the variable
     (which may differ because of traces) is returned as the result of the
     command. Indices are specified in any of the forms described in ->
     Indices.
 
-    ((cmddef table_vfill "table vfill ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _INDEX_"))
+    ((cmddef table_vfill "table vfill ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _INDEX_"))
 
-    ((cmddef table_vfill_1 "table vfill ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _INDEXLIST_"))
+    ((cmddef table_vfill_1 "table vfill ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _INDEXLIST_"))
     
-    ((cmddef table_vfill_2 "table vfill ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _LOW_ _HIGH_"))
+    ((cmddef table_vfill_2 "table vfill ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _LOW_ _HIGH_"))
     
-    Set the elements of the table in variable __TABLEVAR_ at the specified
+    Set the elements of the table in variable _TABLEVAR_ at the specified
     indices to _ROWVALUE_. The new value is assigned back to the variable. The
     resulting value of the variable (which may differ because of traces) is
     returned as the result of the command.
@@ -232,12 +232,12 @@ text {
 
     See fill for more information.
 
-    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUE_ _FIRST_ COUNT"))
+    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _FIRST_ COUNT"))
 
-    ((cmddef table_vinsert_1 "table vinsert __TABLEVAR_ _ROWVALUES_ _FIRST_"))
+    ((cmddef table_vinsert_1 "table vinsert _TABLEVAR_ _ROWVALUES_ _FIRST_"))
     
     In the first form, inserts COUNT rows with value _ROWVALUE_ at position
-    _FIRST_ in the table stored in variable __TABLEVAR_. In the second form,
+    _FIRST_ in the table stored in variable _TABLEVAR_. In the second form,
     _ROWVALUES_ may be a list of row values or a compatible table. The rows
     are inserted at the specified position. In both cases, the new value is
     assigned back to the variable. The resulting value of the variable
@@ -249,9 +249,9 @@ text {
     in the table as the command would not know what values to use for the
     unspecified columns.
 
-    ((cmddef table_vplace "table vplace ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUES_ _INDICES_"))
+    ((cmddef table_vplace "table vplace ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUES_ _INDICES_"))
 
-    Modifies a table stored in the variable __TABLEVAR_ with the specified
+    Modifies a table stored in the variable _TABLEVAR_ with the specified
     values at the corresponding indices. The new value is assigned back to
     the variable. The resulting value of the variable
     (which may differ because of traces) is returned as the result of
@@ -263,9 +263,9 @@ text {
 
     See the command table place for other details.
 
-    ((cmddef table_vput "table vput ?-columns _COLUMNS_? __TABLEVAR_ _ROWVALUES_ _FIRST_"))
+    ((cmddef table_vput "table vput ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUES_ _FIRST_"))
 
-    Modifies a variable __TABLEVAR_ containing a typed column. The elements of
+    Modifies a variable _TABLEVAR_ containing a typed column. The elements of
     the column starting at index _FIRST_ are replaced by the corresponding
     elements of _ROWVALUES_. If _FIRST_ is not specified the elements are
     appended to the array. The new value is assigned back to the variable.
@@ -279,9 +279,9 @@ text {
 
     See the command table put for other details.
 
-    ((cmddef table_vreverse "table vreverse __TABLEVAR_"))
+    ((cmddef table_vreverse "table vreverse _TABLEVAR_"))
 
-    Reverses the order of elements in the table in variable __TABLEVAR_, stores
+    Reverses the order of elements in the table in variable _TABLEVAR_, stores
     it back in the variable. The result of the command is the resulting
     value stored in the variable.
 
