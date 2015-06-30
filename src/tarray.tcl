@@ -207,6 +207,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column table teval
+    namespace export column table tscript
 }
 
