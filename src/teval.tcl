@@ -134,7 +134,17 @@ oo::class create tarray::teval::Parser {
         if {[llength $args] == 0} {
             return $first_child;
         } else {
-            return [list Tarray [lindex $first_child 1] {*}$args]
+            return [switch -exact -- [lindex $args 0 0] {
+                Column {
+                    list LValueTableColumn [lindex $first_child 1] [lindex $args 0 1] {*}[lrange $args 1 end]
+                }
+                Columns {
+                    list LValueTableColumns [lindex $first_child 1] [lrange [lindex $args 0] 1 end] {*}[lrange $args 1 end]
+                }
+                default {
+                    list LValueTarray [lindex $first_child 1] {*}$args
+                }
+            }]
         }
     }
 
@@ -262,15 +272,6 @@ oo::class create tarray::teval::Parser {
 
 }
 
-proc tarray::teval::eval {script} {
-    set tc [Compiler new]
-    try {
-        uplevel 1 [list $tc compile $script]
-    } finally {
-        $tc destroy
-    }
-}
-
 oo::class create tarray::teval::Compiler {
     variable Script Compilations SelectorNestingLevel
 
@@ -319,28 +320,92 @@ oo::class create tarray::teval::Compiler {
         lassign $lvalue type ident indexexpr
         switch -exact -- $type {
             Identifier {
+                lassign $lvalue type ident indexexpr
                 return "set $ident [my {*}$rvalue]"
             }
-            Tarray {
+            LValueTarray {
                 # We are assigning to elements in a tarray. The elements
                 # to be assigned may be specified through a range or
                 # a general expression that results in an index or index list.
+                lassign $lvalue type ident indexexpr
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        return "tarray::teval::rt::tfill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::rt::fill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::tfill $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::fill $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::tassign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
+            LValueTableColumn {
+                # Assigning to a single column.
+                lassign $lvalue type table column indexexpr
+                if {[lindex $column 0] eq "Identifier"} {
+                    set column [lindex $column 1]
+                } else {
+                    set column [my {*}$column]
+                }
+                switch -exact -- [lindex $indexexpr 0] {
+                    "" {
+                        # No index -> entire column to be operated
+                        return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue]"
+                    }
+                    Range {
+                        return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                    }
+                    Number {
+                        # Single numeric index
+                        return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue] [my {*}$indexexpr]"
+                    }
+                    default {
+                        # Index is general expression (including single vars)
+                        # The actual operation depends on both the
+                        # lvalue and the rvalue
+                        return "tarray::teval::rt::tab_col_assign $ident \[list $column\] [my {*}$rvalue] [my {*}$indexexpr]"
+                    }
+                    
+                }
+            }
+
+            LValueTableColumns {
+                lassign $lvalue type ident columns indexexpr
+                set collist {}
+                foreach column $columns {
+                    if {[lindex $column 0] eq "Identifier"} {
+                        lappend collist [lindex $column 1]
+                    } else {
+                        lappend collist [my {*}$column]
+                    }
+                }
+                set collist [join $collist { }]
+                switch -exact -- [lindex $indexexpr 0] {
+                    "" {
+                        # No index -> whole columns to be operated
+                        return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue]"
+                    }
+                    Range {
+                        return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                    }
+                    Number {
+                        # Single numeric index
+                        return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue] [my {*}$indexexpr]"
+                    }
+                    default {
+                        # Index is general expression (including single vars)
+                        # The actual operation depends on both the
+                        # lvalue and the rvalue
+                        return "tarray::teval::rt::tab_col_assign $ident \[list $collist\] [my {*}$rvalue] [my {*}$indexexpr]"
+                    }
+                }
+            }
+
             default {
                 error "Internal error: Unexpected node type [lindex $lvalue 0]"
             }
@@ -517,7 +582,7 @@ namespace eval tarray::teval::rt {
         return $r
     }
 
-    proc tfill {varname value args} {
+    proc fill {varname value args} {
         upvar 1 $varname var
         # args is either a single numeric literal or a range low high pair
         return [switch -exact -- [tarray::types $var] {
@@ -527,7 +592,7 @@ namespace eval tarray::teval::rt {
         }]
     }
 
-    proc tassign {varname value index} {
+    proc assign {varname value index} {
         upvar 1 $varname var
 
         # varname is the name of a column or table variable (must exist)
