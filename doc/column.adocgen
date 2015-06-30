@@ -65,22 +65,22 @@ text {
     // Turn off section numbering for command definitions
     :!sectnums:
 
-    ((cmddef column_bitand "column & OPERAND ?_OPERAND_...?"))
+    ((cmddef column_bitand "column & _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math &"))`.
 
-    ((cmddef column_mul "column * OPERAND ?_OPERAND_...?"))
+    ((cmddef column_mul "column * _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math *"))`.
 
-    ((cmddef column_plus "column + OPERAND ?_OPERAND_...?"))
+    ((cmddef column_plus "column + _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math +"))`.
 
-    ((cmddef column_minus "column - OPERAND ?_OPERAND_...?"))
+    ((cmddef column_minus "column - _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \\-"))`.
 
-    ((cmddef column_div "column / OPERAND ?_OPERAND_...?"))
+    ((cmddef column_div "column / _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math /"))`.
 
-    ((cmddef column_bitor "column | OPERAND ?_OPERAND_...?"))
+    ((cmddef column_bitor "column | _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \|"))`.
 
 
@@ -91,7 +91,7 @@ text {
     Note that if the `-among` is specified and an index occurs multiple times
     in _INDICES_, it will be counted multiple times.
 } text {
-    ((cmddef column_create "column create TYPE ?INITIALIZER? ?INITSIZE?"))
+    ((cmddef column_create "column create _TYPE_ ?_INITIALIZER_? ?_INITSIZE_?"))
 
     Returns a typed array of the type _TYPE_ which must be one of one of valid
     types described in ((^ sect_column_types Types)).
@@ -136,14 +136,14 @@ text {
     Returns the value of the element at the position specified by _INDEX_
     which is a single ((^ sect_column_indices index)).
 
-    ((cmddef column_insert "column insert _COLUMN_ _VALUE_ FIRST COUNT"))
+    ((cmddef column_insert "column insert _COLUMN_ _VALUE_ _FIRST_ _COUNT_"))
 
-    ((cmddef column_insert_1 "column insert _COLUMN_ _VALUES_ FIRST"))
+    ((cmddef column_insert_1 "column insert _COLUMN_ _VALUES_ _FIRST_"))
 
-    In the first form, inserts COUNT elements with value _VALUE_ at position
-    FIRST and returns the new column. In the second form, _VALUES_ may be a
+    In the first form, inserts _COUNT_ elements with value _VALUE_ at position
+    _FIRST_ and returns the new column. In the second form, _VALUES_ may be a
     list of values or a typed column of the same type. The values are
-    inserted at the specified position. If FIRST is `end`, the values are
+    inserted at the specified position. If _FIRST_ is `end`, the values are
     appended to the column. In all cases, the command may extend the array
     if necessary.
 
@@ -187,7 +187,7 @@ text {
     of the column. However, the return value of the command is always
     accurate.
     
-    ((cmddef column_math "column math _OPERATION_ OPERAND ?_OPERAND_...?"))
+    ((cmddef column_math "column math _OPERATION_ _OPERAND_ ?_OPERAND_...?"))
 
     Performs the specified mathematical operation _OPERATION_ on the
     given operands. The possible operations are shown in
@@ -281,12 +281,12 @@ text {
     the forms described in ((^ sect_column_indices)) and may extend the column if the
     conditions listed there are satisfied.
 
-    ((cmddef column_put "column put _COLUMN_ _VALUES_ ?FIRST?"))
+    ((cmddef column_put "column put _COLUMN_ _VALUES_ ?_FIRST_?"))
 
-    Returns a typed column with the elements starting at index FIRST
+    Returns a typed column with the elements starting at index _FIRST_
     replaced by the corresponding elements of _VALUES_. _VALUES_ may be a list
     of values or a typed column of the same type. The command may extend the
-    array if necessary. If FIRST is not specified the elements are appended
+    array if necessary. If _FIRST_ is not specified the elements are appended
     to the array. The command interprets `end` as the position after the
     last element in the array.
 
@@ -299,7 +299,7 @@ text {
 
     Returns the typed column with order of elements reversed.
 
-    ((cmddef column_search "column search ?-range RANGE? ?-among _INDICES_? ?-all? ?-inline? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
+    ((cmddef column_search "column search ?-range _RANGE_? ?-among _INDICES_? ?-all? ?-inline? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 
     Searches the specified typed column for a matching value. By default,
     the search starts at index 0 and returns the index of the first match,
@@ -307,7 +307,7 @@ text {
 
     Options `-range` and `-among` modify which elements of the column are
     examined. The `-range` option limits the search to the range
-    specified by RANGE which either consists of two integer indices
+    specified by _RANGE_ which either consists of two integer indices
     denoting the starting and ending elements of the range
     (inclusive), or a single integer index denoting the start of the
     range with the end defaulting to the last element of the
@@ -367,7 +367,7 @@ text {
 
     Returns the number of elements in the typed column.
 
-    ((cmddef column_sort "column sort ?-indices? ?-increasing? ?-decreasing? ?-nocase? ?-indirect TARGET_COLUMN_? _COLUMN_"))
+    ((cmddef column_sort "column sort ?-indices? ?-increasing? ?-decreasing? ?-nocase? ?-indirect _TARGETCOLUMN_? _COLUMN_"))
 
     Returns a sorted typed column. _COLUMN_ is the typed column to be sorted.
     The comparison is done in a column type-specific manner. Sorting is
@@ -383,8 +383,8 @@ text {
     `string` and is ignored otherwise.
 
     Option `-indirect` may only be used when _COLUMN_ is of type `int`. In this
-    case, the elements of _COLUMN_ are treated as indices into TARGET_COLUMN_
-    and are compared using the corresponding values from TARGET_COLUMN_. This
+    case, the elements of _COLUMN_ are treated as indices into _TARGETCOLUMN_
+    and are compared using the corresponding values from _TARGETCOLUMN_. This
     option is useful when sorting a column or multiple columns in a table
     using different criteria while keeping a stable order.
 
@@ -417,12 +417,12 @@ text {
 
     See fill for more information.
 
-    ((cmddef column_vinsert "column vinsert _COLUMNVAR_ _VALUE_ FIRST COUNT"))
+    ((cmddef column_vinsert "column vinsert _COLUMNVAR_ _VALUE_ _FIRST_ _COUNT_"))
 
-    ((cmddef column_vinsert_2 "column vinsert _COLUMNVAR_ _VALUES_ FIRST"))
+    ((cmddef column_vinsert_2 "column vinsert _COLUMNVAR_ _VALUES_ _FIRST_"))
 
-    In the first form, inserts COUNT elements with value _VALUE_ at position
-    FIRST in the type column stored in variable _COLUMNVAR_. In the second
+    In the first form, inserts _COUNT_ elements with value _VALUE_ at position
+    _FIRST_ in the type column stored in variable _COLUMNVAR_. In the second
     form, _VALUES_ may be a list of values or a typed column of the same type.
     The values are inserted at the specified position. The new value is
     assigned back to the variable. The resulting value of the variable
@@ -439,11 +439,11 @@ text {
 
     See the command column place for other details.
 
-    ((cmddef column_vput "column vput _COLUMNVAR_ _VALUES_ FIRST"))
+    ((cmddef column_vput "column vput _COLUMNVAR_ _VALUES_ _FIRST_"))
 
     Modifies a variable _COLUMNVAR_ containing a typed column. The elements of
-    the column starting at index FIRST are replaced by the corresponding
-    elements of _VALUES_. If FIRST is not specified the elements are appended
+    the column starting at index _FIRST_ are replaced by the corresponding
+    elements of _VALUES_. If _FIRST_ is not specified the elements are appended
     to the array. The new value is assigned back to the variable. The
     resulting value of the variable (which may differ because of traces) is
     returned as the result of the command.
@@ -457,7 +457,7 @@ text {
     value of the variable (which may differ because of traces) is returned
     as the result of the command.
 
-    ((cmddef column_vsort "column vsort ?-increasing? ?-decreasing? ?-nocase? ?-indirect TARGET_COLUMN_? _COLUMNVAR_"))
+    ((cmddef column_vsort "column vsort ?-increasing? ?-decreasing? ?-nocase? ?-indirect _TARGETCOLUMN_? _COLUMNVAR_"))
 
     Sorts a typed column stored in variable. _COLUMNVAR_ is variable
     containing the typed column to be sorted. The sorted column is also

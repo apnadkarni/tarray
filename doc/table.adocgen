@@ -142,11 +142,11 @@ text {
 
     Returns the value of the row at the position specified by _INDEX_.
     
-    ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ COUNT"))
+    ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ _COUNT_"))
 
     ((cmddef table_insert_1 "table insert _TABLE_ _ROWVALUES_ _FIRST_"))
     
-    In the first form, inserts COUNT rows with value _ROWVALUE_ at position
+    In the first form, inserts _COUNT_ rows with value _ROWVALUE_ at position
     _FIRST_ and returns the new table. In the second form, _ROWVALUES_ may be a
     list of row values or a compatible table. The rows are inserted at the
     specified position. In both cases, the command may extend the array if
@@ -196,12 +196,12 @@ text {
 
     Returns the number of rows in the table.
     
-    ((cmddef table_slice "table slice _TABLE_ COLUMNLIST"))
+    ((cmddef table_slice "table slice _TABLE_ _COLUMNLIST_"))
 
     Returns a table containing only the specified columns from _TABLE_. The
     columns are specified by their positions or names as a list. A column
     must not be included more than once. The returned table contains columns
-    in the same order as COLUMNLIST.
+    in the same order as _COLUMNLIST_.
 
     ((cmddef table_vdelete "table vdelete _TABLEVAR_ _INDEX_"))
 
@@ -232,11 +232,11 @@ text {
 
     See fill for more information.
 
-    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _FIRST_ COUNT"))
+    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _FIRST_ _COUNT_"))
 
     ((cmddef table_vinsert_1 "table vinsert _TABLEVAR_ _ROWVALUES_ _FIRST_"))
     
-    In the first form, inserts COUNT rows with value _ROWVALUE_ at position
+    In the first form, inserts _COUNT_ rows with value _ROWVALUE_ at position
     _FIRST_ in the table stored in variable _TABLEVAR_. In the second form,
     _ROWVALUES_ may be a list of row values or a compatible table. The rows
     are inserted at the specified position. In both cases, the new value is
