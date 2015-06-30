@@ -330,7 +330,7 @@ oo::class create tarray::teval::Compiler {
                 lassign $lvalue type ident indexexpr
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        return "tarray::teval::rt::fill $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::rt::assign_range $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
@@ -590,6 +590,61 @@ namespace eval tarray::teval::rt {
             "" { error "$varname is not a column or table." }
             default { tarray::column::vfill var $value {*}$args }
         }]
+    }
+
+    proc assign_range {varname value low high} {
+        # varname is the name of a column or table variable (must exist)
+        # value is the value to be assigned
+        # [low high] is the range to assign to
+        
+        upvar 1 $varname var
+
+        lassign [tarray::types $var] vartype
+        lassign [tarray::types $value] valuetype
+        
+        if {$vartype eq ""} {
+            error "$varname is not a column or table."
+        }
+
+        # TBD - need to handle "end" in range specification
+        
+        if {$low > $high} {
+            error "Range lower limit $low is greater than upper limit $high."
+        }
+        if {$vartype eq "table"} {
+            # If the value is also a table, we assume each row in the value
+            # is to be assigned successively to the target range. Otherwise
+            # it is a value to be filled in the target range.
+            if {$valuetype ne "table"} {
+                tarray::table::vfill var $value $low $high
+            } else {
+                # We have to use a put. Make sure the source range
+                # and target range match
+                set source_size [tarray::table::size $value]
+                set target_size [expr {$high - $low + 1}]
+                if {$target_size > $source_size} {
+                    error "Insufficient values specified for target range"
+                }
+                tarray::table::vput var [tarray::table::range $value 0 [expr {$high-$low}]] $low
+            }
+            return
+        }
+
+        # var is a column. Handle similarly
+        if {$valuetype eq "table" || $valuetype eq ""} {
+            # Fill the value in all slots
+            tarray::column::vfill var $value $low $high
+        } else {
+            # We have to use a put. Make sure the source range
+            # and target range match
+            set source_size [tarray::column::size $value]
+            set target_size [expr {$high - $low + 1}]
+            if {$target_size > $source_size} {
+                error "Insufficient values specified for range %low-$high in target variable $varname"
+            }
+            tarray::column::vput var [tarray::column::range $value 0 [expr {$high-$low}]] $low
+        }
+        return
     }
 
     proc assign {varname value index} {
