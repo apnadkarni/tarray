@@ -142,7 +142,7 @@ interp alias {} tarray::column::& {} tarray::column::math &
 interp alias {} tarray::column::| {} tarray::column::math |
 
 namespace eval tarray {
-
+    
     namespace eval column {
         namespace ensemble create -map {
             count count
@@ -207,6 +207,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column table
+    namespace export column table teval
 }
 

@@ -36,11 +36,14 @@ namespace eval tarray::ast {
     }
 }
 
-namespace eval tarray::teval {
-    proc tempvar {} {
-        variable _tempname_ctr
-        return _teval[incr _tempname_ctr]
+namespace eval tarray::teval {}
+
+proc tarray::tscript {script} {
+    teval::Compiler create tcompiler
+    proc [namespace current]::tscript {script} {
+        uplevel 1 [tcompiler compile $script]
     }
+    tailcall tscript $script
 }
 
 oo::class create tarray::teval::Parser {
