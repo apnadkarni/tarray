@@ -1335,71 +1335,50 @@ critcl::cproc tarray::table::width {TableObjPtr TABLE} int {
 }
 
 critcl::ccommand tarray::table::column {} {
-    Tcl_Obj *table, *tcol, *newcol;
-    thdr_t *thdr;
-    int status, pos, tablen;
+    Tcl_Obj *table;
+    TCL_RESULT status;
 
     if (objc != 3 && objc != 4) {
 	Tcl_WrongNumArgs(interp, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
 	return TCL_ERROR;
     }
-    
+
     table = objv[1];
-    if ((status = table_convert(interp, table)) != TCL_OK)
-        return status;
-
-    if ((status = table_parse_column_index(interp, table, objv[2], &pos))
-        != TCL_OK)
-        return status;
-
-    thdr = table_thdr(table);
-    tcol = *THDRELEMPTR(thdr, Tcl_Obj*, pos);
-    tablen = tcol_occupancy(tcol);
-    TA_ASSERT(tablen == table_length(table));
-    if (objc == 3) {
-        /* Only need to return the column */
-        TA_ASSERT(tcol_check(interp, tcol));
-        Tcl_SetObjResult(interp, tcol);
-        return TCL_OK;
-    }
-
-    /*
-     * Need to replace the column. Verify compatibility:
-     *  - the argument must be a column
-     *  - the type of the column must be the same
-     *  - the length of the column must be the same
-     */
-    newcol = objv[3];
-    if ((status = tcol_convert(interp, newcol)) != TCL_OK)
-        return status;
-    if (newcol == tcol)
-        goto vamoose;           /* Success, return the table as is */
-
-    if (tcol_type(newcol) != tcol_type(tcol))
-        return ta_mismatched_types_error(interp, tcol_type(newcol),
-                                         tcol_type(tcol));
-    if (tcol_occupancy(newcol) != tablen)
-        return ta_column_lengths_error(interp);
+    if (objc == 3)
+        return table_get_column(interp, table, objv[2]);
 
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
 
-    /* TBD - actually the contained columns need not be modifiable.
-       only the table itself needs to be */
-    if ((status = table_make_modifiable(interp, table, tablen, tablen)) != TCL_OK)
-        goto vamoose;
-
-    thdr = table_thdr(table);   /* Re-init since make_modifiable might change it */
-    TA_ASSERT(thdr->nrefs == 1);
-    /* Have to re-init tcol since that might be changed in above calls */
-    tcol = *THDRELEMPTR(thdr, Tcl_Obj*, pos);
-    Tcl_IncrRefCount(newcol);
-    *THDRELEMPTR(thdr, Tcl_Obj*, pos) = newcol;
-    Tcl_DecrRefCount(tcol);
-
-vamoose:
+    status = table_set_column(interp, table, objv[2], objv[3]);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_return_result(interp, status, table);
 }
+
+critcl::ccommand tarray::table::vcolumn {} {
+    Tcl_Obj *table;
+    TCL_RESULT status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(interp, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
+	return TCL_ERROR;
+    }
+
+    table = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+
+    if (objc == 3)
+        return table_get_column(interp, table, objv[2]);
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_set_column(interp, table, objv[2], objv[3]);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
+    return ta_set_var_result(interp, status, objv[1], table);
+}
+
 
 critcl::cproc tarray::table::cnames {Tcl_Interp* interp TableObjPtr TABLE} ok {
     Tcl_SetObjResult(interp, table_column_names(TABLE));
