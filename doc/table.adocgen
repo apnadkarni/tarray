@@ -135,8 +135,10 @@ text {
 
     ((cmddef table_get "table get ?_OPTIONS_? _TABLE_ _INDEXLIST_"))
 
-    Returns the values from a table at the indices specified as -> index
-    list. Any of the -> standard options may be specified with this command.
+    Returns the values from a table at the indices specified as
+    a ((^ sect_table_indices "index list")).
+    Any of the ((^ tab_table_stdopts "standard options"))
+    may be specified with this command.
 
     ((cmddef table_index "table index _TABLE_ _INDEX_"))
 
@@ -184,9 +186,10 @@ text {
 
     ((cmddef table_range "table range ?_OPTIONS_? _TABLE_ _LOW_ ?_HIGH_?"))
 
-    Returns all values from a table between the indices specified as a ->
-    range. Any of the -> standard options may be specified with this
-    command.
+    Returns all values from a table in the specified 
+    ((^ sect_table_indices "index range")) _LOW_ to _HIGH_.
+    Any of the ((^ tab_table_stdopts "standard options"))
+    may be specified with this command.
 
     ((cmddef table_reverse "table reverse _TABLE_"))
 
@@ -212,8 +215,8 @@ text {
     Deletes rows from the table in variable _TABLEVAR_. The new value is
     assigned back to the variable. The resulting value of the variable
     (which may differ because of traces) is returned as the result of the
-    command. Indices are specified in any of the forms described in ->
-    Indices.
+    command. Indices are specified in any of the forms described in 
+    ((^ sect_table_indices)).
 
     ((cmddef table_vfill "table vfill ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _INDEX_"))
 
