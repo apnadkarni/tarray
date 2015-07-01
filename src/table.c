@@ -581,8 +581,8 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
    modifiable */
 TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
                                 Tcl_Obj *table,
-                                 int minsize, /* Min *contained* cols */
-                                 int prefsize /* Pref size  *contained* cols */
+                                 int minsize, /* Minsize of *contained* cols */
+                                 int prefsize /* Pref size of contained cols */
     )
 {
     int i, status;
