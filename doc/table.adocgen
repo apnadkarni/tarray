@@ -59,7 +59,7 @@ text {
     _COLUMNS_. For commands that modify data, only data in the specified
     columns is modified. The input data values are taken in the same order
     as specified in _COLUMNS_. Note that when a command invocation that causes
-    a table to grow specifies the -columns option, all columns must be
+    a table to grow specifies the `-columns` option, all columns must be
     included in _COLUMNS_ although they may be specified in any order
     depending on the order of the source data.
 
@@ -70,13 +70,13 @@ text {
     corresponding column.
 
     |`-list`
-    Specifies that the return value must be in the form of a list of rows,
+    |Specifies that the return value must be in the form of a list of rows,
     one per index. Each row is itself a list, each element of which is the
     value at that index in the corresponding column.
 
     |`-table`
     |Specifies that the values are to be returned as a table. This is the
-    default if neither -list nor -dict is specified.
+    default if neither `-list` nor `-dict` is specified.
 
     |===
 } text {
@@ -85,10 +85,14 @@ text {
     // Turn off section numbering
     :!sectnums:
 
-    ((cmddef table_column "table column _TABLE_ _COLSPEC_"))
+    ((cmddef table_column "table column _TABLE_ _COLSPEC_ ?_NEWCOL_?"))
 
-    Returns a typed column from a table. _COLSPEC_ may be either the column
-    name or its position.
+    If argument _NEWCOL_ is not present, the command returns
+    the table column specified by _COLSPEC_ which may be either the column
+    name or its position. If _NEWCOL_ is specified, it must be a column
+    of the same type and length as the table column specified by
+    _COLSPEC_. The command then returns _TABLE_ with that table column
+    replaced by _NEWCOL_.
 
     ((cmddef table_cnames "table cnames _TABLE_"))
 
@@ -205,6 +209,19 @@ text {
     columns are specified by their positions or names as a list. A column
     must not be included more than once. The returned table contains columns
     in the same order as _COLUMNLIST_.
+
+    ((cmddef table_column "table column _TABLEVAR_ _COLSPEC_ ?_NEWCOL_?"))
+
+    Returns or sets a specified column in the table contained
+    in the variable _TABLEVAR_.
+    If argument _NEWCOL_ is not present, the command returns
+    the table column specified by _COLSPEC_ which may be either the column
+    name or its position. _TABLEVAR_ is not modified.
+
+    If _NEWCOL_ is specified, it must be a column
+    of the same type and length as the table column specified by
+    _COLSPEC_. The command then replaces that column in _TABLEVAR_ with
+    _NEWCOL_ and returns the variable's new value.
 
     ((cmddef table_vdelete "table vdelete _TABLEVAR_ _INDEX_"))
 

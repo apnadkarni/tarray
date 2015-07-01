@@ -2008,3 +2008,76 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     } else
         return TCL_ERROR;
 }
+
+TCL_RESULT table_get_column(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *colspec)
+{
+    thdr_t *thdr;
+    Tcl_Obj *tcol;
+    int status, pos;
+
+    if ((status = table_convert(ip, table)) != TCL_OK)
+        return status;
+
+    if ((status = table_parse_column_index(ip, table, colspec, &pos))
+        != TCL_OK)
+        return status;
+
+    thdr = table_thdr(table);
+    tcol = *THDRELEMPTR(thdr, Tcl_Obj*, pos);
+    TA_ASSERT(tcol_check(ip, tcol));
+    Tcl_SetObjResult(ip, tcol);
+    return TCL_OK;
+}
+
+TCL_RESULT table_set_column(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *colspec, Tcl_Obj *newcol)
+{
+    thdr_t *thdr;
+    Tcl_Obj *tcol;
+    int tab_len, status, pos;
+
+    TA_ASSERT(! Tcl_IsShared(table));
+    if ((status = table_convert(ip, table)) != TCL_OK)
+        return status;
+
+    if ((status = table_parse_column_index(ip, table, colspec, &pos))
+        != TCL_OK)
+        return status;
+
+    thdr = table_thdr(table);
+    tcol = *THDRELEMPTR(thdr, Tcl_Obj*, pos);
+    tab_len = tcol_occupancy(tcol);
+    TA_ASSERT(tab_len == table_length(table));
+
+    if (newcol == tcol)
+        return TCL_OK;
+
+    /*
+     * Need to replace the column. Verify compatibility:
+     *  - the argument must be a column
+     *  - the type of the column must be the same
+     *  - the length of the column must be the same
+     */
+    if ((status = tcol_convert(ip, newcol)) != TCL_OK)
+        return status;
+
+    if (tcol_type(newcol) != tcol_type(tcol))
+        return ta_mismatched_types_error(ip, tcol_type(newcol),
+                                         tcol_type(tcol));
+    if (tcol_occupancy(newcol) != tab_len)
+        return ta_column_lengths_error(ip);
+
+    /* TBD - actually the contained columns need not be modifiable.
+       only the table itself needs to be */
+    if ((status = table_make_modifiable(ip, table, tab_len, tab_len)) != TCL_OK)
+        return status;
+
+    thdr = table_thdr(table);   /* Re-init since make_modifiable might change it */
+    TA_ASSERT(thdr->nrefs == 1);
+    /* Have to re-init tcol since that might be changed in above calls */
+    tcol = *THDRELEMPTR(thdr, Tcl_Obj*, pos);
+    Tcl_IncrRefCount(newcol);
+    *THDRELEMPTR(thdr, Tcl_Obj*, pos) = newcol;
+    Tcl_DecrRefCount(tcol);
+
+    return TCL_OK;
+}
