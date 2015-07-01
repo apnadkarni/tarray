@@ -197,6 +197,7 @@ namespace eval tarray {
             reverse reverse
             size size
             slice slice
+            vcolumn vcolumn
             vdelete vdelete
             vfill vfill
             vinsert vinsert
