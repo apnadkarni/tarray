@@ -7,7 +7,7 @@ Simple arithmetic adding of offsets to `end` is supported, for example
 Many commands also allow multiple indices to be specified. These may take one of
 two forms - a _range_ which includes all indices between a lower and an upper
 bound (inclusive), and an _index list_ which may be a list of integers, or a
-`int` column.html[_typed column_]. This latter allows the indices returned
+column of type `int`. This latter allows the indices returned
 by commands such as column search to be efficiently passed to other commands.
 When indices are specified as a list cause an array to be extended, the index
 list must include all indices beyond the current array size in any order but
