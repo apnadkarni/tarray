@@ -334,7 +334,7 @@ oo::class create tarray::teval::Compiler {
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::fill $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::assign_index $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
@@ -582,13 +582,13 @@ namespace eval tarray::teval::rt {
         return $r
     }
 
-    proc fill {varname value args} {
+    proc assign_index {varname value index} {
+        # Assign a value to a single column or table element
         upvar 1 $varname var
-        # args is either a single numeric literal or a range low high pair
         return [switch -exact -- [tarray::types $var] {
-            table { tarray::table::vfill var $value {*}$args }
+            table { tarray::table::vfill var $value $index }
             "" { error "$varname is not a column or table." }
-            default { tarray::column::vfill var $value {*}$args }
+            default { tarray::column::vfill var $value $index }
         }]
     }
 
