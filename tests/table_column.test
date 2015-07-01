@@ -1,4 +1,4 @@
-# tarray column create
+# tarray table column
 
 source testutil.tcl
 
@@ -60,6 +60,152 @@ namespace eval tarray::test {
         set tab [sampletable {any boolean int wide}]
         tarray::table column $tab end
     } -result "No column with name 'end'." -returnCodes error
+
+    test table-column-2.4 {
+        Verify error when argument is not a table
+    } -body {
+        tarray::table column "" end
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-column-2.5 {
+        Verify error when argument is not a column
+    } -body {
+        tarray::table column [samplecolumn int]  end
+    } -result "Object is not a TArray table" -returnCodes error
+
+    #
+    # Tests to set the value of a column
+
+    test table-column-set-1.0 {
+        Set first column any from a shared table
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column 0 [newcolumn any {abc def hij}]
+    } -result 0
+
+    test table-column-set-1.0.1 {
+        Set boolean column from a unshared table
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify_u $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 0 200} {hij 1 300}
+        } column 1 [newcolumn boolean {0 0 1}]
+    } -result 0
+
+    test table-column-set-1.1 {
+        Set named column from a shared table
+    } -body {
+        set types {wide string}
+        tab_change_and_verify $types {
+            {100 hundred} {200 "two hundred"} {300 "three hundred"}
+        } {
+            {100 century} {200 "double century"} {300 "triple century"}
+        } column col1 [newcolumn string {century "double century" "triple century"}]
+    } -result 0
+
+    test table-column-set-1.1.1 {
+        Set named column from an unshared shared table
+    } -body {
+        set types {wide string}
+        tab_change_and_verify_u $types {
+            {100 hundred} {200 "two hundred"} {300 "three hundred"}
+        } {
+            {100 century} {200 "double century"} {300 "triple century"}
+        } column col1 [newcolumn string {century "double century" "triple century"}]
+    } -result 0
+
+    test table-column-set-2.0 {
+        Attempt to set out of bounds column from a table
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column 3 [newcolumn any {abc def hij}]
+    } -result "Column index '3' out of bounds." -returnCodes error
+
+    test table-column-set-2.1 {
+        Attempt to set out of bounds column from a unshared table
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify_u $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column -1 [newcolumn any {abc def hij}]
+    } -result "Column index '-1' out of bounds." -returnCodes error
+
+    test table-column-set-2.2 {
+        Attempt to set non-existent column name
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify_u $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column nosuchcol [newcolumn any {abc def hij}]
+    } -result "No column with name 'nosuchcol'." -returnCodes error
+
+    test table-column-set-2.3 {
+        Attempt to set non-table
+    } -body {
+        tarray::table column "" [newcolumn any {abc def hij}]
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-column-set-2.4 {
+        Attempt to set column
+    } -body {
+        tarray::table column [newcolumn any {abc def hij}] [newcolumn any {abc def hij}]
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-column-set-2.5 {
+        Attempt to set wrong type of column
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify_u $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column 1 [newcolumn int {0 1 2}]
+    } -result "tarray types int and boolean are not compatible for attempted operation" -returnCodes error
+
+    test table-column-set-2.6 {
+        Attempt to set wrong length of column (shorter)
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify_u $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column 0 [newcolumn any {x y}]
+    } -result "Columns have differing lengths." -returnCodes error
+
+    test table-column-set-2.6.1 {
+        Attempt to set wrong length of column (longer)
+    } -body {
+        set types {any boolean int}
+        tab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } column 0 [newcolumn any {w x y z}]
+    } -result "Columns have differing lengths." -returnCodes error
+
+    test table-column-set-2.7 {
+        Attempt to set empty table
+    } -body {
+        set types {}
+        tab_change_and_verify $types {
+        } {
+        } column 0 [newcolumn any {x y z}]
+    } -result "Column index '0' out of bounds." -returnCodes error
 
 }
 ::tcltest::cleanupTests
