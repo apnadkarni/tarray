@@ -210,6 +210,8 @@ extern struct Tcl_ObjType ta_column_type;
 extern struct Tcl_ObjType ta_table_type;
 extern struct Tcl_ObjType ta_index_type;
 
+TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o);
+
 /* This checks that o is currently a tcol, not that it can be converted to one */
 TA_INLINE int tcol_affirm(Tcl_Obj *o) {
     return (o->typePtr == &ta_column_type || o->typePtr == &ta_table_type);
@@ -218,9 +220,10 @@ TA_INLINE int tcol_affirm(Tcl_Obj *o) {
 TA_INLINE int table_affirm(Tcl_Obj *o) {
     return (o->typePtr == &ta_table_type); 
 }
+
 /* Return the internal rep of a column */
 TA_INLINE thdr_t *tcol_thdr(Tcl_Obj *o) {
-    TA_ASSERT(tcol_affirm(o));
+    TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
     return (thdr_t *) OBJTHDR(o);
 }
 
@@ -700,9 +703,9 @@ TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) {
     return tcol_affirm(o) ? TCL_OK : tcol_convert_from_other(ip, o);
 }
 
+
 TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return tcol_thdr(o)->type; }
 TA_INLINE int tcol_occupancy(Tcl_Obj *o) { return tcol_thdr(o)->used; }
-
 
 /*
  * For a given thdr, computes the pointers to a source and destination offset
@@ -772,25 +775,25 @@ TA_INLINE TCL_RESULT table_convert(Tcl_Interp *ip, Tcl_Obj *table)
 
 TA_INLINE int table_width(Tcl_Obj *table)
 {
-    TA_ASSERT(table_affirm(table));
+    TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return table_thdr(table)->used;
 }
 
 TA_INLINE Tcl_Obj **table_columns(Tcl_Obj *table)
 {
-    TA_ASSERT(table_affirm(table));
+    TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return THDRELEMPTR(table_thdr(table), Tcl_Obj *, 0);
 }
 
 TA_INLINE Tcl_Obj *table_column(Tcl_Obj *table, int i)
 {
-    TA_ASSERT(table_affirm(table));
+    TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return *THDRELEMPTR(table_thdr(table), Tcl_Obj *, i);
 }
 
 TA_INLINE int table_length(Tcl_Obj *table)
 {
-    TA_ASSERT(table_affirm(table));
+    TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return table_width(table) == 0 ? 0 : tcol_occupancy(table_column(table, 0));
 }
 

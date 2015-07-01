@@ -2958,8 +2958,9 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
 {
     thdr_t *thdr;
 
-    TA_ASSERT(tcol_affirm(tcol));
     TA_ASSERT(! Tcl_IsShared(tcol));
+    if (tcol_convert(ip, tcol) != TCL_OK)
+        return TCL_ERROR;
 
     thdr = tcol_thdr(tcol);
     if (thdr->usable >= minsize && !thdr_shared(thdr)) {
