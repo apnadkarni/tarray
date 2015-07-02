@@ -355,7 +355,7 @@ oo::class create tarray::teval::Compiler {
                 switch -exact -- [lindex $indexexpr 0] {
                     "" {
                         # No index -> entire column to be operated
-                        return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue]"
+                        return "tarray::table::vcolumn $table $column [my {*}$rvalue]"
                     }
                     Range {
                         return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
