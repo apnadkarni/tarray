@@ -24,6 +24,21 @@ proc tarray::table::create {def {init {}} {size 0}} {
 }
 
 # TBD - document and test
+proc tarray::table::definition {tab args} {
+    if {[llength $args]} {
+        set cnames $args
+    } else {
+        set cnames [cnames $args]
+    }
+    set def {}
+    foreach cname $cnames {
+        lappend def $cname [tarray::column type [column $tab $cname]]
+    }
+    return $def
+}
+
+
+# TBD - document and test
 proc tarray::table::sort {args} {
     set sort_opts {}
     set format_opts {}
@@ -186,6 +201,7 @@ namespace eval tarray {
             column column
             cnames cnames
             create create
+            definition definition
             delete delete
             fill fill
             get get
