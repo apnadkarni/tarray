@@ -24,11 +24,32 @@ proc tarray::table::create {def {init {}} {size 0}} {
 }
 
 # TBD - document and test
-proc tarray::table::definition {tab args} {
-    if {[llength $args]} {
-        set cnames $args
-    } else {
-        set cnames [cnames $args]
+proc tarray::table::create2 {colnames columns} {
+    if {[llength $colnames] != [llength $columns]} {
+        error "Column names differ in number from specified columns"
+    }
+    if {[llength $columns] != 0} {
+        foreach colname $colnames {
+            if {[info exists seen($colname)]} {
+                error "Duplicate column name '$colname'."
+            }
+            set seen($colname) 1
+        }
+        # Make sure all columns are the same length
+        set len [tarray::column::size [lindex $columns 0]]
+        foreach col [lrange $columns 1 end] {
+            if {[tarray::column::size $col] != len} {
+                error "Columns differ in length"
+            }
+        }
+    }
+    return [list tarray_table $colnames $columns]
+}
+
+# TBD - document and test
+proc tarray::table::definition {tab {cnames {}}} {
+    if {[llength $cnames] == 0} {
+        set cnames [cnames $tab]
     }
     set def {}
     foreach cname $cnames {
