@@ -389,8 +389,9 @@ oo::class create tarray::teval::Compiler {
                 set collist [join $collist { }]
                 switch -exact -- [lindex $indexexpr 0] {
                     "" {
+                        # T.(a,b) = ...
                         # No index -> whole columns to be operated
-                        return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue]"
+                        return "tarray::teval::rt::table_columns_replace $ident \[list $collist\] [my {*}$rvalue]"
                     }
                     Range {
                         return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
@@ -822,6 +823,28 @@ namespace eval tarray::teval::rt {
         # indexlist must be a int tarray or an int list else
         # vplace will throw an error.
         tarray::table::vplace -columns [list $colname] var $value $index
+        return
+    }
+
+    proc table_columns_replace {varname colnames value} {
+        # Replaces the specified columns. value must also be a table
+        upvar 1 $varname var
+        lassign [tarray::types $var $value] vartype valuetype
+        if {$vartype ne "table" && $valuetype ne "table"} {
+            error "Operand is not a tarray table"
+        }
+
+        if {[tarray::table::width $value] != [llength $colnames]} {
+            error "Number of source and target columns differ."
+        }
+
+        # TBD - check efficiency
+        set var2 $var;          # Don't want to modify var in case or errors
+        
+        foreach colname $colnames newcol [tarray::table::columns $value] {
+            tarray::table::vcolumn var2 $colname $newcol
+        }
+        set var $var2
         return
     }
 
