@@ -1,0 +1,212 @@
+# tarray table vcolumn
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test table-vcolumn-1.0 {
+        Get first column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab 0
+    } -result [samplecolumn any] -match column
+
+    test table-vcolumn-1.1 {
+        Get last column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab 3
+    } -result [samplecolumn wide] -match column
+
+    test table-vcolumn-1.2 {
+        Get middle column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab 1
+    } -result [samplecolumn boolean] -match column
+
+    test table-vcolumn-1.3 {
+        Get named column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab col3
+    } -result [samplecolumn wide] -match column
+
+    test table-vcolumn-2.0 {
+        Attempt to get out of bounds column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab  4
+    } -result "Column index '4' out of bounds." -returnCodes error
+
+    test table-vcolumn-2.1 {
+        Attempt to get negative index column from a table
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab -1
+    } -result "Column index '-1' out of bounds." -returnCodes error
+
+    test table-vcolumn-2.2 {
+        Attempt to get non-existent column name
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab  nosuchcol
+    } -result "No column with name 'nosuchcol'." -returnCodes error -match glob
+
+    test table-vcolumn-2.3 {
+        Verify end is treated as column name
+    } -body {
+        set tab [sampletable {any boolean int wide}]
+        tarray::table vcolumn tab end
+    } -result "No column with name 'end'." -returnCodes error
+
+    test table-vcolumn-2.4 {
+        Verify error when argument is not a table
+    } -body {
+        set tab ""
+        tarray::table vcolumn tab 0
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-vcolumn-2.5 {
+        Verify error when argument is not a column
+    } -body {
+        set tab [samplecolumn int]
+        tarray::table vcolumn tab 0
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-vcolumn-2.6 {
+        Verify error when variable does not exist
+    } -body {
+        tarray::table vcolumn nosuchvar 0
+    } -result {can't read "nosuchvar": no such variable} -returnCodes error
+
+    #
+    # Tests to set the value of a column
+
+    test table-vcolumn-set-1.0 {
+        Set first column any from a shared table
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn 0 [newcolumn any {abc def hij}]
+    } -result 0
+
+    test table-vcolumn-set-1.1 {
+        Set named column from a table
+    } -body {
+        set types {wide string}
+        vtab_change_and_verify $types {
+            {100 hundred} {200 "two hundred"} {300 "three hundred"}
+        } {
+            {100 century} {200 "double century"} {300 "triple century"}
+        } vcolumn col1 [newcolumn string {century "double century" "triple century"}]
+    } -result 0
+
+    test table-vcolumn-set-1.1.1 {
+        Set named column from an table
+    } -body {
+        set types {wide string}
+        vtab_change_and_verify $types {
+            {100 hundred} {200 "two hundred"} {300 "three hundred"}
+        } {
+            {100 century} {200 "double century"} {300 "triple century"}
+        } vcolumn col1 [newcolumn string {century "double century" "triple century"}]
+    } -result 0
+
+    test table-vcolumn-set-2.0 {
+        Attempt to set out of bounds column from a table
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn 3 [newcolumn any {abc def hij}]
+    } -result "Column index '3' out of bounds." -returnCodes error
+
+    test table-vcolumn-set-2.1 {
+        Attempt to set out of bounds column from a unshared table
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn -1 [newcolumn any {abc def hij}]
+    } -result "Column index '-1' out of bounds." -returnCodes error
+
+    test table-vcolumn-set-2.2 {
+        Attempt to set non-existent column name
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn nosuchcol [newcolumn any {abc def hij}]
+    } -result "No column with name 'nosuchcol'." -returnCodes error
+
+    test table-vcolumn-set-2.3 {
+        Attempt to set non-table
+    } -body {
+        set tab ""
+        tarray::table vcolumn tab [newcolumn any {abc def hij}]
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-vcolumn-set-2.4 {
+        Attempt to set column
+    } -body {
+        set tab [newcolumn any {abc def hij}]
+        tarray::table vcolumn tab [newcolumn any {abc def hij}]
+    } -result "Object is not a TArray table" -returnCodes error
+
+    test table-vcolumn-set-2.5 {
+        Attempt to set wrong type of column
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn 1 [newcolumn int {0 1 2}]
+    } -result "tarray types int and boolean are not compatible for attempted operation" -returnCodes error
+
+    test table-vcolumn-set-2.6 {
+        Attempt to set wrong length of column (shorter)
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn 0 [newcolumn any {x y}]
+    } -result "Columns have differing lengths." -returnCodes error
+
+    test table-vcolumn-set-2.6.1 {
+        Attempt to set wrong length of column (longer)
+    } -body {
+        set types {any boolean int}
+        vtab_change_and_verify $types {
+            {aaa 0 100} {bbb 1 200} {ccc 0 300}
+        } {
+            {abc 0 100} {def 1 200} {hij 0 300}
+        } vcolumn 0 [newcolumn any {w x y z}]
+    } -result "Columns have differing lengths." -returnCodes error
+
+    test table-vcolumn-set-2.7 {
+        Attempt to set empty table
+    } -body {
+        set types {}
+        vtab_change_and_verify $types {
+        } {
+        } vcolumn 0 [newcolumn any {x y z}]
+    } -result "Column index '0' out of bounds." -returnCodes error
+
+
+
+}
+::tcltest::cleanupTests
