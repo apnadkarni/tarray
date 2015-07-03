@@ -358,19 +358,18 @@ oo::class create tarray::teval::Compiler {
                         return "tarray::table::vcolumn $table $column [my {*}$rvalue]"
                     }
                     Range {
-                        return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::rt::table_column_range $table \[list $column\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::table_column_fill $ident \[list $column\] [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::table::vfill -columns \[list $column\] $table [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::tab_col_assign $ident \[list $column\] [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::table_column_assign $table \[list $column\] [my {*}$rvalue] [my {*}$indexexpr]"
                     }
-                    
                 }
             }
 
@@ -612,34 +611,47 @@ namespace eval tarray::teval::rt {
             error "Range lower limit $low is greater than upper limit $high."
         }
         if {$vartype eq "table"} {
+            set target_size [expr {$high - $low + 1}]
+
             # If the value is also a table, we assume each row in the value
             # is to be assigned successively to the target range. Otherwise
             # it is a value to be filled in the target range.
             if {$valuetype ne "table"} {
-                tarray::table::vfill var $value $low $high
-            } else {
-                # We have to use a put. Make sure the source range
-                # and target range match
-                set source_size [tarray::table::size $value]
-                set target_size [expr {$high - $low + 1}]
-                if {$target_size > $source_size} {
-                    error "Insufficient values specified for target range"
+                if {$valuetype ne ""} {
+                    error "Cannot assign a column to a table"
                 }
-                tarray::table::vput var [tarray::table::range $value 0 [expr {$high-$low}]] $low
+
+                # Try converting to a table first.
+                set table_def [tarray::table::definition $var]
+                if {[catch {
+                    set value [tarray::table::create $table_def $value]
+                }]} {
+                    # Try treating as a single row of the table
+                    tarray::table::vfill var $value $low $high
+                    return
+                }
             }
+
+            # We have to use a put. Make sure the source range
+            # and target range match
+            set source_size [tarray::table::size $value]
+            if {$target_size != $source_size} {
+                error "Source and target table sizes differ."
+            }
+            tarray::table::vput var $value $low
             return
         }
 
         # var is a column. Handle similarly
         if {$valuetype eq "table" || $valuetype eq ""} {
-            # Fill the value in all slots
+            # var is not a column. Fill the value in all slots
             tarray::column::vfill var $value $low $high
         } else {
             # We have to use a put. Make sure the source range
             # and target range match
             set source_size [tarray::column::size $value]
             set target_size [expr {$high - $low + 1}]
-            if {$target_size > $source_size} {
+            if {$target_size != $source_size} {
                 error "Insufficient values specified for range %low-$high in target variable $varname"
             }
             tarray::column::vput var [tarray::column::range $value 0 [expr {$high-$low}]] $low
@@ -674,23 +686,27 @@ namespace eval tarray::teval::rt {
 
         if {$valuetype eq $vartype} {
             if {$vartype eq "table"} {
-                return [tarray::table::vplace var $value $index]
+                tarray::table::vplace var $value $index
             } else {
-                return [tarray::column::vplace var $value $index]
+                tarray::column::vplace var $value $index
             }
-        }            
-
-        # Either value is not a tarray or is a tarray of the wrong type.
-        # In the latter case, we simply treat it as a single value to
-        # fill into the target (possibly raising an error in case incompatible).
-        # In the former case, there is actually ambiguity since value may
-        # be a list compatible with the target array. For now we 
-        # always treat it as a single value to be filled into target.
-        if {$vartype eq "table"} {
-            return [tarray::table::vfill var $value $index]
         } else {
-            return [tarray::column::vfill var $value $index]
+
+            # Either value is not a tarray or is a tarray of the wrong
+            # type.  In the latter case, we simply treat it as a
+            # single value to fill into the target (possibly raising
+            # an error in case incompatible).  In the former case,
+            # there is actually ambiguity since value may be a list
+            # compatible with the target array. For now we always
+            # treat it as a single value to be filled into target.
+
+            if {$vartype eq "table"} {
+                tarray::table::vfill var $value $index
+            } else {
+                tarray::column::vfill var $value $index
+            }
         }
+        return
     }
 
     proc col== {col val} {
