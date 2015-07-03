@@ -58,6 +58,10 @@ proc tarray::table::definition {tab {cnames {}}} {
     return $def
 }
 
+# TBD - document and test
+proc tarray::table::columns {tab} {
+    return [lindex $tab 2]
+}
 
 # TBD - document and test
 proc tarray::table::sort {args} {
