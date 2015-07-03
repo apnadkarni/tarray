@@ -610,8 +610,8 @@ namespace eval tarray::teval::rt {
         if {$low > $high} {
             error "Range lower limit $low is greater than upper limit $high."
         }
+        set target_size [expr {$high - $low + 1}]
         if {$vartype eq "table"} {
-            set target_size [expr {$high - $low + 1}]
 
             # If the value is also a table, we assume each row in the value
             # is to be assigned successively to the target range. Otherwise
@@ -636,27 +636,38 @@ namespace eval tarray::teval::rt {
             # and target range match
             set source_size [tarray::table::size $value]
             if {$target_size != $source_size} {
-                error "Source and target table sizes differ."
+                error "Source size $source_size differs from target table range $low:$high."
             }
             tarray::table::vput var $value $low
             return
         }
 
-        # var is a column. Handle similarly
-        if {$valuetype eq "table" || $valuetype eq ""} {
-            # var is not a column. Fill the value in all slots
+        # vartype is a column type
+        if {$valuetype eq "table"} {
+            # No possibility of conversion. But target might be
+            # of type any in which case we have to fill the range
             tarray::column::vfill var $value $low $high
+            return
         } else {
-            # We have to use a put. Make sure the source range
+            if {$valuetype eq ""} {
+                # Try and convert to column of appropriate type
+                if {[catch {
+                    set value [tarray::column::create [tarray::column::type $var] $value]}]} {
+                    # Try treating as a single element of column
+                    tarray::column::vfill var $value $low $high
+                    return
+                }
+            }
+
+            # col->col We have to use a put. Make sure the source range
             # and target range match
             set source_size [tarray::column::size $value]
-            set target_size [expr {$high - $low + 1}]
             if {$target_size != $source_size} {
-                error "Insufficient values specified for range %low-$high in target variable $varname"
+                error "Source size $source_size differs from target column range $low:$high."
             }
-            tarray::column::vput var [tarray::column::range $value 0 [expr {$high-$low}]] $low
+            tarray::column::vput var $value $low
+            return
         }
-        return
     }
 
     proc assign {varname value index} {
