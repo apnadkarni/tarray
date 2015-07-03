@@ -334,7 +334,7 @@ oo::class create tarray::teval::Compiler {
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::assign_index $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::assign_element $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
@@ -345,7 +345,7 @@ oo::class create tarray::teval::Compiler {
                 }
             }
             LValueTableColumn {
-                # Assigning to a single column.
+                # Assigning to a single column within a table
                 lassign $lvalue type table column indexexpr
                 if {[lindex $column 0] eq "Identifier"} {
                     set column [lindex $column 1]
@@ -354,21 +354,24 @@ oo::class create tarray::teval::Compiler {
                 }
                 switch -exact -- [lindex $indexexpr 0] {
                     "" {
+                        # T.c = ....
                         # No index -> entire column to be operated
                         return "tarray::table::vcolumn $table $column [my {*}$rvalue]"
                     }
                     Range {
-                        return "tarray::teval::rt::table_column_range $table \[list $column\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        # T.c[4:j] = ...
+                        return "tarray::teval::rt::table_column_assign_range $table $column [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
-                        # Single numeric index
+                        # Single numeric literal index
+                        # T.c[0] = ...
                         return "tarray::table::vfill -columns \[list $column\] $table [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::table_column_assign $table \[list $column\] [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::table_column_assign $table $column [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
@@ -581,7 +584,7 @@ namespace eval tarray::teval::rt {
         return $r
     }
 
-    proc assign_index {varname value index} {
+    proc assign_element {varname value index} {
         # Assign a value to a single column or table element
         upvar 1 $varname var
         return [switch -exact -- [tarray::types $var] {
@@ -598,8 +601,7 @@ namespace eval tarray::teval::rt {
         
         upvar 1 $varname var
 
-        lassign [tarray::types $var] vartype
-        lassign [tarray::types $value] valuetype
+        lassign [tarray::types $var $value] vartype valuetype
         
         if {$vartype eq ""} {
             error "$varname is not a column or table."
@@ -719,6 +721,163 @@ namespace eval tarray::teval::rt {
         }
         return
     }
+
+    proc table_column_assign_range {varname colname value low high} {
+        # varname is the name of a table variable (must exist)
+        # colname is the name of the column to assign to
+        # value is the value to be assigned
+        # [low high] is the range to assign to
+        
+        upvar 1 $varname var
+
+        lassign [tarray::types $var $value] vartype valuetype
+        
+        if {$vartype ne "table"} {
+            error "$varname is not a table."
+        }
+
+        # TBD - need to handle "end" in range specification
+        
+        if {$low > $high} {
+            error "Range lower limit $low is greater than upper limit $high."
+        }
+        set target_size [expr {$high - $low + 1}]
+
+        # If the value is table, we assume each row in the value
+        # is to be assigned successively to the target range. Otherwise
+        # it is a value to be filled in the target range.
+        if {$valuetype ne "table"} {
+            if {$valuetype ne ""} {
+                # If the specified value is a column, convert it to
+                # a table
+                set value [tarray::table::create2 [list $colname] [list $value]]
+            } else {
+                # Plain Tcl value, Try converting to a table first.
+                set table_def [tarray::table::definition $var [list $colname]]
+                if {[catch {
+                    set value [tarray::table::create $table_def $value]
+                }]} {
+                    # value cannot be treated as a column or rowvalues
+                    # Try treating as a single cell of the table
+                    tarray::table::vfill -columns [list $colname] var $value $low $high
+                    return
+                }
+            }
+        }
+
+        # We were passed a value that was a table or could be converted to one
+        # We have to use a put. Make sure the source range
+        # and target range match
+        set source_size [tarray::table::size $value]
+        if {$target_size != $source_size} {
+            error "Source size $source_size differs from target table range $low:$high."
+        }
+        tarray::table::vput -columns [list $colname] var $value $low
+        return
+    }
+
+    proc table_column_assign {varname colname value index} {
+        # varname is the name of a table variable (must exist)
+        # colname is the column name
+        # value is the value to be assigned
+        # index is a general expression
+        #
+        #
+        # If the above is not true, value is filled in all locations
+        # specified by the index. If its type is not compatible with
+        # the target array, an error is raised by vfill.
+        #
+        # index might be a single integer value, a list of integers or
+        # something else. For the first two, vplace/vfill do the right
+        # thing. For others, they will raise an error.
+        
+        upvar 1 $varname var
+        lassign [tarray::types $var $value] vartype valuetype
+        if {$vartype ne "table"} {
+            error "$varname is not a table."
+        }
+
+        if {$valuetype ne "table"} {
+            if {$valuetype ne ""} {
+                # If the specified value is a column, convert it to
+                # a table
+                set value [tarray::table::create2 [list $colname] [list $value]]
+            } else {
+                # Plain Tcl value, Try converting to a table first.
+                set table_def [tarray::table::definition $var [list $colname]]
+                if {[catch {
+                    set value [tarray::table::create $table_def $value]
+                }]} {
+                    # value cannot be treated as a column or rowvalues
+                    # Try treating as a single cell of the table
+                    tarray::table::vfill -columns [list $colname] var $value $index
+                    return
+                }
+            }
+        }
+
+
+        # If value is a table we use vplace to update the target array.
+        # In this case, the table dimensions and type must match and
+        # indexlist must be a int tarray or an int list else
+        # vplace will throw an error.
+        tarray::table::vplace -columns [list $colname] var $value $index
+        return
+    }
+
+    proc table_columns_assign_range {varname colnames value low high} {
+        # varname is the name of a table variable (must exist)
+        # colnames is the list of column names to assign to
+        # value is the value to be assigned
+        # [low high] is the range to assign to
+        
+        upvar 1 $varname var
+
+        lassign [tarray::types $var] vartype
+        lassign [tarray::types $value] valuetype
+        
+        if {$vartype ne "table"} {
+            error "$varname is not a table."
+        }
+
+        # TBD - need to handle "end" in range specification
+        
+        if {$low > $high} {
+            error "Range lower limit $low is greater than upper limit $high."
+        }
+        set target_size [expr {$high - $low + 1}]
+
+        # If the value is table, we assume each row in the value
+        # is to be assigned successively to the target range. Otherwise
+        # it is a value to be filled in the target range.
+        if {$valuetype ne "table"} {
+            if {$valuetype ne ""} {
+                error "Cannot assign a column to a table"
+            }
+
+            # Plain Tcl value, Try converting to a table first.
+            set table_def [tarray::table::definition $var $colnames]
+            if {[catch {
+                set value [tarray::table::create $table_def $value]
+            }]} {
+                # value cannot be treated as a table or rowvalues
+                # Try treating as a single row of the table
+                tarray::table::vfill -columns $colnames var $value $low $high
+                return
+            }
+        }
+
+        # We were passed a value that was a table or could be converted to one
+        # We have to use a put. Make sure the source range
+        # and target range match
+        set source_size [tarray::table::size $value]
+        if {$target_size != $source_size} {
+            error "Source size $source_size differs from target table range $low:$high."
+        }
+        tarray::table::vput -columns $colnames var $value $low
+        return
+    }
+
 
     proc col== {col val} {
         return [tarray::column::search -all -eq $col $val]
