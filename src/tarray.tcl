@@ -249,6 +249,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column table tscript
+    namespace export column table tscript print
 }
 
