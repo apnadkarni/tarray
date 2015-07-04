@@ -69,7 +69,9 @@ void: Char   <- BackSlash ( Quote
 void: Quote <- '"';
 void: Backslash <- '\\';
 
-void: Separator <- EOL / ';';
+void: Separator <- Comment? EOL / ';';
+void:   Comment      <- '#' (!EOL .)* ;
+void: EOL <- '\n';
 
 leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
 

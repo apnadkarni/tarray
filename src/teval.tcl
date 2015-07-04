@@ -295,7 +295,10 @@ oo::class create tarray::teval::Compiler {
 
         set code {}
         foreach stmt $ir {
-            append code [my {*}$stmt]\n
+            # Disregard empty nodes (blank lines)
+            if {[llength $stmt] != 0} {
+                append code [my {*}$stmt]\n
+            }
         }
         
         return [set Compilations($script) $code]
