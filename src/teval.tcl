@@ -663,9 +663,14 @@ namespace eval tarray::teval::rt {
             # and target range match
             set source_size [tarray::column::size $value]
             if {$target_size != $source_size} {
-                error "Source size $source_size differs from target column range $low:$high."
+                if {$source_size == 1} {
+                    return [tarray::column::vfill var [tarray::column::index $value 0] $low $high]
+                } else {
+                    error "Source size $source_size differs from target column range $low:$high."
+                }
+            } else {
+                return [tarray::column::vput var $value $low]
             }
-            return [tarray::column::vput var $value $low]
         }
     }
 
@@ -775,26 +780,45 @@ namespace eval tarray::teval::rt {
         # colname is the column name
         # value is the value to be assigned
         # index is a general expression, might be a single integer value,
-        # a list of integers or
-        # something else. For the first two, vplace/vfill do the right
-        # thing. For others, they will raise an error.
+        # an integer column, a list of integers or
+        # something else.
         
         upvar 1 $varname var
-        lassign [tarray::types $var $value] vartype valuetype
+        lassign [tarray::types $var $value $index] vartype valuetype indextype
         if {$vartype ne "table"} {
             error "$varname is not a table."
         }
 
+        if {$indextype ne "" && $indextype ne "int"} {
+            error "Invalid type for index. Must be an integer, integer list or column."
+        }
+
         if {$valuetype ne "table"} {
+            if {$indextype eq ""} {
+                set index [tarray::column create int $index]
+                set indextype int
+            }
             if {$valuetype ne ""} {
-                # If the specified value is a column, convert it to
-                # a table
+                # If the specified value is a column, convert it to a table
                 set value [tarray::table::create2 [list $colname] [list $value]]
             } else {
-                # Plain Tcl value, Try converting to a table first.
+                # Plain Tcl value. 
+                # Try converting to a table first.
                 set table_def [tarray::table::definition $var [list $colname]]
                 if {[catch {
-                    set value [tarray::table::create $table_def $value]
+                    set value2 [tarray::table::create $table_def $value]
+                    # Successful conversion. Now check if the size
+                    # of the value table is equal to the size of the index
+                    # list. If not, then we cannot use vplace below.
+                    # Only possibility is that it is a single element to
+                    # be filled.
+                    set size [tarray::table::size $value2]
+                    if {$size != [tarray::column::size $index] && $size == 1} {
+                        return [tarray::table::vfill -columns [list $colname] var $value $index]
+                    }
+                    # All is hunky dory or there is an type error. Either way
+                    # let the vplace deal with it. We've done our best
+                    set value $value2                    
                 }]} {
                     # value cannot be treated as a column or rowvalues
                     # Try treating as a single cell of the table
