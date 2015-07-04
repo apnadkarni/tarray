@@ -681,24 +681,14 @@ namespace eval tarray::teval::rt {
         # value is the value to be assigned
         # index is a general expression
         #
-        # If value is a tarray of the same type as target variable,
-        # we use place to update the target array. In this case
-        # indexlist must be a int tarray or an int list else
-        # vplace will throw an error.
-        #
-        # If the above is not true, value is filled in all locations
-        # specified by the index. If its type is not compatible with
-        # the target array, an error is raised by vfill.
-        #
-        # index might be a single integer value, a list of integers or
-        # something else. For the first two, vplace/vfill do the right
-        # thing. For others, they will raise an error.
 
-        lassign [tarray::types $var $value] vartype valuetype
+        lassign [tarray::types $var $value index] vartype valuetype indextype
         if {$vartype eq ""} {
             error "$varname is not a column or table."
         }
-
+        if {$indextype ne "" && $indextype != "int"} {
+            error "Index must be a integer, an integer list, or an integer column"
+        }
         if {$valuetype eq $vartype} {
             if {$vartype eq "table"} {
                 return [tarray::table::vplace var $value $index]
@@ -715,10 +705,31 @@ namespace eval tarray::teval::rt {
             # compatible with the target array. For now we always
             # treat it as a single value to be filled into target.
 
+            if {$indextype eq ""} {
+                set index [tarray::column create int $index]
+                set indextype int
+            }
+
             if {$vartype eq "table"} {
                 return [tarray::table::vfill var $value $index]
             } else {
-                return [tarray::column::vfill var $value $index]
+                if {$valuetype eq "table"} {
+                    error "Attempt to assign a table to a column"
+                }
+                if {$valuetype eq ""} {
+                    # Will error out if the wrong type
+                    set value [tarray::column::create $vartype $valuetype]
+                }
+                set nvalues [tarray::column::size $value]
+                if {[tarray::column::size $index] == $nvalues} {
+                    return [tarray::column::vplace var $value $index]
+                }
+                # Size mismatch. If size of value is 1, then use fill
+                if {$nvalues == 1} {
+                    return [tarray::column::vfill var [tarray::column::index $value 0] $index]
+                } else {
+                    error "Target size [tarray::column::size $index] does not match source size $nvalues"
+                }
             }
         }
     }
@@ -1123,8 +1134,9 @@ namespace eval tarray::teval::rt {
     }
 
     proc selector {a selexpr} {
-        lassign [tarray::types $a] atype
-        if {[lindex [tarray::types $selexpr] 0] eq ""} {
+        lassign [tarray::types $a $selexpr] atype seltype
+
+        if {$seltype eq "" && [string is integer -strict $selexpr]} {
             # Not a column, treat as an index
             if {$atype eq "table"} {
                 return [tarray::table::index $a $selexpr]
@@ -1189,4 +1201,10 @@ tarray::teval::Compiler create tc
 
 namespace path tarray
 set I [column create int {10 20 30 40 50}]
+set J [column create int {100 200 300 400 500}]
 set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
+tscript {K = I}
+tscript {K[0:1] = J[0:1]}
+tscript {K[2:4] = 99}
+tscript {K[{3,4}] = I[{4,3}]}
+
