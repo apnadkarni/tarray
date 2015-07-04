@@ -377,7 +377,7 @@ oo::class create tarray::teval::Compiler {
             }
 
             LValueTableColumns {
-                lassign $lvalue type ident columns indexexpr
+                lassign $lvalue type table columns indexexpr
                 set collist {}
                 foreach column $columns {
                     if {[lindex $column 0] eq "Identifier"} {
@@ -391,14 +391,15 @@ oo::class create tarray::teval::Compiler {
                     "" {
                         # T.(a,b) = ...
                         # No index -> whole columns to be operated
-                        return "tarray::teval::rt::table_columns_replace $ident \[list $collist\] [my {*}$rvalue]"
+                        return "tarray::teval::rt::table_columns_replace $table \[list $collist\] [my {*}$rvalue]"
                     }
                     Range {
-                        return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::rt::table_columns_assign_range $table \[list $collist\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::table_column_fill $ident \[list $collist\] [my {*}$rvalue] [my {*}$indexexpr]"
+                        # T.(a,b)[0] = ...
+                        return "tarray::table::vfill -columns \[list $collist\] $table [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
@@ -588,7 +589,7 @@ namespace eval tarray::teval::rt {
     proc assign_element {varname value index} {
         # Assign a value to a single column or table element
         upvar 1 $varname var
-        return [switch -exact -- [tarray::types $var] {
+        return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vfill var $value $index }
             "" { error "$varname is not a column or table." }
             default { tarray::column::vfill var $value $index }
@@ -856,8 +857,7 @@ namespace eval tarray::teval::rt {
         
         upvar 1 $varname var
 
-        lassign [tarray::types $var] vartype
-        lassign [tarray::types $value] valuetype
+        lassign [tarray::types $var $value] vartype valuetype
         
         if {$vartype ne "table"} {
             error "$varname is not a table."
@@ -1002,7 +1002,7 @@ namespace eval tarray::teval::rt {
     }
 
     proc unary {op a} {
-        if {[tarray::types $a] eq ""} {
+        if {[lindex [tarray::types $a] 0] eq ""} {
             return [expr "$op\$a"]
         } else {
             return [tarray::column::unary $op $a]
@@ -1083,7 +1083,7 @@ namespace eval tarray::teval::rt {
 
     proc selector {a selexpr} {
         lassign [tarray::types $a] atype
-        if {[tarray::types $selexpr] eq ""} {
+        if {[lindex [tarray::types $selexpr] 0] eq ""} {
             # Not a column, treat as an index
             if {$atype eq "table"} {
                 return [tarray::table::index $a $selexpr]
@@ -1117,7 +1117,7 @@ namespace eval tarray::teval::rt {
     }
 
     proc size {tab_or_col} {
-        if {[tarray::types $tab_or_col] eq "table"} {
+        if {[lindex [tarray::types $tab_or_col] 0] eq "table"} {
             return [tarray::table::size [selector_context]]
         } else {
             return [tarray::column::size [selector_context]]
@@ -1125,7 +1125,7 @@ namespace eval tarray::teval::rt {
     }
 
     proc Index {val index} {
-        return [switch -exact -- [tarray::types $val] {
+        return [switch -exact -- [lindex [tarray::types $val] 0] {
             table {
                 tarray::table::index $val $index
             }
