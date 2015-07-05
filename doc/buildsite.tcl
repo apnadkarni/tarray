@@ -2,7 +2,7 @@
 
 set target output
 set adocgen_files {
-    introduction guide column table build
+    introduction guide column table tscript build
 }
 
 # file delete -force $target

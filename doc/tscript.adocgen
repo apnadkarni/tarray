@@ -1,0 +1,296 @@
+text {
+    ((= chap_tscript "The TScript Language"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+    == Introduction
+
+    The ((^ chap_intro `tarray`)) Tcl extension implements _typed arrays_,
+    which stores data in native format and provides efficient memory
+    utilization and parallelized processing. Columns store elements
+    of a single type, while tables, similar to data frames in the R
+    language, are a ordered sequence of named columns. The `tarray`
+    extension provides the corresponding
+    ((^ chap_column_ref `column`)) and ((^ chap_table_ref `table`))
+    Tcl commands for their manipulation.
+
+    [TIP]
+    This document assumes the reader is familiar with typed arrays.
+    If not, please glance through the ((^ chap_guide)) before continuing.
+    
+    The TScript language is an alternative for 
+    working with typed array columns and tables. It provides 
+    
+    * convenient succint syntax
+    * vector operations
+    * search operators
+    * flexible indexing
+
+    As an example, the statement
+} syntax {
+    Emp.Salary[Emp.Salary < 50000 && Emp.Age > 35] = 50000
+} text {
+    raises the salary of all underpaid older employees to a minimum level.
+
+    TScript is embedded in Tcl and is executed through the `tscript`
+    command. Tcl and TScript can be freely invoked from the other.
+    However, TScript is syntactically completely different from Tcl.
+}
+
+text {
+    == Running a TScript program
+
+    TScript is part of the `tarray` package which is loaded as
+} shell {
+    package require tarray
+    namespace path tarray;      # Permits us to use the column and table commands without qualification
+} eval {
+    source ../src/teval.tcl
+} text {
+    TScript is invoked from Tcl with the `tscript` command. For example,
+    the above statement would be invoked from Tcl as 
+} syntax {
+    tscript {
+        Emp.Salary[Emp.Salary < 50000 && Emp.Age > 35] = 50000
+    }
+} text {
+    The `tscript` command itself returns the result of the last statement
+    executed.
+}
+
+text {
+    For demonstrative purposes, this document makes use of the following
+    sample data. A column signifying the amount of rainfall during a 
+    particular year
+} shell {
+    set Rainfall [column create double {
+        11.0 23.3 18.4 14.7 70.3 180.5 210.2 205.8 126.4 64.9 33.1 19.2
+    }]
+} text {
+    We also use a table containing a simple employee data base:
+} shell {
+    set Emps [table create {
+        Name string Salary uint Age uint Location string
+    } {
+        {Sally      70000       32       Boston}
+        {Tom        65000       35       Boston}
+        {Dick       80000       40       {New York}}
+        {Harry      45000       37       {New York}}
+        {Amanda     48000       35       Seattle}
+    }]
+} text {
+    For readability purposes, we will often make use of the `tarray::print`
+    command.
+} shell {
+    print $Emps
+}
+
+text {
+    ((== sect_basic_tscript_syntax "Basic TScript syntax"))
+
+    The basic syntax of TScript is closer to the C family of languages
+    than to Tcl.
+
+    === Statements
+
+    Like Tcl, a TScript script is a sequence of statements separated
+    by either a newline character or a semicolon.
+} shell {
+    tscript {
+        x = 2
+        y = 3 ; z = x*y
+    }
+} text {
+    A statement may be an assignment as above, or simply an expression:
+} shell {
+    tscript {10*x + y}
+}
+
+text {
+    === Comments
+
+    Comments are of the same form as in Tcl - they start with the 
+    `#` character and extend to the end of the line. They may appear
+    in any position where a statement begins.
+}
+
+text {
+    === Variables
+
+    As seen above, variables are syntactically different from Tcl:
+
+    * There is no preceding `$` as in Tcl for accessing a variable's value.
+    * Variable names are restricted to starting with an alphabetic
+    character and may only contain alphanumeric characters, `_` and
+    `:`.
+
+    The variables themselves are standard Tcl variables and follow
+    the same name resolution rules.
+} shell {
+    set v "This is a variable"
+    tscript { v = "Modified from tscript" }
+    puts $v
+}
+
+text {    
+    === Literals
+
+    Numeric literals are as in Tcl and have the same syntax as in Tcl.
+    For example,
+} shell {
+    tscript {
+        r = 2.0e10
+        big = 123455678987654321000000000; # Tcl bignum
+    }
+} text {
+
+    String literals are delimited by double quotes and follow
+    the backslash substitution rules as in Tcl.
+    However there some differences.
+
+    A plain unquoted string as in Tcl is treated as a variable name
+    in TScript.
+} errorok 1 shell {
+    set s unquoted
+    tscript {s = unquoted}
+} text {
+    Also, unlike in Tcl double quoted strings, there is no
+    interpolattion.
+} shell {
+    set s "Tcl does [set x] interpolation"
+    tscript { s = "Tcl does [set x] interpolation" }
+} text {
+    Also note that braces have different semantics in TScript and
+    cannot be used to delimit strings.
+}
+
+text {
+    === Lists
+} shell {
+    tscript {list(x,y,z)}
+    tscript {
+        {x, "a string", y}
+    }
+}
+
+text {
+    === Invoking commands
+
+    Invocation of commands takes a form similar to function calls in C. 
+    Function parameters are wrapped in parenthesis and separated by commas.
+
+} shell {
+    tscript {hex = format("0x%x", 100)}
+} text {
+    There is no difference between invoking commands implemented in Tcl or
+    in TScript via the `tproc` procedure.
+}
+
+text {
+    === Operators
+
+    Operators work with two kinds of operands
+
+    * columns and table, and
+    * standard Tcl values
+
+    We only discuss the latter here. Operations on columns and tables
+    are discussed later.
+
+    Operator precedence follows that of Tcl.
+
+    ==== Arithmetic operators
+
+    The arithmetic operators supported by TScript are based on those in
+    Tcl. 
+
+    * The unary operators include `-`, `+`, `~` and `!`.
+    * The binary operators include `+`, `-`, `*`, `/`, `**`, `&`, `|`, `^`
+
+    ==== Relational operators
+    
+    The relational operators include the `==`, `!=`, `<`, `<=`, `>`, `>=`
+    operators that are present in Tcl.
+
+    In addition, they include the additional operators related
+    to string and pattern matching that are shown in 
+    ((^ tab_tscript_match_ops)).
+    
+    ((.Table tab_tscript_match_ops "TScript arithmetic operators"))
+    [cols="10,30,60", options="headers"]
+    |===
+    |Operator
+    |Syntax
+    |Description
+
+    |`=^`
+    |`_STRINGA_ =^ _STRINGB_`
+    |Returns 1 if the two strings are equal in case-insensitive mode, else 0.
+
+    |`!^`
+    |`_STRINGA_ =^ _STRINGB_`
+    |Returns 1 if the two strings are not equal in case-insensitive mode, else 0.
+
+    |`=~`
+    |`_STRING =~ REGEXP_`
+    |Returns 1 if the string matches the specified regular expression, else 0.
+
+    |`=~^`
+    |`_STRING =~^ REGEXP_`
+    |Returns 1 if the string matches the specified regular expression, else 0.
+    The matching is done in case-insensitive mode.
+
+    |`!~`
+    |`_STRING !~ REGEXP_`
+    |Returns 1 if the string does not match the specified regular expression,
+    else 0.
+
+    |`!~^`
+    |`_STRING !~^ REGEXP_`
+    |Returns 1 if the string does not match the specified regular expression,
+    else 0. The matching is done in case-insensitive mode.
+
+    |`=*`
+    |`_STRING =* PATTERN_`
+    |Returns 1 if the string matches the specified pattern, else 0.
+    The matching is done as for the Tcl `string match` command.
+
+    |`=*^`
+    |`_STRING =*^ PATTERN_`
+    |Returns 1 if the string matches the specified pattern, else 0.
+    The matching is done as for the `string match` command
+    in case-insensitive mode.
+
+    |`!*`
+    |`_STRING !* PATTERN_`
+    |Returns 1 if the string does not match the specified pattern,
+    else 0. The matching is done as for the Tcl `string match` command.
+
+    |`!*^`
+    |`_STRING !*^ PATTERN_`
+    |Returns 1 if the string does not match the specified pattern,
+    else 0. The matching is done as for the `string match` command
+    in case-insensitive mode.
+
+    |===
+
+    Note that for the regular expression and pattern match operators,
+    the order of the operands is significant - the first indicates 
+    the string being matched and the second is the pattern or regular
+    expression.
+
+    [TIP]
+    In the matching operators shown above, the first character,
+    `=` or `!`, indicates the sense of the match, the second character
+    sepcifies the operation `~` or `*` and the optional third
+    character `^`, if present, indicates a case-sensitive match.
+    
+    ==== Logical operators
+
+    The logical operators include `&&` and `||` as in Tcl.
+    _However, unlike Tcl these operators do not short-circuit the evaluation
+    of their operands._
+}
