@@ -9,7 +9,7 @@ package require fileutil
 # Next line because the generated code has a return which
 # causes script to exit if not caught
 switch [catch {
-    eval [pt::pgen peg [fileutil::cat teval.peg] oo -class tarray::teval::ParserBase -package tarray::teval -version 0.1]
+    eval [pt::pgen peg [fileutil::cat ../src/teval.peg] oo -class tarray::teval::ParserBase -package tarray::teval -version 0.1]
 } msg opts] {
     0 - 2 {}
     default {
@@ -1198,16 +1198,16 @@ namespace eval tarray::teval::rt {
 
 
 
-tarray::teval::Parser create tp
-tarray::teval::Compiler create tc
 
-
-namespace path tarray
-set I [column create int {10 20 30 40 50}]
-set J [column create int {100 200 300 400 500}]
-set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
-tscript {K = I}
-tscript {K[0:1] = J[0:1]}
-tscript {K[2:4] = 99}
-tscript {K[{3,4}] = I[{4,3}]}
-
+if {0} {
+    tarray::teval::Parser create tp
+    tarray::teval::Compiler create tc
+    namespace path tarray
+    set I [column create int {10 20 30 40 50}]
+    set J [column create int {100 200 300 400 500}]
+    set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
+    tscript {K = I}
+    tscript {K[0:1] = J[0:1]}
+    tscript {K[2:4] = 99}
+    tscript {K[{3,4}] = I[{4,3}]}
+}
