@@ -210,7 +210,7 @@ text {
     must not be included more than once. The returned table contains columns
     in the same order as _COLUMNLIST_.
 
-    ((cmddef table_column "table vcolumn _TABLEVAR_ _COLSPEC_ ?_NEWCOL_?"))
+    ((cmddef table_vcolumn "table vcolumn _TABLEVAR_ _COLSPEC_ ?_NEWCOL_?"))
 
     Returns or sets a specified column in the table contained
     in the variable _TABLEVAR_.

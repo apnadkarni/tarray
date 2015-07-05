@@ -169,11 +169,21 @@ text {
 
 text {
     === Lists
+
+    Braces in TScript are used to construct lists, similar to the
+    `list` command in Tcl. _Note this differs from the use of braces in Tcl._
 } shell {
-    tscript {list(x,y,z)}
     tscript {
-        {x, "a string", y}
+        l = {"a string", x, tcl::clock::seconds(), y+z}
     }
+} text {
+    Note the list elements are separated using commas and each
+    element a literal, a variable, a function call or a general expression.
+
+    As an aside, we could also have invoked the Tcl `list` command
+    as a function to construct a list.
+} shell {
+    tscript {l = list(x,"a string",y+z)}
 }
 
 text {
@@ -183,10 +193,12 @@ text {
     Function parameters are wrapped in parenthesis and separated by commas.
 
 } shell {
-    tscript {hex = format("0x%x", 100)}
+    tscript {hex = format("0x%x", 100)}; # Invokes the Tcl `format` command
 } text {
     There is no difference between invoking commands implemented in Tcl or
     in TScript via the `tproc` procedure.
+} tbd {
+    caveats about pass by reference. e.g. incr(x) does not do what you think
 }
 
 text {
@@ -212,7 +224,7 @@ text {
 
     ==== Relational operators
     
-    The relational operators include the `==`, `!=`, `<`, `<=`, `>`, `>=`
+    The relational operators include the `==`, `!=`, `<`, +<=+, `>`, `>=`
     operators that are present in Tcl.
 
     In addition, they include the additional operators related
@@ -293,4 +305,112 @@ text {
     The logical operators include `&&` and `||` as in Tcl.
     _However, unlike Tcl these operators do not short-circuit the evaluation
     of their operands._
+}
+
+text {
+    == Columns and tables
+
+    We now come to the primary reason for the existence of TScript -
+    convenient operation on columns and tables.
+
+    === Indexing
+
+    Much of the convenience of TScript in dealing with columns and tables
+    stems from its variety of indexing options. Indices may be simple
+    numerics, ranges, lists or selectors based on boolean expressions.
+    
+
+    TScript has two post-fix indexing operators: `[]` and `[[]]`. Indexing
+    a column or an array using the former returns the value(s) specified
+    by the index. This is the traditional notion of array indexes
+    in most programming languages.
+    On the other hand, indexing using the `[[]]` operator
+    returns the actual index position themselves. The use of this
+    operator will be discussed later. For now we will focus on `[]`.
+    
+
+    ==== Integers
+
+    In the simplest case, an index is simply a integer value, specified
+    as a literal or an expression that results in a integer value. As
+    the operand of the `[]` operator, it retrieves the value of the element
+    at that position.
+} shell {
+    set i 1
+    tscript { Rainfall[0] }
+    tscript { Emps[i] }
+} text {
+    Note that the result is a ''scalar'', the value of the element at
+    that position, not a column or table containing that element.
+} text {
+    ==== Index ranges
+    
+    Alternatively, the index may specify an _index range_
+    in the column or table.
+    So, the rainfall for the first quarter can be retrieved by
+} shell {
+    tscript {q1_rainfall = Rainfall[0:2]}
+} text {
+    In this case the index operator returns a column (or table)
+    containing the specified elements. Thus notice the difference
+    between
+} shell {
+    tscript { Rainfall[0] }
+    tscript { Rainfall[0:0] }
+} text {
+    though they both specify a single element.
+
+    Of course, the range can be specified via variables as well.
+} shell {
+    tscript {
+        i = 0
+        j = 2
+        print(Emps[i:j])
+    }
+} text {    
+    ==== Index list
+
+    The third form of an index is an _index list_. Here you can
+    specify a list of integers or a column of type `int` that
+    contain the numeric indices of interest.
+} shell {
+    tscript {
+        i = 10
+        Rainfall[{9, i, 11}] ; # Specifies a Tcl list of indices
+    }
+} text {
+    We could have specified a column of type `int` instead.
+} shell {
+    set indices [column create int {11 10 9}]
+    tscript {Rainfall[indices]}
+} text {
+    Notice that an index list (or column) does not need to contain
+    the indices in order and may even contain duplicate indices.
+    The values returned are in the order of specified indices.
+
+    Again, make a note of the difference with respect to a simple
+    numeric index.
+} shell {
+    tscript { Rainfall[0] }
+} text {
+    versus
+} shell {
+    set indices [column create int {0}]
+    tscript { Rainfall[indices] }
+} text {
+
+    ==== Selectors
+
+    ==== [] versus [[]]
+
+
+    === Column Operators
+
+    ==== Slicing Columns from tables
+    T.a versus T.(a, b) Illustrate using print
+
+    === Columns and tables as target of assignment
+    T.c
+    
+
 }
