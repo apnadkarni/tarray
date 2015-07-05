@@ -76,7 +76,7 @@ text {
         Name string Salary uint Age uint Location string
     } {
         {Sally      70000       32       Boston}
-        {Tom        65000       35       Boston}
+        {Tom        65000       36       Boston}
         {Dick       80000       40       {New York}}
         {Harry      45000       37       {New York}}
         {Amanda     48000       35       Seattle}
@@ -389,22 +389,88 @@ text {
     The values returned are in the order of specified indices.
 
     Again, make a note of the difference with respect to a simple
-    numeric index.
+    numeric index
 } shell {
     tscript { Rainfall[0] }
 } text {
-    versus
+    which returns the element, versus
 } shell {
     set indices [column create int {0}]
     tscript { Rainfall[indices] }
 } text {
+    which returns a column containing that single element.
 
     ==== Selectors
 
-    ==== [] versus [[]]
+    The final form an index can take is that of a _selector_ which
+    is a boolean expression involving the column or table. As we will
+    see when we discuss ((^ sect_tscript_column_ops "column operators"))
+    in detail, comparison of a column with a scalar value results
+    in an `int` column containing the indices for which the comparison
+    of the corresponding element succeeded.
+    
+    So for example, consider the following expression:
+} shell {
+    tscript { Rainfall > 100 }
+} text {
+    The return value is a column containing the indices corresponding
+    to the elements which have a value greater than `100`.
+
+    Therefore, we can use such boolean selectors as indices to 
+    retrieve the actual values themselves.
+} shell {
+    tscript { Rainfall[Rainfall > 100] }
+} text {
+    Selectors can be used for tables as well with the operand being
+    a contained column. Moreover, the selector need not be a simple
+    boolean expression. The following prints all employees who are
+    over 35 but have an income less than `70,000`.
+} outputlimit 0 shell {
+    tscript {print(Emps[Emps.Age > 35 && Emps.Salary < 70000])}
+} tbd {
+    Caveats about use of functions in selectors
+}
+
+text {
+    ==== The [[]] operator
+
+    The `[[]]` operator is used similarly to `[]` except that it
+    returns the indices themselves instead of the corresponding values.
+    For example, consider the difference between
+} shell {
+    tscript { Rainfall[{0, 1, 2}] }
+} text {
+    and
+} shell {
+    tscript { Rainfall[[{0, 1, 2}]] }
+} text {
+    Now this example has zero value since there is no point getting back the
+    same list of indices we had in the first place.
+
+    Where the `[[]]` operator finds its use is to convert index selectors
+    into the actual indices which can then be passed to other functions.
+} shell {
+    tscript { wet_months = Rainfall[[Rainfall > 100]] }
+} text {
+    gives the months (as indices) that are considered rainy. This
+    data can then be used for other computation.
+
+    As we will see later, the `[[]]` operator is also useful as
+    a mechanism for manual optimization since TScript does not currently
+    do common subexpression elimination and the like.
+}
+
+text {
 
 
-    === Column Operators
+    ((=== sect_tscript_column_ops "Column Operators"))
+
+} shell {
+    tscript { T = table::delete(Emps, Emps.Salary > 70000) }
+}
+
+text {
+
 
     ==== Slicing Columns from tables
     T.a versus T.(a, b) Illustrate using print
