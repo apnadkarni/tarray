@@ -227,7 +227,11 @@ oo::class create tarray::teval::Parser {
         return [linsert $child 0 FunctionCall]
     }
 
-    method ArgumentExprList {from to args} {
+    method ArgumentList {from to args} {
+        return $args
+    }
+
+    method Argument {from to args} {
         return $args
     }
 
@@ -266,6 +270,10 @@ oo::class create tarray::teval::Parser {
         switch -exact -- [string range $Script $from $to] {
             $$ { return CurrentSelectorContext }
         }
+    }
+
+    method OptionString {from to} {
+        return [list OptionString [string range $Script $from $to]]
     }
 
     forward Number my _extract Number
@@ -516,7 +524,11 @@ oo::class create tarray::teval::Compiler {
                 FunctionCall {                
                     set fnargs {}
                     foreach fnarg [lrange $postexpr 1 end] {
-                        lappend fnargs [my {*}$fnarg]
+                        # Have to deal with simple args as well
+                        # as option args.
+                        foreach elem $fnarg {
+                            lappend fnargs [my {*}$elem]
+                        }
                     }
                     set primary "\[$primary [join $fnargs { }]\]"
                 }
@@ -576,6 +588,7 @@ oo::class create tarray::teval::Compiler {
         }] { }]\]"
     }
     method String s {return "{$s}"}
+    method OptionString s {return "{$s}"}
     method Number {n} {return $n}
     method Range {low high} {
         if {$SelectorNestingLevel} {
