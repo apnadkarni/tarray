@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, Ashok P. Nadkarni
+ * Copyright (c) 2015, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -119,6 +119,7 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
     case TAM_OP_MUL: return accumulator * operand;
     case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
     }
+    return 0.0;                 /* To keep compiler happy */
 }    
 
 static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accumulator, Tcl_WideInt operand)
@@ -129,6 +130,7 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accu
     case TAM_OP_MUL: return accumulator * operand;
     case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
     }
+    return 0;                   /* To keep compiler happy */
 }
 
 static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)

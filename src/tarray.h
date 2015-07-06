@@ -642,6 +642,8 @@ extern int ta_sort_mt_threshold;
 extern int ta_sort_mt_enable_any;
 extern int ta_fill_mt_threshold;
 extern int ta_minmax_mt_threshold;
+extern int ta_fold_mt_threshold;
+extern int ta_math_mt_threshold;
 /* Multithreading support */
 int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size);
 int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,

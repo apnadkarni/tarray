@@ -181,6 +181,8 @@ interp alias {} tarray::column::/ {} tarray::column::math /
 interp alias {} tarray::column::& {} tarray::column::math &
 interp alias {} tarray::column::| {} tarray::column::math |
 
+interp alias {} tarray::column::sum {} tarray::column::fold +
+
 namespace eval tarray {
     
     namespace eval column {
@@ -190,6 +192,7 @@ namespace eval tarray {
             delete delete
             dump dump
             fill fill
+            fold fold
             get get
             index index
             insert insert
@@ -204,6 +207,7 @@ namespace eval tarray {
             size size
             search search
             sort sort
+            sum sum
             type type
             vdelete vdelete
             vfill vfill

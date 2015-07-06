@@ -62,7 +62,7 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources bitarray.c errors.c table.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
+critcl::csources bitarray.c errors.c table.c tafold.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -110,6 +110,10 @@ critcl::ccommand tarray::unsupported::config {} {
         pval = &ta_fill_mt_threshold;
     else if (ta_strequal(vname, "minmax_mt_threshold"))
         pval = &ta_minmax_mt_threshold;
+    else if (ta_strequal(vname, "fold_mt_threshold"))
+        pval = &ta_fold_mt_threshold;
+    else if (ta_strequal(vname, "math_mt_threshold"))
+        pval = &ta_math_mt_threshold;
 #endif
     else {
         Tcl_SetResult(interp, "Invalid config setting name.", TCL_STATIC);
@@ -441,6 +445,8 @@ critcl::ccommand tarray::column::lookup tcol_lookup_cmd
 critcl::ccommand tarray::column::minmax tcol_minmax_cmd
 
 critcl::ccommand tarray::column::math tcol_math_cmd
+
+critcl::ccommand tarray::column::fold tcol_fold_cmd
 
 critcl::ccommand tarray::column::insert {} {
     Tcl_Obj *tcol;
