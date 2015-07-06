@@ -1195,11 +1195,7 @@ namespace eval tarray::teval::rt {
     }
 }
 
-
-
-
-
-if {0} {
+if {1} {
     tarray::teval::Parser create tp
     tarray::teval::Compiler create tc
     namespace path tarray
