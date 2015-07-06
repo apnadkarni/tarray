@@ -16,7 +16,15 @@ endif::bookbuild[]
 .ui, .menuseq, .menu {font-family:sans-serif}
 .literalblock pre,.listingblock pre:not(.highlight),.listingblock pre[class="highlight"],.listingblock pre[class^="highlight "],.listingblock pre.CodeRay,.listingblock pre.prettyprint{font-size:small;line-height:1.3}
 </style>
-<a href="index.html" style="color: #ffffff; background-color: #BA3925; text-decoration: none; border: 1px solid; border-radius: 4px; padding: 2px; position: fixed; top: 10px; right: 10px;">Main Contents &#187;</a>
+<div style="background-color: #BA3925; border-radius: 4px; padding: 2px; position: fixed; top: 2px; right: 2px;">
+<ul style="margin: 0; font-size: 0.9em; line-height: 1.2; list-style-type: none;">
+<li><a href="index.html" style="color: white; text-decoration: none;">Main Contents &#187;</a>
+<li><a href="guide.html" style="color: white; text-decoration: none;">Programmer's Guide &#187;</a>
+<li><a href="column.html" style="color: white; text-decoration: none;">Column Reference &#187;</a>
+<li><a href="table.html" style="color: white; text-decoration: none;">Table Reference &#187;</a>
+<li><a href="tscript.html" style="color: white; text-decoration: none;">TScript Language &#187;</a>
+</ul>
+</div>
 ++++
 
 
