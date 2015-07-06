@@ -388,6 +388,12 @@ text {
     option is useful when sorting a column or multiple columns in a table
     using different criteria while keeping a stable order.
 
+    ((cmddef column_sum "column sum _COLUMN_"))
+    Returns the sum of all elements of the specified column which must
+    be of a numeric type. For integer types, the sum is calculated as a
+    64 bit integer even if the column has a smaller integer width. There is
+    no detection of integer overflow.
+
     ((cmddef column_type "column type _COLUMN_"))
 
     Returns the ((^ sect_column_types type)) of the typed column.
