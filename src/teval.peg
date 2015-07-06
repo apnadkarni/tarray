@@ -51,7 +51,7 @@ void:    Empty <- WS ;
 
     # Syntax based definitions
 
-leaf: BuiltinIdentifier <- [$] Identifier ;
+leaf: BuiltinIdentifier <- [$] ([$#] / Identifier) ;
 ColumnIdentifier <- Identifier;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
