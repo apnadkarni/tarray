@@ -8,9 +8,10 @@ text {
 text {
 
     This document is a programmer's guide for installing and using the tarray
-    extension (Version 0.6) from Tcl. For detailed command reference,
-    see ((^ chap_column_ref)) and ((^ chap_table_ref)).
-
+    extension (Version 0.6) from Tcl. For a detailed description of
+    each command and options,
+    see the ((^ chap_column_ref "column")) and ((^ chap_table_ref "table"))
+    reference pages.
 }
 
 text {
@@ -106,7 +107,12 @@ text {
     Tables can be created and initialized in analogous
     fashion, for example, to create a initialized table
 } shell {
-    set tab [table create {country string population wide} {{China 1350000000} {Vatican 850}}]
+    set tab [table create {
+        country string population wide
+    } {
+        {China 1350000000}
+        {Vatican 850}
+    }]
 }
 
 text {
@@ -607,3 +613,7 @@ text {
     sorted. Thus finding the intersection of two index columns resulting from
     searches is an O(n) operation.
 }
+
+tbd {column sum}
+tbd {Column math operations}
+tbd {ref to tscript}
