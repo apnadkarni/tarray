@@ -37,10 +37,20 @@ void:    Empty <- WS ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
 
     # Basic terms
-    PrimaryExpr  <- BuiltinIdentifier / Identifier / Number / String / Sequence / '(' Expression ')' ;
+    PrimaryExpr  <- ColumnConstructor
+                    / BuiltinIdentifier
+		    / Identifier
+		    / Number
+		    / String
+		    / Sequence
+		    / '(' Expression ')' ;
 
     # Postfix operators
-    PostfixOp <-  IndexSelector / Selector / FunctionCall / Column / Columns ;
+    PostfixOp <-  IndexSelector
+                  / Selector
+		  / FunctionCall
+		  / Column
+		  / Columns ;
     IndexSelector <- '[[' WS ('end' / Expression) WS ']]' ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentExprList? WS ')' ;
@@ -49,8 +59,11 @@ void:    Empty <- WS ;
     Columns <- '.' WS '(' WS ColumnList? WS ')' ;
     ColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
 
+    ColumnConstructor <- [$] ColumnType WS Sequence? ;
+
     # Syntax based definitions
 
+leaf: ColumnType <- 'boolean' / 'byte' / 'int' / 'uint' / 'wide' / 'double' / 'string' / 'any' ;
 leaf: BuiltinIdentifier <- [$] ([$#] / Identifier) ;
 ColumnIdentifier <- Identifier;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
