@@ -255,7 +255,9 @@ oo::class create tarray::teval::Parser {
     }
 
     method BuiltinIdentifier {from to} {
-        return [list BuiltinIdentifier [string range $Script $from $to]]
+        switch -exact -- [string range $Script $from $to] {
+            $$ { return CurrentSelectorContext }
+        }
     }
 
     forward Number my _extract Number
@@ -548,6 +550,10 @@ oo::class create tarray::teval::Compiler {
         return "\[list [join $cols]\]"
     }
 
+    method CurrentSelectorContext {} {
+        return "\[tarray::teval::rt::selector_context\]"
+    }
+
     method Sequence {args} {
         return "\[list [join [lmap arg $args {
             my {*}$arg
@@ -573,7 +579,10 @@ namespace eval tarray::teval::rt {
 
     proc selector_context {} {
         variable _selector_contexts
-        return [lindex $_selector_contexts 0]
+        if {[llength $_selector_contexts]} {
+            return [lindex $_selector_contexts 0]
+        }
+        error "Not in a selector context"
     }
 
     proc push_selector_context {val} {
