@@ -207,6 +207,14 @@ oo::class create tarray::teval::Parser {
 
     forward PostfixOp my _child
 
+    method ColumnType {from to} {
+        return [string range $Script $from $to]
+    }
+
+    method ColumnConstructor {from to coltype args} {
+        return [list ColumnConstructor $coltype {*}$args]
+    }
+
     method IndexSelector {from to child} {
         return [list IndexSelector $child]
     }
@@ -552,6 +560,14 @@ oo::class create tarray::teval::Compiler {
 
     method CurrentSelectorContext {} {
         return "\[tarray::teval::rt::selector_context\]"
+    }
+
+    method ColumnConstructor {coltype {inivalue {}}} {
+        if {[llength $inivalue]} {
+            return "\[tarray::column create $coltype [my {*}$inivalue]\]"
+        } else {
+            return "\[tarray::column create $coltype {}\]"
+        }
     }
 
     method Sequence {args} {
