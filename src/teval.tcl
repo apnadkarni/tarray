@@ -1132,6 +1132,14 @@ namespace eval tarray::teval::rt {
     }
 
     proc unary {op a} {
+        if {$op eq "#"} {
+            return [switch -exact -- [lindex [tarray::types $a] 0] {
+                ""      { llength $a }
+                "table" { tarray::table::size $a }
+                default { tarray::column::size $a }
+            }]
+        }
+
         if {[lindex [tarray::types $a] 0] eq ""} {
             return [expr "$op\$a"]
         } else {
