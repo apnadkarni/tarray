@@ -46,12 +46,10 @@ void:    Empty <- WS ;
 		    / '(' Expression ')' ;
 
     # Postfix operators
-    PostfixOp <-  CountSelector
-                  / Selector
+    PostfixOp <-  Selector
 		  / FunctionCall
 		  / Column
 		  / Columns ;
-    CountSelector <- '#' (WS Selector)? ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentList? WS ')' ;
     ArgumentList <- Argument (WS ',' WS Argument)* ;
@@ -85,7 +83,7 @@ void: Quote <- '"';
 void: Backslash <- '\\';
 
 void: Separator <- Comment? EOL / ';';
-void:   Comment      <- '#' (!EOL .)* ;
+void:   Comment <- '//' (!EOL .)* ;
 void: EOL <- '\n';
 
 leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
@@ -99,7 +97,7 @@ leaf: RelOp <- '==' / '!=' / '<=' / '>=' / '<' / '>' /
                '=^' / '!^' /
                '=~^' / '=~' / '!~^' / '!~' / 
 	       '=*^' / '=*' / '!*^' / '!*';
-leaf: UnaryOp <- [-+~!] ;
+leaf: UnaryOp <- [-+~!#] ;
 leaf: BitAndOp <- '&' ;
 leaf: BitOrOp <- '|' ;
 leaf: BitXorOp <- '^' ;
