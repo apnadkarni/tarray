@@ -47,13 +47,11 @@ void:    Empty <- WS ;
 
     # Postfix operators
     PostfixOp <-  CountSelector
-                  / IndexSelector
                   / Selector
 		  / FunctionCall
 		  / Column
 		  / Columns ;
     CountSelector <- '#' (WS Selector)? ;
-    IndexSelector <- '[[' WS ('end' / Expression) WS ']]' ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentList? WS ')' ;
     ArgumentList <- Argument (WS ',' WS Argument)* ;
