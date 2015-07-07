@@ -1,13 +1,14 @@
 # Much of this based on Phillippe Segaude's example C grammar
 # from https://github.com/PhilippeSigaud/Pegged/blob/master/pegged/examples/c.d
 PEG TEval (Program)
-    # A Program is a sequence of statements
-    Program <- WS (Statement (WS Separator WS Statement)*)? WS EOF;
+    # A Program is a sequence of statements.
+    # The Comment is there because otherwise [tscript {// comment}] errors out
+    Program <- WS (Statement (WS Separator WS Statement)*)? WS Comment? EOF;
 void:  EOF <- !.;
 
     # A Statement is a function call or an assignment. In particular
     # an arbitrary expression that is not a function call is not allowed.
-    Statement <- Assignment / MultiAssignment / Expression / Empty ;
+    Statement <- Assignment / MultiAssignment / Expression / Empty;
 void:    Empty <- WS ;
 
     # Assignment to a single LValue
@@ -16,7 +17,7 @@ void:    Empty <- WS ;
 
     # Assigns multiple variables from a list / tarray. Expression here
     # will be checked at run time to provide multiple values.
-    MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expression;
+    # TBD   MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expression;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
@@ -86,7 +87,8 @@ void: Separator <- Comment? EOL / ';';
 void:   Comment <- '//' (!EOL .)* ;
 void: EOL <- '\n';
 
-leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
+# TBD leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
+leaf: AssignOp <- '=' ;
 
 leaf: MulOp       <- '*' / '/'                                    ;
 leaf: AddOp       <- '+' / '-'                                    ;
