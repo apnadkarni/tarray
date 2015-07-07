@@ -112,9 +112,8 @@ text {
 text {
     === Comments
 
-    Comments are of the same form as in Tcl - they start with the 
-    `#` character and extend to the end of the line. They may appear
-    in any position where a statement begins.
+    Comments begin with the `//` sequence and extend to the end of the line.
+    They may be placed anywhere in the program. 
 }
 
 text {
@@ -143,7 +142,7 @@ text {
 } shell {
     tscript {
         r = 2.0e10
-        big = 123455678987654321000000000; # Tcl bignum
+        big = 123455678987654321000000000
     }
 } text {
 
@@ -151,10 +150,9 @@ text {
     the backslash substitution rules as in Tcl.
     However there some differences.
 
-    A plain unquoted string as in Tcl is treated as a variable name
-    in TScript.
+    _A plain unquoted string is treated as an identifier_ and
+    not a string literal as in Tcl.
 } errorok 1 shell {
-    set s unquoted
     tscript {s = unquoted}
 } text {
     Also, unlike in Tcl double quoted strings, there is no
@@ -177,8 +175,8 @@ text {
         l = {"a string", x, tcl::clock::seconds(), y+z}
     }
 } text {
-    Note the list elements are separated using commas and each
-    element a literal, a variable, a function call or a general expression.
+    Note the list elements are separated using commas and an element may
+    be a literal, variable, function call or general expression.
 
     As an aside, we could also have invoked the Tcl `list` command
     as a function to construct a list.
@@ -193,12 +191,83 @@ text {
     Function parameters are wrapped in parenthesis and separated by commas.
 
 } shell {
-    tscript {hex = format("0x%x", 100)}; # Invokes the Tcl `format` command
+    tscript {
+        hex = format("0x%x", 42)
+    }
 } text {
+    The above calls Tcl's built-in `format` command.
     There is no difference between invoking commands implemented in Tcl or
     in TScript via the `tproc` procedure.
-} tbd {
-    caveats about pass by reference. e.g. incr(x) does not do what you think
+
+    In addition to the obvious syntactic differences, there is a subtle
+    point to be noted when invoking commands from TScript as opposed to Tcl.
+    In Tcl, a parameter that is not a literal is implicitly dereferenced
+    when passed to a command. It is easy to forget this when calling
+    Tcl commands that take variable _names_ as parameters.
+    Thus the equivalent of the Tcl script
+} shell {
+    set val 1
+    incr val -1
+} text {
+    is _not_ 
+} shell {
+    tscript {
+        val = 1
+        incr(val, -1)
+    }
+} text {
+    which lands up passing the _value_ of `val`, ie. `1`, to the `incr`
+    command which then happily decrements the variable called `1`!
+
+    The correct equivalent is
+} shell {
+    tscript {
+        val = 1
+        incr("val", -1)
+    }
+} 
+
+text {
+    ==== Calling ensemble commands
+
+    In order to call Tcl ensemble commands such as
+} shell {
+    clock seconds
+} text {
+    from TScript, you have two choices.
+
+    You can pass the subcommand `seconds` as the leading argument.
+} shell {
+    tscript {clock("seconds")}
+} text {
+    Alternatively, you can use the namespace qualified equivalent
+    to which the ensemble command is mapped.
+} shell {
+    tscript {tcl::clock::seconds()}
+}
+
+
+text {
+    ==== Passing options to commands
+
+    When passing options to commands, TScript supports an additional
+    syntax for arguments where the option name does not have to be
+    quoted.
+
+    Thus instead of invoking the Tcl `subst` command as follows
+} shell {
+    tscript { subst("-novariables", "The value of val is $val") }
+} text {
+    it can be invoked as
+} shell {
+    tscript { subst(-novariables "The value of val is $val") }
+} text {
+    Note the option name is not quoted and there is no `,` separating
+    it from its value.
+
+    TScript recognizes this form based on the argument being composed
+    of two expressions with the first one being a token
+    starting with a `-` character.
 }
 
 text {
@@ -305,6 +374,16 @@ text {
     The logical operators include `&&` and `||` as in Tcl.
     _However, unlike Tcl these operators do not short-circuit the evaluation
     of their operands._
+
+    ==== List operators
+
+    TScript supports the unary operator `#` which returns the length
+    of its list operand. This operator also supports columns and tables
+    as we will see later.
+} shell {
+    set l {a b c d e}
+    tscript { len = # l }
+    tscript { len = # {1,2,3,4} }
 }
 
 text {
@@ -318,16 +397,6 @@ text {
     Much of the convenience of TScript in dealing with columns and tables
     stems from its variety of indexing options. Indices may be simple
     numerics, ranges, lists or selectors based on boolean expressions.
-    
-
-    TScript has two post-fix indexing operators: `[]` and `[[]]`. Indexing
-    a column or an array using the former returns the value(s) specified
-    by the index. This is the traditional notion of array indexes
-    in most programming languages.
-    On the other hand, indexing using the `[[]]` operator
-    returns the actual index position themselves. The use of this
-    operator will be discussed later. For now we will focus on `[]`.
-    
 
     ==== Integers
 
@@ -376,7 +445,7 @@ text {
 } shell {
     tscript {
         i = 10
-        Rainfall[{9, i, 11}] ; # Specifies a Tcl list of indices
+        Rainfall[{9, i, 11}]
     }
 } text {
     We could have specified a column of type `int` instead.
@@ -431,33 +500,35 @@ text {
     Caveats about use of functions in selectors
 }
 
-text {
-    ==== The [[]] operator
+tbd {
+    text {
+        ==== The [[]] operator
 
-    The `[[]]` operator is used similarly to `[]` except that it
-    returns the indices themselves instead of the corresponding values.
-    For example, consider the difference between
-} shell {
-    tscript { Rainfall[{0, 1, 2}] }
-} text {
-    and
-} shell {
-    tscript { Rainfall[[{0, 1, 2}]] }
-} text {
-    Now this example has zero value since there is no point getting back the
-    same list of indices we had in the first place.
+        The `[[]]` operator is used similarly to `[]` except that it
+        returns the indices themselves instead of the corresponding values.
+        For example, consider the difference between
+    } shell {
+        tscript { Rainfall[{0, 1, 2}] }
+    } text {
+        and
+    } shell {
+        tscript { Rainfall[[{0, 1, 2}]] }
+    } text {
+        Now this example has zero value since there is no point getting back the
+        same list of indices we had in the first place.
 
-    Where the `[[]]` operator finds its use is to convert index selectors
-    into the actual indices which can then be passed to other functions.
-} shell {
-    tscript { wet_months = Rainfall[[Rainfall > 100]] }
-} text {
-    gives the months (as indices) that are considered rainy. This
-    data can then be used for other computation.
+        Where the `[[]]` operator finds its use is to convert index selectors
+        into the actual indices which can then be passed to other functions.
+    } shell {
+        tscript { wet_months = Rainfall[[Rainfall > 100]] }
+    } text {
+        gives the months (as indices) that are considered rainy. This
+        data can then be used for other computation.
 
-    As we will see later, the `[[]]` operator is also useful as
-    a mechanism for manual optimization since TScript does not currently
-    do common subexpression elimination and the like.
+        As we will see later, the `[[]]` operator is also useful as
+        a mechanism for manual optimization since TScript does not currently
+        do common subexpression elimination and the like.
+    }
 }
 
 text {
