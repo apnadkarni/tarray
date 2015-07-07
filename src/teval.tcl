@@ -215,6 +215,14 @@ oo::class create tarray::teval::Parser {
         return [list ColumnConstructor $coltype {*}$args]
     }
 
+    method CountSelector {from to {child {}}} {
+        if {[llength $child]} {
+            return [list CountSelector [lindex $child 1]]
+        } else {
+            return [list Count]
+        }
+    }
+
     method IndexSelector {from to child} {
         return [list IndexSelector $child]
     }
@@ -495,6 +503,22 @@ oo::class create tarray::teval::Compiler {
 
         foreach postexpr $args {
             switch -exact -- [lindex $postexpr 0] {
+                Count {
+                    set primary "\[tarray::teval::rt::count $primary\]"
+                }
+                CountSelector {
+                    set frag {
+                        tarray::teval::rt::push_selector_context %VALUE%
+                        try {
+                            return -level 0 [tarray::column::size [tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%]]
+                        } finally {
+                            tarray::teval::rt::pop_selector_context
+                        }
+                    }
+                    incr SelectorNestingLevel
+                    set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
+                    incr SelectorNestingLevel -1
+                }
                 IndexSelector {
                     set frag {
                         tarray::teval::rt::push_selector_context %VALUE%
@@ -544,6 +568,10 @@ oo::class create tarray::teval::Compiler {
     }
 
     method IndexSelector {child} {
+        return [my {*}$child]
+    }
+
+    method CountSelector {child} {
         return [my {*}$child]
     }
 
@@ -1098,6 +1126,8 @@ namespace eval tarray::teval::rt {
         if {[lindex [tarray::types $a] 0] eq ""} {
             return [expr "$op\$a"]
         } else {
+            # TBD
+            error "Unary op $op not implemented for columns and tables"
             return [tarray::column::unary $op $a]
         }
     }
@@ -1210,15 +1240,16 @@ namespace eval tarray::teval::rt {
         return [tarray::column::create int $l]
     }
 
-    proc size {tab_or_col} {
+    proc count {tab_or_col} {
         if {[lindex [tarray::types $tab_or_col] 0] eq "table"} {
-            return [tarray::table::size [selector_context]]
+            return [tarray::table::size $tab_or_col]
         } else {
-            return [tarray::column::size [selector_context]]
+            return [tarray::column::size $tab_or_col]
         }
     }
 
     proc Index {val index} {
+        # TBD - is this used anywhere
         return [switch -exact -- [lindex [tarray::types $val] 0] {
             table {
                 tarray::table::index $val $index
