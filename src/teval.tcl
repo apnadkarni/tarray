@@ -510,7 +510,11 @@ oo::class create tarray::teval::Compiler {
                     set frag {
                         tarray::teval::rt::push_selector_context %VALUE%
                         try {
-                            return -level 0 [tarray::column::size [tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%]]
+                            if {0} {
+                                return -level 0 [tarray::column::size [tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%]]
+                            } else {
+                                return -level 0 [tarray::column::size %SELECTEXPR%]
+                            }
                         } finally {
                             tarray::teval::rt::pop_selector_context
                         }
@@ -520,8 +524,13 @@ oo::class create tarray::teval::Compiler {
                     incr SelectorNestingLevel -1
                 }
                 IndexSelector {
+                    # Note - don't use "" inside frag. causes some parsing
+                    # confusion.
                     set frag {
                         tarray::teval::rt::push_selector_context %VALUE%
+                        if {[lindex [tarray::types [tarray::teval::rt::selector_context]] 0] eq {}} {
+                            error {Operand of [[]] is not a column or table}
+                        }
                         try {
                             return -level 0 %SELECTEXPR%
                         } finally {
