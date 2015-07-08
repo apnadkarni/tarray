@@ -96,7 +96,7 @@ oo::class create tarray::teval::Parser {
         return [list $name [string range $Script $from $to]]
     }
 
-    # Common method used by most binary operator expressions
+    # Common method used by many operator expressions
     method _binop {nodename from to first_child args} {
         # $args contains alternating op operand
         if {[llength $args] == 0} {
@@ -169,12 +169,18 @@ oo::class create tarray::teval::Parser {
     forward BitXorExpr my _binop BitXorExpr
     forward BitAndExpr my _binop BitAndExpr
     forward RelExpr my _binop RelExpr
+
     method AddExpr {from to first_child args} {
         # args will be a list of alternating AddOp and operand nodes
         if {[llength $args] == 0} {
             # Simply promote and return the child
             return $first_child
         }
+
+        # TBD - AddExpr reordering for optimization might lead
+        # to different overflow behaviour
+        # Maybe it should not do that? Probably ok for integers
+        # because even with overflow, result will be the same
 
         # We want to do constant folding and also optimize number of
         # calls the runtime will make to tarray::column::math.
@@ -274,7 +280,42 @@ oo::class create tarray::teval::Parser {
         }
         error "Internal error: missed a case in AddExpr!"
     }
-    forward MulExpr my _binop MulExpr
+
+    method MulExpr {from to first_child args} {
+        if {[llength $args] == 0} {
+            return $first_child
+        }
+        set command {}
+        set prev_operand $first_child
+        set prev_op *
+        set fold 1
+        foreach {op operand} $args {
+            set op [lindex $op 1]
+            if {$fold} {
+                if {$op eq "*" &&
+                    [lindex $prev_operand 0] eq "Number" &&
+                    [lindex $operand 0] eq "Number"} {
+                    # Fold leading multiplicative constant
+                    # Note we cannot fold division op that easily
+                    set prev_operand [list Number [expr {[lindex $prev_operand 1] * [lindex $operand 1]}]]
+                } else {
+                    # Can't fold any more
+                    set prev_operand [list $op $prev_operand $operand]
+                    set fold 0
+                }
+            } else {
+                # No folding going on now. If this operation same as last
+                # operation, add the new operand
+                if {$prev_op eq $op} {
+                    lappend prev_operand $operand
+                } else {
+                    set prev_operand [list $op $prev_operand $operand]
+                }
+            }
+            set prev_op $op
+        }
+        return $prev_operand
+    }
 
     method UnaryExpr {from to postfix_expr args} {
         if {[llength $args] == 0} {
