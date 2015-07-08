@@ -100,14 +100,14 @@ text {
     
     ((cmddef table_create "table create _DEFINITION_ _ROWVALUES_"))
 
-    Returns a typed table containing a sequence of columns. DEFINITION is a
+    Returns a typed table containing a sequence of columns. _DEFINITION_ is a
     list of alternating column names and column types. A column name is an
     identifier for a column that can be used in lieu of a column index. The
     type for a column must be one of the valid types described in ((^ sect_table_types)).
 
     _ROWVALUES_ is the initial content of the table array specified as a
     nested list with each sublist being a row whose element types are
-    compatible with the corresponding column types in DEFINITION.
+    compatible with the corresponding column types in _DEFINITION_.
 
     ((cmddef table_delete "table delete _TABLE_ _INDEX_"))
 

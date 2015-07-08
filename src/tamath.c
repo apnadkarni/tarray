@@ -19,7 +19,7 @@ static const char *ta_math_op_names[] = {
     "+", "-", "*", "/", "&", "|", NULL
 };
 enum ta_math_op_e {
-    TAM_OP_PLUS,TAM_OP_MINUS,TAM_OP_MUL,TAM_OP_DIV,TAM_OP_BITAND,TAM_OP_BITOR,
+    TAM_OP_PLUS,TAM_OP_MINUS,TAM_OP_MUL,TAM_OP_DIV,TAM_OP_BITAND,TAM_OP_BITOR, TAM_OP_BITXOR
 };
 
 
@@ -129,6 +129,9 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accu
     case TAM_OP_MINUS: return accumulator - operand;
     case TAM_OP_MUL: return accumulator * operand;
     case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
+    case TAM_OP_BITOR: return accumulator | operand;
+    case TAM_OP_BITAND: return accumulator & operand;
+    case TAM_OP_BITXOR: return accumulator ^ operand;
     }
     return 0;                   /* To keep compiler happy */
 }
@@ -229,6 +232,15 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         case TA_INT: INTEGERLOOP(|=, int); break;
         case TA_UINT: INTEGERLOOP(|=, unsigned int); break;
         case TA_WIDE: INTEGERLOOP(|=, Tcl_WideInt); break;
+        }
+        break;
+    case TAM_OP_BITXOR:
+        TA_ASSERT(pctx->thdr->type != TA_DOUBLE);
+        switch (pctx->thdr->type) {
+        case TA_BYTE: INTEGERLOOP(^=, unsigned char); break;
+        case TA_INT: INTEGERLOOP(^=, int); break;
+        case TA_UINT: INTEGERLOOP(^=, unsigned int); break;
+        case TA_WIDE: INTEGERLOOP(^=, Tcl_WideInt); break;
         }
         break;
     }

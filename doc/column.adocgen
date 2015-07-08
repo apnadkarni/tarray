@@ -83,6 +83,9 @@ text {
     ((cmddef column_bitor "column | _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \|"))`.
 
+    ((cmddef column_bitor "column ^ _OPERAND_ ?_OPERAND_...?"))
+    Alias for `((^ column_math "column math \^"))`.
+
 
     ((cmddef column_count "column count ?-range _RANGE_? ?-among _INDICES_? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 
@@ -247,6 +250,10 @@ text {
 
     |`\|`
     |Performs a bitwise-or operation on all the operands. This operation
+    is not valid if any operand is a double or a column of type `double`.
+
+    |`\^`
+    |Performs a bitwise-xor operation on all the operands. This operation
     is not valid if any operand is a double or a column of type `double`.
 
     |===
