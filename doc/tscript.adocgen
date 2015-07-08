@@ -199,32 +199,29 @@ text {
     There is no difference between invoking commands implemented in Tcl or
     in TScript via the `tproc` procedure.
 
-    In addition to the obvious syntactic differences, there is a subtle
+    [WARNING]
+    ====
+    There is a subtle
     point to be noted when invoking commands from TScript as opposed to Tcl.
-    In Tcl, a parameter that is not a literal is implicitly dereferenced
+    In TScript, a parameter that is not a literal is implicitly dereferenced
     when passed to a command. It is easy to forget this when calling
     Tcl commands that take variable _names_ as parameters.
     Thus the equivalent of the Tcl script
-} shell {
-    set val 1
+    ----
     incr val -1
-} text {
+    ----
     is _not_ 
-} shell {
-    tscript {
-        val = 1
-        incr(val, -1)
-    }
-} text {
-    which lands up passing the _value_ of `val`, ie. `1`, to the `incr`
-    command which then happily decrements the variable called `1`!
+    ----
+    tscript { incr(val, -1) }
+    ----
+    which lands up passing the _value_ of `val` to the `incr`
+    command which actually expects the name `val` itself to be the argument.
 
     The correct equivalent is
-} shell {
-    tscript {
-        val = 1
-        incr("val", -1)
-    }
+    ----
+    tscript { incr("val", -1) }
+    ----
+    ====
 } 
 
 text {
@@ -390,13 +387,39 @@ text {
     == Columns and tables
 
     We now come to the primary reason for the existence of TScript -
-    convenient operation on columns and tables.
+    convenient vector operations on columns and tables.
 
-    === Indexing
+} text {
+    === Creating columns and tables
+
+    Columns are created using the built-in operators `@boolean`,
+    `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`.
+} shell {
+    tscript { A = @int }
+} text {
+    creates an empty column of type `int` and assigns it to `A`.
+
+    An optional operand, containing a list of values of the appropriate
+    type may be passed to initialize the column.
+} shell {
+    tscript { A = @any {10, {1, 2, 3}, len} }
+} text {
+    creates a column of type `any` with 3 elements.
+
+    There are no built-in operators for defining tables. These
+    are most conveniently created from Tcl using the
+    ((^ table_create "table create")) command.
+
+} text {
+    === Indexing and search
 
     Much of the convenience of TScript in dealing with columns and tables
     stems from its variety of indexing options. Indices may be simple
     numerics, ranges, lists or selectors based on boolean expressions.
+
+    The flexibility of index selectors also means that they are the primary
+    means of searching tables and columns for elements matching desired
+    criteria.
 
     ==== Integers
 
@@ -436,6 +459,9 @@ text {
         j = 2
         print(Emps[i:j])
     }
+} text {
+    We shall also see later that ranges can also be combined with
+    selectors to further focus search and indexing operations.
 } text {    
     ==== Index list
 
@@ -495,46 +521,29 @@ text {
     boolean expression. The following prints all employees who are
     over 35 but have an income less than `70,000`.
 } outputlimit 0 shell {
-    tscript {print(Emps[Emps.Age > 35 && Emps.Salary < 70000])}
-} tbd {
-    Caveats about use of functions in selectors
-}
+    tscript { print(Emps[Emps.Age > 35 && Emps.Salary < 70000]) }
+} text {
+    Because of their flexibility, selectors are the mechanism
+    for doing searches in columns and tables.
 
-tbd {
-    text {
-        ==== The [[]] operator
-
-        The `[[]]` operator is used similarly to `[]` except that it
-        returns the indices themselves instead of the corresponding values.
-        For example, consider the difference between
-    } shell {
-        tscript { Rainfall[{0, 1, 2}] }
-    } text {
-        and
-    } shell {
-        tscript { Rainfall[[{0, 1, 2}]] }
-    } text {
-        Now this example has zero value since there is no point getting back the
-        same list of indices we had in the first place.
-
-        Where the `[[]]` operator finds its use is to convert index selectors
-        into the actual indices which can then be passed to other functions.
-    } shell {
-        tscript { wet_months = Rainfall[[Rainfall > 100]] }
-    } text {
-        gives the months (as indices) that are considered rainy. This
-        data can then be used for other computation.
-
-        As we will see later, the `[[]]` operator is also useful as
-        a mechanism for manual optimization since TScript does not currently
-        do common subexpression elimination and the like.
-    }
+    Selectors can include ranges as well.
+    For example, the rainfall in the last quarter that
+    exceeds 50mm is given by
+} shell {
+    tscript { Rainfall[9:11 && Rainfall > 50] }
+} text {
+    [WARNING]
+    A selector can include function calls as well. However, note
+    that the function is called just once, not once per element
+    of the column or table.
 }
 
 text {
-
-
     ((=== sect_tscript_column_ops "Column Operators"))
+
+    
+
+
 
 } shell {
     tscript { T = table::delete(Emps, Emps.Salary > 70000) }

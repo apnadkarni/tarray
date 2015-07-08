@@ -446,7 +446,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     method _mathop {op first second} {
-        return "\[tarray::teval::rt::mathop $op [my {*}$first] [my {*}$second]\]"
+        return "\[tarray::column::math $op [my {*}$first] [my {*}$second]\]"
     }
 
     forward + my _mathop +
@@ -454,13 +454,18 @@ oo::class create tarray::teval::Compiler {
     forward * my _mathop *
     forward / my _mathop /
     forward | my _mathop |
-    forward ^ my _mathop ^
     forward & my _mathop &
-    forward == my _mathop ==
-    forward < my _mathop <
-    forward <= my _mathop <=
-    forward > my _mathop >
-    forward >= my _mathop >=
+    forward ^ my _mathop ^
+
+    method _relop {op first second} {
+        return "\[tarray::teval::rt::relop$op [my {*}$first] [my {*}$second]\]"
+    }
+
+    forward == my _relop ==
+    forward < my _relop <
+    forward <= my _relop <=
+    forward > my _relop >
+    forward >= my _relop >=
 
     method _boolop {op first second} {
         # TBD - short circuit ?
@@ -1032,101 +1037,151 @@ namespace eval tarray::teval::rt {
         return [tarray::table::vplace -columns $colnames var $value $index]
     }
 
-    proc col== {col val} {
-        return [tarray::column::search -all -eq $col $val]
-    }
-
-    proc col!= {col val} {
-        return [tarray::column::search -all -not -eq $col $val]
-    }
-
-    proc col< {col val} {
-        return [tarray::column::search -all -lt $col $val]
-    }
-
-    proc col<= {col val} {
-        return [tarray::column::search -all -not -gt $col $val]
-    }
-
-    proc col> {col val} {
-        return [tarray::column::search -all -gt $col $val]
-    }
-
-    proc col>= {col val} {
-        return [tarray::column::search -all -not -lt $col $val]
-    }
-
-    proc col=^ {col val} {
-        return [tarray::column::search -all -nocase -eq $col $val]
-    }
-
-    proc col!^ {col val} {
-        return [tarray::column::search -all -nocase -not -eq $col $val]
-    }
-
-    proc col=~ {col val} {
-        return [tarray::column::search -all -re $col $val]
-    }
-
-    proc col!~ {col val} {
-        return [tarray::column::search -all -not -re $col $val]
-    }
-
-    proc col=~^ {col val} {
-        return [tarray::column::search -all -nocase -re $col $val]
-    }
-
-    proc col!~^ {col val} {
-        return [tarray::column::search -all -nocase -not -re $col $val]
-    }
-
-    proc col=* {col val} {
-        return [tarray::column::search -all -pat $col $val]
-    }
-
-    proc col!* {col val} {
-        return [tarray::column::search -all -not -pat $col $val]
-    }
-
-    proc col=*^ {col val} {
-        return [tarray::column::search -all -nocase -pat $col $val]
-    }
-
-    proc col!*^ {col val} {
-        return [tarray::column::search -all -nocase -not -pat $col $val]
-    }
-
-    proc mathop {op a b} {
+    proc relop== {a b} {
         lassign [tarray::types $a $b] atype btype
-        if {$atype ne ""} {
-            return [col$op $a $b]
-        } elseif {$btype ne ""} {
-            return [col$op $b $a]
-        } else {
+        if {$atype eq "" && $btype eq ""} {
             # Neither is a tarray
-            return [tcl::mathop::$op $a $b]
+            return [tcl::mathop::== $a $b]
         }
+        if {$atype ne "" && $btype eq ""} {
+            return [tarray::column::search -all -eq $a $b]
+        }
+        if {$atype eq "" && $btype ne ""} {
+            return [tarray::column::search -all -eq $b $a]
+        }
+
+        # TBD 
+        error "Column==Column not implemented"
+    }
+
+    proc relop!= {a b} {
+        lassign [tarray::types $a $b] atype btype
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [tcl::mathop::!= $a $b]
+        }
+        if {$atype ne "" && $btype eq ""} {
+            return [tarray::column::search -all -not -eq $a $b]
+        }
+        if {$atype eq "" && $btype ne ""} {
+            return [tarray::column::search -all -not -eq $b $a]
+        }
+
+        # TBD 
+        error "Column!=Column not implemented"
+    }
+
+    proc relop< {a b} {
+        lassign [tarray::types $a $b] atype btype
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [tcl::mathop::< $a $b]
+        }
+        if {$atype ne "" && $btype eq ""} {
+            return [tarray::column::search -all -lt $a $b]
+        }
+        if {$atype eq "" && $btype ne ""} {
+            return [tarray::column::search -all -gt $b $a]
+        }
+
+        # TBD 
+        error "Column!=Column not implemented"
+    }
+
+
+    proc relop<= {a b} {
+        lassign [tarray::types $a $b] atype btype
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [tcl::mathop::<= $a $b]
+        }
+        if {$atype ne "" && $btype eq ""} {
+            return [tarray::column::search -all -not -gt $a $b]
+        }
+        if {$atype eq "" && $btype ne ""} {
+            return [tarray::column::search -all -not -lt $b $a]
+        }
+
+        # TBD 
+        error "Column!=Column not implemented"
+    }
+
+
+    proc relop> {a b} {
+        lassign [tarray::types $a $b] atype btype
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [tcl::mathop::> $a $b]
+        }
+        if {$atype ne "" && $btype eq ""} {
+            return [tarray::column::search -all -gt $a $b]
+        }
+        if {$atype eq "" && $btype ne ""} {
+            return [tarray::column::search -all -lt $b $a]
+        }
+
+        # TBD 
+        error "Column!=Column not implemented"
+    }
+
+    proc relop>= {a b} {
+        lassign [tarray::types $a $b] atype btype
+        if {$atype eq "" && $btype eq ""} {
+            # Neither is a tarray
+            return [tcl::mathop::>= $a $b]
+        }
+        if {$atype ne "" && $btype eq ""} {
+            return [tarray::column::search -all -not -lt $a $b]
+        }
+        if {$atype eq "" && $btype ne ""} {
+            return [tarray::column::search -all -not -gt $b $a]
+        }
+
+        # TBD 
+        error "Column!=Column not implemented"
     }
 
     proc strop {op a b} {
         lassign [tarray::types $a $b] atype btype
-        if {$atype ne ""} {
-            return [col$op $a $b]
-        } elseif {$btype ne ""} {
-            return [col$op $b $a]
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [switch -exact -- $op {
+                    =^ {string equal -nocase $a $b}
+                    !^ {expr {![string equal -nocase $a $b]}}
+                    =~ {regexp -- $b $a}
+                    !~ {expr {![regexp -- $b $a]}}
+                    =~^ {regexp -nocase -- $b $a}
+                    !~^ {expr {![regexp -nocase -- $b $a]}}
+                    =* {string match $b $a}
+                    !* {expr {![string match $b $a]}}
+                    =*^ {string match -nocase $b $a}
+                    !*^ {expr {![string match -nocase $b $a]}}
+                }]
+            }
+            # a is scalar, b is vector. Only permit equality/inequality
+            switch -exact -- $op {
+                =^ { return [tarray::column::search -all -nocase -eq $b $a] }
+                !^ { return [tarray::column::search -all -nocase -not -eq $b $a] }
+                default {error "The right hand operand of pattern or regexp matching operator $op cannot be a column."}
+            }
         } else {
-            # Neither is a tarray
+            # a is a tarray
+            if {$btype ne ""} {
+                error "Operation $op not supported between columns"
+            }
+            # a tarray, b scalar
             return [switch -exact -- $op {
-                =^ {string equal -nocase $a $b}
-                !^ {expr {![string equal -nocase $a $b]}}
-                =~ {regexp -- $b $a}
-                !~ {expr {![regexp -- $b $a]}}
-                =~^ {regexp -nocase -- $b $a}
-                !~^ {expr {![regexp -nocase -- $b $a]}}
-                =* {string match $b $a}
-                !* {expr {![string match $b $a]}}
-                =*^ {string match -nocase $b $a}
-                !*^ {expr {![string match -nocase $b $a]}}
+                =^  { tarray::column::search -all -nocase -eq $b $a }
+                !^  { tarray::column::search -all -nocase -not -eq $b $a }
+                =~  { tarray::column::search -all -re $a $b }
+                !~  { tarray::column::search -all -not -re $a $b }
+                =~^ { tarray::column::search -all -nocase -re $a $b }
+                !~^ { tarray::column::search -all -nocase -not -re $a $b }
+                =*  { tarray::column::search -all -pat $a $b }
+                !*  { tarray::column::search -all -not -pat $a $b }
+                =*^ { tarray::column::search -all -nocase -pat $a $b }
+                !*^ { tarray::column::search -all -nocase -not -pat $a $b }
             }]
         }
     }

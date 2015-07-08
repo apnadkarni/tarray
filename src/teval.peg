@@ -59,7 +59,7 @@ void:    Empty <- WS ;
     Columns <- '.' WS '(' WS ColumnList? WS ')' ;
     ColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
 
-    ColumnConstructor <- [$] ColumnType WS Sequence? ;
+    ColumnConstructor <- [@] ColumnType WS Sequence? ;
 
     # Syntax based definitions
 
