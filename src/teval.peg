@@ -32,9 +32,9 @@ void:    Empty <- WS ;
     BitXorExpr <- BitAndExpr (WS BitXorOp WS BitXorExpr)* ;
     BitAndExpr <- RelExpr (WS BitAndOp WS BitAndExpr)* ;
     RelExpr <- AddExpr (WS RelOp WS RelExpr)* ;
-    AddExpr  <- MulExpr (WS AddOp WS AddExpr)* ;
-    MulExpr <- UnaryExpr (WS MulOp WS MulExpr)* ;
-    UnaryExpr <- PostfixExpr / UnaryOp WS UnaryExpr ;
+    AddExpr  <- MulExpr (WS AddOp WS MulExpr)* ;
+    MulExpr <- UnaryExpr (WS MulOp WS UnaryExpr)* ;
+    UnaryExpr <- PostfixExpr / UnaryOp WS PostfixExpr ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
 
     # Basic terms

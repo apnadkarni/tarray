@@ -54,6 +54,9 @@ oo::class create tarray::teval::Parser {
         next {*}$args
     }
 
+    method ast {text} {
+        tarray::ast::print $text [my parset $text]
+    }
     
     method _print {node {indent {}}} {
         set children [lassign $node name]
@@ -94,19 +97,23 @@ oo::class create tarray::teval::Parser {
     }
 
     # Common method used by most binary operator expressions
-    method _binop {nodename from to first_child {op {}} {second_child {}}} {
-        # $args contains remaining children (currently at most 1)
-        if {[llength $op] == 0} {
+    method _binop {nodename from to first_child args} {
+        # $args contains alternating op operand
+        if {[llength $args] == 0} {
             # Node has only one child, just promote it.
             return $first_child
+        }
+        error "Obsolete code"
+
+        set node [list $nodename]
+
+        # Fold constants if first child and second are both numbers.
+        if {[lindex $first_child 0] eq "Number" &&
+            [lindex $args 0 0] eq "Number"} {
+            return [list Number [expr "[lindex $first_child 1][lindex $op 1][lindex $args 0 1]"]]
         } else {
-            # Fold constants if first child and second are both numbers.
-            if {[lindex $first_child 0] eq "Number" &&
-                [lindex $second_child 0] eq "Number"} {
-                return [list Number [expr "[lindex $first_child 1][lindex $op 1][lindex $second_child 1]"]]
-            } else {
-                return [list [lindex $op 1] $first_child $second_child]
-            }
+            return [list [lindex $op 1] $first_child {*}$args]
+            return [list [lindex $op 1] $first_child $second_child]
         }
     }
 
@@ -162,7 +169,111 @@ oo::class create tarray::teval::Parser {
     forward BitXorExpr my _binop BitXorExpr
     forward BitAndExpr my _binop BitAndExpr
     forward RelExpr my _binop RelExpr
-    forward AddExpr my _binop AddExpr
+    method AddExpr {from to first_child args} {
+        # args will be a list of alternating AddOp and operand nodes
+        if {[llength $args] == 0} {
+            # Simply promote and return the child
+            return $first_child
+        }
+
+        # We want to do constant folding and also optimize number of
+        # calls the runtime will make to tarray::column::math.
+        # const will hold the result of constant folding
+        # positives will hold the non-const operands whose operator is +
+        # negatives will hold the non-const operands whose operator is -
+        # Note the operand itself may be positive or negative as well!
+        set negatives {}
+        if {[lindex $first_child 0] eq "Number"} {
+            set const [lindex $first_child 1]
+            set positives {}
+        } else {
+            set const 0
+            set positives [list $first_child]
+        }
+        foreach {op operand} $args {
+            if {[lindex $operand 0] eq "Number"} {
+                # Note: don't use incr because it cannot handle op=-, operand=-4
+                append const [lindex $op 1] [lindex $operand 1]
+            } else {
+                if {[lindex $op 1] eq "+"} {
+                    lappend positives $operand
+                } else {
+                    lappend negatives $operand
+                }
+            }
+        }
+        # Result is const + positive - negatives. Optimize for when
+        # various components are missing.
+        set const [expr $const]; # Fold constants
+        if {$const == 0} {
+            if {[llength $positives] == 0} {
+                # No positives, const 0
+                if {[llength $negatives] == 0} {
+                    # No positives, no negatives const 0
+                    return [list Number 0]
+                } else {
+                    # No positives, at least one negative, const 0
+                    return [list - [list Number 0] {*}$negatives]
+                }
+            } else {
+                # At least one positive, const 0
+                if {[llength $negatives] == 0} {
+                    # Only positives, no negatives, const = 0
+                    if {[llength $positives] == 1} {
+                        # A single positive, no negatives, const 0
+                        return [lindex $positives 0]
+                    } else {
+                        # Multiple positives, no negatives, const 0
+                        return [list + {*}$positives]
+                    }
+                } else {
+                    # Both positives and negatives, const 0
+                    if {[llength $positives] == 1} {
+                        # Single positive, at least one negative, const 0
+                        if {[llength $negatives] == 1} {
+                            # Single positive, single negative, const 0
+                            return [list - [lindex $positives 0] [lindex $negatives 0]]
+                        } else {
+                            # Single positive, multiple negative, const 0
+                            return [list - [lindex $positives 0] [list + {*}$negatives]]
+                        }
+                    } else {
+                        # Multiple positive, at least one negative, const 0
+                        if {[llength $negatives] == 1} {
+                            # Multiple positive, single negative, const 0
+                            return [list - [list + {*}$positives] [lindex $negatives 0]]
+                        } else {
+                            # Multiple positive, multiple negatives, const 0
+                            return [list - [list + {*}$positives] [list + {*}$negatives]]
+                        }
+                    }
+                }                
+            }
+        } else {
+            # const non-0
+            set const [list Number $const]
+            if {[llength $positives] == 0} {
+                # No positives, const non-0
+                if {[llength $negatives] == 0} {
+                    # No positives, no negatives const non-0
+                    return $const
+                } else {
+                    # No positives, at least one negative, const non-0
+                    return [list - $const {*}$negatives]
+                }
+            } else {
+                # At least one positive, const non-0
+                if {[llength $negatives] == 0} {
+                    # Only positives, no negatives, const non-0
+                    return [list + $const {*}$positives]
+                } else {
+                    # Both positives and negatives, const non-0
+                    return [list - [list + $const {*}$positives] {*}$negatives]
+                }
+            }
+        }
+        error "Internal error: missed a case in AddExpr!"
+    }
     forward MulExpr my _binop MulExpr
 
     method UnaryExpr {from to postfix_expr args} {
@@ -445,8 +556,8 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
-    method _mathop {op first second} {
-        return "\[tarray::column::math $op [my {*}$first] [my {*}$second]\]"
+    method _mathop {op args} {
+        return "\[tarray::column::math $op [join [lmap arg $args { my {*}$arg }] { }]\]"
     }
 
     forward + my _mathop +
@@ -1336,6 +1447,12 @@ namespace eval tarray::teval::rt {
     }
 }
 
+proc tarray::teval::test {script value desc} {
+    if {[tarray::tscript $script] != $value} {
+        puts stderr "$desc failed"
+    }
+}
+
 if {1} {
     tarray::teval::Parser create tp
     tarray::teval::Compiler create tc
@@ -1347,4 +1464,11 @@ if {1} {
     tscript {K[0:1] = J[0:1]}
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
+
+    if {0} {
+        namespace eval tarray::teval {
+            test {4-2-2} 0 "Left associativity"
+            test {1+2*3} 7 "Operator precedence"
+        }
+    }
 }
