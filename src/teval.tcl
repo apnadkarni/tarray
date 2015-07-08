@@ -165,10 +165,6 @@ oo::class create tarray::teval::Parser {
             return [list Range $first_child [lindex $args 0]]
         }
     }
-    forward BitOrExpr my _binop BitOrExpr
-    forward BitXorExpr my _binop BitXorExpr
-    forward BitAndExpr my _binop BitAndExpr
-    forward RelExpr my _binop RelExpr
 
     method AddExpr {from to first_child args} {
         # args will be a list of alternating AddOp and operand nodes
@@ -281,23 +277,20 @@ oo::class create tarray::teval::Parser {
         error "Internal error: missed a case in AddExpr!"
     }
 
-    method MulExpr {from to first_child args} {
+    method _leftassoc_fold {from to first_child args} {
         if {[llength $args] == 0} {
             return $first_child
         }
         set command {}
         set prev_operand $first_child
-        set prev_op *
         set fold 1
         foreach {op operand} $args {
             set op [lindex $op 1]
             if {$fold} {
-                if {$op eq "*" &&
-                    [lindex $prev_operand 0] eq "Number" &&
+                if {[lindex $prev_operand 0] eq "Number" &&
                     [lindex $operand 0] eq "Number"} {
-                    # Fold leading multiplicative constant
-                    # Note we cannot fold division op that easily
-                    set prev_operand [list Number [expr {[lindex $prev_operand 1] * [lindex $operand 1]}]]
+                    # Fold leading constants
+                    set prev_operand [list Number [expr [list [lindex $prev_operand 1] $op [lindex $operand 1]]]]
                 } else {
                     # Can't fold any more
                     set prev_operand [list $op $prev_operand $operand]
@@ -316,6 +309,12 @@ oo::class create tarray::teval::Parser {
         }
         return $prev_operand
     }
+
+    forward MulExpr my _leftassoc_fold
+    forward BitOrExpr my _leftassoc_fold
+    forward BitXorExpr my _leftassoc_fold
+    forward BitAndExpr my _leftassoc_fold
+    forward RelExpr my _leftassoc_fold
 
     method UnaryExpr {from to postfix_expr args} {
         if {[llength $args] == 0} {
