@@ -21,7 +21,7 @@ void:    Empty <- WS ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Identifier WS (Column / Columns)? (WS '[' WS (Range / Expression) WS ']')? ;
+    LValue <- Identifier WS (TableColumn / TableColumns)? (WS '[' WS (Range / Expression) WS ']')? ;
 
     # Expressions in ascending precedence order
     Expression <- LogicalOrExpr ;
@@ -51,15 +51,15 @@ void:    Empty <- WS ;
     # Postfix operators
     PostfixOp <-  Selector
 		  / FunctionCall
-		  / Column
-		  / Columns ;
+		  / TableColumn
+		  / TableColumns ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- '(' WS ArgumentList? WS ')' ;
     ArgumentList <- Argument (WS ',' WS Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
-    Column <- '.' WS ColumnIdentifier ;
-    Columns <- '.' WS '(' WS ColumnList? WS ')' ;
-    ColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
+    TableColumn <- ColumnOp WS ColumnIdentifier ;
+    TableColumns <- ColumnOp WS '(' WS TableColumnList? WS ')' ;
+    TableColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
 
     ColumnConstructor <- [@] ColumnType WS Sequence? ;
 
@@ -110,6 +110,7 @@ leaf: BitXorOp <- '^' ;
 leaf: LogicalAndOp <- '&&' ;
 leaf: LogicalOrOp <- '||' ;
 
+void: ColumnOp <- '#' ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
