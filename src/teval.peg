@@ -54,7 +54,8 @@ void:    Empty <- WS ;
 		  / TableColumn
 		  / TableColumns ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
-    FunctionCall <- '(' WS ArgumentList? WS ')' ;
+    FunctionCall <- (MethodCall)* WS '(' WS ArgumentList? WS ')' ;
+    MethodCall  <- '.' WS Identifier ;
     ArgumentList <- Argument (WS ',' WS Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
     TableColumn <- ColumnOp WS ColumnIdentifier ;
