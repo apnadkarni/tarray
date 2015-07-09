@@ -366,12 +366,17 @@ oo::class create tarray::teval::Parser {
         return [list Selector $child]
     }
 
-    method FunctionCall {from to {child {}}} {
-        return [linsert $child 0 FunctionCall]
+    method FunctionCall {from to args} {
+        return [linsert $args 0 FunctionCall]
+    }
+
+    method MethodCall {from to child} {
+        # child is {Identifier name}
+        return [list MethodCall [lindex $child 1]]
     }
 
     method ArgumentList {from to args} {
-        return $args
+        return [list ArgumentList {*}$args]
     }
 
     method Argument {from to args} {
@@ -662,14 +667,22 @@ oo::class create tarray::teval::Compiler {
                 }
                 FunctionCall {                
                     set fnargs {}
-                    foreach fnarg [lrange $postexpr 1 end] {
-                        # Have to deal with simple args as well
-                        # as option args.
-                        foreach elem $fnarg {
-                            lappend fnargs [my {*}$elem]
+                    set methods {}
+                    # Each fnarg might be a method name, a plain argument
+                    # or an option with value argument
+                    foreach elem [lrange $postexpr 1 end] {
+                        if {[lindex $elem 0] eq "MethodCall"} {
+                            lappend methods [lindex $elem 1]
+                        } else {
+                            # ArgumentList
+                            foreach argelem [lrange $elem 1 end] {
+                                foreach fnarg $argelem {
+                                    lappend fnargs [my {*}$fnarg]
+                                }
+                            }
                         }
                     }
-                    set primary "\[$primary [join $fnargs { }]\]"
+                    set primary "\[$primary [join $methods { }] [join $fnargs { }]\]"
                 }
                 TableColumn {
                     set primary "\[tarray::table::column $primary [my {*}$postexpr]\]"
