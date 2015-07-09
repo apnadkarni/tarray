@@ -414,10 +414,8 @@ oo::class create tarray::teval::Parser {
         return [list Identifier [string range $Script $from $to]]
     }
 
-    method BuiltinIdentifier {from to} {
-        switch -exact -- [string range $Script $from $to] {
-            $$ { return CurrentSelectorContext }
-        }
+    method IndirectIdentifier {from to} {
+        return [list IndirectIdentifier [string range $Script [expr {1+$from}] $to]]
     }
 
     method Token {from to} {
@@ -643,12 +641,16 @@ oo::class create tarray::teval::Compiler {
 
         # For functions, we take identifier as the name of the function,
         # not as a variable containing the name of a function.
-        if {[lindex $args 0 0] eq "FunctionCall" &&
-            [lindex $primary_expr 0] eq "Identifier" } {
-            set primary [lindex $primary_expr 1]
+        if {[lindex $args 0 0] eq "FunctionCall"} {
+            switch -exact -- [lindex $primary_expr 0] {
+                Identifier { set primary [lindex $primary_expr 1] }
+                IndirectIdentifier { set primary "\[set [lindex $primary_expr 1]\]"}
+                default { set primary [my {*}$primary_expr] }
+            }
         } else {
             set primary [my {*}$primary_expr]
         }
+
 
         foreach postexpr $args {
             switch -exact -- [lindex $postexpr 0] {
@@ -746,8 +748,12 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
+    method IndirectIdentifier {ident} {
+        return "\[set \[set $ident\]\]"
+    }
+
     method Identifier {ident} {
-        return "\[[list set $ident]\]"
+        return "\[set $ident\]"
     }
 }
 

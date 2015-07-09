@@ -40,7 +40,7 @@ void:    Empty <- WS ;
 
     # Basic terms
     PrimaryExpr  <- ColumnConstructor
-                    / BuiltinIdentifier
+                    / IndirectIdentifier
 		    / Identifier
 		    / Number
 		    / Token
@@ -67,7 +67,7 @@ void:    Empty <- WS ;
     # Syntax based definitions
 
 leaf: ColumnType <- 'boolean' / 'byte' / 'int' / 'uint' / 'wide' / 'double' / 'string' / 'any' ;
-leaf: BuiltinIdentifier <- [$] ([$#] / Identifier) ;
+leaf: IndirectIdentifier <- [$] Identifier ;
 ColumnIdentifier <- Identifier;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
