@@ -38,12 +38,28 @@ namespace eval tarray::ast {
 
 namespace eval tarray::teval {}
 
-proc tarray::tscript {script} {
+proc tarray::_init_tcompiler {} {
     teval::Compiler create tcompiler
-    proc [namespace current]::tscript {script} {
+    proc _init_tcompiler {} {
+        return tcompiler
+    }
+    tailcall _init_tcompiler
+}
+proc tarray::tscript {script} {
+    _init_tcompiler
+    proc tscript {script} {
         uplevel 1 [tcompiler compile $script]
     }
     tailcall tscript $script
+}
+
+proc tarray::tproc {name arguments body} {
+   _init_tcompiler
+    proc tproc {name arguments body} {
+        set compilation [tcompiler compile $body]
+        uplevel 1 [list proc $name $arguments $compilation]
+    }
+    tailcall tproc $name $arguments $body
 }
 
 oo::class create tarray::teval::Parser {
