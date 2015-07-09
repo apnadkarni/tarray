@@ -43,6 +43,7 @@ void:    Empty <- WS ;
                     / BuiltinIdentifier
 		    / Identifier
 		    / Number
+		    / Token
 		    / String
 		    / Sequence
 		    / '(' Expression ')' ;
@@ -72,6 +73,7 @@ leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
 Sequence <- '{' WS SequenceElements? WS '}' ;
 SequenceElements <- Expression (WS ',' WS Expression)* ;
+leaf: Token <- SingleQuote Identifier ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
                      / BackSlash
@@ -82,6 +84,7 @@ void: Char   <- BackSlash ( Quote
                     )
            / . ;
 void: Quote <- '"';
+void: SingleQuote <- ['] ;
 void: Backslash <- '\\';
 
 void: Separator <- Comment? EOL / ';';
