@@ -362,14 +362,6 @@ oo::class create tarray::teval::Parser {
         return [list ColumnConstructor $coltype {*}$args]
     }
 
-    method CountSelector {from to {child {}}} {
-        if {[llength $child]} {
-            return [list CountSelector [lindex $child 1]]
-        } else {
-            return [list Count]
-        }
-    }
-
     method IndexSelector {from to child} {
         return [list IndexSelector $child]
     }
@@ -655,44 +647,6 @@ oo::class create tarray::teval::Compiler {
 
         foreach postexpr $args {
             switch -exact -- [lindex $postexpr 0] {
-                Count {
-                    set primary "\[tarray::teval::rt::count $primary\]"
-                }
-                CountSelector {
-                    set frag {
-                        tarray::teval::rt::push_selector_context %VALUE%
-                        try {
-                            if {0} {
-                                return -level 0 [tarray::column::size [tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%]]
-                            } else {
-                                return -level 0 [tarray::column::size %SELECTEXPR%]
-                            }
-                        } finally {
-                            tarray::teval::rt::pop_selector_context
-                        }
-                    }
-                    incr SelectorNestingLevel
-                    set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
-                    incr SelectorNestingLevel -1
-                }
-                IndexSelector {
-                    # Note - don't use "" inside frag. causes some parsing
-                    # confusion.
-                    set frag {
-                        tarray::teval::rt::push_selector_context %VALUE%
-                        if {[lindex [tarray::types [tarray::teval::rt::selector_context]] 0] eq {}} {
-                            error {Operand of [[]] is not a column or table}
-                        }
-                        try {
-                            return -level 0 %SELECTEXPR%
-                        } finally {
-                            tarray::teval::rt::pop_selector_context
-                        }
-                    }
-                    incr SelectorNestingLevel
-                    set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
-                    incr SelectorNestingLevel -1
-                }
                 Selector {
                     set frag {
                         tarray::teval::rt::push_selector_context %VALUE%
@@ -729,10 +683,6 @@ oo::class create tarray::teval::Compiler {
     }
 
     method IndexSelector {child} {
-        return [my {*}$child]
-    }
-
-    method CountSelector {child} {
         return [my {*}$child]
     }
 
@@ -1483,7 +1433,7 @@ namespace eval tarray::teval::rt {
     }
 }
 
-proc tarray::teval::testconst {expr desc} {
+proc tarray::teval::testconstexpr {expr desc} {
     set t [tarray::tscript $expr]
     set e [expr $expr]
     if {$t != $e} {
@@ -1502,13 +1452,15 @@ if {1} {
     tscript {K[0:1] = J[0:1]}
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
+    tscript {# I}
+    tscript {# {1,2,3}}
 
     if {1} {
         namespace eval tarray::teval {
-            testconst {4-2+2} "+- Left associativity"
-            testconst {4-2-2} "- Left associativity"
-            testconst {1+2*3} "+* Operator precedence"
-            testconst {1||0&&0} "Logical operator precedence"
+            testconstexpr {4-2+2} "+- Left associativity"
+            testconstexpr {4-2-2} "- Left associativity"
+            testconstexpr {1+2*3} "+* Operator precedence"
+            testconstexpr {1||0&&0} "Logical operator precedence"
         }
     }
 }
