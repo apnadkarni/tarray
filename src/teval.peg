@@ -2,7 +2,7 @@
 # from https://github.com/PhilippeSigaud/Pegged/blob/master/pegged/examples/c.d
 PEG TEval (Program)
     # A Program is a sequence of statements.
-    # The Comment is there because otherwise [tscript {// comment}] errors out
+    # The Comment? is there because otherwise [tscript {// comment}] errors out
     Program <- WS (Statement (WS Separator WS Statement)*)? WS Comment? EOF;
 void:  EOF <- !.;
 
@@ -25,9 +25,10 @@ void:    Empty <- WS ;
 
     # Expressions in ascending precedence order
     Expression <- LogicalOrExpr ;
-    LogicalOrExpr <- LogicalAndExpr ( WS LogicalOrOp WS LogicalOrExpr)* ;
-    LogicalAndExpr <- RangeExpr (WS  LogicalAndOp WS LogicalAndExpr)* ;
+    LogicalOrExpr <- LogicalAndExpr ( WS LogicalOrOp WS LogicalAndExpr)* ;
+    LogicalAndExpr <- RangeExpr (WS  LogicalAndOp WS RangeExpr)* ;
     RangeExpr  <- BitOrExpr WS ':' WS BitOrExpr / BitOrExpr ;
+    # Following are written as to implement left-associativity
     BitOrExpr <- BitXorExpr (WS BitOrOp WS BitXorExpr)* ;
     BitXorExpr <- BitAndExpr (WS BitXorOp WS BitAndExpr)* ;
     BitAndExpr <- RelExpr (WS BitAndOp WS RelExpr)* ;

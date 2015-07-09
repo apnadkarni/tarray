@@ -96,27 +96,6 @@ oo::class create tarray::teval::Parser {
         return [list $name [string range $Script $from $to]]
     }
 
-    # Common method used by many operator expressions
-    method _binop {nodename from to first_child args} {
-        # $args contains alternating op operand
-        if {[llength $args] == 0} {
-            # Node has only one child, just promote it.
-            return $first_child
-        }
-        error "Obsolete code"
-
-        set node [list $nodename]
-
-        # Fold constants if first child and second are both numbers.
-        if {[lindex $first_child 0] eq "Number" &&
-            [lindex $args 0 0] eq "Number"} {
-            return [list Number [expr "[lindex $first_child 1][lindex $op 1][lindex $args 0 1]"]]
-        } else {
-            return [list [lindex $op 1] $first_child {*}$args]
-            return [list [lindex $op 1] $first_child $second_child]
-        }
-    }
-
     method Program {from to args} {
         return $args
     }
@@ -156,8 +135,7 @@ oo::class create tarray::teval::Parser {
     }
 
     forward Expression my _child
-    forward LogicalOrExpr my _binop LogicalOrExpr
-    forward LogicalAndExpr my _binop LogicalAndExpr
+
     method RangeExpr {from to first_child args} {
         if {[llength $args] == 0} {
             return $first_child
@@ -310,6 +288,8 @@ oo::class create tarray::teval::Parser {
         return $prev_operand
     }
 
+    forward LogicalOrExpr my _leftassoc_fold
+    forward LogicalAndExpr my _leftassoc_fold
     forward MulExpr my _leftassoc_fold
     forward BitOrExpr my _leftassoc_fold
     forward BitXorExpr my _leftassoc_fold
@@ -1487,9 +1467,11 @@ namespace eval tarray::teval::rt {
     }
 }
 
-proc tarray::teval::test {script value desc} {
-    if {[tarray::tscript $script] != $value} {
-        puts stderr "$desc failed"
+proc tarray::teval::testconst {expr desc} {
+    set t [tarray::tscript $expr]
+    set e [expr $expr]
+    if {$t != $e} {
+        puts stderr "$desc failed for <$expr>. $t != $e"
     }
 }
 
@@ -1505,10 +1487,12 @@ if {1} {
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
 
-    if {0} {
+    if {1} {
         namespace eval tarray::teval {
-            test {4-2-2} 0 "Left associativity"
-            test {1+2*3} 7 "Operator precedence"
+            testconst {4-2+2} "+- Left associativity"
+            testconst {4-2-2} "- Left associativity"
+            testconst {1+2*3} "+* Operator precedence"
+            testconst {1||0&&0} "Logical operator precedence"
         }
     }
 }
