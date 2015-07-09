@@ -415,6 +415,10 @@ oo::class create tarray::teval::Parser {
         }
     }
 
+    method Token {from to} {
+        return [list String [string range $Script [expr {$from+1}] $to]]
+    }
+
     method OptionString {from to} {
         return [list OptionString [string range $Script $from $to]]
     }
