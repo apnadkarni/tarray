@@ -362,10 +362,6 @@ oo::class create tarray::teval::Parser {
         return [list ColumnConstructor $coltype {*}$args]
     }
 
-    method IndexSelector {from to child} {
-        return [list IndexSelector $child]
-    }
-
     method Selector {from to child} {
         return [list Selector $child]
     }
@@ -680,10 +676,6 @@ oo::class create tarray::teval::Compiler {
             }
         }
         return "$primary"
-    }
-
-    method IndexSelector {child} {
-        return [my {*}$child]
     }
 
     method Selector {child} {
@@ -1452,6 +1444,7 @@ if {1} {
     tscript {K[0:1] = J[0:1]}
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
+    tscript {T.i[0:1] = I[3:4]}
     tscript {# I}
     tscript {# {1,2,3}}
 
