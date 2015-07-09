@@ -137,10 +137,10 @@ oo::class create tarray::teval::Parser {
             return $first_child;
         } else {
             return [switch -exact -- [lindex $args 0 0] {
-                Column {
+                TableColumn {
                     list LValueTableColumn [lindex $first_child 1] [lindex $args 0 1] {*}[lrange $args 1 end]
                 }
-                Columns {
+                TableColumns {
                     list LValueTableColumns [lindex $first_child 1] [lrange [lindex $args 0] 1 end] {*}[lrange $args 1 end]
                 }
                 default {
@@ -378,15 +378,15 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
-    method Column {from to child} {
-        return [list Column $child]
+    method TableColumn {from to child} {
+        return [list TableColumn $child]
     }
 
-    method Columns {from to {child {}}} {
-        return [linsert $child 0 Columns]
+    method TableColumns {from to {child {}}} {
+        return [linsert $child 0 TableColumns]
     }
 
-    method ColumnList {from to args} {
+    method TableColumnList {from to args} {
         return $args
     }
 
@@ -671,10 +671,10 @@ oo::class create tarray::teval::Compiler {
                     }
                     set primary "\[$primary [join $fnargs { }]\]"
                 }
-                Column {
+                TableColumn {
                     set primary "\[tarray::table::column $primary [my {*}$postexpr]\]"
                 }
-                Columns {
+                TableColumns {
                     set primary "\[tarray::table::slice $primary [my {*}$postexpr]\]"
                 }
             }
@@ -686,7 +686,7 @@ oo::class create tarray::teval::Compiler {
         return [my {*}$child]
     }
 
-    method Column {child} {
+    method TableColumn {child} {
         if {[lindex $child 0] eq "Identifier"} {
             return [lindex $child 1]
         } else {
@@ -694,7 +694,7 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
-    method Columns {args} {
+    method TableColumns {args} {
         set cols [lmap colarg $args {
             if {[lindex $colarg 0] eq "Identifier"} {
                 lindex $colarg 1
@@ -1448,7 +1448,7 @@ if {1} {
     tscript {K[0:1] = J[0:1]}
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
-    tscript {T.i[0:1] = I[3:4]}
+    tscript {T#i[0:1] = I[3:4]}
     tscript {# I}
     tscript {# {1,2,3}}
 
