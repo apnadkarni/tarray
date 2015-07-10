@@ -138,10 +138,12 @@ oo::class create tarray::teval::Parser {
         } else {
             return [switch -exact -- [lindex $args 0 0] {
                 TableColumn {
-                    list LValueTableColumn [lindex $first_child 1] [lindex $args 0 1] {*}[lrange $args 1 end]
+                    # args is column_op (' or #), column identifier, remaining args
+                    list LValueTableColumn [lindex $first_child 1] [lindex $args 0 1] [lindex $args 0 2] {*}[lrange $args 1 end]
                 }
                 TableColumns {
-                    list LValueTableColumns [lindex $first_child 1] [lrange [lindex $args 0] 1 end] {*}[lrange $args 1 end]
+                    # args is column_op (' or #), column identifier, remaining args
+                    list LValueTableColumns [lindex $first_child 1] [lindex $args 0 1] [lrange [lindex $args 0] 2 end] {*}[lrange $args 1 end]
                 }
                 default {
                     list LValueTarray [lindex $first_child 1] {*}$args
@@ -383,12 +385,12 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
-    method TableColumn {from to child} {
-        return [list TableColumn $child]
+    method TableColumn {from to op child} {
+        return [list TableColumn [lindex $op 1] $child]
     }
 
-    method TableColumns {from to {child {}}} {
-        return [linsert $child 0 TableColumns]
+    method TableColumns {from to op {child {}}} {
+        return [linsert $child 0 TableColumns [lindex $op 1]]
     }
 
     method TableColumnList {from to args} {
@@ -409,6 +411,7 @@ oo::class create tarray::teval::Parser {
     forward LogicalAndOp my _extract LogicalAndOp
     forward LogicalOrOp my _extract LogicalOrOp
     forward AssignOp my _extract AssignOp
+    forward ColumnOp my _extract ColumnOp
 
     method Identifier {from to} {
         return [list Identifier [string range $Script $from $to]]
@@ -517,9 +520,13 @@ oo::class create tarray::teval::Compiler {
             }
             LValueTableColumn {
                 # Assigning to a single column within a table
-                lassign $lvalue type table column indexexpr
-                if {[lindex $column 0] eq "Identifier"} {
-                    set column [lindex $column 1]
+                lassign $lvalue type table column_op column indexexpr
+                if {$column_op eq "'"} {
+                    if {[lindex $column 0] eq "Identifier"} {
+                        set column [lindex $column 1]
+                    } else {
+                        set column [my {*}$column]
+                    }
                 } else {
                     set column [my {*}$column]
                 }
@@ -548,12 +555,18 @@ oo::class create tarray::teval::Compiler {
             }
 
             LValueTableColumns {
-                lassign $lvalue type table columns indexexpr
+                lassign $lvalue type table column_op columns indexexpr
                 set collist {}
-                foreach column $columns {
-                    if {[lindex $column 0] eq "Identifier"} {
-                        lappend collist [lindex $column 1]
-                    } else {
+                if {$column_op eq "'"} {
+                    foreach column $columns {
+                        if {[lindex $column 0] eq "Identifier"} {
+                            lappend collist [lindex $column 1]
+                        } else {
+                            lappend collist [my {*}$column]
+                        }
+                    }
+                } else {
+                    foreach column $columns {
                         lappend collist [my {*}$column]
                     }
                 }
@@ -703,9 +716,13 @@ oo::class create tarray::teval::Compiler {
         return [my {*}$child]
     }
 
-    method TableColumn {child} {
-        if {[lindex $child 0] eq "Identifier"} {
-            return [lindex $child 1]
+    method TableColumn {op child} {
+        if {$op eq "'"} {
+            if {[lindex $child 0] eq "Identifier"} {
+                return [lindex $child 1]
+            } else {
+                return [my {*}$child]
+            }
         } else {
             return [my {*}$child]
         }
@@ -960,23 +977,28 @@ namespace eval tarray::teval::rt {
                 # If the specified value is a column, convert it to
                 # a table
                 set value [tarray::table::create2 [list $colname] [list $value]]
+                set source_size [tarray::table::size $value]
             } else {
                 # Plain Tcl value, Try converting to a table first.
                 set table_def [tarray::table::definition $var [list $colname]]
                 if {[catch {
-                    set value [tarray::table::create $table_def $value]
-                }]} {
+                    set value2 [tarray::table::create $table_def $value]
+                    set source_size [tarray::table::size $value2]
+                }] || ($source_size == 1 && $target_size != $source_size)} {
                     # value cannot be treated as a column or rowvalues
+                    # or it is a single row and target is multiple
                     # Try treating as a single cell of the table
                     return [tarray::table::vfill -columns [list $colname] var $value $low $high]
                 }
+                set value $value2
             }
+        } else {
+            set source_size [tarray::table::size $value]
         }
 
         # We were passed a value that was a table or could be converted to one
         # We have to use a put. Make sure the source range
         # and target range match
-        set source_size [tarray::table::size $value]
         if {$target_size != $source_size} {
             error "Source size $source_size differs from target table range $low:$high."
         }
@@ -1069,7 +1091,7 @@ namespace eval tarray::teval::rt {
         # colnames is the list of column names to assign to
         # value is the value to be assigned
         # [low high] is the range to assign to
-        
+
         upvar 1 $varname var
 
         lassign [tarray::types $var $value] vartype valuetype
@@ -1096,18 +1118,22 @@ namespace eval tarray::teval::rt {
             # Plain Tcl value, Try converting to a table first.
             set table_def [tarray::table::definition $var $colnames]
             if {[catch {
-                set value [tarray::table::create $table_def $value]
-            }]} {
+                set value2 [tarray::table::create $table_def $value]
+                set source_size [tarray::table::size $value2]
+            }] || ($source_size == 1 && $source_size != $target_size)} {
                 # value cannot be treated as a table or rowvalues
+                # or the sizes do not match
                 # Try treating as a single row of the table
                 return [tarray::table::vfill -columns $colnames var $value $low $high]
             }
+            set value $value2
+        } else {
+            set source_size [tarray::table::size $value]
         }
 
         # We were passed a value that was a table or could be converted to one
         # We have to use a put. Make sure the source range
         # and target range match
-        set source_size [tarray::table::size $value]
         if {$target_size != $source_size} {
             error "Source size $source_size differs from target table range $low:$high."
         }
@@ -1482,6 +1508,8 @@ if {1} {
     tarray::teval::Parser create tp
     tarray::teval::Compiler create tc
     namespace path tarray
+}
+if {1} {
     set I [column create int {10 20 30 40 50}]
     set J [column create int {100 200 300 400 500}]
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
@@ -1489,18 +1517,19 @@ if {1} {
     tscript {K[0:1] = J[0:1]}
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
-    tscript {T#i[0:1] = I[3:4]}
+    tscript {T'i[0:1] = I[3:4]}
+    set col s
+    tscript {T#col[0:1] = 'abc}
     tscript {# I}
     tscript {# {1,2,3}}
 
-    if {1} {
-        namespace eval tarray::teval {
-            testconstexpr {4-2+2} "+- Left associativity"
-            testconstexpr {4-2-2} "- Left associativity"
-            testconstexpr {1+2*3} "+* Operator precedence"
-            testconstexpr {1||0&&0} "Logical operator precedence"
-        }
+    namespace eval tarray::teval {
+        testconstexpr {4-2+2} "+- Left associativity"
+        testconstexpr {4-2-2} "- Left associativity"
+        testconstexpr {1+2*3} "+* Operator precedence"
+        testconstexpr {1||0&&0} "Logical operator precedence"
     }
+    catch {C destroy}
     oo::class create C { method m {args} {puts [join $args ,]} }
     set o [C new]
     tscript {$o.m('abc, 10)}
