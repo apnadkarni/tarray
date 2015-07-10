@@ -21,7 +21,7 @@ void:    Empty <- WS ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
-    LValue <- Identifier WS (TableColumn / TableColumns)? (WS '[' WS (Range / Expression) WS ']')? ;
+    LValue <- Identifier WS (Element / TableColumns)? (WS '[' WS (Range / Expression) WS ']')? ;
 
     # Expressions in ascending precedence order
     Expression <- LogicalOrExpr ;
@@ -51,14 +51,14 @@ void:    Empty <- WS ;
     # Postfix operators
     PostfixOp <-  Selector
 		  / FunctionCall
-		  / TableColumn
+		  / Element
 		  / TableColumns ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
     FunctionCall <- (MethodCall)* WS '(' WS ArgumentList? WS ')' ;
     MethodCall  <- '.' WS Identifier ;
     ArgumentList <- Argument (WS ',' WS Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
-    TableColumn <- ColumnOp WS ColumnIdentifier ;
+    Element <- ElementOp WS ElementIdentifier ;
     TableColumns <- ColumnOp WS '(' WS TableColumnList? WS ')' ;
     TableColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
 
@@ -69,6 +69,7 @@ void:    Empty <- WS ;
 leaf: ColumnType <- 'boolean' / 'byte' / 'int' / 'uint' / 'wide' / 'double' / 'string' / 'any' ;
 leaf: IndirectIdentifier <- [$] Identifier ;
 ColumnIdentifier <- Identifier;
+ElementIdentifier <- Identifier;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
@@ -112,6 +113,7 @@ leaf: LogicalAndOp <- '&&' ;
 leaf: LogicalOrOp <- '||' ;
 
 leaf: ColumnOp <- ['#] ;
+leaf: ElementOp <- ['#] ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
