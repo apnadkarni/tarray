@@ -252,7 +252,7 @@ text {
     |Performs a bitwise-or operation on all the operands. This operation
     is not valid if any operand is a double or a column of type `double`.
 
-    |`\^`
+    |`^`
     |Performs a bitwise-xor operation on all the operands. This operation
     is not valid if any operand is a double or a column of type `double`.
 
