@@ -549,7 +549,7 @@ oo::class create tarray::teval::Compiler {
                     "" {
                         # T'c = ....
                         # No index 
-                        return "tarray::teval::assign_element $operand $element [my {*}$rvalue]"
+                        return "tarray::teval::rt::assign_element $operand $element [my {*}$rvalue]"
                     }
                     Range {
                         # T'c[4:j] = ...
