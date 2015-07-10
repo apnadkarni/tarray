@@ -31,13 +31,18 @@ text {
 
     As an example, the statement
 } syntax {
-    Emp.Salary[Emp.Salary < 50000 && Emp.Age > 35] = 50000
+    Emp'Salary[Emp'Salary < 50000 && Emp'Age > 35] = 50000
 } text {
     raises the salary of all underpaid older employees to a minimum level.
 
     TScript is embedded in Tcl and is executed through the `tscript`
-    command. Tcl and TScript can be freely invoked from the other.
-    However, TScript is syntactically completely different from Tcl.
+    command. Tcl and TScript can be freely invoked from each other
+    at a fine-grained level allowing the two to be intermixed according to
+    whatever syntax suits the task.
+} tbd {
+    Example of intermixing
+} text {
+    Neverthess, TScript is syntactically completely different from Tcl.
 }
 
 text {
@@ -113,7 +118,6 @@ text {
     === Comments
 
     Comments begin with the `//` sequence and extend to the end of the line.
-    They may be placed anywhere in the program. 
 }
 
 text {
@@ -148,10 +152,9 @@ text {
 
     String literals are delimited by double quotes and follow
     the backslash substitution rules as in Tcl.
-    However there some differences.
 
-    _A plain unquoted string is treated as an identifier_ and
-    not a string literal as in Tcl.
+    Unlike in Tcl, _a plain unquoted string is treated as an identifier_ and
+    not a string literal.
 } errorok 1 shell {
     tscript {s = unquoted}
 } text {
@@ -163,6 +166,13 @@ text {
 } text {
     Also note that braces have different semantics in TScript and
     cannot be used to delimit strings.
+} text {
+    An alternate form of a string literal is a `'` character preceding
+    a string that follows the rules for an identifier.
+} shell {
+    tscript { s = 'this::is::a::string }
+} text {
+    This alternate form is merely a small convenience.
 }
 
 text {
@@ -175,7 +185,7 @@ text {
         l = {"a string", x, tcl::clock::seconds(), y+z}
     }
 } text {
-    Note the list elements are separated using commas and an element may
+    The list elements are separated using commas and an element may
     be a literal, variable, function call or general expression.
 
     As an aside, we could also have invoked the Tcl `list` command
@@ -206,7 +216,7 @@ text {
     In TScript, a parameter that is not a literal is implicitly dereferenced
     when passed to a command. It is easy to forget this when calling
     Tcl commands that take variable _names_ as parameters.
-    Thus the equivalent of the Tcl script
+    Thus 
     ----
     incr val -1
     ----
@@ -217,9 +227,10 @@ text {
     which lands up passing the _value_ of `val` to the `incr`
     command which actually expects the name `val` itself to be the argument.
 
-    The correct equivalent is
+    The correct equivalents are either of the following:
     ----
     tscript { incr("val", -1) }
+    tscript { incr('val, -1) }
     ----
     ====
 } 
@@ -227,31 +238,62 @@ text {
 text {
     ==== Calling ensemble commands
 
-    In order to call Tcl ensemble commands such as
+    Ensemble commands such as `clock seconds` are called from TScript as
 } shell {
-    clock seconds
+    tscript {clock.seconds()}
 } text {
-    from TScript, you have two choices.
-
-    You can pass the subcommand `seconds` as the leading argument.
-} shell {
-    tscript {clock("seconds")}
-} text {
-    Alternatively, you can use the namespace qualified equivalent
-    to which the ensemble command is mapped.
+    Note the use of `.` as the separator between the command and its
+    subcommand. Depending on how the ensemble is defined, you can
+    also directly invoke it.
 } shell {
     tscript {tcl::clock::seconds()}
+} text {
+    Finally, in the very rare case that the ensemble subcommand does
+    not fit the syntax for a TScript identifier, you can pass it as the
+    first argument.
+} shell {
+    tscript {clock("seconds")}
 }
 
+text {
+    ==== Calling object methods
+
+    Object methods are called in a manner similar to ensemble commands.
+} shell {
+    oo::class create OExample { method m args {puts [join $args ,]} }
+    OExample create o
+    tscript {
+        o.m('astring, 10)
+        o.destroy()
+    }
+} text {
+    However, there is an additional case here where the name of the
+    object is not fixed and the object is accessed through a variable.
+} errorok 1 shell {
+    set obj [OExample new]
+    tscript {obj.m('astring, 10)}
+} text {
+    _Function and object names, unlike variables, do not get implicitly
+    dereferenced._
+    In this case, the `$` operator is used for dereferencing.
+} shell {
+    tscript {
+        $obj.m('astring, 10)
+        $obj.destroy()
+    } 
+} text {
+    We will talk about the dereferencing operator
+    ((^ sect_tscript_deref_op later)).
+}
 
 text {
     ==== Passing options to commands
 
     When passing options to commands, TScript supports an additional
     syntax for arguments where the option name does not have to be
-    quoted.
+    quoted or separated from its value by a `,`.
 
-    Thus instead of invoking the Tcl `subst` command as follows
+    Instead of invoking the Tcl `subst` command as follows
 } shell {
     tscript { subst("-novariables", "The value of val is $val") }
 } text {
@@ -272,11 +314,12 @@ text {
 
     Operators work with two kinds of operands
 
-    * columns and table, and
     * standard Tcl values
+    * columns and table, and
 
-    We only discuss the latter here. Operations on columns and tables
-    are discussed later.
+    We only discuss the former here. Operations on columns and tables
+    are discussed later. Note that neither of the Tcl operators
+    and the TScript operators is a subset of the other.
 
     Operator precedence follows that of Tcl.
 
@@ -374,6 +417,8 @@ text {
 
     ==== List operators
 
+    ===== The unary `#` operator for lists
+
     TScript supports the unary operator `#` which returns the length
     of its list operand. This operator also supports columns and tables
     as we will see later.
@@ -381,6 +426,31 @@ text {
     set l {a b c d e}
     tscript { len = # l }
     tscript { len = # {1,2,3,4} }
+}
+
+text {
+    ==== Dictionary operators
+
+    ===== The `#` and `'` operators for dictionaries
+
+    TScript provides two operators for retrieving values from dictionaries.
+    The `#` operator takes an operand that is the name of the variable
+    containing the key.
+} shell {
+    set d [dict create a 1 b 2 c 3 d 4]
+    set var c
+    tscript { d#var}
+    tscript { d # var };           # Note whitespace is optional
+} text {
+    Alternatively, the `'` operator can be used to provide the key as a
+    literal value.
+} shell {
+    tscript { d'c}
+    tscript { d ' c };           # Again, note whitespace is optional
+} 
+
+tbd {
+    ==== The `$` dereferencing operator
 }
 
 text {
@@ -521,7 +591,7 @@ text {
     boolean expression. The following prints all employees who are
     over 35 but have an income less than `70,000`.
 } outputlimit 0 shell {
-    tscript { print(Emps[Emps.Age > 35 && Emps.Salary < 70000]) }
+    tscript { print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) }
 } text {
     Because of their flexibility, selectors are the mechanism
     for doing searches in columns and tables.
@@ -546,7 +616,7 @@ text {
 
 
 } shell {
-    tscript { T = table::delete(Emps, Emps.Salary > 70000) }
+    tscript { T = table::delete(Emps, Emps'Salary > 70000) }
 }
 
 text {
