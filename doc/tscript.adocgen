@@ -78,7 +78,7 @@ text {
     We also use a table containing a simple employee data base:
 } shell {
     set Emps [table create {
-        Name string Salary uint Age uint Location string
+        Name string Salary int Age uint Location string
     } {
         {Sally      70000       32       Boston}
         {Tom        65000       36       Boston}
@@ -431,22 +431,22 @@ text {
 text {
     ==== Dictionary operators
 
-    ===== The `#` and `'` operators for dictionaries
+    ===== The `#` and `'` dictionary operators
 
-    TScript provides two operators for retrieving values from dictionaries.
-    The `#` operator takes an operand that is the name of the variable
-    containing the key.
+    The `#` and `'` operators both retrieve values from Tcl dictionaries.
+    The `'` operator takes the key as a literal value and returns
+    the corresponding element from the dictionary.
 } shell {
     set d [dict create a 1 b 2 c 3 d 4]
-    set var c
-    tscript { d#var}
-    tscript { d # var };           # Note whitespace is optional
-} text {
-    Alternatively, the `'` operator can be used to provide the key as a
-    literal value.
-} shell {
     tscript { d'c}
-    tscript { d ' c };           # Again, note whitespace is optional
+    tscript { d ' c };           # Note whitespace is optional
+} text {
+    On the other hand, the `#` operator takes an operand that
+    is the _name of the variable_ containing the key.
+} shell {
+    set key c
+    tscript { d#key}
+    tscript { d # key };           # Note whitespace is optional
 } 
 
 tbd {
@@ -568,9 +568,10 @@ text {
     ==== Selectors
 
     The final form an index can take is that of a _selector_ which
-    is a boolean expression involving the column or table. As we will
-    see when we discuss ((^ sect_tscript_column_ops "column operators"))
-    in detail, comparison of a column with a scalar value results
+    is a boolean expression involving the column or table. We will
+    detail the mechanism by which this works 
+    when we discuss ((^ sect_tscript_column_ops "column operators"))
+    but in a nutshell, comparison of a column with a scalar value results
     in an `int` column containing the indices for which the comparison
     of the corresponding element succeeded.
     
@@ -593,8 +594,11 @@ text {
 } outputlimit 0 shell {
     tscript { print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) }
 } text {
-    Because of their flexibility, selectors are the mechanism
-    for doing searches in columns and tables.
+    [NOTE]
+    The syntax for referencing a table column using `'` is discussed
+    ((^ sect_tscript_table_column_ops later)).
+
+    ===== Ranges in selectors
 
     Selectors can include ranges as well.
     For example, the rainfall in the last quarter that
@@ -606,14 +610,76 @@ text {
     A selector can include function calls as well. However, note
     that the function is called just once, not once per element
     of the column or table.
+
+    Because of their flexibility, selectors are the mechanism
+    for doing searches in columns and tables.
+} text {
+    ===== The `@@` selector context
+
+    In previous examples, we supplied the variable containing the table
+    or column, for example `Emps`, to the selector expression. In some
+    cases, the table or column may not stored in a variable, for example
+    when it is a function return value or when it is generated through
+    an expression. In this case the `@@` special token may be used to
+    reference the table instead of storing the generated value in
+    a temporary for naming purposes. This is illustrated in the
+    following example.
+} shell {
+    proc function_returning_table {} { return $::Emps }
+    tscript { print( function_returning_table() [@@'Age > 35 && @@'Salary < 70000]) }
 }
 
+
+
 text {
-    ((=== sect_tscript_column_ops "Column Operators"))
+    ((=== sect_tscript_column_ops "Column and table operators"))
 
+    ==== Arithmetic operators
+
+    As described in the ((^ column_math "math command")) reference,
+    normal scalar Tcl values and columns can be mixed in mathematical
+    operations. The scalar values are treated as columns filled
+    with that value. Here is an example:
+} shell {
+    tscript {
+        I = @int {10, 20, 30, 40}
+        J = @byte {1, 2, 3, 4}
+        print(I + 2 * J)
+    }
+} text {
+    TScript supports all the arithmetic operators shown in
+    ((^ tab_column_math_ops)).
     
+    Tables do not support
+    any arithmetic operators but their contained columns can be used anywhere
+    that a standalone column is valid.
+
+    For example, we can reduce everyone's salaries by 2K since times
+    are tough.
+} outputlimit 0 shell {
+    tscript {
+        Emps'Salary = Emps'Salary - 2000
+        print (Emps)
+    }
+} text {
+    Or perhaps even more for highly paid employees.
+} outputlimit 0 shell {
+    tscript {
+        Emps'Salary[Emps'Salary > 65000] = Emps'Salary[@@ > 65000] - 2000;
+        print (Emps)
+    }
+} text {
 
 
+    ==== Relational operators
+
+    ==== The `#` count unary operator
+
+    ==== The `'` and '#' operators for columns and tables
+
+    ===== Specifying table columns
+
+    ===== Locating column elements
 
 } shell {
     tscript { T = table::delete(Emps, Emps'Salary > 70000) }
@@ -625,8 +691,13 @@ text {
     ==== Slicing Columns from tables
     T.a versus T.(a, b) Illustrate using print
 
+    Column tables can be used anywhere columns are used including assignments
+
     === Columns and tables as target of assignment
     T.c
     
 
 }
+
+tbd { sum, minmax, sort etc.}
+tbd { namespace and execution context }
