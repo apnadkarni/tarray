@@ -40,6 +40,7 @@ void:    Empty <- WS ;
 
     # Basic terms
     PrimaryExpr  <- ColumnConstructor
+                    / SelectorContext
                     / IndirectIdentifier
 		    / Identifier
 		    / Number
@@ -63,6 +64,7 @@ void:    Empty <- WS ;
     TableColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
 
     ColumnConstructor <- [@] ColumnType WS Sequence? ;
+leaf: SelectorContext <- '@@' ;
 
     # Syntax based definitions
 
