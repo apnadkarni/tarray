@@ -111,14 +111,9 @@ leaf: BitXorOp <- '^' ;
 leaf: LogicalAndOp <- '&&' ;
 leaf: LogicalOrOp <- '||' ;
 
-void: ColumnOp <- '#' ;
+leaf: ColumnOp <- ['#] ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
-
-
-
-
-
 
 END;
