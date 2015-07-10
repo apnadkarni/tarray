@@ -644,7 +644,9 @@ oo::class create tarray::teval::Compiler {
         if {[lindex $args 0 0] eq "FunctionCall"} {
             switch -exact -- [lindex $primary_expr 0] {
                 Identifier { set primary [lindex $primary_expr 1] }
-                IndirectIdentifier { set primary "\[set [lindex $primary_expr 1]\]"}
+                IndirectIdentifier {
+                    set primary "\[tarray::teval::rt::dereference [lindex $primary_expr 1]\]"
+                }
                 default { set primary [my {*}$primary_expr] }
             }
         } else {
@@ -749,7 +751,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     method IndirectIdentifier {ident} {
-        return "\[set \[set $ident\]\]"
+        return "\[tarray::teval::rt::dereference2 $ident\]"
     }
 
     method Identifier {ident} {
@@ -1432,6 +1434,26 @@ namespace eval tarray::teval::rt {
         }
     }
 
+    proc dereference {varname} {
+        upvar 1 $varname var
+        # Avoid shimmering of columns and tables
+        if {[lindex [tarray::types $var] 0] ne ""} {
+            error "Dereferencing of columns and tables not permitted."
+        }
+        return $var
+    }
+
+    proc dereference2 {varname} {
+        upvar 1 $varname var
+        # Avoid shimmering of columns and tables
+        if {[lindex [tarray::types $var] 0] ne ""} {
+            error "Dereferencing of columns and tables not permitted."
+        }
+        upvar 1 $var var2
+        return $var2
+    }
+
+
     proc Index {val index} {
         # TBD - is this used anywhere
         return [switch -exact -- [lindex [tarray::types $val] 0] {
@@ -1479,4 +1501,8 @@ if {1} {
             testconstexpr {1||0&&0} "Logical operator precedence"
         }
     }
+    oo::class create C { method m {args} {puts [join $args ,]} }
+    set o [C new]
+    tscript {$o.m('abc, 10)}
+    tscript {a = 'b ; b = 99; $a}
 }
