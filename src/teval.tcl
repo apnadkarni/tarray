@@ -117,7 +117,6 @@ oo::class create tarray::teval::Parser {
     }
 
     method Block {from to args} {
-        puts bargs:[join $args ,]
         return $args
     }
 
