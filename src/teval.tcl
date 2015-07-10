@@ -137,9 +137,9 @@ oo::class create tarray::teval::Parser {
             return $first_child;
         } else {
             return [switch -exact -- [lindex $args 0 0] {
-                TableColumn {
-                    # args is column_op (' or #), column identifier, remaining args
-                    list LValueTableColumn [lindex $first_child 1] [lindex $args 0 1] [lindex $args 0 2] {*}[lrange $args 1 end]
+                Element {
+                    # args is element_op (' or #), element identifier, remaining args
+                    list LValueElement [lindex $first_child 1] [lindex $args 0 1] [lindex $args 0 2] {*}[lrange $args 1 end]
                 }
                 TableColumns {
                     # args is column_op (' or #), column identifier, remaining args
@@ -385,8 +385,8 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
-    method TableColumn {from to op child} {
-        return [list TableColumn [lindex $op 1] $child]
+    method Element {from to op child} {
+        return [list Element [lindex $op 1] $child]
     }
 
     method TableColumns {from to op {child {}}} {
@@ -398,6 +398,10 @@ oo::class create tarray::teval::Parser {
     }
 
     method ColumnIdentifier {from to child} {
+        return $child
+    }
+    
+    method ElementIdentifier {from to child} {
         return $child
     }
 
@@ -412,6 +416,7 @@ oo::class create tarray::teval::Parser {
     forward LogicalOrOp my _extract LogicalOrOp
     forward AssignOp my _extract AssignOp
     forward ColumnOp my _extract ColumnOp
+    forward ElementOp my _extract ElementOp
 
     method Identifier {from to} {
         return [list Identifier [string range $Script $from $to]]
@@ -504,52 +509,54 @@ oo::class create tarray::teval::Compiler {
                 lassign $lvalue type ident indexexpr
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        return "tarray::teval::rt::assign_range $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "tarray::teval::rt::tarray_assign_range $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::assign_element $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::tarray_assign_element $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::tarray_assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
-            LValueTableColumn {
-                # Assigning to a single column within a table
-                lassign $lvalue type table column_op column indexexpr
-                if {$column_op eq "'"} {
-                    if {[lindex $column 0] eq "Identifier"} {
-                        set column [lindex $column 1]
+            LValueElement {
+                # Assigning to a single element within a dict/column/table
+                lassign $lvalue elemtype operand elem_op element indexexpr
+                if {$elem_op eq "'"} {
+                    if {[lindex $element 0] eq "Identifier"} {
+                        set element [lindex $element 1]
                     } else {
-                        set column [my {*}$column]
+                        set element [my {*}$element]
                     }
                 } else {
-                    set column [my {*}$column]
+                    set element [my {*}$element]
                 }
+
+                # Note - only tables and columns can have indices
                 switch -exact -- [lindex $indexexpr 0] {
                     "" {
-                        # T.c = ....
-                        # No index -> entire column to be operated
-                        return "tarray::table::vcolumn $table $column [my {*}$rvalue]"
+                        # T'c = ....
+                        # No index 
+                        return "tarray::teval::assign_element $operand $element [my {*}$rvalue]"
                     }
                     Range {
-                        # T.c[4:j] = ...
-                        return "tarray::teval::rt::table_column_assign_range $table $column [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        # T'c[4:j] = ...
+                        return "tarray::teval::rt::table_column_assign_range $operand $element [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric literal index
-                        # T.c[0] = ...
-                        return "tarray::table::vfill -columns \[list $column\] $table [my {*}$rvalue] [my {*}$indexexpr]"
+                        # T'c[0] = ...
+                        return "tarray::table::vfill -columns \[list $element\] $operand [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::table_column_assign $table $column [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
@@ -701,8 +708,8 @@ oo::class create tarray::teval::Compiler {
                     }
                     set primary "\[$primary [join $methods { }] [join $fnargs { }]\]"
                 }
-                TableColumn {
-                    set primary "\[tarray::table::column $primary [my {*}$postexpr]\]"
+                Element {
+                    set primary "\[tarray::teval::rt::element $primary [my {*}$postexpr]\]"
                 }
                 TableColumns {
                     set primary "\[tarray::table::slice $primary [my {*}$postexpr]\]"
@@ -716,7 +723,7 @@ oo::class create tarray::teval::Compiler {
         return [my {*}$child]
     }
 
-    method TableColumn {op child} {
+    method Element {op child} {
         if {$op eq "'"} {
             if {[lindex $child 0] eq "Identifier"} {
                 return [lindex $child 1]
@@ -800,7 +807,7 @@ namespace eval tarray::teval::rt {
         return $r
     }
 
-    proc assign_element {varname value index} {
+    proc tarray_assign_element {varname value index} {
         # Assign a value to a single column or table element
         upvar 1 $varname var
         return [switch -exact -- [lindex [tarray::types $var] 0] {
@@ -810,7 +817,7 @@ namespace eval tarray::teval::rt {
         }]
     }
 
-    proc assign_range {varname value low high} {
+    proc tarray_assign_range {varname value low high} {
         # varname is the name of a column or table variable (must exist)
         # value is the value to be assigned
         # [low high] is the range to assign to
@@ -888,7 +895,7 @@ namespace eval tarray::teval::rt {
         }
     }
 
-    proc assign {varname value index} {
+    proc tarray_assign {varname value index} {
         upvar 1 $varname var
 
         # varname is the name of a column or table variable (must exist)
@@ -947,6 +954,8 @@ namespace eval tarray::teval::rt {
             }
         }
     }
+
+    
 
     proc table_column_assign_range {varname colname value low high} {
         # varname is the name of a table variable (must exist)
@@ -1175,6 +1184,28 @@ namespace eval tarray::teval::rt {
         # indexlist must be a int tarray or an int list else
         # vplace will throw an error.
         return [tarray::table::vplace -columns $colnames var $value $index]
+    }
+
+    proc assign_element {varname elem value} {
+        # For a table sets entire column $elem to $value
+        # For a column assigns $value to index $elem
+        # Else treats as dictionary and assigns $value to key
+        upvar 1 $varname var
+        switch -exact -- [lindex [tarray::types $var] 0] {
+            ""      { return [dict set var $elem $value] }
+            "table" { return [tarray::table::vcolumn var $elem $value] }
+            default {
+                return [tarray::column::vfill var $value [tarray::column::search $var $elem]]
+            }
+        }
+    }
+
+    proc element {operand element} {
+        switch -exact -- [lindex [tarray::types $operand] 0] {
+            ""      { return [dict get $operand $element] }
+            "table" { return [tarray::table::column $operand $element] }
+            default { return [tarray::column::search $operand $element] }
+        }
     }
 
     proc relop== {a b} {
@@ -1518,6 +1549,7 @@ if {1} {
     tscript {K[2:4] = 99}
     tscript {K[{3,4}] = I[{4,3}]}
     tscript {T'i[0:1] = I[3:4]}
+    tscript {T'(s,i)}
     set col s
     tscript {T#col[0:1] = 'abc}
     tscript {# I}
