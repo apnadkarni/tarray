@@ -112,7 +112,12 @@ oo::class create tarray::teval::Parser {
         return [list $name [string range $Script $from $to]]
     }
 
-    method Program {from to args} {
+    method Program {from to child} {
+        return $child
+    }
+
+    method Block {from to args} {
+        puts bargs:[join $args ,]
         return $args
     }
 

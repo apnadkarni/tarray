@@ -1,13 +1,11 @@
-# Much of this based on Phillippe Segaude's example C grammar
-# from https://github.com/PhilippeSigaud/Pegged/blob/master/pegged/examples/c.d
 PEG TEval (Program)
     # A Program is a sequence of statements.
     # The Comment? is there because otherwise [tscript {// comment}] errors out
-    Program <- WS (Statement (WS Separator WS Statement)*)? WS Comment? EOF;
+    Program <- Block Comment? EOF ;
+    Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
-    # A Statement is a function call or an assignment. In particular
-    # an arbitrary expression that is not a function call is not allowed.
+
     Statement <- Assignment / MultiAssignment / Expression / Empty;
 void:    Empty <- WS ;
 
