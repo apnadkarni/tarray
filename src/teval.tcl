@@ -418,6 +418,10 @@ oo::class create tarray::teval::Parser {
     forward ColumnOp my _extract ColumnOp
     forward ElementOp my _extract ElementOp
 
+    method SelectorContext {from to} {
+        return SelectorContext
+    }
+
     method Identifier {from to} {
         return [list Identifier [string range $Script $from $to]]
     }
@@ -752,7 +756,7 @@ oo::class create tarray::teval::Compiler {
         return "\[list [join $cols]\]"
     }
 
-    method CurrentSelectorContext {} {
+    method SelectorContext {} {
         return "\[tarray::teval::rt::selector_context\]"
     }
 
@@ -1550,6 +1554,14 @@ if {1} {
     set I [column create int {10 20 30 40 50}]
     set J [column create int {100 200 300 400 500}]
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
+    proc getI {} {return $::I}
+    tscript {I[@@ < 30]}
+    tscript {I[I < 30]}
+    tscript {getI()[@@ > 30]}
+    set x i
+    tscript {T[T'i < 35]}
+    tscript {T[T#x < 45]}
+    tscript {T'(i,s)[@@'i > 40]}
     tscript {K = I}
     tscript {K[0:1] = J[0:1]}
     tscript {K[2:4] = 99}
@@ -1572,4 +1584,8 @@ if {1} {
     set o [C new]
     tscript {$o.m('abc, 10)}
     tscript {a = 'b ; b = 99; $a}
+    set d {a 1 b 2 c 3}
+    tscript { d'b }
+    set x c
+    tscript {d#x}
 }
