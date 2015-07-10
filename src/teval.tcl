@@ -735,14 +735,20 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
-    method TableColumns {args} {
-        set cols [lmap colarg $args {
-            if {[lindex $colarg 0] eq "Identifier"} {
-                lindex $colarg 1
-            } else {
+    method TableColumns {op args} {
+        if {$op eq "#"} {
+            set cols [lmap colarg $args {
                 my {*}$colarg
-            }
-        }]
+            }]
+        } else {
+            set cols [lmap colarg $args {
+                if {[lindex $colarg 0] eq "Identifier"} {
+                    lindex $colarg 1
+                } else {
+                    my {*}$colarg
+                }
+            }]
+        }
         return "\[list [join $cols]\]"
     }
 
