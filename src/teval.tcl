@@ -1566,7 +1566,7 @@ if {1} {
     set J [column create int {100 200 300 400 500}]
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
 }
-if {0} {
+if {1} {
     proc getI {} {return $::I}
     tscript {I[@@ < 30]}
     tscript {I[I < 30]}
