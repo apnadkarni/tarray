@@ -5,15 +5,24 @@ PEG TEval (Program)
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
-TclScriptBlock <- '<' TclScript '>' TclScriptEndMarker ;
-leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
-void: TclScriptEndMarker <- WS (EOL/EOF) ;
-
-    Statement <- Assignment / MultiAssignment / Expression / TclScriptBlock / Empty;
+    Statement <- Assignment 
+                 / MultiAssignment
+                 / IfStatement
+                 / Expression
+                 / TclScriptBlock
+                 / Empty ;
 void:    Empty <- WS ;
 
     # Assignment to a single LValue
     Assignment <- LValue WS AssignOp WS Expression;
+
+    IfStatement <- 'if' WSob Expression WSob '{' Block '}'
+                   (WSob 'else' WSob '{' Block '}')? ;
+
+    TclScriptBlock <- '<' TclScript '>' TclScriptEndMarker ;
+leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
+void: TclScriptEndMarker <- WS (EOL/EOF) ;
+
 
 
     # Assigns multiple variables from a list / tarray. Expression here

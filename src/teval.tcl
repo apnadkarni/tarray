@@ -128,6 +128,10 @@ oo::class create tarray::teval::Parser {
         }
     }
 
+    method IfStatement {from to args} {
+        return [list IfStatement {*}$args]
+    }
+
     method Assignment {from to lvalue assignop expr} {
         return [list [lindex $assignop 1] $lvalue $expr]
     }
@@ -502,10 +506,27 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= TclScript}} {
+        if {[lindex $child 0] in {= += -= *= /= TclScript IfStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
+        }
+    }
+
+    method IfStatement {cond then_clause {else_clause {}}} {
+        set then_code ""
+        foreach stmt $then_clause {
+            append then_code "  [my {*}$stmt]\n"
+        }
+
+        if {$else_clause eq ""} {
+            return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code }"
+        } else {
+            set else_code ""
+            foreach stmt $else_clause {
+                append else_code "  [my {*}$stmt]\n"
+            }
+            return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
         }
     }
 
@@ -1541,6 +1562,13 @@ namespace eval tarray::teval::rt {
         return $var2
     }
 
+    proc condition {expr} {
+        switch -exact -- [lindex [tarray::types $expr] 0] {
+            ""    { return $expr }
+            table { return [expr {[tarray::table::size $expr] > 0}] }
+            default { return [expr {[tarray::column::size $expr] > 0}] }
+        }
+    }
 
     proc Index {val index} {
         # TBD - is this used anywhere
