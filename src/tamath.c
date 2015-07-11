@@ -309,7 +309,10 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 if (result_type == TA_BYTE)
                     result_type = TA_INT;
                 break;
-            case TA_UINT: /* Fall thru */
+            case TA_UINT:
+                if (result_type == TA_BYTE || result_type == TA_INT)
+                    result_type = TA_UINT;
+                break;
             case TA_WIDE:
                 if (result_type != TA_DOUBLE)
                     result_type = TA_WIDE;
@@ -329,11 +332,26 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (Tcl_GetWideIntFromObj(NULL, objv[j], &ptav->wval) == TCL_OK) {
                 /* Note integers are also stored as wides during computation */
                 ptav->type = TA_WIDE;
-                if (ptav->wval >= INT_MIN && ptav->wval <= INT_MAX) {
-                    if (result_type == TA_BYTE)
-                        result_type = TA_INT;
-                } else if (result_type != TA_DOUBLE)
-                    result_type = TA_WIDE;
+
+                if (result_type != TA_DOUBLE && result_type != TA_WIDE) {
+                    /* If value fits in a byte, it fits in any type so
+                       no need to change. Else figure out whether result
+                       type needs promotion */
+                    if (ptav->wval < 0 || ptav->wval > UCHAR_MAX) {
+                        if (ptav->wval < INT_MIN || ptav->wval > UINT_MAX)
+                            result_type = TA_WIDE;
+                        else {
+                            /* Conflict between UINT and INT is resolved
+                               by choosing UINT as in C */
+                            if (result_type != TA_UINT) {
+                                if (ptav->wval > INT_MAX)
+                                    result_type = TA_UINT;
+                                else 
+                                    result_type = TA_INT;
+                            }
+                        }
+                    }
+                }
             } else {
                 status = Tcl_GetDoubleFromObj(ip, objv[j], &ptav->dval);
                 if (status == TCL_OK) {
