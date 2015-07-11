@@ -454,6 +454,9 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
+    method TclScriptBlock {from to child} {
+        return $child
+    }
     method TclScript {from to} {
         return [list TclScript [string range $Script [expr {$from+1}] [expr {$to-1}]]]
     }
@@ -1606,4 +1609,18 @@ if {1} {
     tscript { d'b }
     set x c
     tscript {d#x}
+    set a 0 ; set b 1
+    tscript { < expr {$a > $b} >}
+    tscript { < expr {$a > $b} > }
+    tscript { <
+        expr {$a > $b}
+        > }
+    tscript {
+        a = 1 ; b = 2
+        <
+        puts [expr {$a > $b}]
+        >
+    }
+    
+
 }
