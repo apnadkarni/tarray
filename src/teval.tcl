@@ -527,7 +527,16 @@ oo::class create tarray::teval::Compiler {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::tarray_assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        set frag "tarray::teval::rt::tarray_assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        # TBD - optimize by only pushing context if selector has @@
+                        return [string map [list %IDENT% "\[set $ident\]" %FRAG% $frag] {
+                            tarray::teval::rt::push_selector_context %IDENT%
+                            try {
+                                return -level 0 [%FRAG%]
+                            } finally {
+                                tarray::teval::rt::pop_selector_context
+                            }
+                        }]
                     }
                 }
             }
@@ -911,13 +920,13 @@ namespace eval tarray::teval::rt {
 
     proc tarray_assign {varname value index} {
         upvar 1 $varname var
-
         # varname is the name of a column or table variable (must exist)
         # value is the value to be assigned
         # index is a general expression
         #
 
-        lassign [tarray::types $var $value index] vartype valuetype indextype
+        lassign [tarray::types $var $value $index] vartype valuetype indextype
+
         if {$vartype eq ""} {
             error "$varname is not a column or table."
         }
@@ -953,7 +962,7 @@ namespace eval tarray::teval::rt {
                 }
                 if {$valuetype eq ""} {
                     # Will error out if the wrong type
-                    set value [tarray::column::create $vartype $valuetype]
+                    set value [tarray::column::create $vartype $value]
                 }
                 set nvalues [tarray::column::size $value]
                 if {[tarray::column::size $index] == $nvalues} {
@@ -1553,11 +1562,11 @@ if {1} {
     tarray::teval::Parser create tp
     tarray::teval::Compiler create tc
     namespace path tarray
-}
-if {1} {
     set I [column create int {10 20 30 40 50}]
     set J [column create int {100 200 300 400 500}]
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
+}
+if {0} {
     proc getI {} {return $::I}
     tscript {I[@@ < 30]}
     tscript {I[I < 30]}
