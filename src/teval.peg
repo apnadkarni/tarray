@@ -58,8 +58,8 @@ void:    Empty <- WS ;
     ArgumentList <- Argument (WS ',' WS Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
     Element <- ElementOp WS ElementIdentifier ;
-    TableColumns <- ColumnOp WS '(' WS TableColumnList? WS ')' ;
-    TableColumnList <- ColumnIdentifier WS (WS ',' WS ColumnIdentifier)* ;
+    TableColumns <- ColumnOp WS '(' WSNL TableColumnList? WSNL ')' ;
+    TableColumnList <- ColumnIdentifier WSNL (WSNL ',' WSNL ColumnIdentifier)* ;
 
     ColumnConstructor <- [@] ColumnType WS Sequence? ;
 leaf: SelectorContext <- '@@' ;
@@ -73,8 +73,8 @@ ElementIdentifier <- Identifier;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
-Sequence <- '{' WS SequenceElements? WS '}' ;
-SequenceElements <- Expression (WS ',' WS Expression)* ;
+Sequence <- '{' WSNL SequenceElements? WSNL '}' ;
+SequenceElements <- Expression (WSNL ',' WSNL Expression)* ;
 leaf: Token <- SingleQuote Identifier ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
@@ -117,5 +117,5 @@ leaf: ElementOp <- ['#] ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
-
+void: WSNL <- <space>* ;
 END;
