@@ -5,12 +5,11 @@ PEG TEval (Program)
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
-leaf: TclScript <- '<' (!'>' TclChar)* '>' ;
-void: TclChar   <- BackSlash ( '>' / BackSlash )
-                   / . ;
+TclScriptBlock <- '<' TclScript '>' TclScriptEndMarker ;
+leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
+void: TclScriptEndMarker <- WS (EOL/EOF) ;
 
-
-    Statement <- Assignment / MultiAssignment / Expression / TclScript / Empty;
+    Statement <- Assignment / MultiAssignment / Expression / TclScriptBlock / Empty;
 void:    Empty <- WS ;
 
     # Assignment to a single LValue
