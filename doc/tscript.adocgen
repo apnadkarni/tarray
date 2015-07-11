@@ -78,7 +78,7 @@ text {
     We also use a table containing a simple employee data base:
 } shell {
     set Emps [table create {
-        Name string Salary int Age uint Location string
+        Name string Salary uint Age uint Location string
     } {
         {Sally      70000       32       Boston}
         {Tom        65000       36       Boston}
