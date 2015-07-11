@@ -5,8 +5,12 @@ PEG TEval (Program)
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
+leaf: TclScript <- '<' (!'>' TclChar)* '>' ;
+void: TclChar   <- BackSlash ( '>' / BackSlash )
+                   / . ;
 
-    Statement <- Assignment / MultiAssignment / Expression / Empty;
+
+    Statement <- Assignment / MultiAssignment / Expression / TclScript / Empty;
 void:    Empty <- WS ;
 
     # Assignment to a single LValue
@@ -59,7 +63,7 @@ void:    Empty <- WS ;
     Argument <- OptionString WS Expression / Expression ;
     Element <- ElementOp WS ElementIdentifier ;
     TableColumns <- ColumnOp WS '(' WSNL TableColumnList? WSNL ')' ;
-    TableColumnList <- ColumnIdentifier WSNL (WSNL ',' WSNL ColumnIdentifier)* ;
+    TableColumnList <- ColumnIdentifier (WSNL ',' WSNL ColumnIdentifier)* ;
 
     ColumnConstructor <- [@] ColumnType WS Sequence? ;
 leaf: SelectorContext <- '@@' ;
