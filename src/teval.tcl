@@ -454,6 +454,9 @@ oo::class create tarray::teval::Parser {
         return $args
     }
 
+    method TclScript {from to} {
+        return [list TclScript [string range $Script [expr {$from+1}] [expr {$to-1}]]]
+    }
 }
 
 oo::class create tarray::teval::Compiler {
@@ -496,7 +499,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /=}} {
+        if {[lindex $child 0] in {= += -= *= /= TclScript}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -804,6 +807,8 @@ oo::class create tarray::teval::Compiler {
     method Identifier {ident} {
         return "\[set $ident\]"
     }
+
+    method TclScript s {return "\n$s\n"}
 }
 
 namespace eval tarray::teval::rt {
