@@ -132,6 +132,9 @@ oo::class create tarray::teval::Parser {
         return [list IfStatement {*}$args]
     }
 
+    method WhileStatement {from to args} {
+        return [list WhileStatement {*}$args]
+    }
     method Assignment {from to lvalue assignop expr} {
         return [list [lindex $assignop 1] $lvalue $expr]
     }
@@ -506,7 +509,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= TclScript IfStatement}} {
+        if {[lindex $child 0] in {= += -= *= /= TclScript IfStatement WhileStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -516,7 +519,9 @@ oo::class create tarray::teval::Compiler {
     method IfStatement {cond then_clause {else_clause {}}} {
         set then_code ""
         foreach stmt $then_clause {
-            append then_code "  [my {*}$stmt]\n"
+            if {[llength $stmt]} {
+                append then_code "  [my {*}$stmt]\n"
+            }
         }
 
         if {$else_clause eq ""} {
@@ -528,6 +533,17 @@ oo::class create tarray::teval::Compiler {
             }
             return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
         }
+    }
+
+    method WhileStatement {cond clause} {
+        set code ""
+        foreach stmt $clause {
+            if {[llength $stmt]} {
+                append code "  [my {*}$stmt]\n"
+            }
+        }
+
+        return "while {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$code}"
     }
 
     method = {lvalue rvalue} {
