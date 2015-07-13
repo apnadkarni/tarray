@@ -135,6 +135,25 @@ oo::class create tarray::teval::Parser {
     method WhileStatement {from to args} {
         return [list WhileStatement {*}$args]
     }
+
+    method ForStatement {from to loopvar looptarget args} { 
+        if {[lindex $looptarget 0] eq "Range"} {
+            if {[llength $args] == 2} {
+                set loopincr [lindex $args 0]
+                set loopbody [lindex $args 1]
+            } else {
+                set loopincr [list Number 1]
+                set loopbody [lindex $args 0]
+            }
+            return [list ForRange [lindex $loopvar 1] [lindex $looptarget 1] [lindex $looptarget 2] $loopincr $loopbody]
+        } else {
+            if {[llength $args] != 1} {
+                error "Loop increment can only be specified for ranges"
+            }
+            return [list ForNonRange [lindex $loopvar 1] $looptarget [lindex $args 0]]
+        }
+    }
+
     method Assignment {from to lvalue assignop expr} {
         return [list [lindex $assignop 1] $lvalue $expr]
     }
@@ -509,7 +528,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= TclScript IfStatement WhileStatement}} {
+        if {[lindex $child 0] in {= += -= *= /= TclScript IfStatement WhileStatement ForRange ForNonRange}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -544,6 +563,26 @@ oo::class create tarray::teval::Compiler {
         }
 
         return "while {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$code}"
+    }
+
+    method ForRange {loopvar low high incr clause} {
+        set code ""
+        foreach stmt $clause {
+            if {[llength $stmt]} {
+                append code "  [my {*}$stmt]\n"
+            }
+        }
+        return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n$code}"
+    }
+
+    method ForNonRange {loopvar looptarget clause} {
+        set code ""
+        foreach stmt $clause {
+            if {[llength $stmt]} {
+                append code "  [my {*}$stmt]\n"
+            }
+        }
+        return "tarray::teval::rt::forloop $loopvar [my {*}$looptarget] {\n$code}"
     }
 
     method = {lvalue rvalue} {
@@ -1586,6 +1625,21 @@ namespace eval tarray::teval::rt {
         }
     }
 
+    proc forloop {loopvar expr body} {
+        switch -exact -- [lindex [tarray::types $expr] 0] {
+            ""    {
+                uplevel 1 [list foreach $loopvar $expr $body]
+            }
+            table { 
+                set l [tarray::table::range -list $expr 0 end]
+                uplevel 1 [list foreach $loopvar $l $body]
+            }
+            default { 
+                set l [tarray::column::range -list $expr 0 end]
+                uplevel 1 [list foreach $loopvar $l $body]
+            }
+        }
+    }
     proc Index {val index} {
         # TBD - is this used anywhere
         return [switch -exact -- [lindex [tarray::types $val] 0] {
