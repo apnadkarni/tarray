@@ -1731,8 +1731,13 @@ if {1} {
     catch {C destroy}
     oo::class create C { method m {args} {puts [join $args ,]} }
     set o [C new]
-    tscript {$o.m('abc, 10)}
     tscript {a = 'b ; b = 99; $a}
+    tscript {$o.m('abc, 10)}
+    tscript {$o.m(
+                  'abci
+                  ,
+                  10
+                  )}
     set d {a 1 b 2 c 3}
     tscript { d'b }
     set x c
