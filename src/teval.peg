@@ -72,9 +72,9 @@ void: TclScriptEndMarker <- WS (EOL/EOF) ;
 		  / Element
 		  / TableColumns ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
-    FunctionCall <- (MethodCall)* WS '(' WS ArgumentList? WS ')' ;
+    FunctionCall <- (MethodCall)* WS '(' WSNL ArgumentList? WSNL ')' ;
     MethodCall  <- '.' WS Identifier ;
-    ArgumentList <- Argument (WS ',' WS Argument)* ;
+    ArgumentList <- Argument (WSNL ',' WSNL Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
     Element <- ElementOp WS ElementIdentifier ;
     TableColumns <- ColumnOp WS '(' WSNL TableColumnList? WSNL ')' ;
