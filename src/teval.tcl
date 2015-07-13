@@ -398,18 +398,18 @@ oo::class create tarray::teval::Parser {
         if {[llength $args] == 1} {
             # A single arg may be the column definition list or the initializer
             if {[lindex $args 0 0] eq "TableColumnDefs"} {
-                return [list TableConstructor [lindex $args 0] [list ]]
+                return [list TableConstructor [lindex $args 0 1] [list Sequence]]
             } else {
                 return [list TableConstructor [list ] [lindex $args 0]]
             }
         } else {
             # Both column definition list and initializer are present
-            return [list TableConstructor {*}$args]
+            return [list TableConstructor [lindex $args 0 1] [lindex $args 1]]
         }
     }
 
     method TableColumnDefs {from to args} {
-        return [concat {*}$args ]
+        return [list TableColumnDefs [concat {*}$args] ]
     }
 
     method TableColumnDef {from to colname coltype} {
@@ -885,8 +885,12 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
-    method TableConstructor {coldefs initializer} {
-        return "\[tarray::table::create {$coldefs} [my {*}$initializer]\]"
+    method TableConstructor {coldefs inivalue} {
+        if {[llength $inivalue]} {
+            return "\[tarray::table::create {$coldefs} [my {*}$inivalue]\]"
+        } else {
+            return "\[tarray::table::create {$coldefs}\]"
+        }
     }
     
     method Sequence {args} {
@@ -1734,8 +1738,8 @@ if {1} {
     set x c
     tscript {d#x}
     set a 0 ; set b 1
-    tscript { < expr {$a > $b} >}
     tscript { < expr {$a > $b} > }
+    tscript {<expr {$a > $b}>}
     tscript { <
         expr {$a > $b}
         > }
@@ -1745,6 +1749,11 @@ if {1} {
         puts [expr {$a > $b}]
         >
     }
-    
 
+    tscript { @table () }
+    tscript { @table () {} }
+    tscript { @table (i int) }
+    tscript { @table (i int) {{2}}}
+    tscript { @table (i int, s string) }
+    tscript { @table (i int, s string ) {{2, 'two}, {3, 'three}} }
 }
