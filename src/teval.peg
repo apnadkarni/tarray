@@ -56,6 +56,7 @@ void: TclScriptEndMarker <- WS (EOL/EOF) ;
 
     # Basic terms
     PrimaryExpr  <- ColumnConstructor
+                    / TableConstructor
                     / SelectorContext
                     / IndirectIdentifier
 		    / Identifier
@@ -80,6 +81,11 @@ void: TclScriptEndMarker <- WS (EOL/EOF) ;
     TableColumnList <- ColumnIdentifier (WSNL ',' WSNL ColumnIdentifier)* ;
 
     ColumnConstructor <- [@] ColumnType WS Sequence? ;
+
+    TableConstructor <- [@] 'table' WS '(' WSNL TableColumnDefs? WSNL ')' WS Sequence? ;
+    TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
+    TableColumnDef   <- ColumnIdentifier WSNL ColumnType ;
+
 leaf: SelectorContext <- '@@' ;
 
     # Syntax based definitions

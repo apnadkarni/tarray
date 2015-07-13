@@ -394,6 +394,28 @@ oo::class create tarray::teval::Parser {
         return [list ColumnConstructor $coltype {*}$args]
     }
 
+    method TableConstructor {from to args} {
+        if {[llength $args] == 1} {
+            # A single arg may be the column definition list or the initializer
+            if {[lindex $args 0 0] eq "TableColumnDefs"} {
+                return [list TableConstructor [lindex $args 0] [list ]]
+            } else {
+                return [list TableConstructor [list ] [lindex $args 0]]
+            }
+        } else {
+            # Both column definition list and initializer are present
+            return [list TableConstructor {*}$args]
+        }
+    }
+
+    method TableColumnDefs {from to args} {
+        return [concat {*}$args ]
+    }
+
+    method TableColumnDef {from to colname coltype} {
+        return [list [lindex $colname 1] $coltype]
+    }
+        
     method Selector {from to child} {
         return [list Selector $child]
     }
@@ -863,6 +885,10 @@ oo::class create tarray::teval::Compiler {
         }
     }
 
+    method TableConstructor {coldefs initializer} {
+        return "\[tarray::table::create {$coldefs} [my {*}$initializer]\]"
+    }
+    
     method Sequence {args} {
         return "\[list [join [lmap arg $args {
             my {*}$arg
