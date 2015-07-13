@@ -506,7 +506,7 @@ oo::class create tarray::teval::Parser {
         return $child
     }
     method TclScript {from to} {
-        return [list TclScript [string range $Script [expr {$from+1}] [expr {$to-1}]]]
+        return [list TclScript [string trim [string range $Script $from $to]]]
     }
 }
 
