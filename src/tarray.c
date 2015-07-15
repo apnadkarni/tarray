@@ -670,6 +670,16 @@ TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, char *s, Tcl_WideInt *pi)
     return status;
 }
 
+TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, char *s, int *pi)
+{
+    TCL_RESULT status;
+    Tcl_Obj *o = Tcl_NewStringObj(s, -1);
+    /* TBD - optimize */
+    status = Tcl_GetBooleanFromObj(ip, o, pi);
+    Tcl_DecrRefCount(o);
+    return status;
+}
+
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, char *s, double *pi)
 {
     TCL_RESULT status;
@@ -1961,6 +1971,10 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
            ba_t ba, ba_mask;
            int off;
 
+           /* NOTE: same code as in thdr_numerics_from_tas_strings except there
+              we are dealing with tas_t and thus cannot be shared with this.
+              If you fix a bug here, fix it there as well*/
+           
            /* Take care of the initial condition where the first bit
               may not be aligned on a boundary */
            baP = THDRELEMPTR(thdr, ba_t, first / BA_UNIT_SIZE);
@@ -2690,19 +2704,43 @@ void thdr_copy(thdr_t *pdst, int dst_first,
     pdst->used = new_used;
 }
 
-static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, int dst_first, tas_t **pptas_src, int count, int insert)
+/* TBD - adding support for TA_ANY and TA_STRING here would make it complete
+   and callable for setting any array type from a TA_STRING_SOURCE like
+   thdr_puts_objs */
+static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, int dst_first, tas_t * const pptas_src[], int count, int insert)
 {
-    tas_t **pptas = pptas_src;
-    tas_t **end = pptas + count;
-    TCL_RESULT status;
+    tas_t **pptas;
+    tas_t **end;
 
     /* Need to validate all values first to ensure they can
      * be translated to numerics since on error dstp must be
      * unmodified.
      */
 
-#define TAS2NUM(type_)                                              \
-    do {                                                        \
+    /* IMPORTANT NOTE ****
+       This does NOT update pdst->used
+    ******/
+
+    /* TBD - may be faster to just create a temp array and then
+       call thdr_range rather than looping twice to validate and
+       then store */
+
+#define TASVALIDATE(type_, fn_)                         \
+    do {                                                \
+        type_ val;                                      \
+        TCL_RESULT status;                              \
+        pptas = pptas_src;                              \
+        end = pptas + count;                            \
+        while (pptas < end) {                           \
+            status = fn_(ip, (*pptas)->s, &val);        \
+            if (status != TCL_OK)                       \
+                return status;                          \
+            ++pptas;                                    \
+        }                                               \
+    } while (0)
+
+#define TAS2NUM(type_)                                                  \
+    do {                                                                \
         type_ *p = THDRELEMPTR(pdst, type_, dst_first);                 \
         while (pptas < end) {                                           \
             TA_NOFAIL(ta_get_wide_from_string(ip, (*pptas)->s, &wide), TCL_OK); \
@@ -2712,54 +2750,87 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
     } while (0)
 
     if (pdst->type == TA_DOUBLE) {
-        double dbl;
+        double dbl, *pdbl;
+        TASVALIDATE(double, ta_get_double_from_string);
+        /* No errors, now do the actual conversion */
+        pdbl = THDRELEMPTR(pdst, double, dst_first);
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+        pptas = pptas_src;
+        end = pptas + count;
         while (pptas < end) {
-            status = ta_get_double_from_string(ip, (*pptas)->s, &dbl);
-            if (status != TCL_OK)
-                break;
+            TA_NOFAIL(ta_get_double_from_string(ip, (*pptas)->s, pdbl), TCL_OK);
             ++pptas;
+            ++pdbl;
         }
-        if (pptas == end) {
-            /* No errors, now do the actual conversion */
-            double *pdbl = THDRELEMPTR(pdst, double, dst_first);
-            if (insert)
-                thdr_make_room(pdst, dst_first, count);
-            pptas = pptas_src;
-            end = pptas + count;
-            while (pptas < end) {
-                TA_NOFAIL(ta_get_double_from_string(ip, (*pptas)->s, pdbl), TCL_OK);
-                ++pptas;
-                ++pdbl;
+    } else if (pdst->type == TA_BOOLEAN) {
+        register ba_t *baP;
+        ba_t ba, ba_mask;
+        int i, off;
+
+        TASVALIDATE(int, ta_get_boolean_from_string);
+
+        /* NOTE: same code as in thdr_put_objs except there we 
+           are dealing with Tcl_Obj's and thus cannot be shared.
+           If you fix a bug here, fix it there as well*/
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+
+        baP = THDRELEMPTR(pdst, ba_t, dst_first / BA_UNIT_SIZE);
+        off = dst_first % BA_UNIT_SIZE; /* Offset of bit within a char */
+        ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
+        if (off != 0) {
+            /*
+             * Offset is off within a ba_t. Get the ba_t at that location
+             * preserving the preceding bits within the char.
+             */
+            ba = *baP & BITPOSMASKLT(off);
+        } else {
+            ba = 0;
+        }
+        for (i = 0; i < count; ++i) {
+            int ival;
+            TA_NOFAIL(ta_get_boolean_from_string(ip, pptas_src[i]->s, &ival), TCL_OK);
+            if (ival)
+                ba |= ba_mask;
+            ba_mask = BITMASKNEXT(ba_mask);
+            if (ba_mask == 0) {
+                *baP++ = ba;
+                ba = 0;
+                ba_mask = BITPOSMASK(0);
             }
+        }
+        if (ba_mask != BITPOSMASK(0)) {
+            /* We have some leftover bits in ba that need to be stored.
+             * We need to *merge* these into the corresponding word
+             * keeping the existing high index bits.
+             * Note the bit indicated by ba_mask also has to be preserved,
+             * not overwritten.
+             */
+            *baP = ba | (*baP & BITMASKGE(ba_mask));
         }
     } else {
         Tcl_WideInt wide;
-        while (pptas < end) {
-            status = ta_get_wide_from_string(ip, (*pptas)->s, &wide);
-            if (status != TCL_OK)
-                break;
-            ++pptas;
-        }
-        if (pptas == end) {
-            /* No errors, now do the actual conversion. Note conversion
-               is first to wide and then the appropriate size since
-               we have chosen semantics that assigning larger values
-               is OK, they will be truncated.
-            */
-                
-            if (insert)
-                thdr_make_room(pdst, dst_first, count);
-            pptas = pptas_src;
-            end = pptas + count;
-            switch (pdst->type) {
-            case TA_BYTE: TAS2NUM(unsigned char) ; break;
-            case TA_INT:  TAS2NUM(int) ; break;
-            case TA_UINT: TAS2NUM(unsigned int) ; break;
-            case TA_WIDE: TAS2NUM(Tcl_WideInt) ; break;
-            }
+        TASVALIDATE(Tcl_WideInt, ta_get_wide_from_string);
+        /* No errors, now do the actual conversion. Note conversion
+           is first to wide and then the appropriate size since
+           we have chosen semantics that assigning larger values
+           is OK, they will be truncated.
+        */
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+        pptas = pptas_src;
+        end = pptas + count;
+        switch (pdst->type) {
+        case TA_BYTE: TAS2NUM(unsigned char) ; break;
+        case TA_INT:  TAS2NUM(int) ; break;
+        case TA_UINT: TAS2NUM(unsigned int) ; break;
+        case TA_WIDE: TAS2NUM(Tcl_WideInt) ; break;
         }
     }
 #undef TAS2NUM
+#undef TASVALIDATE
+    return TCL_OK;
 }
 
 
@@ -2834,7 +2905,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         }                                               \
     } while (0)
     
-#define CVT2STRING(srctype_, cvt_fn_)                   \
+#define NUM2STRING(srctype_, cvt_fn_)                   \
     do {                                                \
         tas_t **to;                                     \
         srctype_ *from;                                 \
@@ -2846,21 +2917,72 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         }                                               \
     } while (0)
     
+/* Note NUM2BOOL, unlike others only copies the middle bits (whole ba_t's) */
+#define NUM2BOOL(type_)                                                 \
+    do {                                                                \
+        type_ *src = THDRELEMPTR(psrc, type_, src_first);               \
+        type_ *end = src + count;                                       \
+        while (src < end) {                                             \
+            if (*src != 0)                                              \
+                ba |= ba_mask;                                          \
+            ba_mask = BITMASKNEXT(ba_mask);                             \
+            if (ba_mask == 0) {                                         \
+                *baP++ = ba;                                            \
+                ba = 0;                                                 \
+                ba_mask = BITPOSMASK(0);                                \
+            }                                                           \
+            ++src;                                                      \
+        }                                                               \
+    } while (0)
+
+
     switch (pdst->type) {
-#if 0
     case TA_BOOLEAN:
-        TBD;
-        d = THDRELEMPTR(pdst, ba_t, 0);
-        if (insert) {
-            /* First make room by copying bits up */
-            ba_copy(d, dst_first+count, d, dst_first, pdst->used-dst_first);
+        if (psrc->type == TA_STRING) {
+            status = thdr_numerics_from_tas_strings
+                (ip, pdst, dst_first,
+                 THDRELEMPTR(psrc, tas_t *, src_first), count, insert);
+            break;
+        } else {
+            register ba_t *baP;
+            ba_t ba, ba_mask;
+            int i, off;
+
+            if (insert)
+                thdr_make_room(pdst, dst_first, count);
+            
+            baP = THDRELEMPTR(pdst, ba_t, dst_first / BA_UNIT_SIZE);
+            off = dst_first % BA_UNIT_SIZE; /* Offset of bit within a char */
+            ba_mask = BITPOSMASK(off); /* The bit pos corresponding to 'first' */
+            if (off != 0) {
+                /*
+                 * Offset is off within a ba_t. Get the ba_t at that location
+                 * preserving the preceding bits within the char.
+                 */
+                ba = *baP & BITPOSMASKLT(off);
+            } else
+                ba = 0;
+
+            switch (psrc->type) {
+            case TA_BYTE: NUM2BOOL(unsigned char);
+            case TA_INT:  NUM2BOOL(int);
+            case TA_UINT: NUM2BOOL(unsigned int);
+            case TA_WIDE: NUM2BOOL(Tcl_WideInt);
+            case TA_DOUBLE: NUM2BOOL(double);
+            }
+
+            if (ba_mask != BITPOSMASK(0)) {
+                /* We have some leftover bits in ba that need to be stored.
+                 * We need to *merge* these into the corresponding word
+                 * keeping the existing high index bits.
+                 * Note the bit indicated by ba_mask also has to be preserved,
+                 * not overwritten.
+                 */
+                *baP = ba | (*baP & BITMASKGE(ba_mask));
+            }
         }
-        /* Now insert or overwrite in place */
-        ba_copy(d, dst_first, THDRELEMPTR(psrc, ba_t, 0), src_first, count);
-        TBD;
         break;
-#endif
-        
+
     case TA_STRING:
         if (insert)
             thdr_make_room(pdst, dst_first, count);
@@ -2899,12 +3021,11 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
                 break; /* src == TA_BOOLEAN */
             }
             break;
-        case TA_BYTE: CVT2STRING(unsigned char, tas_from_int); break;
-        case TA_INT: CVT2STRING(int, tas_from_int); break;
-        case TA_UINT: CVT2STRING(unsigned int, tas_from_uint); break;
-        case TA_WIDE: CVT2STRING(Tcl_WideInt, tas_from_wide); break;
-        case TA_DOUBLE: CVT2STRING(double, tas_from_double); break;
-        case TA_ANY: CVT2STRING(Tcl_Obj*, tas_from_obj); break;
+        case TA_BYTE: NUM2STRING(unsigned char, tas_from_int); break;
+        case TA_INT: NUM2STRING(int, tas_from_int); break;
+        case TA_UINT: NUM2STRING(unsigned int, tas_from_uint); break;
+        case TA_WIDE: NUM2STRING(Tcl_WideInt, tas_from_wide); break;
+        case TA_DOUBLE: NUM2STRING(double, tas_from_double); break;
         }
         thdr_lookup_addn(pdst, dst_first, count);
         break; /* dst == TA_STRING */
@@ -3034,7 +3155,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
 #undef NUM2NUM
 #undef BOOL2NUM
 #undef NUM2ANY
-#undef CVT2STRING
+#undef NUM2STRING
 }
 
 /* Copies partial content from one thdr_t to another in reverse.
