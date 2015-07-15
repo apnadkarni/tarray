@@ -1589,18 +1589,29 @@ namespace eval tarray::teval::rt {
 
         if {$seltype eq "" && [string is integer -strict $selexpr]} {
             # Not a column, treat as an index
-            if {$atype eq "table"} {
-                return [tarray::table::index $a $selexpr]
-            } else {
-                return [tarray::column::index $a $selexpr]
-            }
+            return [switch -exact -- $atype {
+                ""      { lindex $a $selexpr }
+                table   { tarray::table::index $a $selexpr }
+                default { tarray::column::index $a $selexpr }
+            }]
         } else {
             # Treat $selexpr as a index column
-            if {$atype eq "table"} {
-                return [tarray::table::get $a $selexpr]
+            if {$seltype eq ""} {
+                set selexpr [tarray::column::create int $selexpr]
             } else {
-                return [tarray::column::get $a $selexpr]
+                if {$seltype ne "int"} {
+                    error "Selector is not an index column"
+                }
             }
+            return [switch -exact -- $atype {
+                "" {
+                    lmap pos [tarray::column::range -list $selexpr 0 end] {
+                        lindex $a $pos
+                    }
+                }
+                table   { tarray::table::get $a $selexpr }
+                default { tarray::column::get $a $selexpr }
+            }]
         }
     }
 
@@ -1761,4 +1772,11 @@ if {1} {
     tscript { @table (i int) {{2}}}
     tscript { @table (i int, s string) }
     tscript { @table (i int, s string ) {{2, 'two}, {3, 'three}} }
+    tscript { @table (i
+                      int,
+                      s string
+                      ) {
+                          {2, 'two},
+                          {3, 'three}
+                      } }
 }

@@ -660,6 +660,25 @@ TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
     return TCL_OK;
 }
 
+TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, char *s, Tcl_WideInt *pi)
+{
+    TCL_RESULT status;
+    Tcl_Obj *o = Tcl_NewStringObj(s, -1);
+    /* TBD - optimize */
+    status = Tcl_GetWideIntFromObj(ip, o, pi);
+    Tcl_DecrRefCount(o);
+    return status;
+}
+
+TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, char *s, double *pi)
+{
+    TCL_RESULT status;
+    Tcl_Obj *o = Tcl_NewStringObj(s, -1);
+    /* TBD - optimize */
+    status = Tcl_GetDoubleFromObj(ip, o, pi);
+    Tcl_DecrRefCount(o);
+    return status;
+}
 
 void thdr_lookup_build(thdr_t *thdr)
 {
@@ -2564,9 +2583,6 @@ void thdr_reverse(thdr_t *thdr)
     }
 }
 
-
-/* Copies partial content from one thdr_t to another. See asserts below
-   for requirements */
 void thdr_copy(thdr_t *pdst, int dst_first,
                thdr_t *psrc, int src_first, int count, int insert)
 {
@@ -2645,7 +2661,7 @@ void thdr_copy(thdr_t *pdst, int dst_first,
         if (! insert) {
             /*
              * Overwriting so decr refs of existing elements.
-             * Note this call take care of the case where count exceeds
+             * Note this call takes care of the case where count exceeds
              * actual number in pdst
              */
             thdr_decr_obj_refs(pdst, dst_first, count);
@@ -2672,6 +2688,277 @@ void thdr_copy(thdr_t *pdst, int dst_first,
 
     TA_ASSERT(new_used <= pdst->usable);
     pdst->used = new_used;
+}
+
+static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, int dst_first, tas_t **pptas_src, int count, int insert)
+{
+    tas_t **pptas = pptas_src;
+    tas_t **end = pptas + count;
+    TCL_RESULT status;
+
+    /* Need to validate all values first to ensure they can
+     * be translated to numerics since on error dstp must be
+     * unmodified.
+     */
+
+#define TAS2NUM(type_)                                              \
+    do {                                                        \
+        type_ *p = THDRELEMPTR(pdst, type_, dst_first);                 \
+        while (pptas < end) {                                           \
+            TA_NOFAIL(ta_get_wide_from_string(ip, (*pptas)->s, &wide), TCL_OK); \
+            *p++ = (type_) wide;                                        \
+            ++pptas;                                                    \
+        }                                                               \
+    } while (0)
+
+    if (pdst->type == TA_DOUBLE) {
+        double dbl;
+        while (pptas < end) {
+            status = ta_get_double_from_string(ip, (*pptas)->s, &dbl);
+            if (status != TCL_OK)
+                break;
+            ++pptas;
+        }
+        if (pptas == end) {
+            /* No errors, now do the actual conversion */
+            double *pdbl = THDRELEMPTR(pdst, double, dst_first);
+            if (insert)
+                thdr_make_room(pdst, dst_first, count);
+            pptas = pptas_src;
+            end = pptas + count;
+            while (pptas < end) {
+                TA_NOFAIL(ta_get_double_from_string(ip, (*pptas)->s, pdbl), TCL_OK);
+                ++pptas;
+                ++pdbl;
+            }
+        }
+    } else {
+        Tcl_WideInt wide;
+        while (pptas < end) {
+            status = ta_get_wide_from_string(ip, (*pptas)->s, &wide);
+            if (status != TCL_OK)
+                break;
+            ++pptas;
+        }
+        if (pptas == end) {
+            /* No errors, now do the actual conversion. Note conversion
+               is first to wide and then the appropriate size since
+               we have chosen semantics that assigning larger values
+               is OK, they will be truncated.
+            */
+                
+            if (insert)
+                thdr_make_room(pdst, dst_first, count);
+            pptas = pptas_src;
+            end = pptas + count;
+            switch (pdst->type) {
+            case TA_BYTE: TAS2NUM(unsigned char) ; break;
+            case TA_INT:  TAS2NUM(int) ; break;
+            case TA_UINT: TAS2NUM(unsigned int) ; break;
+            case TA_WIDE: TAS2NUM(Tcl_WideInt) ; break;
+            }
+        }
+    }
+#undef TAS2NUM
+}
+
+
+/* Copies partial content from one thdr_t to another of a different type. 
+   See asserts below for requirements */
+TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
+               thdr_t *psrc, int src_first, int count, int insert)
+{
+    int nbytes;
+    int new_used;
+    TCL_RESULT status;
+
+    TA_ASSERT(pdst != psrc);
+    TA_ASSERT(! thdr_shared(pdst));
+    TA_ASSERT(src_first >= 0);
+
+    if (pdst->type == psrc->type) {
+        thdr_copy(pdst, dst_first, psrc, src_first, count, insert);
+        return TCL_OK;
+    }
+
+    if (src_first >= psrc->used)
+        return TCL_OK;          /* Nothing to be copied */
+    if ((src_first + count) > psrc->used)
+        count = psrc->used - src_first;
+    if (count <= 0)
+        return TCL_OK;                 /* Code below DEPENDS on this */
+
+    /* Special case src type TA_ANY since we already have a routine that does
+       all the hard work to convert Tcl_Obj * arrays to any type */
+    if (psrc->type == TA_ANY) {
+        return thdr_put_objs(ip, pdst, dst_first, count, 
+                             THDRELEMPTR(psrc, Tcl_Obj*, src_first),
+                             insert);
+    }
+    
+    new_used = thdr_recompute_occupancy(pdst, &dst_first, count, insert);
+    TA_ASSERT(new_used <= pdst->usable); /* Caller should have ensured */
+
+    pdst->sort_order = THDR_UNSORTED; /* TBD - optimize */
+
+#define NUM2NUM(dsttype_, srctype_)                        \
+    do {                                                \
+        dsttype_ *to;                                   \
+        srctype_ *from;                                 \
+        to = THDRELEMPTR(pdst, dsttype_, dst_first);    \
+        from = THDRELEMPTR(psrc, srctype_, src_first);  \
+        while (count--) { *to++ = (dsttype_) *from++; }     \
+    } while (0)
+
+    /* TBD - optimize */
+#define BOOL2NUM(dsttype_)                                              \
+    do {                                                                \
+        ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);                         \
+        dsttype_ *to;                                                   \
+        int i, end;                                                     \
+        to = THDRELEMPTR(pdst, dsttype_, dst_first);                    \
+        for (i = src_first, end = src_first + count ; i < end; ++i)     \
+            *to++ = ba_get(baP, i);                                     \
+    } while (0)
+
+    switch (pdst->type) {
+#if 0
+    case TA_BOOLEAN:
+        TBD;
+        d = THDRELEMPTR(pdst, ba_t, 0);
+        if (insert) {
+            /* First make room by copying bits up */
+            ba_copy(d, dst_first+count, d, dst_first, pdst->used-dst_first);
+        }
+        /* Now insert or overwrite in place */
+        ba_copy(d, dst_first, THDRELEMPTR(psrc, ba_t, 0), src_first, count);
+        TBD;
+        break;
+
+    case TA_STRING:
+        TBD;
+        /*
+         * TA_STRING pointers don't have (effectively) unlimited
+         * reference counts and cannot follow the same pattern as TA_ANY
+         * below. When duplicating, we may get a different pointer
+         * so cannot just memcpy as in the TA_ANY case.
+         * We need to do an explicit pointer-by-pointer copy.
+         */
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+        else
+            thdr_decr_tas_refs(pdst, dst_first, count);
+        {
+            tas_t **srctas, **dsttas, **srcend;
+            srctas = THDRELEMPTR(psrc, tas_t *, src_first);
+            srcend = srctas + count;
+            dsttas = THDRELEMPTR(pdst, tas_t *, dst_first);
+            while (srctas < srcend) {
+                *dsttas++ = tas_ref(*srctas++);
+            }
+            thdr_lookup_addn(pdst, dst_first, count);
+        }
+        break;
+
+
+    case TA_ANY:
+        TBD;
+        /*
+         * We have to deal with reference counts here. For the objects
+         * we are copying (source) we need to increment reference counts.
+         * For objects in destination that we are overwriting, we need
+         * to decrement reference counts.
+         */
+
+        thdr_incr_obj_refs(psrc, src_first, count); /* Do this first */
+        if (! insert) {
+            /*
+             * Overwriting so decr refs of existing elements.
+             * Note this call handles the case where count exceeds
+             * actual number in pdst
+             */
+            thdr_decr_obj_refs(pdst, dst_first, count);
+        }
+        TBD;
+#endif
+    default:
+        /* Numeric destination */ 
+        if (psrc->type == TA_STRING) {
+            status = thdr_numerics_from_tas_strings
+                (ip, pdst, dst_first,
+                 THDRELEMPTR(psrc, tas_t *, src_first), count, insert);
+            break;
+        }
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+        switch (pdst->type) {
+        case TA_BYTE:
+            switch (psrc->type) {
+            case TA_BOOLEAN: BOOL2NUM(unsigned char); break;
+            case TA_INT: NUM2NUM(unsigned char, int); break;
+            case TA_UINT: NUM2NUM(unsigned char, unsigned int); break;
+            case TA_WIDE: NUM2NUM(unsigned char, Tcl_WideInt); break;
+            case TA_DOUBLE: NUM2NUM(unsigned char, double); break;
+            }
+            break;
+        case TA_INT:
+            switch (psrc->type) {
+            case TA_BOOLEAN: BOOL2NUM(int); break;
+            case TA_BYTE: NUM2NUM(int, unsigned char); break;
+            case TA_UINT: /* Assumes sizeof int == sizeof unsigned int */
+                memcpy(THDRELEMPTR(pdst, int, dst_first),
+                       THDRELEMPTR(psrc, int, src_first),
+                       count * sizeof(int));
+                break;
+            case TA_WIDE: NUM2NUM(int, Tcl_WideInt); break;
+            case TA_DOUBLE: NUM2NUM(int, double); break;
+            }
+            break;
+        case TA_UINT:
+            switch (psrc->type) {
+            case TA_BOOLEAN: BOOL2NUM(unsigned int); break;
+            case TA_BYTE: NUM2NUM(unsigned int, unsigned char); break;
+            case TA_INT: /* Assumes sizeof int == sizeof unsigned int */
+                memcpy(THDRELEMPTR(pdst, int, dst_first),
+                       THDRELEMPTR(psrc, int, src_first),
+                       count * sizeof(int));
+                break;
+            case TA_WIDE: NUM2NUM(unsigned int, Tcl_WideInt); break;
+            case TA_DOUBLE: NUM2NUM(unsigned int, double); break;
+            }
+            break;
+        case TA_WIDE:
+            switch (psrc->type) {
+            case TA_BOOLEAN: BOOL2NUM(Tcl_WideInt); break;
+            case TA_BYTE: NUM2NUM(Tcl_WideInt, unsigned char); break;
+            case TA_INT: NUM2NUM(Tcl_WideInt, int); break;
+            case TA_UINT: NUM2NUM(Tcl_WideInt, unsigned int); break;
+            case TA_DOUBLE: NUM2NUM(Tcl_WideInt, double); break;
+            }
+            break;
+        case TA_DOUBLE:
+            switch (psrc->type) {
+            case TA_BOOLEAN: BOOL2NUM(double); break;
+            case TA_BYTE: NUM2NUM(double, unsigned char); break;
+            case TA_INT: NUM2NUM(double, int); break;
+            case TA_UINT: NUM2NUM(double, unsigned int); break;
+            case TA_WIDE: NUM2NUM(double, Tcl_WideInt); break;
+            }
+            break;
+        default:
+            ta_type_panic(psrc->type);
+        }
+        break;
+    }
+
+    if (status == TCL_OK) {
+        TA_ASSERT(new_used <= pdst->usable);
+        pdst->used = new_used;
+    }
+    return status;
+
+#undef NUM2NUM
+#undef BOOL2NUM
 }
 
 /* Copies partial content from one thdr_t to another in reverse.
@@ -2841,6 +3128,7 @@ thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
     }
     return thdr;
 }
+
 
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
 {
