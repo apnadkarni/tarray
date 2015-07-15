@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012-2014, Ashok P. Nadkarni
+# Copyright (c) 2012-2015, Ashok P. Nadkarni
 # All rights reserved.
 #
 # See the file LICENSE for license
@@ -338,6 +338,49 @@ critcl::cproc tarray::column::size {TColObjPtr tcol} int {
 
 critcl::cproc tarray::column::type {TColObjPtr tcol} "const char*" {
     return ta_type_string(tcol_type(tcol));
+}
+
+critcl::cproc tarray::column::cast {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj* COLTYPE} ok {
+    int tatype;
+    thdr_t *thdr, *thdr2;
+    Tcl_Obj *o;
+
+    if (Tcl_GetIndexFromObj(interp, COLTYPE, g_type_tokens, "TArrayType",
+                            TCL_EXACT, &tatype) != TCL_OK)
+	return TCL_ERROR;
+
+    if (tcol_type(COLUMN) == tatype) {
+        Tcl_SetObjResult(interp, COLUMN);
+        return TCL_OK;
+    }
+
+    if (Tcl_IsShared(COLUMN))
+        COLUMN = Tcl_DuplicateObj(COLUMN);
+
+    /* Special case - if signed/unsigned issue AND unshared just flip the
+       thdr header */
+    thdr = tcol_thdr(COLUMN);
+    if (thdr->nrefs == 1) {
+        if (thdr->type == TA_INT && tatype == TA_UINT ||
+            thdr->type == TA_UINT && tatype == TA_INT) {
+            thdr->type = tatype;
+            thdr->sort_order = THDR_UNSORTED;
+            Tcl_SetObjResult(interp, COLUMN);
+            return TCL_OK;
+        }
+    }
+
+    thdr2 = thdr_alloc(interp, tatype, thdr->used);
+    if (thdr2 == NULL)
+        return TCL_ERROR;
+    if (thdr_copy_cast(interp, thdr2, 0, thdr, 0, thdr->used, 0) != TCL_OK) {
+        thdr_decr_refs(thdr2);
+        return TCL_ERROR;
+    }
+    o = tcol_new(thdr2);
+    TA_ASSERT(tcol_check(interp, o));
+    Tcl_SetObjResult(interp, o);
+    return TCL_OK;
 }
 
 critcl::cproc tarray::column::index {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj* INDEX} ok {
