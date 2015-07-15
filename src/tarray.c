@@ -2821,6 +2821,31 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
             *to++ = ba_get(baP, i);                                     \
     } while (0)
 
+#define NUM2ANY(srctype_, cvt_fn_)                     \
+    do {                                                \
+        Tcl_Obj * *to;                                  \
+        srctype_ *from;                                 \
+        to = THDRELEMPTR(pdst, Tcl_Obj*, dst_first);    \
+        from = THDRELEMPTR(psrc, srctype_, src_first);  \
+        while (count--) {                               \
+            *to = cvt_fn_(*from++);                    \
+            Tcl_IncrRefCount(*to);                      \
+            ++to;                                       \
+        }                                               \
+    } while (0)
+    
+#define CVT2STRING(srctype_, cvt_fn_)                   \
+    do {                                                \
+        tas_t **to;                                     \
+        srctype_ *from;                                 \
+        to = THDRELEMPTR(pdst, tas_t*, dst_first);      \
+        from = THDRELEMPTR(psrc, srctype_, src_first);  \
+        while (count--) {                               \
+            *to = cvt_fn_(*from++);                     \
+            ++to;                                       \
+        }                                               \
+    } while (0)
+    
     switch (pdst->type) {
 #if 0
     case TA_BOOLEAN:
@@ -2834,44 +2859,60 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         ba_copy(d, dst_first, THDRELEMPTR(psrc, ba_t, 0), src_first, count);
         TBD;
         break;
-
+#endif
+        
     case TA_STRING:
-        TBD;
-        /*
-         * TA_STRING pointers don't have (effectively) unlimited
-         * reference counts and cannot follow the same pattern as TA_ANY
-         * below. When duplicating, we may get a different pointer
-         * so cannot just memcpy as in the TA_ANY case.
-         * We need to do an explicit pointer-by-pointer copy.
-         */
         if (insert)
             thdr_make_room(pdst, dst_first, count);
         else
             thdr_decr_tas_refs(pdst, dst_first, count);
-        {
-            tas_t **srctas, **dsttas, **srcend;
-            srctas = THDRELEMPTR(psrc, tas_t *, src_first);
-            srcend = srctas + count;
-            dsttas = THDRELEMPTR(pdst, tas_t *, dst_first);
-            while (srctas < srcend) {
-                *dsttas++ = tas_ref(*srctas++);
+        switch (psrc->type) {
+        case TA_BOOLEAN:
+            {
+                ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);
+                int low, end;
+                tas_t **podst;
+                tas_t *one, *zero;
+                one = tas_alloc_nbytes("1", 1);
+                zero = tas_alloc_nbytes("0", 1);
+                podst = THDRELEMPTR(pdst, tas_t *, dst_first);
+                for (low = src_first, end = src_first+count; low < end; ++podst, ++low) {
+                    /* 
+                     * We reuse strings 0 and 1 for memory efficiency.
+                     * Note order in which we assign and ref. This is because
+                     * tas_t refcounts are single byte and once they are at max
+                     * a new tas_t is returned. Doing it as shown ensures we
+                     * don't keep allocating a new tas_t once the ref count
+                     * in one/zero was at max as would happen if we did
+                     *    *podst = tas_ref(one)
+                     */
+                    if (ba_get(baP, low)) {
+                        *podst = one;
+                        one = tas_ref(*podst);
+                    } else {
+                        *podst = zero;
+                        zero = tas_ref(*podst);
+                    }
+                }
+                tas_unref(one);
+                tas_unref(zero);
+                break; /* src == TA_BOOLEAN */
             }
-            thdr_lookup_addn(pdst, dst_first, count);
+            break;
+        case TA_BYTE: CVT2STRING(unsigned char, tas_from_int); break;
+        case TA_INT: CVT2STRING(int, tas_from_int); break;
+        case TA_UINT: CVT2STRING(unsigned int, tas_from_uint); break;
+        case TA_WIDE: CVT2STRING(Tcl_WideInt, tas_from_wide); break;
+        case TA_DOUBLE: CVT2STRING(double, tas_from_double); break;
+        case TA_ANY: CVT2STRING(Tcl_Obj*, tas_from_obj); break;
         }
-        break;
-
+        thdr_lookup_addn(pdst, dst_first, count);
+        break; /* dst == TA_STRING */
 
     case TA_ANY:
-        TBD;
-        /*
-         * We have to deal with reference counts here. For the objects
-         * we are copying (source) we need to increment reference counts.
-         * For objects in destination that we are overwriting, we need
-         * to decrement reference counts.
-         */
-
-        thdr_incr_obj_refs(psrc, src_first, count); /* Do this first */
-        if (! insert) {
+        if (insert)
+            thdr_make_room(pdst, dst_first, count);
+        else {
             /*
              * Overwriting so decr refs of existing elements.
              * Note this call handles the case where count exceeds
@@ -2879,8 +2920,43 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
              */
             thdr_decr_obj_refs(pdst, dst_first, count);
         }
-        TBD;
-#endif
+        switch (psrc->type) {
+        case TA_BOOLEAN:
+            {
+                ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);
+                int low, end;
+                Tcl_Obj **podst;
+                podst = THDRELEMPTR(pdst, Tcl_Obj *, dst_first);
+                for (low = src_first, end = src_first+count; low < end; ++podst, ++low) {
+                    *podst = Tcl_NewIntObj(ba_get(baP, low));
+                    Tcl_IncrRefCount(*podst);
+                }
+            }
+            break; /* src == TA_BOOLEAN */
+
+        case TA_BYTE: NUM2ANY(unsigned char, Tcl_NewIntObj); break;
+        case TA_INT:NUM2ANY(int, Tcl_NewIntObj); break;
+        case TA_UINT:NUM2ANY(unsigned int, Tcl_NewWideIntObj); break;
+        case TA_WIDE:NUM2ANY(Tcl_WideInt, Tcl_NewWideIntObj); break;
+        case TA_DOUBLE: NUM2ANY(double, Tcl_NewDoubleObj); break;
+        case TA_STRING: 
+            {
+                tas_t **srctas, **srcend;
+                Tcl_Obj **podst;
+                podst = THDRELEMPTR(pdst, Tcl_Obj *, dst_first);
+                srctas = THDRELEMPTR(psrc, tas_t *, src_first);
+                srcend = srctas + count;
+                while (srctas < srcend) {
+                    *podst = Tcl_NewStringObj((*srctas)->s, -1);
+                    Tcl_IncrRefCount(*podst);
+                    ++podst;
+                    ++srctas;
+                }
+                break; /* src == TA_STRING */
+            }
+        }
+        break; /* dst == TA_ANY */
+
     default:
         /* Numeric destination */ 
         if (psrc->type == TA_STRING) {
@@ -2945,10 +3021,8 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
             case TA_WIDE: NUM2NUM(double, Tcl_WideInt); break;
             }
             break;
-        default:
-            ta_type_panic(psrc->type);
+        default: ta_type_panic(psrc->type);
         }
-        break;
     }
 
     if (status == TCL_OK) {
@@ -2959,6 +3033,8 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
 
 #undef NUM2NUM
 #undef BOOL2NUM
+#undef NUM2ANY
+#undef CVT2STRING
 }
 
 /* Copies partial content from one thdr_t to another in reverse.

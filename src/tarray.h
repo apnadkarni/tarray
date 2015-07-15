@@ -342,18 +342,51 @@ TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
 /* tas_t interface */
 #define TAS_ALLOCMEM TA_ALLOCMEM
 #define TAS_FREEMEM  TA_FREEMEM
-tas_t *tas_alloc(char *s, int len);
+tas_t *tas_alloc(int len);
+tas_t *tas_alloc_nbytes(char *s, int len);
+TA_INLINE tas_t *tas_alloc_string(char *s) {
+    return tas_alloc_nbytes(s, strlen(s));
+}
 TA_INLINE tas_t * tas_from_obj(Tcl_Obj *o) {
     int len;
     char *s = Tcl_GetStringFromObj(o, &len);
-    return tas_alloc(s, len);
+    return tas_alloc_nbytes(s, len);
 }
 TA_INLINE Tcl_Obj *tas_to_obj(tas_t *ptas) {
     return Tcl_NewStringObj(ptas->s, -1);
 }
+
+TA_INLINE tas_t *tas_from_double(double val)
+{
+    tas_t *ptas = tas_alloc(TCL_DOUBLE_SPACE);
+    Tcl_PrintDouble(NULL, val, &ptas->s[0]);
+    return ptas;
+}
+
+TA_INLINE tas_t *tas_from_int(int val)
+{
+    tas_t *ptas = tas_alloc(12);
+    sprintf(&ptas->s[0], "%d", val);
+    return ptas;
+}
+
+TA_INLINE tas_t *tas_from_uint(unsigned int val)
+{
+    tas_t *ptas = tas_alloc(12);
+    sprintf(&ptas->s[0], "%u", val);
+    return ptas;
+}
+
+TA_INLINE tas_t *tas_from_wide(Tcl_WideInt val)
+{
+    tas_t *ptas = tas_alloc(TCL_INTEGER_SPACE);
+    sprintf(&ptas->s[0], "%" TCL_LL_MODIFIER "d", val);
+    return ptas;
+}
+
 TA_INLINE tas_t *tas_dup(tas_t *src) {
     TA_ASSERT(src->nrefs > 0);
-    return tas_alloc(&src->s[0], strlen(src->s));
+    return tas_alloc_string(&src->s[0]);
 }
 /* Returned tas may not be same as src ! */
 TA_INLINE tas_t *tas_ref(tas_t *src) {
