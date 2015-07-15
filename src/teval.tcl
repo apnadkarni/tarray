@@ -926,7 +926,7 @@ namespace eval tarray::teval::rt {
     proc selector_context {} {
         variable _selector_contexts
         if {[llength $_selector_contexts]} {
-            return [lindex $_selector_contexts 0]
+            return [lindex $_selector_contexts end]
         }
         error "Not in a selector context"
     }
@@ -1011,7 +1011,9 @@ namespace eval tarray::teval::rt {
             if {$valuetype eq ""} {
                 # Try and convert to column of appropriate type
                 if {[catch {
-                    set value [tarray::column::create [tarray::column::type $var] $value]}]} {
+                    set value [tarray::column::create $vartype $value]
+                    set valuetype $vartype
+                }]} {
                     # Try treating as a single element of column
                     return [tarray::column::vfill var $value $low $high]
                 }
@@ -1027,7 +1029,11 @@ namespace eval tarray::teval::rt {
                     error "Source size $source_size differs from target column range $low:$high."
                 }
             } else {
-                return [tarray::column::vput var $value $low]
+                if {$vartype eq $valuetype} {
+                    return [tarray::column::vput var $value $low]
+                } else {
+                    return [tarray::column::vput var [tarray::column::cast $value $vartype] $low]
+                }
             }
         }
     }
@@ -1038,7 +1044,6 @@ namespace eval tarray::teval::rt {
         # value is the value to be assigned
         # index is a general expression
         #
-
         lassign [tarray::types $var $value $index] vartype valuetype indextype
 
         if {$vartype eq ""} {
