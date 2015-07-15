@@ -7,21 +7,35 @@
 
 #include "tarray.h"
 
-/* Note len does not include trailing null and unlike Tcl_Obj's
-   returned ref count is 1 on allocation */
-tas_t *tas_alloc(char *s, int len)
+tas_t *tas_alloc(int len)
 {
     tas_t *ptas;
     int sz;
 
     TA_ASSERT(len >= 0);
 
-    sz = sizeof(tas_t) + len; /* tas_t already accounts for trailing null */
+    sz = sizeof(tas_t) + len; /* tas_t already accounts for trailing null 
+                               so actual size len+1 */
     ptas = TAS_ALLOCMEM(sz);
-    memcpy(&ptas->s[0], s, len+1);
+    ptas->s[0] = 0;
     ptas->nrefs = 1;
     return ptas;
 }
+
+
+/* Note len does not include trailing null and unlike Tcl_Obj's
+   returned ref count is 1 on allocation */
+tas_t *tas_alloc_nbytes(char *s, int len)
+{
+    tas_t *ptas;
+
+    TA_ASSERT(len >= 0);
+    ptas = tas_alloc(len);  /* Available space will be len+1 */
+    memcpy(&ptas->s[0], s, len);
+    ptas->s[len] = 0;           /* Always terminate */
+    return ptas;
+}
+
 
 
 /* The descriptor for our custom hash */
