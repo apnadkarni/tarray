@@ -1082,10 +1082,15 @@ namespace eval tarray::teval::rt {
                 if {$valuetype eq ""} {
                     # Will error out if the wrong type
                     set value [tarray::column::create $vartype $value]
+                    set valuetype $vartype
                 }
                 set nvalues [tarray::column::size $value]
                 if {[tarray::column::size $index] == $nvalues} {
-                    return [tarray::column::vplace var $value $index]
+                    if {$vartype eq $valuetype} {
+                        return [tarray::column::vplace var $value $index]
+                    } else {
+                        return [tarray::column::vplace var [tarray::column::cast $value $vartype] $index]
+                    }       
                 }
                 # Size mismatch. If size of value is 1, then use fill
                 if {$nvalues == 1} {
@@ -1096,8 +1101,6 @@ namespace eval tarray::teval::rt {
             }
         }
     }
-
-    
 
     proc table_column_assign_range {varname colname value low high} {
         # varname is the name of a table variable (must exist)
