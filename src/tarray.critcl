@@ -1463,6 +1463,19 @@ critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj
     int i;
     Tcl_Obj *oindex;
         
+    /* Have to protect against shimmering between TABLE and the COLUMNLIST
+       (this would be a caller bug but can cause a crash). In any case,
+       since there is no reasonable call in practice where the table and 
+       column list are the same, we simply don't allow the two to be
+       the same rather than play games with duping objects */
+    if (TABLE == COLUMNLIST) {
+        Tcl_SetResult(interp, "Invalid column name list", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (table_convert(interp, TABLE) != TCL_OK)
+        return TCL_ERROR;
+
     if ((status = Tcl_ListObjLength(interp, COLUMNLIST, &count)) != TCL_OK)
         return status;
     thdr = thdr_alloc(interp, TA_ANY, count);

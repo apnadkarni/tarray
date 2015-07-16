@@ -1,4 +1,6 @@
 if {1} {
+    catch {tarray::teval::ParserBase destroy}
+    catch {tarray::teval::Compiler destroy}
     lappend auto_path ../build/lib
     package require tarray
 }
@@ -949,7 +951,7 @@ namespace eval tarray::teval::rt {
         upvar 1 $varname var
         return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vfill var $value $index }
-            "" { error "$varname is not a column or table." }
+            "" { lset var $index $value }
             default { tarray::column::vfill var $value $index }
         }]
     }
@@ -963,16 +965,40 @@ namespace eval tarray::teval::rt {
 
         lassign [tarray::types $var $value] vartype valuetype
         
-        if {$vartype eq ""} {
-            error "$varname is not a column or table."
-        }
-
         # TBD - need to handle "end" in range specification
-        
+
         if {$low > $high} {
             error "Range lower limit $low is greater than upper limit $high."
         }
+        
         set target_size [expr {$high - $low + 1}]
+        
+        if {$vartype eq ""} {
+            # variable to be treated as a list
+            switch -exact -- $valuetype {
+                table {
+                    if {[tarray::table::size $value] != $target_size} {
+                        error "Source size [tarray::table::size $value] differs from target column range $low:$high."
+                    }
+                    set var [lreplace $var[set var ""] $low $high {*}[tarray::table::range $value 0 end]] 
+                }
+                "" {
+                    # Treat like a fill - TBD
+                    while {$low <= $high} {
+                        lset var $low $value
+                        incr low
+                    }
+                }
+                default {
+                    if {[tarray::column::size $value] != $target_size} {
+                        error "Source size [tarray::column::size $value] differs from target column range $low:$high."
+                    }
+                    set var [lreplace $var[set var ""] $low $high {*}[tarray::column::range -list $value 0 end]] 
+                }
+            }
+            return $var
+        }
+        
         if {$vartype eq "table"} {
 
             # If the value is also a table, we assume each row in the value
@@ -1046,12 +1072,32 @@ namespace eval tarray::teval::rt {
         #
         lassign [tarray::types $var $value $index] vartype valuetype indextype
 
-        if {$vartype eq ""} {
-            error "$varname is not a column or table."
-        }
         if {$indextype ne "" && $indextype != "int"} {
             error "Index must be a integer, an integer list, or an integer column"
         }
+        if {$vartype eq ""} {
+            # Assume var is a list
+            if {$indextype eq "int"} {
+                set index [tarray::column::range -list $index 0 end]
+            } else {
+                if {[llength $index] == 1} {
+                    lset var $index $value
+                    return
+                }
+            }
+            if {[llength $value] == [llength $index]} {
+                foreach i $index val $value {
+                    lset var $i $val
+                }
+            } else {
+                foreach i $index {
+                    lset var $i $value
+                }
+            }
+            return $var
+        }
+
+        # Variable is a table or column
         if {$valuetype eq $vartype} {
             if {$vartype eq "table"} {
                 return [tarray::table::vplace var $value $index]
@@ -1722,6 +1768,7 @@ if {1} {
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
 }
 if {1} {
+    catch {table slice $T $T};  # Causes crash due to shimmering, should return error
     proc getI {} {return $::I}
     tscript {I[@@ < 30]}
     tscript {I[I < 30]}
