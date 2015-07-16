@@ -2750,7 +2750,7 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
     } while (0)
 
     if (pdst->type == TA_DOUBLE) {
-        double dbl, *pdbl;
+        double *pdbl;
         TASVALIDATE(double, ta_get_double_from_string);
         /* No errors, now do the actual conversion */
         pdbl = THDRELEMPTR(pdst, double, dst_first);
@@ -2839,7 +2839,6 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
 TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
                thdr_t *psrc, int src_first, int count, int insert)
 {
-    int nbytes;
     int new_used;
     TCL_RESULT status;
 
@@ -2946,7 +2945,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         } else {
             register ba_t *baP;
             ba_t ba, ba_mask;
-            int i, off;
+            int off;
 
             if (insert)
                 thdr_make_room(pdst, dst_first, count);

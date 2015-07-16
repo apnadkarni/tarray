@@ -187,6 +187,7 @@ namespace eval tarray {
     
     namespace eval column {
         namespace ensemble create -map {
+            cast cast
             count count
             create create
             delete delete
