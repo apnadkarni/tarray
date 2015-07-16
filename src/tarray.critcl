@@ -138,12 +138,16 @@ if {$build_opts(use_libdispatch)} {
 ################################################################
 # Type conversions
 
+# WARNING: do not use this where there are multiple parameters to avoid
+# shimmering crashes
 critcl::argtype TColObjPtr {
     if (tcol_convert(interp, @@) != TCL_OK)
         return TCL_ERROR;
     @A = @@;
 }
 
+# WARNING: do not use this where there are multiple parameters to avoid
+# shimmering crashes
 critcl::argtype TableObjPtr {
     if (table_convert(interp, @@) != TCL_OK)
         return TCL_ERROR;
@@ -340,7 +344,7 @@ critcl::cproc tarray::column::type {TColObjPtr tcol} "const char*" {
     return ta_type_string(tcol_type(tcol));
 }
 
-critcl::cproc tarray::column::cast {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj* COLTYPE} ok {
+critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* COLTYPE} ok {
     int tatype;
     thdr_t *thdr, *thdr2;
     Tcl_Obj *o;
@@ -349,6 +353,11 @@ critcl::cproc tarray::column::cast {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj
                             TCL_EXACT, &tatype) != TCL_OK)
 	return TCL_ERROR;
 
+    /* Convert the column AFTER COLTYPE conversion above to protect against
+       shimmering */
+    if (tcol_convert(interp, COLUMN) != TCL_OK)
+        return TCL_ERROR;
+    
     if (tcol_type(COLUMN) == tatype) {
         Tcl_SetObjResult(interp, COLUMN);
         return TCL_OK;
@@ -383,12 +392,17 @@ critcl::cproc tarray::column::cast {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj
     return TCL_OK;
 }
 
-critcl::cproc tarray::column::index {Tcl_Interp* interp TColObjPtr COLUMN Tcl_Obj* INDEX} ok {
+critcl::cproc tarray::column::index {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* INDEX} ok {
     int ix;
     Tcl_Obj *o;
     if (ta_convert_index(interp, INDEX, &ix, tcol_occupancy(COLUMN)-1, 0, tcol_occupancy(COLUMN)-1) != TCL_OK)
         return TCL_ERROR;
-    
+
+    /* Convert the column AFTER INDEX conversion above to protect against
+       shimmering in case both refer to same object */
+    if (tcol_convert(interp, COLUMN) != TCL_OK)
+        return TCL_ERROR;
+
     o = tcol_index(interp, COLUMN, ix);
     if (o) {
         Tcl_SetObjResult(interp, o);
@@ -468,8 +482,16 @@ critcl::ccommand tarray::column::vsort {} {
     return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 
-critcl::cproc tarray::column::bitsset {Tcl_Interp* interp TColObjPtr tcol} ok {
-    thdr_t *thdrP = tcol_thdr(tcol);
+critcl::cproc tarray::column::bitsset {Tcl_Interp* interp Tcl_Obj* COLUMN} ok {
+    thdr_t *thdrP;
+
+    /* Convert the column AFTER INDEX conversion above to protect against
+       shimmering in case both refer to same object */
+    if (tcol_convert(interp, COLUMN) != TCL_OK)
+        return TCL_ERROR;
+
+    thdrP = tcol_thdr(COLUMN);
+    
     if (thdrP->type != TA_BOOLEAN) {
         Tcl_SetResult(interp, "tarray type is not boolean", TCL_STATIC);
         return TCL_ERROR;
