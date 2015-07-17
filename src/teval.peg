@@ -10,6 +10,7 @@ void:  EOF <- !.;
                  / IfStatement
 		 / WhileStatement
 		 / ForStatement
+		 / ReturnStatement
                  / Expression
                  / TclScriptBlock
                  / Empty ;
@@ -24,6 +25,8 @@ void:    Empty <- WS ;
     WhileStatement <- 'while' WSob Expression WSob '{' Block '}' ;
 
     ForStatement <- 'for' WSob Identifier WSob 'in' WSob Expression WSob ('by' WSob Expression WSob)? '{' Block '}' ;
+
+    ReturnStatement <- 'return' WSob Expression ;
 
     TclScriptBlock <- '<' TclScript '>' TclScriptEndMarker ;
 leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
