@@ -20,7 +20,7 @@ text {
     [TIP]
     This document assumes the reader is familiar with typed arrays.
     If not, please glance through the ((^ chap_guide)) before continuing.
-    
+
     The TScript language is an alternative for 
     working with typed array columns and tables. It provides 
     
@@ -29,35 +29,55 @@ text {
     * search operators
     * flexible indexing
 
-    As an example, the statement
-} syntax {
-    Emp'Salary[Emp'Salary < 50000 && Emp'Age > 35] = 50000
-} text {
-    raises the salary of all underpaid older employees to a minimum level.
+    TScript is not a replacement for Tcl. Rather, it is embedded in
+    Tcl and the two can be intermixed according to whatever syntax suits
+    the task at hand.
 
-    TScript is embedded in Tcl and is executed through the `tscript`
-    command. Tcl and TScript can be freely invoked from each other
-    at a fine-grained level allowing the two to be intermixed according to
-    whatever syntax suits the task.
-} tbd {
-    Example of intermixing
-} text {
     Neverthess, TScript is syntactically completely different from Tcl.
 }
 
 text {
-    == Running a TScript program
+    == Running TScript 
 
-    TScript is part of the `tarray` package which is loaded as
+    TScript is part of the `tarray` package which must be loaded to run
+    TScript code.
 } shell {
     package require tarray
     namespace path tarray;      # Permits us to use the column and table commands without qualification
 } eval {
     source ../src/teval.tcl
 } text {
-    TScript is invoked from Tcl with the `tscript` command. For example,
-    the above statement would be invoked from Tcl as 
-} syntax {
+    A TScript code fragment may be run by one of several means.
+
+    From within
+    Tcl, it can be run using the `tarray::tscript` command. This is
+    roughly the equivalent of running a Tcl script using `eval`.
+} shell {
+    tscript { a = 1 }
+} text {
+    You can define a TScript procedure from Tcl using `tarray::tproc` in
+    a similar fashion as the Tcl `proc` command. It can then be invoked
+    in the same manner as a Tcl procedure.
+} shell {
+    tproc add {x y} { return x + y }
+    add 2 3
+} text {
+    Finally, you can load an entire TScript file using the
+    `tarray::tsource` command
+
+    In this tour, for ease of exposition we will simply show the
+    relevant TScript fragments without any reference to how they
+    are executed.
+}
+
+text {
+    == Quick Tour
+
+    This section provides a short tour of TScript syntax and features to
+    introduce the reader to the language. 
+}
+
+syntax {
     tscript {
         Emp.Salary[Emp.Salary < 50000 && Emp.Age > 35] = 50000
     }
@@ -94,7 +114,7 @@ text {
 }
 
 text {
-    ((== sect_basic_tscript_syntax "Basic TScript syntax"))
+    ((== sect_basic_tscript_syntax "Basic syntax"))
 
     The basic syntax of TScript is closer to the C family of languages
     than to Tcl.
@@ -195,7 +215,7 @@ text {
 }
 
 text {
-    === Invoking commands
+    == Functions
 
     Invocation of commands takes a form similar to function calls in C. 
     Function parameters are wrapped in parenthesis and separated by commas.
@@ -236,7 +256,7 @@ text {
 } 
 
 text {
-    ==== Calling ensemble commands
+    === Calling ensemble commands
 
     Ensemble commands such as `clock seconds` are called from TScript as
 } shell {
@@ -256,7 +276,7 @@ text {
 }
 
 text {
-    ==== Calling object methods
+    === Calling object methods
 
     Object methods are called in a manner similar to ensemble commands.
 } shell {
@@ -287,7 +307,7 @@ text {
 }
 
 text {
-    ==== Passing options to commands
+    === Passing options to commands
 
     When passing options to commands, TScript supports an additional
     syntax for arguments where the option name does not have to be
@@ -309,8 +329,12 @@ text {
     starting with a `-` character.
 }
 
+tbd {
+    === Defining functions
+}
+
 text {
-    === Operators
+    == Operators
 
     Operators work with two kinds of operands
 
@@ -323,7 +347,7 @@ text {
 
     Operator precedence follows that of Tcl.
 
-    ==== Arithmetic operators
+    === Arithmetic operators
 
     The arithmetic operators supported by TScript are based on those in
     Tcl. 
@@ -331,7 +355,7 @@ text {
     * The unary operators include `-`, `+`, `~` and `!`.
     * The binary operators include `+`, `-`, `*`, `/`, `**`, `&`, `|`, `^`
 
-    ==== Relational operators
+    === Relational operators
     
     The relational operators include the `==`, `!=`, `<`, +<=+, `>`, `>=`
     operators that are present in Tcl.
@@ -409,15 +433,15 @@ text {
     sepcifies the operation `~` or `*` and the optional third
     character `^`, if present, indicates a case-sensitive match.
     
-    ==== Logical operators
+    === Logical operators
 
     The logical operators include `&&` and `||` as in Tcl.
     _However, unlike Tcl these operators do not short-circuit the evaluation
     of their operands._
 
-    ==== List operators
+    === List operators
 
-    ===== The unary `#` operator for lists
+    ==== The unary `#` operator for lists
 
     TScript supports the unary operator `#` which returns the length
     of its list operand. This operator also supports columns and tables
@@ -429,9 +453,9 @@ text {
 }
 
 text {
-    ==== Dictionary operators
+    === Dictionary operators
 
-    ===== The `#` and `'` dictionary operators
+    ==== The `#` and `'` dictionary operators
 
     The `#` and `'` operators both retrieve values from Tcl dictionaries.
     The `'` operator takes the key as a literal value and returns
@@ -450,7 +474,7 @@ text {
 } 
 
 tbd {
-    ==== The `$` dereferencing operator
+    === The `$` dereferencing operator
 }
 
 text {
