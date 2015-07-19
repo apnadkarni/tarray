@@ -28,7 +28,7 @@ void:    Empty <- WS ;
 
     ReturnStatement <- 'return' WSob Expression ;
 
-    TclScriptBlock <- '<' TclScript '>' TclScriptEndMarker ;
+    TclScriptBlock <- '<' TclScript '>' (& TclScriptEndMarker) ;
 leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
 void: TclScriptEndMarker <- WS (EOL/EOF) ;
 
