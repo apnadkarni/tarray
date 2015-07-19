@@ -54,6 +54,9 @@ text {
 } shell {
     tscript { a = 1 }
 } text {
+    The `tscript` command returns the result of the last statement it
+    executes.
+    
     Second, you can define a TScript procedure from Tcl using `tarray::tproc` in
     a similar fashion as the Tcl `proc` command. It can then be invoked
     in the same manner as a Tcl procedure.
@@ -77,9 +80,11 @@ text {
 
     The basic syntax of TScript is close to the C family of languages
     than Tcl.
+
+    .Variable and literals
 } tscript {
-    a = 2 ; b = 3
-    c = a * b
+    a = 1 ; b = 2
+    c = 1 + a * b
 } text {
     Thus unquoted identifiers are variables, not strings, and do not
     need a `$` prefix as in Tcl. Expression use the usual infix form.
@@ -89,85 +94,142 @@ text {
     puts("Hello world!")
     puts('SingleWord)
 } text {
+    .Calling functions
+    
     Commands or functions
     (we use the terms interchangeably) are called with parameters
-    enclosed in parenthesis as in the call to `puts` above.
+    enclosed in parenthesis.
+} tscript {
+    hex = format("0x%x", 42)
+} text { 
 
+    .Mixing Tcl and TScript
     Tcl code can be intermixed within TScript by bracketing it with
     `<>`.
 } tscript {
-    l = {1, 2}
-    < lappend l 3 >
-    puts(l)
+    L = {1, 2}
+    < lappend L 3 >
+    puts(L)
 } 
 
 text {
+    .Working with lists
     Lists are constructed using braces but unlike in Tcl, elements
-    are separated with commas and can include variables, function calls
-    and literals. In that respect they behave more like the Tcl
-    `list` command.
+    are expressions separated with commas.
 } tscript {
-    l = {a, "second element", tcl::mathfunc::rand()}
+    L = {0, a, b, a + b, tcl::mathfunc::rand()}
 } text {
+    Although you can call Tcl's list related commands, like
+} prompt {} tshell {
+    llength(L)
+} text {
+    there are several convenient operators dealing with lists.
+    
     The prefix operator `#` can be used to return the length of a list.
 } tscript {
-    len = # l  // Comments begin with //, not #
+    len = # L  // Comments begin with //, not #
 } text {
-    Notice that `#` does not begin comments, `//` does as in C++.
-
-    List can be accessed using multiple indexing forms, as single
-    indices, ranges and via an index list.
+    Similarly, the indexing operator `[]` can be used instead
+    of `lindex` and this supports multiple forms.
 } prompt {} tshell {
-    l[0]
-    l[0:1]
-    l[{1,3}]
+    L[0]  // Single element
+    
+    L[0:1] // Index range
+    
+    L[{1,3}] // Index range
 } text {
    The indexing operator can be used in assignments as well. 
 } prompt {} tshell {
-    l[0 : #l-2] = 999
-    l[{1,2}] = {100, 101}
+    L[0 : #L-2] = 999
+    
+    L[{1,2}] = {100, 101}
 } text {
     Other list operations are performed by calling the corresponding
     Tcl command.
 } prompt {} tshell {
-    lsort(l)
+    lsort(L)
 }
 
 text {
+    .Working with dictionaries
     Dictionary access has a similar shorthand using
-    using the `#` or '`' postfix operators.
+    using the `#` or `'` postfix operators.
     The difference between the two
     is that the former specifies the key via a variable and
     the latter as a literal.
 } prompt {} tshell {
     colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
+    
     colors'red
-    color = "red"
+
+    color = "blue"
+
     colors#color
 } text {
     The same syntax can be used to modify the dictionary as well.
 } prompt {} tshell {
-    d#color = 0xee0000
-}
-    
-syntax {
-     tscript {
-        Emp.Salary[Emp.Salary < 50000 && Emp.Age > 35] = 50000
-    }
-} text {
-    The `tscript` command itself returns the result of the last statement
-    executed.
+    colors#color = 0x0000ee
 }
 
 text {
-    For demonstrative purposes, this document makes use of the following
-    sample data. A column signifying the amount of rainfall during a 
-    particular year
+    The primary purpose of TScript is really to work conveniently with
+    typed arrays - columns and tables - and we demonstrate that next.
+
+    .Working with columns
+
+    A column created in Tcl as
 } shell {
     set Rainfall [column create double {
         11.0 23.3 18.4 14.7 70.3 180.5 210.2 205.8 126.4 64.9 33.1 19.2
     }]
 } text {
+    can be created in TScript as
+} tscript {
+    Rainfall = @double {
+        11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
+    }
+} text {
+    We can use the same operators with columns that we used for lists
+    and in much the same fashion.
+} prompt {} tshell {
+    # Rainfall           // Size of column
+
+    Rainfall[0]          // Rainfall in January
+    
+    Rainfall[9:11]       // Rainfall in the last quarter
+
+    Rainfall[11] = 21.5  // Update the measured amount for December
+} text {
+    When the indexing operation itself returns a column,
+    the vector and folding operations available for columns can be 
+    in conjunction.
+} tscript {
+    column.sum(Rainfall[9:11])  // Total rainfall in the last quarter
+
+    print( Rainfall / 10 )      // Print rainfall in centimeters
+}
+
+text {
+    One feature that TScript supports for columns that is not available
+    for lists is search using boolean expressions. For example,
+    we can get the indices corresponding to the months where the
+    rainfall lies within a specific range.
+} tscript {
+    print(Rainfall > 100 && Rainfall < 200)
+} text {
+    Moreover, since the boolean expressions return an integer column containing
+    the element indices, they can be used with in any operation applicable
+    to columns. For example, the `#` count operator will return the
+    number of such months.
+} prompt {} tshell {
+    #(Rainfall > 100 && Rainfall < 200)  // Number of months with rainfalls in specified range
+} text {
+    Or we could use indexing to retrieve the actual values themselves.
+} prompt {} tshell {
+    print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) // Actual rainfall values between 100 and 200
+}
+
+text {
     We also use a table containing a simple employee data base:
 } shell {
     set Emps [table create {
