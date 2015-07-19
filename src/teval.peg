@@ -99,7 +99,7 @@ ColumnIdentifier <- Identifier;
 ElementIdentifier <- Identifier;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
-leaf: Number <- <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )?;
+leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )? ;
 Sequence <- '{' WSNL SequenceElements? WSNL '}' ;
 SequenceElements <- Expression (WSNL ',' WSNL Expression)* ;
 leaf: Token <- SingleQuote Identifier ;
