@@ -43,19 +43,18 @@ text {
     TScript code.
 } shell {
     package require tarray
-    namespace path tarray;      # Permits us to use the column and table commands without qualification
+    namespace path tarray;      # Allows use of tarray commands without qualification
 } eval {
     source ../src/teval.tcl
 } text {
     A TScript code fragment may be run by one of several means.
 
-    From within
-    Tcl, it can be run using the `tarray::tscript` command. This is
-    roughly the equivalent of running a Tcl script using `eval`.
+    First, it can be run from within using the `tarray::tscript` command.
+    This is roughly the equivalent of running a Tcl script using `eval`.
 } shell {
     tscript { a = 1 }
 } text {
-    You can define a TScript procedure from Tcl using `tarray::tproc` in
+    Second, you can define a TScript procedure from Tcl using `tarray::tproc` in
     a similar fashion as the Tcl `proc` command. It can then be invoked
     in the same manner as a Tcl procedure.
 } shell {
@@ -73,12 +72,86 @@ text {
 text {
     == Quick Tour
 
-    This section provides a short tour of TScript syntax and features to
+    This section provides a short tour of TScript to
     introduce the reader to the language. 
+
+    The basic syntax of TScript is close to the C family of languages
+    than Tcl.
+} tscript {
+    a = 2 ; b = 3
+    c = a * b
+} text {
+    Thus unquoted identifiers are variables, not strings, and do not
+    need a `$` prefix as in Tcl. Expression use the usual infix form.
+    
+    String literals can be expressed in two forms.
+} tscript {
+    puts("Hello world!")
+    puts('SingleWord)
+} text {
+    Commands or functions
+    (we use the terms interchangeably) are called with parameters
+    enclosed in parenthesis as in the call to `puts` above.
+
+    Tcl code can be intermixed within TScript by bracketing it with
+    `<>`.
+} tscript {
+    l = {1, 2}
+    < lappend l 3 >
+    puts(l)
+} 
+
+text {
+    Lists are constructed using braces but unlike in Tcl, elements
+    are separated with commas and can include variables, function calls
+    and literals. In that respect they behave more like the Tcl
+    `list` command.
+} tscript {
+    l = {a, "second element", tcl::mathfunc::rand()}
+} text {
+    The prefix operator `#` can be used to return the length of a list.
+} tscript {
+    len = # l  // Comments begin with //, not #
+} text {
+    Notice that `#` does not begin comments, `//` does as in C++.
+
+    List can be accessed using multiple indexing forms, as single
+    indices, ranges and via an index list.
+} prompt {} tshell {
+    l[0]
+    l[0:1]
+    l[{1,3}]
+} text {
+   The indexing operator can be used in assignments as well. 
+} prompt {} tshell {
+    l[0 : #l-2] = 999
+    l[{1,2}] = {100, 101}
+} text {
+    Other list operations are performed by calling the corresponding
+    Tcl command.
+} prompt {} tshell {
+    lsort(l)
 }
 
+text {
+    Dictionary access has a similar shorthand using
+    using the `#` or '`' postfix operators.
+    The difference between the two
+    is that the former specifies the key via a variable and
+    the latter as a literal.
+} prompt {} tshell {
+    colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
+    colors'red
+    color = "red"
+    colors#color
+} text {
+    The same syntax can be used to modify the dictionary as well.
+} prompt {} tshell {
+    d#color = 0xee0000
+}
+    
 syntax {
-    tscript {
+     tscript {
         Emp.Salary[Emp.Salary < 50000 && Emp.Age > 35] = 50000
     }
 } text {
