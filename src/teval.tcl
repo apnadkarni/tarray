@@ -1828,6 +1828,10 @@ if {1} {
         puts [expr {$a > $b}]
         >
     }
+    tscript {
+        <lappend l 99>
+        a = b
+    }
 
     tscript { @table () }
     tscript { @table () {} }
