@@ -17,7 +17,7 @@ void:  EOF <- !.;
 void:    Empty <- WS ;
 
     # Assignment to a single LValue
-    Assignment <- LValue WS AssignOp WS Expression;
+    Assignment <- LValue WS AssignOp WS (TclScriptBlock / Expression) ;
 
     IfStatement <- 'if' WSob Expression WSob '{' Block '}'
                    (WSob 'else' WSob '{' Block '}')? ;
@@ -30,7 +30,7 @@ void:    Empty <- WS ;
 
     TclScriptBlock <- '<' TclScript '>' (& TclScriptEndMarker) ;
 leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
-void: TclScriptEndMarker <- WS (EOL/EOF) ;
+void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 
 
 

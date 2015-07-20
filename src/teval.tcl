@@ -556,7 +556,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= TclScript IfStatement WhileStatement ForRange ForNonRange ReturnStatement}} {
+        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -928,7 +928,7 @@ oo::class create tarray::teval::Compiler {
         return "\[set $ident\]"
     }
 
-    method TclScript s {return "\n$s\n"}
+    method TclScript s {return "\[try {\n$s\n}\]"}
 }
 
 namespace eval tarray::teval::rt {
@@ -1832,6 +1832,14 @@ if {1} {
     tscript {
         <lappend l 99>
         a = b
+    }
+    
+    tscript { a = <clock seconds> }
+    tscript { a = <clock seconds>; }
+    tscript { a = <clock seconds> ;}
+    tscript { a = <clock seconds> ; c = a}
+    tscript { a = <
+        clock seconds> ; b = a
     }
 
     tscript { @table () }
