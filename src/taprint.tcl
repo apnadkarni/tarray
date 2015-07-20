@@ -22,7 +22,7 @@ proc tarray::print_table {t} {
 }
 
 proc tarray::print_column {c} {
-    return [join [column range -list $c 0 end] \n]
+    return [join [column range -list $c 0 end] {, }]
 }
 
 proc tarray::print {ta} {
