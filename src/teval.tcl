@@ -755,6 +755,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     forward == my _relop ==
+    forward != my _relop !=
     forward < my _relop <
     forward <= my _relop <=
     forward > my _relop >
