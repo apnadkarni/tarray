@@ -87,12 +87,14 @@ text {
     c = 1 + a * b
 } text {
     Thus unquoted identifiers are variables, not strings, and do not
-    need a `$` prefix as in Tcl. Expression use the usual infix form.
+    need a `$` prefix as in Tcl. Expressions use the usual infix form.
     
-    String literals can be expressed in two forms.
+    String literals can be expressed in two forms - surrounded by double
+    quotes, or with a single preceding single quote for literals that
+    only contain alphanumeric characters.
 } tscript {
-    puts("Hello world!")
-    puts('SingleWord)
+    puts("Two words")
+    puts('OneWord)
 } text {
     .Calling functions
     
@@ -110,7 +112,14 @@ text {
     L = {1, 2}
     < lappend L 3 >
     puts(L)
-} 
+} text {
+    The Tcl fragment may be spread across multiple lines.
+} tscript {
+    <
+    puts "First Tcl statement"
+    puts "Second Tcl statement"
+    >
+}
 
 text {
     .Working with lists
@@ -127,6 +136,7 @@ text {
     
     The prefix operator `#` can be used to return the length of a list.
 } tscript {
+    L = {'zero, 'one, 'two, 'three}
     len = # L  // Comments begin with //, not #
 } text {
     Similarly, the indexing operator `[]` can be used instead
@@ -136,13 +146,13 @@ text {
     
     L[0:1] // Index range
     
-    L[{1,3}] // Index range
+    L[{3,1,2}] // Index list - note order of indices
 } text {
    The indexing operator can be used in assignments as well. 
 } prompt {} tshell {
     L[0 : #L-2] = 999
     
-    L[{1,2}] = {100, 101}
+    L[{3,2}] = {100, 101}
 } text {
     Other list operations are performed by calling the corresponding
     Tcl command.
@@ -202,11 +212,14 @@ text {
 } text {
     When the indexing operation itself returns a column,
     the vector and folding operations available for columns can be 
-    in conjunction.
-} tscript {
-    column.sum(Rainfall[9:11])  // Total rainfall in the last quarter
-
+    used in conjunction.
+} prompt {} tshell {
     print( Rainfall / 10 )      // Print rainfall in centimeters
+
+    column.sum(Rainfall[9:11])  // Total rainfall in the last quarter
+} tbd {
+    Use of ' and # with columns
+    (currently numeric literals do not work with ')
 }
 
 text {
@@ -222,30 +235,76 @@ text {
     to columns. For example, the `#` count operator will return the
     number of such months.
 } prompt {} tshell {
-    #(Rainfall > 100 && Rainfall < 200)  // Number of months with rainfalls in specified range
+    #(Rainfall > 100 && Rainfall < 200) 
 } text {
     Or we could use indexing to retrieve the actual values themselves.
 } prompt {} tshell {
-    print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) // Actual rainfall values between 100 and 200
+    print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) 
+
+    print ( Rainfall [@@ > 100 && @@ < 200] )     // @@ specifies the "current" context
 }
 
 text {
-    We also use a table containing a simple employee data base:
-} shell {
-    set Emps [table create {
-        Name string Salary uint Age uint Location string
-    } {
-        {Sally      70000       32       Boston}
-        {Tom        65000       36       Boston}
-        {Dick       80000       40       {New York}}
-        {Harry      45000       37       {New York}}
-        {Amanda     48000       35       Seattle}
-    }]
+    .Working with tables
+
+    As for columns, we will use a small sample table
+    containing a simple employee data base for demonstration purposes:
+} tscript {
+    Emps = @table (
+        Name string,   Salary uint,   Age uint,   Location string
+    ) {
+        {'Sally,      70000,      32,       'Boston},
+        {'Tom,        65000,      36,       'Boston},
+        {'Dick,       80000,      40,       "New York"},
+        {'Harry,      45000,      37,       "New York"},
+        {'Amanda,     48000,      35,       'Seattle}
+    }
+    print(Emps)
 } text {
-    For readability purposes, we will often make use of the `tarray::print`
-    command.
-} shell {
-    print $Emps
+    Tables rows can be accessed in the same manner as column elements.
+} prompt {} tshell {
+    # Emps      // Number of employees
+
+    print(Emps[3])     // Fourth row of table
+
+    print(Emps[2:4])   // Third through fifth rows
+
+    print(Emps[{3,1}]) // Fourth and second row
+}
+
+text {
+    Columns within a table are accessed with the `'` and `#` operators
+    and indexed as usual.
+} prompt {} tshell {
+    print(Emps'Name)     // Column name supplied as literal
+
+    colname = 'Salary
+    print(Emps#colname)   // Column name supplied in a variable
+
+    print(Emps'Salary[@@ >= 70000])    // High salaries
+} text {
+    Table slice operators can be used extract subtables.
+} prompt {} tshell {
+    print(Emps'(Name, Location))
+
+    print(Emps'(Name, Location)[2:4])
+}
+text {
+    As for columns, boolean expression can be used to query tables.
+} outputlimit 0 prompt {} tshell {
+    print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"])
+
+    print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"] ' (Name, Age))
+} text {
+    Tables can be modified in multiple ways.
+} outputlimit 0 tscript {
+    Emps[# Emps] = {'Mary, 38000, 25, 'Seattle}   // Add a row
+
+    Emps'Salary = Emps'Salary + 2000;    // Modify all cells in a column
+
+    Emps'Location[Emps'Name'Sally] = {{"New York"}}  // Modify a single cell
+
+    print(Emps)
 }
 
 text {
@@ -314,10 +373,11 @@ text {
     tscript {s = unquoted}
 } text {
     Also, unlike in Tcl double quoted strings, there is no
-    interpolattion.
+    interpolation.
 } shell {
-    set s "Tcl does [set x] interpolation"
-    tscript { s = "Tcl does [set x] interpolation" }
+    set x interpolation
+    set s "Tcl does [set x]"
+    tscript { s = "Tcl does [set x]" }
 } text {
     Also note that braces have different semantics in TScript and
     cannot be used to delimit strings.
