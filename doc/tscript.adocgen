@@ -669,7 +669,7 @@ text {
 } text {
     where _COLLECTION_ is any TScript expression that results
     in a column, table or a Tcl list.
-} tscript {
+} outputlimit 3 tscript {
     for rainfall in Rainfall[Rainfall > 100] {
         puts(rainfall)
     }
