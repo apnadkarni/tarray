@@ -29,7 +29,10 @@ text {
     * search operators
     * flexible indexing
 
-    TScript is not a replacement for Tcl. Rather, it is embedded in
+    Although geared towards typed arrays, TScript is not limited to
+    operating solely on those structures. It can be used with any data.
+    Note however, thatTScript is not a replacement for Tcl.
+    Rather, it is embedded in
     Tcl and the two can be intermixed according to whatever syntax suits
     the task at hand.
 
@@ -112,8 +115,10 @@ text {
     L = {1, 2}
     < lappend L 3 >
     puts(L)
+
+    now = <clock seconds>
 } text {
-    The Tcl fragment may be spread across multiple lines.
+    The Tcl fragment may also be spread across multiple lines.
 } tscript {
     <
     puts "First Tcl statement"
@@ -187,20 +192,13 @@ text {
 
     .Working with columns
 
-    A column created in Tcl as
-} shell {
-    set Rainfall [column create double {
-        11.0 23.3 18.4 14.7 70.3 180.5 210.2 205.8 126.4 64.9 33.1 19.2
-    }]
-} text {
-    can be created in TScript as
+    A column is created in TScript as
 } tscript {
     Rainfall = @double {
         11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
     }
 } text {
-    We can use the same operators with columns that we used for lists
-    and in much the same fashion.
+    We can use much the same operators with columns as we used for lists.
 } prompt {} tshell {
     # Rainfall           // Size of column
 
@@ -317,15 +315,49 @@ text {
 
     Like Tcl, a TScript script is a sequence of statements separated
     by either a newline character or a semicolon.
-} shell {
-    tscript {
-        x = 2
-        y = 3 ; z = x*y
-    }
+} tscript {
+    x = 2
+    y = 3 ; z = x*y
 } text {
     A statement may be an assignment as above, or simply an expression:
+} tscript {10*x + y}
+
+text {
+    === Mixing Tcl and TScript
+
+    Tcl and TScript code can be intermixed. To embed TScript within
+    Tcl, use the `tarray::tscript` command as
+} syntax {
+    tscript _TSCRIPT_
+} text {
+    where _TSCRIPT_ is the TScript fragment which may be spread across
+    multiple lines.
 } shell {
-    tscript {10*x + y}
+    tscript { x = 2 }
+    tscript {
+        y = 3
+        z = x * y
+    }
+} text {
+    Conversely, Tcl can be embedded with TScript by placing the
+    Tcl script within `<` and `>` delimiters.
+} prompt {} tshell {
+    now = <clock seconds>
+} text {
+    Multi-line scripts are permitted.
+} tscript {
+    <
+        set x 2
+        set y 3
+        set z [expr {$x + $y}]
+    >
+} text {
+    The terminating `>` _must_ be followed by a TScript statement terminator
+    such as a newline or `;`, optionally with intervening whitespace.
+
+    [NOTE]
+    Embedded Tcl is not an expression and thus cannot be used as
+    part of an expression.
 }
 
 text {
@@ -374,11 +406,8 @@ text {
 } text {
     Also, unlike in Tcl double quoted strings, there is no
     interpolation.
-} shell {
-    set x interpolation
-    set s "Tcl does [set x]"
-    tscript { s = "Tcl does [set x]" }
 } text {
+    [WARNING]
     Also note that braces have different semantics in TScript and
     cannot be used to delimit strings.
 } text {
@@ -402,7 +431,15 @@ text {
 } text {
     The list elements are separated using commas and an element may
     be a literal, variable, function call or general expression.
-
+    The list elements may be spread across multiple lines but must still
+    be separated by commas.
+} tscript {
+    l = {
+        x,
+        "a string",
+        y+z
+    }
+} text {
     As an aside, we could also have invoked the Tcl `list` command
     as a function to construct a list.
 } shell {
@@ -412,13 +449,16 @@ text {
 text {
     == Functions
 
-    Invocation of commands takes a form similar to function calls in C. 
+    Functions in TScript may refer to either Tcl commands or to functions
+    defined through the TScript `tproc` function.
+    
+    === Invoking functions
+    Invocation of functions/commands takes a form similar to function
+    calls in C. 
     Function parameters are wrapped in parenthesis and separated by commas.
 
-} shell {
-    tscript {
+} tscript {
         hex = format("0x%x", 42)
-    }
 } text {
     The above calls Tcl's built-in `format` command.
     There is no difference between invoking commands implemented in Tcl or
@@ -448,10 +488,16 @@ text {
     tscript { incr('val, -1) }
     ----
     ====
-} 
+} text {
+    As for list elements, the parameters for a function call may be
+    spread across multiple lines.
+} tscript {
+    hex = format("0x%x",
+                 42)
+}
 
 text {
-    === Calling ensemble commands
+    ==== Calling ensemble commands
 
     Ensemble commands such as `clock seconds` are called from TScript as
 } shell {
@@ -471,7 +517,7 @@ text {
 }
 
 text {
-    === Calling object methods
+    ==== Calling object methods
 
     Object methods are called in a manner similar to ensemble commands.
 } shell {
@@ -502,7 +548,7 @@ text {
 }
 
 text {
-    === Passing options to commands
+    ==== Passing options to commands
 
     When passing options to commands, TScript supports an additional
     syntax for arguments where the option name does not have to be
@@ -524,8 +570,109 @@ text {
     starting with a `-` character.
 }
 
-tbd {
+text {
     === Defining functions
+
+    The `tproc` command has the same form as
+    the Tcl `proc` command except that the body of the procedure
+    is TScript instead of Tcl.
+} syntax {
+    tproc _NAME_ _ARGS_ _BODY_
+} text {
+    _ARGS_ takes the same form as in the `proc` command, including defaults
+    for parameter and variable parameters using the `args` notation.
+} shell {
+    tproc add {a b} {return a + b}
+} text {
+    [NOTE]
+    The `tproc` command is meant to be called from Tcl as opposed
+    to being used within TScript itself. 
+}
+
+text {
+    === The `return` statement
+    The TclScript `return` statement returns control to the caller
+    from a function or procedure.
+} syntax {
+    return _EXPRESSION_
+} text {
+    _EXPRESSION_ is any valid TScript expression.
+}
+
+text {
+    == Control statements
+
+    TScript implements the `if`, `while` and `for` statements similar to Tcl
+    but in a slightly different form.
+
+    === The `if` statement
+    The `if` statement has the syntax
+} syntax {
+    if _EXPRESSION_ { _STATEMENTBLOCK_ } ?else { _STATEMENTBLOCK_ }?
+} text {
+    As indicated, the `else` clause is optional. If present, it must
+    be on the same logical line as the preceding statement block.
+
+    _EXPRESSION_ can be any TScript expression and does not need
+    to be enclosed in parenthesis.
+} tscript {
+    if #Emps {
+        print(Emps)
+    } else {
+        puts("Table is empty")
+    }
+}
+
+text {
+    === The `while` statement
+    The `while` statement has the syntax
+} syntax {
+    while _EXPRESSION_ { _STATEMENTBLOCK_ }
+} text {
+    _EXPRESSION_ can be any TScript expression and does not need
+    to be enclosed in parenthesis.
+} outputlimit 3 tscript {
+    i = 0
+    while i < # Emps {
+        puts(Emps'Name[i])
+        i = i + 1
+    }
+}
+
+text {
+    === The `for` statement
+    The `for` statement takes one of two forms. The first form is
+    used to iterate over a range of integers.
+} syntax {
+    for _IDENTIFIER_ in _LOWEXPR_ : _HIGHEXPR_ ?by _INCREMENT_? _STATEMENTBLOCK_
+} text {
+    The loop variable _IDENTIFIER_ is initially assigned a value of
+    _LOWEXPR_. Thereafter, _STATEMENTBLOCK_ is executed as long as the
+    the value of the loop variable is less than or equal to _HIGHEXPR_. After
+    each iteration, the loop variable is incremented by _INCREMENT_ which
+    defaults to `1` if unspecified.
+} tscript {
+    for i in 0 : #Emps-1 by 2 {
+        puts(Emps'Name[i])
+    }
+} text {
+    The limits of the range are computed only once, before the loop is
+    iterated.
+}
+
+text {
+    The other form of the `for` statement behaves similar to the
+    Tcl `foreach` statement where the loop variable takes on values
+    from a collection. The syntax is 
+} syntax {
+    for _IDENTIFIER_ in _COLLECTION_ _STATEMENTBLOCK_
+} text {
+    where _COLLECTION_ is any TScript expression that results
+    in a column, table or a Tcl list.
+} tscript {
+    for rainfall in Rainfall[Rainfall > 100] {
+        puts(rainfall)
+    }
 }
 
 text {
