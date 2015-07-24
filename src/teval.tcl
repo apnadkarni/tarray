@@ -138,8 +138,16 @@ oo::class create tarray::teval::Parser {
         return [list WhileStatement {*}$args]
     }
 
-    method ReturnStatement {from to expr} {
+    method ReturnStatement {from to {expr {}}} {
         return [list ReturnStatement $expr]
+    }
+    
+    method BreakStatement {from to} {
+        return [list BreakStatement]
+    }
+
+    method ContinueStatement {from to} {
+        return [list ContinueStatement]
     }
     
     method ForStatement {from to loopvar looptarget args} { 
@@ -556,7 +564,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement}} {
+        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -585,7 +593,19 @@ oo::class create tarray::teval::Compiler {
     }
 
     method ReturnStatement {expr} {
-        return "return [my {*}$expr]"
+        if {[llength $expr]} {
+            return "return [my {*}$expr]"
+        } else {
+            return "return"
+        }
+    }
+    
+    method BreakStatement {} {
+        return "break"
+    }
+
+    method ContinueStatement {} {
+        return "continue"
     }
     
     method WhileStatement {cond clause} {
