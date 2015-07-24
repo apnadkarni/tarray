@@ -676,6 +676,25 @@ text {
 }
 
 text {
+    === The `break` statement
+    The `break` statement behaves like the Tcl `break` command. It
+    causes the innermost loop to stop execution and continue execution
+    at the following statement.
+} syntax {
+    break
+}
+
+text {
+    === The `continue` statement
+    The `continue` statement behaves like the Tcl `continue` command. It
+    aborts the current iteration of the innermost loop containing it
+    without aborting the loop itself which then proceeds with its next
+    iteration.
+} syntax {
+    continue
+}
+
+text {
     == Operators
 
     Operators work with two kinds of operands
