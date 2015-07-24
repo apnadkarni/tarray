@@ -926,7 +926,9 @@ text {
     In this case the index operator returns a column (or table)
     containing the specified elements. Thus notice the difference
     between
-} tscript { Rainfall[0] } text {and} tscript { Rainfall[0:0] } text {
+} tscript { Rainfall[0] } text {
+    and
+} tscript { Rainfall[0:0] } text {
     though they both specify a single element.
 
     Of course, the range can be specified via variables as well.
