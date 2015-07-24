@@ -389,11 +389,9 @@ text {
 
     Numeric literals are as in Tcl and have the same syntax as in Tcl.
     For example,
-} shell {
-    tscript {
-        r = 2.0e10
-        big = 123455678987654321000000000
-    }
+} prompt {} tshell {
+    r = 2.0e10
+    big = 123455678987654321000000000
 } text {
 
     String literals are delimited by double quotes and follow
@@ -401,8 +399,8 @@ text {
 
     Unlike in Tcl, _a plain unquoted string is treated as an identifier_ and
     not a string literal.
-} errorok 1 shell {
-    tscript {s = unquoted}
+} errorok 1 prompt {} tshell {
+    s = unquoted
 } text {
     Also, unlike in Tcl double quoted strings, there is no
     interpolation.
@@ -413,9 +411,7 @@ text {
 } text {
     An alternate form of a string literal is a `'` character preceding
     a string that follows the rules for an identifier.
-} shell {
-    tscript { s = 'this::is::a::string }
-} text {
+} tscript { s = 'this::is::a::string } text {
     This alternate form is merely a small convenience.
 }
 
@@ -424,10 +420,8 @@ text {
 
     Braces in TScript are used to construct lists, similar to the
     `list` command in Tcl. _Note this differs from the use of braces in Tcl._
-} shell {
-    tscript {
-        l = {"a string", x, tcl::clock::seconds(), y+z}
-    }
+} tscript {
+    l = {"a string", x, tcl::clock::seconds(), y+z}
 } text {
     The list elements are separated using commas and an element may
     be a literal, variable, function call or general expression.
@@ -442,9 +436,7 @@ text {
 } text {
     As an aside, we could also have invoked the Tcl `list` command
     as a function to construct a list.
-} shell {
-    tscript {l = list(x,"a string",y+z)}
-}
+} tscript {l = list(x,"a string",y+z)}
 
 text {
     == Functions
@@ -500,20 +492,20 @@ text {
     ==== Calling ensemble commands
 
     Ensemble commands such as `clock seconds` are called from TScript as
-} shell {
-    tscript {clock.seconds()}
+} prompt {} tshell {
+    clock.seconds()
 } text {
     Note the use of `.` as the separator between the command and its
     subcommand. Depending on how the ensemble is defined, you can
     also directly invoke it.
-} shell {
-    tscript {tcl::clock::seconds()}
+} prompt {} tshell {
+    tcl::clock::seconds()
 } text {
     Finally, in the very rare case that the ensemble subcommand does
     not fit the syntax for a TScript identifier, you can pass it as the
     first argument.
-} shell {
-    tscript {clock("seconds")}
+} prompt {} tshell {
+    clock("seconds")
 }
 
 text {
@@ -537,11 +529,9 @@ text {
     _Function and object names, unlike variables, do not get implicitly
     dereferenced._
     In this case, the `$` operator is used for dereferencing.
-} shell {
-    tscript {
-        $obj.m('astring, 10)
-        $obj.destroy()
-    } 
+} prompt {} tshell {
+    $obj.m('astring, 10)
+    $obj.destroy()
 } text {
     We will talk about the dereferencing operator
     ((^ sect_tscript_deref_op later)).
@@ -555,13 +545,9 @@ text {
     quoted or separated from its value by a `,`.
 
     Instead of invoking the Tcl `subst` command as follows
-} shell {
-    tscript { subst("-novariables", "The value of val is $val") }
-} text {
+} tscript { subst("-novariables", "The value of val is $val") } text {
     it can be invoked as
-} shell {
-    tscript { subst(-novariables "The value of val is $val") }
-} text {
+} tscript { subst(-novariables "The value of val is $val") } text {
     Note the option name is not quoted and there is no `,` separating
     it from its value.
 
@@ -807,10 +793,10 @@ text {
     TScript supports the unary operator `#` which returns the length
     of its list operand. This operator also supports columns and tables
     as we will see later.
-} shell {
-    set l {a b c d e}
-    tscript { len = # l }
-    tscript { len = # {1,2,3,4} }
+} prompt {} tshell {
+    l = {'a, 'b, 'c, 'd, 'e}
+    len = # l
+    len = # {1,2,3,4}
 }
 
 text {
@@ -821,17 +807,17 @@ text {
     The `#` and `'` operators both retrieve values from Tcl dictionaries.
     The `'` operator takes the key as a literal value and returns
     the corresponding element from the dictionary.
-} shell {
-    set d [dict create a 1 b 2 c 3 d 4]
-    tscript { d'c}
-    tscript { d ' c };           # Note whitespace is optional
+} prompt {} tshell {
+    d = <dict create a 1 b 2 c 3 d 4> 
+    d'c
+    d ' c             // Note whitespace is optional
 } text {
     On the other hand, the `#` operator takes an operand that
     is the _name of the variable_ containing the key.
-} shell {
-    set key c
-    tscript { d#key}
-    tscript { d # key };           # Note whitespace is optional
+} prompt {} tshell {
+    key = 'c
+    d#key
+    d # key           // Note whitespace is optional
 } 
 
 tbd {
@@ -849,16 +835,12 @@ text {
 
     Columns are created using the built-in operators `@boolean`,
     `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`.
-} shell {
-    tscript { A = @int }
-} text {
+} tscript { A = @int } text {
     creates an empty column of type `int` and assigns it to `A`.
 
     An optional operand, containing a list of values of the appropriate
     type may be passed to initialize the column.
-} shell {
-    tscript { A = @any {10, {1, 2, 3}, len} }
-} text {
+} tscript { A = @any {10, {1, 2, 3}, len} } text {
     creates a column of type `any` with 3 elements.
 
     There are no built-in operators for defining tables. These
@@ -882,10 +864,10 @@ text {
     as a literal or an expression that results in a integer value. As
     the operand of the `[]` operator, it retrieves the value of the element
     at that position.
-} shell {
-    set i 1
-    tscript { Rainfall[0] }
-    tscript { Emps[i] }
+} prompt {} tshell {
+    i = 1
+    Rainfall[0]
+    Emps[i]
 } text {
     Note that the result is a ''scalar'', the value of the element at
     that position, not a column or table containing that element.
@@ -895,25 +877,18 @@ text {
     Alternatively, the index may specify an _index range_
     in the column or table.
     So, the rainfall for the first quarter can be retrieved by
-} shell {
-    tscript {q1_rainfall = Rainfall[0:2]}
-} text {
+} tscript {q1_rainfall = Rainfall[0:2]} text {
     In this case the index operator returns a column (or table)
     containing the specified elements. Thus notice the difference
     between
-} shell {
-    tscript { Rainfall[0] }
-    tscript { Rainfall[0:0] }
-} text {
+} tscript { Rainfall[0] } text {and} tscript { Rainfall[0:0] } text {
     though they both specify a single element.
 
     Of course, the range can be specified via variables as well.
-} shell {
-    tscript {
-        i = 0
-        j = 2
-        print(Emps[i:j])
-    }
+} tscript {
+    i = 0
+    j = 2
+    print(Emps[i:j])
 } text {
     We shall also see later that ranges can also be combined with
     selectors to further focus search and indexing operations.
@@ -923,16 +898,14 @@ text {
     The third form of an index is an _index list_. Here you can
     specify a list of integers or a column of type `int` that
     contain the numeric indices of interest.
-} shell {
-    tscript {
-        i = 10
-        Rainfall[{9, i, 11}]
-    }
+} tscript {
+    i = 10
+    Rainfall[{9, i, 11}]
 } text {
     We could have specified a column of type `int` instead.
-} shell {
-    set indices [column create int {11 10 9}]
-    tscript {Rainfall[indices]}
+} tscript {
+    indices = @int {11, 10, 9}
+    Rainfall[indices]
 } text {
     Notice that an index list (or column) does not need to contain
     the indices in order and may even contain duplicate indices.
@@ -940,13 +913,10 @@ text {
 
     Again, make a note of the difference with respect to a simple
     numeric index
-} shell {
-    tscript { Rainfall[0] }
-} text {
+} tscript { Rainfall[0] } text {
     which returns the element, versus
-} shell {
-    set indices [column create int {0}]
-    tscript { Rainfall[indices] }
+} tscript {
+    Rainfall[@int {0}] 
 } text {
     which returns a column containing that single element.
 
@@ -961,23 +931,19 @@ text {
     of the corresponding element succeeded.
     
     So for example, consider the following expression:
-} shell {
-    tscript { Rainfall > 100 }
-} text {
+} tscript { Rainfall > 100 } text {
     The return value is a column containing the indices corresponding
     to the elements which have a value greater than `100`.
 
     Therefore, we can use such boolean selectors as indices to 
     retrieve the actual values themselves.
-} shell {
-    tscript { Rainfall[Rainfall > 100] }
-} text {
+} tscript { Rainfall[Rainfall > 100] } text {
     Selectors can be used for tables as well with the operand being
     a contained column. Moreover, the selector need not be a simple
     boolean expression. The following prints all employees who are
     over 35 but have an income less than `70,000`.
-} outputlimit 0 shell {
-    tscript { print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) }
+} outputlimit 0 tscript {
+    print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) 
 } text {
     [NOTE]
     The syntax for referencing a table column using `'` is discussed
@@ -988,9 +954,7 @@ text {
     Selectors can include ranges as well.
     For example, the rainfall in the last quarter that
     exceeds 50mm is given by
-} shell {
-    tscript { Rainfall[9:11 && Rainfall > 50] }
-} text {
+} tscript { Rainfall[9:11 && Rainfall > 50] } text {
     [WARNING]
     A selector can include function calls as well. However, note
     that the function is called just once, not once per element
@@ -1010,8 +974,8 @@ text {
     a temporary for naming purposes. This is illustrated in the
     following example.
 } shell {
-    proc function_returning_table {} { return $::Emps }
-    tscript { print( function_returning_table() [@@'Age > 35 && @@'Salary < 70000]) }
+    proc get_table {} { return $::Emps }
+    tscript { print( get_table() [@@'Age > 35 && @@'Salary < 70000]) }
 }
 
 
@@ -1025,12 +989,10 @@ text {
     normal scalar Tcl values and columns can be mixed in mathematical
     operations. The scalar values are treated as columns filled
     with that value. Here is an example:
-} shell {
-    tscript {
+} tscript {
         I = @int {10, 20, 30, 40}
         J = @byte {1, 2, 3, 4}
         print(I + 2 * J)
-    }
 } text {
     TScript supports all the arithmetic operators shown in
     ((^ tab_column_math_ops)).
@@ -1041,18 +1003,14 @@ text {
 
     For example, we can reduce everyone's salaries by 2K since times
     are tough.
-} outputlimit 0 shell {
-    tscript {
-        Emps'Salary = Emps'Salary - 2000
-        print (Emps)
-    }
+} outputlimit 0 tscript {
+    Emps'Salary = Emps'Salary - 2000
+    print (Emps)
 } text {
     Or perhaps even more for highly paid employees.
-} outputlimit 0 shell {
-    tscript {
-        Emps'Salary[Emps'Salary > 65000] = Emps'Salary[@@ > 65000] - 2000;
-        print (Emps)
-    }
+} outputlimit 0 tscript {
+    Emps'Salary[Emps'Salary > 65000] = Emps'Salary[@@ > 65000] - 2000;
+    print (Emps)
 } text {
 
 
