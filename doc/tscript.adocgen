@@ -893,6 +893,64 @@ text {
 }
 
 text {
+    === The `#` and `'` table column selection operators
+    Columns from a table can be selected using the `'` and '#' operators.
+} syntax {
+    _TABLE_'_COLNAME_
+    _TABLE_#_VAR_
+} text {
+    The former takes the actual name of the column as the operand while
+    in the latter case the column is specified through a variable.
+} prompt {} tshell {
+    print(Emps'Name)
+    colname = 'Location
+    print(Emps#colname)
+} text {
+    These operators can be used in two contexts:
+
+    * When used in expressions as above, they return column values
+    from the table.
+    * When referenced on the left side of an assignment statement,
+    they select the column to be modified in a table.
+    
+    We will see examples later when we discuss indexing operators.
+}
+
+text {
+    === The `'()` and `#()` table slicing operators
+
+    The table slicing operators `'()` and '#()` operators
+    return a table containing specific columns from a table.
+} syntax {
+    _TABLE_'(?_COLNAME_,...?)
+    _TABLE_#(?_VAR_,...?)
+} text {
+    The former takes the actual name of the column as the operand while
+    in the latter case the column is specified through a variable.
+} prompt {} tshell {
+    print(Emps'(Name, Salary))
+    colnameA = 'Name ; colnameB = 'Salary
+    print(Emps#(colnameA, colnameB))
+} text {
+    Note the difference between the following two expressions:
+} prompt {} tshell {
+    Emps'Name
+    Emps'(Name)
+} text {
+    The first returns a column. The second returns a table containing
+    a single column.
+    
+    Like the table column selection operators,
+    these operators can also be used in two contexts:
+
+    * When used in expressions as above, they return table slices
+    * When referenced on the left side of an assignment statement,
+    they assign to the corresponding columns in the table
+    
+    Again, we will see examples later when we discuss indexing operators.
+}
+
+text {
     === Indexing and search
 
     Much of the convenience of TScript in dealing with columns and tables
