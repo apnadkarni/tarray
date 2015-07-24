@@ -576,7 +576,9 @@ oo::class create tarray::teval::Compiler {
         } else {
             set else_code ""
             foreach stmt $else_clause {
-                append else_code "  [my {*}$stmt]\n"
+                if {[llength $stmt]} {
+                    append else_code "  [my {*}$stmt]\n"
+                }
             }
             return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
         }
