@@ -76,7 +76,7 @@ text {
 }
 
 text {
-    == Quick Tour
+    ((== sect_tscript_quick_tour "Quick Tour"))
 
     This section provides a short tour of TScript to
     introduce the reader to the language. 
@@ -831,23 +831,68 @@ text {
     convenient vector operations on columns and tables.
 
 } text {
-    === Creating columns and tables
+    === Creating columns
 
     Columns are created using the built-in operators `@boolean`,
     `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`.
+    The syntax of the command is
+} syntax {
+    @__TYPE__ ?_INITLIST_?
+} text {
+    where _TYPE_ is one of the tarray column types and _INITLIST_ is
+    an optional initializer list. For example,
 } tscript { A = @int } text {
-    creates an empty column of type `int` and assigns it to `A`.
-
-    An optional operand, containing a list of values of the appropriate
-    type may be passed to initialize the column.
+    creates an empty column of type `int` and assigns it to `A` and
 } tscript { A = @any {10, {1, 2, 3}, len} } text {
     creates a column of type `any` with 3 elements.
+}
 
-    There are no built-in operators for defining tables. These
-    are most conveniently created from Tcl using the
-    ((^ table_create "table create")) command.
-
+text {
+    === Creating tables
+    Tables are defined and created using the @table built-in operator.
+    The syntax for the command is
+} syntax {
+    @table(?_COLNAME_ _TYPE_?, ...) ?_TABLEROWS_?
 } text {
+    where _COLNAME_ is the name of the column and _TYPE_ is one
+    of the tarray column types. _TABLEROWS_ may be specified
+    to initialize the table and should be a list of rows as
+    for the `tarray::table create` command. Here is the table
+    definition from our ((^ sect_tscript_quick_tour)) section.
+    
+} syntax {
+    Emps = @table (
+        Name string,   Salary uint,   Age uint,   Location string
+    ) {
+        {'Sally,      70000,      32,       'Boston},
+        {'Tom,        65000,      36,       'Boston},
+        {'Dick,       80000,      40,       "New York"},
+        {'Harry,      45000,      37,       "New York"},
+        {'Amanda,     48000,      35,       'Seattle}
+    }
+} text {
+    [TIP]
+    ====
+    In many cases, you may find it easier to use Tcl, either directly
+    or embedded, to create tables. For example, the above table
+    can be created with embedded Tcl as
+} tscript {
+    Emps = <
+      table create {
+        Name string   Salary uint    Age uint    Location string
+      } {
+        {Sally        70000          32          Boston}
+        {Tom          65000          36          Boston}
+        {Dick         80000          40          "New York"}
+        {Harry        45000          37          "New York"}
+        {Amanda       48000          35          Seattle}
+      }
+    >
+} text {
+    ====
+}
+
+text {
     === Indexing and search
 
     Much of the convenience of TScript in dealing with columns and tables
