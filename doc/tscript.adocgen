@@ -296,9 +296,9 @@ text {
 } text {
     Tables can be modified in multiple ways.
 } outputlimit 0 tscript {
-    Emps[# Emps] = {'Mary, 38000, 25, 'Seattle}   // Add a row
+    Emps[# Emps] = {'Mary, 38000, 25, 'Seattle}      // Add a row
 
-    Emps'Salary = Emps'Salary + 2000;    // Modify all cells in a column
+    Emps'Salary = Emps'Salary + 2000                 // Modify entire column
 
     Emps'Location[Emps'Name'Sally] = {{"New York"}}  // Modify a single cell
 
@@ -892,11 +892,6 @@ text {
 } outputlimit 0 tscript {
     Emps'Salary = Emps'Salary - 2000
     print (Emps)
-} text {
-    Or perhaps even more for highly paid employees.
-} outputlimit 0 tscript {
-    Emps'Salary[Emps'Salary > 65000] = Emps'Salary[@@ > 65000] - 2000;
-    print (Emps)
 }
 
 text {
@@ -1088,7 +1083,16 @@ text {
     operators. When applied to tables, they act as column selectors.
     When applied to columns (selected from the table in this case)
     they act as lookup operators.
+
+    These operators can also be used on the left hand side of an
+    assignment to set new values.
+} prompt {} tshell {
+    d'c = 99
+
+    I = @string {'zero, 'one, 'two, 'three}
+    I'one = 1
 }
+    
     
 
 text {
@@ -1102,8 +1106,10 @@ text {
     means of searching tables and columns for elements matching desired
     criteria. Many indexing and search operators can also be used
     with lists.
+}
 
-    ==== Integers
+text {
+    ==== Integer indices
 
     In the simplest case, an index is simply a integer value, specified
     as a literal or an expression that results in a integer value. As
@@ -1119,7 +1125,9 @@ text {
 } text {
     Note that the result is a ''scalar'', the value of the element at
     that position, not a column or table containing that element.
-} text {
+}
+
+text {
     ==== Index ranges
     
     Alternatively, the index may specify an _index range_
@@ -1146,8 +1154,10 @@ text {
 } text {
     We shall also see later that ranges can also be combined with
     selectors to further focus search and indexing operations.
-} text {    
-    ==== Index list
+}
+
+text {    
+    ==== Index lists
 
     The third form of an index is an _index list_. Here you can
     specify a list of integers or a column of type `int` that
@@ -1178,7 +1188,9 @@ text {
     lists as well.
 } tscript {
     {1, 2, 3, 4}[@int{0, 2, 1, 3}]
-} text {
+}
+
+text {
     ==== Selectors
 
     The final form an index can take is that of a _selector_ which
@@ -1211,8 +1223,9 @@ text {
     over 35 but have an income less than `70,000`.
 } outputlimit 0 tscript {
     print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) 
-} text {
+}
 
+text {
     ===== Ranges in selectors
 
     Selectors can include ranges as well.
@@ -1226,7 +1239,9 @@ text {
 
     Because of their flexibility, selectors are the mechanism
     for doing searches in columns and tables.
-} text {
+}
+
+text {
     ===== The `@@` selector context
 
     In previous examples, we supplied the variable containing the table
@@ -1242,6 +1257,61 @@ text {
     tscript { print( get_table() [@@'Age > 35 && @@'Salary < 70000]) }
 }
 
+text {
+    ==== Using indices in assignments
+    The various forms of indexing can also be
+    used in the left side of assignments. We have already seen some
+    examples earlier. Below are some slightly more involved examples.
+} text {
+    To move everyone to Boston, fill the entire range with one value.
+} tscript {
+    Emps'Location[0 : #Emps - 1] = 'Boston
+} text {
+    To give an increment only to low-paid
+    employees make use of selectors.
+} outputlimit 0 tscript {
+    Emps'Salary[Emps'Salary < 50000] = Emps'Salary[Emps'Salary < 50000] + 2000;
+    print (Emps)
+} text {
+    To modify a subset of the fields for a specific row,
+    index a slice of the table. So to relocate Sally with a raise
+} outputlimit 0 tscript {
+    Emps'(Salary, Location)[Emps'Name'Sally]  = {70000, 'Seattle}
+    print (Emps[Emps'Name == 'Sally])
+} text {
+    Use of indices in assignments is not limited to columns and rows.
+    List elements can be assigned in the same manner.
+} prompt {} tshell {
+    l = {1, 2, 3}
+    l[0] = 101
+    l[{3,4}] = 1000
+} text {
+    [WARNING]
+    ====
+    Because Tcl is untyped, assigning to lists using indices can be ambiguous.
+    For example, compare the results of the following two statements:
+} prompt {} tshell {
+    I = @int {1, 2, 3, 4}
+    I[0:1] = 100
+    I[2:3] = {102, 103}
+    
+    l = {1, 2, 3, 4}
+    l[0:1] = 100
+    l[2:3] = {102, 103}  // Ambiguity, assumes a fill operation
+} text {
+    In the first case, values 102 and 103 are assigned to consecutive list
+    elements. Because the column is typed as integer, TScript can deduce the
+    intended operation in both assignments to `I`. In the case of the
+    second assignment to the list, there is ambiguity because lists can
+    contain elements of any type. Thus the statement could be interpreted
+    as filling the range with a single value or as assigning consecutive
+    elements of the right hand list. In such a case, TScript assumes
+    a fill operation is intended.
+
+    Similar situations can also arise when the column is of type `any` since
+    columns of that type can hold any type of value.
+    ====
+}
 
 text {
     ((=== sect_tscript_misc_ops "Miscellaneous operators"))
@@ -1255,6 +1325,7 @@ text {
 } prompt {} tshell {
     len = # {1,2,3,4}   // Length of a list
     # Rainfall          // Size of a column
+    # (Rainfall > 100)  // Size of a column returned by an expression
     nemps = # Emps      // Size of a table
 }
 
@@ -1264,10 +1335,7 @@ tbd {
 }
 
 text {
-    ==== The `#` count unary operator
-
-    ===== Locating column elements
-
+    == Other operations/library functions
 } shell {
     tscript { T = table::delete(Emps, Emps'Salary > 70000) }
 }
