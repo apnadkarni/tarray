@@ -1481,7 +1481,7 @@ namespace eval tarray::teval::rt {
         }
 
         # TBD 
-        error "Column!=Column not implemented"
+        error "Column < Column not implemented"
     }
 
 
@@ -1499,7 +1499,7 @@ namespace eval tarray::teval::rt {
         }
 
         # TBD 
-        error "Column!=Column not implemented"
+        error "Column <= Column not implemented"
     }
 
 
@@ -1517,7 +1517,7 @@ namespace eval tarray::teval::rt {
         }
 
         # TBD 
-        error "Column!=Column not implemented"
+        error "Column > Column not implemented"
     }
 
     proc relop>= {a b} {
@@ -1534,7 +1534,7 @@ namespace eval tarray::teval::rt {
         }
 
         # TBD 
-        error "Column!=Column not implemented"
+        error "Column > Column not implemented"
     }
 
     proc strop {op a b} {
