@@ -1607,7 +1607,7 @@ namespace eval tarray::teval::rt {
                     }
                     "~" {
                         if {$type in {byte int uint wide}} {
-                            return [tarray::column::math ^ $a [dict get {byte 0xff int 0xffffffff uint 0xffffffff wide 0xffffffffffffffff} $type]]
+                            return [tarray::column::math ^ $a [dict get {byte 0xff int -1 uint 0xffffffff wide 0xffffffffffffffff} $type]]
                         }
                     } 
                 }
