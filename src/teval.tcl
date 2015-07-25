@@ -1580,15 +1580,43 @@ namespace eval tarray::teval::rt {
     }
 
     proc unary {op a} {
-        if {$op eq "#"} {
-            return [switch -exact -- [lindex [tarray::types $a] 0] {
-                ""      { llength $a }
-                "table" { tarray::table::size $a }
-                default { tarray::column::size $a }
-            }]
+        set type [lindex [tarray::types $a] 0]
+        switch -exact -- $type {
+            "" {
+                if {$op eq "#"} {
+                    return [llength $a]
+                } else {
+                    return [expr "$op\$a"]
+                }
+            }
+            "table" {
+                if {$op eq "#"} {
+                    return [tarray::table::size $a]
+                }
+                error "Unary op $op not implemented for tables"
+            }
+            default {
+                # TBD - replace these with column::unary calls when implemented
+                switch -exact -- $op {
+                    "#" { return [tarray::column::size $a] }
+                    "-" { return [tarray::column::math - 0 $a] }
+                    "+" {
+                        if {$type in {byte int uint wide double}} {
+                            return $a
+                        }
+                    }
+                    "~" {
+                        if {$type in {byte int uint wide}} {
+                            return [tarray::column::math ^ $a [dict get {byte 0xff int 0xffffffff uint 0xffffffff wide 0xffffffffffffffff} $type]]
+                        }
+                    } 
+                }
+                error "Unary op $op not implemented for columns of type $type"
+            }
         }
 
-        if {[lindex [tarray::types $a] 0] eq ""} {
+        
+        if {$type eq ""} {
             return [expr "$op\$a"]
         } else {
             # TBD
