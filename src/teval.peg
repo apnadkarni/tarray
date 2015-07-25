@@ -55,7 +55,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     BitOrExpr <- BitXorExpr (WS BitOrOp WS BitXorExpr)* ;
     BitXorExpr <- BitAndExpr (WS BitXorOp WS BitAndExpr)* ;
     BitAndExpr <- RelExpr (WS BitAndOp WS RelExpr)* ;
-    RelExpr <- AddExpr (WS RelOp WS AddExpr)* ;
+    RelExpr <- AddExpr (WS RelOp WS AddExpr)? ;
     AddExpr  <- MulExpr (WS AddOp WS MulExpr)* ;
     MulExpr <- UnaryExpr (WS MulOp WS UnaryExpr)* ;
     UnaryExpr <- PostfixExpr / UnaryOp WS PostfixExpr ;
