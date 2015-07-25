@@ -822,6 +822,10 @@ text {
     they have different semantics that provide very convenient search
     and indexing functionality.
 
+    * ((^ sect_tscript_set_ops "Set operators"))
+    are applicable only to columns and implement operations like
+    union and intersection.
+    
     * ((^ sect_tscript_lookup_ops "Lookup operators")) that perform
     associative lookup on dictionaries and columns.
 
@@ -856,7 +860,8 @@ text {
     ==== Binary arithmetic operators
     
     The binary operators include `+`, `-`, `*`, `/`, `**`, `&`, `|`, `^`.
-    These all share the same behaviour:
+    
+    .Rules of operation
     
     * If either operand is a table or a non-numeric column, an error is raised.
 
@@ -973,14 +978,58 @@ text {
     print(Rainfall < 100)
 } text {
     The real usefulness of this will become apparent when we discuss
-    indexing operators.
-    
+    ((^ sect_tscript_indexing_ops "indexing operators")).
+
+    [NOTE]
+    ====
+    TScript does not allow expressions of the form
+} syntax {
+    a < b < c
+} text {
+    on the basis that more often than not these are programming errors.
+    This holds only for all relational operators, not arithmetic or logical
+    operators. In the rare case that you need such expressions, use
+    parenthesis to appropriately group the operands.
+    ====
+}
+text {
     ((=== sect_tscript_logic_ops "Logical operators"))
 
     The logical operators include `&&` and `||` as in Tcl.
     _However, unlike Tcl these operators do not short-circuit the evaluation
     of their operands._
 
+    .Rules of operation
+
+    * If either operand is a table, an error will be generated.
+
+    * If neither operand is a column, the result will be a boolean
+    value based on standard Tcl operators.
+
+    * If both operands are columns, the operation is treated
+    as a set operation and described in ((^ sect_tscript_set_ops)).
+
+    * If one operand is a column and the other is not, an error is
+    raised.
+}
+
+text {
+    ((=== sect_tscript_set_ops "Set operators"))
+
+    The operators `&&` and `||` behave as set operators when both
+    operands are columns. In this case, both operands must be of
+    the same type.
+
+    The `&&` operator returns a column of the same type as the operands
+    and containing elements that are common to both.
+    
+    The `||` operator returns a column of the same type as the operands
+    and containing elements that are present in either operand.
+} tbd {
+    Update docs with respect to uniqueness
+}
+
+text {
     === List operators
 
     ==== The unary `#` operator for lists
