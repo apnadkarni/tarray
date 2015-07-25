@@ -877,6 +877,29 @@ text {
     See the ((^ column_math "column math")) command reference for
     full details of type promotion and intermediate values.
 
+    Here is an example of mixed operand types:
+} tscript {
+        I = @int {10, 20, 30, 40}
+        J = @byte {1, 2, 3, 4}
+        print(I + 2 * J)
+} text {
+    Tables do not support
+    any arithmetic operators but their contained columns can be used anywhere
+    that a standalone column is valid.
+
+    For example, we can reduce everyone's salaries by 2K since times
+    are tough.
+} outputlimit 0 tscript {
+    Emps'Salary = Emps'Salary - 2000
+    print (Emps)
+} text {
+    Or perhaps even more for highly paid employees.
+} outputlimit 0 tscript {
+    Emps'Salary[Emps'Salary > 65000] = Emps'Salary[@@ > 65000] - 2000;
+    print (Emps)
+}
+
+text {
     
     ((=== sect_tscript_rel_ops "Relational operators"))
     
@@ -1030,25 +1053,14 @@ text {
 }
 
 text {
-    === List operators
+    ((=== sect_tscript_lookup_ops "Lookup operators"))
 
-    ==== The unary `#` operator for lists
+    The operators `'` and `#` lookup keys in a dictionary
+    or column.
 
-    TScript supports the unary operator `#` which returns the length
-    of its list operand. This operator also supports columns and tables
-    as we will see later.
-} prompt {} tshell {
-    l = {'a, 'b, 'c, 'd, 'e}
-    len = # l
-    len = # {1,2,3,4}
-}
+    In the case of a dictionary, the operators retrieve
+    the value associated with the key.
 
-text {
-    === Dictionary operators
-
-    ==== The `#` and `'` dictionary operators
-
-    The `#` and `'` operators both retrieve values from Tcl dictionaries.
     The `'` operator takes the key as a literal value and returns
     the corresponding element from the dictionary.
 } prompt {} tshell {
@@ -1062,11 +1074,22 @@ text {
     key = 'c
     d#key
     d # key           // Note whitespace is optional
-} 
-
-tbd {
-    === The `$` dereferencing operator
+} text { 
+    In the case of a column
+    the lookup returns the index of the specified value. If the
+    value occurs multiple times in the column, any of the corresponding
+    indices may be returned.
+} prompt {} tshell {
+    Emps'Name'Sally
+    colname = "Name"
+    Emps#colname'Sally
+} text {
+    In the prior example, note the overloading of the `'` and `#`
+    operators. When applied to tables, they act as column selectors.
+    When applied to columns (selected from the table in this case)
+    they act as lookup operators.
 }
+    
 
 text {
     === Indexing and search
@@ -1202,48 +1225,28 @@ text {
 }
 
 
+text {
+    ((=== sect_tscript_misc_ops "Miscellaneous operators"))
+}
 
 text {
-    ((=== sect_tscript_column_ops "Column and table operators"))
+    ==== The `#` size operator
 
-    ==== Arithmetic operators
-
-    As described in the ((^ column_math "math command")) reference,
-    normal scalar Tcl values and columns can be mixed in mathematical
-    operations. The scalar values are treated as columns filled
-    with that value. Here is an example:
-} tscript {
-        I = @int {10, 20, 30, 40}
-        J = @byte {1, 2, 3, 4}
-        print(I + 2 * J)
-} text {
-    TScript supports all the arithmetic operators shown in
-    ((^ tab_column_math_ops)).
-    
-    Tables do not support
-    any arithmetic operators but their contained columns can be used anywhere
-    that a standalone column is valid.
-
-    For example, we can reduce everyone's salaries by 2K since times
-    are tough.
-} outputlimit 0 tscript {
-    Emps'Salary = Emps'Salary - 2000
-    print (Emps)
-} text {
-    Or perhaps even more for highly paid employees.
-} outputlimit 0 tscript {
-    Emps'Salary[Emps'Salary > 65000] = Emps'Salary[@@ > 65000] - 2000;
-    print (Emps)
-} text {
+    The unary operator `#` returns the size
+    of its operand which must be a list, column or table.
+} prompt {} tshell {
+    len = # {1,2,3,4}   // Length of a list
+    # Rainfall          // Size of a column
+    nemps = # Emps      // Size of a table
+}
 
 
-    ==== Relational operators
+tbd {
+    === The `$` dereferencing operator
+}
 
+text {
     ==== The `#` count unary operator
-
-    ==== The `'` and '#' operators for columns and tables
-
-    ===== Specifying table columns
 
     ===== Locating column elements
 
@@ -1252,10 +1255,6 @@ text {
 }
 
 text {
-
-
-    ==== Slicing Columns from tables
-    T.a versus T.(a, b) Illustrate using print
 
     Column tables can be used anywhere columns are used including assignments
 
