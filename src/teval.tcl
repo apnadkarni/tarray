@@ -783,9 +783,12 @@ oo::class create tarray::teval::Compiler {
     forward > my _relop >
     forward >= my _relop >=
 
-    method _boolop {op first second} {
+    method _boolop {op args} {
         # TBD - short circuit ?
-        return "\[tarray::teval::rt::$op [my {*}$first] [my {*}$second]\]"
+        set operands [lmap operand $args {
+            my {*}$operand
+        }]
+        return "\[tarray::teval::rt::$op [join $operands { }]\]"
     }
     forward && my _boolop and
     forward || my _boolop or
@@ -1625,7 +1628,15 @@ namespace eval tarray::teval::rt {
         }
     }
 
-    proc and {a b} {
+    proc and {args} {
+        set result [_and2 [lindex $args 0] [lindex $args 1]]
+        foreach arg [lrange $args 2 end] {
+            set result [_and2 $result $arg]
+        }
+        return $result
+    }
+
+    proc _and2 {a b} {
         lassign [tarray::types $a $b] atype btype
 
         if {$atype eq "" && $btype eq ""} {
@@ -1657,7 +1668,15 @@ namespace eval tarray::teval::rt {
         return [lindex [tarray::column::intersect3 $a $b] 0]
     }
 
-    proc or {a b} {
+    proc or {args} {
+        set result [_or2 [lindex $args 0] [lindex $args 1]]
+        foreach arg [lrange $args 2 end] {
+            set result [_or2 $result $arg]
+        }
+        return $result
+    }
+
+    proc _or2 {a b} {
         lassign [tarray::types $a $b] atype btype
 
         if {$atype eq "" && $btype eq ""} {
