@@ -1092,7 +1092,7 @@ text {
     
 
 text {
-    === Indexing and search
+    ((=== sect_tscript_indexing_ops "Indexing and search operators"))
 
     Much of the convenience of TScript in dealing with columns and tables
     stems from its variety of indexing options. Indices may be simple
@@ -1100,7 +1100,8 @@ text {
 
     The flexibility of index selectors also means that they are the primary
     means of searching tables and columns for elements matching desired
-    criteria.
+    criteria. Many indexing and search operators can also be used
+    with lists.
 
     ==== Integers
 
@@ -1109,9 +1110,12 @@ text {
     the operand of the `[]` operator, it retrieves the value of the element
     at that position.
 } prompt {} tshell {
+    Rainfall[0]          // Index a column with a constant
+
     i = 1
-    Rainfall[0]
-    Emps[i]
+    Emps[i]              // Index a table with a variable
+    
+    {1, 2, 3, 4}[i+2]    // Index a list with an expression
 } text {
     Note that the result is a ''scalar'', the value of the element at
     that position, not a column or table containing that element.
@@ -1119,7 +1123,7 @@ text {
     ==== Index ranges
     
     Alternatively, the index may specify an _index range_
-    in the column or table.
+    in the column or table using the syntax `_LOWEXPR_ : _HIGHEXPR_`.
     So, the rainfall for the first quarter can be retrieved by
 } tscript {q1_rainfall = Rainfall[0:2]} text {
     In this case the index operator returns a column (or table)
@@ -1130,11 +1134,15 @@ text {
 } tscript { Rainfall[0:0] } text {
     though they both specify a single element.
 
-    Of course, the range can be specified via variables as well.
+    The range limits may be expressions that result in integer
+    values.
 } tscript {
     i = 0
-    j = 2
-    print(Emps[i:j])
+    print(Emps[i:#Emps-1])
+} text {
+    Again, ranges may be used with lists as well.
+} tscript {
+    {1, 2, 3, 4}[1:2]
 } text {
     We shall also see later that ranges can also be combined with
     selectors to further focus search and indexing operations.
@@ -1166,17 +1174,30 @@ text {
 } text {
     which returns a column containing that single element.
 
+    Like simple indices and ranges, index lists can be used with
+    lists as well.
+} tscript {
+    {1, 2, 3, 4}[@int{0, 2, 1, 3}]
+} text {
     ==== Selectors
 
     The final form an index can take is that of a _selector_ which
-    is a boolean expression involving the column or table. We will
-    detail the mechanism by which this works 
-    when we discuss ((^ sect_tscript_column_ops "column operators"))
-    but in a nutshell, comparison of a column with a scalar value results
+    is a boolean expression involving the column or table.
+
+    As we noted in ((^ sect_tscript_column_ops "column operators"))
+    comparison of a column with a scalar value results
     in an `int` column containing the indices for which the comparison
-    of the corresponding element succeeded.
+    of the corresponding element succeeded. This implies that
+    the boolean expression can be used as an expression that return
+    an index list.
     
-    So for example, consider the following expression:
+    [WARNING]
+    Unlike other indexing operations, selectors will not work as
+    expected with Tcl lists. In particular, Tcl lists in boolean
+    expressions are treated as any other Tcl value and do not return
+    an index column.
+
+    As a simple example of a selector, consider the following expression:
 } tscript { Rainfall > 100 } text {
     The return value is a column containing the indices corresponding
     to the elements which have a value greater than `100`.
@@ -1191,9 +1212,6 @@ text {
 } outputlimit 0 tscript {
     print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) 
 } text {
-    [NOTE]
-    The syntax for referencing a table column using `'` is discussed
-    ((^ sect_tscript_table_column_ops later)).
 
     ===== Ranges in selectors
 
