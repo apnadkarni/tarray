@@ -681,150 +681,6 @@ text {
 }
 
 text {
-    == Operators
-
-    Operators work with two kinds of operands
-
-    * standard Tcl values
-    * columns and table, and
-
-    We only discuss the former here. Operations on columns and tables
-    are discussed later. Note that neither of the Tcl operators
-    and the TScript operators is a subset of the other.
-
-    Operator precedence follows that of Tcl.
-
-    === Arithmetic operators
-
-    The arithmetic operators supported by TScript are based on those in
-    Tcl. 
-
-    * The unary operators include `-`, `+`, `~` and `!`.
-    * The binary operators include `+`, `-`, `*`, `/`, `**`, `&`, `|`, `^`
-
-    === Relational operators
-    
-    The relational operators include the `==`, `!=`, `<`, +<=+, `>`, `>=`
-    operators that are present in Tcl.
-
-    In addition, they include the additional operators related
-    to string and pattern matching that are shown in 
-    ((^ tab_tscript_match_ops)).
-    
-    ((.Table tab_tscript_match_ops "TScript arithmetic operators"))
-    [cols="10,30,60", options="headers"]
-    |===
-    |Operator
-    |Syntax
-    |Description
-
-    |`=^`
-    |`_STRINGA_ =^ _STRINGB_`
-    |Returns 1 if the two strings are equal in case-insensitive mode, else 0.
-
-    |`!^`
-    |`_STRINGA_ =^ _STRINGB_`
-    |Returns 1 if the two strings are not equal in case-insensitive mode, else 0.
-
-    |`=~`
-    |`_STRING =~ REGEXP_`
-    |Returns 1 if the string matches the specified regular expression, else 0.
-
-    |`=~^`
-    |`_STRING =~^ REGEXP_`
-    |Returns 1 if the string matches the specified regular expression, else 0.
-    The matching is done in case-insensitive mode.
-
-    |`!~`
-    |`_STRING !~ REGEXP_`
-    |Returns 1 if the string does not match the specified regular expression,
-    else 0.
-
-    |`!~^`
-    |`_STRING !~^ REGEXP_`
-    |Returns 1 if the string does not match the specified regular expression,
-    else 0. The matching is done in case-insensitive mode.
-
-    |`=*`
-    |`_STRING =* PATTERN_`
-    |Returns 1 if the string matches the specified pattern, else 0.
-    The matching is done as for the Tcl `string match` command.
-
-    |`=*^`
-    |`_STRING =*^ PATTERN_`
-    |Returns 1 if the string matches the specified pattern, else 0.
-    The matching is done as for the `string match` command
-    in case-insensitive mode.
-
-    |`!*`
-    |`_STRING !* PATTERN_`
-    |Returns 1 if the string does not match the specified pattern,
-    else 0. The matching is done as for the Tcl `string match` command.
-
-    |`!*^`
-    |`_STRING !*^ PATTERN_`
-    |Returns 1 if the string does not match the specified pattern,
-    else 0. The matching is done as for the `string match` command
-    in case-insensitive mode.
-
-    |===
-
-    Note that for the regular expression and pattern match operators,
-    the order of the operands is significant - the first indicates 
-    the string being matched and the second is the pattern or regular
-    expression.
-
-    [TIP]
-    In the matching operators shown above, the first character,
-    `=` or `!`, indicates the sense of the match, the second character
-    sepcifies the operation `~` or `*` and the optional third
-    character `^`, if present, indicates a case-sensitive match.
-    
-    === Logical operators
-
-    The logical operators include `&&` and `||` as in Tcl.
-    _However, unlike Tcl these operators do not short-circuit the evaluation
-    of their operands._
-
-    === List operators
-
-    ==== The unary `#` operator for lists
-
-    TScript supports the unary operator `#` which returns the length
-    of its list operand. This operator also supports columns and tables
-    as we will see later.
-} prompt {} tshell {
-    l = {'a, 'b, 'c, 'd, 'e}
-    len = # l
-    len = # {1,2,3,4}
-}
-
-text {
-    === Dictionary operators
-
-    ==== The `#` and `'` dictionary operators
-
-    The `#` and `'` operators both retrieve values from Tcl dictionaries.
-    The `'` operator takes the key as a literal value and returns
-    the corresponding element from the dictionary.
-} prompt {} tshell {
-    d = <dict create a 1 b 2 c 3 d 4> 
-    d'c
-    d ' c             // Note whitespace is optional
-} text {
-    On the other hand, the `#` operator takes an operand that
-    is the _name of the variable_ containing the key.
-} prompt {} tshell {
-    key = 'c
-    d#key
-    d # key           // Note whitespace is optional
-} 
-
-tbd {
-    === The `$` dereferencing operator
-}
-
-text {
     == Columns and tables
 
     We now come to the primary reason for the existence of TScript -
@@ -948,6 +804,219 @@ text {
     they assign to the corresponding columns in the table
     
     Again, we will see examples later when we discuss indexing operators.
+}
+
+text {
+    == Operators
+
+    TScript operators fall into the following classes:
+
+    * ((^ sect_tscript_arith_ops "Arithmetic operators"))
+    are similar to those in Tcl's `expr` command
+    but work on both scalars as well as columns.
+
+    * ((^ sect_tscript_rel_ops "Relational operators")) and
+    ((^ sect_tscript_logic_ops "logical operators"))
+    are similar to those in `expr` when used
+    with scalar operands. However, when used with column operands
+    they have different semantics that provide very convenient search
+    and indexing functionality.
+
+    * ((^ sect_tscript_lookup_ops "Lookup operators")) that perform
+    associative lookup on dictionaries and columns.
+
+    * ((^ sect_tscript_indexing_ops "Indexing operators"))
+    that combine both traditional indexing as well as search
+    operations on collection data types including lists, columns
+    and tables.
+
+    * ((^ sect_tscript_misc_ops "Other miscellaneous operators")) that
+    provide functionality like cardinality.
+    
+    Note that operator precedence follows that of Tcl.
+
+    ((=== sect_tscript_arith_ops "Arithmetic operators"))
+
+    ==== Unary arithmetic operators
+    
+    The TScript unary operators are `-`, `+`, `~` and `!` have the
+    same semantics as in Tcl for operands that are not columns or tables.
+
+    In the case of columns of type `byte`, `int`, `uint`,
+    `wide` and `double`, the `-`, `+` operators return columns
+    with each element being the result of the operator being applied
+    to the corresponding element of the operand. The `~` operator
+    is similar except that it cannot be applied to columns of type `double`.
+    For all other combinations of column type and operation, an error is
+    raised.
+
+    In the case of operands that are tables, all unary operators will
+    raise an error.
+    
+    ==== Binary arithmetic operators
+    
+    The binary operators include `+`, `-`, `*`, `/`, `**`, `&`, `|`, `^`.
+    These all share the same behaviour:
+    
+    * If either operand is a table or a non-numeric column, an error is raised.
+
+    * If neither operand is a column, they have the same
+    semantics as in Tcl.
+
+    * If an operand is not a column, it is treated as a column of the same
+    size as the other operand with all elements having the operand value.
+
+    * The result is a column each element of which is the result
+    of the operation on the corresponding elements of the operands.
+    In case of differing column types, types are promoted as needed.
+    See the ((^ column_math "column math")) command reference for
+    full details of type promotion and intermediate values.
+
+    
+    ((=== sect_tscript_rel_ops "Relational operators"))
+    
+    The relational operators include the `==`, `!=`, `<`, +<=+, `>`, `>=`
+    operators that are present in Tcl.
+
+    In addition, they include the additional operators related
+    to string and pattern matching that are shown in 
+    ((^ tab_tscript_match_ops)).
+    
+    ((.Table tab_tscript_match_ops "TScript arithmetic operators"))
+    [cols="10,30,60", options="headers"]
+    |===
+    |Operator
+    |Syntax
+    |Description
+
+    |`=^`
+    |`_STRINGA_ =^ _STRINGB_`
+    |Returns 1 if the two strings are equal in case-insensitive mode, else 0.
+
+    |`!^`
+    |`_STRINGA_ =^ _STRINGB_`
+    |Returns 1 if the two strings are not equal in case-insensitive mode, else 0.
+
+    |`=~`
+    |`_STRING =~ REGEXP_`
+    |Returns 1 if the string matches the specified regular expression, else 0.
+
+    |`=~^`
+    |`_STRING =~^ REGEXP_`
+    |Returns 1 if the string matches the specified regular expression, else 0.
+    The matching is done in case-insensitive mode.
+
+    |`!~`
+    |`_STRING !~ REGEXP_`
+    |Returns 1 if the string does not match the specified regular expression,
+    else 0.
+
+    |`!~^`
+    |`_STRING !~^ REGEXP_`
+    |Returns 1 if the string does not match the specified regular expression,
+    else 0. The matching is done in case-insensitive mode.
+
+    |`=*`
+    |`_STRING =* PATTERN_`
+    |Returns 1 if the string matches the specified pattern, else 0.
+    The matching is done as for the Tcl `string match` command.
+
+    |`=*^`
+    |`_STRING =*^ PATTERN_`
+    |Returns 1 if the string matches the specified pattern, else 0.
+    The matching is done as for the `string match` command
+    in case-insensitive mode.
+
+    |`!*`
+    |`_STRING !* PATTERN_`
+    |Returns 1 if the string does not match the specified pattern,
+    else 0. The matching is done as for the Tcl `string match` command.
+
+    |`!*^`
+    |`_STRING !*^ PATTERN_`
+    |Returns 1 if the string does not match the specified pattern,
+    else 0. The matching is done as for the `string match` command
+    in case-insensitive mode.
+
+    |===
+
+    Note that for the regular expression and pattern match operators,
+    the order of the operands is significant - the first indicates 
+    the string being matched and the second is the pattern or regular
+    expression.
+
+    [TIP]
+    In the matching operators shown above, the first character,
+    `=` or `!`, indicates the sense of the match, the second character
+    specifies the operation `~` or `*` and the optional third
+    character `^`, if present, indicates a case-sensitive match.
+    
+    .Rules of operation
+    
+    * If either operand is a table, an error will be generated.
+
+    * If both operands are columns, an error will be generated.
+
+    * If neither operand is a column, the result will be a boolean
+    value based on standard Tcl operators or the operators shown
+    in ((^ tab_tscript_match_ops)).
+
+    * If (exactly) one of the operands is a column, each element
+    of the column is individually compared with the other operand.
+    The result
+    is an integer column containing the indices of those elements
+    for which the specified comparison operation returns true.
+
+    This last rule is illustrated by the example below which prints
+    the indices for all months where the rainfall is less than 100mm.
+} tscript {
+    print(Rainfall < 100)
+} text {
+    The real usefulness of this will become apparent when we discuss
+    indexing operators.
+    
+    ((=== sect_tscript_logic_ops "Logical operators"))
+
+    The logical operators include `&&` and `||` as in Tcl.
+    _However, unlike Tcl these operators do not short-circuit the evaluation
+    of their operands._
+
+    === List operators
+
+    ==== The unary `#` operator for lists
+
+    TScript supports the unary operator `#` which returns the length
+    of its list operand. This operator also supports columns and tables
+    as we will see later.
+} prompt {} tshell {
+    l = {'a, 'b, 'c, 'd, 'e}
+    len = # l
+    len = # {1,2,3,4}
+}
+
+text {
+    === Dictionary operators
+
+    ==== The `#` and `'` dictionary operators
+
+    The `#` and `'` operators both retrieve values from Tcl dictionaries.
+    The `'` operator takes the key as a literal value and returns
+    the corresponding element from the dictionary.
+} prompt {} tshell {
+    d = <dict create a 1 b 2 c 3 d 4> 
+    d'c
+    d ' c             // Note whitespace is optional
+} text {
+    On the other hand, the `#` operator takes an operand that
+    is the _name of the variable_ containing the key.
+} prompt {} tshell {
+    key = 'c
+    d#key
+    d # key           // Note whitespace is optional
+} 
+
+tbd {
+    === The `$` dereferencing operator
 }
 
 text {
