@@ -1644,25 +1644,15 @@ namespace eval tarray::teval::rt {
             return [expr {$a && $b}]
         }
         
-        if {$atype eq ""} {
-            # Only b is a tarray. Return as is if a is true
-            if {$a} {
-                return $b
-            } else {
-                return [tarray::column create int {}]
-            }
+        if {$atype eq "table" || $btype eq "table"} {
+            error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$btype eq ""} {
-            # Only a is a tarray. Return as is if b is true
-            if {$b} {
-                return $a
-            } else {
-                return [tarray::column create int {}]
-            }
+        if {$atype eq "" || $btype eq ""} {
+            error "Columns cannot be used as operands of a logical operator."
         }
 
-        # Both are tarrays. Return the intersection
+        # Both are tarrays. Treat as intersection operator.
         # TBD - optimize if a or b are empty or does intersect3 already do that
         # TBD - are the elements in increasing order after intersect?
         return [lindex [tarray::column::intersect3 $a $b] 0]
@@ -1684,28 +1674,15 @@ namespace eval tarray::teval::rt {
             return [expr {$a || $b}]
         }
         
-        if {$atype eq ""} {
-            # Only b is a tarray. Return as is if a is true
-            if {$a} {
-                # TBD - return ENTIRE array indices since a is true
-                return $b
-            } else {
-                return $b
-            }
+        if {$atype eq "table" || $btype eq "table"} {
+            error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$btype eq ""} {
-            # Only a is a tarray. Return as is if b is true
-            if {$b} {
-                # TBD - should return ENTIRE array indices since b is true,
-                # not just $a 
-                return $a
-            } else {
-                return $a
-            }
+        if {$atype eq "" || $btype eq ""} {
+            error "Columns cannot be used as operands of a logical operator."
         }
-
-        # Both are tarrays. Return the intersection
+        
+        # Both are tarrays. Treat as intersection operator
         # Can't use tarray::intersect3+tarray::sort because of 
         # uniqueness requirement
         # TBD - are the elements in increasing order after union?
