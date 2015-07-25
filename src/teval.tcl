@@ -1638,7 +1638,7 @@ namespace eval tarray::teval::rt {
             if {$a} {
                 return $b
             } else {
-                return [tarray::column int {}]
+                return [tarray::column create int {}]
             }
         }
 
@@ -1647,7 +1647,7 @@ namespace eval tarray::teval::rt {
             if {$b} {
                 return $a
             } else {
-                return [tarray::column int {}]
+                return [tarray::column create int {}]
             }
         }
 
