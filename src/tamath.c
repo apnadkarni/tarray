@@ -16,7 +16,7 @@ int ta_math_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 static const char *ta_math_op_names[] = {
-    "+", "-", "*", "/", "&", "|", NULL
+    "+", "-", "*", "/", "&", "|", "^", NULL
 };
 enum ta_math_op_e {
     TAM_OP_PLUS,TAM_OP_MINUS,TAM_OP_MUL,TAM_OP_DIV,TAM_OP_BITAND,TAM_OP_BITOR, TAM_OP_BITXOR
@@ -105,7 +105,7 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
 {
     double operand;
 
-    TA_ASSERT(op != TAM_OP_BITAND && op != TAM_OP_BITOR);
+    TA_ASSERT(op != TAM_OP_BITAND && op != TAM_OP_BITOR && op != TAM_OP_BITXOR);
     TA_ASSERT(poperand->type == TA_DOUBLE || poperand->type == TA_WIDE);
 
     if (poperand->type == TA_DOUBLE)
@@ -365,7 +365,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     }
     
     if (result_type == TA_DOUBLE &&
-        (op == TAM_OP_BITAND || op == TAM_OP_BITOR)) {
+        (op == TAM_OP_BITAND || op == TAM_OP_BITOR || op == TAM_OP_BITXOR)) {
         Tcl_SetObjResult(ip, Tcl_NewStringObj("Bit operations not valid for type double", -1));
         status = TCL_ERROR;
         goto vamoose;
