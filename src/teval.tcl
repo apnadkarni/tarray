@@ -496,6 +496,10 @@ oo::class create tarray::teval::Parser {
         return [list IndirectIdentifier [string range $Script [expr {1+$from}] $to]]
     }
 
+    method IndirectLiteral {from to child} {
+        return [list IndirectLiteral [lindex $child 1]]
+    }
+
     method Token {from to} {
         return [list String [string range $Script [expr {$from+1}] $to]]
     }
@@ -820,6 +824,7 @@ oo::class create tarray::teval::Compiler {
         # not as a variable containing the name of a function.
         if {[lindex $args 0 0] eq "FunctionCall"} {
             switch -exact -- [lindex $primary_expr 0] {
+                IndirectLiteral -
                 Identifier { set primary [lindex $primary_expr 1] }
                 IndirectIdentifier {
                     set primary "\[tarray::teval::rt::dereference [lindex $primary_expr 1]\]"
@@ -948,6 +953,10 @@ oo::class create tarray::teval::Compiler {
 
     method IndirectIdentifier {ident} {
         return "\[tarray::teval::rt::dereference2 $ident\]"
+    }
+    
+    method IndirectLiteral {lit} {
+        return "\[tarray::teval::rt::dereference {$lit}\]"
     }
 
     method Identifier {ident} {
@@ -1907,4 +1916,12 @@ if {1} {
                           {2, 'two},
                           {3, 'three}
                       } }
+
+    set "variable with spaces" "value of variable with spaces"
+    tscript {
+        puts($"variable with spaces")
+        var = "variable with spaces"
+        puts($var)
+    }
+        
 }
