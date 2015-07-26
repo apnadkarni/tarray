@@ -1439,7 +1439,13 @@ namespace eval tarray::teval::rt {
         switch -exact -- [lindex [tarray::types $operand] 0] {
             ""      { return [dict get $operand $element] }
             "table" { return [tarray::table::column $operand $element] }
-            default { return [tarray::column::search $operand $element] }
+            default {
+                set index [tarray::column::search $operand $element]
+                if {$index < 0} {
+                    error "Value \"$element\" not found in column"
+                }
+                return $index
+            }
         }
     }
 
