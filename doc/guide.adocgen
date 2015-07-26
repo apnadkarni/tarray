@@ -7,11 +7,18 @@ text {
 
 text {
 
-    This document is a programmer's guide for installing and using the tarray
-    extension (Version 0.6) from Tcl. For a detailed description of
+    This document is a programmer's guide for installing and using the `tarray`
+    extension (Version 0.7) from Tcl. For a detailed description of
     each command and options,
     see the ((^ chap_column_ref "column")) and ((^ chap_table_ref "table"))
     reference pages.
+
+    [NOTE]
+    The examples here use the above commands for manipulating typed arrays.
+    The `tarray` extension also implements TScript, a mini-language, that
+    makes operating on typed arrays easier and more succint. However, use
+    of TScript is not described here. See ((^ chap_tscript)) for details
+    on its use.
 }
 
 text {
@@ -187,15 +194,15 @@ text {
     target location. Further, the locations may be a contiguous range
     or a noncontiguous set of indices.
 
-    * The `fill`/`vfill` commands store a _single_ value at one or more locations,
+    * The `fill` and `vfill` commands store a _single_ value at one or more locations,
     either contiguous or noncontiguous.
 
-    * The place/vplace commands store each value from a sequence of
+    * The `place` and `vplace` commands store each value from a sequence of
     values at one or more _non-contiguous_ locations in a _specified_ order
     (not necessarily sequential)
 
-    * The put/`vput` commands store each value from a sequence of values in
-    _contiguous_ locations starting at a specified index.
+    * The `put` and `vput` commands store each value from a sequence of
+    values in _contiguous_ locations starting at a specified index.
 
     The sequence of values to be stored may be specified as a Tcl list
     or a typed array. When multiple noncontiguous target locations are
@@ -226,7 +233,7 @@ text {
     be specified as a table instead, provided the column types are the
     same.
 
-    When storing data, the -columns option comes in handy for two
+    When storing data, the `-columns` option comes in handy for two
     different purposes. First, it allows data to be specified in a
     different order than that specified in the column definition. For
     example, in the above example, if the order of the supplied data
@@ -237,7 +244,7 @@ text {
 } text {
     There is no need to reorder the fields in the input data.
 
-    Secondly, the -columns allows modification of a subset of the columns.
+    Secondly, the `-columns` allows modification of a subset of the columns.
     For example,
 } shell {
     set populations [table create {country string population wide} {}]
@@ -253,7 +260,7 @@ text {
     * where an index list or index column is specified, there must not be
     any gaps in indices that extend the array.
 
-    * Second, if the -columns option is specified, it must include all columns
+    * Second, if the `-columns` option is specified, it must include all columns
     (in any order) of the table. Otherwise, the command will not know what
     value to use for the other columns when extending the table.
 
@@ -262,14 +269,16 @@ text {
     set populations [table create {country string population wide} {{Vatican 850} {China 1350000000}}]
     table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2} table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
 } text {
-    The first put will succeed, changing the existing value at index 1 and
+    The first `put` will succeed, changing the existing value at index 1 and
     extending the array by two rows (note order of indices does not matter).
-    The second put will raise an error since index `2` neither exists nor is
+    The second `put` will raise an error since index `2` neither exists nor is
     supplied in the command.
 
     All the commands dicussed to this point overwrite an existing
-    values, at the target locations. The column insert and column
-    vinsert commands and their table equivalents store one value, or
+    values, at the target locations. The
+    ((^ column_insert "column insert")) and
+    ((^ column_vinsert "column vinsert"))
+    commands and their table equivalents store one value, or
     multiple values (passed as a list or a typed array), into the type
     array, pushing existing elements further up.
 } shell {
@@ -284,8 +293,8 @@ text {
     inserted at index `2`. The last command returns a new column where
     all existing values in the column are reinserted at index `2`.
 
-    Elements in a typed array can be deleted with the delete/vdelete
-    commands.  Succeeding elements are moved up to occupy the deleted
+    Elements in a typed array can be deleted with the `delete` and
+    `vdelete` commands.  Succeeding elements are moved up to occupy the deleted
     slots. Like the `fill` command, the indices of the elements to be
     deleted may be specified as a single index, a range, a list of
     indices or a index column.
@@ -294,7 +303,7 @@ text {
 } text {
     will delete all negative elements from the column.
 
-    Finally, typed arrays support reverse/vreverse commands which
+    Finally, typed arrays support `reverse` and `vreverse` commands which
     reverse the order of elements, an operation that is useful in many
     algorithms.
 }
@@ -328,7 +337,7 @@ text {
 } text {
 
     By default, both commands returns values as a typed array. The
-    -list and -dict commands can be used to return the values as a Tcl
+    `-list` and `-dict` commands can be used to return the values as a Tcl
     list or dictionary instead.  In the latter case, the dictionary
     keys are the indices being retrieved.
 } shell {
@@ -357,11 +366,11 @@ text {
 text {
     === Searching
 
-    The column search command works similarly to Tcl's lsearch. It
+    The column search command works similarly to Tcl's `lsearch`. It
     returns the indices (by default) or the values (with the -inline
-    option) of matching elements in a column. Like lsearch, column
-    search stops on the first match and returns the matching index or
-    value but the -all option can be used to return all matches. The
+    option) of matching elements in a column. Like `lsearch`, `column
+    search` stops on the first match and returns the matching index or
+    value but the `-all` option can be used to return all matches. The
     command supports several matching operators. See the
     ((^ column_search "`column search`")) command reference for a full list.
 } shell {
@@ -383,10 +392,10 @@ text {
     column search -all -inline -nocase -pat $exes *.exe
 } text {
     returns the values of all elements that match **.exe* using case-insensitive
-    matching as in Tcl's string match -nocase.
+    matching as in Tcl's `string match -nocase`.
 
     The search can be restricted to only look at specific elements using a
-    combination of -range and -among options.
+    combination of `-range` and `-among` options.
 } shell {
     column search -range {0 9} $col 0
 } text {
@@ -395,7 +404,7 @@ text {
     column search -among {1 5 3} $col 0
 } text {
     only examines the elements at positions `1`, `5`, and `3` _in that
-    order_. The option -among is particularly useful in combining
+    order_. The option `-among` is particularly useful in combining
     searches as in the table example below.
 
     To search tables, use the search on individual columns. For example,
@@ -412,9 +421,10 @@ text {
 } text {
 
     returns names of countries that are populous and large in area. Note how the
-    outside search is limited to specific indices using the -among option.
+    outside search is limited to specific indices using the `-among` option.
 
-    The intersect3 command offers another way to search across
+    The ((^ column_intersect3 "column intersect3"))
+    command offers another way to search across
     multiple columns as described later.
 }
 
@@ -423,7 +433,7 @@ text {
 
     Columns can be sorted using the column sort command or its
     variable targeting analogue column vsort. The commands take the
-    -increasing and -decreasing options to determine the sort order.
+    `-increasing` and `-decreasing` options to determine the sort order.
 
     The column sort command also takes the -indices option which
     results in the indices being returned instead of the values
@@ -435,6 +445,8 @@ text {
 } text {
     returns rows in the sorted order based on country name.
 
+    ==== Sort stability
+    
     When sorting tables, for display purposes for example, it is often
     necessary to display elements that have the same value in the sort
     column in the same order that they were previously
@@ -467,7 +479,7 @@ text {
     resulting in a display in order `Jim`, `Jeff`, `John`. Since they
     actually have the same value in the new sort column, this
     interchange of positions between `Jeff` and `John` is
-    disconcerting to the user. Use of the -indirect option overcomes
+    disconcerting to the user. Use of the `-indirect` option overcomes
     this problem.
 } shell {
     set indices [column sort -indices [table column $tab height]]
@@ -484,19 +496,61 @@ text {
 } 
 
 text {
+    === Arithmetic operations
+
+    The ((^ column_math "column math")) command can be used
+    to perform arithmetic operations on columns on a per-element basic.
+    The command takes multiple arguments each of which may be a column
+    or a scalar numeric value. For example,
+} shell {
+    set I [column create int {10 20 30}]
+    set J [column create double {1.1 2.2 3.3}]
+    column math + $I $J 1000
+} text {
+    As a convenience, the above command can also be issued as
+} shell {
+    column math + $I $J 1000
+} text {
+    See the description of `column math` for all the available operators.
+    
+    In contrast to arithmetic commands that operate on a per-element basis,
+    some commands operate on the entire column.
+
+    The ((^ column_sum "column sum")) command sums all the elements in
+    a column.
+} shell {
+    column sum $J
+    column sum [table column $populations population]
+} text {
+    The ((^ column_minmax "column minmax"))
+    command returns a pair containing the minimum
+    and maximum values in a column.
+} shell {
+    column minmax [table column $populations population]
+} text {
+    Note that this command is not restricted to numeric columns
+    and will work for other types as well. Also, it has the useful
+    `-indices` option which returns the indices of the minimum and
+    maximum values instead of the values themselves.
+} shell {
+    set indices [column minmax -indices [table column $populations population]]
+    column get -list [table column $populations country] $indices
+}
+
+text {
     === Other Commands
 
-    The column count can be used to count the number values in a
+    The ((^ column_count "column count")) command
+    can be used to count the number values in a
     column that match specified criteria.
 
-    The column lookup provides for a faster, dictionary based
+    The ((^ column_lookup "column lookup")) command
+    provides for a faster, dictionary based
     retrieval for string columns. This may be beneficial for columns
     used as keys in a table.
 
-    The column minmax command returns a pair containing the minimum
-    and maximum values in a column.
-
-    The column intersect3 command returns the differences between two
+    The ((^ column_intersect3 "column intersect3"))
+    command returns the differences between two
     columns. The multiple column search example above could also have
     written as follows:
 } shell {
@@ -507,20 +561,22 @@ text {
     table get -list $countries [lindex [column intersect $populous $large] 0]
 } text {
 
-    In most cases, the previous method using column search -among is
-    likely to be faster. However, the column intersect3 may be faster
+    In most cases, the previous method using `column search -among` is
+    likely to be faster. However, the `column intersect3` may be faster
     in some cases, for example, when multiple combinations are
     desired.
 } shell {
-    lassign [column intersect $populous $large] populous_and_large populous_but_small sparse_but_large
+    lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
 } text {
 
-    The column size command returns the number of elements in a
+    The ((^ column_size "column size"))
+    command returns the number of elements in a
     column. The table size and table width commands return the number
     of rows and columns respectively in a table.
 } text {
 
-    The column type command returns the type of elements in a column
+    The ((^ column_type "column type"))
+    command returns the type of elements in a column
     while the table types command returns a list of the types of each
     column in the table.
 } 
@@ -615,5 +671,3 @@ text {
 }
 
 tbd {column sum}
-tbd {Column math operations}
-tbd {ref to tscript}
