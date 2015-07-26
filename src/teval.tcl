@@ -871,7 +871,6 @@ oo::class create tarray::teval::Compiler {
                     set primary "\[$primary [join $methods { }] [join $fnargs { }]\]"
                 }
                 Element {
-                    puts post:$postexpr
                     set primary "\[tarray::teval::rt::element $primary [my {*}$postexpr]\]"
                 }
                 TableColumns {
