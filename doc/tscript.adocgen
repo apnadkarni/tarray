@@ -31,12 +31,20 @@ text {
 
     Although geared towards typed arrays, TScript is not limited to
     operating solely on those structures. It can be used with any data.
-    Note however, thatTScript is not a replacement for Tcl.
+    Note however, that TScript is not a replacement for Tcl.
     Rather, it is embedded in
     Tcl and the two can be intermixed according to whatever syntax suits
     the task at hand.
 
     Neverthess, TScript is syntactically completely different from Tcl.
+
+    [WARNING]
+    TScript is still under development. Syntactic and functional changes
+    are likely. The parser and runtime is currently implemented in Tcl
+    for ease of development and therefore performance on
+    _scalar_ operation (as opposed to columns and tables)
+    will lag that of Tcl. Both will be reimplemented in C before
+    final release.
 }
 
 text {
