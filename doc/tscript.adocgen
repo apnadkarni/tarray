@@ -1057,11 +1057,14 @@ text {
     the value associated with the key.
 
     The `'` operator takes the key as a literal value and returns
-    the corresponding element from the dictionary.
+    the corresponding element from the dictionary. If the key follows
+    the syntax for an identifier, it does not have to be quoted.
 } prompt {} tshell {
-    d = <dict create a 1 b 2 c 3 d 4> 
-    d'c
-    d ' c             // Note whitespace is optional
+    d = <dict create one 1 two 2 three 3 4 four "number five" 5> 
+    d'two                 // String key "two" does not need quoting
+    d ' "number five"     // Quoted string literal key
+    d ' three             // Note whitespace is optional
+    d'4                   // Numeric literal
 } text {
     On the other hand, the `#` operator takes an operand that
     is the _name of the variable_ containing the key.

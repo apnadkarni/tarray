@@ -680,7 +680,7 @@ oo::class create tarray::teval::Compiler {
                 # Assigning to a single element within a dict/column/table
                 lassign $lvalue elemtype operand elem_op element indexexpr
                 if {$elem_op eq "'"} {
-                    if {[lindex $element 0] eq "Identifier"} {
+                    if {[lindex $element 0] eq "Identifier"} { 
                         set element [lindex $element 1]
                     } else {
                         set element [my {*}$element]
@@ -866,6 +866,7 @@ oo::class create tarray::teval::Compiler {
                     set primary "\[$primary [join $methods { }] [join $fnargs { }]\]"
                 }
                 Element {
+                    puts post:$postexpr
                     set primary "\[tarray::teval::rt::element $primary [my {*}$postexpr]\]"
                 }
                 TableColumns {
@@ -1823,9 +1824,11 @@ if {1} {
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
 }
 if {1} {
-    catch {table slice $T $T};  # Causes crash due to shimmering, should return error
+    catch {table slice $T $T};  # Caused crash due to shimmering, now should return error
     proc getI {} {return $::I}
     tscript {I[@@ < 30]}
+    tscript {I'20}
+    tscript {I' "10"}
     tscript {I[I < 30]}
     tscript {getI()[@@ > 30]}
     set x i
@@ -1838,6 +1841,9 @@ if {1} {
     tscript {K[{3,4}] = I[{4,3}]}
     tscript {T'i[0:1] = I[3:4]}
     tscript {T'(s,i)}
+    tscript {T's' thirty}
+    tscript {T's' "thirty"}
+    
     set col s
     tscript {T#col[0:1] = 'abc}
     tscript {# I}
