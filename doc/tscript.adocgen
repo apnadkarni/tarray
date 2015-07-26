@@ -323,7 +323,28 @@ text {
 } tscript {10*x + y}
 
 text {
-    === Mixing Tcl and TScript
+    ==== Assignment statement
+    An assignment statement in TScript takes the form
+} syntax {
+    _LVALUE_ = _RAVALUE_
+} text {
+    where _RVALUE_ may be a TScript expression or
+    ((^ sect_tscript_tcl "Tcl fragment")).
+
+    In the current version of TScript, _LVALUE_ cannot be an arbitrary
+    expression and must take one of the following forms:
+
+    * an identifier as defined in ((^ sect_tscript_variables))
+
+    * optionally followed by a ((^ sect_tscript_lookup_ops "lookup")),
+    ((^ sect_tscript_column_sel_ops "column selection")) or
+    ((^ sect_tscript_table_slice_ops "table slicing")) operator
+
+    * optionally followed by an ((^ sect_tscript_ "indexing")) operator
+}
+
+text {
+    ((=== sect_tscript_tcl "Mixing Tcl and TScript"))
 
     Tcl and TScript code can be intermixed. To embed TScript within
     Tcl, use the `tarray::tscript` command as
@@ -367,7 +388,7 @@ text {
 }
 
 text {
-    === Variables
+    ((=== sect_tscript_variables Variables))
 
     As seen above, variables are syntactically different from Tcl:
 
@@ -756,7 +777,7 @@ text {
 }
 
 text {
-    === The `#` and `'` table column selection operators
+    ((=== sect_tscript_column_sel_ops "The `#` and `'` table column selection operators"))
     Columns from a table can be selected using the `'` and '#' operators.
 } syntax {
     _TABLE_'_COLNAME_
@@ -780,7 +801,7 @@ text {
 }
 
 text {
-    === The `'()` and `#()` table slicing operators
+    ((=== sect_tscript_table_slice_ops "The `'()` and `#()` table slicing operators"))
 
     The table slicing operators `'()` and '#()` operators
     return a table containing specific columns from a table.
