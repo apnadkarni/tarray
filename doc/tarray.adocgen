@@ -1,0 +1,51 @@
+text {
+    ((= chap_tarray_ref "tarray command reference"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+
+text {
+    == Introduction
+
+    The tarray extension implements typed arrays and associated
+    commands. See the ((^ chap_intro)) document for an overview
+    of the purpose and functionality of the extension.
+
+    This document is reference for the top-level commands for the
+    package. See
+    the link:index.html[main contents] for guides and other reference
+    documentation.
+}
+
+text {
+    == Command reference
+
+    All commands are located in the `tarray` namespace.
+
+    === Commands
+
+    ((cmddef cmdref_column "column _COMMAND_ ?_ARGS..._?"))
+    Implements all functionality related to columns. For full details
+    see the ((^ chap_column_ref "column command reference")).
+    
+    ((cmddef cmdref_table "table _COMMAND_ ?_ARGS..._?"))
+    Implements all functionality related to tables. For full details
+    see the ((^ chap_table_ref "table command reference")).
+    
+    ((cmddef cmdref_tproc "tproc _NAME_ _ARGS_ _BODY_"))
+    This command is like the Tcl `proc` command except that _BODY_
+    is a ((^ chap_tscript TScript)) script and not a Tcl script.
+    
+    ((cmddef cmdref_tscript "tscript _TSCRIPT_"))
+    Executes a ((^ chap_tscript TScript)) script in the caller's context.
+
+    ((cmddef cmdref_tsource "tsource ?-encoding _ENCODING_? _PATH_"))
+
+    Like the Tcl `source` command except that it reads a source file,
+    specified by _PATH_,
+    containing ((^ chap_tscript TScript)) and executes it in the caller's
+    context. The `-encoding` option may be specified to indicate the
+    character encoding of the file. Otherwise system encoding is assumed.
+}
