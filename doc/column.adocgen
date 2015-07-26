@@ -12,7 +12,7 @@ text {
     The tarray extension implements typed arrays and associated
     commands `column` and ((^ chap_table_ref table)). This page provides
     reference documentation for commands related to typed columns. See
-    the index.html[main contents] for guides and other reference
+    the link:index.html[main contents] for guides and other reference
     documentation.
 
     === Columns
@@ -22,8 +22,8 @@ text {
     when it is created. The command `tarray::column` operates on
     typed columns including searching and sorting operations.
 
-    Related to columns, are table.html[tables] which are ordered sequences of
-    typed columns.
+    Related to columns, are ((^ chap_table tables))
+    which are ordered sequences of typed columns.
 
 } text {
     ((=== sect_column_types Types))
