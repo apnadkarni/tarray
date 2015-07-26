@@ -86,6 +86,9 @@ text {
     ((cmddef column_bitor "column ^ _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \^"))`.
 
+    ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
+    Returns a new column of type _COLTYPE_ containing elements
+    of _COLUMN_ cast to _COLTYPE_.
 
     ((cmddef column_count "column count ?-range _RANGE_? ?-among _INDICES_? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 
