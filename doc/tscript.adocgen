@@ -486,6 +486,13 @@ text {
 } tscript {
     hex = format("0x%x",
                  42)
+} text {
+    The function called need not be an identifier; it can be supplied
+    as any expression, for example a function call that returns a function
+    name.
+} prompt {} tshell {
+    < proc function_returning_function {} {return puts} >
+    function_returning_function () ("Hello there!")
 }
 
 text {
@@ -509,7 +516,7 @@ text {
 }
 
 text {
-    ==== Calling object methods
+    ((==== sect_tscript_calling_methods "Calling object methods"))
 
     Object methods are called in a manner similar to ensemble commands.
 } shell {
@@ -1069,7 +1076,7 @@ text {
     On the other hand, the `#` operator takes an operand that
     is the _name of the variable_ containing the key.
 } prompt {} tshell {
-    key = 'c
+    key = "number five"
     d#key
     d # key           // Note whitespace is optional
 } text { 
@@ -1332,9 +1339,41 @@ text {
     nemps = # Emps      // Size of a table
 }
 
+text {
+    ((=== sect_tscript_deref_op "The `$` dereferencing operator"))
 
-tbd {
-    === The `$` dereferencing operator
+    The operator `$` is a unary operator that dereferences
+    the value of its operand. We have already seen an example of its use
+    ((^ sect_tscript_calling_methods earlier)) in calling object methods.
+
+    The operator can only be applied to an identifier or a string literal
+    and not to an arbitrary expression. In both cases, it returns the
+    value of the variable whose name is given by the operand value.
+    
+    The operator is useful in a couple of different situations. One is
+    when you need to reference a variable that does not follow TScript
+    identifier syntax, e.g. one with spaces in it, as shown in the
+    Tcl code below. The other is when the variable is to be referenced
+    indirectly.
+
+    As an example, suppose you had the following
+} shell {
+    set "variable with spaces in name" "value of variable with spaces"
+    set varname "variable with spaces in name"
+} text {
+    Then the equivalent of the Tcl code
+} shell {
+    puts ${variable with spaces in name}
+    puts [set $varname]
+} text {
+    would be the following in TScript
+} prompt {} tshell {
+    puts($"variable with spaces in name")
+    puts($varname)
+} text {
+    [NOTE]
+    Dereferencing operators cannot be used on the left hand side
+    of an assignment statement.
 }
 
 text {
