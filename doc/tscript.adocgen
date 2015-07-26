@@ -76,7 +76,11 @@ text {
     add 2 3
 } text {
     Finally, you can load an entire TScript file using the
-    `tarray::tsource` command
+    `tarray::tsource` command which has syntax similar to the
+    Tcl `source` command.
+} syntax {
+    tsource ?-encoding _ENCODING_? _TSCRIPTFILE_
+} text {
 
     In this tour, for ease of exposition we will simply show the
     relevant TScript fragments without any reference to how they
