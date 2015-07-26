@@ -713,7 +713,8 @@ oo::class create tarray::teval::Compiler {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
+                        set stmt "tarray::teval::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "tarray::teval::rt::push_selector_context \[tarray::teval::rt::element \[set $operand\] $element\]\ntry {   $stmt\n} finally {\ntarray::teval::rt::pop_selector_context\n}\n"
                     }
                 }
             }
@@ -1851,7 +1852,8 @@ if {1} {
     tscript {T'(s,i)}
     tscript {T's' thirty}
     tscript {T's' "thirty"}
-    
+    tscript {T'i[@@ < 40] = 33}
+    tscript {T's[T'i == 33] = "thirty-three"}
     set col s
     tscript {T#col[0:1] = 'abc}
     tscript {# I}
