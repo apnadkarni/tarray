@@ -100,7 +100,7 @@ leaf: SelectorContext <- '@@' ;
 leaf: ColumnType <- 'boolean' / 'byte' / 'int' / 'uint' / 'wide' / 'double' / 'string' / 'any' ;
 leaf: IndirectIdentifier <- [$] Identifier ;
 ColumnIdentifier <- Identifier;
-ElementIdentifier <- Identifier;
+ElementIdentifier <- Identifier / String / Number;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )? ;
