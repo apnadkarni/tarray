@@ -1115,6 +1115,9 @@ text {
     When applied to columns (selected from the table in this case)
     they act as lookup operators.
 
+    In all cases, an error is raised if the value being looked up
+    does not exist in the dictionary or column.
+
     These operators can also be used on the left hand side of an
     assignment to set new values.
 } prompt {} tshell {
