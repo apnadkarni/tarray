@@ -1443,112 +1443,131 @@ namespace eval tarray::teval::rt {
         }
     }
 
-    proc relop== {a b} {
+    proc _relop_check {a b} {
         lassign [tarray::types $a $b] atype btype
-        if {$atype eq "" && $btype eq ""} {
-            # Neither is a tarray
-            return [tcl::mathop::== $a $b]
+        if {$atype eq "table" || $btype eq "table"} {
+            error "Tables cannot be operands for a relational operator"
         }
-        if {$atype ne "" && $btype eq ""} {
-            return [tarray::column::search -all -eq $a $b]
+        return [list $atype $btype]
+    }
+    proc relop== {a b} {
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [tcl::mathop::== $a $b]
+            } else {
+                return [tarray::column::search -all -eq $b $a]
+            }
+        } else {
+            if {$btype eq ""} {
+                return [tarray::column::search -all -eq $a $b]
+            } else {
+                # TBD 
+                error "Column==Column not implemented"
+            }
         }
-        if {$atype eq "" && $btype ne ""} {
-            return [tarray::column::search -all -eq $b $a]
-        }
-
-        # TBD 
-        error "Column==Column not implemented"
     }
 
     proc relop!= {a b} {
-        lassign [tarray::types $a $b] atype btype
-        if {$atype eq "" && $btype eq ""} {
-            # Neither is a tarray
-            return [tcl::mathop::!= $a $b]
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [tcl::mathop::!= $a $b]
+            } else {
+                return [tarray::column::search -all -not -eq $b $a]
+            }
+        } else {
+            if {$btype eq ""} {
+                return [tarray::column::search -all -not -eq $a $b]
+            } else {
+                # TBD 
+                error "Column!=Column not implemented"
+            }
         }
-        if {$atype ne "" && $btype eq ""} {
-            return [tarray::column::search -all -not -eq $a $b]
-        }
-        if {$atype eq "" && $btype ne ""} {
-            return [tarray::column::search -all -not -eq $b $a]
-        }
-
-        # TBD 
-        error "Column!=Column not implemented"
     }
 
     proc relop< {a b} {
-        lassign [tarray::types $a $b] atype btype
-        if {$atype eq "" && $btype eq ""} {
-            # Neither is a tarray
-            return [tcl::mathop::< $a $b]
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [tcl::mathop::< $a $b]
+            } else {
+                return [tarray::column::search -all -gt $b $a]
+            }
+        } else {
+            if {$btype eq ""} {
+                return [tarray::column::search -all -lt $a $b]
+            } else {
+                # TBD 
+                error "Column<Column not implemented"
+            }
         }
-        if {$atype ne "" && $btype eq ""} {
-            return [tarray::column::search -all -lt $a $b]
-        }
-        if {$atype eq "" && $btype ne ""} {
-            return [tarray::column::search -all -gt $b $a]
-        }
-
-        # TBD 
-        error "Column < Column not implemented"
     }
 
 
     proc relop<= {a b} {
-        lassign [tarray::types $a $b] atype btype
-        if {$atype eq "" && $btype eq ""} {
-            # Neither is a tarray
-            return [tcl::mathop::<= $a $b]
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [tcl::mathop::<= $a $b]
+            } else {
+                return [tarray::column::search -all -not -lt $b $a]
+            }
+        } else {
+            if {$btype eq ""} {
+                return [tarray::column::search -all -not -gt $a $b]
+            } else {
+                # TBD 
+                error "Column<=Column not implemented"
+            }
         }
-        if {$atype ne "" && $btype eq ""} {
-            return [tarray::column::search -all -not -gt $a $b]
-        }
-        if {$atype eq "" && $btype ne ""} {
-            return [tarray::column::search -all -not -lt $b $a]
-        }
-
-        # TBD 
-        error "Column <= Column not implemented"
     }
 
 
     proc relop> {a b} {
-        lassign [tarray::types $a $b] atype btype
-        if {$atype eq "" && $btype eq ""} {
-            # Neither is a tarray
-            return [tcl::mathop::> $a $b]
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [tcl::mathop::> $a $b]
+            } else {
+                return [tarray::column::search -all -lt $b $a]
+            }
+        } else {
+            if {$btype eq ""} {
+                return [tarray::column::search -all -gt $a $b]
+            } else {
+                # TBD 
+                error "Column>Column not implemented"
+            }
         }
-        if {$atype ne "" && $btype eq ""} {
-            return [tarray::column::search -all -gt $a $b]
-        }
-        if {$atype eq "" && $btype ne ""} {
-            return [tarray::column::search -all -lt $b $a]
-        }
-
-        # TBD 
-        error "Column > Column not implemented"
     }
 
     proc relop>= {a b} {
-        lassign [tarray::types $a $b] atype btype
-        if {$atype eq "" && $btype eq ""} {
-            # Neither is a tarray
-            return [tcl::mathop::>= $a $b]
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {$btype eq ""} {
+                # Neither is a tarray
+                return [tcl::mathop::>= $a $b]
+            } else {
+                return [tarray::column::search -all -not -gt $b $a]
+            }
+        } else {
+            if {$btype eq ""} {
+                return [tarray::column::search -all -not -lt $a $b]
+            } else {
+                # TBD 
+                error "Column>=Column not implemented"
+            }
         }
-        if {$atype ne "" && $btype eq ""} {
-            return [tarray::column::search -all -not -lt $a $b]
-        }
-        if {$atype eq "" && $btype ne ""} {
-            return [tarray::column::search -all -not -gt $b $a]
-        }
-
-        # TBD 
-        error "Column > Column not implemented"
     }
 
     proc strop {op a b} {
-        lassign [tarray::types $a $b] atype btype
+        lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
             if {$btype eq ""} {
                 # Neither is a tarray
