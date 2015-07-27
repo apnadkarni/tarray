@@ -151,23 +151,23 @@ text {
 } text {
     there are several convenient operators dealing with lists.
     
-    The prefix operator `#` can be used to return the length of a list.
+    The prefix operator `%` can be used to return the length of a list.
 } tscript {
     L = {'zero, 'one, 'two, 'three}
-    len = # L  // Comments begin with //, not #
+    len = % L
 } text {
     Similarly, the indexing operator `[]` can be used instead
     of `lindex` and this supports multiple forms.
 } prompt {} tshell {
-    L[0]  // Single element
+    L[0]  # Single element
     
-    L[0:1] // Index range
+    L[0:1] # Index range
     
-    L[{3,1,2}] // Index list - note order of indices
+    L[{3,1,2}] # Index list - note order of indices
 } text {
    The indexing operator can be used in assignments as well. 
 } prompt {} tshell {
-    L[0 : #L-2] = 999
+    L[0 : %L-2] = 999
     
     L[{3,2}] = {100, 101}
 } text {
@@ -180,7 +180,7 @@ text {
 text {
     .Working with dictionaries
     Dictionary access has a similar shorthand using
-    using the `#` or `'` postfix operators.
+    using the `%` or `'` postfix operators.
     The difference between the two
     is that the former specifies the key via a variable and
     the latter as a literal.
@@ -191,11 +191,11 @@ text {
 
     color = "blue"
 
-    colors#color
+    colors%color
 } text {
     The same syntax can be used to modify the dictionary as well.
 } prompt {} tshell {
-    colors#color = 0x0000ee
+    colors%color = 0x0000ee
 }
 
 text {
@@ -212,23 +212,23 @@ text {
 } text {
     We can use much the same operators with columns as we used for lists.
 } prompt {} tshell {
-    # Rainfall           // Size of column
+    % Rainfall           # Size of column
 
-    Rainfall[0]          // Rainfall in January
+    Rainfall[0]          # Rainfall in January
     
-    Rainfall[9:11]       // Rainfall in the last quarter
+    Rainfall[9:11]       # Rainfall in the last quarter
 
-    Rainfall[11] = 21.5  // Update the measured amount for December
+    Rainfall[11] = 21.5  # Update the measured amount for December
 } text {
     When the indexing operation itself returns a column,
     the vector and folding operations available for columns can be 
     used in conjunction.
 } prompt {} tshell {
-    print( Rainfall / 10 )      // Print rainfall in centimeters
+    print( Rainfall / 10 )      # Print rainfall in centimeters
 
-    column.sum(Rainfall[9:11])  // Total rainfall in the last quarter
+    column.sum(Rainfall[9:11])  # Total rainfall in the last quarter
 } tbd {
-    Use of ' and # with columns
+    Use of ' and % with columns
     (currently numeric literals do not work with ')
 }
 
@@ -242,16 +242,16 @@ text {
 } text {
     Moreover, since the boolean expressions return an integer column containing
     the element indices, they can be used with in any operation applicable
-    to columns. For example, the `#` count operator will return the
+    to columns. For example, the `%` count operator will return the
     number of such months.
 } prompt {} tshell {
-    #(Rainfall > 100 && Rainfall < 200) 
+    %(Rainfall > 100 && Rainfall < 200) 
 } text {
     Or we could use indexing to retrieve the actual values themselves.
 } prompt {} tshell {
     print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) 
 
-    print ( Rainfall [@@ > 100 && @@ < 200] )     // @@ specifies the "current" context
+    print ( Rainfall [@@ > 100 && @@ < 200] )     # @@ specifies the "current" context
 }
 
 text {
@@ -273,25 +273,25 @@ text {
 } text {
     Tables rows can be accessed in the same manner as column elements.
 } prompt {} tshell {
-    # Emps      // Number of employees
+    % Emps      # Number of employees
 
-    print(Emps[3])     // Fourth row of table
+    print(Emps[3])     # Fourth row of table
 
-    print(Emps[2:4])   // Third through fifth rows
+    print(Emps[2:4])   # Third through fifth rows
 
-    print(Emps[{3,1}]) // Fourth and second row
+    print(Emps[{3,1}]) # Fourth and second row
 }
 
 text {
-    Columns within a table are accessed with the `'` and `#` operators
+    Columns within a table are accessed with the `'` and `%` operators
     and indexed as usual.
 } prompt {} tshell {
-    print(Emps'Name)     // Column name supplied as literal
+    print(Emps'Name)     # Column name supplied as literal
 
     colname = 'Salary
-    print(Emps#colname)   // Column name supplied in a variable
+    print(Emps%colname)   # Column name supplied in a variable
 
-    print(Emps'Salary[@@ >= 70000])    // High salaries
+    print(Emps'Salary[@@ >= 70000])    # High salaries
 } text {
     Table slice operators can be used extract subtables.
 } prompt {} tshell {
@@ -308,11 +308,11 @@ text {
 } text {
     Tables can be modified in multiple ways.
 } outputlimit 0 tscript {
-    Emps[# Emps] = {'Mary, 38000, 25, 'Seattle}      // Add a row
+    Emps[% Emps] = {'Mary, 38000, 25, 'Seattle}      # Add a row
 
-    Emps'Salary = Emps'Salary + 2000                 // Modify entire column
+    Emps'Salary = Emps'Salary + 2000                 # Modify entire column
 
-    Emps'Location[Emps'Name'Sally] = {{"New York"}}  // Modify a single cell
+    Emps'Location[Emps'Name'Sally] = {{"New York"}}  # Modify a single cell
 
     print(Emps)
 }
@@ -396,7 +396,9 @@ text {
 text {
     === Comments
 
-    Comments begin with the `//` sequence and extend to the end of the line.
+    Comments begin with `#` and extend to the end of the line. Note
+    that unlike Tcl, `#` marks the beginning of a comment irrespective
+    of where it appears outside of a quoted string.
 }
 
 text {
@@ -642,7 +644,7 @@ text {
     _EXPRESSION_ can be any TScript expression and does not need
     to be enclosed in parenthesis.
 } tscript {
-    if #Emps {
+    if %Emps {
         print(Emps)
     } else {
         puts("Table is empty")
@@ -659,7 +661,7 @@ text {
     to be enclosed in parenthesis.
 } outputlimit 3 tscript {
     i = 0
-    while i < # Emps {
+    while i < % Emps {
         puts(Emps'Name[i])
         i = i + 1
     }
@@ -678,7 +680,7 @@ text {
     each iteration, the loop variable is incremented by _INCREMENT_ which
     defaults to `1` if unspecified.
 } tscript {
-    for i in 0 : #Emps-1 by 2 {
+    for i in 0 : %Emps-1 by 2 {
         puts(Emps'Name[i])
     }
 } text {
@@ -789,18 +791,18 @@ text {
 }
 
 text {
-    ((=== sect_tscript_column_sel_ops "The `#` and `'` table column selection operators"))
-    Columns from a table can be selected using the `'` and '#' operators.
+    ((=== sect_tscript_column_sel_ops "The `%` and `'` table column selection operators"))
+    Columns from a table can be selected using the `'` and '%' operators.
 } syntax {
     _TABLE_'_COLNAME_
-    _TABLE_#_VAR_
+    _TABLE_%_VAR_
 } text {
     The former takes the actual name of the column as the operand while
     in the latter case the column is specified through a variable.
 } prompt {} tshell {
     print(Emps'Name)
     colname = 'Location
-    print(Emps#colname)
+    print(Emps%colname)
 } text {
     These operators can be used in two contexts:
 
@@ -813,20 +815,20 @@ text {
 }
 
 text {
-    ((=== sect_tscript_table_slice_ops "The `'()` and `#()` table slicing operators"))
+    ((=== sect_tscript_table_slice_ops "The `'()` and `%()` table slicing operators"))
 
-    The table slicing operators `'()` and '#()` operators
+    The table slicing operators `'()` and '%()` operators
     return a table containing specific columns from a table.
 } syntax {
     _TABLE_'(?_COLNAME_,...?)
-    _TABLE_#(?_VAR_,...?)
+    _TABLE_%(?_VAR_,...?)
 } text {
     The former takes the actual name of the column as the operand while
     in the latter case the column is specified through a variable.
 } prompt {} tshell {
     print(Emps'(Name, Salary))
     colnameA = 'Name ; colnameB = 'Salary
-    print(Emps#(colnameA, colnameB))
+    print(Emps%(colnameA, colnameB))
 } text {
     Note the difference between the following two expressions:
 } prompt {} tshell {
@@ -1107,7 +1109,7 @@ text {
 text {
     ((=== sect_tscript_lookup_ops "Lookup operators"))
 
-    The operators `'` and `#` lookup keys in a dictionary
+    The operators `'` and `%` lookup keys in a dictionary
     or column.
 
     In the case of a dictionary, the operators retrieve
@@ -1118,17 +1120,17 @@ text {
     the syntax for an identifier, it does not have to be quoted.
 } prompt {} tshell {
     d = <dict create one 1 two 2 three 3 4 four "number five" 5> 
-    d'two                 // String key "two" does not need quoting
-    d ' "number five"     // Quoted string literal key
-    d ' three             // Note whitespace is optional
-    d'4                   // Numeric literal
+    d'two                 # String key "two" does not need quoting
+    d ' "number five"     # Quoted string literal key
+    d ' three             # Note whitespace is optional
+    d'4                   # Numeric literal
 } text {
-    On the other hand, the `#` operator takes an operand that
+    On the other hand, the `%` operator takes an operand that
     is the _name of the variable_ containing the key.
 } prompt {} tshell {
     key = "number five"
-    d#key
-    d # key           // Note whitespace is optional
+    d%key
+    d % key           # Note whitespace is optional
 } text { 
     In the case of a column
     the lookup returns the index of the specified value. If the
@@ -1137,9 +1139,9 @@ text {
 } prompt {} tshell {
     Emps'Name'Sally
     colname = "Name"
-    Emps#colname'Sally
+    Emps%colname'Sally
 } text {
-    In the prior example, note the overloading of the `'` and `#`
+    In the prior example, note the overloading of the `'` and `%`
     operators. When applied to tables, they act as column selectors.
     When applied to columns (selected from the table in this case)
     they act as lookup operators.
@@ -1179,12 +1181,12 @@ text {
     the operand of the `[]` operator, it retrieves the value of the element
     at that position.
 } prompt {} tshell {
-    Rainfall[0]          // Index a column with a constant
+    Rainfall[0]          # Index a column with a constant
 
     i = 1
-    Emps[i]              // Index a table with a variable
+    Emps[i]              # Index a table with a variable
     
-    {1, 2, 3, 4}[i+2]    // Index a list with an expression
+    {1, 2, 3, 4}[i+2]    # Index a list with an expression
 } text {
     Note that the result is a ''scalar'', the value of the element at
     that position, not a column or table containing that element.
@@ -1209,7 +1211,7 @@ text {
     values.
 } tscript {
     i = 0
-    print(Emps[i:#Emps-1])
+    print(Emps[i:%Emps-1])
 } text {
     Again, ranges may be used with lists as well.
 } tscript {
@@ -1328,7 +1330,7 @@ text {
 } text {
     To move everyone to Boston, fill the entire range with one value.
 } tscript {
-    Emps'Location[0 : #Emps - 1] = 'Boston
+    Emps'Location[0 : %Emps - 1] = 'Boston
 } text {
     To give an increment only to low-paid
     employees make use of selectors.
@@ -1360,7 +1362,7 @@ text {
     
     l = {1, 2, 3, 4}
     l[0:1] = 100
-    l[2:3] = {102, 103}  // Ambiguity, assumes a fill operation
+    l[2:3] = {102, 103}  # Ambiguity, assumes a fill operation
 } text {
     In the first case, values 102 and 103 are assigned to consecutive list
     elements. Because the column is typed as integer, TScript can deduce the
@@ -1381,15 +1383,15 @@ text {
 }
 
 text {
-    ==== The `#` size operator
+    ==== The `%` size operator
 
-    The unary operator `#` returns the size
+    The unary operator `%` returns the size
     of its operand which must be a list, column or table.
 } prompt {} tshell {
-    len = # {1,2,3,4}   // Length of a list
-    # Rainfall          // Size of a column
-    # (Rainfall > 100)  // Size of a column returned by an expression
-    nemps = # Emps      // Size of a table
+    len = % {1,2,3,4}   # Length of a list
+    % Rainfall          # Size of a column
+    % (Rainfall > 100)  # Size of a column returned by an expression
+    nemps = % Emps      # Size of a table
 }
 
 text {

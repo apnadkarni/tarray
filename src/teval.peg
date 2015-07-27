@@ -1,6 +1,6 @@
 PEG TEval (Program)
     # A Program is a sequence of statements.
-    # The Comment? is there because otherwise [tscript {// comment}] errors out
+    # The Comment? is there because otherwise [tscript {# comment}] errors out
     Program <- Block Comment? EOF ;
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
@@ -131,7 +131,7 @@ void: SingleQuote <- ['] ;
 void: Backslash <- '\\';
 
 void: Separator <- Comment? EOL / ';';
-void:   Comment <- '//' (!EOL .)* ;
+void:   Comment <- '#' (!EOL .)* ;
 void: EOL <- '\n';
 
 # TBD leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
@@ -146,15 +146,15 @@ leaf: RelOp <- '==' / '!=' / '<=' / '>=' / '<' / '>' /
                '=^' / '!^' /
                '=~^' / '=~' / '!~^' / '!~' / 
 	       '=*^' / '=*' / '!*^' / '!*';
-leaf: UnaryOp <- [-+~!#] ;
+leaf: UnaryOp <- [-+~!%] ;
 leaf: BitAndOp <- '&' ;
 leaf: BitOrOp <- '|' ;
 leaf: BitXorOp <- '^' ;
 leaf: LogicalAndOp <- '&&' ;
 leaf: LogicalOrOp <- '||' ;
 
-leaf: ColumnOp <- ['#] ;
-leaf: ElementOp <- ['#] ;
+leaf: ColumnOp <- ['%] ;
+leaf: ElementOp <- ['%] ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;

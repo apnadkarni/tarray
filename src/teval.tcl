@@ -910,7 +910,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     method TableColumns {op args} {
-        if {$op eq "#"} {
+        if {$op eq "%"} {
             set cols [lmap colarg $args {
                 my {*}$colarg
             }]
@@ -1640,14 +1640,14 @@ namespace eval tarray::teval::rt {
         set type [lindex [tarray::types $a] 0]
         switch -exact -- $type {
             "" {
-                if {$op eq "#"} {
+                if {$op eq "%"} {
                     return [llength $a]
                 } else {
                     return [expr "$op\$a"]
                 }
             }
             "table" {
-                if {$op eq "#"} {
+                if {$op eq "%"} {
                     return [tarray::table::size $a]
                 }
                 error "Unary op $op not implemented for tables"
@@ -1655,7 +1655,7 @@ namespace eval tarray::teval::rt {
             default {
                 # TBD - replace these with column::unary calls when implemented
                 switch -exact -- $op {
-                    "#" { return [tarray::column::size $a] }
+                    "%" { return [tarray::column::size $a] }
                     "-" { return [tarray::column::math - 0 $a] }
                     "+" {
                         if {$type in {byte int uint wide double}} {
@@ -1889,7 +1889,7 @@ if {1} {
     tscript {getI()[@@ > 30]}
     set x i
     tscript {T[T'i < 35]}
-    tscript {T[T#x < 45]}
+    tscript {T[T%x < 45]}
     tscript {T'(i,s)[@@'i > 40]}
     tscript {K = I}
     tscript {K[0:1] = J[0:1]}
@@ -1902,9 +1902,9 @@ if {1} {
     tscript {T'i[@@ < 40] = 33}
     tscript {T's[T'i == 33] = "thirty-three"}
     set col s
-    tscript {T#col[0:1] = 'abc}
-    tscript {# I}
-    tscript {# {1,2,3}}
+    tscript {T%col[0:1] = 'abc}
+    tscript {% I}
+    tscript {% {1,2,3}}
 
     namespace eval tarray::teval {
         testconstexpr {4-2+2} "+- Left associativity"
@@ -1925,7 +1925,7 @@ if {1} {
     set d {a 1 b 2 c 3}
     tscript { d'b }
     set x c
-    tscript {d#x}
+    tscript {d%x}
     set a 0 ; set b 1
     tscript { < expr {$a > $b} > }
     tscript {<expr {$a > $b}>}
