@@ -31,9 +31,9 @@ void:    Empty <- WS ;
     ForStatement <- 'for' WSob Identifier WSob 'in' WSob Expression WSob ('by' WSob Expression WSob)? '{' Block '}' ;
 
     TryStatement <- 'try' WSob '{' Block '}' (WSob (OnHandler / TrapHandler))* (WSob FinallyClause)? ;
-    OnHandler     <- 'on' WSob ErrorCode (WS ',' WS Identifier)* WSob '{' Block '}' ;
+    OnHandler     <- 'on' WSob ErrorCode (WSob Identifier)* WSob '{' Block '}' ;
     ErrorCode <- 'error' / 'ok' / 'continue' / 'return' / 'break' / '-'? <digit>+ ;
-    TrapHandler   <- 'trap' WSob Sequence (WS ',' WS Identifier)* WSob '{' Block '}' ;
+    TrapHandler   <- 'trap' WSob Sequence (WSob Identifier)* WSob '{' Block '}' ;
     FinallyClause <- 'finally' WSob '{' Block '}' ;
     ReturnStatement <- 'return' (WSob Expression)? ;
     BreakStatement <- 'break' ;

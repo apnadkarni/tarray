@@ -169,13 +169,11 @@ oo::class create tarray::teval::Parser {
     }
 
     method TryStatement {from to block args} {
-        # puts "TryStatement: [join $args ,]"
         return [list TryStatement $block {*}$args]
     }
     
     method OnHandler {from to errorcode args} {
         # on errorcode (, var)* body
-        # puts "OnHandler: $errorcode, [join $args ,]"
         set vars [lmap arg [lrange $args 0 end-1] {
             lindex $arg 1
         }]
@@ -184,7 +182,6 @@ oo::class create tarray::teval::Parser {
     
     method TrapHandler {from to trappattern args} {
         # trap trappattern (, var)* body
-        puts "TrapHandler: $trappattern, [join $args ,]"
         set vars [lmap arg [lrange $args 0 end-1] {
             lindex $arg 1
         }]
@@ -659,7 +656,6 @@ oo::class create tarray::teval::Compiler {
     }
 
     method TryStatement {body args} {
-        puts try:[join $args {, }]
         set code "try {\n[my _clause_to_code $body]\n}"
         foreach arg $args {
             switch -exact -- [lindex $arg 0] {
@@ -2002,5 +1998,33 @@ if {1} {
         var = "variable with spaces"
         puts($var)
     }
-        
+
+    tscript {
+        try {
+            a = 1
+        } on error {puts('error)} finally {puts('finally)}
+    }
+    
+    tscript {
+        try {
+            a = 1
+        } on error res opts {
+            puts(res)
+        } finally {
+            puts('finally)
+        }
+    }
+
+    tscript {
+        try {
+            nosuchvar
+        } trap {'TCL, 'XXX} {
+            puts("Should not trigger")
+        } trap {'TCL, 'LOOKUP} res opts {
+            puts(res)
+            puts(opts)
+        } finally {
+            puts('finally)
+        }
+    }
 }
