@@ -168,6 +168,35 @@ oo::class create tarray::teval::Parser {
         }
     }
 
+    method TryStatement {from to block args} {
+        # puts "TryStatement: [join $args ,]"
+        return [list TryStatement $block {*}$args]
+    }
+    
+    method OnHandler {from to errorcode args} {
+        # on errorcode (, var)* body
+        # puts "OnHandler: $errorcode, [join $args ,]"
+        set vars [lmap arg [lrange $args 0 end-1] {
+            lindex $arg 1
+        }]
+        return [list OnHandler [lindex $errorcode 1] $vars [lindex $args end]]
+    }
+    
+    method TrapHandler {from to trappattern args} {
+        # trap trappattern (, var)* body
+        puts "TrapHandler: $trappattern, [join $args ,]"
+        set vars [lmap arg [lrange $args 0 end-1] {
+            lindex $arg 1
+        }]
+        return [list TrapHandler $trappattern $vars [lindex $args end]]
+    }
+    
+    method FinallyClause {from to block} {
+        return [list FinallyClause $block]
+    }
+
+    forward ErrorCode my _extract ErrorCode
+    
     method Assignment {from to lvalue assignop expr} {
         return [list [lindex $assignop 1] $lvalue $expr]
     }
@@ -491,6 +520,7 @@ oo::class create tarray::teval::Parser {
     }
 
     method Identifier {from to} {
+        # TBD - why not forward this to _extract?
         return [list Identifier [string range $Script $from $to]]
     }
 
@@ -507,6 +537,7 @@ oo::class create tarray::teval::Parser {
     }
 
     method OptionString {from to} {
+        # TBD - why not forward this to _extract?
         return [list OptionString [string range $Script $from $to]]
     }
 
@@ -579,30 +610,30 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement}} {
+        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement TryStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
         }
     }
 
-    method IfStatement {cond then_clause {else_clause {}}} {
-        set then_code ""
-        foreach stmt $then_clause {
+    method _clause_to_code {clause} {
+        set code ""
+        foreach stmt $clause {
             if {[llength $stmt]} {
-                append then_code "  [my {*}$stmt]\n"
+                append code "  [my {*}$stmt]\n"
             }
         }
+        return $code
+    }
+    
+    method IfStatement {cond then_clause {else_clause {}}} {
+        set then_code [my _clause_to_code $then_clause]
 
-        if {$else_clause eq ""} {
+        if {[llength $else_clause] == 0} {
             return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code }"
         } else {
-            set else_code ""
-            foreach stmt $else_clause {
-                if {[llength $stmt]} {
-                    append else_code "  [my {*}$stmt]\n"
-                }
-            }
+            set else_code [my _clause_to_code $else_clause]
             return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
         }
     }
@@ -624,34 +655,34 @@ oo::class create tarray::teval::Compiler {
     }
     
     method WhileStatement {cond clause} {
-        set code ""
-        foreach stmt $clause {
-            if {[llength $stmt]} {
-                append code "  [my {*}$stmt]\n"
-            }
-        }
-
-        return "while {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$code}"
+        return "while {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause]}"
     }
 
-    method ForRange {loopvar low high incr clause} {
-        set code ""
-        foreach stmt $clause {
-            if {[llength $stmt]} {
-                append code "  [my {*}$stmt]\n"
+    method TryStatement {body args} {
+        puts try:[join $args {, }]
+        set code "try {\n[my _clause_to_code $body]\n}"
+        foreach arg $args {
+            switch -exact -- [lindex $arg 0] {
+                OnHandler {
+                    append code " on [lindex $arg 1] {[lindex $arg 2]} {\n[my _clause_to_code [lindex $arg 3]]}"
+                }
+                TrapHandler {
+                    append code " trap [my {*}[lindex $arg 1]] {[lindex $arg 2]} {\n[my _clause_to_code [lindex $arg 3]]}"
+                }
+                FinallyClause {
+                    append code " finally {\n[my _clause_to_code [lindex $arg 1]]}"
+                }
             }
         }
-        return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n$code}"
+        return $code
+    }
+    
+    method ForRange {loopvar low high incr clause} {
+        return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n[my _clause_to_code $clause]}"
     }
 
     method ForNonRange {loopvar looptarget clause} {
-        set code ""
-        foreach stmt $clause {
-            if {[llength $stmt]} {
-                append code "  [my {*}$stmt]\n"
-            }
-        }
-        return "tarray::teval::rt::forloop $loopvar [my {*}$looptarget] {\n$code}"
+        return "tarray::teval::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause]}"
     }
 
     method = {lvalue rvalue} {
