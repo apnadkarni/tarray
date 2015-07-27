@@ -398,6 +398,8 @@ oo::class create tarray::teval::Parser {
 
     forward PrimaryExpr my _child
 
+    forward BuiltIn my _child
+    
     forward PostfixOp my _child
 
     method ColumnType {from to} {
@@ -523,8 +525,17 @@ oo::class create tarray::teval::Parser {
     method TclScriptBlock {from to child} {
         return $child
     }
+    
     method TclScript {from to} {
         return [list TclScript [string trim [string range $Script $from $to]]]
+    }
+
+    method ListCast {from to child} {
+        return [list ListCast $child]
+    }
+    
+    method DictCast {from to child} {
+        return [list DictCast $child]
     }
 }
 
@@ -964,6 +975,14 @@ oo::class create tarray::teval::Compiler {
     }
 
     method TclScript s {return "\[try {\n$s\n}\]"}
+
+    method ListCast {expr} {
+        return "\[tarray::teval::rt::listcast [my {*}$expr]\]"
+    }
+
+    method DictCast {expr} {
+        return "\[tarray::teval::rt::dictcast [my {*}$expr]\]"
+    }
 }
 
 namespace eval tarray::teval::rt {
@@ -1825,20 +1844,23 @@ namespace eval tarray::teval::rt {
             }
         }
     }
-    proc Index {val index} {
-        # TBD - is this used anywhere
+
+    proc listcast {val} {
         return [switch -exact -- [lindex [tarray::types $val] 0] {
-            table {
-                tarray::table::index $val $index
-            }
-            "" {
-                lindex $val $index
-            }
-            default {
-                tarray::column::index $val $index
-            }
+            table { tarray::table::range -list $val 0 end }
+            ""    { error "Operand of @list must be a column or table" } 
+            default { tarray::column::range -list $val 0 end }
         }]
     }
+
+    proc dictcast {val} {
+        return [switch -exact -- [lindex [tarray::types $val] 0] {
+            table { tarray::table::range -dict $val 0 end }
+            ""    { error "Operand of @dict must be a column or table" } 
+            default { tarray::column::range -dict $val 0 end }
+        }]
+    }
+    
 }
 
 proc tarray::teval::testconstexpr {expr desc} {

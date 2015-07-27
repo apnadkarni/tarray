@@ -62,9 +62,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
 
     # Basic terms
-    PrimaryExpr  <- ColumnConstructor
-                    / TableConstructor
-                    / SelectorContext
+    PrimaryExpr  <- BuiltIn
                     / IndirectIdentifier
 		    / IndirectLiteral
 		    / Identifier
@@ -73,6 +71,12 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 		    / String
 		    / Sequence
 		    / '(' WS Expression WS ')' ;
+
+    BuiltIn <- ColumnConstructor
+               / TableConstructor
+	       / ListCast
+	       / DictCast
+	       / SelectorContext ;
 
     # Postfix operators
     PostfixOp <-  Selector
@@ -94,6 +98,10 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
     TableColumnDef   <- ColumnIdentifier WSNL ColumnType ;
 
+    ListCast <- [@] 'list' WS Expression ;
+
+    DictCast <- [@] 'dict' WS Expression ;
+    
 leaf: SelectorContext <- '@@' ;
 
     # Syntax based definitions

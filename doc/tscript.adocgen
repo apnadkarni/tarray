@@ -847,6 +847,23 @@ text {
 }
 
 text {
+    === Converting to lists and dictionaries
+
+    Columns and tables can be converted to lists and dictionaries
+    with the `@list` and `@dict` command respectively. In the case
+    of the latter, the key for the dictionary is the index of the
+    value in the column or table.
+} prompt {} tshell {
+    @list Emps
+    
+    @dict Rainfall
+} text {
+    Any expression may be supplied as the operand of these commands. If
+    the expression does not result in a column or table, an error is
+    generated.
+}
+
+text {
     == Operators
 
     TScript operators fall into the following classes:
@@ -1413,20 +1430,12 @@ text {
 }
 
 text {
-    == Other operations/library functions
+    == Built-in commands
+
 } shell {
     tscript { T = table::delete(Emps, Emps'Salary > 70000) }
 }
 
-text {
-
-    Column tables can be used anywhere columns are used including assignments
-
-    === Columns and tables as target of assignment
-    T.c
-    
-
-}
 
 tbd { sum, minmax, sort etc.}
 tbd { namespace and execution context }
