@@ -172,12 +172,12 @@ oo::class create tarray::teval::Parser {
         return [list TryStatement $block {*}$args]
     }
     
-    method OnHandler {from to errorcode args} {
+    method OnHandler {from to returncode args} {
         # on errorcode (, var)* body
         set vars [lmap arg [lrange $args 0 end-1] {
             lindex $arg 1
         }]
-        return [list OnHandler [lindex $errorcode 1] $vars [lindex $args end]]
+        return [list OnHandler [lindex $returncode 1] $vars [lindex $args end]]
     }
     
     method TrapHandler {from to trappattern args} {
@@ -192,8 +192,12 @@ oo::class create tarray::teval::Parser {
         return [list FinallyClause $block]
     }
 
-    forward ErrorCode my _extract ErrorCode
+    forward ReturnCode my _extract ReturnCode
     
+    method ThrowStatement {from to args} {
+        return [list ThrowStatement {*}$args]
+    }
+                           
     method Assignment {from to lvalue assignop expr} {
         return [list [lindex $assignop 1] $lvalue $expr]
     }
@@ -607,7 +611,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement TryStatement}} {
+        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement TryStatement ThrowStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -671,6 +675,14 @@ oo::class create tarray::teval::Compiler {
             }
         }
         return $code
+    }
+    
+    method ThrowStatement {args} {
+        if {[llength $args] > 1} {
+            return "throw [my Sequence {*}[lrange $args 0 end-1]] [my {*}[lindex $args end]]"
+        } else {
+            return "error [my {*}[lindex $args 0]]"
+        }
     }
     
     method ForRange {loopvar low high incr clause} {
@@ -1887,6 +1899,11 @@ namespace eval tarray::teval::rt {
             default { tarray::column::range -dict $val 0 end }
         }]
     }
+
+    proc throwerror {errorcode} {
+        # Assumes last element of errorcode is the message
+        return -code error -level 2 -errorcode $errorcode [lindex $errorcode end]
+    }
     
 }
 
@@ -2007,9 +2024,10 @@ if {1} {
     
     tscript {
         try {
-            a = 1
+            throw 'TSCRIPT, 'TEST, "Just a test"
         } on error res opts {
             puts(res)
+            puts (opts)
         } finally {
             puts('finally)
         }
@@ -2021,8 +2039,8 @@ if {1} {
         } trap {'TCL, 'XXX} {
             puts("Should not trigger")
         } trap {'TCL, 'LOOKUP} res opts {
-            puts(res)
-            puts(opts)
+            <puts "Result: $res">
+            <puts "Opts: $opts">
         } finally {
             puts('finally)
         }
