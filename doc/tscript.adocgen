@@ -723,6 +723,98 @@ text {
 }
 
 text {
+    === The `try` statement
+    The `try` statement closely resembles Tcl's `try` command
+    differing only in that the syntax is a little different
+    and the clauses are in TScript.
+
+    The general syntax of the command is
+} syntax {
+    try { _BODY_ } ?_HANDLER_ ...? ?finally { _FINALBODY_ }?
+} text {
+    Multiple handlers may be specified.
+    Each _HANDLER_ may be one of two forms:
+} syntax {
+    on _EXCEPTIONCODE_ ?_VARNAME_ ...? { _HANDLERBODY_ }
+    trap _ERRORPREFIX_ ?_VARNAME_ ...? { _HANDLERBODY_ }
+} text {
+    The statement results in the execution of _BODY_. The exception code
+    resulting from the execution is matched against each handler in turn.
+    The _HANDLERBODY_ corresponding to the first matching handler is
+    executed and propagation of the exception stops in that case. Further
+    handlers are not checked.
+    If no handler matches, the exception is propagated. In all cases,
+    irrespective of the exception code and whether any handler matched,
+    the _FINALBODY_ script is run if present.
+
+    In the case of the `on` handler, _EXCEPTIONCODE_ is an integer value
+    or one of the strings `ok`, `error`, `continue`, `break` or `return`.
+    The handler will match if this matches the exception code resulting
+    from the execution of _BODY_.
+
+    The `trap` handler only matches if the exception code is `error`.
+    Additionally the appropriate number of leading values from
+    the `-errorcode` entry in the interpreter status dictionary
+    must match the values specified in 
+    _ERRORPREFIX_ which must be of the form used for constructing lists.
+    
+    In both types of handlers, the handler script body may be preceded
+    by zero or more variable names. If present, the first of these receives
+    the result of the execution of _BODY_. The second variable, if present,
+    receives the status dictionary.
+
+    The following example will help clarify the working.
+} tscript {
+    try {
+        x = nosuchvar
+    } trap {'TCL, 'LOOKUP, 'VARNAME} message status_dict {
+        puts("Oops, variable does not exist")
+        puts(message)
+    } on error message status_dict {
+        puts("Some other error")
+    } finally {
+        puts("Oh well, life goes on")
+    }
+} text {
+    [WARNING]
+    Make a note of how the _ERRORPREFIX_ is specified as a list construct.
+    The elements may be general expressions and hence string constants
+    have to be quoted as shown in the example.
+    
+    A more bare-bones version of the above would be
+} tscript {
+    try {
+        x = nosuchvar
+    } trap {'TCL, 'LOOKUP, 'VARNAME} {
+        puts("Oops, variable does not exist")
+    } on error {
+        puts("Some other error")
+    }
+}
+
+text {
+    === The `throw` statement
+    The `throw` statement raises a Tcl error in similar manner to
+    Tcl's own `throw` and `error` statement. Its general syntax is
+} syntax {
+    throw _EXPRESSION_ ?, _EXPRESSION_ ...?
+} text {
+    If a single argument is given, it is taken to be the equivalent
+    of the message argument to a Tcl `error` or `throw` command.
+    If multiple arguments are given, the last argument is interpreted
+    as the message. Moreover, all arguments are gathered into a list
+    which becomes the value of the error code.
+} shell {
+    catch { tscript {throw "This is the error message"} } message
+    puts $message
+    puts $::errorCode
+
+    catch { tscript {throw 'TSCRIPT, 'ERROR, "This is only a test"} } message
+    puts $message
+    puts $::errorCode
+}
+
+text {
     == Columns and tables
 
     We now come to the primary reason for the existence of TScript -
