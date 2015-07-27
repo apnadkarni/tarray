@@ -2,6 +2,7 @@ PEG TEval (Program)
     # A Program is a sequence of statements.
     # The Comment? is there because otherwise [tscript {# comment}] errors out
     Program <- Block Comment? EOF ;
+    # TBD - perhaps WS should be moved out of Block to where Block is used?
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
@@ -10,6 +11,7 @@ void:  EOF <- !.;
                  / IfStatement
 		 / WhileStatement
 		 / ForStatement
+		 / TryStatement
 		 / ReturnStatement
 		 / BreakStatement
 		 / ContinueStatement
@@ -28,6 +30,11 @@ void:    Empty <- WS ;
 
     ForStatement <- 'for' WSob Identifier WSob 'in' WSob Expression WSob ('by' WSob Expression WSob)? '{' Block '}' ;
 
+    TryStatement <- 'try' WSob '{' Block '}' (WSob (OnHandler / TrapHandler))* (WSob FinallyClause)? ;
+    OnHandler     <- 'on' WSob ErrorCode (WS ',' WS Identifier)* WSob '{' Block '}' ;
+    ErrorCode <- 'error' / 'ok' / 'continue' / 'return' / 'break' / '-'? <digit>+ ;
+    TrapHandler   <- 'trap' WSob Sequence (WS ',' WS Identifier)* WSob '{' Block '}' ;
+    FinallyClause <- 'finally' WSob '{' Block '}' ;
     ReturnStatement <- 'return' (WSob Expression)? ;
     BreakStatement <- 'break' ;
     ContinueStatement <- 'continue' ;
@@ -111,6 +118,7 @@ leaf: IndirectIdentifier <- [$] Identifier ;
 IndirectLiteral <- [$] (String / Token) ;
 ColumnIdentifier <- Identifier;
 ElementIdentifier <- Identifier / String / Number;
+IdentifierList <- Identifier (WSNL ',' WSNL Identifier)* ;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )? ;
