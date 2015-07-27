@@ -679,7 +679,7 @@ oo::class create tarray::teval::Compiler {
     
     method ThrowStatement {args} {
         if {[llength $args] > 1} {
-            return "throw [my Sequence {*}[lrange $args 0 end-1]] [my {*}[lindex $args end]]"
+            return "throw [my Sequence {*}$args] [my {*}[lindex $args end]]"
         } else {
             return "error [my {*}[lindex $args 0]]"
         }
