@@ -781,14 +781,15 @@ text {
     The elements may be general expressions and hence string constants
     have to be quoted as shown in the example.
     
-    A more bare-bones version of the above would be
+    A more bare-bones version of the above, with a different error this
+    time, would be
 } tscript {
     try {
-        x = nosuchvar
+        throw 'TSCRIPT, 'TEST, "This is only a test"
     } trap {'TCL, 'LOOKUP, 'VARNAME} {
         puts("Oops, variable does not exist")
-    } on error {
-        puts("Some other error")
+    } on error message {
+        puts(message)
     }
 }
 
