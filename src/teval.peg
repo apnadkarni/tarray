@@ -87,6 +87,8 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
                / TableConstructor
 	       / ListCast
 	       / DictCast
+	       / SortCommand
+	       / SearchCommand
 	       / SelectorContext ;
 
     # Postfix operators
@@ -109,6 +111,16 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
     TableColumnDef   <- ColumnIdentifier WSNL ColumnType ;
 
+    # Note cannot use ',' as separator here since that will create ambiguity
+    # when used inside a function call
+    SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WSob SortOption)* ;
+leaf: SortOption <- 'indices' 
+                    / 'increasing'
+                    / 'decreasing' ;
+
+    SearchCommand <- [@] 'search' WS Expression (WS '->' WS Expression)? WS Expression (WSob SearchOption)* ;
+    SearchOption  <- '-inline' / '-all' ;
+    
     ListCast <- [@] 'list' WS Expression ;
 
     DictCast <- [@] 'dict' WS Expression ;
