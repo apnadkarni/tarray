@@ -569,6 +569,22 @@ oo::class create tarray::teval::Parser {
     method DictCast {from to child} {
         return [list DictCast $child]
     }
+
+    method SortCommand {from to expr args} {
+        return [list SortCommand $expr {*}$args]
+    }
+    
+    method SortOption {from to} {
+        return [list SortOption "-[string range $Script $from $to]"]
+    }
+
+    method SearchCommand {from to expr args} {
+        return [list SearchCommand $expr {*}$args]
+    }
+    
+    method SearchOption {from to} {
+        return [list SearchOption [string range $Script $from $to]]
+    }
 }
 
 oo::class create tarray::teval::Compiler {
@@ -1021,6 +1037,19 @@ oo::class create tarray::teval::Compiler {
 
     method DictCast {expr} {
         return "\[tarray::teval::rt::dictcast [my {*}$expr]\]"
+    }
+
+    method SortCommand {expr args} {
+        set code "tarray::column::sort"
+
+        foreach arg $args {
+            if {[lindex $arg 0] eq "SortOption"} {
+                append code " [lindex $arg 1]"
+            } else {
+                append code " -indirect [my {*}$arg]"
+            }
+        }
+        return "\[$code [my {*}$expr]\]"
     }
 }
 
