@@ -1040,16 +1040,20 @@ oo::class create tarray::teval::Compiler {
     }
 
     method SortCommand {expr args} {
-        set code "tarray::column::sort"
 
+        set options {}
         foreach arg $args {
             if {[lindex $arg 0] eq "SortOption"} {
-                append code " [lindex $arg 1]"
+                lappend options [lindex $arg 1]
             } else {
-                append code " -indirect [my {*}$arg]"
+                set target $arg
             }
         }
-        return "\[$code [my {*}$expr]\]"
+        if {[info exists target]} {
+            return "\[tarray::teval::rt::sort_indirect [my {*}$expr] [my {*}$target] {$options}\]"
+        } else {
+            return "\[tarray::teval::rt::sort [my {*}$expr] {$options}\]"
+        }
     }
 }
 
@@ -1934,6 +1938,29 @@ namespace eval tarray::teval::rt {
         return -code error -level 2 -errorcode $errorcode [lindex $errorcode end]
     }
     
+    proc sort {operand options} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table {
+                # TBD - check in C source that $target is not a column or
+                # table to prevent shimmering
+                tarray::table::sort {*}$options $operand 0
+            }
+            ""      { error "Operand of @sort must be a column or table" } 
+            default { tarray::column::sort {*}$options $operand}
+        }]
+    }
+
+    proc sort_indirect {operand target options} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table {
+                # TBD - check in C source that $target is not a column or
+                # table to prevent shimmering
+                tarray::table::sort {*}$options $operand $target
+            }
+            ""      { error "Operand of @sort must be a column or table" } 
+            default { tarray::column::sort -indirect $target {*}$options $operand}
+        }]
+    }
 }
 
 proc tarray::teval::testconstexpr {expr desc} {

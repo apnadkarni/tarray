@@ -115,6 +115,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     # when used inside a function call
     SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WSob SortOption)* ;
 leaf: SortOption <- 'indices' 
+                    / 'nocase'
                     / 'increasing'
                     / 'decreasing' ;
 
