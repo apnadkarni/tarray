@@ -38,7 +38,29 @@ namespace eval tarray::ast {
     }
 }
 
-namespace eval tarray::teval {}
+namespace eval tarray::teval {
+    proc _map_search_op {op} {
+        # Maps relational operators to column search switches
+        return [dict get {
+            ==  {-eq}
+            !=  {-not -eq}
+            <   {-lt}
+            <=  {-not -gt}
+            >   {-gt}
+            >=  {-not -lt}
+            =^  {-nocase -eq}
+            !^  {-nocase -not -eq}
+            =~  {-re}
+            !~  {-not -re}
+            =~^ {-nocase -re}
+            !~^ {-nocase -not -re}
+            =*  {-pat}
+            !*  {-not -pat}
+            =*^ {-nocase -pat}
+            !*^ {-nocase -not -pat}
+        } $op]
+    }
+} 
 
 proc tarray::_init_tcompiler {} {
     teval::Compiler create tcompiler
@@ -1062,10 +1084,19 @@ oo::class create tarray::teval::Compiler {
 
     method SearchCommand {operand args} {
         if {[lindex $args 0 0] eq "SearchTarget"} {
-            return "\[tarray::teval::rt::search [my {*}[lindex $args 0]] [lindex $args 1 1] [my {*}[lindex $args 2]] -among [my {*}$operand] [lrange $args 3 end]\]"
+            set search_col [my {*}[lindex $args 0]]
+            set op [tarray::teval::_map_search_op [lindex $args 1 1]]
+            set search_val [my {*}[lindex $args 2]]
+            set opts "-among [my {*}$operand] [lrange $args 3 end]"
+            # return "\[tarray::teval::rt::search [my {*}[lindex $args 0]] [tarray::teval::_map_search_op [lindex $args 1 1]] [my {*}[lindex $args 2]] -among [my {*}$operand] [lrange $args 3 end]\]"
         } else {
-            return "\[tarray::teval::rt::search [my {*}$operand] [lindex $args 0 1] [my {*}[lindex $args 1]] [lrange $args 2 end]\]" 
+            set search_col [my {*}$operand]
+            set op [tarray::teval::_map_search_op [lindex $args 0 1]]
+            set search_val [my {*}[lindex $args 1]]
+            set opts "[lrange $args 2 end]"
+            # return "\[tarray::teval::rt::search [my {*}$operand] [tarray::teval::_map_search_op [lindex $args 0 1]] [my {*}[lindex $args 1]] [lrange $args 2 end]\]" 
         }
+        return "\[tarray::column::search $opts $op $search_col $search_val\]"
     }
     
     method SearchTarget {postexpr} {
