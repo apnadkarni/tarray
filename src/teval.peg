@@ -86,6 +86,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     BuiltIn <- ColumnConstructor
                / TableConstructor
 	       / ListCast
+	       / DeleteCommand
 	       / DictCast
 	       / SortCommand
 	       / SearchCommand
@@ -111,6 +112,8 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
     TableColumnDef   <- ColumnIdentifier WSNL ColumnType ;
 
+    DeleteCommand <- [@] 'delete' WS Expression (WS RangeExpr / WS Expression)? ;
+
     # Note cannot use ',' as separator here since that will create ambiguity
     # when used inside a function call
     SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WS SortOption)* ;
@@ -122,8 +125,6 @@ leaf: SortOption <- 'indices'
                     / 'decreasing' ;
 
     SearchCommand <- [@] 'search' WS PostfixExpr (WS SearchTarget)? WS RelOp WS PostfixExpr WS (WS SearchOption)* ; 
-#    SearchCommand <- [@] 'search' WS PostfixExpr (WS SearchTarget)? WS RelOp Expression (WS SearchOption)* ;
-#    SearchCommand <- [@] 'search' WS Expression (WS SearchTarget)? (WS SearchOption)* ;
     SearchTarget <- '->' WS PostfixExpr ;
 leaf:    SearchOption  <- 'inline' / 'all' ;
     

@@ -611,6 +611,10 @@ oo::class create tarray::teval::Parser {
     method SearchOption {from to} {
         return "-[string range $Script $from $to]"
     }
+
+    method DeleteCommand {from to expr expr2} {
+        return [list DeleteCommand $expr $expr2]
+    }
 }
 
 oo::class create tarray::teval::Compiler {
@@ -1101,6 +1105,14 @@ oo::class create tarray::teval::Compiler {
     
     method SearchTarget {postexpr} {
         return [my {*}$postexpr]
+    }
+
+    method DeleteCommand {operand position} {
+        if {[lindex $position 0] eq "Range"} {
+            return "\[tarray::teval::rt::delete [my {*}$operand] [my {*}[lindex $position 1]] [my {*}[lindex $position 2]]\]"
+        } else {
+            return "\[tarray::teval::rt::delete [my {*}$operand] [my {*}$position]\]"
+        }
     }
 }
 
@@ -2006,6 +2018,14 @@ namespace eval tarray::teval::rt {
             }
             ""      { error "Operand of @sort must be a column or table" } 
             default { tarray::column::sort -indirect $target {*}$options $operand}
+        }]
+    }
+
+    proc delete {operand args} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table { tarray::table::delete $operand {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::delete $operand {*}$args }
         }]
     }
 
