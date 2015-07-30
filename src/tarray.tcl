@@ -219,6 +219,7 @@ namespace eval tarray {
             fold fold
             get get
             index index
+            inject inject
             insert insert
             intersect3 intersect3
             lookup lookup
@@ -235,6 +236,7 @@ namespace eval tarray {
             type type
             vdelete vdelete
             vfill vfill
+            vinject vinject
             vinsert vinsert
             vplace vplace
             vput vput
