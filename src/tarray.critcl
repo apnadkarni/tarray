@@ -516,16 +516,24 @@ critcl::ccommand tarray::column::fold tcol_fold_cmd
 critcl::ccommand tarray::column::insert {} {
     Tcl_Obj *tcol;
     int status;
+    int count;
 
     if (objc != 4 && objc != 5) {
-    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMN (VALUES POSITION | VALUE POSITION COUNT)");
+    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMN VALUE POSITION ?COUNT?");
 	return TCL_ERROR;
     }
+    
+    if (objc == 5) {
+        status = ta_get_int_from_obj(interp, objv[4], &count);
+        if (status != TCL_OK)
+            return status;
+    } else
+        count = 1;
     
     tcol = objv[1];
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
-    status = tcol_insert_obj(interp, tcol, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    status = tcol_insert_elem(interp, tcol, objv[2], objv[3], count);
     TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
@@ -533,9 +541,53 @@ critcl::ccommand tarray::column::insert {} {
 critcl::ccommand tarray::column::vinsert {} {
     Tcl_Obj *tcol;
     int status;
+    int count;
 
     if (objc != 4 && objc != 5) {
-    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMNVAR (VALUES POSITION | VALUE POSITION COUNT)");
+    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMNVAR VALUE POSITION ?COUNT?");
+	return TCL_ERROR;
+    }
+    
+    if (objc == 5) {
+        status = ta_get_int_from_obj(interp, objv[4], &count);
+        if (status != TCL_OK)
+            return status;
+    } else
+        count = 1;
+    
+    tcol = Tcl_ObjGetVar2(interp, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (tcol == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
+    status = tcol_insert_elem(interp, tcol, objv[2], objv[3], count);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
+    return ta_set_var_result(interp, status, objv[1], tcol);
+}
+
+critcl::ccommand tarray::column::inject {} {
+    Tcl_Obj *tcol;
+    int status;
+
+    if (objc != 4) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMN VALUES POSITION");
+	return TCL_ERROR;
+    }
+    
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
+    status = tcol_insert_elems(interp, tcol, objv[2], objv[3]);
+    TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
+    return ta_return_result(interp, status, tcol);
+}
+
+critcl::ccommand tarray::column::vinject {} {
+    Tcl_Obj *tcol;
+    int status;
+
+    if (objc != 4) {
+    	Tcl_WrongNumArgs(interp, 1, objv, "COLUMNVAR VALUES POSITION");
 	return TCL_ERROR;
     }
     
@@ -544,7 +596,7 @@ critcl::ccommand tarray::column::vinsert {} {
         return TCL_ERROR;
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
-    status = tcol_insert_obj(interp, tcol, objv[2], objv[3], objc == 4 ? NULL : objv[4]);
+    status = tcol_insert_elems(interp, tcol, objv[2], objv[3]);
     TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, objv[1], tcol);
 }
