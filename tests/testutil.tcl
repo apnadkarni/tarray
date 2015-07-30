@@ -434,7 +434,6 @@ if {![info exists tarray::test::known]} {
 
         proc tab_change_and_verify {types initrows expected op args} {
             set coldef [col_def $types]
-puts coldef:$coldef
             set tab [tarray::table create $coldef $initrows]
             if {![trequal [tarray::table {*}$op $tab {*}$args] $coldef $expected]} {
                 return 1

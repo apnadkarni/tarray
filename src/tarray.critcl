@@ -577,7 +577,7 @@ critcl::ccommand tarray::column::inject {} {
     tcol = objv[1];
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
-    status = tcol_insert_elems(interp, tcol, objv[2], objv[3]);
+    status = tcol_inject_elems(interp, tcol, objv[2], objv[3]);
     TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_return_result(interp, status, tcol);
 }
@@ -596,7 +596,7 @@ critcl::ccommand tarray::column::vinject {} {
         return TCL_ERROR;
     if (Tcl_IsShared(tcol))
         tcol = Tcl_DuplicateObj(tcol);
-    status = tcol_insert_elems(interp, tcol, objv[2], objv[3]);
+    status = tcol_inject_elems(interp, tcol, objv[2], objv[3]);
     TA_ASSERT(status != TCL_OK || tcol_check(interp, tcol));
     return ta_set_var_result(interp, status, objv[1], tcol);
 }
@@ -1295,13 +1295,13 @@ critcl::ccode {
 
     static TCL_RESULT table_insert_parseargs(
     Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
-    Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pofirst, Tcl_Obj **pocount, Tcl_Obj **pomap)
+    Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pofirst,  int *pcount, Tcl_Obj **pomap)
     {
         int argoff;
 
         if (objc < 4 || objc > 7) {
             if (ip)
-                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE  (ROWS INDEXLIST | ROW LOW ?HIGH?)");
+                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE ROW LOW ?COUNT?");
             return TCL_ERROR;
         }
 
@@ -1318,33 +1318,64 @@ critcl::ccode {
         *potab = objv[++argoff];
         *povalues = objv[++argoff];
         *pofirst = objv[++argoff];
-        *pocount = ++argoff < objc ? objv[argoff] : NULL;
+        if (++argoff < objc) {
+            if (ta_get_int_from_obj(ip, objv[argoff], pcount) != TCL_OK)
+                return TCL_ERROR;
+        } else
+            *pcount = 1;
         
+        return TCL_OK;
+    }
+
+    static TCL_RESULT table_inject_parseargs(
+    Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+    Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pofirst, Tcl_Obj **pomap)
+    {
+        int argoff;
+
+        if (objc != 4 && objc != 6) {
+            if (ip)
+                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE ROWS POS");
+            return TCL_ERROR;
+        }
+
+        argoff = 0;
+        *pomap = NULL;
+        if (objc == 6) {
+            if (strcmp(Tcl_GetString(objv[1]), "-columns"))
+                return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+            argoff = 2;
+            *pomap = objv[2];
+        }
+
+        *potab = objv[++argoff];
+        *povalues = objv[++argoff];
+        *pofirst = objv[++argoff];
         return TCL_OK;
     }
 }
 
 critcl::ccommand tarray::table::insert {} {
-    Tcl_Obj *table, *ovalues, *ofirst, *ocount, *omap;
-    int status;
+    Tcl_Obj *table, *ovalues, *ofirst, *omap;
+    int status, count;
 
     if (table_insert_parseargs(interp, objc, objv, &table, &ovalues,
-                               &ofirst, &ocount, &omap) != TCL_OK)
+                               &ofirst, &count, &omap) != TCL_OK)
         return TCL_ERROR;
 
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
-    status = table_insert_obj(interp, table, ovalues, ofirst, ocount, omap);
+    status = table_insert_row(interp, table, ovalues, ofirst, count, omap);
     TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_return_result(interp, status, table);
 }
 
 critcl::ccommand tarray::table::vinsert {} {
-    Tcl_Obj *ovar, *table, *ovalues, *ofirst, *ocount, *omap;
-    int status;
+    Tcl_Obj *ovar, *table, *ovalues, *ofirst, *omap;
+    int status, count;
 
     if (table_insert_parseargs(interp, objc, objv, &ovar, &ovalues,
-                               &ofirst, &ocount, &omap) != TCL_OK)
+                               &ofirst, &count, &omap) != TCL_OK)
         return TCL_ERROR;
 
     table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
@@ -1352,7 +1383,40 @@ critcl::ccommand tarray::table::vinsert {} {
         return TCL_ERROR;
     if (Tcl_IsShared(table))
         table = Tcl_DuplicateObj(table);
-    status = table_insert_obj(interp, table, ovalues, ofirst, ocount, omap);
+    status = table_insert_row(interp, table, ovalues, ofirst, count, omap);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
+    return ta_set_var_result(interp, status, ovar, table);
+}
+
+critcl::ccommand tarray::table::inject {} {
+    Tcl_Obj *table, *ovalues, *ofirst, *omap;
+    int status, count;
+
+    if (table_inject_parseargs(interp, objc, objv, &table, &ovalues,
+                               &ofirst, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_inject_rows(interp, table, ovalues, ofirst, omap);
+    TA_ASSERT(status != TCL_OK || table_check(interp, table));
+    return ta_return_result(interp, status, table);
+}
+
+critcl::ccommand tarray::table::vinject {} {
+    Tcl_Obj *ovar, *table, *ovalues, *ofirst, *omap;
+    int status;
+
+    if (table_inject_parseargs(interp, objc, objv, &ovar, &ovalues,
+                               &ofirst, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    table = Tcl_ObjGetVar2(interp, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_inject_rows(interp, table, ovalues, ofirst, omap);
     TA_ASSERT(status != TCL_OK || table_check(interp, table));
     return ta_set_var_result(interp, status, ovar, table);
 }

@@ -96,217 +96,6 @@ namespace eval tarray::test {
     } -result "*index 12*out of bounds*" -match glob -returnCodes error
 
 
-    test table_vinsert-list-1.0 {
-        Vinsert single element list at start of empty table
-    } -body { 
-        set types {string boolean uint}
-        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [samplerows $types 0 0] 0
-    } -result 0
-
-    test table_vinsert-list-1.1 {
-        Vinsert single element list at end of empty table
-    } -body { 
-        set types {boolean string int wide}
-        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [samplerows $types 0 0] end
-    } -result 0
-
-    test table_vinsert-list-1.2 {
-        Vinsert list at start of empty column
-    } -body {
-        set types {boolean any int wide}
-        vtab_change_and_verify $types {} [samplerows $types 0 1] vinsert [samplerows $types 0 1] 0
-    } -result 0
-
-    test table_vinsert-list-2.0 {
-        Vinsert multiple element at start of table
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [samplerows $types 11 15] 0
-    } -result 0
-
-    test table_vinsert-list-2.1 {
-        Vinsert multiple element at start of table
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [samplerows $types 11 15] 0
-    } -result 0
-
-    test table_vinsert-list-2.2 {
-        Vinsert multiple element at end of table
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 11 15] vinsert [samplerows $types 11 15] end
-    } -result 0
-
-    test table_vinsert-list-2.3 {
-        Vinsert multiple element at penultimate position
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 99 11 15 100 100] vinsert [samplerows $types 11 15] 100
-    } -result 0
-
-    test table_vinsert-list-2.4 {
-        Vinsert multiple elements in middle
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 50 11 15 51 100] vinsert [samplerows $types 11 15] 51
-    } -result 0
-
-    test table_vinsert-list-2.5 {
-        Vinsert elements in middle of column
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 9 0 9 10 100] vinsert [samplerows $types 0 9] 10
-    } -result 0
-
-    test table_vinsert-list-2.6 {
-        Vinsert multiple elements in middle extending column
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 10 19 95 100] vinsert [samplerows $types 10 19] 95
-    } -result 0
-
-    test table_vinsert-list-2.7 {
-        Vinsert multiple elements in middle extending column
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 0 100 95 100] vinsert [samplerows $types 0 100] 95
-    } -result 0
-
-    test table_vinsert-list-2.8 {
-        Vinsert elements after last element
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 0 100] vinsert [samplerows $types 0 100] 101
-    } -result 0
-
-    test table_vinsert-list-3.0 {
-        Vinsert zero elements
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert {} 100
-    } -result 0
-
-    test table_vinsert-list-3.1 {
-        Vinsert elements at negative index
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [samplerows $types 0 1] -1
-    } -result "*index -1*out of bounds*" -match glob -returnCodes error
-
-    test table_vinsert-list-3.2 {
-        Vinsert elements at out of bounds index
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100] vinsert [samplerows $types 0 1] 102
-    } -result "*index 102*out of bounds*" -match glob -returnCodes error
-
-
-    test table_vinsert-table-1.0 {
-        Vinsert single element table at start of empty table
-    } -body { 
-        set types {any boolean uint}
-        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [sampletable $types 0 0] 0
-    } -result 0
-
-    test table_vinsert-table-1.1 {
-        Vinsert single element table at end of empty table
-    } -body { 
-        set types {boolean string int wide}
-        vtab_change_and_verify $types {} [samplerows $types 0 0] vinsert [sampletable $types 0 0] end
-    } -result 0
-
-    test table_vinsert-table-1.2 {
-        Vinsert table at start of empty column
-    } -body {
-        set types {boolean any int wide}
-        vtab_change_and_verify $types {} [samplerows $types 0 1] vinsert [sampletable $types 0 1] 0
-    } -result 0
-
-    test table_vinsert-table-2.0 {
-        Vinsert multiple element at start of table
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [sampletable $types 11 15] 0
-    } -result 0
-
-    test table_vinsert-table-2.1 {
-        Vinsert multiple element at start of table
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 10] [samplerows $types 11 15 0 10] vinsert [sampletable $types 11 15] 0
-    } -result 0
-
-    test table_vinsert-table-2.2 {
-        Vinsert multiple element at end of table
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 11 15] vinsert [sampletable $types 11 15] end
-    } -result 0
-
-    test table_vinsert-table-2.3 {
-        Vinsert multiple element at penultimate position
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 99 11 15 100 100] vinsert [sampletable $types 11 15] 100
-    } -result 0
-
-    test table_vinsert-table-2.4 {
-        Vinsert multiple elements in middle
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 50 11 15 51 100] vinsert [sampletable $types 11 15] 51
-    } -result 0
-
-    test table_vinsert-table-2.5 {
-        Vinsert elements in middle of column
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 9 0 9 10 100] vinsert [sampletable $types 0 9] 10
-    } -result 0
-
-    test table_vinsert-table-2.6 {
-        Vinsert multiple elements in middle extending column
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 10 19 95 100] vinsert [sampletable $types 10 19] 95
-    } -result 0
-
-    test table_vinsert-table-2.7 {
-        Vinsert multiple elements in middle extending column
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 94 0 100 95 100] vinsert [sampletable $types 0 100] 95
-    } -result 0
-
-    test table_vinsert-table-2.8 {
-        Vinsert elements after last element
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100 0 100] vinsert [sampletable $types 0 100] 101
-    } -result 0
-
-    test table_vinsert-table-3.0 {
-        Vinsert zero elements
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [newtable $types {}] 100
-    } -result 0
-
-    test table_vinsert-table-3.1 {
-        Vinsert elements at negative index
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types] [samplerows $types] vinsert [sampletable $types 0 1] -1
-    } -result "*index -1*out of bounds*" -match glob -returnCodes error
-
-    test table_vinsert-table-3.2 {
-        Vinsert elements at out of bounds index
-    } -body {
-        set types {boolean any string int wide double byte uint}
-        vtab_change_and_verify $types [samplerows $types 0 100] [samplerows $types 0 100] vinsert [sampletable $types 0 1] 102
-    } -result "*index 102*out of bounds*" -match glob -returnCodes error
-
     #
     # Verify string rep regeneration
 
@@ -314,7 +103,7 @@ namespace eval tarray::test {
         Verify string representation is updated on unshared object - bug 18
     } -body {
         set ta {tarray_table {f0 f1 f2} {{tarray_column int {99}} {tarray_column int {99}} {tarray_column int {99}}}}
-        tarray::table vinsert ta {{0 1 2}} 1
+        tarray::table vinsert ta {0 1 2} 1
         set ta
     } -result {tarray_table {f0 f1 f2} {{tarray_column int {99 0}} {tarray_column int {99 1}} {tarray_column int {99 2}}}}
 
@@ -334,14 +123,14 @@ namespace eval tarray::test {
     } -result 1
 
     test table_vinsert-columnsopt-1.1 {
-        Verify insert list, all columns using names out of order
+        Verify insert all columns using names out of order
     } -setup {
         set init { {0 zero 0 0.0} {1 one 1 1.0} {0 two 2 2.0} {1 three 3 3.0} {0 four 4 4.0} }
         set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {1 col0 3 col2} tab [list {ninetynine 1 99.0 99} {hundred 0 100.0 100}] 1
-        trequal $tab $def [linsert $init 1 {1 ninetynine 99 99.0} {0 hundred 100 100.0}]
+        tarray::table vinsert -columns {1 col0 3 col2} tab {ninetynine 1 99.0 99} 1 2
+        trequal $tab $def [linsert $init 1 {1 ninetynine 99 99.0} {1 ninetynine 99 99.0} ]
     } -result 1
 
     test table_vinsert-columnsopt-1.2 {
@@ -351,8 +140,8 @@ namespace eval tarray::test {
         set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {1 col0 3 col2} tab [list {ninetynine 1 99.0 99} {hundred 0 100.0 100}] end
-        trequal $tab $def [linsert $init end {1 ninetynine 99 99.0} {0 hundred 100 100.0}]
+        tarray::table vinsert -columns {1 col0 3 col2} tab {hundred 0 100.0 100} end 2
+        trequal $tab $def [linsert $init end {0 hundred 100 100.0} {0 hundred 100 100.0}]
     } -result 1
 
     test table_vinsert-columnsopt-1.3 {
@@ -383,7 +172,7 @@ namespace eval tarray::test {
         set def {col0 boolean col1 any col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {2 col1} tab {{99 ninetynine} {100 hundred}} 1
+        tarray::table vinsert -columns {2 col1} tab {100 hundred} 1
     } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
 
     test table_vinsert-columnsopt-3.0 {
@@ -402,7 +191,7 @@ namespace eval tarray::test {
         set def {col0 boolean col1 string col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {col0 col1 col2 col3 col5} tab [list {0 0 0 0 0}] 0
+        tarray::table vinsert -columns {col0 col1 col2 col3 col5} tab {0 0 0 0 0} 0
     } -result "No column with name 'col5'." -returnCodes error
 
     test table_vinsert-columnsopt-3.2 {
@@ -422,7 +211,7 @@ namespace eval tarray::test {
         set def {col0 boolean col1 any col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {col0 col1 col2 col3 col1} tab {{0 0 0 0 0}} 0
+        tarray::table vinsert -columns {col0 col1 col2 col3 col1} tab {0 0 0 0 0} 0
     } -result "Column index '1' specified multiple times in column list." -returnCodes error
 
     test table_vinsert-columnsopt-3.4 {
@@ -442,8 +231,8 @@ namespace eval tarray::test {
         set def {col0 boolean col1 any col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {col0 col1 col2 col3} tab {{0 0 0}} 0
-    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+        tarray::table vinsert -columns {col0 col1 col2 col3} tab {0 0 0} 0
+    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
     
     test table_vinsert-columnsopt-3.6 {
         Verify empty column list
@@ -462,7 +251,7 @@ namespace eval tarray::test {
         set def {col0 boolean col1 any col2 int col3 double}
         set tab [tarray::table create $def $init]
     } -body {
-        tarray::table vinsert -columns {0 1 2 -1} tab {0 0 0 0} end
+        tarray::table vinsert -columns {0 1 2 -1} tab {0 0 0 0} end 1
     } -result "Column index '-1' out of bounds." -returnCodes error
 
 
