@@ -582,8 +582,12 @@ oo::class create tarray::teval::Parser {
         return [list SearchCommand $expr {*}$args]
     }
     
+    method SearchTarget {from to expr} {
+        return [list SearchTarget $expr]
+    }
+    
     method SearchOption {from to} {
-        return [list SearchOption [string range $Script $from $to]]
+        return "-[string range $Script $from $to]"
     }
 }
 
@@ -1039,7 +1043,7 @@ oo::class create tarray::teval::Compiler {
         return "\[tarray::teval::rt::dictcast [my {*}$expr]\]"
     }
 
-    method SortCommand {expr args} {
+    method SortCommand {operand args} {
 
         set options {}
         foreach arg $args {
@@ -1050,10 +1054,22 @@ oo::class create tarray::teval::Compiler {
             }
         }
         if {[info exists target]} {
-            return "\[tarray::teval::rt::sort_indirect [my {*}$expr] [my {*}$target] {$options}\]"
+            return "\[tarray::teval::rt::sort_indirect [my {*}$operand] [my {*}$target] {$options}\]"
         } else {
-            return "\[tarray::teval::rt::sort [my {*}$expr] {$options}\]"
+            return "\[tarray::teval::rt::sort [my {*}$operand] {$options}\]"
         }
+    }
+
+    method SearchCommand {operand args} {
+        if {[lindex $args 0 0] eq "SearchTarget"} {
+            return "\[tarray::teval::rt::search [my {*}[lindex $args 0]] [lindex $args 1 1] [my {*}[lindex $args 2]] -among [my {*}$operand] [lrange $args 3 end]\]"
+        } else {
+            return "\[tarray::teval::rt::search [my {*}$operand] [lindex $args 0 1] [my {*}[lindex $args 1]] [lrange $args 2 end]\]" 
+        }
+    }
+    
+    method SearchTarget {postexpr} {
+        return [my {*}$postexpr]
     }
 }
 
@@ -1961,6 +1977,7 @@ namespace eval tarray::teval::rt {
             default { tarray::column::sort -indirect $target {*}$options $operand}
         }]
     }
+
 }
 
 proc tarray::teval::testconstexpr {expr desc} {
