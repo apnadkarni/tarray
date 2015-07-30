@@ -150,7 +150,7 @@ text {
     
     ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ _COUNT_"))
 
-    ((cmddef table_insert_1 "table insert _TABLE_ _ROWVALUES_ _FIRST_"))
+    ((cmddef table_insert_1 "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ _FIRST_"))
     
     In the first form, inserts _COUNT_ rows with value _ROWVALUE_ at position
     _FIRST_ and returns the new table. In the second form, _ROWVALUES_ may be a
