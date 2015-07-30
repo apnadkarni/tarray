@@ -4128,42 +4128,44 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
     return status;
 }
 
-TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
-                           Tcl_Obj *opos, Tcl_Obj *ocount)
+TCL_RESULT tcol_insert_elem(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                            Tcl_Obj *opos, int count) 
 {
     int status;
+    int pos, used;
     TA_ASSERT(! Tcl_IsShared(tcol));
-
-    if (ocount == NULL) {
-        /* Values may be given as a column or a list */
-        if ((status = tcol_convert(NULL, ovalue)) == TCL_OK)
-            status = tcol_copy_thdr(ip, tcol, tcol_thdr(ovalue), opos, 1);
-        else
-            status = tcol_put_objs(ip, tcol, ovalue, opos, 1);
-    } else {
-        int pos, count, used;
-        if ((status = ta_get_int_from_obj(ip, ocount, &count)) == TCL_OK &&
-            (status = tcol_convert(ip, tcol)) == TCL_OK) {
-            used = tcol_occupancy(tcol);
-            if (count > 0) {
-                if ((status = tcol_make_modifiable(ip, tcol, count+used, 0)) == TCL_OK &&
-                    (status = ta_convert_index(ip, opos, &pos, used,
+    if ((status = tcol_convert(ip, tcol)) == TCL_OK) {
+        used = tcol_occupancy(tcol);
+        if (count > 0) {
+            if ((status = tcol_make_modifiable(ip, tcol, count+used, 0)) == TCL_OK &&
+                (status = ta_convert_index(ip, opos, &pos, used,
                                            0, used)) == TCL_OK) {
-                    ta_value_t tav;
-                    if ((status = ta_value_from_obj(ip, ovalue,
-                                                    tcol_type(tcol), &tav)) == TCL_OK) {
-                        thdr_fill_range(ip, tcol_thdr(tcol), &tav, pos, count, 1);
-                        ta_value_clear(&tav);
-                    }
+                ta_value_t tav;
+                if ((status = ta_value_from_obj(ip, ovalue,
+                                                tcol_type(tcol), &tav)) == TCL_OK) {
+                    thdr_fill_range(ip, tcol_thdr(tcol), &tav, pos, count, 1);
+                    ta_value_clear(&tav);
                 }
-            } else if (count < 0) {
-                status = ta_bad_count_error(ip, count);
-            } else {
-                status = TCL_OK; /* count == 0, nothing to do */
             }
+        } else if (count < 0) {
+            status = ta_bad_count_error(ip, count);
+        } else {
+            status = TCL_OK; /* count == 0, nothing to do */
         }
     }
     return status;
+}
+
+TCL_RESULT tcol_insert_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                             Tcl_Obj *opos)
+{
+    TA_ASSERT(! Tcl_IsShared(tcol));
+
+    /* Values may be given as a column or a list */
+    if (tcol_convert(NULL, ovalue) == TCL_OK)
+        return tcol_copy_thdr(ip, tcol, tcol_thdr(ovalue), opos, 1);
+    else
+        return tcol_put_objs(ip, tcol, ovalue, opos, 1);
 }
 
 

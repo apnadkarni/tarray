@@ -551,8 +551,10 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexA, Tcl_Obj *indexB);
-TCL_RESULT tcol_insert_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
-                           Tcl_Obj *opos, Tcl_Obj *ocount);
+TCL_RESULT tcol_insert_elem(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                            Tcl_Obj *opos, int count);
+TCL_RESULT tcol_insert_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+                             Tcl_Obj *opos);
 TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol);
 
 TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
