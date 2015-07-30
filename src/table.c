@@ -286,7 +286,7 @@ TCL_RESULT tcols_fill_range(
     if ((status = Tcl_ListObjGetElements(ip, orow, &row_width, &ovalues)) != TCL_OK)
         return status;
 
-    if (row_width < ntcols)
+    if (row_width != ntcols)
         return ta_row_width_error(ip, row_width, ntcols);
 
     if (row_width > sizeof(values)/sizeof(values[0]))
@@ -306,8 +306,8 @@ TCL_RESULT tcols_fill_range(
 
     for (i = 0; i < ntcols; ++i) {
         thdr_fill_range(ip, tcol_thdr(tcols[i]),
-                        &values[i], pos, count, insert);
-        ta_value_clear(&values[i]);
+                        &pvalues[i], pos, count, insert);
+        ta_value_clear(&pvalues[i]);
     }
 
     /* status will already contain TCL_OK */
@@ -474,7 +474,7 @@ TCL_RESULT tcols_fill_indices(
     if ((status = Tcl_ListObjGetElements(ip, orow, &row_width, &ovalues)) != TCL_OK)
         return status;
 
-    if (row_width < ntcols)
+    if (row_width != ntcols)
         return ta_row_width_error(ip, row_width, ntcols);
 
     if (row_width > sizeof(values)/sizeof(values[0]))
@@ -494,8 +494,8 @@ TCL_RESULT tcols_fill_indices(
 
     /* Now that verification is complete, go do the actual changes */
     for (i = 0; i < ntcols; ++i) {
-        thdr_fill_indices(ip, tcol_thdr(tcols[i]), &values[i], pindices, new_size);
-        ta_value_clear(&values[i]);
+        thdr_fill_indices(ip, tcol_thdr(tcols[i]), &pvalues[i], pindices, new_size);
+        ta_value_clear(&pvalues[i]);
     }
 
     /* status will already be TCL_OK */
@@ -731,8 +731,7 @@ TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
     for (r = 0; r < nrows; ++r) {
         if (Tcl_ListObjLength(ip, rows[r], &i) == TCL_ERROR)
             return TCL_ERROR;
-        /* Width of row must not be too short, longer is ok */
-        if (i < width)
+        if (i != width)
             return ta_row_width_error(ip, i, width);
     }
     return TCL_OK;
@@ -774,7 +773,7 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
             return TCL_ERROR;
 
         /* Must have sufficient fields, more is ok */
-        if (nfields < ntcols)
+        if (nfields != ntcols)
             return ta_row_width_error(ip, nfields, ntcols);
 
         for (t = 0; t < ntcols; ++t) {
@@ -1431,7 +1430,7 @@ TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable,
         if (table_make_modifiable(ip, dstable, new_size, new_size) == TCL_OK) {
             /* Note this must be AFTER table_make_modifiable as columns might change */
             if (column_map_get_columns(ip, &colmap, dstable, &dstcols, &ntcols) == TCL_OK) {
-                if (ntcols > table_width(srctable))
+                if (ntcols != table_width(srctable))
                     status = ta_row_width_error(ip, table_width(srctable), ntcols);
                 else
                     status = tcols_copy(ip, ntcols, dstcols, first,
@@ -1810,48 +1809,51 @@ Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index)
     return olist;
 }
 
-TCL_RESULT table_insert_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, Tcl_Obj *ocount, Tcl_Obj *omap)
+TCL_RESULT table_insert_row(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
+                            Tcl_Obj *opos, int count, Tcl_Obj *omap)
 {
     int status;
+    int pos, col_len, ncols;
+    Tcl_Obj **tcols;
+    column_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(table));
     
-    if (ocount == NULL) {
-        /* Values may be given as a column or a list */
-        if ((status = table_convert(NULL, ovalue)) == TCL_OK)
-            status =  table_copy(ip, table, ovalue, opos, omap, 1);
-        else
-            status =  table_put_objs(ip, table, ovalue, opos, omap, 1);
-    } else {
-        int pos, count, col_len, ncols;
-        Tcl_Obj **tcols;
-        column_map_t colmap;
-        if ((status = Tcl_GetIntFromObj(ip, ocount, &count)) == TCL_OK &&
-            (status = table_convert(ip, table)) == TCL_OK) {
+    if ((status = table_convert(ip, table)) == TCL_OK) {
 
-            col_len = table_length(table);
+        col_len = table_length(table);
 
-            if (column_map_init(ip, omap, table, &colmap) != TCL_OK ||
-                column_map_verify(ip, &colmap, table_width(table), col_len, count+col_len) != TCL_OK)
-                return TCL_ERROR;
+        if (column_map_init(ip, omap, table, &colmap) != TCL_OK ||
+            column_map_verify(ip, &colmap, table_width(table), col_len, count+col_len) != TCL_OK)
+            return TCL_ERROR;
 
-            if (count > 0) {
-                if ((status = table_make_modifiable(ip, table, count+col_len, 0)) == TCL_OK &&
-                    (status = ta_convert_index(ip, opos, &pos, col_len,
-                                               0, col_len)) == TCL_OK &&
-                    (status = column_map_get_columns(ip, &colmap, table, &tcols, &ncols)) == TCL_OK) {
-                    status = tcols_fill_range(ip, ncols, tcols,
-                                              ovalue, pos, count, 1);
-                }
-            } else if (count < 0) {
-                status = ta_bad_count_error(ip, count);
-            } else {
-                status = TCL_OK; /* count == 0, nothing to do */
+        if (count > 0) {
+            if ((status = table_make_modifiable(ip, table, count+col_len, 0)) == TCL_OK &&
+                (status = ta_convert_index(ip, opos, &pos, col_len,
+                                           0, col_len)) == TCL_OK &&
+                (status = column_map_get_columns(ip, &colmap, table, &tcols, &ncols)) == TCL_OK) {
+                status = tcols_fill_range(ip, ncols, tcols,
+                                          ovalue, pos, count, 1);
             }
+        } else if (count < 0) {
+            status = ta_bad_count_error(ip, count);
+        } else {
+            status = TCL_OK; /* count == 0, nothing to do */
         }
     }
     return status;
+}
+
+TCL_RESULT table_inject_rows(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
+                            Tcl_Obj *opos, Tcl_Obj *omap)
+{
+    TA_ASSERT(! Tcl_IsShared(table));
+    
+    /* Values may be given as a column or a list */
+    if (table_convert(NULL, ovalue) == TCL_OK)
+        return table_copy(ip, table, ovalue, opos, omap, 1);
+    else
+        return table_put_objs(ip, table, ovalue, opos, omap, 1);
 }
 
 
@@ -1899,7 +1901,7 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
 
     if (table_convert(NULL, ovalues) == TCL_OK) {
         /* Source values specified as a table */
-        if (table_width(ovalues) < ntcols) {
+        if (table_width(ovalues) != ntcols) {
             ta_row_width_error(ip, table_width(ovalues), ntcols);
             goto vamoose;
         }

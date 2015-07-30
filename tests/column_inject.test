@@ -1,0 +1,231 @@
+# column inject tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # Note two general types of tests - via a temp variable and directly
+    # from the create return value. The difference is that in the
+    # former case the value ref count is > 1, and the object needs to
+    # be dup'ed while in the latter the ref count is 1 and the called
+    # command can directly use it.
+    # Also, when modifying a temp variable tests have to confirm that
+    # the original is not modified
+
+    foreach type {boolean string any byte double int uint wide } {
+
+        test column_inject-list-$type-1.0 {
+            Inject single element list at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 0] inject [samplerange $type 0 0] 0
+        } -result 0
+
+        test column_inject-list-$type-1.1 {
+            Inject list at end of empty column (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type] [samplerange $type end end] end
+        } -result [crep $type [samplerange $type end end]] -match column
+
+        test column_inject-list-$type-1.2 {
+            Inject list at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 1] inject [samplerange $type 0 1] 0
+        } -result 0
+
+        test column_inject-list-$type-2.0 {
+            Inject multiple element at start of column (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 128]] [samplerange $type 129 end] 0
+        } -result [crep $type [linsert [samplerange $type 0 128] 0 {*}[samplerange $type 129 end]]] -match column
+
+        test column_inject-list-$type-2.1 {
+            Inject multiple element at start of column (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set injections [samplerange $type 32 end]
+            col_change_and_verify $type $values [linsert $values 0 {*}$injections] inject $injections 0
+        } -result 0
+
+        test column_inject-list-$type-2.2 {
+            Inject elements after end element (shared)
+        } -body {
+            set values [largerange $type 0 100]
+            set injections [largerange $type 150 end]
+            col_change_and_verify $type $values [linsert $values end {*}$injections] inject $injections end
+        } -result 0
+
+        test column_inject-list-$type-2.3 {
+            Inject multiple element at penultimate position (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 128]] [samplerange $type 129 end] 128
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_inject-list-$type-2.4 {
+            Inject multiple elements in middle (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type]] [samplerange $type 20 40] 64
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[samplerange $type 20 40]]] -match column
+
+        test column_inject-list-$type-2.5 {
+            Inject elements in middle of column (shared)
+        } -body {
+            set values [samplerange $type]
+            set injections [samplerange $type 100 end]
+            col_change_and_verify $type $values [linsert $values 63 {*}$injections] inject $injections 63
+        } -result 0
+
+        test column_inject-list-$type-2.6 {
+            Inject multiple elements in middle extending column (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 255]] [samplerange $type 20 40] 250
+        } -result [crep $type [linsert [samplerange $type 0 255] 250 {*}[samplerange $type 20 40]]] -match column
+
+        test column_inject-list-$type-2.7 {
+            Inject elements in middle of column extending it (shared)
+        } -body {
+            set values [samplerange $type 0 16]
+            set injections [samplerange $type 2 end]
+            col_change_and_verify $type $values [linsert $values 14 {*}$injections] inject $injections 14
+        } -result 0
+
+        test column_inject-list-$type-2.8 {
+            Inject elements after last element (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set injections [samplerange $type]
+            col_change_and_verify $type $values [linsert $values end {*}$injections] inject $injections 32
+        } -result 0
+
+        test column_inject-list-$type-2.9 {
+            Inject multiple element at penultimate position (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 128]] [samplerange $type 129 end] end-1
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_inject-list-$type-3.0 {
+            Inject zero elements (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type]] {} 10
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_inject-list-$type-3.1 {
+            Inject elements at negative index (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type]] [samplerange $type 0 0] -1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_inject-list-$type-3.2 {
+            Inject elements at out of bounds index (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 10]] [samplerange $type 0 end] 12
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+
+
+        test column_inject-column-$type-1.0 {
+            Inject single element column at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 0] inject [samplecolumn $type 0 0] 0
+        } -result 0
+
+        test column_inject-column-$type-1.1 {
+            Inject column at end of empty column (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type] [samplecolumn $type end end] end
+        } -result [crep $type [samplerange $type end end]] -match column
+
+        test column_inject-column-$type-1.2 {
+            Inject column at start of empty column (shared)
+        } -body {
+            col_change_and_verify $type {} [samplerange $type 0 1] inject [samplecolumn $type 0 1] 0
+        } -result 0
+
+        test column_inject-column-$type-2.0 {
+            Inject multiple element column at start of column (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 128]] [samplecolumn $type 129 end] 0
+        } -result [crep $type [linsert [samplerange $type 0 128] 0 {*}[samplerange $type 129 end]]] -match column
+
+        test column_inject-column-$type-2.1 {
+            Inject multiple element column at start of column (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set injections [samplerange $type 32 end]
+            col_change_and_verify $type $values [linsert $values 0 {*}$injections] inject [newcolumn $type $injections] 0
+        } -result 0
+
+        test column_inject-column-$type-2.2 {
+            Inject column after end element (shared)
+        } -body {
+            set values [samplerange $type 0 100]
+            set injections [samplerange $type 150 end]
+            col_change_and_verify $type $values [linsert $values end {*}$injections] inject [newcolumn $type $injections] end
+        } -result 0
+
+        test column_inject-column-$type-2.3 {
+            Inject multiple element column at penultimate position (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 128]] [samplecolumn $type 129 end] 128
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_inject-column-$type-2.4 {
+            Inject column in middle (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type]] [samplecolumn $type 20 40] 64
+        } -result [crep $type [linsert [samplerange $type] 64 {*}[samplerange $type 20 40]]] -match column
+
+        test column_inject-column-$type-2.5 {
+            Inject column in middle of column (shared)
+        } -body {
+            set values [samplerange $type]
+            set injections [samplerange $type 100 end]
+            col_change_and_verify $type $values [linsert $values 63 {*}$injections] inject [newcolumn $type $injections] 63
+        } -result 0
+
+        test column_inject-column-$type-2.6 {
+            Inject column in middle extending column (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 255]] [samplecolumn $type 20 40] 250
+        } -result [crep $type [linsert [samplerange $type 0 255] 250 {*}[samplerange $type 20 40]]] -match column
+
+        test column_inject-column-$type-2.7 {
+            Inject column in middle of column extending it (shared)
+        } -body {
+            set values [samplerange $type 0 16]
+            set injections [samplerange $type 2 end]
+            col_change_and_verify $type $values [linsert $values 14 {*}$injections] inject [newcolumn $type $injections] 14
+        } -result 0
+
+        test column_inject-column-$type-2.8 {
+            Inject column after last element (shared)
+        } -body {
+            set values [samplerange $type 0 31]
+            set injections [samplerange $type]
+            col_change_and_verify $type $values [linsert $values end {*}$injections] inject [newcolumn $type $injections] 32
+        } -result 0
+
+        test column_inject-column-$type-2.9 {
+            Inject multiple element column at penultimate position (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 128]] [samplecolumn $type 129 end] end-1
+        } -result [crep $type [linsert [samplerange $type 0 128] 128 {*}[samplerange $type 129 end]]] -match column
+
+        test column_inject-column-$type-3.0 {
+            Inject zero elements (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type]] [newcolumn $type] 10
+        } -result [crep $type [samplerange $type]] -match column
+
+        test column_inject-column-$type-3.1 {
+            Inject column at negative index (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type]] [samplecolumn $type 0 0] -1
+        } -result "*index -1*out of bounds*" -match glob -returnCodes error
+
+        test column_inject-column-$type-3.2 {
+            Inject column at out of bounds index (unshared)
+        } -body {
+            tarray::column inject [newcolumn $type [samplerange $type 0 10]] [samplecolumn $type 0 end] 12
+        } -result "*index 12*out of bounds*" -match glob -returnCodes error
+    }
+    ::tcltest::cleanupTests
+}

@@ -4156,7 +4156,7 @@ TCL_RESULT tcol_insert_elem(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
     return status;
 }
 
-TCL_RESULT tcol_insert_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
+TCL_RESULT tcol_inject_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                              Tcl_Obj *opos)
 {
     TA_ASSERT(! Tcl_IsShared(tcol));

@@ -20,7 +20,7 @@ proc tarray::table::create {def {init {}} {size 0}} {
         lappend cols [tarray::column::create $coltype {} $size]
     }
 
-    return [insert [list tarray_table $colnames $cols] $init end]
+    return [inject [list tarray_table $colnames $cols] $init end]
 }
 
 # TBD - document and test
@@ -261,6 +261,7 @@ namespace eval tarray {
             fill fill
             get get
             index index
+            inject inject
             insert insert
             place place
             put put
@@ -271,6 +272,7 @@ namespace eval tarray {
             vcolumn vcolumn
             vdelete vdelete
             vfill vfill
+            vinject vinject
             vinsert vinsert
             vplace vplace
             vput vput

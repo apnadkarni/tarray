@@ -125,7 +125,7 @@ TCL_RESULT ta_row_width_error(Tcl_Interp *ip, int row_width, int min_width)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Row or table width %d less than destination width %d.", row_width, min_width));
+                         Tcl_ObjPrintf("Row or table width %d does not match destination width %d.", row_width, min_width));
         Tcl_SetErrorCode(ip, "TARRAY", "ROW", "WIDTH", NULL);
     }
     return TCL_ERROR;
