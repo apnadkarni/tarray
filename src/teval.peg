@@ -113,14 +113,19 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 
     # Note cannot use ',' as separator here since that will create ambiguity
     # when used inside a function call
-    SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WSob SortOption)* ;
+    SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WS SortOption)* ;
+    # Options do not begin with '-' because that creates ambiguity with
+    # expressions (- operator)
 leaf: SortOption <- 'indices' 
                     / 'nocase'
                     / 'increasing'
                     / 'decreasing' ;
 
-    SearchCommand <- [@] 'search' WS Expression (WS '->' WS Expression)? WS Expression (WSob SearchOption)* ;
-    SearchOption  <- '-inline' / '-all' ;
+    SearchCommand <- [@] 'search' WS PostfixExpr (WS SearchTarget)? WS RelOp WS PostfixExpr WS (WS SearchOption)* ; 
+#    SearchCommand <- [@] 'search' WS PostfixExpr (WS SearchTarget)? WS RelOp Expression (WS SearchOption)* ;
+#    SearchCommand <- [@] 'search' WS Expression (WS SearchTarget)? (WS SearchOption)* ;
+    SearchTarget <- '->' WS PostfixExpr ;
+leaf:    SearchOption  <- 'inline' / 'all' ;
     
     ListCast <- [@] 'list' WS Expression ;
 
