@@ -612,10 +612,6 @@ oo::class create tarray::teval::Parser {
         return "-[string range $Script $from $to]"
     }
 
-    method DeleteCommand {from to expr expr2} {
-        return [list DeleteCommand $expr $expr2]
-    }
-
     method BuiltInCall {from to args} {
         return [list BuiltInCall {*}$args]
     }
@@ -1115,16 +1111,9 @@ oo::class create tarray::teval::Compiler {
         return [my {*}$postexpr]
     }
 
-    method DeleteCommand {operand position} {
-        if {[lindex $position 0] eq "Range"} {
-            return "\[tarray::teval::rt::delete [my {*}$operand] [my {*}[lindex $position 1]] [my {*}[lindex $position 2]]\]"
-        } else {
-            return "\[tarray::teval::rt::delete [my {*}$operand] [my {*}$position]\]"
-        }
-    }
-
     method BuiltInCall {fn arglist} {
         set fn [dict get {
+            delete tarray::teval::rt::delete
             inject tarray::teval::rt::inject
             insert tarray::teval::rt::insert
             lookup tarray::column::lookup
