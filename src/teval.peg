@@ -113,7 +113,7 @@ leaf:    BuiltInFunction <- 'delete'
     TableColumns <- ColumnOp WS '(' WSNL TableColumnList? WSNL ')' ;
     TableColumnList <- ColumnIdentifier (WSNL ',' WSNL ColumnIdentifier)* ;
 
-    ColumnConstructor <- [@] ColumnType WS Sequence? ;
+    ColumnConstructor <- [@] ColumnType (WS Sequence / WS '(' WS Expression WS ')')? ;
 
     TableConstructor <- [@] 'table' WS '(' WSNL TableColumnDefs? WSNL ')' WS Sequence? ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;

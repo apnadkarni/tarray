@@ -1021,7 +1021,7 @@ oo::class create tarray::teval::Compiler {
 
     method ColumnConstructor {coltype {inivalue {}}} {
         if {[llength $inivalue]} {
-            return "\[tarray::column create $coltype [my {*}$inivalue]\]"
+            return "\[tarray::teval::rt::column_create $coltype [my {*}$inivalue]\]"
         } else {
             return "\[tarray::column create $coltype {}\]"
         }
@@ -1154,6 +1154,14 @@ namespace eval tarray::teval::rt {
         return $r
     }
 
+    proc column_create {type inival} {
+        return [switch -exact -- [lindex [tarray::types $inival] 0] {
+            table   { error "Cannot convert a table to a column" }
+            ""      { tarray::column::create $type $inival }
+            default { tarray::column::cast $inival $type }
+        }]
+    }
+    
     proc tarray_assign_element {varname value index} {
         # Assign a value to a single column or table element
         upvar 1 $varname var
