@@ -87,14 +87,14 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     BuiltIn <- ColumnConstructor
                / TableConstructor
 	       / ListCast
-	       / DeleteCommand
 	       / DictCast
 	       / SortCommand
 	       / SearchCommand
 	       / SelectorContext ;
 
     BuiltInCall <- [@] BuiltInFunction WS '(' WSNL ArgumentList? WSNL ')' ;
-leaf:    BuiltInFunction <- 'inject'
+leaf:    BuiltInFunction <- 'delete'
+                            / 'inject'
                             / 'insert'
                             / 'lookup'
                             / 'reverse' 
@@ -118,8 +118,6 @@ leaf:    BuiltInFunction <- 'inject'
     TableConstructor <- [@] 'table' WS '(' WSNL TableColumnDefs? WSNL ')' WS Sequence? ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
     TableColumnDef   <- ColumnIdentifier WSNL ColumnType ;
-
-    DeleteCommand <- [@] 'delete' WS Expression (WS RangeExpr / WS Expression) ;
 
     # Note cannot use ',' as separator here since that will create ambiguity
     # when used inside a function call
