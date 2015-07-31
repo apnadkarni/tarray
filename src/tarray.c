@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Ashok P. Nadkarni
+ * Copyright (c) 2012-2015 Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file LICENSE for license
@@ -2934,7 +2934,9 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         }                                                               \
     } while (0)
 
-
+    /* Remember we handled psrc->type == TA_ANY above for *all* dst types */
+    
+    status = TCL_OK;
     switch (pdst->type) {
     case TA_BOOLEAN:
         if (psrc->type == TA_STRING) {
