@@ -615,6 +615,14 @@ oo::class create tarray::teval::Parser {
     method DeleteCommand {from to expr expr2} {
         return [list DeleteCommand $expr $expr2]
     }
+
+    method BuiltInCall {from to args} {
+        return [list BuiltInCall {*}$args]
+    }
+
+    method BuiltInFunction {from to} {
+        return [string range $Script $from $to]
+    }
 }
 
 oo::class create tarray::teval::Compiler {
@@ -1113,6 +1121,23 @@ oo::class create tarray::teval::Compiler {
         } else {
             return "\[tarray::teval::rt::delete [my {*}$operand] [my {*}$position]\]"
         }
+    }
+
+    method BuiltInCall {fn arglist} {
+        set fn [dict get {
+            inject tarray::teval::rt::inject
+            insert tarray::teval::rt::insert
+            lookup tarray::column::lookup
+            reverse tarray::teval::rt::reverse
+            sum tarray::column::sum
+        } $fn]
+        set fnargs {}
+        foreach argelem [lrange $arglist 1 end] {
+            foreach fnarg $argelem {
+                lappend fnargs [my {*}$fnarg]
+            }
+        }
+        return "\[$fn [join $fnargs { }]\]"
     }
 }
 
@@ -2029,6 +2054,29 @@ namespace eval tarray::teval::rt {
         }]
     }
 
+    proc inject {operand args} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table { tarray::table::inject $operand {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::inject $operand {*}$args }
+        }]
+    }
+
+    proc insert {operand args} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table { tarray::table::insert $operand {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::insert $operand {*}$args }
+        }]
+    }
+
+    proc reverse {operand args} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table { tarray::table::reverse $operand {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::reverse $operand {*}$args }
+        }]
+    }
 }
 
 proc tarray::teval::testconstexpr {expr desc} {
