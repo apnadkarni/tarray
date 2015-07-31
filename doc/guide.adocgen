@@ -454,7 +454,7 @@ text {
 } text {
     returns rows in the sorted order based on country name.
 
-    ==== Sort stability
+    ((==== sect_guide_sort_stability "Sort stability"))
     
     When sorting tables, for display purposes for example, it is often
     necessary to display elements that have the same value in the sort

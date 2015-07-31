@@ -206,7 +206,7 @@ text {
 
     A column is created in TScript as
 } tscript {
-    Rainfall = @double {
+   Rainfall = @double {
         11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
     }
 } text {
@@ -1612,6 +1612,29 @@ text {
 }
 
 text {
+    === The `@lookup` function
+
+    The function returns the index of an element in a column _which
+    must be of type `string`. It has the syntax
+} syntax {
+    @lookup(_STRINGCOLUMN_ ?, _KEY_?)
+} text {
+    The command returns the index of an element in _STRINGCOLUMN_ that exactly
+    matches _LOOKUPKEY_ or -1 if not found. If _KEY_ is not specified,
+    command builds an internal dictionary (see below) and the return value
+    is an empty string.
+
+    Unlike the `@search`
+    command, the returned index is not necessarily that of the first
+    occurence in cases where _KEY_ occurs multiple times in the column.
+
+    The primary purpose of this function is to provide fast 
+    access to columns that are used as an index.
+    For more details, see the documentation for the
+    ((^ column_lookup "column lookup")) command.
+}
+
+text {
     === The `@reverse` function
     The `@reverse` function reverses columns and tables.
 } tscript {
@@ -1619,11 +1642,110 @@ text {
 } 
 
 text {
-    === The @sum function
+    === The `@sort` command
+    The `@sort` command provides a flexible mechanism for sorting columns.
+    Unlike most of the other built-ins, `@sort` is called as a command
+    and does not use the standard function call notation. It can
+    take one of two forms. In the first form, the sort target is specified
+    directly:
+} syntax {
+    @sort _COLUMNEXPR_ ?_SORTOPTIONS_?
+} text {
+    In this form, _COLUMNEXPR_ can be any expression that results in
+    a column value. The command then returns a column of the same type
+    sorted based on the specified options. _SORTOPTIONS_ is a space-separated
+    list of options that control the sorting operations. The possible
+    option values are shown in ((^ tab_tscript_sort_options)).
+
+    ((.Table tab_tscript_sort_options "@sort options"))
+    [cols="20,80", options="header"]
+    |===
+    |Option
+    |Description
+
+    |decreasing
+    |Sorts in order of decreasing value
+
+    |increasing
+    |Sorts in order of increasing value
+    
+    |indices
+    |Specifies that the command should return the indices of the sorted
+    values instead of the values themselves.
+
+    |nocase
+    |Specifies that sorting should be done in case-insensitive manner
+    if the column is of type `string` or `any`. The default is
+    a case-sensitive sort.
+    
+    |===
+
+    So we might want to get the rainfall in sorted order.
+}  tshell {
+    print (Rainfall)
+    
+    print (@sort Rainfall)
+} text {
+    But what is probably more interesting is the order of months so
+    we might instead do the following
+    (this time choosing a decreasing sort order).
+} tshell {
+    print (@sort Rainfall decreasing indices)
+} text {
+    This returns a column of type `int` containing the indices of
+    the sorted values.
+
+    The sorted indices are useful in many circumstances. For example,
+    we might display the employee database in multiple windows,
+    one sorted by age, the other by salary. Instead of keeping
+    two copies of the table sorted differently, it is cheaper in
+    terms of memory to keep indices sorted differently. For example,
+} tshell {
+    EmpsByAge    = @sort Emps'Age    indices
+    EmpsBySalary = @sort Emps'Salary indices decreasing
+
+    print (Emps[EmpsByAge])
+
+    print (Emps[EmpsBySalary])
+} text {
+    The second form that `@sort` takes is
+} syntax {
+    @sort _INDEXCOLUMN_ -> _COLUMNEXPR_ ?_SORTOPTIONS_?
+} text {
+    Here the sorting is done indirectly. _INDEXCOLUMN_ is an
+    integer index column as the ones we computed above. This is
+    treated as containing indices into the column _COLUMNEXPR_.
+    The return value is _INDEXCOLUMN_ sorted by
+    comparing the corresponding values from the column
+    _COLUMNEXPR_.
+
+    There are a couple of scenarios where this is useful. One is
+    in keeping a stable sort order when sorting successively on
+    multiple keys. This is discussed in detail in
+    ((^ sect_guide_sort_stability)) in the ((^ chap_guide)).
+
+    The other example is when only a subset of a column or
+    table is to be sorted. If we wanted to list salaries in
+    sorted order but only for employees older than 35, we
+    could do the following:
+} prompt {} tshell {
+    OlderEmployees = Emps'Age > 35
+    
+    print (Emps[@sort OlderEmployees -> Emps'Salary])
+} text {
+    Or if you want to save on lines,
+} prompt {} tshell {
+    print (Emps[@sort (Emps'Age > 35) -> Emps'Salary])
+} text {
+    This method is a lot cheaper than working directly with the table.
+}
+
+text {
+    === The `@sum` function
 
     The `@sum` function returns the sum of the elements in a column.
 } syntax {
-    @sum(__NUMERIC_COLUMN__)
+    @sum(__NUMERIC_COLUMNEXPR__)
 } text {
     So to get our annual salary expenditure,
 } tscript {
