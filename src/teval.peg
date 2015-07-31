@@ -133,9 +133,9 @@ leaf: SortOption <- 'indices'
     SearchTarget <- '->' WS PostfixExpr ;
 leaf:    SearchOption  <- 'inline' / 'all' ;
     
-    ListCast <- [@] 'list' WS Expression ;
+    ListCast <- [@] 'list' WS '(' WS Expression WS ')' ;
 
-    DictCast <- [@] 'dict' WS Expression ;
+    DictCast <- [@] 'dict' WS '(' WS Expression WS ')' ;
     
 leaf: SelectorContext <- '@@' ;
 
