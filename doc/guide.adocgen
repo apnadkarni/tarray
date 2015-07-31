@@ -274,17 +274,26 @@ text {
     The second `put` will raise an error since index `2` neither exists nor is
     supplied in the command.
 
-    All the commands dicussed to this point overwrite an existing
+    All the commands dicussed to this point overwrite existing
     values, at the target locations. The
     ((^ column_insert "column insert")) and
     ((^ column_vinsert "column vinsert"))
-    commands and their table equivalents store one value, or
-    multiple values (passed as a list or a typed array), into the type
+    commands and their table equivalents,
+    ((^ table_insert "table insert")) and
+    ((^ table_vinsert "table vinsert"))
+    store a single repeated value or row, into the type
     array, pushing existing elements further up.
+    Similarly, 
+    ((^ column_inject "column inject")) and
+    ((^ column_vinject "column vinject"))
+    commands and their table equivalents,
+    ((^ table_inject "table inject")) and
+    ((^ table_vinject "table vinject")), insert
+    multiple values or rows (passed as a list or a typed array).
 } shell {
     column insert $col 3.0 2 10
-    column insert $col {1.0 2.0 3.0} 2
-    column insert $col $col 2
+    column inject $col {1.0 2.0 3.0} 2
+    column inject $col $col 2
 } text {
 
     The first command returns a new column with the same value, `3.0`,
