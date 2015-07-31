@@ -226,7 +226,7 @@ text {
 } prompt {} tshell {
     print( Rainfall / 10 )      # Print rainfall in centimeters
 
-    column.sum(Rainfall[9:11])  # Total rainfall in the last quarter
+    @sum(Rainfall[9:11])  # Total rainfall in the last quarter
 } tbd {
     Use of ' and % with columns
     (currently numeric literals do not work with ')
@@ -826,16 +826,27 @@ text {
 
     Columns are created using the built-in operators `@boolean`,
     `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`.
-    The syntax of the command is
+    The syntax of the command can take two forms, the first of which is
 } syntax {
     @__TYPE__ ?_INITLIST_?
 } text {
-    where _TYPE_ is one of the tarray column types and _INITLIST_ is
+    Here _TYPE_ is one of the tarray column types and _INITLIST_ is
     an optional initializer list. For example,
 } tscript { A = @int } text {
     creates an empty column of type `int` and assigns it to `A` and
 } tscript { A = @any {10, {1, 2, 3}, len} } text {
     creates a column of type `any` with 3 elements.
+
+    The second form is that of a function, which is
+} syntax {
+    @__TYPE__ (?EXPR?)
+} text {
+    Again, here _TYPE_ is one of the tarray column types. _EXPR_,
+    if specified, is an expression that will be used to initialize the column.
+    Thus this form can also be used to ''cast'' a column to a column of
+    a different type.
+} prompt {} tshell {
+    @int(Rainfall)
 }
 
 text {
@@ -945,15 +956,16 @@ text {
     === Converting to lists and dictionaries
 
     Columns and tables can be converted to lists and dictionaries
-    with the `@list` and `@dict` command respectively. In the case
+    with the `@list` and `@dict` functions respectively. In the case
     of the latter, the key for the dictionary is the index of the
     value in the column or table.
 } prompt {} tshell {
-    @list Emps
+    @list (Emps)
     
-    @dict Rainfall
+    @dict (Rainfall)
 } text {
-    Any expression may be supplied as the operand of these commands. If
+    Any expression that results in a column or table
+    may be supplied as the parameter to these functions. If
     the expression does not result in a column or table, an error is
     generated.
 }
@@ -1525,12 +1537,96 @@ text {
 }
 
 text {
-    == Built-in commands
+    == Built-in functions
 
-} shell {
-    tscript { T = table::delete(Emps, Emps'Salary > 70000) }
+    A number of `tarray` commands that are not implemented as operators,
+    or for which only a subset of functionality is available through operators,
+    are available as built-in functions. These built-in functions can
+    always be invoked through the normal function call mechanism using
+    their qualified name (for example, `column.reverse`). However, invoking
+    them as built-ins has some convenience like polymorphism and slightly
+    shorter syntax.
+
+    [NOTE]
+    The documentation provides a summary of the built-in functions.
+    For full details you can refer to the documentation for
+    the corresponding `tarray` command.
 }
 
+text {
+    === The `@delete` function
+    The `@delete` deletes elements from a column or table. It has one
+    of two forms:
+} syntax {
+    @delete(__COLUMN_OR_TABLE__, _FIRST_, _LAST_)
+    @delete(__COLUMN_OR_TABLE__, _INDICES_)
+} text {
+    The first form deletes all elements in the index range from _FIRST_
+    to _LAST_. The second form deletes the elements whose indices are
+    specified by _INDICES_ which may be a single index, an index column
+    or a list of indices.
 
-tbd { sum, minmax, sort etc.}
-tbd { namespace and execution context }
+    So for instance we could get rid of all our high-priced employees.
+} outputlimit 0 tscript {
+    Emps = @delete(Emps, Emps'Salary > 75000)
+    print(Emps)
+}
+
+text {
+    === The `@inject` function
+    The assignment operators in TScript cannot be used to insert elements
+    between two elements in a column or rows in a table. The `@inject`
+    and `@insert` functions are provided instead for that purpose. The
+    `@inject` command inserts the contents of a list or column (table)
+    into another and returns the result. The syntax is
+} syntax {
+    @inject(__COLUMN_OR_TABLE__, _SOURCE_, _START_)
+} text {
+    where _SOURCE_ is a list or column (table) to be inserted at position
+    _START_ in __COLUMN_OR_TABLE__. For example, we can add a couple
+    of low priced lackeys to replace the ones we layed off.
+} outputlimit 0 tscript {
+    Emps = @inject(Emps, {
+        {'Tom,      30000,      38,       'Boston},
+        {'Peyton,   30000,      38,       'Denver}
+    }, 0)
+    print(Emps)
+} text {
+    We supplied a list of rows to be added above but we could also have
+    specified a compatible table instead.
+}
+
+text {
+    === The `@insert` function
+    The `@insert` function is similar to `@inject` but inserts a _single_
+    repeated value  or row into a column or table. It has the syntax
+} syntax {
+    @insert(__COLUMN_OR_TABLE__, _VALUE_, _START_ ?, _COUNT_?)
+} text {
+    The function inserts _COUNT_ instances of _VALUE_ at the index position
+    _START_. _COUNT_ defaults to 1 if unspecified.
+} prompt {} tshell {
+    @insert (@int {1,2,3}, 99, 0)
+
+    @insert (@int {1,2,3}, 100, 1, 2)
+}
+
+text {
+    === The `@reverse` function
+    The `@reverse` function reverses columns and tables.
+} tscript {
+    @reverse (@int {1,2,3})
+} 
+
+text {
+    === The @sum function
+
+    The `@sum` function returns the sum of the elements in a column.
+} syntax {
+    @sum(__NUMERIC_COLUMN__)
+} text {
+    So to get our annual salary expenditure,
+} tscript {
+    @sum(Emps'Salary)
+}
+
