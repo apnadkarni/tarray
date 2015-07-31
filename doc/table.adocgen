@@ -148,14 +148,24 @@ text {
 
     Returns the value of the row at the position specified by _INDEX_.
     
+    ((cmddef table_inject "table inject ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ _FIRST_"))
+    
+    Inserts _ROWVALUES_, a list of rows or a compatible table
+    as _TABLE_, at the position _FIRST_ and returns the resulting table.
+    If _FIRST_ is `end`, the values are
+    appended to the column. In all cases, the command may extend the table
+    if necessary.
+    
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to match the order of
+    columns to the supplied data. Note that _COLUMNS_ must include all columns
+    in the table as the command would not know what values to use for the
+    unspecified columns.
+
     ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ _COUNT_"))
 
-    ((cmddef table_insert_1 "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ _FIRST_"))
-    
-    In the first form, inserts _COUNT_ rows with value _ROWVALUE_ at position
-    _FIRST_ and returns the new table. In the second form, _ROWVALUES_ may be a
-    list of row values or a compatible table. The rows are inserted at the
-    specified position. In both cases, the command may extend the array if
+    Inserts _COUNT_ rows with value _ROWVALUE_ at position
+    _FIRST_ and returns the new table. The rows are inserted at the
+    specified position. In all cases, the command may extend the array if
     necessary.
 
     The standard option ((^ tab_table_stdopts -columns)) may be specified to match the order of
@@ -252,14 +262,28 @@ text {
 
     See the ((^ table_fill "table fill")) command for more information.
 
+    ((cmddef table_vinject "table vinject _TABLEVAR_ _ROWVALUES_ _FIRST_"))
+    
+    Inserts _ROWVALUES_, a list of rows or a compatible table as
+    the table in variable _TABLEVAR_, at the position _FIRST_
+    and stores the result back in _TABLEVAR_.
+    If _FIRST_ is `end`, the values are
+    appended to the column. In all cases, the command may extend the array
+    if necessary.
+    The resulting value of the variable
+    (which may differ because of traces) is returned as the result of the
+    command.
+    
+    The standard option ((^ tab_table_stdopts -columns)) may be specified to match the order of
+    columns to the supplied data. Note that _COLUMNS_ must include all columns
+    in the table as the command would not know what values to use for the
+    unspecified columns.
+
     ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _FIRST_ _COUNT_"))
 
-    ((cmddef table_vinsert_1 "table vinsert _TABLEVAR_ _ROWVALUES_ _FIRST_"))
-    
-    In the first form, inserts _COUNT_ rows with value _ROWVALUE_ at position
-    _FIRST_ in the table stored in variable _TABLEVAR_. In the second form,
-    _ROWVALUES_ may be a list of row values or a compatible table. The rows
-    are inserted at the specified position. In both cases, the new value is
+    Inserts _COUNT_ rows with value _ROWVALUE_ at position
+    _FIRST_ in the table stored in variable _TABLEVAR_.
+    The new value is
     assigned back to the variable. The resulting value of the variable
     (which may differ because of traces) is returned as the result of the
     command.

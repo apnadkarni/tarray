@@ -142,16 +142,19 @@ text {
     Returns the value of the element at the position specified by _INDEX_
     which is a single ((^ sect_column_indices index)).
 
-    ((cmddef column_insert "column insert _COLUMN_ _VALUE_ _FIRST_ _COUNT_"))
-
-    ((cmddef column_insert_1 "column insert _COLUMN_ _VALUES_ _FIRST_"))
-
-    In the first form, inserts _COUNT_ elements with value _VALUE_ at position
-    _FIRST_ and returns the new column. In the second form, _VALUES_ may be a
-    list of values or a typed column of the same type. The values are
-    inserted at the specified position. If _FIRST_ is `end`, the values are
+    ((cmddef column_inject "column inject _COLUMN_ _VALUES_ _FIRST_"))
+    
+    Inserts _VALUES_, a list of values or a column of the same type
+    as _COLUMN_, at the position _FIRST_ and returns the resulting column.
+    If _FIRST_ is `end`, the values are
     appended to the column. In all cases, the command may extend the array
     if necessary.
+    
+    ((cmddef column_insert "column insert _COLUMN_ _VALUE_ _FIRST_ _COUNT_"))
+
+    Inserts _COUNT_ elements with value _VALUE_ at position
+    _FIRST_ and returns the new column.
+    In all cases, the command may extend the array if necessary.
 
     ((cmddef column_intersect3 "column intersect3 ?-nocase? _COLUMNA_ _COLUMNB_"))
 
@@ -433,17 +436,26 @@ text {
 
     See fill for more information.
 
-    ((cmddef column_vinsert "column vinsert _COLUMNVAR_ _VALUE_ _FIRST_ _COUNT_"))
+    ((cmddef column_vinject "column vinject _COLUMNVAR_ _VALUES_ _FIRST_"))
 
-    ((cmddef column_vinsert_2 "column vinsert _COLUMNVAR_ _VALUES_ _FIRST_"))
-
-    In the first form, inserts _COUNT_ elements with value _VALUE_ at position
-    _FIRST_ in the type column stored in variable _COLUMNVAR_. In the second
-    form, _VALUES_ may be a list of values or a typed column of the same type.
-    The values are inserted at the specified position. The new value is
-    assigned back to the variable. The resulting value of the variable
+    Inserts _VALUES_, a list of values or a column of the same type
+    as the column in variable _COLUMNVAR_, at the position _FIRST_
+    and stores the result back in _COLUMNVAR_.
+    If _FIRST_ is `end`, the values are
+    appended to the column. In all cases, the command may extend the array
+    if necessary.
+    The resulting value of the variable
     (which may differ because of traces) is returned as the result of the
     command.
+
+    ((cmddef column_vinsert "column vinsert _COLUMNVAR_ _VALUE_ _FIRST_ _COUNT_"))
+    Inserts _COUNT_ elements with value _VALUE_ at position
+    _FIRST_ in the column stored in variable _COLUMNVAR_.
+    If _FIRST_ is `end`, the values are
+    appended to the column. The new value is
+    assigned back to the variable. The resulting value of the variable
+    (which may differ because of traces) is returned as the result of the
+    command. In all cases, the command may extend the array if necessary.
 
     ((cmddef column_vplace "column vplace _COLUMNVAR_ _VALUES_ _INDICES_"))
 
