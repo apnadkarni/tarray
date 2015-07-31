@@ -44,6 +44,8 @@ namespace eval tarray::test {
 
     #
     # Tests for invalid types
+    # NOTE: tests for wide are expected to fail because Tcl_GetWideIntFromObj
+    # does not fail on wideint overflow (3.3 and 3.4)
     foreach {type values} [array get bad] {
         set num -1
         foreach value $values {
