@@ -74,6 +74,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 
     # Basic terms
     PrimaryExpr  <- BuiltIn
+                    / BuiltInCall
                     / IndirectIdentifier
 		    / IndirectLiteral
 		    / Identifier
@@ -92,6 +93,12 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 	       / SearchCommand
 	       / SelectorContext ;
 
+    BuiltInCall <- [@] BuiltInFunction WS '(' WSNL ArgumentList? WSNL ')' ;
+leaf:    BuiltInFunction <- 'inject'
+                            / 'insert'
+                            / 'lookup'
+                            / 'reverse' 
+                            / 'sum' ;
     # Postfix operators
     PostfixOp <-  Selector
 		  / FunctionCall
@@ -112,7 +119,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
     TableColumnDef   <- ColumnIdentifier WSNL ColumnType ;
 
-    DeleteCommand <- [@] 'delete' WS Expression (WS RangeExpr / WS Expression)? ;
+    DeleteCommand <- [@] 'delete' WS Expression (WS RangeExpr / WS Expression) ;
 
     # Note cannot use ',' as separator here since that will create ambiguity
     # when used inside a function call
