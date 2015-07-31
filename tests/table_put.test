@@ -196,7 +196,7 @@ namespace eval tarray::test {
     } -body {
         set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] {{anyvalue 0 0 0 0 0}} 0
-    } -result {*width 6 less than*} -returnCodes error -match glob
+    } -result {*width 6 does not match*} -returnCodes error -match glob
 
     #
     # table put valuecolumn pos
@@ -297,7 +297,7 @@ namespace eval tarray::test {
     } -body {
         set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] [sampletable {any string boolean byte double int uint}] 0
-    } -result {*width 7 less than*} -returnCodes error -match glob
+    } -result {*width 7 does not match*} -returnCodes error -match glob
 
     #
     # Verify string rep regeneration
@@ -469,7 +469,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {col0 col1 col2 col3} $tab {{0 0 0}} 1
-    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
 
     test table_put-columnsopt-3.6 {
         Verify insufficient data width
@@ -479,7 +479,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {col0 col1 col2 col3} $tab [tarray::table create {f0 boolean f1 any f2 int} { {0 0 0} }] 0
-    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
 
     test table_put-columnsopt-3.7 {
         Verify empty column list

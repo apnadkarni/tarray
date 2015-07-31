@@ -190,7 +190,7 @@ namespace eval tarray::test {
         set type {string double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vplace ta {{anyvalue 1.0 0 0}} {0}
-    } -result {*width 4 less than**} -returnCodes error -match glob
+    } -result {*width 4 does not match**} -returnCodes error -match glob
 
     #
     # table vplace valuelist indices
@@ -328,7 +328,7 @@ namespace eval tarray::test {
         set type {any double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vplace ta {{anyvalue 1.0 0 0}} [indexcolumn 0]
-    } -result {*width 4 less than**} -returnCodes error -match glob
+    } -result {*width 4 does not match**} -returnCodes error -match glob
 
     #
     # table vplace COLUMN indexlist
@@ -474,7 +474,7 @@ namespace eval tarray::test {
         set type {any double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vplace ta [sampletable {any double int uint}] {0}
-    } -result {*width 4 less than**} -returnCodes error -match glob
+    } -result {*width 4 does not match**} -returnCodes error -match glob
 
     test table_vplace-table-indices-1.0 {
         Fill an empty table with a single element
@@ -610,7 +610,7 @@ namespace eval tarray::test {
         set type {any double int uint wide}
         set ta [sampletable $type 0 10]
         tarray::table vplace ta [sampletable {any double int uint}] [indexcolumn 0]
-    } -result {*width 4 less than**} -returnCodes error -match glob
+    } -result {*width 4 does not match**} -returnCodes error -match glob
 
     #
     # Verify string rep regeneration
@@ -794,7 +794,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vplace -columns {col0 col1 col2 col3} tab {{0 0 0}} 0
-    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
 
     test table_vplace-columnsopt-3.6 {
         Verify insufficient data width
@@ -804,7 +804,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vplace -columns {col0 col1 col2 col3} tab [tarray::table create {f0 boolean f1 string f2 int} { {0 0 0} }] {0}
-    } -result "Row or table width 3 less than destination width 4." -returnCodes error
+    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
 
     test table_vplace-columnsopt-3.7 {
         Verify empty column list
