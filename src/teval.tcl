@@ -2214,4 +2214,19 @@ if {1} {
             puts('finally)
         }
     }
+
+    tscript {
+        Rainfall = @double {
+            11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
+        }
+        Emps = @table (
+                       Name string,   Salary uint,   Age uint,   Location string
+                       ) {
+                           {'Sally,      70000,      32,       'Boston},
+                           {'Tom,        65000,      36,       'Boston},
+                           {'Dick,       80000,      40,       "New York"},
+                           {'Harry,      45000,      37,       "New York"},
+                           {'Amanda,     48000,      35,       'Seattle}
+                       }
+    }
 }
