@@ -100,9 +100,9 @@ oo::class create tarray::teval::Parser {
     
     method _print {node {indent {}}} {
         set children [lassign $node name]
-        puts "${indent}$name"
+        puts "${indent}$name -> $children"
         foreach child $children {
-            my _print $child "  ${indent}"
+            my _print $child "    ${indent}"
         }
     }
 
