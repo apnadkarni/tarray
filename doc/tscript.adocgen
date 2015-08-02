@@ -8,7 +8,7 @@ text {
 text {
     == Introduction
 
-    The ((^ chap_intro `tarray`)) Tcl extension implements _typed arrays_,
+    The ((^ chap_intro tarray)) Tcl extension implements _typed arrays_,
     which stores data in native format and provides efficient memory
     utilization and parallelized processing. Columns store elements
     of a single type, while tables, similar to data frames in the R
@@ -121,6 +121,8 @@ text {
 } text { 
 
     .Mixing Tcl and TScript
+    We have already seen how TScript can be invoked from Tcl with
+    the `tscript command. Similarly,
     Tcl code can be intermixed within TScript by bracketing it with
     `<>`.
 } tscript {
@@ -132,6 +134,7 @@ text {
 } text {
     The Tcl fragment may also be spread across multiple lines.
 } tscript {
+    puts("TScript statement")
     <
     puts "First Tcl statement"
     puts "Second Tcl statement"
@@ -163,7 +166,7 @@ text {
     
     L[0:1] # Index range
     
-    L[{3,1,2}] # Index list - note order of indices
+    L[{3,1,2}] # Index list - note indices need not be in order
 } text {
    The indexing operator can be used in assignments as well. 
 } prompt {} tshell {
