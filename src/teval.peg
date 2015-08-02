@@ -100,6 +100,7 @@ leaf:    BuiltInFunction <- 'delete'
                             / 'reverse' 
                             / 'sum' ;
     # Postfix operators
+
     PostfixOp <-  Selector
 		  / FunctionCall
 		  / Element
@@ -113,6 +114,8 @@ leaf:    BuiltInFunction <- 'delete'
     TableColumns <- ColumnOp WS '(' WSNL TableColumnList? WSNL ')' ;
     TableColumnList <- ColumnIdentifier (WSNL ',' WSNL ColumnIdentifier)* ;
 
+    # Constructors
+    
     ColumnConstructor <- [@] ColumnType (WS Sequence / WS '(' WS Expression WS ')')? ;
 
     TableConstructor <- [@] 'table' WS '(' WSNL TableColumnDefs? WSNL ')' WS Sequence? ;
