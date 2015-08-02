@@ -214,7 +214,7 @@ TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o);
 
 /* This checks that o is currently a tcol, not that it can be converted to one */
 TA_INLINE int tcol_affirm(Tcl_Obj *o) {
-    return (o->typePtr == &ta_column_type || o->typePtr == &ta_table_type);
+    return (o->typePtr == &ta_column_type);
 }
 
 TA_INLINE int table_affirm(Tcl_Obj *o) {

@@ -518,6 +518,8 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     Tcl_Obj **elems, **tcols, **colnames;
     Tcl_Obj  *colnames_map, *re;
 
+    TA_ASSERT(! table_affirm(o));
+    
     if (tcol_affirm(o) ||
         Tcl_ListObjGetElements(NULL, o, &nelems, &elems) != TCL_OK ||
         nelems != 3 ||
