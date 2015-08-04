@@ -47,44 +47,9 @@ text {
     final release.
 }
 
-text {
-    == Running TScript 
-
-    TScript is part of the `tarray` package which must be loaded to run
-    TScript code.
-} shell {
+eval {
     package require tarray
-    namespace path tarray;      # Allows use of tarray commands without qualification
-} eval {
     source ../src/teval.tcl
-} text {
-    A TScript code fragment may be run by one of several means.
-
-    First, it can be run from within using the `tarray::tscript` command.
-    This is roughly the equivalent of running a Tcl script using `eval`.
-} shell {
-    tscript { a = 1 }
-} text {
-    The `tscript` command returns the result of the last statement it
-    executes.
-    
-    Second, you can define a TScript procedure from Tcl using `tarray::tproc` in
-    a similar fashion as the Tcl `proc` command. It can then be invoked
-    in the same manner as a Tcl procedure.
-} shell {
-    tproc add {x y} { return x + y }
-    add 2 3
-} text {
-    Finally, you can load an entire TScript file using the
-    `tarray::tsource` command which has syntax similar to the
-    Tcl `source` command.
-} syntax {
-    tsource ?-encoding _ENCODING_? _TSCRIPTFILE_
-} text {
-
-    In this tour, for ease of exposition we will simply show the
-    relevant TScript fragments without any reference to how they
-    are executed.
 }
 
 text {
@@ -321,6 +286,46 @@ text {
 }
 
 text {
+    == Running TScript 
+
+    TScript is part of the `tarray` package which must be loaded to run
+    TScript code.
+} shell {
+    package require tarray
+    namespace path tarray;      # Allows use of tarray commands without qualification
+} eval {
+    source ../src/teval.tcl
+} text {
+    A TScript code fragment may be run by one of several means.
+
+    First, it can be run from within using the `tarray::tscript` command.
+    This is roughly the equivalent of running a Tcl script using `eval`.
+} shell {
+    tscript { a = 1 }
+} text {
+    The `tscript` command returns the result of the last statement it
+    executes.
+    
+    Second, you can define a TScript procedure from Tcl using `tarray::tproc` in
+    a similar fashion as the Tcl `proc` command. It can then be invoked
+    in the same manner as a Tcl procedure.
+} shell {
+    tproc add {x y} { return x + y }
+    add 2 3
+} text {
+    Finally, you can load an entire TScript file using the
+    `tarray::tsource` command which has syntax similar to the
+    Tcl `source` command.
+} syntax {
+    tsource ?-encoding _ENCODING_? _TSCRIPTFILE_
+} text {
+
+    In this tour, for ease of exposition we will simply show the
+    relevant TScript fragments without any reference to how they
+    are executed.
+}
+
+text {
     ((== sect_basic_tscript_syntax "Basic syntax"))
 
     The basic syntax of TScript is closer to the C family of languages
@@ -355,7 +360,7 @@ text {
     ((^ sect_tscript_column_sel_ops "column selection")) or
     ((^ sect_tscript_table_slice_ops "table slicing")) operator
 
-    * optionally followed by an ((^ sect_tscript_ "indexing")) operator
+    * optionally followed by an ((^ sect_tscript_indexing_ops "indexing")) operator
 }
 
 text {
@@ -1371,7 +1376,7 @@ text {
     The final form an index can take is that of a _selector_ which
     is a boolean expression involving the column or table.
 
-    As we noted in ((^ sect_tscript_column_ops "column operators"))
+    As we noted in ((^ sect_tscript_column_rel_ops "column operators"))
     comparison of a column with a scalar value results
     in an `int` column containing the indices for which the comparison
     of the corresponding element succeeded. This implies that
@@ -1647,9 +1652,108 @@ text {
 } 
 
 text {
+    === The `@search` command
+     
+    The `@search` command searches a specified column and returns
+    matching elements or the corresponding indices.
+    Unlike most of the other built-ins, `@search` is called as a command
+    and does not use the standard function call notation. It can
+    take one of two forms. In the first form, the search target is specified
+    directly:
+} syntax {
+    @search _COLUMNEXPR_ _RELOP_ _EXPRESSION_ ?_SEARCHOPTIONS_?
+} text {
+    In this form, _COLUMNEXPR_ can be any expression that results in
+    a column value. _RELOP_ is any
+    ((^ sect_tscript_rel_ops "relational operator")). Without any options
+    specified, the command returns the index of the first element
+    of the column that matches _EXPRESSION_.
+    _SEARCHOPTIONS_ is a space-separated
+    list of options that modify this behaviour. The possible
+    option values are shown in ((^ tab_tscript_search_options)).
+
+    ((.Table tab_tscript_search_options "@search options"))
+    [cols="20,80", options="header"]
+    |===
+    |Option
+    |Description
+
+    |all
+    |If specified, a column containing _all_ matching elements
+    are returned as opposed to just the first match. The type of the column
+    is `int` if the `inline` option is not specified. Otherwise it
+    is the type of the search target.
+
+    |inline
+    |If specified, the command returns the value, or values if the `all`
+    option is specified, of the matching element, or elements, as opposed
+    to their indices.
+    
+    |===
+
+    The following examples illustrate the various combinations.
+} prompt {} tshell {
+    @search Emps'Salary > 40000
+    
+    @search Emps'Salary > 40000 all
+    
+    @search Emps'Salary > 40000 inline
+    
+    @search Emps'Salary > 40000 inline all
+} text {
+} text {
+    The second form that `@search` takes is
+} syntax {
+    @search _INDEXCOLUMN_ -> _COLUMNEXPR_ _ _RELOP_ _EXPRESSION_ ?_SEARCHOPTIONS_?
+} text {
+    In this case, _INDEXCOLUMN_ is expected to contain indices into
+    the column _COLUMNEXPR_ and the search only examines the corresponding
+    elements for a match. In all other respects, this form of the command
+    behaves the same as the first form. See the next section for an
+    example.
+} text {
+    .Search versus selectors
+    Given that selectors perform a similar function to `@search`, when might
+    one be preferred to the other?
+
+    The selector form is more succint, convenient and not
+    limited in its expressive power related to conditions. However,
+    the search command in the current implemenation has some
+    performance advantages illustrated in the example below.
+    
+    Suppose we want to list the salaries of 
+    all employees in Boston who make more than 45000/year. We could write this
+    using selectors.
+} tscript {
+    print (Emps'Name[Emps'Salary > 45000 && Emps'Location == 'Boston])
+} text {
+    Alternatively, using `@search`,
+} tscript {
+    indices = @search (Emps'Salary > 45000) -> Emps'Location == 'Boston all
+    print (Emps'Name[indices])
+} text {
+    In the first case, TScript searches the appropriate columns for
+    salaries greater than the specified amount and then again for the
+    specified location. Finally, it returns the intersection of the two
+    and retrieves those names from the `Name` column of the table.
+
+    In the second case, the list of indices where the salary is greater
+    than the specified amount is retrieved. Then _only those elements_
+    are searched for the location. Consequently, this method is significantly
+    faster for large data sets.
+
+    [NOTE]
+    This performance benefit is only true because the current
+    TScript optimizer is extremely rudimentary and not capable of
+    recognising and transforming the selector into the more efficient
+    form. It is hoped future releases will improve on this.
+}
+
+text {
     === The `@sort` command
     The `@sort` command provides a flexible mechanism for sorting columns.
-    Unlike most of the other built-ins, `@sort` is called as a command
+    Like `@search` and unlike most of the other built-ins,
+    `@sort` is called as a command
     and does not use the standard function call notation. It can
     take one of two forms. In the first form, the sort target is specified
     directly:
