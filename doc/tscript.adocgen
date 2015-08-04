@@ -195,9 +195,10 @@ text {
     print( Rainfall / 10 )      # Print rainfall in centimeters
 
     @sum(Rainfall[9:11])  # Total rainfall in the last quarter
-} tbd {
-    Use of ' and % with columns
-    (currently numeric literals do not work with ')
+} text {
+    The lookup operators `'` and `%` used with dictionaries can also be used
+    with columns. In this case, they return the index of the first matching
+    element.
 }
 
 text {
