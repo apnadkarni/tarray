@@ -22,7 +22,7 @@ text {
     when it is created. The command `tarray::column` operates on
     typed columns including searching and sorting operations.
 
-    Related to columns, are ((^ chap_table tables))
+    Related to columns, are ((^ chap_table_ref tables))
     which are ordered sequences of typed columns.
 
 } text {
@@ -83,7 +83,7 @@ text {
     ((cmddef column_bitor "column | _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \|"))`.
 
-    ((cmddef column_bitor "column ^ _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_bitxor "column ^ _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \^"))`.
 
     ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
