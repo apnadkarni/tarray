@@ -62,7 +62,7 @@ TCL_RESULT ta_invalid_opt_error(Tcl_Interp *ip, char *optname)
 TCL_RESULT ta_not_column_error(Tcl_Interp *ip)
 {
     if (ip) {
-        Tcl_SetResult(ip, "Object is not a TArray column", TCL_STATIC);
+        Tcl_SetResult(ip, "Object is not a column", TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "TCLOBJTYPE", NULL);
     }
     return TCL_ERROR;
@@ -71,7 +71,7 @@ TCL_RESULT ta_not_column_error(Tcl_Interp *ip)
 TCL_RESULT ta_not_table_error(Tcl_Interp *ip)
 {
     if (ip) {
-        Tcl_SetResult(ip, "Object is not a TArray table", TCL_STATIC);
+        Tcl_SetResult(ip, "Object is not a table", TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "TCLOBJTYPE", NULL);
     }
     return TCL_ERROR;
@@ -135,7 +135,7 @@ TCL_RESULT ta_table_length_error(Tcl_Interp *ip)
 {
     if (ip) {
         Tcl_SetResult(ip,
-                      "Columns in tarray table have differing lengths.",
+                      "Columns in table have differing lengths.",
                       TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "LENGTH", NULL);
     }
