@@ -1598,12 +1598,16 @@ namespace eval tarray::teval::rt {
         # For a column assigns $value to index $elem
         # Else treats as dictionary and assigns $value to key
         upvar 1 $varname var
-        switch -exact -- [lindex [tarray::types $var] 0] {
-            ""      { return [dict set var $elem $value] }
-            "table" { return [tarray::table::vcolumn var $elem $value] }
-            default {
-                return [tarray::column::vfill var $value [tarray::column::search $var $elem]]
+        if {[info exists var]} {
+            switch -exact -- [lindex [tarray::types $var] 0] {
+                ""      { return [dict set var $elem $value] }
+                "table" { return [tarray::table::vcolumn var $elem $value] }
+                default {
+                    return [tarray::column::vfill var $value [tarray::column::search $var $elem]]
+                }
             }
+        } else {
+            return [dict set var $elem $value]
         }
     }
 

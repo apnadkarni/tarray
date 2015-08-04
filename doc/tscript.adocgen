@@ -12,7 +12,7 @@ text {
     which stores data in native format and provides efficient memory
     utilization and parallelized processing. Columns store elements
     of a single type, while tables, similar to data frames in the R
-    language, are a ordered sequence of named columns. The `tarray`
+    language, are an ordered sequence of named columns. The `tarray`
     extension provides the corresponding
     ((^ chap_column_ref `column`)) and ((^ chap_table_ref `table`))
     Tcl commands for their manipulation.
@@ -1264,9 +1264,11 @@ text {
 
     I = @string {'zero, 'one, 'two, 'three}
     I'one = 1
+} text {
+    [NOTE]
+    If a variable does not already exist, the operator creates it
+    as a dictionary.
 }
-    
-    
 
 text {
     ((=== sect_tscript_indexing_ops "Indexing and search operators"))
