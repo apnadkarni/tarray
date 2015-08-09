@@ -56,6 +56,19 @@ struct Tcl_ObjType ta_column_type = {
     NULL,     /* jenglish advises to keep this NULL */
 };
 
+/*
+ * A Tcl object to parse tarray index tokens and cache the result so
+ * we do not parse "end" or "last" repeatedly. We could actually use the
+ * more sophisticated Tcl equivalent but unfortunately that is not exported.
+ */
+static void ta_indexobj_update_string(Tcl_Obj *);
+struct Tcl_ObjType ta_index_type = {
+    "tarray_index",
+    NULL, /* No need for a free proc */
+    NULL, 
+    ta_indexobj_update_string,
+    NULL, /* convert from any - jenglish advises to keep this NULL */
+};
 
 /* Panics on consistency check failure. int return value so it can
  be called from TA_ASSERT */
@@ -121,24 +134,12 @@ int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
     if (thdr->nrefs < 1)
         Tcl_Panic("Column thdr->nrefs (%d) < 1", thdr->nrefs);
     
+    /* Note even if the tcol's OBJTHDRSPAN() field is non-null,
+       the WHOLE thdr must still be valid */
     thdr_check(ip, thdr);
 
     return 1;
 }
-
-/*
- * A Tcl object to parse tarray index tokens and cache the result so
- * we do not parse "end" or "last" repeatedly. We could actually use the
- * more sophisticated Tcl equivalent but unfortunately that is not exported.
- */
-static void ta_indexobj_update_string(Tcl_Obj *);
-struct Tcl_ObjType ta_index_type = {
-    "tarray_index",
-    NULL, /* No need for a free proc */
-    NULL, 
-    ta_indexobj_update_string,
-    NULL, /* convert from any - jenglish advises to keep this NULL */
-};
 
 const char *ta_type_string(int tatype)
 {
@@ -151,14 +152,19 @@ const char *ta_type_string(int tatype)
 static void tcol_type_free_intrep(Tcl_Obj *o)
 {
     thdr_t *thdr;
+    span_t *span;
 
     TA_ASSERT(tcol_affirm(o));
 
     thdr = OBJTHDR(o); 
+    span = OBJTHDRSPAN(o); 
     TA_ASSERT(thdr);
 
+    if (span)
+        span_decr_refs(span);
     thdr_decr_refs(thdr);
     OBJTHDR(o) = NULL;
+    OBJTHDRSPAN(o) = NULL;
     o->typePtr = NULL;
 }
 
@@ -167,7 +173,7 @@ static void tcol_type_dup(Tcl_Obj *osrc, Tcl_Obj *odst)
     TA_ASSERT(tcol_affirm(osrc));
     TA_ASSERT(OBJTHDR(osrc) != NULL);
         
-    tcol_set_intrep(odst, OBJTHDR(osrc));
+    tcol_set_intrep(odst, OBJTHDR(osrc), OBJTHDRSPAN(osrc));
 }
 
 /* Called to generate a string implementation for tarray columns of
@@ -181,7 +187,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
         Tcl_Obj **objv;      /* Used for TA_ANY */
         tas_t **pptas;              /* Used for TA_STRING */
     } u;
-    int objc;
+    int objc, span_start;
     thdr_t *thdr;
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr = NULL;
@@ -195,17 +201,27 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
     const char *names;
     int names_len;
     unsigned char tatype;
+    span_t *span;
 
     TA_ASSERT(o->typePtr == &ta_column_type || o->typePtr == &ta_table_type);
 
+    /* TBD - warn in log if converting a large tarray to string */
+    
     thdr = OBJTHDR(o);
     objc = thdr->used;
+    span_start = 0;
+    if (o->typePtr == &ta_column_type && (span = OBJTHDRSPAN(o)) != NULL) {
+        objc = span->count;
+        span_start = span->start;
+        TA_ASSERT(span_start+objc <= thdr->used);
+    }
+
     tatype = thdr->type;
     TA_ASSERT(tatype == TA_ANY || tatype == TA_STRING);
     if (tatype == TA_ANY)
-        u.objv = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+        u.objv = THDRELEMPTR(thdr, Tcl_Obj *, span_start);
     else
-        u.pptas = THDRELEMPTR(thdr, tas_t *, 0);
+        u.pptas = THDRELEMPTR(thdr, tas_t *, span_start);
 
     /*
      * Pass 1: estimate space, gather flags.
@@ -327,17 +343,25 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
 
 static void tcol_type_update_string(Tcl_Obj *o)
 {
-    unsigned int i, n, count;
+    unsigned int i, n, count, span_start;
     unsigned int allocated, unused, min_needed, prefix_len;
     char *cP;
     int max_elem_space;  /* Max space to print one element including
                             either terminating null or space */
     thdr_t *thdr;
+    span_t *span;
         
     TA_ASSERT(tcol_affirm(o));
 
     thdr = OBJTHDR(o);
     TA_ASSERT(thdr->type < sizeof(g_type_tokens)/sizeof(g_type_tokens[0]));
+    count = thdr->used;
+    span_start = 0;
+    if ((span = OBJTHDRSPAN(o)) != NULL) {
+        count = span->count;
+        span_start = span->start;
+        TA_ASSERT(span_start+count <= thdr->used);
+    }
 
     o->bytes = NULL;
 
@@ -347,7 +371,6 @@ static void tcol_type_update_string(Tcl_Obj *o)
         + 2;                         /* Start of list " {" */
     min_needed = prefix_len + 1 + 1;            /* Trailing "}" and null */
 
-    count = tcol_occupancy(o);
     if (count == 0) {
         /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
            defined as ckalloc */
@@ -366,17 +389,17 @@ static void tcol_type_update_string(Tcl_Obj *o)
      * some estimate based on the type.
      */
         
-    switch (tcol_type(o)) {
+    switch (thdr->type) {
     case TA_BOOLEAN:
         {
             /*
              * Special case Boolean since we know exactly how many chars will
              * be required 
              */
+            XXX - copy 1 bit at a time starting with span_start;
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            register ba_t ba;
-            register ba_t ba_mask;
-
+            int span_end;
+            
             /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
                defined as ckalloc */
             cP = ckalloc(min_needed + 2*count - 1);
@@ -385,30 +408,21 @@ static void tcol_type_update_string(Tcl_Obj *o)
             TA_ASSERT(n > 0 && n < min_needed);
             o->bytes = cP;
             cP += n;
-            n = count / BA_UNIT_SIZE;
-            for (i = 0; i < n; ++i, ++baP) {
-                ba = *baP;
-                for (ba_mask = BITPOSMASK(0); ba_mask ; ba_mask = BITMASKNEXT(ba_mask)) {
-                    *cP++ = (ba & ba_mask) ? '1' : '0';
-                    *cP++ = ' ';
-                }
-            }
-            n = count - n*BA_UNIT_SIZE;    /* Left over bits in last byte */
-            if (n) {
-                ba = *baP;
-                for (i = 0, ba_mask = BITPOSMASK(0); i < n; ++i, ba_mask = BITMASKNEXT(ba_mask)) {
-                    *cP++ = (ba & ba_mask) ? '1' : '0';
-                    *cP++ = ' ';
-                }
+            span_end = span_start + count;
+            for (i = span_start; i < span_end; ++i) {
+                *cP++ = ba_get(baP, i) ? '1' : '0';
+                *cP++ = ' ';
             }
             cP[-1] = '}';
             *cP = '\0';
             o->length = cP - o->bytes;
+            TA_ASSERT(o->length < (min_needed + 2*count - 1));
         }
         return;
                 
     case TA_ANY:
     case TA_STRING:
+        /* TBD - can't we check for this much earlier in this function? */
         ta_update_string_for_variable_element_size(o);
         return;
 
@@ -463,7 +477,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
         case TA_UINT:
         case TA_INT:
             {
-                int *intP = THDRELEMPTR(thdr, int, i);
+                int *intP = THDRELEMPTR(thdr, int, (span_start+i));
                 char *fmt = thdr->type == TA_UINT ? "%u" : "%d";
                 while (i < count && unused >= min_needed) {
                     n = snprintf(cP, unused, fmt, *intP++);
@@ -477,7 +491,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
             break;
         case TA_WIDE:
             {
-                Tcl_WideInt *pwide = THDRELEMPTR(thdr, Tcl_WideInt, i);
+                Tcl_WideInt *pwide = THDRELEMPTR(thdr, Tcl_WideInt, (span_start+i));
                 while (i < count && unused >= min_needed) {
                     n = snprintf(cP, unused, "%" TCL_LL_MODIFIER "d", *pwide++);
                     TA_ASSERT(n > 0 && n < unused);
@@ -493,7 +507,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
                it does not include decimal point for whole ints. For
                consistency with Tcl, use Tcl_PrintDouble instead */
             {
-                double *pdbl = THDRELEMPTR(thdr, double, i);
+                double *pdbl = THDRELEMPTR(thdr, double, (span_start+i));
                 while (i < count && unused >= min_needed) {
                     Tcl_PrintDouble(NULL, *pdbl++, cP);
                     n = strlen(cP);
@@ -506,7 +520,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
             break;
         case TA_BYTE:
             {
-                unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, i);
+                unsigned char *ucP = THDRELEMPTR(thdr, unsigned char, (span_start+i));
                 while (i < count && unused >= min_needed) {
                     n = snprintf(cP, unused, "%u", *ucP++);
                     TA_ASSERT(n > 0 && n < unused);
@@ -525,7 +539,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
     *cP = '\0';
     o->length = cP - o->bytes; /* Terminating null not included in length */
             
-    /* Only shrink array if unused space is comparatively too large */
+    /*  TBD - Only shrink array if unused space is comparatively too large */
     unused = allocated - (o->length + 1);
     if (unused > (allocated / 8) && unused > 20)
         o->bytes = ckrealloc(o->bytes, o->length + 1);
@@ -728,7 +742,7 @@ void thdr_incr_tas_refs(thdr_t *thdr, int first, int count)
     }
 }
 
-/* Decrements the ref counts of Tcl_Objs in a tarray.
+/* Decrements the ref counts of tas_t elements in a tarray.
    Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
 */
 void thdr_decr_tas_refs(thdr_t *thdr, int first, int count)
@@ -789,15 +803,20 @@ void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
     }
 }
 
-/* Make sure all objects in the tarray have string representations */
-void thdr_ensure_obj_strings(thdr_t *thdr)
+/* Make sure objects in the tarray span have string representations */
+void thdr_ensure_obj_strings(thdr_t *thdr, span_t *span)
 {
     Tcl_Obj **pobjs, **end;
 
     TA_ASSERT(thdr->type == TA_ANY);
-
-    pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-    end = pobjs + thdr->used;
+    if (span) {
+        TA_ASSERT(span->first >= 0 && (span->first+span->count) <= thdr->used);
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, span->first);
+        end = pobjs + span->count;
+    } else {
+        pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+        end = pobjs + thdr->used;
+    }
     while (pobjs < end) {
         if ((*pobjs)->bytes == NULL)
             Tcl_GetString(*pobjs);
@@ -995,6 +1014,8 @@ void thdr_place_ta_strings(thdr_t *thdr,
     int *pindex, *end;
     tas_t **pptas;
 
+    TA_ASSERT(thdr->nrefs <= 1);
+    
     pindex = THDRELEMPTR(pindices, int, 0);
     end = pindex + pindices->used;
     pptas = THDRELEMPTR(thdr, tas_t *, 0);
@@ -1041,6 +1062,8 @@ void thdr_place_ta_objs(thdr_t *thdr,
     int *pindex, *end;
     Tcl_Obj **pobjs;
 
+    TA_ASSERT(thdr->nrefs <= 1);
+
     pindex = THDRELEMPTR(pindices, int, 0);
     end = pindex + pindices->used;
     pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
@@ -1086,6 +1109,8 @@ void thdr_fill_ta_strings(thdr_t *thdr,
 
     if (pindices->used == 0)
         return;                 /* Code below assumes at least one */
+
+    TA_ASSERT(thdr->nrefs <= 1);
 
     pindex = THDRELEMPTR(pindices, int, 0);
     end = pindex + pindices->used;
@@ -1135,6 +1160,8 @@ void thdr_fill_ta_objs(thdr_t *thdr,
     int i;
     int *pindex, *end;
     Tcl_Obj **pobjs;
+
+    TA_ASSERT(thdr->nrefs <= 1);
 
     pindex = THDRELEMPTR(pindices, int, 0);
     end = pindex + pindices->used;
@@ -1297,7 +1324,7 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
             o->typePtr = NULL;
         }
 
-        tcol_set_intrep(o, thdr);
+        tcol_set_intrep(o, thdr, NULL);
         return TCL_OK;
     }
                 
@@ -1912,7 +1939,32 @@ Tcl_Obj *tcol_new(thdr_t *thdr)
         return NULL;
     o = Tcl_NewObj();
     Tcl_InvalidateStringRep(o);
-    tcol_set_intrep(o, thdr);
+    tcol_set_intrep(o, thdr, NULL);
+    return o;
+}
+
+Tcl_Obj *tcol_new_span(thdr_t *thdr, int first, int count)
+{
+    Tcl_Obj *o;
+    span_t *span;
+
+    TA_ASSERT(thdr);
+    TA_ASSERT(first >= 0 && first < thdr->used);
+    TA_ASSERT(count >= 0);
+    TA_ASSERT(first+count <= thdr->used);
+    
+    o = Tcl_NewObj();
+    Tcl_InvalidateStringRep(o);
+    if (first == 0 && count == thdr->used)
+        span = NULL;
+    else {
+        span = TA_ALLOCMEM(sizeof(*span));
+        span->nrefs = 0;
+        span->first = first;
+        span->count = count;
+    }
+    
+    tcol_set_intrep(o, thdr, span);
     return o;
 }
 
@@ -2156,17 +2208,24 @@ void thdr_place_objs(
     thdr->used = new_size;
 }
 
-void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pindices, int new_size)
+void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_span, thdr_t *pindices, int new_size)
 {
     int *pindex, *end;
-    int i;
+    int i, src_first, count;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(pindices->type == TA_INT);
     TA_ASSERT(new_size <= thdr->usable);
-    TA_ASSERT(pindices->used <= psrc->used);
     TA_ASSERT(thdr->type == psrc->type);
 
+    if (src_span) {
+        src_first = src_span->first;
+        TA_ASSERT(pindices->used <= src_span->count);
+    } else {
+        src_first = 0;
+        TA_ASSERT(pindices->used <= psrc->used);
+    }
+    
     if (pindices->used == 0)
         return;          /* Nothing to change */
 
@@ -2175,7 +2234,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
 #define thdr_place_COPYINDICES(type) do {       \
         type *dst, *src;                        \
         dst = THDRELEMPTR(thdr, type, 0);       \
-        src = THDRELEMPTR(psrc, type, 0);       \
+        src = THDRELEMPTR(psrc, type, src_first);  \
         while (pindex < end) {                  \
             TA_ASSERT(*pindex < thdr->usable);  \
             dst[*pindex++] = *src++;            \
@@ -2192,7 +2251,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
             ba_t *src = THDRELEMPTR(psrc, ba_t, 0);
             for (i = 0; pindex < end; ++pindex, ++i) {
                 TA_ASSERT(*pindex < thdr->usable);
-                ba_put(dst, *pindex, ba_get(src, i));
+                ba_put(dst, *pindex, ba_get(src, src_first+i));
             }
         }
         break;
@@ -2213,7 +2272,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
         /* Tricky 'cause of ref counts. See comments in thdr_place_ta_objs */
         {
             Tcl_Obj **dst = THDRELEMPTR(thdr, Tcl_Obj *, 0);
-            Tcl_Obj **src = THDRELEMPTR(psrc, Tcl_Obj *, 0);
+            Tcl_Obj **src = THDRELEMPTR(psrc, Tcl_Obj *, src_first);
             for (i = thdr->used; i < new_size; ++i)
                 dst[i] = NULL;        /* TBD - optimization - memset ? */
             while (pindex < end) {
@@ -2231,7 +2290,7 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pind
         /* Tricky 'cause of ref counts. See comments in thdr_place_ta_strings */
         {
             tas_t **dst = THDRELEMPTR(thdr, tas_t *, 0);
-            tas_t **src = THDRELEMPTR(psrc, tas_t *, 0);
+            tas_t **src = THDRELEMPTR(psrc, tas_t *, src_first);
             for (i = thdr->used; i < new_size; ++i)
                 dst[i] = NULL;        /* TBD - optimization - memset ? */
             while (pindex < end) {
@@ -2424,9 +2483,10 @@ TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size)
     TA_ASSERT(tcol_affirm(o));
     TA_ASSERT(! Tcl_IsShared(o));
     
-    thdr = tcol_thdr(o);
+    thdr = OBJTHDR(o);
     TA_ASSERT(thdr);
     TA_ASSERT(! thdr_shared(thdr));
+    TA_ASSERT(OBJTHDRSPAN(o) == NULL);
     TA_ASSERT(new_size > thdr->usable);
 
     Tcl_InvalidateStringRep(o);
@@ -3318,14 +3378,15 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     return thdr;
 }
 
-thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
+thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count, int minsize)
 {
     thdr_t *thdr;
 
     TA_ASSERT(low >= 0);
     TA_ASSERT(count >= 0);
-
-    thdr = thdr_alloc(ip, psrc->type, count);
+    if (minsize < count)
+        minsize = count;
+    thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
         thdr_copy(thdr, 0, psrc, low, count, 0);
         thdr->sort_order = psrc->sort_order;
@@ -3337,37 +3398,64 @@ thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count)
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
 {
     thdr_t *thdr;
-
+    span_t *span;
+    
     if (tcol_convert(ip, tcol) != TCL_OK)
         return NULL;
-    thdr = tcol_thdr(tcol);
-    if (index < 0 || index >= thdr->used) {
+    thdr = OBJTHDR(tcol);
+    span = OBJTHDRSPAN(tcol);
+    if (span) {
+        first = span->first;
+        count = span->count;
+    } else {
+        first = 0;
+        count = thdr->used;
+    }
+    if (index < first || index >= count) {
         ta_index_range_error(ip, index);
         return NULL;
     }
-    return thdr_index(thdr, index);
+    return thdr_index(thdr, first + index);
 }
 
 Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
                      int fmt)
 {
     int end;
+    int first;
     thdr_t *psrc;
     Tcl_Obj *o;
+    span_t *span;
 
     TA_ASSERT(low >= 0);
     TA_ASSERT(count >= 0);
+    TA_ASSERT(tcol_affirm(osrc));
 
-    psrc = tcol_thdr(osrc);
-
-    if (fmt == TA_FORMAT_TARRAY) {
-        thdr_t *thdr = thdr_range(ip, psrc, low, count);
-        return thdr == NULL ? NULL : tcol_new(thdr);
+    psrc = OBJTHDR(osrc);
+    span = OBJTHDRSPAN(osrc);
+    if (span) {
+        TA_ASSERT(span->first >= 0);
+        TA_ASSERT(span->count >= 0);
+        TA_ASSERT((span->first + span->count) <= thdr->used);
+        if (low > span->count) {
+            /* Starting index is beyond column size. Create empty span */
+            low = span->first;
+            count = 0;
+        } else {
+            low += span->first;
+            end = low + count;
+            if (end > (span->first + span->count))
+                end = span->first + span->count;
+        }
+    } else {
+        end = low + count;
+        if (end > psrc->used)
+            end = psrc->used;
     }
-
-    end = low + count;
-    if (end > psrc->used)
-        end = psrc->used;
+            
+    
+    if (fmt == TA_FORMAT_TARRAY) 
+        return tcol_new_span(ip, psrc, low, count);
 
     /* TBD - optimize by allocating array and calling Tcl_NewListObj */
 #define tcol_range_COPY(type_, objfn_)                                  \
@@ -3428,13 +3516,15 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
 /*
  * Convert a TArray Tcl_Obj to one that is suitable for modifying.
  * The Tcl_Obj must NOT be shared.
- * There are three cases to consider:
+ * There are the following cases to consider:
  * (1) Even though tcol is unshared, the corresponding thdr_t might
  *     still be shared (pointed to from elsewhere). In this case
  *     also, we clone the thdr_t and store it as the new internal rep.
  * (2) If its thdr_t is unshared, we can modify in
  *     place, unless 
  * (3) thdr_t is too small in which case we have to reallocate it.
+ * (4) The tcol is a span of the thdr in which case we need to 
+ *     allocate a non-span version.
  *
  * Invalidates the string rep in all cases.
  * Only fails on memory allocation failure.
@@ -3449,12 +3539,24 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
                                 Tcl_Obj *tcol, int minsize, int prefsize)
 {
     thdr_t *thdr;
+    span_t *span;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
     if (tcol_convert(ip, tcol) != TCL_OK)
         return TCL_ERROR;
 
-    thdr = tcol_thdr(tcol);
+    thdr = OBJTHDR(tcol);
+    span = OBJTHDRSPAN(tcol);
+    if (span) {
+        /* Case (4) */
+        thdr = thdr_range(ip, thdr, span->first, span->count, minsize > prefsize ? minsize : prefsize);
+        if (thdr == NULL)
+            return TCL_ERROR;
+        tcol_replace_intrep(tcol, thdr, NULL);
+        TA_ASSERT(tcol_thdr(tcol)->usable >= minsize);
+        return TCL_OK; 
+    }
+    
     if (thdr->usable >= minsize && !thdr_shared(thdr)) {
         /* Case (2) - just reuse, invalidate the string rep */
         Tcl_InvalidateStringRep(tcol);
@@ -3482,7 +3584,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
         thdr = thdr_clone(ip, thdr, prefsize);
         if (thdr == NULL)
             return TCL_ERROR;   /* Note tcol is not changed */
-        tcol_replace_intrep(tcol, thdr);
+        tcol_replace_intrep(tcol, thdr, NULL);
     } else if (thdr->usable < minsize) {
         /* Case (3). */
         if (tcol_grow_intrep(ip, tcol, prefsize) != TCL_OK)
@@ -3847,6 +3949,10 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
      * For efficiencies sake, we need to avoid shimmering. So we first
      * check for specific types and default to a list otherwise.
      */
+    if (table_affirm(o)) {
+        return ta_indices_error(ip, NULL); // NULL because we don't want to generate a string rep for a table
+    }
+
     if (! tcol_affirm(o)) {
         /* If pindex is NULL, caller never wants to be treated as a single index */
         if (pindex != NULL) {
@@ -3884,8 +3990,23 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     }
 
     if (tcol_affirm(o)) {
-        if (tcol_type(o) == TA_INT) {
-            thdr = tcol_thdr(o);
+        span_t *span;
+        if (tcol_type(o) != TA_INT) {
+            /* TBD - write conversion from other type tarrays taking into account span */
+            ta_indices_error(ip, o);
+            return TA_INDEX_TYPE_ERROR;
+        }
+        thdr = OBJTHDR(o);
+        span = OBJTHDRSPAN(o);
+        if (span) {
+            thdr = thdr_range(ip, thdr, span->first, span->count, span->count);
+            if (thdr == NULL)
+                return TA_INDEX_TYPE_ERROR;
+            if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
+                qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
+                thdr->sort_order = THDR_SORTED_ASCENDING;
+            }
+        } else {
             if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
                 thdr = thdr_clone(ip, thdr, thdr->used);
                 if (thdr == NULL)
@@ -3893,16 +4014,13 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
                 qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
                 thdr->sort_order = THDR_SORTED_ASCENDING;
             }
-            thdr->nrefs++;
-            *thdrP = thdr;
-            return TA_INDEX_TYPE_THDR;
-        } else {
-            /* TBD - write conversion from other type tarrays */
-            ta_indices_error(ip, o);
-            return TA_INDEX_TYPE_ERROR;
         }
+        thdr->nrefs++;
+        *thdrP = thdr;
+        return TA_INDEX_TYPE_THDR;
     }
 
+    /* Not a column */
     thdr = thdr_alloc_and_init(ip, TA_INT, n, elems, 0);
     if (thdr) {
         if (want_sorted) {
@@ -3922,18 +4040,19 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 {
     thdr_t *psrc;
     thdr_t *thdr;
-    int count, index, bound;
+    int count, index, bound, span_first;
     int *pindex, *end;
     Tcl_Obj *tcol;
     void *srcbase, *thdrbase;
-
-    if (tcol_convert(ip, osrc) != TCL_OK)
-        return NULL;
+    span_t *span;
 
     TA_ASSERT(pindices->type == TA_INT);
     count = pindices->used;
+    
+    if (tcol_convert(ip, osrc) != TCL_OK)
+        return NULL;
 
-    psrc = tcol_thdr(osrc);
+    psrc = OBJTHDR(osrc);
     if (fmt == TA_FORMAT_TARRAY) {
         thdr = thdr_alloc(ip, psrc->type, count);
         if (thdr == NULL)
@@ -3948,6 +4067,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
     if (count == 0)
         return tcol;           /* Empty index list so nothing to return */
 
+
 #define tcol_get_COPY(type_, objfn_)                                    \
     do {                                                                \
         type_ *fromP = srcbase;                                         \
@@ -3958,7 +4078,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 index = *pindex++;                                      \
                 if (index < 0 || index >= bound)                        \
                     goto index_error;                                   \
-                *tpobjs++ = fromP[index];                               \
+                *tpobjs++ = fromP[index];                  \
             }                                                           \
             thdr->used = count;                                         \
             break;                                                      \
@@ -3986,12 +4106,18 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 
     pindex = THDRELEMPTR(pindices, int, 0);
     end = pindex + count;
-    srcbase = THDRELEMPTR(psrc, unsigned char, 0);
-    bound = psrc->used;
+    span = OBJTHDRSPAN(osrc);
+    if (span) {
+        span_first = span->first;
+        bound = span->count;
+    } else {
+        span_first = 0;
+        bound = psrc->used;
+    }
     switch (psrc->type) {
     case TA_BOOLEAN:
         {
-            ba_t *srcbaP = srcbase;
+            ba_t *srcbaP = THDRELEMPTR(psrc, ba_t, 0);
             ba_t *baP = thdrbase;
             int i;
             if (fmt == TA_FORMAT_TARRAY) {
@@ -3999,7 +4125,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                     index = *pindex; 
                     if (index < 0 || index >= bound)
                         goto index_error;
-                    ba_put(baP, i, ba_get(srcbaP, index));
+                    ba_put(baP, i, ba_get(srcbaP, span_start+index));
                 }
                 thdr->used = count;             \
             } else {
@@ -4010,30 +4136,35 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                     if (fmt == TA_FORMAT_DICT)
                         Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
                     Tcl_ListObjAppendElement(ip, tcol,
-                                             Tcl_NewIntObj(ba_get(srcbaP, index)));
+                                             Tcl_NewIntObj(ba_get(srcbaP, span_start + index)));
                 }
             }
         }
         break;
     case TA_UINT:
+        srcbase = THDRELEMPTR(psrc, unsigned int, span_first);
         tcol_get_COPY(unsigned int, Tcl_NewWideIntObj);
         break;
     case TA_INT:
+        srcbase = THDRELEMPTR(psrc, int, span_first);
         tcol_get_COPY(int, Tcl_NewIntObj);
         break;
     case TA_WIDE:
+        srcbase = THDRELEMPTR(psrc, Tcl_WideInt, span_first);
         tcol_get_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
         break;
     case TA_DOUBLE:
+        srcbase = THDRELEMPTR(psrc, double, span_first);
         tcol_get_COPY(double, Tcl_NewDoubleObj);
         break;
     case TA_BYTE:
+        srcbase = THDRELEMPTR(psrc, unsigned char, span_first);
         tcol_get_COPY(unsigned char, Tcl_NewIntObj);
         break;
     case TA_ANY:
         /* Cannot use macro here because of ref counts etc. */
         {
-            Tcl_Obj **srcobjs = srcbase;
+            Tcl_Obj **srcobjs = THDRELEMPTR(psrc, Tcl_Obj *, span_first);
             Tcl_Obj **pobjs = thdrbase;
             while (pindex < end) {
                 index = *pindex++; 
@@ -4058,7 +4189,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
     case TA_STRING:
         /* Cannot use macro here because of ref counts etc. */
         {
-            tas_t **srctas = srcbase;
+            tas_t **srctas = THDRELEMPTR(psrc, tas_t *, span_first);
             tas_t **ptas = thdrbase;
             while (pindex < end) {
                 index = *pindex++; 
@@ -4171,11 +4302,10 @@ TCL_RESULT tcol_inject_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
 
     /* Values may be given as a column or a list */
     if (tcol_convert(NULL, ovalue) == TCL_OK)
-        return tcol_copy_thdr(ip, tcol, tcol_thdr(ovalue), opos, 1);
+        return tcol_copy_thdr(ip, tcol, OBJTHDR(ovalue), OBJTHDRSPAN(ovalue), opos, 1);
     else
         return tcol_put_objs(ip, tcol, ovalue, opos, 1);
 }
-
 
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexa, Tcl_Obj *indexb)
@@ -4236,6 +4366,7 @@ TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
 TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
 {
     thdr_t *thdr;
+    span_t *span;
     int status;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
@@ -4243,13 +4374,22 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
 
-    if (thdr_shared(tcol_thdr(tcol))) {
-        thdr = thdr_clone_reversed(ip, tcol_thdr(tcol), 0);
+    thdr = OBJTHDR(tcol);
+    span = OBJTHDRSPAN(tcol);
+    
+    if (span) {
+        thdr_t *thdr2 = thdr_alloc(ip, thdr->type, span->count);
+        if (thdr2 == NULL)
+            return TCL_ERROR;
+        thdr_copy_reversed(thdr2, 0, thdr, span->first, span->count);
+        tcol_replace_intrep(tcol, thdr2);
+    } else if (thdr_shared(thdr)) {
+        thdr = thdr_clone_reversed(ip, thdr, 0);
         if (thdr == NULL)
             return TCL_ERROR;
         tcol_replace_intrep(tcol, thdr);
     } else {
-        thdr_reverse(tcol_thdr(tcol));
+        thdr_reverse(thdr);
         Tcl_InvalidateStringRep(tcol);
     }
     return TCL_OK;
@@ -4354,6 +4494,7 @@ int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     char *a, *b;
     int alen, blen;
 
+    /* TBD - optimize for when both are table or columns */
     a = Tcl_GetStringFromObj(oaP, &alen);
     b = Tcl_GetStringFromObj(obP, &blen);
 
@@ -4363,29 +4504,38 @@ int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
     return ta_utf8_equal(a, b, ignorecase);
 }
 
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol, thdr_t *psrc,
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol,
+                          thdr_t *psrc, span_t *src_span,
                           Tcl_Obj *ofirst, /* NULL -> end */
                           int insert)
 {
     int first, status, cur_used;
-
+    int src_first, count;
+    
     TA_ASSERT(! Tcl_IsShared(tcol));
-
+    
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
     if (tcol_type(tcol) != psrc->type)
         return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
+    if (src_span) {
+        src_first = src_span->first;
+        count = src_span->count;
+    } else {
+        src_first = 0;
+        count = psrc->used;
+    }
     cur_used = tcol_occupancy(tcol);
     first = cur_used; /* By default, append */
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &first, first, 0, first);
-    if (status == TCL_OK && psrc->used) {
+    if (status == TCL_OK && count) {
         status = tcol_make_modifiable(ip, tcol,
-                                      psrc->used + (insert ? cur_used : first),
+                                      count + (insert ? cur_used : first),
                                       0);
         if (status == TCL_OK)
-            thdr_copy(tcol_thdr(tcol), first, psrc, 0, psrc->used, insert); 
+            thdr_copy(tcol_thdr(tcol), first, psrc, src_first, count, insert); 
     }
     return status;
 }
@@ -4484,14 +4634,16 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
     int new_size;
     int status;
     thdr_t *pindices, *psrc;
+    span_t *src_span;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
-    TA_ASSERT(tcol_affirm(osrc));
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
-
-    psrc = tcol_thdr(osrc);
+    
+    TA_ASSERT(tcol_affirm(osrc));
+    psrc = OBJTHDR(osrc);
+    src_span = OBJTHDRSPAN(osrc);
     if (psrc->type != tcol_type(tcol))
         return ta_mismatched_types_error(ip, tcol_type(tcol), psrc->type);
 
@@ -4500,13 +4652,13 @@ TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
 
     status = TCL_OK;
     if (pindices->used > 0) {
-        if (pindices->used > psrc->used)
+        if (pindices->used > tcol_occupancy(osrc))
             status = ta_indices_count_error(ip, pindices->used, psrc->used);
         else {
             status = thdr_verify_indices_in_range(ip, tcol_occupancy(tcol), pindices, &new_size);
             if (status == TCL_OK) {
                 status = tcol_make_modifiable(ip, tcol, new_size, new_size); // TBD - count + extra?
-                thdr_place_indices(ip, tcol_thdr(tcol), psrc, pindices, new_size);
+                thdr_place_indices(ip, tcol_thdr(tcol), psrc, src_span, pindices, new_size);
             }
         }
     }
@@ -4579,7 +4731,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
 TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
                            int objc, Tcl_Obj *const objv[])
 {
-    int i, opt, start, count;
+    int i, opt, range_start, range_count;
     int ignore_case = 0, want_indices = 0;
     TCL_RESULT status;
     static const char *tcol_minmax_switches[] = {
@@ -4588,20 +4740,25 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     enum tcol_minmax_switches_e {
         TA_MINMAX_OPT_RANGE, TA_MINMAX_OPT_INDICES, TA_MINMAX_OPT_NOCASE
     };
-    int min_index, max_index;
+    int min_index, max_index, tcol_count;
     thdr_t *thdr;
     Tcl_Obj *objs[2];
+    Tcl_Obj *tcol;
+    span_t *span;
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(ip, 1, objv, "?options? column");
 	return TCL_ERROR;
     }
-    
-    if (tcol_convert(ip, objv[objc-1]) != TCL_OK)
+
+    tcol = objv[objc-1];
+    if (tcol_convert(ip, tcol) != TCL_OK)
         return TCL_ERROR;
-    thdr = tcol_thdr(objv[objc-1]);
-    start = 0;
-    count = thdr->used;
+    thdr = OBJTHDR(tcol);
+    span = OBJTHDRSPAN(tcol);
+    range_start = 0;
+    tcol_count = tcol_occupancy(tcol);
+    range_count = tcol_count;
     for (i = 1; i < objc-1; ++i) {
 	status = Tcl_GetIndexFromObj(ip, objv[i], tcol_minmax_switches, "option", 0, &opt);
         if (status != TCL_OK)
@@ -4612,7 +4769,7 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (i > objc-3)
                 return ta_missing_arg_error(ip, "-range");
             ++i;
-            status = ta_parse_range_option_value(ip, count, objv[i], &start, &count);
+            status = ta_parse_range_option_value(ip, range_count, objv[i], &range_start, &range_count);
             if (status != TCL_OK)
                 return status;
             break;
@@ -4625,15 +4782,24 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
         }
     }
 
-    if (count <= 0 ||
-        start > thdr->used ||
-        (start+count) > thdr->used) {
+    if (range_count <= 0 ||
+        range_start >= tcol_count ||
+        (range_start+range_count) > tcol_count) {
         return ta_invalid_range_error(ip, NULL);
     }
 
+    if (span)
+        range_start += span->first;
+    
     if (want_indices) {
-        thdr_minmax(thdr, start, count, ignore_case,
+        thdr_minmax(thdr, range_start, range_count, ignore_case,
                     &min_index, &max_index, NULL, NULL);
+        if (span) {
+            min_index -= span->first;
+            max_index -= span->first;
+        }
+        TA_ASSERT(min_index >= 0 && min_index < tcol_count);
+        TA_ASSERT(max_index >= 0 && max_index < tcol_count);
         objs[0] = Tcl_NewIntObj(min_index);
         objs[1] = Tcl_NewIntObj(max_index);
     } else {

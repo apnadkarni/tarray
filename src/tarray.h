@@ -147,6 +147,15 @@ extern Tcl_ObjType *g_tcl_string_type_ptr;
 #define TA_MAX_COUNT (int)(((size_t)UINT_MAX - sizeof(thdr_t))/TA_MAX_ELEM_SIZE)
 
 /*
+ * A span_t is used to store a span or subrange limits 
+ */
+typedef struct span_s {
+    int nrefs;
+    int first;
+    int count;
+} span_t;
+
+/*
  * A thdr_t stores an array of elements of a specific type. It is used
  * as the internal representation of TArray column as well as a TArray
  * table.
@@ -196,14 +205,35 @@ TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
 TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
 
+TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span) }
+TA_INLINE void span_incr_refs(span_t *span) { span->nrefs++; }
+TA_INLINE void span_decr_refs(span_t *span) {
+    if (span->nrefs-- <= 1) span_free(span);
+}
+TA_INLINE int span_shared(span_t *span) { return span->nrefs > 1; }
+
 /*
  * Inline functions to manipulate internal representation of Tarray columns
  */
 
-/* Retrieve a lvalue reference to the field used to point to the thdr_t */
+/* 
+ * Retrieve a lvalue reference to the field used to point to the thdr_t 
+ * This applies to columns and tables.
+ */
 #define OBJTHDR(optr_) (*(thdr_t **) (&((optr_)->internalRep.twoPtrValue.ptr1)))
 
-/* Retrieve a lvalue reference to the field used to point to the column names for a table */
+/* 
+ * Retrieve a lvalue reference to the field used to point to the column 
+ * span (range). Only applies to columns. If this field is NULL, the entire
+ * thdr_t is the span.
+ */
+#define OBJTHDRSPAN(optr_) (*(thdr_span_t **) (&((optr_)->internalRep.twoPtrValue.ptr2)))
+
+
+/*
+ * Retrieve a lvalue reference to the field used to point to the column 
+ * names for a table. Only applies to tables.
+ */
 #define OBJCOLNAMES(optr_) (*(Tcl_Obj **) (&((optr_)->internalRep.twoPtrValue.ptr2)))
 
 extern struct Tcl_ObjType ta_column_type;
@@ -221,17 +251,25 @@ TA_INLINE int table_affirm(Tcl_Obj *o) {
     return (o->typePtr == &ta_table_type); 
 }
 
-/* Return the internal rep of a column */
+/* Return the thdr a column */
 TA_INLINE thdr_t *tcol_thdr(Tcl_Obj *o) {
     TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
-    return (thdr_t *) OBJTHDR(o);
+    return OBJTHDR(o);
+}
+
+/* Return the span of a column */
+TA_INLINE span_t *tcol_span(Tcl_Obj *o) {
+    TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
+    return OBJTHDRSPAN(o);
 }
 
 /* Sets a Tcl_Obj's internal rep pointer assuming it is uninitialized */
-TA_INLINE void tcol_set_intrep(Tcl_Obj *o, thdr_t *thdr) {
+TA_INLINE void tcol_set_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
     thdr_incr_refs(thdr);
     OBJTHDR(o) = thdr;
-    o->internalRep.twoPtrValue.ptr2 = NULL;
+    if (span)
+        span_incr_refs(span);
+    OBJTDHRSPAN(o) = span;
     o->typePtr = &ta_column_type;
 }
 
@@ -239,13 +277,17 @@ TA_INLINE void tcol_set_intrep(Tcl_Obj *o, thdr_t *thdr) {
  * Set an initialized internal rep for a Tcl_Obj, invalidating 
  * the string rep 
  */
-TA_INLINE void tcol_replace_intrep(Tcl_Obj *o, thdr_t *thdr) {
+TA_INLINE void tcol_replace_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
     TA_ASSERT(tcol_affirm(o));
     TA_ASSERT(! Tcl_IsShared(o));
     TA_ASSERT(tcol_thdr(o) != NULL);
     thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
     thdr_decr_refs(OBJTHDR(o));
     OBJTHDR(o) = thdr;
+    if (span)
+        span_incr_refs(span);
+    span_free(OBJTHDRSPAN(o));
+    OBJTHDRSPAN(o) = span;
     Tcl_InvalidateStringRep(o);
 }
 
@@ -518,7 +560,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ncols, Tcl_Obj * const *tcols,
 void thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
                      int new_size,
                      int nvalues, Tcl_Obj * const *pvalues);
-void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, thdr_t *pindices, int new_size);
+void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_span, thdr_t *pindices, int new_size);
 
 int thdr_required_size(int tatype, int count);
 void thdr_reverse(thdr_t *tdrhP);
@@ -540,7 +582,7 @@ int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
 #define TA_INDEX_TYPE_THDR 2
 
 int thdr_check(Tcl_Interp *, thdr_t *);
-thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count);
+thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count, int minsize);
 
 int tcol_check(Tcl_Interp *, Tcl_Obj *);
 TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
@@ -601,7 +643,7 @@ TCL_RESULT table_set_column(Tcl_Interp *, Tcl_Obj *table, Tcl_Obj *, Tcl_Obj *);
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index);
 Tcl_Obj *tcol_get(struct Tcl_Interp *, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
 int TArrayNumSetBits(thdr_t *thdr);
-TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, Tcl_Obj *firstObj, int insert);
+TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, span_t *, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,
                          Tcl_Obj *valueListObj, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
@@ -750,9 +792,15 @@ TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) {
     return tcol_affirm(o) ? TCL_OK : tcol_convert_from_other(ip, o);
 }
 
-
 TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return tcol_thdr(o)->type; }
-TA_INLINE int tcol_occupancy(Tcl_Obj *o) { return tcol_thdr(o)->used; }
+TA_INLINE int tcol_occupancy(Tcl_Obj *o) {
+    thdr_t *thdr = tcol_thdr(o);
+    span_t *span = OBJTHDRSPAN(o);
+    if (span)
+        return span->count;
+    else
+        return thdr->used;
+}
 
 /*
  * For a given thdr, computes the pointers to a source and destination offset
