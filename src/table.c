@@ -269,7 +269,7 @@ static Tcl_Obj *column_map_get_column_names(column_map_t *pmap, Tcl_Obj *table)
 TCL_RESULT tcols_fill_range(
     Tcl_Interp *ip,
     int ntcols,
-    Tcl_Obj **tcols,            /* Must be unshared and large enough */
+    Tcl_Obj **tcols,            /* Must be unshared, no span and large enough */
     Tcl_Obj *orow,              /* Value to fill */
     int pos,
     int count,
@@ -293,8 +293,10 @@ TCL_RESULT tcols_fill_range(
         pvalues = (ta_value_t *) TA_ALLOCMEM(row_width * sizeof(ta_value_t));
 
     col_len = tcol_occupancy(tcols[0]); /* #items in first column */
-    /* Validate column lengths and value types */
+    /* Validate column lengths and value types. Start with i=0 since
+       we need to validate corresponding value as well */
     for (i = 0; i < ntcols; ++i) {
+        TA_ASSERT(! Tcl_IsShared(tcol));
         if (tcol_occupancy(tcols[i]) != col_len) {
             status = ta_table_length_error(ip);
             goto vamoose;
@@ -305,8 +307,10 @@ TCL_RESULT tcols_fill_range(
     }
 
     for (i = 0; i < ntcols; ++i) {
-        thdr_fill_range(ip, tcol_thdr(tcols[i]),
-                        &pvalues[i], pos, count, insert);
+        thdr_t *thdr = tcol_thdr(tcols[i]);
+        TA_ASSERT(! thdr_shared(thdr));
+        TA_ASSERT(tcol_span(tcols[i]) == NULL);
+        thdr_fill_range(ip, thdr, &pvalues[i], pos, count, insert);
         ta_value_clear(&pvalues[i]);
     }
 
@@ -455,7 +459,7 @@ TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
 TCL_RESULT tcols_fill_indices(
     Tcl_Interp *ip,
     int ntcols,
-    Tcl_Obj **tcols,            /* Must be unshared and large enough */
+    Tcl_Obj **tcols,            /* Must be unshared, no span and large enough */
     Tcl_Obj *orow,              /* Value to fill */
     thdr_t *pindices,
     int new_size
@@ -494,6 +498,7 @@ TCL_RESULT tcols_fill_indices(
 
     /* Now that verification is complete, go do the actual changes */
     for (i = 0; i < ntcols; ++i) {
+        TA_ASSERT(tcol_span(tcols[i]) == NULL);
         thdr_fill_indices(ip, tcol_thdr(tcols[i]), &pvalues[i], pindices, new_size);
         ta_value_clear(&pvalues[i]);
     }
@@ -624,6 +629,8 @@ TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
             /* Note tcol is still valid and consistent though unmodifiable */
             return status;
         }
+        TA_ASSERT(! thdr_shared(tcol_thdr(tcol)));
+        TA_ASSERT(tcol_span(tcol) == NULL);
     }
 
     return TCL_OK;
@@ -839,6 +846,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
         thdr = tcol_thdr(tcols[t]);
         TA_ASSERT(! Tcl_IsShared(tcols[t]));
         TA_ASSERT(! thdr_shared(thdr));
+        TA_ASSERT(tcol_span(tcols[t]) == NULL);
         if (insert)
             TA_ASSERT(thdr->usable >= (thdr->used + nrows)); /* 'Nuff space */
         else
@@ -1106,6 +1114,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
          TA_ASSERT(! Tcl_IsShared(tcols[i]));
          TA_ASSERT(tcol_affirm(tcols[i]));
          TA_ASSERT(! thdr_shared(tcol_thdr(tcols[i])));
+         TA_ASSERT(tcol_span(tcols[i]) == NULL);
          TA_ASSERT(tcol_thdr(tcols[i])->usable >= new_size);
     }
 
@@ -1264,6 +1273,7 @@ TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcol
         TA_ASSERT(tcol_affirm(tcols[i]));
         TA_ASSERT(tcol_affirm(srccols[i]));
         TA_ASSERT(! thdr_shared(tcol_thdr(tcols[i])));
+        TA_ASSERT(tcol_span(tcols[i]) == NULL);
         TA_ASSERT(tcol_thdr(tcols[i])->usable >= new_size);
 
         if (tcol_type(tcols[i]) != tcol_type(srccols[i]))
@@ -1274,8 +1284,8 @@ TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcol
 
     /* Now all validation done, do the actual copy */
     for (i = 0; i < ntcols; ++i) {
-        thdr_place_indices(ip, tcol_thdr(tcols[i]), tcol_thdr(srccols[i]),
-                           pindices, new_size);
+        thdr_place_indices(ip, tcol_thdr(tcols[i]), OBJTHDR(srccols[i]),
+                           OBJTHDRSPAN(srccols[i]), pindices, new_size);
     }
     return TCL_OK;
 }
@@ -1352,6 +1362,7 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     for (i = 0; i < ntcols; ++i) {
         TA_ASSERT(! Tcl_IsShared(dstcols[i]));
         TA_ASSERT(tcol_affirm(dstcols[i]));
+        TA_ASSERT(tcol_span(dstcols[i]) == NULL);
         TA_ASSERT(tcol_affirm(srccols[i]));
         TA_ASSERT(tcol_occupancy(dstcols[i]) == tcol_occupancy(dstcols[0]));
 
@@ -1367,8 +1378,22 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     
     /* Now that *all* columns have been checked, do the actual copy */
     for (i = 0; i < ntcols; ++i) {
+        thdr_t *src_thdr;
+        span_t *src_span;
+        int src_size;
+        src_thdr = tcol_thdr(srccols[i]);
+        src_span = tcol_span(srccols[i]);
+        if (src_span) {
+            src_first = src_span->first;
+            src_size = src_span->count;
+        } else {
+            src_first = 0;
+            src_size = src_thdr->used;
+        }
+        if ((src_elem_first + count) > src_size)
+            count = src_size - src_elem_first; 
         thdr_copy(tcol_thdr(dstcols[i]), dst_elem_first,
-                  tcol_thdr(srccols[i]), src_elem_first, count, insert);
+                  tcol_thdr(srccols[i]), src_first + src_elem_first, count, insert);
     }    
 
     return TCL_OK;
@@ -1561,12 +1586,23 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
 
     for (i = 0; i < nsrccols; ++i) {
         void *srcbase;
-        int j, incr, bound;
+        int j, incr, bound, span_start;
+        thdr_t *src_thdr;
+        span_t *span;
 
+        TA_ASSERT(tcol_affirm(srccols[i]));
+        
         pindex = THDRELEMPTR(pindices, int, 0);
         end = pindex + pindices->used;
-        srcbase = THDRELEMPTR(tcol_thdr(srccols[i]), unsigned char, 0);
-        bound = tcol_occupancy(srccols[i]);
+        src_thdr = OBJTHDR(srccols[i]);
+        span = OBJTHDRSPAN(srccols[i]);
+        if (span) {
+            span_start = span->first;
+            bound = span->count;
+        } else {
+            span_start = 0;
+            bound = src_thdr->used;
+        }
         if (fmt == TA_FORMAT_DICT) {
             /* Values are in alternate slots since mixed with indices */
             j = 1;
@@ -1579,28 +1615,33 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
         switch (tcol_type(srccols[i])) {
         case TA_BOOLEAN:
             {
-                ba_t *srcbaP = srcbase;
+                ba_t *srcbaP = THDRELEMPTR(src_thdr, ba_t, 0);
                 for (; pindex < end; j += incr, ++pindex) {
                     index = *pindex;
                     if (index < 0 || index >= bound)
                         goto index_error;
                     Tcl_ListObjAppendElement(ip, olistelems[j],
-                                             Tcl_NewIntObj(ba_get(srcbaP, index)));
+                                             Tcl_NewIntObj(ba_get(srcbaP, span_start+index)));
                 }
             }
         case TA_UINT:
+            srcbase = THDRELEMPTR(src_thdr, unsigned int, span_first);
             table_get_COPY(unsigned int, Tcl_NewWideIntObj);
             break;
         case TA_INT:
+            srcbase = THDRELEMPTR(src_thdr, int, span_first);
             table_get_COPY(int, Tcl_NewIntObj);
             break;
         case TA_WIDE:
+            srcbase = THDRELEMPTR(src_thdr, Tcl_WideInt, span_first);
             table_get_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
             break;
         case TA_DOUBLE:
+            srcbase = THDRELEMPTR(src_thdr, double, span_first);
             table_get_COPY(double, Tcl_NewDoubleObj);
             break;
         case TA_BYTE:
+            srcbase = THDRELEMPTR(src_thdr, unsigned char, span_first);
             table_get_COPY(unsigned char, Tcl_NewIntObj);
             break;
         case TA_ANY:
@@ -1608,9 +1649,11 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
                taken care of by the lists themselves. The (Tcl_Obj *) is
                passed as essentially a no-op conversion function
             */
+            srcbase = THDRELEMPTR(src_thdr, Tcl_Obj *, span_first);
             table_get_COPY(Tcl_Obj *, (Tcl_Obj *));
             break;
         case TA_STRING:
+            srcbase = THDRELEMPTR(src_thdr, tas_t *, span_first);
             table_get_COPY(tas_t *, tas_to_obj);
             break;
         default:
@@ -1715,7 +1758,7 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
                 
 #define table_range_COPY(type_, objfn_)                                 \
     do {                                                                \
-        type_ *p = THDRELEMPTR(tcol_thdr(srccols[i]), type_, low);      \
+        type_ *p = THDRELEMPTR(src_thdr, type_, src_first); \
         type_ *pend = p + count;                                    \
         while (p < pend) {                                              \
             Tcl_ListObjAppendElement(ip, olistelems[j], objfn_(*p++));  \
@@ -1724,7 +1767,9 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
     } while (0)                                                         \
 
     for (i = 0; i < nsrccols; ++i) {
-        int j, incr;
+        int j, incr, src_first;
+        thdr_t *src_thdr;
+        span_t *src_span;
 
         if (fmt == TA_FORMAT_DICT) {
             /* Values are in alternate slots since mixed with indices */
@@ -1734,13 +1779,22 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
             j = 0;
             incr = 1;
         }
+        src_thdr = tcol_thdr(srccols[i]);
+        src_span = tcol_span(srccols[i]);
+        if (src_span) {
+            TA_ASSERT((low+count) <= src_span->count);
+            src_first = low + src_span->first;
+        } else {
+            TA_ASSERT((low+count) <= src_thdr->used);
+            src_first = low;
+        }
             
-        switch (tcol_type(srccols[i])) {
+        switch (src_thdr->type) {
         case TA_BOOLEAN:
             {
-                ba_t *srcbaP = THDRELEMPTR(tcol_thdr(srccols[i]), ba_t, 0);
+                ba_t *srcbaP = THDRELEMPTR(src_thdr, ba_t, 0);
                 int k;
-                for (k = low; k < end; j += incr, ++k) {
+                for (k = src_first; k < end; j += incr, ++k) {
                     Tcl_ListObjAppendElement(ip, olistelems[j],
                                              Tcl_NewIntObj(ba_get(srcbaP, k)));
                 }
@@ -1773,7 +1827,7 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
             table_range_COPY(tas_t *, tas_to_obj);
             break;
         default:
-            ta_type_panic(tcol_type(srccols[i]));
+            ta_type_panic(src_thdr->type);
         }
     }
 
