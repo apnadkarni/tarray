@@ -81,8 +81,9 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
     thdr_t *thdr;
     struct thdr_fold_mt_context mt_context[4];
     int mt_sizes[4];
-    int start, op;
+    int start, nelems, op;
     TCL_RESULT status;
+    span_t *span;
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "operation tarray");
@@ -95,7 +96,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
     if ((status = tcol_convert(ip, objv[2])) != TCL_OK)
         return status;
 
-    thdr = tcol_thdr(objv[2]);
+    thdr = OBJTHDR(objv[2]);
 
     switch (thdr->type) {
     case TA_BYTE:
@@ -108,10 +109,19 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
         return ta_bad_type_error(ip, thdr);
     }
 
+    span = OBJTHDRSPAN(objv[2]);
+    if (span) {
+        start = span->first;
+        nelems = span->count;
+    } else {
+        start = 0;
+        nelems = thdr->used;
+    }
+        
 #if !defined(TA_MT_ENABLE)
     ncontexts = 1;
 #else
-    ncontexts = thdr_calc_mt_split_ex(thdr->type, 0, thdr->used, 
+    ncontexts = thdr_calc_mt_split_ex(thdr->type, start, nelems,
                                       ta_fold_mt_threshold, 
                                       ARRAYSIZE(mt_sizes), mt_sizes);
 #   if defined(TA_ENABLE_ASSERT)
@@ -126,7 +136,6 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
     
 #endif
 
-    start = 0;
     for (j = 0; j < ncontexts; ++j) {
         mt_context[j].thdr = thdr;
         if (thdr->type == TA_DOUBLE) {

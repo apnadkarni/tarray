@@ -345,9 +345,10 @@ critcl::cproc tarray::column::type {TColObjPtr tcol} "const char*" {
 }
 
 critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* COLTYPE} ok {
-    int tatype;
+    int tatype, count, first;
     thdr_t *thdr, *thdr2;
     Tcl_Obj *o;
+    span_t *span;
 
     if (Tcl_GetIndexFromObj(interp, COLTYPE, g_type_tokens, "TArrayType",
                             TCL_EXACT, &tatype) != TCL_OK)
@@ -379,10 +380,19 @@ critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* 
         }
     }
 
-    thdr2 = thdr_alloc(interp, tatype, thdr->used);
+    span = tcol_span(COLUMN);
+    if (span) {
+       first = span->first;
+       count = span->count;
+    } else {
+        first = 0;
+        count = thdr->used;
+    }
+            
+    thdr2 = thdr_alloc(interp, tatype, count);
     if (thdr2 == NULL)
         return TCL_ERROR;
-    if (thdr_copy_cast(interp, thdr2, 0, thdr, 0, thdr->used, 0) != TCL_OK) {
+    if (thdr_copy_cast(interp, thdr2, 0, thdr, first, count, 0) != TCL_OK) {
         thdr_decr_refs(thdr2);
         return TCL_ERROR;
     }
@@ -482,11 +492,12 @@ critcl::ccommand tarray::column::vsort {} {
     return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 
+# TBD - is this documented?
 critcl::cproc tarray::column::bitsset {Tcl_Interp* interp Tcl_Obj* COLUMN} ok {
     thdr_t *thdrP;
+    span_t *span;
+    int count, first;
 
-    /* Convert the column AFTER INDEX conversion above to protect against
-       shimmering in case both refer to same object */
     if (tcol_convert(interp, COLUMN) != TCL_OK)
         return TCL_ERROR;
 
@@ -497,9 +508,17 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp Tcl_Obj* COLUMN} ok {
         return TCL_ERROR;
     }
         
+    span = tcol_span(COLUMN);
+    if (span) {
+        first = span->first;
+        count = span->count;
+    } else {
+        first = 0;
+        count = thdrP->used;
+    }
     Tcl_SetObjResult(
         interp,
-        Tcl_NewIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), 0, thdrP->used)));
+        Tcl_NewIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), first, count)));
     return TCL_OK;
 }
 
@@ -612,7 +631,7 @@ critcl::cproc tarray::column::put {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* V
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, VALUES) == TCL_OK) {
         /* It is a tarray. Verify the right type */
-        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), FIRST, 0);
+        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), tcol_span(VALUES), FIRST, 0);
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
@@ -634,7 +653,7 @@ critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Ob
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, VALUES) == TCL_OK) {
         /* It is a tarray */
-        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), FIRST, 0);
+        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), tcol_span(VALUE), FIRST, 0);
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
@@ -740,6 +759,8 @@ critcl::cproc tarray::column::vreverse {Tcl_Interp* interp Tcl_Obj* ovar} ok {
 critcl::ccommand tarray::column::intersect3 {} {
     Tcl_Obj *acol, *bcol;
     thdr_t *athdr, *bthdr;
+    span_t *aspan, *bspan;
+    int     afirst, acount, bfirst, bcount;
     thdr_t *aintersectb=NULL, *aminusb=NULL, *bminusa=NULL;
     int atype;
     unsigned char order, a_current_order, b_current_order;
@@ -766,11 +787,15 @@ critcl::ccommand tarray::column::intersect3 {} {
         (status = tcol_convert(interp, bcol)) != TCL_OK)
         return status;
 
-    athdr = tcol_thdr(acol);
+    athdr = OBJTHDR(acol);
+    aspan = OBJTHDRSPAN(acol);
     atype = athdr->type;
-    bthdr = tcol_thdr(bcol);
+    acount = aspan? aspan->count : athdr->used;
+    bthdr = OBJTHDR(bcol);
+    bspan = OBJTHDRSPAN(bcol);
+    bcount = bspan? bspan->count : bthdr->used;
 
-    if (athdr == bthdr) {
+    if (athdr == bthdr && aspan == bspan) {
         /* TBD - also special case when either column is zero size */
         /* Optimize same object. Dunno how common this might be but ... */
         results[0] = acol;
@@ -817,7 +842,7 @@ critcl::ccommand tarray::column::intersect3 {} {
                 if ((nocase && SORT_ORDER_IS_NOCASE(b_current_order)) ||
                     (!nocase && SORT_ORDER_IS_CASE(b_current_order))) {
                     /* b is also sorted appropriately but different from a, choose to sort smaller one.*/
-                    order = athdr->used < bthdr->used ? b_current_order : a_current_order;
+                    order = acount < bcount ? b_current_order : a_current_order;
                 } else
                     order = a_current_order; /* Only b needs sorting */
             } else {
@@ -831,7 +856,7 @@ critcl::ccommand tarray::column::intersect3 {} {
                        be sorted. Still try to optimize by picking
                        something closer to the bigger column.
                     */
-                    if (athdr->used >= bthdr->used) {
+                    if (acount >= bcount) {
                         if (SORT_ORDER_IS_DESCENDING(a_current_order))
                             order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
                         else if (SORT_ORDER_IS_ASCENDING(a_current_order))
@@ -888,6 +913,9 @@ critcl::ccommand tarray::column::intersect3 {} {
             if (tcol_sort(interp, acol, sort_flags) != TCL_OK)
                 goto vamoose;
             athdr = tcol_thdr(acol);
+            aspan = tcol_span(acol);
+            TA_ASSERT(aspan == NULL);
+            TA_ASSERT(acount == tcol_occupancy(acol));
         }
 
         if (b_current_order != order) {
@@ -899,6 +927,9 @@ critcl::ccommand tarray::column::intersect3 {} {
             if (tcol_sort(interp, bcol, sort_flags) != TCL_OK)
                 goto vamoose;
             bthdr = tcol_thdr(bcol);
+            bspan = tcol_span(bcol);
+            TA_ASSERT(bspan == NULL);
+            TA_ASSERT(bcount == tcol_occupancy(bcol));
         }
     }
 
@@ -907,16 +938,19 @@ critcl::ccommand tarray::column::intersect3 {} {
      * Max num elems in intersect is smaller of two arrays.
      * Max num in a-b and b-a is num in a and b respectively.
      */
-    nmin = athdr->used;
-    if (nmin > bthdr->used)
-        nmin = bthdr->used;
+    nmin = acount;
+    if (nmin > bcount)
+        nmin = bcount;
 
     aintersectb = thdr_alloc(interp, atype, nmin);
-    aminusb = thdr_alloc(interp, atype, athdr->used);
-    bminusa = thdr_alloc(interp, atype, bthdr->used);
+    aminusb = thdr_alloc(interp, atype, acount);
+    bminusa = thdr_alloc(interp, atype, bcount);
     if (aintersectb == NULL || aminusb == NULL || bminusa == NULL)
         goto vamoose;
 
+    afirst = aspan ? aspan->first : 0;
+    bfirst = bspan ? bspan->first : 0;
+    
     /* IMPORTANT - INTERSECT must NOT error out else ref counts for
        type TA_ANY will be broken as they are updated later */
 #define EQ(x_, y_) ((x_) == (y_))
@@ -926,10 +960,10 @@ critcl::ccommand tarray::column::intersect3 {} {
         t_ *pintersect = THDRELEMPTR(aintersectb, t_, 0);               \
         t_ *paminusb = THDRELEMPTR(aminusb, t_, 0);                     \
         t_ *pbminusa = THDRELEMPTR(bminusa, t_, 0);                     \
-        t_ *a = THDRELEMPTR(athdr, t_, 0);                              \
-        t_ *b = THDRELEMPTR(bthdr, t_, 0);                              \
-        t_ *aend = a + athdr->used;                                     \
-        t_ *bend = b + bthdr->used;                                     \
+        t_ *a = THDRELEMPTR(athdr, t_, afirst);                         \
+        t_ *b = THDRELEMPTR(bthdr, t_, bfirst);                         \
+        t_ *aend = a + acount;                                     \
+        t_ *bend = b + bcount;                                     \
                                                                         \
         if (SORT_ORDER_IS_ASCENDING(order)) {                           \
             while (a < aend && b < bend) {                              \
@@ -977,10 +1011,10 @@ critcl::ccommand tarray::column::intersect3 {} {
            int ones_in_a, ones_in_b, zeroes_in_a, zeroes_in_b;
            int ones, zeroes;
            ba_t *pbits;
-           ones_in_a = ba_count_ones(THDRELEMPTR(athdr, ba_t, 0), 0, athdr->used);
-           ones_in_b = ba_count_ones(THDRELEMPTR(bthdr, ba_t, 0), 0, bthdr->used);
-           zeroes_in_a = athdr->used - ones_in_a;
-           zeroes_in_b = bthdr->used - ones_in_b;
+           ones_in_a = ba_count_ones(THDRELEMPTR(athdr, ba_t, 0), afirst, acount);
+           ones_in_b = ba_count_ones(THDRELEMPTR(bthdr, ba_t, 0), bfirst, bcount);
+           zeroes_in_a = acount - ones_in_a;
+           zeroes_in_b = bcount - ones_in_b;
            ones = ones_in_a < ones_in_b ? ones_in_a : ones_in_b;
            zeroes = zeroes_in_a < zeroes_in_b ? zeroes_in_a : zeroes_in_b;
            pbits = THDRELEMPTR(aintersectb, ba_t, 0);
