@@ -513,7 +513,7 @@ TA_INLINE void thdr_lookup_free(thdr_t *thdr) {
         thdr->lookup = TAS_LOOKUP_INVALID_HANDLE;
     }
 }
-void thdr_lookup_build(thdr_t *thdr);
+void thdr_lookup_build(thdr_t *thdr, span_t *span);
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);

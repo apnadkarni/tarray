@@ -704,19 +704,22 @@ TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, char *s, double *pi)
     return status;
 }
 
-void thdr_lookup_build(thdr_t *thdr)
+void thdr_lookup_build(thdr_t *thdr, span_t *span)
 {
-    int i, used;
+    int i, count;
     tas_t **pptas;
     tas_lookup_t lookup;
 
     TA_ASSERT(thdr->type == TA_STRING);
     thdr_lookup_free(thdr);
     lookup = thdr_lookup_init(thdr);
-    for (i = 0, used = thdr->used, pptas = THDRELEMPTR(thdr, tas_t *, 0);
-         i < used;
-         ++i, ++pptas) {
+    i = span ? span->first : 0;
+    count = span ? span->count : thdr->used;
+    pptas = THDRELEMPTR(thdr, tas_t *, i);
+    while (i < count) {
         tas_lookup_add(lookup, *pptas, (ClientData) i);
+        ++i;
+        ++pptas;
     }
 }
 
