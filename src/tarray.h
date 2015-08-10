@@ -286,7 +286,8 @@ TA_INLINE void tcol_replace_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
     OBJTHDR(o) = thdr;
     if (span)
         span_incr_refs(span);
-    span_free(OBJTHDRSPAN(o));
+    if (OBJTHDRSPAN(o))
+        span_decr_refs(OBJTHDRSPAN(o));
     OBJTHDRSPAN(o) = span;
     Tcl_InvalidateStringRep(o);
 }
@@ -330,7 +331,8 @@ TA_INLINE void table_replace_intrep(Tcl_Obj *o, thdr_t *thdr,
 
     if (ocolnames) {
         Tcl_IncrRefCount(ocolnames);
-        Tcl_DecrRefCount(OBJCOLNAMES(o));
+        if (OBJCOLNAMES(o))
+            Tcl_DecrRefCount(OBJCOLNAMES(o));
         OBJCOLNAMES(o) = ocolnames;
     }
 
@@ -796,8 +798,10 @@ TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return tcol_thdr(o)->type; }
 TA_INLINE int tcol_occupancy(Tcl_Obj *o) {
     thdr_t *thdr = tcol_thdr(o);
     span_t *span = OBJTHDRSPAN(o);
-    if (span)
+    if (span) {
+        TA_ASSERT((span->first + span->count) <= thdr->used);
         return span->count;
+    }
     else
         return thdr->used;
 }
