@@ -24,6 +24,7 @@ enum ta_math_op_e {
 
 
 struct ta_math_operand {
+    int     span_start; /* Where in thdr_operand the logical column starts */
     thdr_t *thdr_operand;
     ta_value_t scalar_operand; /* Only valid if thdr_operand is NULL */
 };
@@ -47,6 +48,7 @@ static double ta_math_double_from_operand(struct ta_math_operand *poperand,
 {
     thdr_t *thdr = poperand->thdr_operand;
     if (thdr) {
+        thdr_index += poperand->span_start;
         TA_ASSERT(thdr->used > thdr_index);
         switch (thdr->type) {
         case TA_BYTE:
@@ -77,6 +79,7 @@ static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
 {
     thdr_t *thdr = poperand->thdr_operand;
     if (thdr) {
+        thdr_index += poperand->span_start;
         TA_ASSERT(thdr->used > thdr_index);
         switch (thdr->type) {
         case TA_BYTE:
@@ -154,6 +157,11 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
 
     TA_ASSERT(noperands > 0);
 
+    /*
+     * The loops below use the supplied indices as is without adjusting
+     * for the column span because the ta_math_xxx_from_operand already
+     * account for the span starting offset.
+     */
 #define DOUBLELOOP(op_)                                               \
     do {                                                                \
         int i, j;                                                       \
@@ -291,18 +299,19 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     result_type = TA_BYTE;      /* Assume smallest width */
     for (i = 0, j = 2; j < objc; ++i, ++j) {
         if (tcol_convert(NULL, objv[j]) == TCL_OK) {
+            Tcl_Obj *tcol = objv[j];
+            span_t *span;
             /* Check if size is consistent with previous thdrs */
-            thdr_t *thdr = tcol_thdr(objv[j]);
             if (thdr_size) {
-                if (thdr->used != thdr_size) {
+                if (tcol_occupancy(tcol) != thdr_size) {
                     status = ta_column_lengths_error(ip);
                     goto vamoose;
                 }
             } else
-                thdr_size = thdr->used; /* Init expected size of column */
+                thdr_size = tcol_occupancy(tcol); /* Init expected size of column */
 
             /* Column. Check if permitted type */
-            switch (tcol_type(objv[j])) {
+            switch (tcol_type(tcol)) {
             case TA_BYTE:
                 break;
             case TA_INT:
@@ -324,7 +333,9 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 status = ta_bad_type_error(ip, tcol_thdr(objv[j]));
                 goto vamoose;
             }
-            poperands[i].thdr_operand = tcol_thdr(objv[j]);
+            poperands[i].thdr_operand = tcol_thdr(tcol);
+            span = tcol_span(tcol);
+            poperands[i].span_start = span ? span->first : 0;
             only_scalars = 0;
         } else {
             /* Check if an integer, wide or double */
@@ -411,6 +422,14 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     ncontexts = 1;
     mt_sizes[0] = thdr_size;
 #else
+    /*
+     * Note about multithreading - the different column operands
+     * may have different alignments and span offsets. From a MT
+     * perspective, this does not matter because they are only
+     * read from. We need only be concerned with the thdr
+     * that is being written to as far as alignment issues are
+     * concerned.
+     */
     ncontexts = thdr_calc_mt_split_ex(result_type, 0, thdr_size, 
                                       ta_math_mt_threshold, 
                                       ARRAYSIZE(mt_sizes), mt_sizes);
