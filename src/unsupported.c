@@ -13,7 +13,7 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_Obj *o;
     int i;
     char buf[2*TCL_INTEGER_SPACE+6];
-    Tcl_Obj *oresult[22];
+    Tcl_Obj *oresult[30];
 
     if (objc != 2) {
 	Tcl_WrongNumArgs(ip, 1, objv, "value");
@@ -42,8 +42,21 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     } else
         oresult[i++] = Tcl_NewObj();
 
-    if (o->typePtr == &ta_table_type) {
-        oresult[i++] = Tcl_NewStringObj("columnames", -1);
+    if (o->typePtr == &ta_column_type) {
+        span_t *span = tcol_span(o);
+        oresult[i++] = Tcl_NewStringObj("span*", -1);
+        sprintf(buf, "%p", (void *) span);
+        oresult[i++] = Tcl_NewStringObj(buf, -1);
+        if (span) {
+            oresult[i++] = Tcl_NewStringObj("span.nrefs", -1);
+            oresult[i++] = Tcl_NewIntObj(span->nrefs);
+            oresult[i++] = Tcl_NewStringObj("span.first",-1);
+            oresult[i++] = Tcl_NewIntObj(span->first);
+            oresult[i++] = Tcl_NewStringObj("span.count",-1);
+            oresult[i++] = Tcl_NewIntObj(span->count);
+        }
+    } else if (o->typePtr == &ta_table_type) {
+        oresult[i++] = Tcl_NewStringObj("columnnames", -1);
         oresult[i++] = table_column_names(o);
     }
 
