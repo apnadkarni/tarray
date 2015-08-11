@@ -519,9 +519,9 @@ TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
 
-TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, char *s, double *pi);
-TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, char *s, int *pi);
-TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, char *s, Tcl_WideInt *pi);
+TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi);
+TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi);
+TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *pi);
 
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
@@ -716,6 +716,8 @@ Tcl_ObjCmdProc tcol_search_cmd;
 Tcl_ObjCmdProc ta_dump_cmd;
 Tcl_ObjCmdProc tcol_minmax_cmd;
 Tcl_ObjCmdProc tcol_lookup_cmd;
+Tcl_ObjCmdProc tcol_math_cmd;
+Tcl_ObjCmdProc tcol_fold_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;

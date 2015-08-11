@@ -397,7 +397,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
              * be required 
              */
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            int span_end;
+            unsigned int span_end;
             
             /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
                defined as ckalloc */
@@ -673,7 +673,7 @@ TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
     return TCL_OK;
 }
 
-TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, char *s, Tcl_WideInt *pi)
+TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *pi)
 {
     TCL_RESULT status;
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
@@ -683,7 +683,7 @@ TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, char *s, Tcl_WideInt *pi)
     return status;
 }
 
-TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, char *s, int *pi)
+TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi)
 {
     TCL_RESULT status;
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
@@ -693,7 +693,7 @@ TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, char *s, int *pi)
     return status;
 }
 
-TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, char *s, double *pi)
+TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi)
 {
     TCL_RESULT status;
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
@@ -1951,7 +1951,7 @@ Tcl_Obj *tcol_new_span(thdr_t *thdr, int first, int count)
     span_t *span;
 
     TA_ASSERT(thdr);
-    TA_ASSERT(first >= 0 && first < thdr->used);
+    TA_ASSERT(first >= 0);
     TA_ASSERT(count >= 0);
     TA_ASSERT(first+count <= thdr->used);
     
@@ -2777,8 +2777,8 @@ void thdr_copy(thdr_t *pdst, int dst_first,
    thdr_puts_objs */
 static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, int dst_first, tas_t * const pptas_src[], int count, int insert)
 {
-    tas_t **pptas;
-    tas_t **end;
+    tas_t * const *pptas;
+    tas_t * const *end;
 
     /* Need to validate all values first to ensure they can
      * be translated to numerics since on error dstp must be
@@ -3443,7 +3443,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
         if (low > span->count) {
             /* Starting index is beyond column size. Create empty span */
             low = span->first;
-            count = 0;
+            end = low;
         } else {
             low += span->first;
             end = low + count;
@@ -3456,9 +3456,8 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
             end = psrc->used;
     }
             
-    
     if (fmt == TA_FORMAT_TARRAY) 
-        return tcol_new_span(psrc, low, count);
+        return tcol_new_span(psrc, low, end-low);
 
     /* TBD - optimize by allocating array and calling Tcl_NewListObj */
 #define tcol_range_COPY(type_, objfn_)                                  \
