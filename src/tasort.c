@@ -869,7 +869,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         /* The sort compare functions have no concept of 
            column spans so if a span is provided, "unspan" it */
         if (span_target) {
-            ptarget2 = thdr_clone(ip, ptarget2, 0, span_target);
+            ptarget2 = thdr_clone(ip, ptarget, 0, span_target);
             if (ptarget2 == NULL)
                 return TCL_ERROR;
             thdr_incr_refs(ptarget2);

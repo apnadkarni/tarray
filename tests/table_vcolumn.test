@@ -66,14 +66,14 @@ namespace eval tarray::test {
     } -body {
         set tab ""
         tarray::table vcolumn tab 0
-    } -result "Object is not a TArray table" -returnCodes error
+    } -result "Object is not a table" -returnCodes error
 
     test table-vcolumn-2.5 {
         Verify error when argument is not a column
     } -body {
         set tab [samplecolumn int]
         tarray::table vcolumn tab 0
-    } -result "Object is not a TArray table" -returnCodes error
+    } -result "Object is not a table" -returnCodes error
 
     test table-vcolumn-2.6 {
         Verify error when variable does not exist
@@ -155,14 +155,14 @@ namespace eval tarray::test {
     } -body {
         set tab ""
         tarray::table vcolumn tab [newcolumn any {abc def hij}]
-    } -result "Object is not a TArray table" -returnCodes error
+    } -result "Object is not a table" -returnCodes error
 
     test table-vcolumn-set-2.4 {
         Attempt to set column
     } -body {
         set tab [newcolumn any {abc def hij}]
         tarray::table vcolumn tab [newcolumn any {abc def hij}]
-    } -result "Object is not a TArray table" -returnCodes error
+    } -result "Object is not a table" -returnCodes error
 
     test table-vcolumn-set-2.5 {
         Attempt to set wrong type of column

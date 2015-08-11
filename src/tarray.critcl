@@ -216,8 +216,8 @@ critcl::cinit {
 ################################################################
 # General commands
 
+# TBD - tests for the types command
 critcl::ccommand tarray::types {} {
-    /* TBD - tests for the types command */
     int i;
     Tcl_Obj *o;
     Tcl_Obj *res;
