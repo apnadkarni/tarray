@@ -426,7 +426,7 @@ static void ta_sort_mt_worker_r(struct ta_sort_mt_context *pctx)
 /* Note this routine does not handle booleans (because they are sorted
    differently using just counts)
 */
-static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
+static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int nocase)
 {
     int (*cmp)(const void*, const void*);
     int (*cmpind)(void *, const void*, const void*);
@@ -435,9 +435,13 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
     struct ta_sort_mt_context sort_context[4];
     int ncontexts, elem_size, i;
 #endif
+    char *src_base;
 
     TA_ASSERT(thdr->nrefs < 2);
-
+    /* The column to be sorted is never span based. span can be null
+       only when sorting is indirect and in that case applies to psrc */
+    TA_ASSERT(span == NULL || psrc);
+    
     if (psrc) {
         /* Sort indices */
         TA_ASSERT(thdr->type == TA_INT);
@@ -492,13 +496,20 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
     }
 
     elem_size = thdr->elem_bits / CHAR_BIT;
+    if (psrc) {
+        src_base = THDRELEMPTR(psrc, unsigned char, 0);
+        if (span)
+            src_base += elem_size * span->first;
+    } else
+        src_base = NULL;
 
 #ifdef TA_MT_ENABLE
     ncontexts = 1;
     if (ta_sort_mt_enable_any ||
         (thdr->type != TA_ANY &&
           (psrc == NULL || psrc->type != TA_ANY))) {
-
+        /* Note span applies to psrc, not to thdr and so does not
+           have to be considered here */
         ncontexts = thdr_calc_mt_split_ex(thdr->type, 0, thdr->used,
                                           ta_sort_mt_threshold,
                                           ARRAYSIZE(mt_sizes), mt_sizes);
@@ -531,7 +542,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
         if (psrc) {
             sort_context[0].cmpfn = NULL;
             sort_context[0].cmpindexedfn = cmpind;
-            sort_context[0].arg = THDRELEMPTR(psrc, unsigned char, 0);
+            sort_context[0].arg = src_base;
         } else {
             sort_context[0].cmpfn = cmp;
             sort_context[0].cmpindexedfn = NULL;
@@ -577,7 +588,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
     if (psrc) {
         timsort_r(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
                   elem_size,
-                  THDRELEMPTR(psrc, unsigned char, 0), cmpind);
+                  src_base, cmpind);
     } else {
         timsort(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
                 elem_size, cmp);
@@ -602,7 +613,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, int nocase)
 
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 {
-    int i, n;
+    int i, n, src_count;
     thdr_t *psrc;
     thdr_t *psorted;
     int status;
@@ -610,6 +621,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     int return_indices = flags & TA_SORT_INDICES;
     int nocase = flags & TA_SORT_NOCASE;
     int orig_sort_state;
+    span_t *span;
 
     /* Even if returning indices, they are returned in tcol
      * so we must be able to modify tcol */
@@ -618,6 +630,8 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
     psrc = tcol_thdr(tcol);
+    span = tcol_span(tcol);
+    src_count = span ? span->count : psrc->used;
 
     /*
      * If values are already sorted in suitable order, we can make use
@@ -669,11 +683,11 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     if (return_indices) {
         /* Caller wants indices to be returned */
         int *indexP;
-        psorted = thdr_alloc(ip, TA_INT, psrc->used);
+        psorted = thdr_alloc(ip, TA_INT, src_count);
         if (psorted == NULL)
             return TCL_ERROR;
         /* Initialize the indexes */
-        psorted->used = psrc->used;
+        psorted->used = src_count;
         indexP = THDRELEMPTR(psorted, int, 0);
 
         /* TBD - just reversing the order of a presorted array is no good
@@ -700,20 +714,33 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                 *indexP = i;
 
             if (psrc->type != TA_BOOLEAN)
-                thdr_mt_sort(psorted, decreasing, psrc, nocase);
+                thdr_mt_sort(psorted, decreasing, psrc, span, nocase);
             else {
+                thdr_t *psrc2;
+                /* The sort compare functions have not concept of 
+                   column spans so if a span is provided, "unspan" it */
+                if (span) {
+                    psrc2 = thdr_clone(ip, psrc, 0, span);
+                    if (psrc2 == NULL)
+                        return TCL_ERROR;
+                    thdr_incr_refs(psrc2);
+                } else
+                    psrc2 = psrc;
+                    
                 timsort_r(THDRELEMPTR(psorted, int, 0),
                           psorted->used, sizeof(int),
-                          THDRELEMPTR(psrc, unsigned char, 0),
+                          THDRELEMPTR(psrc2, unsigned char, 0),
                           decreasing ? booleancmpindexedrev : booleancmpindexed
                     );
+                if (psrc2 != psrc)
+                    thdr_decr_refs(psrc2);
             }
 
             /* Note list of indices is NOT sorted, do not mark it as such ! */
         }
 
         // Need to create a new Tcl_Obj
-        tcol_replace_intrep(tcol, psorted);
+        tcol_replace_intrep(tcol, psorted, NULL);
         return TCL_OK;
     } 
         
@@ -726,12 +753,12 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
          * Need to reverse the order. If thdr is also unshared, we can do this
          * in place else need to allocate a new object and array
          */
-        if (thdr_shared(psrc)) {
+        if (span || thdr_shared(psrc)) {
             /* Cannot modify in place. Need to dup it */
             psrc = thdr_clone_reversed(ip, psrc, 0);
             if (psrc == NULL)
                 return TCL_ERROR;
-            tcol_replace_intrep(tcol, psrc);
+            tcol_replace_intrep(tcol, psrc, NULL);
         } else {
             /* Reverse in place  */
             thdr_reverse(psrc);
@@ -745,14 +772,17 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     /*
      * We want sorted contents, not indices. If object is not shared,
      * we can sort in place, else need to create a new object.
+     * If the column is based on a span, we cannot sort in place either
+     * since the sort_state setting applies to the whole thdr.
      */
     /* TBD - Why not using ta_make_modifiable here ? */
-    if (thdr_shared(psrc)) {
+    if (span || thdr_shared(psrc)) {
         /* Cannot modify in place. Need to dup it */
-        psorted = thdr_clone(ip, psrc, 0);
+        psorted = thdr_clone(ip, psrc, 0, span);
         if (psorted == NULL)
             return TCL_ERROR;
-        tcol_replace_intrep(tcol, psorted);
+        tcol_replace_intrep(tcol, psorted, NULL);
+        span = NULL;
     } else {
         psorted = psrc;
         Tcl_InvalidateStringRep(tcol);
@@ -762,17 +792,20 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
      * Return sorted contents. Boolean type we treat separately
      * since we just need to count how many 1's and 0's.
      */
+    TA_ASSERT(span == NULL);
+    TA_ASSERT(src_count == psorted->used);
     if (psorted->type != TA_BOOLEAN)
-        thdr_mt_sort(psorted, decreasing, NULL, nocase);
+        thdr_mt_sort(psorted, decreasing, NULL, NULL, nocase);
     else {
         ba_t *baP = THDRELEMPTR(psorted, ba_t, 0);
-        n = ba_count_ones(baP, 0, psorted->used); /* Number of 1's set */
+        n = ba_count_ones(baP, 0, src_count); /* Number of 1's set */
+        TA_ASSERT(psorted->usable >= src_count);
         if (decreasing) {
             ba_fill(baP, 0, n, 1);
-            ba_fill(baP, n, psorted->used - n, 0);
+            ba_fill(baP, n, src_count - n, 0);
         } else {
-            ba_fill(baP, 0, psorted->used - n, 0);
-            ba_fill(baP, psorted->used - n, n, 1);
+            ba_fill(baP, 0, src_count - n, 0);
+            ba_fill(baP, src_count - n, n, 1);
         }
 
         psorted->sort_order =
@@ -788,6 +821,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     thdr_t *pindices, *ptarget;
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;
+    span_t *span_indices;
 
     TA_ASSERT(! Tcl_IsShared(oindices));
 
@@ -795,23 +829,29 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         (status = tcol_convert(ip, otarget)) != TCL_OK)
         return status;
 
-    pindices = tcol_thdr(oindices);
+    pindices = OBJTHDR(oindices);
     if (pindices->type != TA_INT)
         return ta_bad_type_error(ip, pindices);
+    span_indices = OBJTHDRSPAN(oindices);
 
     /* Validate indices for bounds */
     n = tcol_occupancy(otarget);
-    pindex = THDRELEMPTR(pindices, int, 0);
-    pend = pindex + pindices->used;
+    if (span_indices) {
+        pindex = THDRELEMPTR(pindices, int, span_indices->first);
+        pend = pindex + span_indices->count;
+    } else {
+        pindex = THDRELEMPTR(pindices, int, 0);
+        pend = pindex + pindices->used;
+    }
     while (pindex < pend) {
         if (*pindex >= n || *pindex < 0)
             return ta_index_range_error(ip, *pindex);
         ++pindex;
     }
     
-    if (thdr_shared(pindices)) {
+    if (span_indices || thdr_shared(pindices)) {
         /* Cannot modify in place. Need to dup it */
-        pindices = thdr_clone(ip, pindices, 0);
+        pindices = thdr_clone(ip, pindices, 0, span_indices);
         if (pindices == NULL)
             return TCL_ERROR;
         tcol_replace_intrep(oindices, pindices);
@@ -819,16 +859,30 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         Tcl_InvalidateStringRep(oindices);
     }
 
-    ptarget = tcol_thdr(otarget);
+    ptarget = OBJTHDR(otarget);
+    span_target = OBJTHDRSPAN(otarget);
 
     if (ptarget->type != TA_BOOLEAN)
-        thdr_mt_sort(pindices, decreasing, ptarget, nocase);
+        thdr_mt_sort(pindices, decreasing, ptarget, span_target, nocase);
     else {
+        thdr_t *ptarget2;
+        /* The sort compare functions have no concept of 
+           column spans so if a span is provided, "unspan" it */
+        if (span_target) {
+            ptarget2 = thdr_clone(ip, ptarget2, 0, span_target);
+            if (ptarget2 == NULL)
+                return TCL_ERROR;
+            thdr_incr_refs(ptarget2);
+        } else
+            ptarget2 = ptarget;
+        
         timsort_r(THDRELEMPTR(pindices, int, 0),
                   pindices->used, sizeof(int),
-                  THDRELEMPTR(ptarget, unsigned char, 0),
+                  THDRELEMPTR(ptarget2, unsigned char, 0),
                   decreasing ? booleancmpindexedrev : booleancmpindexed
             );
+        if (ptarget2 != ptarget)
+            thdr_decr_refs(ptarget2);
     }
 
     /* Note list of indices is NOT sorted, do not mark it as such ! */

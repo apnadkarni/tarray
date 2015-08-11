@@ -1762,7 +1762,7 @@ TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t
      * Potentially we could use a bit array to do it differently but...TBD
      */
     if (pindices->sort_order == THDR_UNSORTED) {
-        psorted = thdr_clone(ip, pindices, 0);
+        psorted = thdr_clone(ip, pindices, 0, NULL);
         if (psorted == NULL)
             return TCL_ERROR;
         qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
@@ -2791,7 +2791,7 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
     ******/
 
     /* TBD - may be faster to just create a temp array and then
-       call thdr_range rather than looping twice to validate and
+       call thdr_clone rather than looping twice to validate and
        then store */
 
 #define TASVALIDATE(type_, fn_)                         \
@@ -3336,41 +3336,59 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
 }
 
 /* Note: nrefs of cloned array is 0 */
-thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize)
+thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
 {
     thdr_t *thdr;
+    int count, start;
 
+    if (span) {
+        start = span->start;
+        count = span->count;
+    } else {
+        start = 0;
+        count = psrc->used;
+    }
+    
     if (minsize == 0)
         minsize = psrc->usable;
-    else if (minsize < psrc->used)
-        minsize = psrc->used;
+    else if (minsize < count)
+        minsize = count;
 
     /* TBD - optimize these two calls */
     thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
-        thdr_copy(thdr, 0, psrc, 0, psrc->used, 0);
+        thdr_copy(thdr, 0, psrc, start, count, 0);
         thdr->sort_order = psrc->sort_order;
     }
     return thdr;
 }
 
 /* Note: nrefs of cloned array is 0 */
-thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
+thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
 {
     thdr_t *thdr;
     int orig_order;
+    int count, start;
+
+    if (span) {
+        start = span->start;
+        count = span->count;
+    } else {
+        start = 0;
+        count = psrc->used;
+    }
 
     orig_order = psrc->sort_order;
 
     if (minsize == 0)
         minsize = psrc->usable;
-    else if (minsize < psrc->used)
-        minsize = psrc->used;
+    else if (minsize < count)
+        minsize = count;
 
     /* TBD - optimize these two calls */
     thdr = thdr_alloc(ip, psrc->type, minsize);
     if (thdr) {
-        thdr_copy_reversed(thdr, 0, psrc, 0, psrc->used);
+        thdr_copy_reversed(thdr, 0, psrc, start, count);
         switch (orig_order) {
         case THDR_SORTED_ASCENDING: thdr->sort_order = THDR_SORTED_DESCENDING; break;
         case THDR_SORTED_DESCENDING: thdr->sort_order = THDR_SORTED_ASCENDING; break;
@@ -3380,23 +3398,6 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize)
     }
     return thdr;
 }
-
-thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count, int minsize)
-{
-    thdr_t *thdr;
-
-    TA_ASSERT(low >= 0);
-    TA_ASSERT(count >= 0);
-    if (minsize < count)
-        minsize = count;
-    thdr = thdr_alloc(ip, psrc->type, minsize);
-    if (thdr) {
-        thdr_copy(thdr, 0, psrc, low, count, 0);
-        thdr->sort_order = psrc->sort_order;
-    }
-    return thdr;
-}
-
 
 Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
 {
@@ -3552,9 +3553,9 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
     span = OBJTHDRSPAN(tcol);
     if (span) {
         /* Case (4) */
-        thdr = thdr_range(ip, thdr, span->first, span->count, minsize > prefsize ? minsize : prefsize);
+        thdr = thdr_clone(ip, thdr, minsize > prefsize ? minsize : prefsize, span);
         if (thdr == NULL)
-            return TCL_ERROR;
+            return TCL_ERROR;   /* Note tcol is not changed */
         tcol_replace_intrep(tcol, thdr, NULL);
         TA_ASSERT(tcol_thdr(tcol)->usable >= minsize);
         return TCL_OK; 
@@ -3584,17 +3585,15 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
 
     if (thdr_shared(thdr)) {
         /* Case (1) */
-        thdr = thdr_clone(ip, thdr, prefsize);
+        thdr = thdr_clone(ip, thdr, prefsize, NULL);
         if (thdr == NULL)
             return TCL_ERROR;   /* Note tcol is not changed */
         tcol_replace_intrep(tcol, thdr, NULL);
-    } else if (thdr->usable < minsize) {
+    } else {
         /* Case (3). */
+        TA_ASSERT(thdr->usable < minsize);
         if (tcol_grow_intrep(ip, tcol, prefsize) != TCL_OK)
             return TCL_ERROR;
-    } else {
-        /* Case (2) - just reuse, invalidate the string rep */
-        Tcl_InvalidateStringRep(tcol);
     }
 
     TA_ASSERT(tcol_thdr(tcol)->usable >= minsize);
@@ -4001,19 +4000,11 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         }
         thdr = OBJTHDR(o);
         span = OBJTHDRSPAN(o);
-        if (span) {
-            thdr = thdr_range(ip, thdr, span->first, span->count, span->count);
+        if (span || (want_sorted && thdr->sort_order == THDR_UNSORTED)) {
+            thdr = thdr_clone(ip, thdr, thdr->used, span);
             if (thdr == NULL)
                 return TA_INDEX_TYPE_ERROR;
             if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
-                qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
-                thdr->sort_order = THDR_SORTED_ASCENDING;
-            }
-        } else {
-            if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
-                thdr = thdr_clone(ip, thdr, thdr->used);
-                if (thdr == NULL)
-                    return TA_INDEX_TYPE_ERROR;
                 qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
                 thdr->sort_order = THDR_SORTED_ASCENDING;
             }
@@ -4380,14 +4371,8 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
     thdr = OBJTHDR(tcol);
     span = OBJTHDRSPAN(tcol);
     
-    if (span) {
-        thdr_t *thdr2 = thdr_alloc(ip, thdr->type, span->count);
-        if (thdr2 == NULL)
-            return TCL_ERROR;
-        thdr_copy_reversed(thdr2, 0, thdr, span->first, span->count);
-        tcol_replace_intrep(tcol, thdr2);
-    } else if (thdr_shared(thdr)) {
-        thdr = thdr_clone_reversed(ip, thdr, 0);
+    if (span || thdr_shared(thdr)) {
+        thdr = thdr_clone_reversed(ip, thdr, 0, span);
         if (thdr == NULL)
             return TCL_ERROR;
         tcol_replace_intrep(tcol, thdr);
