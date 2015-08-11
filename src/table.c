@@ -296,7 +296,7 @@ TCL_RESULT tcols_fill_range(
     /* Validate column lengths and value types. Start with i=0 since
        we need to validate corresponding value as well */
     for (i = 0; i < ntcols; ++i) {
-        TA_ASSERT(! Tcl_IsShared(tcol));
+        TA_ASSERT(! Tcl_IsShared(tcols[i]));
         if (tcol_occupancy(tcols[i]) != col_len) {
             status = ta_table_length_error(ip);
             goto vamoose;
@@ -1380,7 +1380,7 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
     for (i = 0; i < ntcols; ++i) {
         thdr_t *src_thdr;
         span_t *src_span;
-        int src_size;
+        int src_first, src_size;
         src_thdr = tcol_thdr(srccols[i]);
         src_span = tcol_span(srccols[i]);
         if (src_span) {
@@ -1625,23 +1625,23 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
                 }
             }
         case TA_UINT:
-            srcbase = THDRELEMPTR(src_thdr, unsigned int, span_first);
+            srcbase = THDRELEMPTR(src_thdr, unsigned int, span_start);
             table_get_COPY(unsigned int, Tcl_NewWideIntObj);
             break;
         case TA_INT:
-            srcbase = THDRELEMPTR(src_thdr, int, span_first);
+            srcbase = THDRELEMPTR(src_thdr, int, span_start);
             table_get_COPY(int, Tcl_NewIntObj);
             break;
         case TA_WIDE:
-            srcbase = THDRELEMPTR(src_thdr, Tcl_WideInt, span_first);
+            srcbase = THDRELEMPTR(src_thdr, Tcl_WideInt, span_start);
             table_get_COPY(Tcl_WideInt, Tcl_NewWideIntObj);
             break;
         case TA_DOUBLE:
-            srcbase = THDRELEMPTR(src_thdr, double, span_first);
+            srcbase = THDRELEMPTR(src_thdr, double, span_start);
             table_get_COPY(double, Tcl_NewDoubleObj);
             break;
         case TA_BYTE:
-            srcbase = THDRELEMPTR(src_thdr, unsigned char, span_first);
+            srcbase = THDRELEMPTR(src_thdr, unsigned char, span_start);
             table_get_COPY(unsigned char, Tcl_NewIntObj);
             break;
         case TA_ANY:
@@ -1649,11 +1649,11 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
                taken care of by the lists themselves. The (Tcl_Obj *) is
                passed as essentially a no-op conversion function
             */
-            srcbase = THDRELEMPTR(src_thdr, Tcl_Obj *, span_first);
+            srcbase = THDRELEMPTR(src_thdr, Tcl_Obj *, span_start);
             table_get_COPY(Tcl_Obj *, (Tcl_Obj *));
             break;
         case TA_STRING:
-            srcbase = THDRELEMPTR(src_thdr, tas_t *, span_first);
+            srcbase = THDRELEMPTR(src_thdr, tas_t *, span_start);
             table_get_COPY(tas_t *, tas_to_obj);
             break;
         default:

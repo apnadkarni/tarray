@@ -653,7 +653,7 @@ critcl::cproc tarray::column::vput {Tcl_Interp* interp Tcl_Obj* COLUMNVAR Tcl_Ob
     /* Values may be given as a list or a tarray */
     if (tcol_convert(NULL, VALUES) == TCL_OK) {
         /* It is a tarray */
-        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), tcol_span(VALUE), FIRST, 0);
+        status = tcol_copy_thdr(interp, tcol, tcol_thdr(VALUES), tcol_span(VALUES), FIRST, 0);
     } else {
         status = tcol_put_objs(interp, tcol, VALUES, FIRST, 0);
     }
@@ -1424,7 +1424,7 @@ critcl::ccommand tarray::table::vinsert {} {
 
 critcl::ccommand tarray::table::inject {} {
     Tcl_Obj *table, *ovalues, *ofirst, *omap;
-    int status, count;
+    int status;
 
     if (table_inject_parseargs(interp, objc, objv, &table, &ovalues,
                                &ofirst, &omap) != TCL_OK)

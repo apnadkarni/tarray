@@ -532,9 +532,9 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
            all objects BEFORE multithreading.
         */
         if (thdr->type == TA_ANY)
-            thdr_ensure_obj_strings(thdr);
+            thdr_ensure_obj_strings(thdr, NULL);
         if (psrc && psrc->type == TA_ANY)
-            thdr_ensure_obj_strings(psrc);
+            thdr_ensure_obj_strings(psrc, span);
 
         sort_context[0].base = THDRELEMPTR(thdr, unsigned char, 0);
         sort_context[0].elem_size = elem_size;
@@ -755,7 +755,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
          */
         if (span || thdr_shared(psrc)) {
             /* Cannot modify in place. Need to dup it */
-            psrc = thdr_clone_reversed(ip, psrc, 0);
+            psrc = thdr_clone_reversed(ip, psrc, 0, span);
             if (psrc == NULL)
                 return TCL_ERROR;
             tcol_replace_intrep(tcol, psrc, NULL);
@@ -821,7 +821,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     thdr_t *pindices, *ptarget;
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;
-    span_t *span_indices;
+    span_t *span_indices, *span_target;
 
     TA_ASSERT(! Tcl_IsShared(oindices));
 
@@ -854,7 +854,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         pindices = thdr_clone(ip, pindices, 0, span_indices);
         if (pindices == NULL)
             return TCL_ERROR;
-        tcol_replace_intrep(oindices, pindices);
+        tcol_replace_intrep(oindices, pindices, NULL);
     } else {
         Tcl_InvalidateStringRep(oindices);
     }

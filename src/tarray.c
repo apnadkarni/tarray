@@ -212,7 +212,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
     span_start = 0;
     if (o->typePtr == &ta_column_type && (span = OBJTHDRSPAN(o)) != NULL) {
         objc = span->count;
-        span_start = span->start;
+        span_start = span->first;
         TA_ASSERT(span_start+objc <= thdr->used);
     }
 
@@ -359,7 +359,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
     span_start = 0;
     if ((span = OBJTHDRSPAN(o)) != NULL) {
         count = span->count;
-        span_start = span->start;
+        span_start = span->first;
         TA_ASSERT(span_start+count <= thdr->used);
     }
 
@@ -396,7 +396,6 @@ static void tcol_type_update_string(Tcl_Obj *o)
              * Special case Boolean since we know exactly how many chars will
              * be required 
              */
-            XXX - copy 1 bit at a time starting with span_start;
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
             int span_end;
             
@@ -2214,7 +2213,7 @@ void thdr_place_objs(
 void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_span, thdr_t *pindices, int new_size)
 {
     int *pindex, *end;
-    int i, src_first, count;
+    int i, src_first;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(pindices->type == TA_INT);
@@ -3342,7 +3341,7 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
     int count, start;
 
     if (span) {
-        start = span->start;
+        start = span->first;
         count = span->count;
     } else {
         start = 0;
@@ -3371,7 +3370,7 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *s
     int count, start;
 
     if (span) {
-        start = span->start;
+        start = span->first;
         count = span->count;
     } else {
         start = 0;
@@ -3403,6 +3402,7 @@ Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
 {
     thdr_t *thdr;
     span_t *span;
+    int first, count;
     
     if (tcol_convert(ip, tcol) != TCL_OK)
         return NULL;
@@ -3426,7 +3426,6 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
                      int fmt)
 {
     int end;
-    int first;
     thdr_t *psrc;
     Tcl_Obj *o;
     span_t *span;
@@ -3440,7 +3439,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
     if (span) {
         TA_ASSERT(span->first >= 0);
         TA_ASSERT(span->count >= 0);
-        TA_ASSERT((span->first + span->count) <= thdr->used);
+        TA_ASSERT((span->first + span->count) <= psrc->used);
         if (low > span->count) {
             /* Starting index is beyond column size. Create empty span */
             low = span->first;
@@ -3459,7 +3458,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
             
     
     if (fmt == TA_FORMAT_TARRAY) 
-        return tcol_new_span(ip, psrc, low, count);
+        return tcol_new_span(psrc, low, count);
 
     /* TBD - optimize by allocating array and calling Tcl_NewListObj */
 #define tcol_range_COPY(type_, objfn_)                                  \
@@ -3871,8 +3870,10 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
         /* Multiple threads */
         ta_mt_group_t grp;
 
+        /* TBD - actually only need to ensure strings over range of interest,
+           not entire thdr */
         if (thdr->type == TA_ANY)
-            thdr_ensure_obj_strings(thdr); /* Prevent races if string rep does not exist */
+            thdr_ensure_obj_strings(thdr, NULL); /* Prevent races if string rep does not exist */
 
         mt_context[1].type = thdr->type;
         mt_context[1].base = (elem_size*mt_context[0].nelems) + (char*)mt_context[0].base;
@@ -4119,7 +4120,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                     index = *pindex; 
                     if (index < 0 || index >= bound)
                         goto index_error;
-                    ba_put(baP, i, ba_get(srcbaP, span_start+index));
+                    ba_put(baP, i, ba_get(srcbaP, span_first+index));
                 }
                 thdr->used = count;             \
             } else {
@@ -4130,7 +4131,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                     if (fmt == TA_FORMAT_DICT)
                         Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
                     Tcl_ListObjAppendElement(ip, tcol,
-                                             Tcl_NewIntObj(ba_get(srcbaP, span_start + index)));
+                                             Tcl_NewIntObj(ba_get(srcbaP, span_first + index)));
                 }
             }
         }
@@ -4375,7 +4376,7 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
         thdr = thdr_clone_reversed(ip, thdr, 0, span);
         if (thdr == NULL)
             return TCL_ERROR;
-        tcol_replace_intrep(tcol, thdr);
+        tcol_replace_intrep(tcol, thdr, NULL);
     } else {
         thdr_reverse(thdr);
         Tcl_InvalidateStringRep(tcol);
@@ -4791,7 +4792,7 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
         objs[0] = Tcl_NewIntObj(min_index);
         objs[1] = Tcl_NewIntObj(max_index);
     } else {
-        thdr_minmax(thdr, start, count, ignore_case,
+        thdr_minmax(thdr, range_start, range_count, ignore_case,
                     &min_index, &max_index, &objs[0], &objs[1]);
     }
 
