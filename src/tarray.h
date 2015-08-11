@@ -205,7 +205,7 @@ TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
 TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
 
-TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span) }
+TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span); }
 TA_INLINE void span_incr_refs(span_t *span) { span->nrefs++; }
 TA_INLINE void span_decr_refs(span_t *span) {
     if (span->nrefs-- <= 1) span_free(span);
@@ -227,7 +227,7 @@ TA_INLINE int span_shared(span_t *span) { return span->nrefs > 1; }
  * span (range). Only applies to columns. If this field is NULL, the entire
  * thdr_t is the span.
  */
-#define OBJTHDRSPAN(optr_) (*(thdr_span_t **) (&((optr_)->internalRep.twoPtrValue.ptr2)))
+#define OBJTHDRSPAN(optr_) (*(span_t **) (&((optr_)->internalRep.twoPtrValue.ptr2)))
 
 
 /*
@@ -269,7 +269,7 @@ TA_INLINE void tcol_set_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
     OBJTHDR(o) = thdr;
     if (span)
         span_incr_refs(span);
-    OBJTDHRSPAN(o) = span;
+    OBJTHDRSPAN(o) = span;
     o->typePtr = &ta_column_type;
 }
 
@@ -530,7 +530,7 @@ void thdr_decr_tas_refs(thdr_t *thdr, int first, int count);
 
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
 TCL_RESULT table_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
-void thdr_ensure_obj_strings(thdr_t *thdr);
+void thdr_ensure_obj_strings(thdr_t *thdr, span_t *);
 
 TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
                               unsigned char tatype, ta_value_t *ptav);

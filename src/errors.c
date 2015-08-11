@@ -168,7 +168,7 @@ TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
     if (ip) {
         if (o)
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid index list '%s'. Must be an integer, or a list or typed array of type int.", Tcl_GetString(o)));
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid index list '%.80s'. Must be an integer, or a list or typed array of type int.", Tcl_GetString(o)));
         else
             Tcl_SetResult(ip, "Invalid index list. Must be an integer, or a list or typed array of type int.", TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "INDEXLIST", NULL);
@@ -180,9 +180,9 @@ TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
     if (ip) {
         if (o)
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid index '%s'. Must be an integer or the keyword 'end'.", Tcl_GetString(o)));
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid index '%.80s'. Must be an integer or the keyword 'end'.", Tcl_GetString(o)));
         else
-            Tcl_SetObjResult(ip, "Invalid index. Must be an integer or the keyword 'end'.");
+            Tcl_SetResult(ip, "Invalid index. Must be an integer or the keyword 'end'.", TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "INDEX", NULL);
     }
     return TCL_ERROR;
