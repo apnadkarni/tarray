@@ -604,7 +604,7 @@ TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
     /* Make the table object itself modifiable in case its thdr is shared */
     thdr = table_thdr(table);
     if (thdr_shared(thdr)) {
-        thdr = thdr_clone(ip, thdr, 0);
+        thdr = thdr_clone(ip, thdr, 0, NULL);
         /* Note this also invalidates its string representation. */
         table_replace_intrep(table, thdr, NULL);
     } else {

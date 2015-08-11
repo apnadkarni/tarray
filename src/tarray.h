@@ -572,8 +572,8 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
                           thdr_t *psrc, int src_first, int count, int insert);
 void thdr_delete_range(thdr_t *thdr, int first, int count);
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices);
-thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, int init_size);
-thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, int init_size);
+thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, int init_size, span_t *);
+thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, int init_size, span_t *);
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *intepr, int tatype,
                              int nelems, Tcl_Obj * const elems[]);
 TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t *pindices, int *new_sizeP);
@@ -584,7 +584,6 @@ int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
 #define TA_INDEX_TYPE_THDR 2
 
 int thdr_check(Tcl_Interp *, thdr_t *);
-thdr_t *thdr_range(Tcl_Interp *ip, thdr_t *psrc, int low, int count, int minsize);
 
 int tcol_check(Tcl_Interp *, Tcl_Obj *);
 TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
