@@ -916,6 +916,35 @@ oo::class create tarray::teval::Compiler {
         return "\[tarray::teval::rt::unary $op [my {*}$child]\]"
     }
 
+    method SelectorGenerate {primary_expr selector_expr} {
+        # Optimize C[range]
+        puts selector:$selector_expr
+
+        set frag {
+            tarray::teval::rt::push_selector_context %VALUE%
+            try {
+                return -level 0 [%COMMAND%]
+            } finally {
+                tarray::teval::rt::pop_selector_context
+            }
+        }
+        
+        incr SelectorNestingLevel
+        try {
+            if {[lindex $selector_expr 1 0] eq "Range"} {
+                set command "tarray::teval::rt::range \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]] [my {*}[lindex $selector_expr 1 2]]"
+                
+            } else {
+                #set command [string map [list %SELECTEXPR% [my {*}$selector_expr]] {tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%}]
+                set command "tarray::teval::rt::selector \[tarray::teval::rt::selector_context\] [my {*}$selector_expr]"
+            }
+            set primary "\[[string map [list %VALUE% $primary_expr %COMMAND% $command] $frag]\]"
+        } finally {
+            incr SelectorNestingLevel -1
+        }
+        return $primary
+    }
+    
     method PostfixExpr {primary_expr args} {
         if {[llength $args] == 0} {
             return [my {*}$primary_expr]
@@ -940,17 +969,7 @@ oo::class create tarray::teval::Compiler {
         foreach postexpr $args {
             switch -exact -- [lindex $postexpr 0] {
                 Selector {
-                    set frag {
-                        tarray::teval::rt::push_selector_context %VALUE%
-                        try {
-                            return -level 0 [tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%]
-                        } finally {
-                            tarray::teval::rt::pop_selector_context
-                        }
-                    }
-                    incr SelectorNestingLevel
-                    set primary "\[[string map [list %VALUE% $primary %SELECTEXPR%  [my {*}$postexpr]] $frag]\]"
-                    incr SelectorNestingLevel -1
+                    set primary [my SelectorGenerate $primary $postexpr]
                 }
                 FunctionCall {                
                     set fnargs {}
@@ -1622,6 +1641,14 @@ namespace eval tarray::teval::rt {
                 }
                 return $index
             }
+        }
+    }
+    
+    proc range {operand low high} {
+        switch -exact -- [lindex [tarray::types $operand] 0] {
+            ""      { return [lrange $operand $low $high] }
+            "table" { return [tarray::table::range $operand $low $high] }
+            default { return [tarray::column::range $operand $low $high] }
         }
     }
 
