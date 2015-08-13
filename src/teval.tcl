@@ -41,7 +41,9 @@ namespace eval tarray::ast {
 namespace eval tarray::teval {
     proc _map_search_op {op} {
         # Maps relational operators to column search switches
-        return [dict get {
+        # Note the order of options in each entry is important as they 
+        # are checked for in other places.
+        set map {
             ==  {-eq}
             !=  {-not -eq}
             <   {-lt}
@@ -58,7 +60,37 @@ namespace eval tarray::teval {
             !*  {-not -pat}
             =*^ {-nocase -pat}
             !*^ {-nocase -not -pat}
-        } $op]
+        }
+        if {[dict exists $map $op]} {
+            return [dict get $map $op]
+        } else {
+            return ""
+        }
+    }
+    
+    proc _map_search_op_reverse {op} {
+        # Like _map_search_op except that instead of COLUMN OP OPERAND
+        # this maps OPERAND OP COLUMN
+        # Note regexp and glob operators are missing here since
+        # for consistency, the pattern must only appear on the RHS side
+        # of the operator.
+        # Note the order of options in each entry is important as they 
+        # are checked for in other places.
+        set map {
+            ==  {-eq}
+            !=  {-not -eq}
+            <   {-gt}
+            <=  {-not -lt}
+            >   {-lt}
+            >=  {-not -gt}
+            =^  {-nocase -eq}
+            !^  {-nocase -not -eq}
+        }
+        if {[dict exists $map $op]} {
+            return [dict get $map $op]
+        } else {
+            return ""
+        }
     }
 } 
 
@@ -917,9 +949,6 @@ oo::class create tarray::teval::Compiler {
     }
 
     method SelectorGenerate {primary_expr selector_expr} {
-        # Optimize C[range]
-        puts selector:$selector_expr
-
         set frag {
             tarray::teval::rt::push_selector_context %VALUE%
             try {
@@ -928,14 +957,24 @@ oo::class create tarray::teval::Compiler {
                 tarray::teval::rt::pop_selector_context
             }
         }
-        
+        set first_op [lindex $selector_expr 1 0]
         incr SelectorNestingLevel
         try {
-            if {[lindex $selector_expr 1 0] eq "Range"} {
+            if {$first_op eq "Range"} {
+                # Optimize C[range]
                 set command "tarray::teval::rt::range \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]] [my {*}[lindex $selector_expr 1 2]]"
-                
-            } else {
-                #set command [string map [list %SELECTEXPR% [my {*}$selector_expr]] {tarray::teval::rt::selector [tarray::teval::rt::selector_context] %SELECTEXPR%}]
+            } elseif {[lindex $selector_expr 1 1] eq "SelectorContext" &&
+                      [set searchop [tarray::teval::_map_search_op $first_op]] ne ""} {
+                # Optimize C[@@ > 10]
+                set command "tarray::teval::rt::search_@@ {$searchop} \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 2]]"
+            } elseif {[lindex $selector_expr 1 2] eq "SelectorContext" &&
+                      [set searchop [tarray::teval::_map_search_op_reverse $first_op]] ne ""} {
+                # Optimize C[10 > @@] etc.
+                set command "tarray::teval::rt::search_@@ {$searchop} \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]]"
+            }
+
+            if {![info exists command]} {
+                # No optimization matched. Use generic selector method
                 set command "tarray::teval::rt::selector \[tarray::teval::rt::selector_context\] [my {*}$selector_expr]"
             }
             set primary "\[[string map [list %VALUE% $primary_expr %COMMAND% $command] $frag]\]"
@@ -1113,12 +1152,18 @@ oo::class create tarray::teval::Compiler {
         if {[lindex $args 0 0] eq "SearchTarget"} {
             set search_col [my {*}[lindex $args 0]]
             set op [tarray::teval::_map_search_op [lindex $args 1 1]]
+            if {$op eq ""} {
+                error "Unknown relational operator [lindex $args 1 1]"
+            }
             set search_val [my {*}[lindex $args 2]]
             set opts "-among [my {*}$operand] [lrange $args 3 end]"
             # return "\[tarray::teval::rt::search [my {*}[lindex $args 0]] [tarray::teval::_map_search_op [lindex $args 1 1]] [my {*}[lindex $args 2]] -among [my {*}$operand] [lrange $args 3 end]\]"
         } else {
             set search_col [my {*}$operand]
             set op [tarray::teval::_map_search_op [lindex $args 0 1]]
+            if {$op eq ""} {
+                error "Unknown relational operator [lindex $args 0 1]"
+            }
             set search_val [my {*}[lindex $args 1]]
             set opts "[lrange $args 2 end]"
             # return "\[tarray::teval::rt::search [my {*}$operand] [tarray::teval::_map_search_op [lindex $args 0 1]] [my {*}[lindex $args 1]] [lrange $args 2 end]\]" 
@@ -2098,11 +2143,40 @@ namespace eval tarray::teval::rt {
         }]
     }
 
-    proc reverse {operand args} {
+    proc reverse {operand} {
         return [switch -exact -- [lindex [tarray::types $operand] 0] {
-            table { tarray::table::reverse $operand {*}$args }
-            "" { error "Operand is not a column or able" }
-            default { tarray::column::reverse $operand {*}$args }
+            table { tarray::table::reverse $operand }
+            ""    { lreverse $operand }
+            default { tarray::column::reverse $operand }
+        }]
+    }
+
+    proc search_@@ {search_op haystack needle} {
+        return [switch -exact -- [lindex [tarray::types $haystack] 0] {
+            table { error "Tables cannot be used as search operands" }
+            ""    {
+                # Assume lists
+                switch -exact $search_op {
+                    -eq { lsearch -exact -all -inline $haystack $needle }
+                    "-not -eq" { lsearch -not -exact -all -inline $haystack $needle }
+                    "-nocase -eq" { lsearch -nocase -exact -all -inline $haystack $needle }
+                    "-nocase -not -eq" { lsearch -nocase -not -exact -all -inline $haystack $needle }
+                    
+                    -re { lsearch -regexp -all -inline $haystack $needle }
+                    "-not -re" { lsearch -not -regexp -all -inline $haystack $needle }
+                    "-nocase -re" { lsearch -nocase -regexp -all -inline $haystack $needle }
+                    "-nocase -not -re" { lsearch -nocase -not -regexp -all -inline $haystack $needle }
+
+                    -pat { lsearch -glob -all -inline $haystack $needle }
+                    "-not -pat" { lsearch -not -glob -all -inline $haystack $needle }
+                    "-nocase -pat" { lsearch -nocase -glob -all -inline $haystack $needle }
+                    "-nocase -not -pat" { lsearch -nocase -not -glob -all -inline $haystack $needle }
+                    default {
+                        error "The specified search operator is invalid for lists."
+                    }
+                }
+            }
+            default { tarray::column::search -inline -all {*}$search_op $haystack $needle }
         }]
     }
 }
