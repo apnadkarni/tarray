@@ -477,6 +477,24 @@ oo::class create tarray::teval::Parser {
         if {[llength $args] == 0} {
             return $primary_expr
         }
+        # Optimize I[I RelOp Operand] to I[@@ RelOp Operand]
+        # in preparation for further optimization in second pass.
+        if {[lindex $primary_expr 0] eq "Identifier" &&
+            [lindex $args 0 0] eq "Selector"} {
+            set selector [lindex $args 0 1]
+            if {[llength $selector] == 3} {
+                # TBD - do we need to check [lindex $selector 0] is a RelOp?
+                if {[lindex $selector 1 0] eq "Identifier" &&
+                    [lindex $selector 1 1] eq [lindex $primary_expr 1]} {
+                    lset selector 1 "SelectorContext"
+                }
+                if {[lindex $selector 2 0] eq "Identifier" &&
+                    [lindex $selector 2 1] eq [lindex $primary_expr 1]} {
+                    lset selector 2 "SelectorContext"
+                }
+                return [list PostfixExpr $primary_expr [list Selector $selector] {*}[lrange $args 1 end]]
+            } 
+        }
         return [list PostfixExpr $primary_expr {*}$args]
     }
 
