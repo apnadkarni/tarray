@@ -130,7 +130,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
         for (j = 0; j < ncontexts; ++j) {
             total += mt_sizes[j];
         }
-        TA_ASSERT(total == thdr->used);
+        TA_ASSERT(total == nelems);
     }
 #   endif
     
