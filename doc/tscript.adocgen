@@ -86,8 +86,6 @@ text {
 } text { 
 
     .Mixing Tcl and TScript
-    We have already seen how TScript can be invoked from Tcl with
-    the `tscript command. Similarly,
     Tcl code can be intermixed within TScript by bracketing it with
     `<>`.
 } tscript {
@@ -104,6 +102,23 @@ text {
     puts "First Tcl statement"
     puts "Second Tcl statement"
     >
+} text {
+    Similarly, TScript can be mixed with Tcl code with the `tscript`
+    command.
+} shell {
+    set L [list ab ba acb abc a]
+    tscript { L = L[L =~ "a.*b"] }
+
+    tscript {
+        puts("puts called from TScript")
+        <
+        puts "puts called from Tcl called from TScript"
+        tscript {puts("puts called from TScript called from Tcl called from TScript")}
+        >
+    }
+} text {
+    As we see later, we can also define procs in TScript that are called
+    from Tcl like any other Tcl command.
 }
 
 text {
@@ -1511,7 +1526,7 @@ text {
 }
 
 text {
-    ((=== sect_tscript_deref_op "The `$` dereferencing operator"))
+    ((==== sect_tscript_deref_op "The `$` dereferencing operator"))
 
     The operator `$` is a unary operator that dereferences
     the value of its operand. We have already seen an example of its use
