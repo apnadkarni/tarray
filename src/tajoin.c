@@ -16,18 +16,24 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
     int *aiptr, *biptr;
     Tcl_Obj *objs[2];
     int atype, status;
+    int nocase;
     
     amatch = NULL;
     bmatch = NULL;
     
-    if (objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "INDEXA COLA INDEXB COLB");
+    if (objc < 5 || objc > 6) {
+	Tcl_WrongNumArgs(ip, 1, objv, "INDEXA COLA INDEXB COLB ?NOCASE?");
 	return TCL_ERROR;
     }
 
+    nocase = 0;
+    if (objc == 6 &&
+        ((status = Tcl_GetIntFromObj(ip, objv[5], &nocase)) != TCL_OK))
+            return status;
+    
     aindex = objv[1];
     acol = objv[2];
-    aindex = objv[3];
+    bindex = objv[3];
     bcol = objv[4];
 
     if ((status = tcol_convert(ip, aindex)) != TCL_OK ||
@@ -90,15 +96,17 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
         bmatch->used += 1;                                              \
     } while (0)
 
-#define MERGE_(TYPE_)                                                   \
+#define MERGE_(TYPE_, CMPTYPE_)                                         \
     do {                                                                \
-        TYPE_ *aptr, *bptr;                                             \
+        TYPE_ *aptr;                                                    \
+        TYPE_ *bptr;                                                    \
         aptr = THDRELEMPTR(athdr, TYPE_, afirst);                       \
         bptr = THDRELEMPTR(bthdr, TYPE_, bfirst);                       \
         a = b = 0;                                                      \
         while (a < alen && b < blen) {                                  \
-            TYPE_ aval, bval;                                           \
-            int   cmp;                                                  \
+            TYPE_ aval;                                                 \
+            TYPE_ bval;                                                 \
+            CMPTYPE_   cmp;                                             \
             aval = aptr[aiptr[a]];                                      \
             bval = bptr[biptr[b]];                                      \
             cmp = CMP_(aval, bval);                                     \
@@ -116,7 +124,7 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
                 do {                                                    \
                     int b2 = b;                                         \
                     do {                                                \
-                        OUTPUT_MATCH_(a, b2);                           \
+                        OUTPUT_MATCH_(aiptr[a], biptr[b2]);             \
                         ++b2;                                           \
                     } while (b2 < blen && aval == bptr[biptr[b2]]);     \
                     ++a;                                                \
@@ -125,11 +133,37 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
         }                                                               \
     } while (0)
 
-#define CMP_(a_, b_) ((a_) - (b_))
     
     switch (atype) {
+#define CMP_(a_, b_) ((a_) - (b_))
     case TA_INT:
-        MERGE_(int);
+        MERGE_(int, int);
+        break;
+    case TA_WIDE:
+        MERGE_(Tcl_WideInt, Tcl_WideInt);
+        break;
+    case TA_DOUBLE:
+        MERGE_(double, double);
+        break;
+        /* For unsigned, need slightly different compare since not sure how compiler will treat unsigned subtraction */
+#undef CMP_
+#define CMP_(a_, b_) ((a_) >= (b_) ? ((a_) - (b_)) : - 1)
+    case TA_BYTE:
+        MERGE_(unsigned char, int);
+        break;
+    case TA_UINT:
+        MERGE_(unsigned int, int);
+        break;
+    case TA_ANY:
+#undef CMP_
+#define CMP_(a_, b_) ta_obj_compare((a_), (b_), nocase)        
+        MERGE_(Tcl_Obj*, int);
+        break;
+    case TA_STRING:
+#undef CMP_
+#define CMP_(a_, b_) tas_compare((a_), (b_), nocase)        
+        MERGE_(tas_t*, int);
+        break;
     default:
         ta_bad_type_error(ip, athdr);
         goto error_handler;
