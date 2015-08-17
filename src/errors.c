@@ -271,3 +271,10 @@ TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip)
     }
     return TCL_ERROR;
 }
+
+TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type)
+{
+    if (thdr->type != wanted_type)
+        return ta_bad_type_error(ip, thdr);
+    return TCL_OK;
+}

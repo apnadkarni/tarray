@@ -229,6 +229,10 @@ TA_INLINE int span_shared(span_t *span) { return span->nrefs > 1; }
  */
 #define OBJTHDRSPAN(optr_) (*(span_t **) (&((optr_)->internalRep.twoPtrValue.ptr2)))
 
+/*
+ * Retrieve the indx of the first element of a column.
+ */
+#define OBJTHDRFIRST(optr_) (OBJTHDRSPAN(optr_) ? (OBJTHDRSPAN(optr_))->count : 0)
 
 /*
  * Retrieve a lvalue reference to the field used to point to the column 
@@ -382,6 +386,8 @@ TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
+
+TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type);
 
 /* tas_t interface */
 #define TAS_ALLOCMEM TA_ALLOCMEM
@@ -718,6 +724,7 @@ Tcl_ObjCmdProc tcol_minmax_cmd;
 Tcl_ObjCmdProc tcol_lookup_cmd;
 Tcl_ObjCmdProc tcol_math_cmd;
 Tcl_ObjCmdProc tcol_fold_cmd;
+Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;

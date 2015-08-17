@@ -62,7 +62,7 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources bitarray.c errors.c table.c tafold.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
+critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -531,6 +531,8 @@ critcl::ccommand tarray::column::minmax tcol_minmax_cmd
 critcl::ccommand tarray::column::math tcol_math_cmd
 
 critcl::ccommand tarray::column::fold tcol_fold_cmd
+
+critcl::ccommand tarray::column::_sortmerge_helper tcol_sortmerge_helper_cmd
 
 critcl::ccommand tarray::column::insert {} {
     Tcl_Obj *tcol;
@@ -1081,6 +1083,8 @@ critcl::ccommand tarray::column::intersect3 {} {
         break;
     }
 
+#undef EQ
+#undef LT
     TA_ASSERT(aintersectb->used <= aintersectb->usable);
     TA_ASSERT(aminusb->used <= aminusb->usable);
     TA_ASSERT(bminusa->used <= bminusa->usable);
@@ -1671,7 +1675,6 @@ critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj
     }
     return status;
 }
-
 
 critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
     Tcl_Obj *objs[6];
