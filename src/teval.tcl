@@ -1,7 +1,7 @@
 if {1} {
     catch {tarray::teval::ParserBase destroy}
     catch {tarray::teval::Compiler destroy}
-    lappend auto_path ../build/lib
+    lappend auto_path [file join [pwd] ../build/lib]
     package require tarray
 }
 package require pt::pgen
