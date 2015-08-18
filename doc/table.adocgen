@@ -85,6 +85,10 @@ text {
     // Turn off section numbering
     :!sectnums:
 
+    ((cmddef table_cnames "table cnames _TABLE_"))
+
+    Returns the list of column names for the table.
+    
     ((cmddef table_column "table column _TABLE_ _COLSPEC_ ?_NEWCOL_?"))
 
     If argument _NEWCOL_ is not present, the command returns
@@ -94,10 +98,13 @@ text {
     _COLSPEC_. The command then returns _TABLE_ with that table column
     replaced by _NEWCOL_.
 
-    ((cmddef table_cnames "table cnames _TABLE_"))
+    ((cmddef table_columns "table columns _TABLE_ ?_COLSPECS_?"))
 
-    Returns the list of column names for the table.
-    
+    If argument _COLSPECS_ is not present, the command returns a list
+    containing all the columns in the specified table. If _COLSPECS_ is
+    specified, it must be a list of column names or positions. In this
+    case the returned list only contains the corresponding columns.
+
     ((cmddef table_create "table create _DEFINITION_ _ROWVALUES_"))
 
     Returns a typed table containing a sequence of columns. _DEFINITION_ is a

@@ -43,7 +43,22 @@ proc tarray::table::create2 {colnames columns} {
             }
         }
     }
+    # TBD - does this result in columns shimmering ?
     return [list tarray_table $colnames $columns]
+}
+
+proc tarray::table::columns {tab args} {
+    if {[llength $args] == 0} {
+        return [_columns $tab]
+    }
+    if {[llength $args] > 1} {
+        error "wrong # args: should be \"table columns TABLE ?COLNAMES?\""
+    }
+    set columns {}
+    foreach colname [lindex $args 0] {
+        lappend columns [column $tab $colname]
+    }
+    return $columns
 }
 
 # TBD - document and test
@@ -56,11 +71,6 @@ proc tarray::table::definition {tab {cnames {}}} {
         lappend def $cname [tarray::column type [column $tab $cname]]
     }
     return $def
-}
-
-# TBD - document and test
-proc tarray::table::columns {tab} {
-    return [lindex $tab 2]
 }
 
 # TBD - document and test
@@ -92,6 +102,73 @@ proc tarray::table::sort {args} {
     }
 }
 
+# TBD - doc and test
+proc tarray::table::join {atab acolname btab bcolname args} {
+    set nocase 0
+    set acolumns [columns $atab]
+    set bcolumns [columns $btab]
+    set nargs [llength $args]
+    for {set i 0} {$i < $nargs} {incr i} {
+        switch -exact -- [lindex $args $i] {
+            -nocase   { set nocase 1 }
+            -acolumns {
+                incr i
+                if {$i == $nargs} {
+                    error "Missing argument for option -acolumns"
+                }
+                set acolumns [lindex $args $i]
+            }
+            -bcolumns {
+                incr i
+                if {$i == $nargs} {
+                    error "Missing argument for option -bcolumns"
+                }
+                set bcolumns [lindex $args $i]
+            }
+            default {
+                error "Invalid option '$arg'"
+            }
+        }
+    }
+    set acol [column $atab $acolname]
+    set asorted [tarray::column sort -indices $acol]
+    set bcol [column $btab $bcolname]
+    set bsorted [tarray::column sort -indices $bcol]
+    lassign [tarray::column::_sortmerge_helper $asorted $acol $bsorted $bcol $nocase] aindices bindices
+
+    set acolnames {}
+    foreach pair $acolumns {
+        lappend acolnames [lindex $pair 0]
+    }
+    set bcolnames {}
+    foreach pair $bcolumns {
+        lappend bcolnames [lindex $pair 0]
+    }
+
+    if {[llength $acolnames]} {
+        set aslice [get -columns $acolumns $atab $aindices]
+        TBD - rename columns
+    }
+    if {[llength $bcolnames]} {
+        set bslice [get -columns $bcolumns $btab $bindices]
+        TBD - rename columns
+    }
+    TBD - implement zip
+    if {[info exists aslice]} {
+        if {[info exists bslice]} {
+            return [zip $aslice $bslice]
+        } else {
+            return $aslice
+        }
+    } else {
+        if {[info exists bslice]} {
+            return $bslice
+        } else {
+            return [create 
+        }
+    }
+}
+    
 
 proc tarray::tsource {arg1 args} {
     if {[llength $args] == 0} {
@@ -254,6 +331,7 @@ namespace eval tarray {
     namespace eval table {
         namespace ensemble create -map {
             column column
+            columns columns
             cnames cnames
             create create
             definition definition
