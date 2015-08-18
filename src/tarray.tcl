@@ -38,7 +38,7 @@ proc tarray::table::create2 {colnames columns} {
         # Make sure all columns are the same length
         set len [tarray::column::size [lindex $columns 0]]
         foreach col [lrange $columns 1 end] {
-            if {[tarray::column::size $col] != len} {
+            if {[tarray::column::size $col] != $len} {
                 error "Columns differ in length"
             }
         }
@@ -105,8 +105,8 @@ proc tarray::table::sort {args} {
 # TBD - doc and test
 proc tarray::table::join {atab acolname btab bcolname args} {
     set nocase 0
-    set acolumns [columns $atab]
-    set bcolumns [columns $btab]
+    set acolumns [cnames $atab]
+    set bcolumns [cnames $btab]
     set nargs [llength $args]
     for {set i 0} {$i < $nargs} {incr i} {
         switch -exact -- [lindex $args $i] {
@@ -137,36 +137,38 @@ proc tarray::table::join {atab acolname btab bcolname args} {
     lassign [tarray::column::_sortmerge_helper $asorted $acol $bsorted $bcol $nocase] aindices bindices
 
     set acolnames {}
+    set anewcolnames {}
     foreach pair $acolumns {
-        lappend acolnames [lindex $pair 0]
+        lassign $pair colname newcolname
+        if {$newcolname eq ""} {
+            set newcolname $colname
+        }
+        lappend acolnames $colname
+        lappend anewcolnames $newcolname
     }
     set bcolnames {}
+    set bnewcolnames {}
     foreach pair $bcolumns {
-        lappend bcolnames [lindex $pair 0]
+        lassign $pair colname newcolname
+        if {$newcolname eq ""} {
+            set newcolname $colname
+        }
+        lappend bcolnames $colname
+        lappend bnewcolnames $newcolname
     }
 
     if {[llength $acolnames]} {
-        set aslice [get -columns $acolumns $atab $aindices]
-        TBD - rename columns
+        set aslice [columns [get -columns $acolnames $atab $aindices]]
+    } else {
+        set aslice {}
     }
     if {[llength $bcolnames]} {
-        set bslice [get -columns $bcolumns $btab $bindices]
-        TBD - rename columns
-    }
-    TBD - implement zip
-    if {[info exists aslice]} {
-        if {[info exists bslice]} {
-            return [zip $aslice $bslice]
-        } else {
-            return $aslice
-        }
+        set bslice [columns [get -columns $bcolnames $btab $bindices]]
     } else {
-        if {[info exists bslice]} {
-            return $bslice
-        } else {
-            return [create 
-        }
+        set bslice {}
     }
+    
+    return [create2 [concat $anewcolnames $bnewcolnames] [concat $aslice $bslice]]
 }
     
 
@@ -341,6 +343,7 @@ namespace eval tarray {
             index index
             inject inject
             insert insert
+            join join
             place place
             put put
             range range
