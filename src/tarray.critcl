@@ -1604,6 +1604,12 @@ critcl::ccommand tarray::table::vcolumn {} {
     return ta_set_var_result(interp, status, objv[1], table);
 }
 
+critcl::cproc tarray::table::_columns {Tcl_Interp* interp TableObjPtr TABLE} ok {
+    thdr_t *thdr = OBJTHDR(TABLE);
+    Tcl_Obj **tcols = THDRELEMPTR(thdr, Tcl_Obj*, 0);
+    Tcl_SetObjResult(interp, Tcl_NewListObj(thdr->used, tcols));
+    return TCL_OK;
+}
 
 critcl::cproc tarray::table::cnames {Tcl_Interp* interp TableObjPtr TABLE} ok {
     Tcl_SetObjResult(interp, table_column_names(TABLE));

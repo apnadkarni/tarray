@@ -126,9 +126,9 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
                     do {                                                \
                         OUTPUT_MATCH_(aiptr[a], biptr[b2]);             \
                         ++b2;                                           \
-                    } while (b2 < blen && aval == bptr[biptr[b2]]);     \
+                    } while (b2 < blen && (CMP_(aval,bptr[biptr[b2]]) == 0)); \
                     ++a;                                                \
-                } while (a < alen && aptr[aiptr[a]] == bval);           \
+                } while (a < alen && (CMP_(aptr[aiptr[a]], bval) == 0)); \
             }                                                           \
         }                                                               \
     } while (0)
