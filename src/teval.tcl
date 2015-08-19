@@ -253,6 +253,7 @@ oo::class create tarray::teval::Parser {
     }
                            
     method Assignment {from to lvalue assignop expr} {
+        puts expr:$expr
         if {[lindex $lvalue 0] eq "Identifier"} {
             set ident [lindex $lvalue 1]
             # Try for some optimization that can make use of the v* form of
@@ -268,6 +269,18 @@ oo::class create tarray::teval::Parser {
                          ([lindex $expr 2 0] eq "SortOptions" &&
                           "-indices" ni [lindex $expr 2 1]))} {
                         return [list VSort $ident [lindex $expr 2 1]]
+                    }
+                }
+                BuiltInCall {
+                    if {[lindex $expr 2 1 0 0] eq "Identifier" &&
+                        [lindex $expr 2 1 0 1] eq $ident} {
+                        switch -exact -- [lindex $expr 1] {
+                            delete -
+                            inject -
+                            insert {
+                                return [list VBuiltInCall v[lindex $expr 1] [lindex $expr 2]]
+                            }
+                        }
                     }
                 }
             }
@@ -1238,6 +1251,17 @@ oo::class create tarray::teval::Compiler {
         }
         return "\[$fn [join $fnargs { }]\]"
     }
+    
+    method VBuiltInCall {fn arglist} {
+        puts arglist:[join $arglist ,]
+        set fnargs {}
+        foreach argelem [lrange $arglist 2 end] {
+            foreach fnarg $argelem {
+                lappend fnargs [my {*}$fnarg]
+            }
+        }
+        return "\[tarray::teval::rt::$fn {[lindex $arglist 1 0 1]} [join $fnargs { }]\]"
+    }
 }
 
 namespace eval tarray::teval::rt {
@@ -2173,6 +2197,15 @@ namespace eval tarray::teval::rt {
         }]
     }
 
+    proc vdelete {ident args} {
+        upvar 1 $ident var
+        return [switch -exact -- [lindex [tarray::types $var] 0] {
+            table { tarray::table::vdelete var {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::vdelete var {*}$args }
+        }]
+    }
+
     proc inject {operand args} {
         return [switch -exact -- [lindex [tarray::types $operand] 0] {
             table { tarray::table::inject $operand {*}$args }
@@ -2181,6 +2214,15 @@ namespace eval tarray::teval::rt {
         }]
     }
 
+    proc vinject {ident args} {
+        upvar 1 $ident var
+        return [switch -exact -- [lindex [tarray::types $var] 0] {
+            table { tarray::table::vinject var {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::vinject var {*}$args }
+        }]
+    }
+    
     proc insert {operand args} {
         return [switch -exact -- [lindex [tarray::types $operand] 0] {
             table { tarray::table::insert $operand {*}$args }
@@ -2189,6 +2231,15 @@ namespace eval tarray::teval::rt {
         }]
     }
 
+    proc vinsert {ident args} {
+        upvar 1 $ident var
+        return [switch -exact -- [lindex [tarray::types $var] 0] {
+            table { tarray::table::vinsert var {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::vinsert var {*}$args }
+        }]
+    }
+    
     proc reverse {operand} {
         return [switch -exact -- [lindex [tarray::types $operand] 0] {
             table { tarray::table::reverse $operand }
