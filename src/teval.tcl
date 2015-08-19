@@ -277,7 +277,8 @@ oo::class create tarray::teval::Parser {
                         switch -exact -- [lindex $expr 1] {
                             delete -
                             inject -
-                            insert {
+                            insert -
+                            reverse {
                                 return [list VBuiltInCall v[lindex $expr 1] [lindex $expr 2]]
                             }
                         }
@@ -2245,6 +2246,15 @@ namespace eval tarray::teval::rt {
             table { tarray::table::reverse $operand }
             ""    { lreverse $operand }
             default { tarray::column::reverse $operand }
+        }]
+    }
+
+    proc vreverse {ident} {
+        upvar 1 $ident var
+        return [switch -exact -- [lindex [tarray::types $var] 0] {
+            table { tarray::table::vreverse var }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::vreverse var }
         }]
     }
 
