@@ -253,6 +253,27 @@ oo::class create tarray::teval::Parser {
     }
                            
     method Assignment {from to lvalue assignop expr} {
+        if {[lindex $lvalue 0] eq "Identifier"} {
+            set ident [lindex $lvalue 1]
+            # Try for some optimization that can make use of the v* form of
+            # when target of assignment is a simple identifier
+            switch -exact -- [lindex $expr 0] {
+                SortCommand {
+                    # We can optimize sorts of the form
+                    # var = @sort var options
+                    # provided options does not contain the -indices option
+                    if {[lindex $expr 1 0] eq "Identifier" &&
+                        [lindex $expr 1 1] eq $ident &&
+                        ([llength $expr] == 2 ||
+                         ([lindex $expr 2 0] eq "SortOptions" &&
+                          "-indices" ni [lindex $expr 2 1]))} {
+                        return [list VSort $ident [lindex $expr 2 1]]
+                    }
+                }
+            }
+        }
+
+        # No optimizations detected
         return [list [lindex $assignop 1] $lvalue $expr]
     }
 
@@ -646,8 +667,12 @@ oo::class create tarray::teval::Parser {
         return [list SortCommand $expr {*}$args]
     }
     
+    method SortOptions {from to args} {
+        return [list SortOptions $args]
+    }
+    
     method SortOption {from to} {
-        return [list SortOption "-[string range $Script $from $to]"]
+        return "-[string range $Script $from $to]"
     }
 
     method SearchCommand {from to expr args} {
@@ -797,7 +822,6 @@ oo::class create tarray::teval::Compiler {
         lassign $lvalue type ident indexexpr
         switch -exact -- $type {
             Identifier {
-                lassign $lvalue type ident indexexpr
                 return "set $ident [my {*}$rvalue]"
             }
             LValueTarray {
@@ -1149,12 +1173,16 @@ oo::class create tarray::teval::Compiler {
         return "\[tarray::teval::rt::dictcast [my {*}$expr]\]"
     }
 
+    method VSort {ident options} {
+        return "\[tarray::column::vsort $options {$ident}\]"
+    }
+    
     method SortCommand {operand args} {
 
         set options {}
         foreach arg $args {
-            if {[lindex $arg 0] eq "SortOption"} {
-                lappend options [lindex $arg 1]
+            if {[lindex $arg 0] eq "SortOptions"} {
+                set options [lindex $arg 1]
             } else {
                 set target $arg
             }

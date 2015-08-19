@@ -124,7 +124,8 @@ leaf:    BuiltInFunction <- 'delete'
 
     # Note cannot use ',' as separator here since that will create ambiguity
     # when used inside a function call
-    SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WS SortOption)* ;
+    SortCommand <- [@] 'sort' WS Expression (WS '->' WS Expression)? (WS SortOptions)? ;
+    SortOptions <- SortOption (WS SortOption)* ;
     # Options do not begin with '-' because that creates ambiguity with
     # expressions (- operator)
 leaf: SortOption <- 'indices' 
