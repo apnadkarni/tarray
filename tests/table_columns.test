@@ -1,0 +1,114 @@
+# tarray table column
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test table-columns-1.0 {
+        Get one column from a table
+    } -body {
+        set cols [sampletable {any boolean int wide}]
+        lindex [tarray::table columns $cols [list 0]] 0
+    } -result [samplecolumn any] -match column
+
+    test table_columns-1.1 {
+        Columns all
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int string} 0 100]]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn int 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn string 0 100]]
+    } -result {3 1 1 1}
+
+    test table_columns-1.1.1 {
+        Columns all
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int string} 0 100] {0 1 2}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn int 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn string 0 100]]
+    } -result {3 1 1 1}
+
+    test table_columns-1.2 {
+        Columns subset in different order
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int any wide} 0 100] {2 0 3}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn any 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn wide 0 100]]
+    } -result {3 1 1 1}
+
+    test table_columns-1.3 {
+        Columns one
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int any wide} 0 100] {1}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn int 0 100]]
+    } -result {1 1}
+
+    test table_columns-1.4 {
+        Columns all
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int string} 0 100] {col0 col1 col2}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn int 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn string 0 100]]
+    } -result {3 1 1 1}
+
+    test table_columns-1.5 {
+        Columns subset in different order
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int any wide} 0 100] {col2 col0 col3}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn any 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn wide 0 100]]
+    } -result {3 1 1 1}
+
+    test table_columns-1.6 {
+        Columns one
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int any wide} 0 100] {col1}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn int 0 100]]
+    } -result {1 1}
+
+    test table_columns-1.7 {
+        Columns subset in different order with mixed names and col positions
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int any wide} 0 100] {col2 0 col3}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn any 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn wide 0 100]]
+    } -result {3 1 1 1}
+
+    test table_columns-2.0 {
+        Columns subset in with dup col names
+    } -body {
+        set cols [tarray::table columns [sampletable {boolean int string} 0 100] {0 col1 2 col1 col2}]
+        list \
+            [llength $cols] \
+            [cequal [lindex $cols 0] [samplecolumn boolean 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn int 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn string 0 100]] \
+            [cequal [lindex $cols 1] [samplecolumn int 0 100]] \
+            [cequal [lindex $cols 2] [samplecolumn string 0 100]]
+    } -result {5 1 1 1 1 1}
+
+}
+
+::tcltest::cleanupTests
