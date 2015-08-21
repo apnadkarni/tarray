@@ -1,23 +1,35 @@
-if {1} {
+namespace eval tarray::teval {
+    # In production code we use the critcl C-based parser. For development
+    # build the parser on the fly using the oo based parser.
+    variable _use_oo_parser 0
+}
+
+package require tarray
+if {! $tarray::teval::_use_oo_parser} {
+    # Production
+    package require tevalparser
+} else {
+    # Development / grammar debug
     catch {tarray::teval::ParserBase destroy}
+    catch {tarray::teval::Parser destroy}
     catch {tarray::teval::Compiler destroy}
     lappend auto_path [file join [pwd] ../build/lib]
-    package require tarray
-}
-package require pt::pgen
-package require pt::ast
-package require pt::util
-package require fileutil
-# Next line because the generated code has a return which
-# causes script to exit if not caught
-switch [catch {
-    eval [pt::pgen peg [fileutil::cat ../src/teval.peg] oo -class tarray::teval::ParserBase -package tarray::teval -version 0.1]
-} msg opts] {
-    0 - 2 {}
-    default {
-        return -options $opts $msg
+    package require pt::pgen
+    package require fileutil
+    # Next line because the generated code has a return which
+    # causes script to exit if not caught
+    switch [catch {
+        eval [pt::pgen peg [fileutil::cat ../src/teval.peg] oo -class tarray::teval::ParserBase -package tarray::teval -version 0.1]
+    } msg opts] {
+        0 - 2 {}
+        default {
+            return -options $opts $msg
+        }
     }
 }
+
+package require pt::ast
+package require pt::util
 
 namespace eval tarray::ast {
     proc Print {s ast} {
@@ -95,12 +107,13 @@ namespace eval tarray::teval {
 } 
 
 proc tarray::_init_tcompiler {} {
-    teval::Compiler create tcompiler
+    teval::Compiler create tcompiler $::tarray::teval::_use_oo_parser
     proc _init_tcompiler {} {
         return tcompiler
     }
     tailcall _init_tcompiler
 }
+
 proc tarray::tscript {script} {
     _init_tcompiler
     proc tscript {script} {
@@ -119,13 +132,19 @@ proc tarray::tproc {name arguments body} {
 }
 
 oo::class create tarray::teval::Parser {
-    superclass tarray::teval::ParserBase
     variable Script
 
-    constructor {args} {
-        next {*}$args
+    constructor {use_oo_parser} {
+        if {$use_oo_parser} {
+            tarray::teval::ParserBase create baseparser
+        } else {
+            tarray::teval::ParserBase_critcl baseparser
+        }
     }
 
+    forward parse baseparser parse
+    forward parset baseparser parset
+    
     method ast {text} {
         tarray::ast::print $text [my parset $text]
     }
@@ -713,9 +732,9 @@ oo::class create tarray::teval::Parser {
 oo::class create tarray::teval::Compiler {
     variable Script Compilations SelectorNestingLevel
 
-    constructor {} {
+    constructor {use_oo_parser} {
         namespace path ::tarray::teval
-        tarray::teval::Parser create parser
+        tarray::teval::Parser create parser $use_oo_parser
     }
 
     forward print parser print
@@ -2297,8 +2316,8 @@ proc tarray::teval::testconstexpr {expr desc} {
 }
 
 if {1} {
-    tarray::teval::Parser create tp
-    tarray::teval::Compiler create tc
+    tarray::teval::Parser create tp $::tarray::teval::_use_oo_parser
+    tarray::teval::Compiler create tc $::tarray::teval::_use_oo_parser
     namespace path tarray
     set I [column create int {10 20 30 40 50}]
     set J [column create int {100 200 300 400 500}]
