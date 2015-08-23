@@ -10,13 +10,9 @@ namespace eval tarray::test {
     variable spancols_for_get
     foreach type {boolean string any byte double int uint wide} {
         set cols_for_get($type) [samplecolumn $type]
-        if {[dict get [tarray::unsupported::dump $cols_for_get($type)] span*] != 0} {
-            error "Sample column is a span into another column"
-        }
+        check_not_span_column $cols_for_get($type)
         set spancols_for_get($type) [samplespancolumn $type]
-        if {[dict get [tarray::unsupported::dump $spancols_for_get($type)] span*] == 0} {
-            error "Sample span column is NOT a span"
-        }
+        check_span_column $spancols_for_get($type)
     }    
 
     # NOTE: these procs simultaneously test BOTH standard columns

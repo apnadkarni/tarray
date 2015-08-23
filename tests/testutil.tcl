@@ -475,6 +475,18 @@ if {![info exists tarray::test::known]} {
             return 0
         }
 
+        proc check_span_column {col} {
+            if {[dict get [tarray::unsupported::dump $col] span*] == 0} {
+                error "Sample column is not a span into another column"
+            }
+        }
+        
+        proc check_not_span_column {col} {
+            if {[dict get [tarray::unsupported::dump $col] span*] != 0} {
+                error "Sample column is a span into another column"
+            }
+        }
+        
         proc newcolumn {type {init {}}} {
             return [tarray::column create $type $init]
         }
@@ -528,7 +540,9 @@ if {![info exists tarray::test::known]} {
         proc samplecolumn {type args} {
             # NOTE: do NOT replace this with a pre-created sample column as
             # tests might depend on a unshared column object
-            return [newcolumn $type [samplerange $type {*}$args]]
+            set col [newcolumn $type [samplerange $type {*}$args]]
+            check_not_span_column $col
+            return $col
         }
 
         proc samplespancolumn {type args} {
@@ -536,7 +550,9 @@ if {![info exists tarray::test::known]} {
             variable sample
             # NOTE: do NOT replace this with a pre-created sample column as
             # tests might depend on a unshared column object
-            return [newspancolumn $type [samplerange $type {*}$args]]
+            set col [newspancolumn $type [samplerange $type {*}$args]]
+            check_span_column $col
+            return $col
         }
         
         proc samplevalue {type {pos 0}} {
