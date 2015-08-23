@@ -21,7 +21,7 @@ namespace eval tarray::test {
             Test deletion of first element (shared tclobj)
         } -body {
             tarray::unsupported::lrandom l $type 100000
-            change_and_verify_col $type $l delete 0 [lrange $l 1 end]
+            col_change_and_verify $type $l [lrange $l 1 end] delete 0 
         } -result 0
 
         test column_delete-index-$type-1.1 {
@@ -33,7 +33,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-2.0 {
             Test deletion of last element (shared tclobj)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list [expr {[llength $sample($type)]-1}]] [lrange $sample($type) 0 end-1]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-1] delete [expr {[llength $sample($type)]-1}]
         } -result 0
 
         test column_delete-index-$type-2.1 {
@@ -45,7 +45,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-2.2 {
             Test deletion of last element (shared tclobj)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list end] [lrange $sample($type) 0 end-1]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-1] delete end
         } -result 0
 
         test column_delete-index-$type-2.3 {
@@ -57,7 +57,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-3.0 {
             Test deletion of end element (shared tclobj)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list end] [lrange $sample($type) 0 end-1]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-1] delete end
         } -result 0
 
         test column_delete-index-$type-3.1 {
@@ -69,7 +69,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-3.2 {
             Test deletion of end-1 element (shared tclobj)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list end-1] [lreplace $sample($type) end-1 end-1]
+            col_change_and_verify $type $sample($type) [lreplace $sample($type) end-1 end-1] delete end-1
         } -result 0
 
         test column_delete-index-$type-3.3 {
@@ -83,7 +83,7 @@ namespace eval tarray::test {
             test column_delete-index-$type-4.[incr n] {
                 Test deletion of intermediate element (shared tclobj)
             } -body {
-                change_and_verify_col $type $sample($type) delete [list $i] [concat [lrange $sample($type) 0 $i-1] [lrange $sample($type) $i+1 end]]
+                col_change_and_verify $type $sample($type) [concat [lrange $sample($type) 0 $i-1] [lrange $sample($type) $i+1 end]] delete $i
             } -result 0
 
             test column_delete-index-$type-4.[incr n] {
@@ -96,7 +96,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-4.[incr n] {
             Test deletion of intermediate element (large shared tclobj)
         } -body {
-            change_and_verify_col $type [largelist $type] delete [list $i] [concat [lrange [largelist $type] 0 $i-1] [lrange [largelist $type] $i+1 end]]
+            col_change_and_verify $type [largelist $type] [concat [lrange [largelist $type] 0 $i-1] [lrange [largelist $type] $i+1 end]] delete $i
         } -result 0
 
         test column_delete-index-$type-4.[incr n] {
@@ -138,7 +138,7 @@ namespace eval tarray::test {
         test column_delete-index-$type-6.0 {
             Test deletion of element from single element column (shared)
         } -body {
-            change_and_verify_col $type [list 100] delete [list 0] {}
+            col_change_and_verify $type [list 100] {} delete 0
         } -result 0
 
         test column_delete-index-$type-6.1 {
@@ -150,19 +150,19 @@ namespace eval tarray::test {
         test column_delete-index-$type-6.0 {
             Test deletion of element from single element column (shared)
         } -body {
-            change_and_verify_col $type [list 100] delete [list end] {}
+            col_change_and_verify $type [list 100] {} delete end
         } -result 0
 
         test column_delete-index-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            change_and_verify_col $type {} delete [list 0] {}
+            col_change_and_verify $type {} {} delete 0
         } -result 0
 
         test column_delete-index-$type-7.1 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            change_and_verify_col $type {} delete [list end] {}
+            col_change_and_verify $type {} {} delete end
         } -result 0
 
         test column_delete-index-$type-7.2 {
@@ -180,7 +180,7 @@ namespace eval tarray::test {
         test column_delete-indexlist-$type-1.0 {
             Test deletion of leading elements (shared tclobj)
         } -body {
-            change_and_verify_col $type [largelist $type] delete [list {0 1 2}] [lrange [largelist $type] 3 end]
+            col_change_and_verify $type [largelist $type] [lrange [largelist $type] 3 end] delete {0 1 2}
         } -result 0 
 
         test column_delete-indexlist-$type-1.1 {
@@ -192,7 +192,7 @@ namespace eval tarray::test {
         test column_delete-indexlist-$type-1.2 {
             Test deletion of leading elements (shared tclobj, out of order)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list {0 2 1 3}] [lrange $sample($type) 4 end]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 4 end] delete {0 2 1 3}
         } -result 0
 
         test column_delete-indexlist-$type-1.3 {
@@ -207,7 +207,7 @@ namespace eval tarray::test {
             set l [largelist $type]
             set i [llength $l]
             incr i -2
-            change_and_verify_col $type $l delete [list [list $i [incr i]]] [lrange $l 0 end-2]
+            col_change_and_verify $type $l [lrange $l 0 end-2] delete $i [incr i]
         } -result 0
 
         test column_delete-indexlist-$type-2.1 {
@@ -223,7 +223,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             set ta [samplecolumn $type]
-            change_and_verify_col $type $sample($type) delete [list [list [incr i -1] [incr i -2] [incr i]]] [lrange $sample($type) 0 end-3]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-3] delete [list [incr i -1] [incr i -2] [incr i]]
         } -result 0
 
         test column_delete-indexlist-$type-2.3 {
@@ -242,7 +242,7 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            change_and_verify_col $type $sample($type) delete [list [lsort -increasing -integer $indices]] $l2
+            col_change_and_verify $type $sample($type) $l2 delete [lsort -increasing -integer $indices]
         } -result 0
 
         test column_delete-indexlist-$type-3.1 {
@@ -267,7 +267,7 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            change_and_verify_col $type [largelist $type] delete [list $indices] $l2
+            col_change_and_verify $type [largelist $type] $l2 delete $indices
         } -result 0
 
         test column_delete-indexlist-$type-4.0 {
@@ -339,7 +339,7 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            change_and_verify_col $type $l delete [list $indices] {}
+            col_change_and_verify $type $l {} delete $indices
         } -result 0
 
         test column_delete-indexlist-$type-6.1 {
@@ -350,7 +350,7 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            change_and_verify_col $type $l delete [list [lsort -integer -decreasing $indices]] {}
+            col_change_and_verify $type $l {} delete [lsort -integer -decreasing $indices]
         } -result 0
 
         test column_delete-indexlist-$type-6.2 {
@@ -358,7 +358,7 @@ namespace eval tarray::test {
         } -body {
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            change_and_verify_col $type $l delete [list {0 1 2 3}] {}
+            col_change_and_verify $type $l {} delete {0 1 2 3}
         } -result 0
 
         test column_delete-indexlist-$type-6.3 {
@@ -366,14 +366,14 @@ namespace eval tarray::test {
         } -body {
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            change_and_verify_col $type $l delete [list {1 0 3 2}] {}
+            col_change_and_verify $type $l {} delete {1 0 3 2}
         } -result 0
 
         test column_delete-indexlist-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
             set ta [newcolumn $type {}]
-            change_and_verify_col $type {} delete [list {0 1 2}] {}
+            col_change_and_verify $type {} {} delete {0 1 2}
         } -result 0
 
         test column_delete-indexlist-$type-7.1 {
@@ -386,7 +386,7 @@ namespace eval tarray::test {
             Delete duplicate indices (shared)
         } -body {
             set ta [samplecolumn $type]
-            change_and_verify_col $type $sample($type) delete [list {0 0 1}] [lrange $sample($type) 2 end]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 2 end] delete {0 0 1}
         } -result 0
 
         test column_delete-indexlist-$type-8.1 {
@@ -404,7 +404,7 @@ namespace eval tarray::test {
         test column_delete-indices-$type-1.0 {
             Test deletion of leading elements (shared tclobj)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list [indexcolumn  0 1]] [lrange $sample($type) 2 end]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 2 end] delete [indexcolumn  0 1]
         } -result 0
 
         test column_delete-indices-$type-1.1 {
@@ -416,7 +416,7 @@ namespace eval tarray::test {
         test column_delete-indices-$type-1.2 {
             Test deletion of leading elements (shared tclobj, out of order)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list [indexcolumn {0 2 1 3}]] [lrange $sample($type) 4 end]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 4 end] delete [indexcolumn {0 2 1 3}]
         } -result 0
 
         test column_delete-indices-$type-1.3 {
@@ -431,7 +431,7 @@ namespace eval tarray::test {
             set i [llength $sample($type)]
             incr i -2
             set ta [samplecolumn $type]
-            change_and_verify_col $type $sample($type) delete [list [newcolumn int [list $i [incr i]]]] [lrange $sample($type) 0 end-2]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-2] delete [newcolumn int [list $i [incr i]]]
         } -result 0
 
         test column_delete-indices-$type-2.1 {
@@ -446,7 +446,7 @@ namespace eval tarray::test {
             Test deletion of trailing elements (shared tclobj, out of order)
         } -body {
             set i [llength [largelist $type]]
-            change_and_verify_col $type [largelist $type] delete [list [indexcolumn [incr i -1] [incr i -2] [incr i]]] [lrange [largelist $type] 0 end-3]
+            col_change_and_verify $type [largelist $type] [lrange [largelist $type] 0 end-3] delete [indexcolumn [incr i -1] [incr i -2] [incr i]]
         } -result 0
 
         test column_delete-indices-$type-2.3 {
@@ -467,7 +467,7 @@ namespace eval tarray::test {
             }
             # Explicitly order indices
             set indices [tarray::column sort [indexcolumn $indices]]
-            change_and_verify_col $type [largelist $type] delete [list $indices] $l2
+            col_change_and_verify $type [largelist $type] $l2 delete $indices
         } -result 0
 
         test column_delete-indices-$type-3.1 {
@@ -493,7 +493,7 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            change_and_verify_col $type $sample($type) delete [list [indexcolumn $indices]] $l2
+            col_change_and_verify $type $sample($type) $l2 delete [indexcolumn $indices]
         } -result 0
 
         test column_delete-indices-$type-4.0 {
@@ -567,7 +567,7 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            change_and_verify_col $type $l delete [list [indexcolumn $indices]] {}
+            col_change_and_verify $type $l {} delete [indexcolumn $indices]
         } -result 0
 
         test column_delete-indices-$type-6.1 {
@@ -578,7 +578,7 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            change_and_verify_col $type $l delete [list [lsort -integer -decreasing $indices]] {}
+            col_change_and_verify $type $l {} delete [lsort -integer -decreasing $indices]
         } -result 0
 
         test column_delete-indices-$type-6.2 {
@@ -586,7 +586,7 @@ namespace eval tarray::test {
         } -body {
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l ]
-            change_and_verify_col $type $l delete [list [indexcolumn {0 1 2 3}]] {}
+            col_change_and_verify $type $l {} delete [indexcolumn {0 1 2 3}]
         } -result 0
 
         test column_delete-indices-$type-6.3 {
@@ -598,7 +598,7 @@ namespace eval tarray::test {
         test column_delete-indices-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            change_and_verify_col $type {} delete [list [indexcolumn {0 1 2}]] {}
+            col_change_and_verify $type {} {} delete [indexcolumn {0 1 2}]
         } -result 0
 
         test column_delete-indices-$type-7.1 {
@@ -610,7 +610,7 @@ namespace eval tarray::test {
         test column_delete-indices-$type-8.0 {
             Delete duplicate indices (shared)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list [indexcolumn {0 0 1}]] [lrange $sample($type) 2 end]
+            col_change_and_verify $type $sample($type)  [lrange $sample($type) 2 end] delete [indexcolumn {0 0 1}]
         } -result 0
 
         test column_delete-indices-$type-8.1 {
@@ -629,7 +629,7 @@ namespace eval tarray::test {
         test column_delete-range-$type-1.0 {
             Test deletion of leading elements (shared tclobj)
         } -body {
-            change_and_verify_col $type [largelist $type] delete {0 1} [lrange [largelist $type] 2 end]
+            col_change_and_verify $type [largelist $type] [lrange [largelist $type] 2 end] delete 0 1
         } -result 0
 
         test column_delete-range-$type-1.1 {
@@ -643,7 +643,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             incr i -1
-            change_and_verify_col $type $sample($type) delete [list 127 $i] [lrange $sample($type) 0 126]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 126] delete 127 $i
         } -result 0
 
         test column_delete-range-$type-2.1 {
@@ -657,7 +657,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             incr i -128
-            change_and_verify_col $type $sample($type) delete [list end-$i end] [lrange $sample($type) 0 126]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 126] delete end-$i end
         } -result 0
 
         test column_delete-range-$type-2.3 {
@@ -665,14 +665,13 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             incr i -128
-            change_and_verify_col $type $sample($type) delete [list end-$i end+5] [lrange $sample($type) 0 126]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 0 126] delete end-$i end+5
         } -result 0
 
         test column_delete-range-$type-3.0 {
             Test deletion of intermediate (shared tclobj)
         } -body {
-            set ta [samplecolumn $type]
-            change_and_verify_col $type $sample($type) delete [list 63 127] [concat [lrange $sample($type) 0 62] [lrange $sample($type) 128 end]]
+            col_change_and_verify $type $sample($type) [concat [lrange $sample($type) 0 62] [lrange $sample($type) 128 end]] delete 63 127
         } -result 0
 
         test column_delete-range-$type-3.1 {
@@ -735,7 +734,7 @@ namespace eval tarray::test {
         test column_delete-range-$type-6.0 {
             Test deletion of all indices from column (shared)
         } -body {
-            change_and_verify_col $type [largelist $type] delete [list 0 end] {}
+            col_change_and_verify $type [largelist $type] {} delete 0 end
         } -result 0
 
         test column_delete-range-$type-6.2 {
@@ -748,7 +747,7 @@ namespace eval tarray::test {
         test column_delete-range-$type-7.0 {
             Test attempt to delete element from empty column (shared)
         } -body {
-            change_and_verify_col $type {} delete [list 0 0] {}
+            col_change_and_verify $type {} {} delete 0 0
         } -result 0
 
         test column_delete-range-$type-7.1 {
@@ -766,7 +765,7 @@ namespace eval tarray::test {
         test column_delete-range-$type-8.0 {
             Delete single element range (shared, leading)
         } -body {
-            change_and_verify_col $type $sample($type) delete [list 0 0] [lrange $sample($type) 1 end]
+            col_change_and_verify $type $sample($type) [lrange $sample($type) 1 end] delete 0 0
         } -result 0
 
         test column_delete-range-$type-8.1 {
