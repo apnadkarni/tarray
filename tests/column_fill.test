@@ -18,7 +18,7 @@ namespace eval tarray::test {
 
     proc filltest {type init expected args} {
         variable fills
-        return [change_and_verify_col $type $init fill [linsert $args 0 $fills($type)] $expected]
+        return [col_change_and_verify $type $init $expected fill $fills($type) {*}$args]
     }
 
     # Note two general types of tests - via a temp variable and directly
@@ -494,6 +494,536 @@ namespace eval tarray::test {
 
     }
 
+    ################################################################
+    # Same tests as above but use span based columns
+    
+    proc spanfilltest {type init expected args} {
+        variable fills
+        return [spancol_change_and_verify $type $init $expected fill $fills($type) {*}$args]
+    }
+
+    # Note two general types of tests - via a temp variable and directly
+    # from the create return value. The difference is that in the
+    # former case the value ref count is > 1, and the object needs to
+    # be dup'ed while in the latter the ref count is 1 and the called
+    # command can directly use it.
+    # Also, when modifying a temp variable tests have to confirm that
+    # the original is not modified
+
+    #
+    # column fill index
+
+    foreach type {boolean string any byte double int uint wide} {
+
+        test column_fill-span-index-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            spanfilltest $type {} [list $fills($type)] 0
+        } -result 0
+
+        test column_fill-span-index-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) 0]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [list $fills($type)]] -match column
+
+        test column_fill-span-index-$type-1.2 {
+            Index end not allowed when column is empty
+        } -body {
+            tarray::column fill [newspancolumn $type {}] $fills($type) end
+        } -result * -match glob -returnCodes error
+
+        test column_fill-span-index-$type-1.3 {
+            Index end+1 allowed when column is empty
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) end+1]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [list $fills($type)]] -match column
+
+        test column_fill-span-index-$type-2.0 {
+            Fill an non-empty column with a single element (shared)
+        } -body {
+            spanfilltest $type $sample($type) [lreplace $sample($type) 0 0 $fills($type)] 0
+        } -result 0
+
+        test column_fill-span-index-$type-2.1 {
+            Fill non-empty column with a single element (unshared tclobj)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) 0]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [lreplace $sample($type) 0 0 $fills($type)]] -match column
+
+        test column_fill-span-index-$type-2.2 {
+            Fill end element in non-empty column
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) end]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [lreplace $sample($type) end end $fills($type)]] -match column
+
+        test column_fill-span-index-$type-2.3 {
+            Extend non-empty column
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) [llength $sample($type)]]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [linsert $sample($type) end $fills($type)]] -match column
+
+        test column_fill-span-index-$type-2.4 {
+            Extend non-empty column with end+1
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) end+1]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [linsert $sample($type) end $fills($type)]] -match column
+
+        test column_fill-span-index-$type-2.5 {
+            Negative index end not allowed
+        } -body {
+            tarray::column fill [newspancolumn $type $sample($type)] $fills($type) -1
+        } -result * -match glob -returnCodes error
+
+        test column_fill-span-index-$type-2.6 {
+            Out of range index end not allowed
+        } -body {
+            tarray::column fill [newspancolumn $type $sample($type)] $fills($type) [expr {[llength $sample($type)]+1}]
+        } -result * -match glob -returnCodes error
+
+        test column_fill-span-index-$type-2.7 {
+            Out of range index end not allowed
+        } -body {
+            tarray::column fill [newspancolumn $type $sample($type)] $fills($type) end+2
+        } -result * -match glob -returnCodes error
+
+        test column_fill-span-index-$type-2.8 {
+            Fill intermediate element in non-empty column
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type [largelist $type]] $fills($type) [expr {([llength [largelist $type]]+1)/2}]]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [lreplace [largelist $type] [expr {([llength [largelist $type]]+1)/2}] [expr {([llength [largelist $type]]+1)/2}] $fills($type)]] -match column
+
+        test column_fill-span-index-$type-2.9 {
+            Invalid syntax index not allowed
+        } -body {
+            tarray::column fill [newspancolumn $type $sample($type)] $fills($type) badsyntax
+        } -result * -match glob -returnCodes error
+    }
+
+    #
+    # column fill indexlist
+
+    foreach type {boolean string any byte double int uint wide} {
+        test column_fill-span-indexlist-$type-1.0 {
+            Fill an empty column (shared)
+        } -body {
+            spanfilltest $type {} [listrepeat 3 $fills($type)] {0 1 2}
+        } -result 0
+
+        test column_fill-span-indexlist-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) {0 1 2 3}]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [listrepeat 4 $fills($type)]] -match column
+
+        test column_fill-span-indexlist-$type-2.0 {
+            Test filling of leading elements (shared tclobj)
+        } -body {
+            spanfilltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] {0 1 2}
+        } -result 0 
+
+        test column_fill-span-indexlist-$type-2.1 {
+            Test filling of leading elements out of order (shared tclobj)
+        } -body {
+            spanfilltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] {2 0 1}
+        } -result 0 
+
+        test column_fill-span-indexlist-$type-2.2 {
+            Test filling of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-2 end $fills($type) $fills($type) $fills($type)] [list [incr i -3] [incr i] [incr i]]
+        } -result 0 
+
+        test column_fill-span-indexlist-$type-2.3 {
+            Test extending column in order (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+        } -result 0 
+
+        test column_fill-span-indexlist-$type-2.4 {
+            Test extending column reverse order (shared tclobj)
+        } -body {
+            set i [llength [largelist $type]]
+            spanfilltest $type [largelist $type] [lreplace [largelist $type] end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+        } -result 0 
+
+        test column_fill-span-indexlist-$type-2.5 {
+            Test extending column out of order (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [list [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+        } -result 0 
+
+        test column_fill-span-indexlist-$type-3.0 {
+            Test filling of intermediate (shared tclobj, ordered)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            spanfilltest $type $sample($type) $l2 [lsort -increasing -integer $indices]
+        } -result 0
+
+        test column_fill-span-indexlist-$type-3.1 {
+            Test filling of intermediate (shared tclobj, reverse ordered)
+        } -body {
+            # Note duplicate
+            set indices {1 7 8 9 31 32 33 33 63 64 65 254}
+            set l2 [largelist $type]
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            spanfilltest $type [largelist $type] $l2 [lsort -decreasing -integer $indices]
+        } -result 0
+
+        test column_fill-span-indexlist-$type-3.2 {
+            Test filling of intermediate (unshared tclobj, random order)
+        } -body {
+            # Note duplicate
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) $indices]
+            check_not_span_column $tcol
+            cequal $tcol [crep $type $l2]
+        } -result 1
+
+        test column_fill-span-indexlist-$type-3.3 {
+            Test filling of all (unshared tclobj, random order)
+        } -body {
+            set indices {0 9 3 8 6 4 2 5 7 1}
+            set tcol [tarray::column fill [newspancolumn $type [lrange $sample($type) 0 9]] $fills($type) $indices]
+            check_not_span_column $tcol
+            cequal $tcol [crep $type [listrepeat 10 $fills($type)]]
+        } -result 1
+
+        test column_fill-span-indexlist-$type-4.0 {
+            Test filling out-of-range (unshared, increasing indices)
+        } -body {
+            tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [lsort -increasing -integer {63 64 65 254 260}]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_fill-span-indexlist-$type-4.1 {
+            Test filling out-of-range (unshared, decreasing index list)
+        } -body {
+            tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [lsort -decreasing -integer {63 64 65 254 260}]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_fill-span-indexlist-$type-4.2 {
+            Test filling out-of-range (shared, unordered index list)
+        } -body {
+            set ta [newspancolumn $type [lrange $sample($type) 0 255]]
+            tarray::column fill $ta $fills($type) {255 260 254 256 258}
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_fill-span-indexlist-$type-4.3 {
+            Test filling with invalid syntax (shared, index list)
+        } -body {
+            set ta [newspancolumn $type $sample($type)]
+            tarray::column fill $ta $fills($type) {0 badsyntax}
+        } -result "*expected integer*" -match glob -returnCodes error
+
+        test column_fill-span-indexlist-$type-4.4 {
+            Test filling with index list containing end
+        } -body {
+            tarray::column fill [newspancolumn $type $sample($type)] $fills($type) {0 end}
+        } -result "*expected integer*" -match glob -returnCodes error
+    }
+
+
+    #
+    # column fill indicesarray
+
+    foreach type {boolean string any byte double int uint wide} {
+        test column_fill-span-indices-$type-1.0 {
+            Fill an empty column (shared)
+        } -body {
+            spanfilltest $type {} [listrepeat 3 $fills($type)] [indexcolumn 0 1 2]
+        } -result 0
+
+        test column_fill-span-indices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) [indexcolumn 0 1 2 3]]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [listrepeat 4 $fills($type)]] -match column
+
+        test column_fill-span-indices-$type-2.0 {
+            Test filling of leading elements (shared tclobj)
+        } -body {
+            spanfilltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] [indexcolumn 0 1 2]
+        } -result 0 
+
+        test column_fill-span-indices-$type-2.1 {
+            Test filling of leading elements out of order (shared tclobj)
+        } -body {
+            spanfilltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] [indexcolumn 2 0 1]
+        } -result 0 
+
+        test column_fill-span-indices-$type-2.2 {
+            Test filling of trailing elements (shared tclobj)
+        } -body {
+            set i [llength [largelist $type]]
+            spanfilltest $type [largelist $type] [lreplace [largelist $type] end-2 end $fills($type) $fills($type) $fills($type)] [indexcolumn [incr i -3] [incr i] [incr i]]
+        } -result 0 
+
+        test column_fill-span-indices-$type-2.3 {
+            Test extending column in order (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [indexcolumn [incr i -2] [incr i] [incr i] [incr i] [incr i]]
+        } -result 0 
+
+        test column_fill-span-indices-$type-2.4 {
+            Test extending column reverse order (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [indexcolumn [incr i 2] [incr i -1] [incr i -1] [incr i -1] [incr i -1]]
+        } -result 0 
+
+        test column_fill-span-indices-$type-2.5 {
+            Test extending column out of order (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-1 end {*}[listrepeat 5 $fills($type)]] [indexcolumn [incr i 2] [incr i -4] [incr i 2] [incr i -1] [incr i 2]]
+        } -result 0 
+
+        test column_fill-span-indices-$type-3.0 {
+            Test filling of intermediate (shared tclobj, ordered)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            spanfilltest $type $sample($type) $l2 [indexcolumn [lsort -increasing -integer $indices]]
+        } -result 0
+
+        test column_fill-span-indices-$type-3.1 {
+            Test filling of intermediate (shared tclobj, reverse ordered)
+        } -body {
+            # Note duplicate
+            set indices {1 7 8 9 31 32 33 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            spanfilltest $type $sample($type) $l2 [tarray::column sort -decreasing [indexcolumn $indices]]
+        } -result 0
+
+        test column_fill-span-indices-$type-3.2 {
+            Test filling of intermediate (unshared tclobj, random order)
+        } -body {
+            # Note duplicate
+            set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) [indexcolumn $indices]]
+            check_not_span_column $tcol
+            cequal $tcol [crep $type $l2]
+        } -result 1
+
+        test column_fill-span-indices-$type-3.3 {
+            Test filling of all (unshared tclobj, random order)
+        } -body {
+            set indices {0 9 3 8 6 4 2 5 7 1}
+            set tcol [tarray::column fill [newspancolumn $type [lrange $sample($type) 0 9]] $fills($type) [indexcolumn $indices]]
+            check_not_span_column $tcol
+            cequal $tcol [crep $type [listrepeat 10 $fills($type)]]
+        } -result 1
+
+        test column_fill-span-indices-$type-4.0 {
+            Test filling out-of-range (unshared, increasing indices)
+        } -body {
+            tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -increasing [indexcolumn {63 64 65 254 260}]]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_fill-span-indices-$type-4.1 {
+            Test filling out-of-range (unshared, decreasing index list)
+        } -body {
+            tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -decreasing [indexcolumn 63 64 65 254 260]]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+
+        test column_fill-span-indices-$type-4.2 {
+            Test filling out-of-range (shared, unordered index list)
+        } -body {
+            set ta [newspancolumn $type [lrange $sample($type) 0 255]]
+            tarray::column fill $ta $fills($type) [indexcolumn {255 260 254 256 258}]
+        } -result "*260*out of bounds" -match glob -returnCodes error
+    }
+
+
+    #
+    # column fill range
+
+    foreach type {boolean string any byte double int uint wide} {
+
+        test column_fill-span-range-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            spanfilltest $type {} [list $fills($type)] 0 0
+        } -result 0
+
+        test column_fill-span-range-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) 0 0]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [list $fills($type)]] -match column
+
+        test column_fill-span-range-$type-1.2 {
+            Index end when column is empty
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) 0 end]
+            # Note same column will be returned so do not check_not_span_column
+            set tcol
+        } -result [crep $type {}] -match column
+
+        test column_fill-span-range-$type-1.3 {
+            Index end when column is empty
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) end end]
+            # Note same column will be returned so do not check_not_span_column
+            set tcol
+        } -result [crep $type {}] -match column
+
+        test column_fill-span-range-$type-1.4 {
+            Index end+1 when column is empty
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) end end+1]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [list $fills($type)]] -match column
+
+        test column_fill-span-range-$type-1.5 {
+            Index end+1 when column is empty
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type {}] $fills($type) end+1 end+2]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [lrepeat 2 $fills($type)]] -match column
+
+        test column_fill-span-range-$type-2.0 {
+            Test filling of leading elements (shared tclobj)
+        } -body {
+            spanfilltest $type [largelist $type] [lreplace [largelist $type] 0 2 $fills($type) $fills($type) $fills($type)] 0 2
+        } -result 0 
+
+        test column_fill-span-range-$type-2.1 {
+            Test filling of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $fills($type)]] [expr {$i-6}] [expr {$i-1}]
+        } -result 0 
+
+        test column_fill-span-range-$type-2.2 {
+            Test filling of trailing elements (shared tclobj)
+        } -body {
+            set i [llength $sample($type)]
+            spanfilltest $type $sample($type) [lreplace $sample($type) end-5 end {*}[listrepeat 6 $fills($type)]] [expr {$i-6}] end
+        } -result 0 
+
+        test column_fill-span-range-$type-2.3 {
+            Test filling of trailing elements (shared tclobj)
+        } -body {
+            spanfilltest $type [largelist $type] [lreplace [largelist $type] end-5 end {*}[listrepeat 6 $fills($type)]] end-5 end
+        } -result 0 
+
+        test column_fill-span-range-$type-2.4 {
+            Test filling of entire array (unshared)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) 0 end]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [listrepeat [llength $sample($type)] $fills($type)]] -match column
+
+        test column_fill-span-range-$type-2.5 {
+            Test filling of intermediate array (unshared)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) 50 100]
+            check_not_span_column $tcol
+            set tcol
+        } -match column -result [crep $type [concat [lrange $sample($type) 0 49] [listrepeat 51 $fills($type)] [lrange $sample($type) 101 end]]]
+
+        test column_fill-span-range-$type-3.0 {
+            Test filling with reversed range elements (unshared)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) 10 0]
+            # Note same column will be returned so do not check_not_span_column
+            set tcol
+        } -result [crep $type $sample($type)] -match column
+
+        test column_fill-span-range-$type-3.1 {
+            Test filling with reversed range elements (unshared)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type $sample($type)] $fills($type) end 0]
+            # Note same column will be returned so do not check_not_span_column
+            set tcol
+        } -result [crep $type $sample($type)] -match column
+
+        test column_fill-span-range-$type-4.0 {
+            Test filling beyond last (unshared)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type [lrange $sample($type) 0 100]] $fills($type) 101 200]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [concat [lrange $sample($type) 0 100] [listrepeat 100 $fills($type)]]] -match column
+
+        test column_fill-span-range-$type-4.1 {
+            Test filling extending (shared)
+        } -body {
+            set ta [newspancolumn $type [lrange [largelist $type] 0 31]]
+            tarray::column fill $ta $fills($type) 25 50
+        } -result [crep $type [concat [lrange [largelist $type] 0 24] [listrepeat 26 $fills($type)]]] -match column
+
+        test column_fill-span-range-$type-4.2 {
+            Test filling beyond last (unshared)
+        } -body {
+            set tcol [tarray::column fill [newspancolumn $type [lrange $sample($type) 0 100]] $fills($type) end+1 200]
+            check_not_span_column $tcol
+            set tcol
+        } -result [crep $type [concat [lrange $sample($type) 0 100] [listrepeat 100 $fills($type)]]] -match column
+
+        test column_fill-span-range-$type-4.3 {
+            Test filling out-of-range (unshared)
+        } -body {
+            tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) 257 300
+        } -result "*257*out of bounds" -match glob -returnCodes error
+
+        test column_fill-span-range-$type-4.4 {
+            Test filling out-of-range (unshared)
+        } -body {
+            tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) end+2 300
+        } -result "*257*out of bounds" -match glob -returnCodes error
+
+    }
+
+    ################################################################
     # TBD - add tests for multithreaded filling
 
 }
