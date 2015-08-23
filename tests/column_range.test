@@ -7,48 +7,68 @@ namespace eval tarray::test {
     # Initialize our own columns for testing so we do not have to create
     # a new one every time
     variable cols_for_get
+    variable spancols_for_get
     foreach type {boolean string any byte double int uint wide} {
         set cols_for_get($type) [samplecolumn $type]
+        if {[dict get [tarray::unsupported::dump $cols_for_get($type)] span*] != 0} {
+            error "Sample column is a span into another column"
+        }
+        set spancols_for_get($type) [samplespancolumn $type]
+        if {[dict get [tarray::unsupported::dump $spancols_for_get($type)] span*] == 0} {
+            error "Sample span column is NOT a span"
+        }
     }    
 
+    # NOTE: these procs simultaneously test BOTH standard columns
+    # and span based columns
     proc test_get_range_ascol {type low high} {
         variable cols_for_get
+        variable spancols_for_get
         variable sample
 
         set ta [tarray::column range $cols_for_get($type) $low $high]
+        set span_ta [tarray::column range $spancols_for_get($type) $low $high]
 
-        if {[lindex $ta 0] ne "tarray_column"} {
-            return "Return value not a column"
-        }
-        if {[lindex $ta 1] ne $type} {
-            return "Returned type '[lindex $ta 1]' does not match type '$type' of input column"
-        }
+        foreach colvar {ta span_ta} {
+            if {[lindex [set $colvar] 0] ne "tarray_column"} {
+                return "Return value not a column"
+            }
+            if {[lindex [set $colvar] 1] ne $type} {
+                return "Returned type '[lindex [set $colvar] 1]' does not match type '$type' of input column"
+            }
 
-        if {[lequal $type [lrange $sample($type) $low $high] [lindex $ta 2]]} {
-            return ""
-        } else {
-            return "Returned values do not match corresponding input elements"
+            if {[lequal $type [lrange $sample($type) $low $high] [lindex [set $colvar] 2]]} {
+                return ""
+            } else {
+                return "Returned values do not match corresponding input elements"
+            }
         }
     }
 
     proc test_get_range_aslist {type low high} {
         variable cols_for_get
+        variable spancols_for_get
         variable sample
 
         set result [tarray::column range -list $cols_for_get($type) $low $high]
+        set spanresult [tarray::column range -list $spancols_for_get($type) $low $high]
 
-        if {[lequal $type [lrange $sample($type) $low $high] $result]} {
-            return ""
-        } else {
+        if {![lequal $type [lrange $sample($type) $low $high] $result]} {
             return "Returned values do not match corresponding input elements"
         }
+        if {![lequal $type [lrange $sample($type) $low $high] $spanresult]} {
+            return "Returned values do not match corresponding input elements"
+        }
+        return ""
     }
 
     proc test_get_range_asdict {type low high} {
         variable cols_for_get
+        variable spancols_for_get
         variable sample
 
         set result [tarray::column range -dict $cols_for_get($type) $low $high]
+        set spanresult [tarray::column range -dict $spancols_for_get($type) $low $high]
 
         # Note we do not compare lengths of lists since in case of duplicate
         # indices, they will not be the same. Errors, if any, will caught
@@ -59,6 +79,17 @@ namespace eval tarray::test {
             lappend l2 $val
         }
 
+        if {[lequal $type [lrange $sample($type) $low $high] $l2]} {
+            return ""
+        } else {
+            return "Returned values do not match corresponding input elements"
+        }
+
+        set l2 {}
+        dict for {i val} $spanresult {
+            lappend l2 $val
+        }
+        
         if {[lequal $type [lrange $sample($type) $low $high] $l2]} {
             return ""
         } else {
@@ -239,14 +270,25 @@ namespace eval tarray::test {
             Get end-0
         } -body { test_get_range_asdict $type end 0 }
 
-        test column_get-range-ascol-$type-2.8 {
+        test column_get-range-asdict-$type-2.8 {
             Get end-10 end
         } -body { test_get_range_asdict $type end-10 end }
 
-        test column_get-range-ascol-$type-2.9 {
+        test column_get-range-asdict-$type-2.9 {
             Get end-10 end
         } -body { test_get_range_asdict $type end-10 end+10 }
+
+        # Test empty ranges
+        test column_get-range-empty-span-$type-1.0 {
+            Get 0 -1
+        } -body {
+            set rangecol [tarray::column range [samplecolumn $type] 0 -1]
+            set dump [tarray::unsupported::dump $rangecol]
+            list [dict get $dump span.first] [dict get $dump span.count]
+        } -result {0 0}
     }
+
+    
 }
 
 ::tcltest::cleanupTests

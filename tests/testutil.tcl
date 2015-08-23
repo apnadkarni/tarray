@@ -478,6 +478,19 @@ if {![info exists tarray::test::known]} {
         proc newcolumn {type {init {}}} {
             return [tarray::column create $type $init]
         }
+        
+        proc newspancolumn {type {init {}}} {
+            # Used to create a column that internally uses spans
+            set padlen 11; # Arbitrary number
+            set pad [lrepeat $padlen [samplevalue $type]]
+            set col [tarray::column create $type [concat $pad $init $pad]]
+            set span [tarray::column range $col $padlen end-$padlen]
+            array set desc [tarray::unsupported::dump $span]
+            if {$desc(span.first) != $padlen || ($desc(span.count) != ([tarray::column size $col]-2*$padlen))} {
+                error "Error creating span column : [array get desc]"
+            }
+            return $span
+        }
 
         proc newtable {types {init {}}} {
             set coldef [col_def $types]
@@ -513,12 +526,19 @@ if {![info exists tarray::test::known]} {
         }
 
         proc samplecolumn {type args} {
+            # NOTE: do NOT replace this with a pre-created sample column as
+            # tests might depend on a unshared column object
+            return [newcolumn $type [samplerange $type {*}$args]]
+        }
+
+        proc samplespancolumn {type args} {
+            # Used to create a column that internally uses spans
             variable sample
             # NOTE: do NOT replace this with a pre-created sample column as
             # tests might depend on a unshared column object
-            return [tarray::column create $type [samplerange $type {*}$args]]
+            return [newspancolumn $type [samplerange $type {*}$args]]
         }
-
+        
         proc samplevalue {type {pos 0}} {
             variable sample
             return [lindex $sample($type) $pos]
