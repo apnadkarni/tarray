@@ -12,19 +12,19 @@ namespace eval tarray::test {
         test column_vdelete-index-$type-1.0 {
             Test deletion of first element 
         } -body {
-            vchange_and_verify_col $type [largelist $type] vdelete 0 [lrange [largelist $type] 1 end]
+            vcol_change_and_verify $type [largelist $type] [lrange [largelist $type] 1 end] vdelete 0
         } -result 0
 
         test column_vdelete-index-$type-2.0 {
             Test deletion of last object
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list [expr {[llength $sample($type)]-1}]] [lrange $sample($type) 0 end-1]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-1] vdelete [expr {[llength $sample($type)]-1}]
         } -result 0
 
         test column_vdelete-index-$type-3.0 {
             Test deletion of end element
         } -body {
-            vchange_and_verify_col $type [largelist $type] vdelete [list end] [lrange [largelist $type] 0 end-1]
+            vcol_change_and_verify $type [largelist $type] [lrange [largelist $type] 0 end-1] vdelete end
         } -result 0
 
         set n -1
@@ -32,7 +32,7 @@ namespace eval tarray::test {
             test column_vdelete-index-$type-4.[incr n] {
                 Test deletion of intermediate element
             } -body {
-                vchange_and_verify_col $type [largelist $type] vdelete [list $i] [concat [lrange [largelist $type] 0 $i-1] [lrange [largelist $type] $i+1 end]]
+                vcol_change_and_verify $type [largelist $type] [concat [lrange [largelist $type] 0 $i-1] [lrange [largelist $type] $i+1 end]] vdelete $i
             } -result 0
         }
 
@@ -69,13 +69,13 @@ namespace eval tarray::test {
         test column_vdelete-index-$type-6.0 {
             Test deletion of element from single element column
         } -body {
-            vchange_and_verify_col $type [list 100] vdelete [list 0] {}
+            vcol_change_and_verify $type [list 100] {} vdelete 0
         } -result 0
 
         test column_vdelete-index-$type-7.0 {
             Test attempt to vdelete element from empty column
         } -body {
-            vchange_and_verify_col $type {} vdelete [list 0] {}
+            vcol_change_and_verify $type {} {} vdelete 0
         } -result 0
     }
 
@@ -87,13 +87,13 @@ namespace eval tarray::test {
         test column_vdelete-indexlist-$type-1.0 {
             Test deletion of leading elements
         } -body {
-            vchange_and_verify_col $type [largelist $type] vdelete [list {0 1 2}] [lrange [largelist $type] 3 end]
+            vcol_change_and_verify $type [largelist $type] [lrange [largelist $type] 3 end] vdelete {0 1 2}
         } -result 0 
 
         test column_vdelete-indexlist-$type-1.1 {
             Test deletion of leading elements (out of order)
         } -body {
-            vchange_and_verify_col $type [largelist $type] vdelete [list {0 2 1 3}] [lrange [largelist $type] 4 end]
+            vcol_change_and_verify $type [largelist $type] [lrange [largelist $type] 4 end] vdelete {0 2 1 3}
         } -result 0
 
         test column_vdelete-indexlist-$type-1.2 {
@@ -109,7 +109,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             incr i -2
-            vchange_and_verify_col $type $sample($type) vdelete [list [list $i [incr i]]] [lrange $sample($type) 0 end-2]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-2] vdelete [list $i [incr i]]
         } -result 0
 
         test column_vdelete-indexlist-$type-2.1 {
@@ -117,7 +117,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list [list [incr i -1] [incr i -2] [incr i]]] [lrange $sample($type) 0 end-3]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-3] vdelete [list [incr i -1] [incr i -2] [incr i]]
         } -result 0
 
         test column_vdelete-indexlist-$type-2.3 {
@@ -138,7 +138,7 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            vchange_and_verify_col $type $sample($type) vdelete [list [lsort -increasing -integer $indices]] $l2
+            vcol_change_and_verify $type $sample($type) $l2 vdelete [lsort -increasing -integer $indices]
         } -result 0
 
         test column_vdelete-indexlist-$type-3.1 {
@@ -150,7 +150,7 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            vchange_and_verify_col $type [largelist $type] vdelete [list [lsort -decreasing -integer $indices]] $l2
+            vcol_change_and_verify $type [largelist $type] $l2 vdelete [lsort -decreasing -integer $indices]
         } -result 0
 
         test column_vdelete-indexlist-$type-3.2 {
@@ -164,7 +164,7 @@ namespace eval tarray::test {
                 set l2 [lreplace $l2 $i $i]
             }
             set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list $indices] $l2
+            vcol_change_and_verify $type $sample($type) $l2 vdelete $indices
         } -result 0
 
         test column_vdelete-indexlist-$type-4.0 {
@@ -226,7 +226,7 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            vchange_and_verify_col $type $l vdelete [list $indices] {}
+            vcol_change_and_verify $type $l {} vdelete $indices
         } -result 0
 
         test column_vdelete-indexlist-$type-6.1 {
@@ -234,7 +234,7 @@ namespace eval tarray::test {
         } -body {
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            vchange_and_verify_col $type $l vdelete [list {0 1 2 3}] {}
+            vcol_change_and_verify $type $l {} vdelete {0 1 2 3}
         } -result 0
 
         test column_vdelete-indexlist-$type-6.2 {
@@ -242,28 +242,28 @@ namespace eval tarray::test {
         } -body {
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            vchange_and_verify_col $type $l vdelete [list {1 0 3 2}] {}
+            vcol_change_and_verify $type $l {} vdelete {1 0 3 2}
         } -result 0
 
         test column_vdelete-indexlist-$type-7.0 {
             Test attempt to vdelete element from empty column (shared)
         } -body {
             set ta [newcolumn $type {}]
-            vchange_and_verify_col $type {} vdelete [list {0 1 2}] {}
+            vcol_change_and_verify $type {} {} vdelete {0 1 2}
         } -result 0
 
         test column_vdelete-indexlist-$type-8.0 {
             vdelete duplicate indices
         } -body {
             set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list {0 0 1}] [lrange $sample($type) 2 end]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 2 end] vdelete {0 0 1}
         } -result 0
 
         test column_vdelete-indexlist-$type-8.1 {
             vdelete duplicate indices
         } -body {
             set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list {4 4}] [concat [lrange $sample($type) 0 3] [lrange $sample($type) 5 end]]
+            vcol_change_and_verify $type $sample($type) [concat [lrange $sample($type) 0 3] [lrange $sample($type) 5 end]] vdelete {4 4}
         } -result 0
 
     }
@@ -276,13 +276,13 @@ namespace eval tarray::test {
         test column_vdelete-indices-$type-1.0 {
             Test deletion of leading elements
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list [indexcolumn  0 1]] [lrange $sample($type) 2 end]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 2 end] vdelete [indexcolumn  0 1]
         } -result 0
 
         test column_vdelete-indices-$type-1.1 {
             Test deletion of leading elements (out of order)
         } -body {
-            vchange_and_verify_col $type [largelist $type] vdelete [list [indexcolumn {0 2 1 3}]] [lrange [largelist $type] 4 end]
+            vcol_change_and_verify $type [largelist $type] [lrange [largelist $type] 4 end] vdelete [indexcolumn {0 2 1 3}]
         } -result 0
 
         test column_vdelete-indices-$type-1.2 {
@@ -299,7 +299,7 @@ namespace eval tarray::test {
             set i [llength $sample($type)]
             incr i -2
             set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list [newcolumn int [list $i [incr i]]]] [lrange $sample($type) 0 end-2]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 0 end-2] vdelete [newcolumn int [list $i [incr i]]]
         } -result 0
 
         test column_vdelete-indices-$type-2.1 {
@@ -317,7 +317,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             set ta [samplecolumn $type]
-            vchange_and_verify_col $type $sample($type) vdelete [list [indexcolumn [incr i -1] [incr i -2] [incr i]]] [samplerange $type 0 end-3]
+            vcol_change_and_verify $type $sample($type) [samplerange $type 0 end-3] vdelete [indexcolumn [incr i -1] [incr i -2] [incr i]]
         } -result 0
 
         test column_vdelete-indices-$type-2.3 {
@@ -340,7 +340,7 @@ namespace eval tarray::test {
             }
             # Explicitly order indices
             set indices [tarray::column sort [indexcolumn $indices]]
-            vchange_and_verify_col $type [largelist $type] vdelete [list $indices] $l2
+            vcol_change_and_verify $type [largelist $type] $l2 vdelete $indices
         } -result 0
 
         test column_vdelete-indices-$type-3.1 {
@@ -368,7 +368,7 @@ namespace eval tarray::test {
             foreach i [lsort -integer -decreasing -unique $indices] {
                 set l2 [lreplace $l2 $i $i]
             }
-            vchange_and_verify_col $type [largelist $type] vdelete [list [indexcolumn $indices]] $l2
+            vcol_change_and_verify $type [largelist $type] $l2 vdelete [indexcolumn $indices]
         } -result 0
 
         test column_vdelete-indices-$type-4.0 {
@@ -449,7 +449,7 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            vchange_and_verify_col $type $l vdelete [list [indexcolumn $indices]] {}
+            vcol_change_and_verify $type $l {} vdelete [indexcolumn $indices]
         } -result 0
 
         test column_vdelete-indices-$type-6.1 {
@@ -460,26 +460,26 @@ namespace eval tarray::test {
             time {lappend indices [incr i]} 256
             set l [lrange $sample($type) 0 3]
             set ta [newcolumn $type $l]
-            vchange_and_verify_col $type $l vdelete [list [lsort -integer -decreasing $indices]] {}
+            vcol_change_and_verify $type $l {} vdelete [lsort -integer -decreasing $indices]
         } -result 0
 
         test column_vdelete-indices-$type-6.2 {
             Test deletion of all indices from column
         } -body {
             set l [lrange $sample($type) 0 3]
-            vchange_and_verify_col $type $l vdelete [list [indexcolumn {0 1 2 3}]] {}
+            vcol_change_and_verify $type $l {} vdelete [indexcolumn {0 1 2 3}]
         } -result 0
 
         test column_vdelete-indices-$type-7.0 {
             Test attempt to vdelete element from empty column
         } -body {
-            vchange_and_verify_col $type {} vdelete [list [indexcolumn {0 1 2}]] {}
+            vcol_change_and_verify $type {} {} vdelete [indexcolumn {0 1 2}]
         } -result 0
 
         test column_vdelete-indices-$type-8.0 {
             vdelete duplicate indices
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list [indexcolumn {0 0 1}]] [lrange $sample($type) 2 end]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 2 end] vdelete [indexcolumn {0 0 1}]
         } -result 0
 
     }
@@ -493,7 +493,7 @@ namespace eval tarray::test {
         test column_vdelete-range-$type-1.0 {
             Test deletion of leading elements
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete {0 1} [lrange $sample($type) 2 end]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 2 end] vdelete 0 1
         } -result 0
 
         test column_vdelete-range-$type-2.0 {
@@ -501,7 +501,7 @@ namespace eval tarray::test {
         } -body {
             set i [llength $sample($type)]
             incr i -1
-            vchange_and_verify_col $type $sample($type) vdelete [list 127 $i] [lrange $sample($type) 0 126]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 0 126] vdelete 127 $i
         } -result 0
 
         test column_vdelete-range-$type-2.1 {
@@ -515,7 +515,7 @@ namespace eval tarray::test {
         test column_vdelete-range-$type-3.0 {
             Test deletion of intermediate
         } -body {
-            vchange_and_verify_col $type [largelist $type] vdelete [list 63 127] [concat [lrange [largelist $type] 0 62] [lrange [largelist $type] 128 end]]
+            vcol_change_and_verify $type [largelist $type] [concat [lrange [largelist $type] 0 62] [lrange [largelist $type] 128 end]] vdelete 63 127
         } -result 0
 
         test column_vdelete-range-$type-4.0 {
@@ -578,7 +578,7 @@ namespace eval tarray::test {
         test column_vdelete-range-$type-6.0 {
             Test deletion of all indices from column
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list 0 end] {}
+            vcol_change_and_verify $type $sample($type) {} vdelete 0 end
         } -result 0
 
         test column_vdelete-range-$type-6.1 {
@@ -593,13 +593,13 @@ namespace eval tarray::test {
         test column_vdelete-range-$type-7.0 {
             Test attempt to vdelete element from empty column
         } -body {
-            vchange_and_verify_col $type {} vdelete [list 0 0] {}
+            vcol_change_and_verify $type {} {} vdelete 0 0
         } -result 0
 
         test column_vdelete-range-$type-8.0 {
             vdelete single element range
         } -body {
-            vchange_and_verify_col $type $sample($type) vdelete [list 0 0] [lrange $sample($type) 1 end]
+            vcol_change_and_verify $type $sample($type) [lrange $sample($type) 1 end] vdelete 0 0
         } -result 0
 
         test column_vdelete-range-$type-8.1 {
