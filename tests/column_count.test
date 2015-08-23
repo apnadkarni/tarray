@@ -1341,7 +1341,7 @@ namespace eval tarray::test {
             == [+ $matches $notmatches] [tarray::column size $col]
         } -result 1
 
-        test column_count-large-$type-eq-1.0 {
+        test column_count-large-$type-eq-1.1 {
             Count large -eq -range
         } -body {
             set l [lrepeat 100000 {*}[samplerange $type 0 1]]
@@ -1353,6 +1353,1363 @@ namespace eval tarray::test {
             list $matches $notmatches
         } -result {50001 50000}
     }
+
+
+    ################################################################
+    # Repeat all tests as above, but with span based columns
+
+    foreach type {any string boolean byte double int uint wide} {
+
+        test column_count-span-$type-eq-1.0 {
+            Count an empty column
+        } -body {
+            tarray::column count -eq [newspancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-eq-1.1 {
+            count an empty column -not
+        } -body {
+            tarray::column count -eq -not [newspancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-eq-2.0 {
+            Count first element -eq
+        } -body {
+            set col [samplespancolumn $type]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -eq $col $val]
+            set notmatches [tarray::column count -not -eq $col $val]
+            list \
+                [== $matches [llength [lsearch -all -exact [samplerange $type] $val]]] \
+                [== [+ $matches $notmatches] [tarray::column size $col]]
+        } -result {1 1}
+
+        test column_count-span-$type-eq-2.1 {
+            Count last element
+        } -body {
+            set col [samplespancolumn $type]
+            set val [tarray::column index $col end]
+            set val [samplevalue $type end]
+            set matches [tarray::column count $col $val]
+            set notmatches [tarray::column count -not $col $val]
+            list \
+                [== $notmatches [llength [lsearch -not -all -exact [samplerange $type] $val]]] \
+                [== [+ $matches $notmatches] [tarray::column size $col]]
+        } -result {1 1}
+
+        test column_count-span-$type-eq-3.0 {
+            Count MT -eq
+        } -body {
+            set col [largecolumn $type]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -eq $col $val]
+            set notmatches [tarray::column count -not -eq $col $val]
+            list \
+                [== $matches [llength [lsearch -all -exact [largelist $type] $val]]] \
+                [== [+ $matches $notmatches] [tarray::column size $col]]
+        } -result {1 1}
+
+        test column_count-span-$type-eq-4.0 {
+            Count elements in range -eq
+        } -body {
+            set col [largecolumn $type]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -range {1 end} -eq $col $val]
+            set notmatches [tarray::column count -range {1 end} -not -eq $col $val]
+            list \
+                [== $matches [llength [lsearch -all -exact [lrange [largelist $type] 1 end] $val]]] \
+                [== [+ $matches $notmatches 1] [tarray::column size $col]]
+        } -result {1 1}
+
+        test column_count-span-$type-eq-4.1 {
+            Count elements in range
+        } -body {
+            set col [samplespancolumn $type]
+            set val [tarray::column index $col end]
+            set val [samplevalue $type end]
+            set matches [tarray::column count -range {0 end-1} $col $val]
+            set notmatches [tarray::column count -range {0 end-1} -not $col $val]
+            list \
+                [== $notmatches [llength [lsearch -not -all -exact [samplerange $type 0 end-1] $val]]] \
+                [== [+ $matches $notmatches 1] [tarray::column size $col]]
+        } -result {1 1}
+
+        test column_count-span-$type-eq-4.2 {
+            Match -eq -range (ensure duplicates)
+        } -body {
+            set l [samplerange $type 0 20 0 10]
+            set val [lindex $l 9]
+            == [tarray::column count -eq -range 10 [newspancolumn $type $l] $val] [llength [lsearch -exact -all -start 10 $l $val]]
+        } -result 1
+
+        test column_count-span-$type-eq-4.3 {
+            Match -eq -not -range (ensure duplicates)
+        } -body {
+            set l [samplerange $type 0 20 0 10 3 3]
+            set val [lindex $l 3]
+            == [tarray::column count -range 4 -not -eq [newspancolumn $type $l] $val] [llength [lsearch -exact -not -all -start 4 $l $val]]
+        } -result 1
+
+        test column_count-span-$type-eq-4.4 {
+            Count elements in range (-1..) -eq
+        } -body {
+            set col [largecolumn $type]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -range {-1 end} -eq $col $val]
+            set notmatches [tarray::column count -range {-1 end} -not -eq $col $val]
+            list \
+                [== $matches [llength [lsearch -all -exact [largelist $type] $val]]] \
+                [== [+ $matches $notmatches] [tarray::column size $col]]
+        } -result {1 1}
+
+        test column_count-span-$type-eq-4.5 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -eq -range {10000000 100000001} [samplespancolumn $type] [samplevalue $type 0]
+        } -result 0
+
+        test column_count-span-$type-eq-4.6 {
+            Match -range (reversed)
+        } -body {
+            tarray::column count -eq -range {10 0} [samplespancolumn $type] [samplevalue $type 0]
+        } -result 0
+
+        test column_count-span-$type-eq-4.7 {
+            Match -range (reversed)
+        } -body {
+            set col [largecolumn $type]
+            tarray::column count -eq -range {end 0} $col [tarray::column index $col 0]
+        } -result 0
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_count-span-$type-eq-5.0 {
+                Match invalid value
+            } -body {
+                tarray::column count -eq [samplespancolumn $type] [lindex [badvalues $type] 0]
+            } -returnCodes error -result "*expected*but got*" -match glob
+        }            
+
+        test column_count-span-$type-eq-5.1 {
+            Match missing element
+        } -body {
+            set val [samplemax $type]
+            tarray::column count [newspancolumn $type [samplefilter $type $val]] $val
+        } -result 0
+
+        # NOTE: Tests 6.x for -eq are below. Do not use that test number here
+    }
+
+    # Numeric types
+    foreach type {byte double int uint wide} {
+        #
+        # Numeric -eq test for -among option only
+        # Remaining -eq tests are above
+
+        test column_count-span-$type-eq-7.1 {
+            Match on element -among
+        } -body {
+            tarray::column count -eq -among {1 3 4} [newspancolumn $type {5 128 100 100 100 101}] 100
+        } -result 2
+
+        test column_count-span-$type-eq-7.2 {
+            Match on element -among (fail)
+        } -body {
+            tarray::column count -eq -among {1 3 4} [newspancolumn $type {10 128 0 55 101}] 10
+        } -result 0
+
+        test column_count-span-$type-eq-7.3 {
+            Match -among out of order indices
+        } -body {
+            tarray::column count -eq -among {1 4 3 7} [newspancolumn $type {
+                100 180 75 100 100 230 250
+            }] 100
+        } -result 2
+
+        test column_count-span-$type-eq-7.4 {
+            Match -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -eq -among {-1 3 5 7} [newspancolumn $type {
+                100 100 100 200 100 100 100
+            }] 100
+        } -result 1
+
+        test column_count-span-$type-eq-7.5 {
+            Match -not -all -among -inline (negative and out of bounds indices)
+        } -body {
+            tarray::column count -not -eq -among {-1 3 5 6 7 8} [newspancolumn $type {
+                10 20 30 40 50 10 70 10
+            }] 10
+        } -result 2
+
+
+        test column_count-span-$type-eq-7.6 {
+            Match -among -range
+        } -body {
+            tarray::column count -eq -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                20 10 10 10 10 10 10
+            }] 10
+        } -result 3
+
+        test column_count-span-$type-eq-7.7 {
+            Match -among empty
+        } -body {
+            tarray::column count -eq -among {} [newspancolumn $type {
+                128 170 75 175 10 30 250 100
+            }] 175
+        } -result 0
+
+        test column_count-span-$type-lt-1.0 {
+            Count an empty column
+        } -body {
+            tarray::column count -lt [newspancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-lt-1.1 {
+            count an empty column -not
+        } -body {
+            tarray::column count -lt -not [newspancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-eq-2.0 {
+            Count MT -lt
+        } -body {
+            set col [largecolumn $type]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -lt $col $val]
+            set notmatches [tarray::column count -not -lt $col $val]
+            == [+ $matches $notmatches] [tarray::column size $col]
+        } -result 1
+
+        test column_count-span-$type-lt-3.0 {
+            Match on first element -not (when equal)
+        } -body {
+            tarray::column count -lt -not [newspancolumn $type {
+                100 5 10 128 255
+            }] 100
+        } -result 3
+
+        test column_count-span-$type-lt-3.1 {
+            Match on first element -not (when greater)
+        } -body {
+            tarray::column count -lt -not [newspancolumn $type {
+                110 5 10 128 255
+            }] 100
+        } -result 3
+
+        test column_count-span-$type-lt-3.2 {
+            Match on last element -not (when equal)
+        } -body {
+            tarray::column count -lt -not [newspancolumn $type {5 255 128 254}] 254
+        } -result 2
+
+        test column_count-span-$type-lt-4.0 {
+            Match on element -range
+        } -body {
+            tarray::column count -lt -range 1 [newspancolumn $type {5 128 10 255}] 200
+        } -result 2
+
+        test column_count-span-$type-lt-4.1 {
+            Match fail -range
+        } -body {
+            tarray::column count -lt -range 2 [newspancolumn $type {5 10 128 254}] 50
+        } -result 0
+
+        test column_count-span-$type-lt-4.2 {
+            Match -all -inline -range out of bounds
+        } -body {
+            tarray::column count -lt -range 100 [newspancolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result 0
+
+        test column_count-span-$type-lt-4.3 {
+            Match -range end
+        } -body {
+            tarray::column count -lt -range end [newspancolumn $type {
+                28 180 75 75 128 30 127
+            }] 128
+        } -result 1
+
+        test column_count-span-$type-lt-4.4 {
+            Match on element -range
+        } -body {
+            tarray::column search -lt -range {1 3} [newspancolumn $type {5 128 10 255}] 200
+        } -result 1
+
+        test column_count-span-$type-lt-4.5 {
+            Match fail -range
+        } -body {
+            tarray::column count -lt -range {2 end} [newspancolumn $type {5 10 128 254}] 50
+        } -result 0
+
+        test column_count-span-$type-lt-4.6 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -lt -range {1 5} [newspancolumn $type {
+                128 170 75 175 10 230 250
+            }] 175
+        } -result 2
+
+        test column_count-span-$type-lt-4.7 {
+            Match -all -inline -range out of bounds
+        } -body {
+            tarray::column count -lt -range {7 100} [newspancolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result 0
+
+        test column_count-span-$type-eq-4.8 {
+            Match -range (reversed range)
+        } -body {
+            tarray::column count -lt -range {end 0} [samplespancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-eq-4.9 {
+            Match -range (reversed range)
+        } -body {
+            tarray::column count -lt -range {10 0} [samplespancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-lt-4.10 {
+            Match on element -among
+        } -body {
+            tarray::column count -lt -among {1 3 4} [newspancolumn $type {5 128 10 55 101}] 100
+        } -result 1
+
+        test column_count-span-$type-lt-4.11 {
+            Match on element -among (fail)
+        } -body {
+            tarray::column count -lt -among {1 3 4} [newspancolumn $type {5 128 10 55 101}] 10
+        } -result 0
+
+        test column_count-span-$type-lt-4.12 {
+            Match -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -lt -among {-1 3 5 7} [newspancolumn $type {
+                128 180 70 125 128 20 120
+            }] 100
+        } -result 1
+
+        test column_count-span-$type-lt-4.13 {
+            Match -among -range
+        } -body {
+            tarray::column count -lt -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                128 170 75 175 10 30 250 100
+            }] 175
+        } -result 3
+
+        test column_count-span-$type-lt-4.14 {
+            Match -among empty
+        } -body {
+            tarray::column count -lt -among {} [newspancolumn $type {
+                128 170 75 175 10 30 250 100
+            }] 175
+        } -result 0
+
+        test column_count-span-$type-lt-5.0 {
+            Match missing element
+        } -body {
+            tarray::column count -lt [newspancolumn $type {10 11 12}] 1
+        } -result 0
+
+        test column_count-span-$type-lt-5.1 {
+            Match missing element
+        } -body {
+            set col [largecolumn $type]
+            tarray::column count -lt $col [lindex [tarray::column minmax $col] 0]
+        } -result 0
+
+
+        #
+        # Numeric -gt tests
+
+        test column_count-span-$type-gt-1.0 {
+            Count an empty column
+        } -body {
+            tarray::column count -gt [newspancolumn $type] [samplevalue $type]
+        } -result 0
+
+        test column_count-span-$type-gt-1.1 {
+            count an empty column -not
+        } -body {
+            tarray::column count -gt -not [newspancolumn $type] [samplevalue $type]
+        } -result 0
+
+
+        test column_count-span-$type-gt-2.0 {
+            Count MT -gt
+        } -body {
+            set col [largecolumn $type]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -gt $col $val]
+            set notmatches [tarray::column count -not -gt $col $val]
+            == [+ $matches $notmatches] [tarray::column size $col]
+        } -result 1
+
+        test column_count-span-$type-gt-2.1 {
+            Match on last element
+        } -body {
+            tarray::column count -gt [newspancolumn $type {10 11 12 99}] 50
+        } -result 1
+
+        test column_count-span-$type-gt-2.2 {
+            Match in middle, unsorted list
+        } -body {
+            tarray::column count -gt [newspancolumn $type {
+                28 80 75 75 10 230 250
+            }] 100
+        } -result 2
+
+        test column_count-span-$type-gt-2.3 {
+            Match -all
+        } -body {
+            tarray::column count -gt [newspancolumn $type {
+                128 180 75 75 128 230 228
+            }] 150
+        } -result 3
+
+        test column_count-span-$type-gt-3.0 {
+            Match on first element -not (when equal)
+        } -body {
+            tarray::column count -gt -not [newspancolumn $type {
+                100 5 10 128 255
+            }] 100
+        } -result 3
+
+        test column_count-span-$type-gt-3.1 {
+            Match on first element -not (when less)
+        } -body {
+            tarray::column count -gt -not [newspancolumn $type {
+                110 5 10 128 100
+            }] 120
+        } -result 4
+
+        test column_count-span-$type-gt-4.0 {
+            Match on element -range
+        } -body {
+            tarray::column count -gt -range 2 [newspancolumn $type {5 128 10 255}] 100
+        } -result 1
+
+        test column_count-span-$type-gt-4.1 {
+            Match fail -range
+        } -body {
+            tarray::column count -gt -range 2 [newspancolumn $type {51 100 128 25}] 150
+        } -result 0
+
+        test column_count-span-$type-gt-4.2 {
+            Match -range -not 
+        } -body {
+            tarray::column count -not -gt -range 2 [newspancolumn $type {
+                128 80 75 175 10 30 250
+            }] 100
+        } -result 3
+
+        test column_count-span-$type-gt-4.3 {
+            Match -range 0
+        } -body {
+            tarray::column count -gt -range 0 [newspancolumn $type {
+                28 180 75 75 128 30 129
+            }] 128
+        } -result 2
+
+        test column_count-span-$type-gt-4.4 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -gt -range 100 [newspancolumn $type {
+                28 180 75 75 128 30 128
+            }] 128
+        } -result 0
+
+        test column_count-span-$type-gt-4.5 {
+            Match -range
+        } -body {
+            tarray::column count -gt -range {2 7} [newspancolumn $type {
+                128 180 75 75 128 230 128 50 200
+            }] 75
+        } -result 3
+
+        test column_count-span-$type-gt-4.6 {
+            Match -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -gt -among {-1 3 5 7} [newspancolumn $type {
+                128 180 70 125 128 20 120
+            }] 100
+        } -result 1
+
+        test column_count-span-$type-gt-4.7 {
+            Match -not -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -not -gt -among {-1 3 5 6 7} [newspancolumn $type {
+                128 180 70 100 128 20 120
+            }] 100
+        } -result 2
+
+        test column_count-span-$type-gt-4.8 {
+            Match -among -range
+        } -body {
+            tarray::column count -gt -range {1 5} -among {0 1 5 7 5 4} [newspancolumn $type {
+                11 20 10 30 5 50 60 5 70
+            }] 10
+        } -result 3
+
+        test column_count-span-$type-gt-4.9 {
+            Match -among -range reversed
+        } -body {
+            tarray::column count -gt -range {5 0} -among {0 5 7 5 4} [newspancolumn $type {
+                20 30 40 50 60 70 80
+            }] 10
+        } -result 0
+
+        test column_count-span-$type-gt-4.10 {
+            Match -among empty
+        } -body {
+            tarray::column count -gt -among {} [newspancolumn $type {
+                128 170 75 175 10 30 250 100
+            }] 0
+        } -result 0
+
+        test column_count-span-$type-gt-5.0 {
+            Match missing element
+        } -body {
+            tarray::column count -gt [newspancolumn $type {10 11 12}] 100
+        } -result 0
+
+        test column_count-span-$type-gt-5.1 {
+            Match missing element -not
+        } -body {
+            tarray::column count -gt -not [newspancolumn $type {100 101 102}] 10
+        } -result 0
+    }
+
+    #
+    # Boolean -eq test for -among option only
+    # Remaining -eq tests were done earlier
+
+    test column_count-span-boolean-eq-6.1 {
+        Match on element -among
+    } -body {
+        tarray::column count -eq -among {1 3 4} [newspancolumn boolean {
+            1 0 1 1 1 1
+        }] 1
+    } -result 2
+
+    test column_count-span-boolean-eq-6.2 {
+        Match on element -among (fail)
+    } -body {
+        tarray::column count -eq -among {1 3 4} [newspancolumn boolean {
+            0 1 0 1 1 0 1
+        }] 0
+    } -result 0
+
+    test column_count-span-boolean-eq-6.3 {
+        Match -among out of order indices
+    } -body {
+        tarray::column count -eq -among {1 4 3 7} [newspancolumn boolean {
+            0 1 0 0 0 0 0
+        }] 0
+    } -result 2
+
+    test column_count-span-boolean-eq-6.4 {
+        Match -among (negative and out of bounds indices)
+    } -body {
+        tarray::column count -eq -among {-1 3 5 7} [newspancolumn boolean {
+            1 1 1 0 1 1 1
+        }] 1
+    } -result 1
+
+    test column_count-span-boolean-eq-6.5 {
+        Match -among -range
+    } -body {
+        tarray::column count -eq -range {1 5} -among {0 3 5 7 5 4} [newspancolumn boolean {
+            0 0 0 1 0 0 0
+        }] 0
+    } -result 3
+
+    test column_count-span-boolean-eq-6.6 {
+        Match -among -range reversed
+    } -body {
+        tarray::column count -eq -range {5 0} -among {0 1 2 3 4 5 6} [newspancolumn boolean {
+            0 0 0 0 0 0
+        }] 0
+    } -result 0
+
+    test column_count-span-boolean-eq-6.7 {
+        Match -among empty
+    } -body {
+        tarray::column count -eq -among {} [newspancolumn boolean {
+            1 1 1 1 1 1
+        }] 1
+    } -result 0
+
+    #
+    # Now do the string and "any" type, not -eq we have already done 
+    # except for -among.
+    foreach type {any string} {
+        #
+        # any -eq -among
+        test column_count-span-$type-eq-6.1 {
+            Match on element -among (fail)
+        } -body {
+            tarray::column count -eq -among {1 3 4} [newspancolumn $type {
+                a b c d e a
+            }] a
+        } -result 0
+
+        test column_count-span-$type-eq-6.2 {
+            Match -all -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -eq -among {-1 3 5 7} [newspancolumn $type {
+                a A c A a a a
+            }] a
+        } -result 1
+
+        test column_count-span-$type-eq-6.3 {
+            Match -not -among -inline (negative and out of bounds indices)
+        } -body {
+            tarray::column count -nocase -not -eq -among {-1 3 5 6 7} [newspancolumn $type {
+                a b x X e f g x
+            }] x
+        } -result 2
+
+        test column_count-span-$type-eq-6.4 {
+            Match -among -range 
+        } -body {
+            tarray::column count -nocase -eq -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a x x x X x x x
+            }] x
+        } -result 3
+
+        test column_count-span-$type-eq-6.5 {
+            Match -among -range -not
+        } -body {
+            tarray::column count -not -eq -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a x x e X f g x
+            }] x
+        } -result 3
+
+        test column_count-span-$type-eq-6.6 {
+            Match -among -range
+        } -body {
+            tarray::column count -nocase -eq -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a x x x x X x
+            }] x
+        } -result 3
+
+        test column_count-span-$type-eq-6.7 {
+            Match -among -range -not
+        } -body {
+            tarray::column count -not -eq -range {1 5} -among {0 4 5 7 } [newspancolumn $type {
+                a b c d a f g
+            }] a
+        } -result 1
+
+        test column_count-span-$type-eq-6.8 {
+            Match -among (empty)
+        } -body {
+            tarray::column count -eq -among {0 1} [newspancolumn $type {}] x
+        } -result 0
+
+        test column_count-span-$type-eq-6.9 {
+            Match -among -range reversed
+        } -body {
+            tarray::column count -eq -range {5 0} -among {0 1 2 3 4 5 6} [newspancolumn $type {
+                x x x x
+            }] x
+        } -result 0
+
+        test column_count-span-$type-eq-6.10 {
+            Match -among -all empty
+        } -body {
+            tarray::column count -eq -among {} [newspancolumn $type {
+                x x x x x
+            }] x
+        } -result 0
+
+        #
+        # $type -lt
+        test column_count-span-$type-lt-2.0 {
+            Match -all (one element)
+        } -body {
+            tarray::column count -lt [newspancolumn $type {
+                first {with spaces} { leading space} " AAA" zzz
+            }] " aaa"
+        } -result 1
+
+        test column_count-span-$type-lt-2.1 {
+            Match -all
+        } -body {
+            tarray::column count -lt [newspancolumn $type {
+                first { leading space} {with spaces} AAA 5.0e5
+            }] aaa
+        } -result 3
+        
+        test column_count-span-$type-lt-2.2 {
+            Verify comparisons are strings, not numeric
+        } -body {
+            tarray::column count -lt [newspancolumn $type {010 1}] 2
+        } -result 2
+
+        test column_count-span-$type-lt-3.0 {
+            Match in middle -not
+        } -body {
+            tarray::column count -not -lt [newspancolumn $type {{with spaces} aaa ABA { leading space} AAA 5.0e5 zzz}] aaa
+        } -result 3
+
+        test column_count-span-$type-lt-4.0 {
+            Match -range (one element)
+        } -body {
+            tarray::column count -lt -range 1 [newspancolumn $type {aaa zzz bbb ccc ddd}] ccc
+        } -result 1
+
+        test column_count-span-$type-lt-4.1 {
+            Match -range
+        } -body {
+            tarray::column count -lt -range 2 [newspancolumn $type {aaa zzz bbb eee ccc ddd}] ddd
+        } -result 2
+
+        test column_count-span-$type-lt-4.2 {
+            Match -range (no matches)
+        } -body {
+            tarray::column count -lt -range 2 [newspancolumn $type {aaa zzz bbb eee ccc ddd}] uuu
+        } -result 4
+
+        test column_count-span-$type-lt-4.3 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -lt -range 2 [newspancolumn $type {aaa zzz bbb eee ccc ddd}] ccc
+        } -result 3
+
+        test column_count-span-$type-lt-4.4 {
+            Match -all -inline -range out of bounds
+        } -body {
+            tarray::column count -lt -range 10 [newspancolumn $type {aaa zzz bbb eee ccc}] ccc
+        } -result 0
+
+        test column_count-span-$type-lt-4.5 {
+            Match -all -range
+        } -body {
+            tarray::column count -lt -range {2 5} [newspancolumn $type {aaa zzz bbb eee ccc ddd ccc}] ddd
+        } -result 2
+
+        test column_count-span-$type-lt-4.6 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -lt -range {2 6} [newspancolumn $type {aaa zzz bbb eee ccc ddd bbb eee}] ccc
+        } -result 3
+
+        test column_count-span-$type-lt-4.7 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -lt -range {5 10}  [newspancolumn $type {aaa zzz bbb eee bbb}] ccc
+        } -result 0
+
+        test column_count-span-$type-lt-4.8 {
+            Match -range end
+        } -body {
+            tarray::column count -lt -range {end end} [newspancolumn $type {aaa zzz bbb eee aaa}] ccc
+        } -result 1
+
+        test column_count-span-$type-lt-4.9 {
+            Match -not -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -not -lt -among {-1 3 5 6 7} [newspancolumn $type {
+                a z c d e f c
+            }] c
+        } -result 3
+
+        test column_count-span-$type-lt-4.10 {
+            Match -among -range
+        } -body {
+            tarray::column count -lt -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                z c D e F c d z
+            }] g
+        } -result 3
+
+        test column_count-span-$type-lt-4.11 {
+            Match -range (empty)
+        } -body {
+            tarray::column count -lt -among {0 1} [newspancolumn $type {}] xxx
+        } -result 0
+
+        test column_count-span-$type-lt-4.12 {
+            Match -among -range reversed
+        } -body {
+            tarray::column count -lt -range {5 0} -among {0 5 7 5 4} [newspancolumn $type {
+                aaa aaa aaa
+            }] aaa
+        } -result 0
+
+        test column_count-span-$type-lt-4.13 {
+            Match -among empty
+        } -body {
+            tarray::column count -lt -among {} [newspancolumn $type {
+                aaa aaa aaa
+            }] aaa
+        } -result 0
+
+        test column_count-span-$type-lt-6.0 {
+            Match missing element -all
+        } -body {
+            tarray::column count -lt [newspancolumn $type {aaa zzz bbb eee ccc}] aaa
+        } -result 0
+
+        test column_count-span-$type-lt-6.1 {
+            Match missing element -not
+        } -body {
+            tarray::column count -lt -not [newspancolumn $type {aaa bbb eee ccc}] zzz
+        } -result 0
+
+        #
+        # -gt
+
+        test column_count-span-$type-gt-2.0 {
+            Match -all (one element)
+        } -body {
+            tarray::column count -gt [newspancolumn $type {
+                first {with spaces} { leading space} " AAA"
+            }] w
+        } -result 1
+
+        test column_count-span-$type-gt-2.1 {
+            Match -all
+        } -body {
+            tarray::column count -gt [newspancolumn $type {
+                first { leading space} {with spaces} AAA 5.0e5
+            }] aaa
+        } -result 2
+        
+        test column_count-span-$type-gt-2.2 {
+            Verify comparisons are strings, not numeric
+        } -body {
+            tarray::column count -gt [newspancolumn $type {21 1}] 200
+        } -result 1
+
+        test column_count-span-$type-gt-3.0 {
+            Match in middle -not
+        } -body {
+            tarray::column count -not -gt [newspancolumn $type {{with spaces} aaa ABA { leading space} AAA 5.0e5 zzz}] aaa
+        } -result 5
+
+        test column_count-span-$type-gt-3.1 {
+            Verify comparisons are strings, not numeric
+        } -body {
+            tarray::column count -not -gt [newspancolumn $type {010 1 0}] 1
+        } -result 3
+
+        test column_count-span-$type-gt-4.0 {
+            Match -range (one element)
+        } -body {
+            tarray::column count -gt -range 2 [newspancolumn $type {aaa zzz bbb ccc ddd}] ccc
+        } -result 1
+
+        test column_count-span-$type-gt-4.1 {
+            Match -range
+        } -body {
+            tarray::column count -gt -range 2 [newspancolumn $type {aaa zzz bbb eee ccc ddd}] ccc
+        } -result 2
+
+        test column_count-span-$type-gt-4.2 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -gt -range 10 [newspancolumn $type {aaa zzz bbb eee ccc}] ccc
+        } -result 0
+
+        test column_count-span-$type-gt-4.3 {
+            Match fail -range
+        } -body {
+            tarray::column count -gt -range {1 end} [newspancolumn $type {zzz bbb ccc ddd}] ddd
+        } -result 0
+
+        test column_count-span-$type-gt-4.4 {
+            Match -range (one element)
+        } -body {
+            tarray::column count -gt -range {2 6} [newspancolumn $type {aaa zzz bbb ccc ddd bbb aaa fff}] ccc
+        } -result 1
+
+        test column_count-span-$type-gt-4.5 {
+            Match -range
+        } -body {
+            tarray::column count -gt -range {2 6} [newspancolumn $type {aaa zzz bbb eee ccc ddd aaa qqq}] ccc
+        } -result 2
+
+        test column_count-span-$type-gt-4.6 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -gt -range {2 5} [newspancolumn $type {aaa zzz bbb eee ccc ddd aaa}] ccc
+        } -result 2
+
+        test column_count-span-$type-gt-4.7 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -gt -range {10 20} [newspancolumn $type {aaa zzz bbb eee ccc}] ccc
+        } -result 0
+
+        test column_count-span-$type-gt-4.8 {
+            Match -range end
+        } -body {
+            tarray::column count -lt -range {end 0} [newspancolumn $type {aaa zzz bbb eee aaa}] ccc
+        } -result 0
+
+        test column_count-span-$type-gt-4.9 {
+            Match -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -gt -among {-1 3 5 7} [newspancolumn $type {
+                b b b a b b b
+            }] a
+        } -result 1
+
+        test column_count-span-$type-gt-4.10 {
+            Match -not  -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -not -gt -among {-1 3 5 6 7} [newspancolumn $type {
+                a b c d c f e
+            }] e
+        } -result 2
+
+        test column_count-span-$type-gt-4.11 {
+            Match -among -range
+        } -body {
+            tarray::column count -gt -range {1 5} -among {0 1 5 7 5 4} [newspancolumn $type {
+                f z g c h i j a a
+            }] e
+        } -result 4
+
+        test column_count-span-$type-gt-4.12 {
+            Match -among -all empty
+        } -body {
+            tarray::column count -gt -among {} [newspancolumn $type {
+                b b b b b 
+            }] a
+        } -result 0
+
+        test column_count-span-$type-gt-6.0 {
+            Match missing element
+        } -body {
+            tarray::column count -gt [newspancolumn $type {aaa bbb eee ccc}] xxx
+        } -result 0
+
+        test column_count-span-$type-gt-6.1 {
+            Match missing element -not
+        } -body {
+            tarray::column count -gt -not [newspancolumn $type {zzz bbb eee ccc}] aaa
+        } -result 0
+
+        #
+        # -pat
+
+        test column_count-span-$type-pat-1.0 {
+            count empty column
+        } -body {
+            tarray::column count -pat [newspancolumn $type {}] *
+        } -result 0
+
+        test column_count-span-$type-pat-2.0 {
+            Match (one element)
+        } -body {
+            tarray::column count -pat [newspancolumn $type {
+                first {with spaces} { leading space} " AAA" 
+            }] *A*
+        } -result 1
+
+        test column_count-span-$type-pat-2.1 {
+            Match 
+        } -body {
+            tarray::column count -pat [newspancolumn $type {
+                first { leading space} {with spaces} AAA 5.0e5
+            }] "* *"
+        } -result 2
+        
+        test column_count-span-$type-pat-2.2 {
+            Match 
+        } -body {
+            tarray::column count -pat [newspancolumn $type {
+                first { leading space} {with spaces} AAA 5.0e5
+            }] *s*
+        } -result 3
+
+        test column_count-span-$type-pat-3.0 {
+            Match -not
+        } -body {
+            tarray::column count -not -pat [newspancolumn $type {aaa bbb ccc ddd eee}] a*
+        } -result 4
+
+        test column_count-span-$type-pat-3.1 {
+            Match on element -not
+        } -body {
+            tarray::column count -not -pat [newspancolumn $type {abc acb bca bac cab cba}] *c
+        } -result 4
+
+        test column_count-span-$type-pat-4.0 {
+            Match -range
+        } -body {
+            tarray::column count -pat -range 2 [newspancolumn $type {abc acb bca bac cab cba dcb}] *c?
+        } -result 2
+
+        test column_count-span-$type-pat-4.1 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -pat -range 2 [newspancolumn $type {abc acb bca bac cab cba}] *c?
+        } -result 3
+
+        test column_count-span-$type-pat-4.2 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -pat -range 10 [newspancolumn $type {aaa zzz bbb eee ccc}] c*
+        } -result 0
+
+        test column_count-span-$type-pat-4.3 {
+            Match -range
+        } -body {
+            tarray::column count -pat -range {2 6} [newspancolumn $type {abc acb bca bac cab cba dcb dcb}] *c?
+        } -result 2
+
+        test column_count-span-$type-pat-4.4 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -pat -range {2 5} [newspancolumn $type {abc acb bca bac cab cba cba}] *c?
+        } -result 3
+
+        test column_count-span-$type-pat-4.5 {
+            Match -range reverse
+        } -body {
+            tarray::column count -pat -range {end 0} [newspancolumn $type {aaa zzz bbb eee ccc}] c*
+        } -result 0
+
+        test column_count-span-$type-pat-4.6 {
+            Match -not -among  (negative and out of bounds indices)
+        } -body {
+            tarray::column count -nocase -not -pat -among {-1 3 5 6 7} [newspancolumn $type {
+                a b x X e f g x
+            }] x*
+        } -result 2
+
+        test column_count-span-$type-pat-4.7 {
+            Match -among -range 
+        } -body {
+            tarray::column count -nocase -pat -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a xy xy xy XY xy xy xy
+            }] x*
+        } -result 3
+
+        test column_count-span-$type-pat-4.8 {
+            Match -among -range  -not
+        } -body {
+            tarray::column count -not -pat -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a x x e X f g x
+            }] x*
+        } -result 3
+
+        test column_count-span-$type-pat-4.9 {
+            Match -among (empty)
+        } -body {
+            tarray::column count -pat -among {0 1} [newspancolumn $type {}] x*
+        } -result 0
+
+        test column_count-span-$type-pat-4.10 {
+            Match -among -range reversed
+        } -body {
+            tarray::column count -pat -range {5 0} -among {0 1 2 3 4 5 6} [newspancolumn $type {
+                x x x x
+            }] x*
+        } -result 0
+
+        test column_count-span-$type-pat-4.11 {
+            Match -among -inline empty
+        } -body {
+            tarray::column count -pat -among {} [newspancolumn $type {
+                x x x x x
+            }] x
+        } -result 0
+
+        test column_count-span-$type-pat-5.0 {
+            Match missing element
+        } -body {
+            tarray::column count -pat [newspancolumn $type {aaa zzz bbb eee ccc}] *x
+        } -result 0
+
+        test column_count-span-$type-pat-5.1 {
+            Match missing element -not
+        } -body {
+            tarray::column count -pat -not [newspancolumn $type {abc aaa a12}] a*
+        } -result 0
+
+        #
+        # -re
+
+        test column_count-span-$type-re-1.0 {
+            count empty column
+        } -body {
+            tarray::column count -re [newspancolumn $type {}] .*
+        } -result 0
+
+        test column_count-span-$type-re-2.0 {
+            Match -all (one element)
+        } -body {
+            tarray::column count -re [newspancolumn $type {
+                a b c d e
+            }] {[dz]}
+        } -result 1
+
+        test column_count-span-$type-re-2.1 {
+            Match 
+        } -body {
+            tarray::column count -re [newspancolumn $type {
+                first { leading space} {with spaces} AAA 5.0e5
+            }] "space"
+        } -result 2
+        
+        test column_count-span-$type-re-3.0 {
+            Match on element -not
+        } -body {
+            tarray::column count -not -re [newspancolumn $type {abc acb bca bac cab cba}]  c..
+        } -result 4
+
+        test column_count-span-$type-re-4.0 {
+            Match -range
+        } -body {
+            tarray::column count -re -range 2 [newspancolumn $type {abc acb bca bac cab cba dcb}] c.
+        } -result 4
+
+        test column_count-span-$type-re-4.1 {
+            Match -range -not
+        } -body {
+            tarray::column count -not -re -range 2 [newspancolumn $type {abc acb bca bac cab cba}] b.
+        } -result 1
+
+        test column_count-span-$type-re-4.2 {
+            Match -range 0
+        } -body {
+            tarray::column count -re -range 0 [newspancolumn $type {abc acb bca bac cab cba}] c.
+        } -result 4
+
+        test column_count-span-$type-re-4.8 {
+            Match  -range out of bounds
+        } -body {
+            tarray::column count -re -range 10 [newspancolumn $type {aaa zzz bbb eee ccc}] c
+        } -result 0
+
+        test column_count-span-$type-re-4.9 {
+            Match -range
+        } -body {
+            tarray::column count -re -range {2 5} [newspancolumn $type {abc acb bca bac cab cba dcb}] c.
+        } -result 3
+
+        test column_count-span-$type-re-4.10 {
+            Match -range -not 
+        } -body {
+            tarray::column count -not -re -range {2 6} [newspancolumn $type {abc acb bca bac cab cba acb cab}] b.
+        } -result 2
+
+        test column_count-span-$type-re-4.11 {
+            Match -range out of bounds
+        } -body {
+            tarray::column count -re -range {5 10} [newspancolumn $type {aaa zzz bbb eee ccc}] c
+        } -result 0
+
+        test column_count-span-$type-re-4.12 {
+            Match -not -among (negative and out of bounds indices)
+        } -body {
+            tarray::column count -nocase -not -re -among {-1 3 5 6 7} [newspancolumn $type {
+                a b x X e f g x
+            }] x.*
+        } -result 2
+
+        test column_count-span-$type-re-4.13 {
+            Match -among -range
+        } -body {
+            tarray::column count -nocase -re -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a xy xy xy XY xy xy xy
+            }] x.*
+        } -result 3
+
+        test column_count-span-$type-re-4.14 {
+            Match -among -range -not
+        } -body {
+            tarray::column count -not -re -range {1 5} -among {0 5 7 5 4} [newspancolumn $type {
+                a x x e X f g x
+            }] x.*
+        } -result 3
+
+        test column_count-span-$type-re-4.15 {
+            Match -among (empty)
+        } -body {
+            tarray::column count -re -among {0 1} [newspancolumn $type {}] x.*
+        } -result 0
+
+        test column_count-span-$type-re-4.16 {
+            Match -among -range reversed
+        } -body {
+            tarray::column count -re -range {5 0} -among {0 1 2 3 4 5 6} [newspancolumn $type {
+                x x x x
+            }] x.*
+        } -result 0
+
+        test column_count-span-$type-re-5.0 {
+            Match missing element
+        } -body {
+            tarray::column count -re [newspancolumn $type {aaa zzz bbb eee ccc}] s
+        } -result 0
+
+        test column_count-span-$type-re-5.1 {
+            Match missing element -not
+        } -body {
+            tarray::column count -re -not [newspancolumn $type {abc aaa a12}] a
+        } -result 0
+
+        #
+        # -nocase
+
+        test column_count-span-$type-eq-nocase-1.0 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -eq [newspancolumn $type {aaa AAA aaa AAA}] AAA
+        } -result 2
+
+        test column_count-span-$type-eq-nocase-1.1 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -eq -range 1 [newspancolumn $type {aaa AAA aaa AAA}] aaa
+        } -result 1
+
+        test column_count-span-$type-eq-nocase-2.0 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -eq -nocase [newspancolumn $type {aaa AAA aaa AAA}] AAA
+        } -result 4
+
+        test column_count-span-$type-eq-nocase-2.1 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -eq -nocase -range 1 [newspancolumn $type {aaa AAA aaa AAA}] aaa
+        } -result 3
+
+        test column_count-span-$type-pat-nocase-1.0 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -pat [newspancolumn $type {aaa AAA aaa AAA}] A*
+        } -result 2
+
+        test column_count-span-$type-pat-nocase-1.1 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -pat -range 1 [newspancolumn $type {aaa AAA aaa AAA}] a*
+        } -result 1
+
+        test column_count-span-$type-pat-nocase-2.0 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -pat -nocase [newspancolumn $type {aaa AAA aaa AAA}] A*
+        } -result 4
+
+        test column_count-span-$type-pat-nocase-2.1 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -pat -nocase -range 1 [newspancolumn $type {aaa AAA aaa AAA}] a*
+        } -result 3
+
+        test column_count-span-$type-re-nocase-1.0 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -re [newspancolumn $type {aaa AAA aaa AAA}] A
+        } -result 2
+
+        test column_count-span-$type-re-nocase-1.1 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -re -range 1 [newspancolumn $type {aaa AAA aaa AAA}] a
+        } -result 1
+
+        test column_count-span-$type-re-nocase-2.0 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -re -nocase [newspancolumn $type {aaa AAA aaa AAA}] A
+        } -result 4
+
+        test column_count-span-$type-re-nocase-2.1 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -re -nocase -range 1 [newspancolumn $type {aaa AAA aaa AAA}] a
+        } -result 3
+
+        test column_count-span-$type-lt-nocase-1.0 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -lt [newspancolumn $type {aBd aba}] abc
+        } -result 2
+
+        test column_count-span-$type-lt-nocase-1.1 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -lt [newspancolumn $type {aBd aba}] Abc
+        } -result 0
+
+        test column_count-span-$type-lt-nocase-2.0 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -lt -nocase [newspancolumn $type {aBd aba}] abc
+        } -result 1
+
+        test column_count-span-$type-lt-nocase-2.1 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -lt -nocase [newspancolumn $type {aBd aba}] Abc
+        } -result 1
+
+        test column_count-span-$type-gt-nocase-1.0 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -gt [newspancolumn $type {aBd abe}] abc
+        } -result 1
+
+        test column_count-span-$type-gt-nocase-1.1 {
+            Verify case sensitivity without -nocase
+        } -body {
+            tarray::column count -gt [newspancolumn $type {aBb aba}] Abc
+        } -result 2
+
+        test column_count-span-$type-gt-nocase-2.0 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -gt -nocase [newspancolumn $type {aBd abe}] abc
+        } -result 2
+
+        test column_count-span-$type-gt-nocase-2.1 {
+            Verify case insensitivity with -nocase
+        } -body {
+            tarray::column count -gt -nocase [newspancolumn $type {Aba aBd}] abc
+        } -result 1
+    }
+
+    # Some tests just to exercise large columns
+    foreach type {any string boolean byte double int uint wide} {
+        test column_count-span-large-$type-eq-1.0 {
+            Count large -eq
+        } -body {
+            set l [lrepeat 100000 {*}[samplerange $type 0 1]]
+            set col [newspancolumn $type $l]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -eq $col $val]
+            set notmatches [tarray::column count -not -eq $col $val]
+            == [+ $matches $notmatches] [tarray::column size $col]
+        } -result 1
+
+        test column_count-span-large-$type-eq-1.1 {
+            Count large -eq -range
+        } -body {
+            set l [lrepeat 100000 {*}[samplerange $type 0 1]]
+            set range {50000 150000}
+            set col [newspancolumn $type $l]
+            set val [tarray::column index $col 0]
+            set matches [tarray::column count -range $range -eq $col $val]
+            set notmatches [tarray::column count -range $range -not -eq $col $val]
+            list $matches $notmatches
+        } -result {50001 50000}
+    }
+
+
+
+
+
 
     # TBD - Verify MT is effective by setting thresholds
     # TBD - large boolean tests

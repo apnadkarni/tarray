@@ -3415,7 +3415,7 @@ Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
         first = 0;
         count = thdr->used;
     }
-    if (index < first || index >= count) {
+    if (index < 0 || index >= count) {
         ta_index_range_error(ip, index);
         return NULL;
     }
