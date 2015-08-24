@@ -488,6 +488,483 @@ namespace eval tarray::test {
         tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newcolumn string {a b A c d}]] [tarray::column sort -nocase -decreasing [newcolumn string {a b a C e}]]
     } -result [list {a b A c} {d} {e}] -match intersect
 
+    ################################################################
+    # Same tests repeated for span columns
+    foreach type {boolean string any byte double int uint wide} {
+        test column_intersect3-span-$type-1.0 {
+            Intersect empty columns
+        } -body {
+            tarray::column intersect3 [newspancolumn $type] [newspancolumn $type]
+        } -result [list [newspancolumn $type] [newspancolumn $type] [newspancolumn $type]]
+
+        test column_intersect3-span-$type-1.1 {
+            Intersect with B empty
+        } -body {
+            tarray::column intersect3 [samplespancolumn $type] [newspancolumn $type]
+        } -result [list {} [samplerange $type] {}] -match intersect
+
+        test column_intersect3-span-$type-1.2 {
+            Intersect with A empty
+        } -body {
+            tarray::column intersect3 [newspancolumn $type] [samplespancolumn $type]
+        } -result [list {} {} [samplerange $type]] -match intersect
+
+        test column_intersect3-span-$type-1.3 {
+            Intersect invalid columns
+        } -body {
+            tarray::column intersect3 [samplespancolumn $type] [samplespancolumn [expr {$type in "any string" ? "boolean" : "any"}]]
+        } -result "*types*not compatible*" -returnCodes error -match glob
+
+        test column_intersect3-span-$type-2.0 {
+            Intersect A == B
+        } -body {
+            tarray::column intersect3 [largespancolumn $type] [largespancolumn $type]
+        } -result [list [largelist $type] {} {}] -match intersect
+
+        test column_intersect3-span-$type-2.1 {
+            Intersect A == A
+        } -body {
+            set ta [samplespancolumn $type]
+            tarray::column intersect3  $ta $ta
+        } -result [list [samplerange $type] {} {}] -match intersect
+
+        if {$type ne "boolean"} {
+            test column_intersect3-span-$type-4.0 {
+                Intersect - no overlap
+            } -body {
+                tarray::column intersect3 [newspancolumn $type {0 3 2 1}] [newspancolumn $type {5 7 6 8}]
+            } -result [list {} {0 1 2 3} {5 6 7 8}] -match intersect
+
+            test column_intersect3-span-$type-4.1 {
+                Intersect - full overlap
+            } -body {
+                tarray::column intersect3 [newspancolumn $type {0 3 1 2}] [newspancolumn $type {1 3 2 0}]
+            } -result [list {0 1 2 3} {} {}] -match intersect
+
+            test column_intersect3-span-$type-4.2 {
+                Intersect - no duplicates
+            } -body {
+                tarray::column intersect3 [newspancolumn $type {0 3 5 2 1}] [newspancolumn $type {5 6 7 3}]
+            } -result [list {3 5} {0 1 2} {6 7}] -match intersect
+
+            test column_intersect3-span-$type-4.3 {
+                Intersect - duplicates
+            } -body {
+                tarray::column intersect3 [newspancolumn $type {2 0 3 5 2 1}] [newspancolumn $type {5 6 7 3 6 5}]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-span-$type-4.4 {
+                Intersect - presorted ascending, unsorted
+            } -body {
+                tarray::column intersect3 [tarray::column sort [newspancolumn $type {2 0 3 5 2 1}]] [newspancolumn $type {5 6 7 3 6 5}]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-span-$type-4.5 {
+                Intersect - unsorted, presorted descending
+            } -body {
+                tarray::column intersect3 [newspancolumn $type {2 0 3 5 2 1}] [tarray::column sort -decreasing [newspancolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-span-$type-4.6 {
+                Intersect - presorted ascending, presorted ascending
+            } -body {
+                tarray::column intersect3 [tarray::column sort [newspancolumn $type {2 0 3 5 2 1}]] [tarray::column sort [newspancolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-span-$type-4.7 {
+                Intersect - presorted descending, presorted descending
+            } -body {
+                tarray::column intersect3 [tarray::column sort -decreasing [newspancolumn $type {2 0 3 5 2 1}]] [tarray::column sort -decreasing [newspancolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            test column_intersect3-span-$type-4.8 {
+                Intersect - presorted ascending, presorted descending
+            } -body {
+                tarray::column intersect3 [tarray::column sort [newspancolumn $type {2 0 3 5 2 1}]] [tarray::column sort -decreasing [newspancolumn $type {5 6 7 3 6 5}]]
+            } -result [list {3 5} {0 1 2 2} {5 6 6 7}] -match intersect
+
+            # TBD - presorted (reverse, forward, mixed)
+        }
+    }
+
+    #
+    # Boolean tests
+    test column_intersect3-span-boolean-4.0 {
+        Intersect - no overlap
+    } -body {
+        tarray::column intersect3 [newspancolumn boolean {0 0 0}] [newspancolumn boolean {1 1}]
+    } -result [list {} {0 0 0} {1 1}] -match intersect
+
+    test column_intersect3-span-boolean-4.1 {
+        Intersect - full overlap
+    } -body {
+        tarray::column intersect3 [newspancolumn boolean {0 1 }] [newspancolumn boolean {1 0}]
+    } -result [list {0 1} {} {}] -match intersect
+
+    test column_intersect3-span-boolean-4.2 {
+        Intersect - no duplicates
+    } -body {
+        tarray::column intersect3 [newspancolumn boolean {0 1}] [newspancolumn boolean {0}]
+    } -result [list {0} {1} {}] -match intersect
+
+    test column_intersect3-span-boolean-4.3 {
+        Intersect - duplicates
+    } -body {
+        tarray::column intersect3 [newspancolumn boolean {0 1 1 0 0 0}] [newspancolumn boolean {0 0 1 1 1}]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-span-boolean-4.4 {
+        Intersect - presorted ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn boolean {0 1 1 0 0 0}]] [newspancolumn boolean {0 0 1 1 1}]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-span-boolean-4.5 {
+        Intersect - unsorted, presorted descending
+    } -body {
+        tarray::column intersect3 [newspancolumn boolean {0 1 1 0 0 0}] [tarray::column sort -decreasing [newspancolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-span-boolean-4.6 {
+        Intersect - presorted ascending, presorted ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn boolean {0 1 1 0 0 0}]] [tarray::column sort [newspancolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-span-boolean-4.7 {
+        Intersect - presorted descending, presorted descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newspancolumn boolean {0 1 1 0 0 0}]] [tarray::column sort -decreasing [newspancolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+    test column_intersect3-span-boolean-4.8 {
+        Intersect - presorted ascending, presorted descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn boolean {0 1 1 0 0 0}]] [tarray::column sort -decreasing [newspancolumn boolean {0 0 1 1 1}]]
+    } -result [list {0 0 1 1} {0 0} {1}] -match intersect
+
+
+    #
+    # any -nocase
+    test column_intersect3-span-any-5.0 {
+        Intersect any - case-sensitive
+    } -body {
+        tarray::column intersect3 [newspancolumn any {a b A c d}] [newspancolumn any {a b a C}]
+    } -result [list {a b} {A c d} {a C}] -match intersect
+
+    test column_intersect3-span-any-5.1 {
+        Intersect any - case-insensitive
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn any {a b A c d}] [newspancolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.2 {
+        Intersect any - case-sensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.3 {
+        Intersect any - case-insensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.4 {
+        Intersect any - case-sensitive unsorted, ascending
+    } -body {
+        tarray::column intersect3 [newspancolumn any {a b A c d}] [tarray::column sort [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.5 {
+        Intersect any - case-insensitive unsorted,ascending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn any {a b A c d}] [tarray::column sort [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.6 {
+        Intersect any - case-sensitive ascending, ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn any {a b A c d}]] [tarray::column sort [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.7 {
+        Intersect any - case-insensitive ascending,ascending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort [newspancolumn any {a b A c d}]] [tarray::column sort [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.8 {
+        Intersect any - case-sensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.9 {
+        Intersect any - case-insensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -decreasing [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.10 {
+        Intersect any - case-sensitive unsorted, descending
+    } -body {
+        tarray::column intersect3 [newspancolumn any {a b A c d}] [tarray::column sort -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.11 {
+        Intersect any - case-insensitive unsorted,descending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn any {a b A c d}] [tarray::column sort -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.12 {
+        Intersect any - case-sensitive descending, descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newspancolumn any {a b A c d}]] [tarray::column sort -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.13 {
+        Intersect any - case-insensitive descending,descending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -decreasing [newspancolumn any {a b A c d}]] [tarray::column sort -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    #
+    # presorted with -nocase
+    test column_intersect3-span-any-5.14 {
+        Intersect any - case-sensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.15 {
+        Intersect any - case-insensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.16 {
+        Intersect any - case-sensitive unsorted, ascending
+    } -body {
+        tarray::column intersect3 [newspancolumn any {a b A c d}] [tarray::column sort -nocase [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.17 {
+        Intersect any - case-insensitive unsorted,ascending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn any {a b A c d}] [tarray::column sort -nocase [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.18 {
+        Intersect any - case-sensitive ascending, ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase [newspancolumn any {a b A c d}]] [tarray::column sort -nocase [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.19 {
+        Intersect any - case-insensitive ascending,ascending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase [newspancolumn any {a b A c d}]] [tarray::column sort -nocase [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.20 {
+        Intersect any - case-sensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase -decreasing [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.21 {
+        Intersect any - case-insensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newspancolumn any {a b A c d}]] [newspancolumn any {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.22 {
+        Intersect any - case-sensitive unsorted, descending
+    } -body {
+        tarray::column intersect3 [newspancolumn any {a b A c d}] [tarray::column sort -nocase -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.23 {
+        Intersect any - case-insensitive unsorted,descending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn any {a b A c d}] [tarray::column sort -nocase -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-any-5.24 {
+        Intersect any - case-sensitive descending, descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase -decreasing [newspancolumn any {a b A c d}]] [tarray::column sort -nocase -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-any-5.25 {
+        Intersect any - case-insensitive descending,descending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newspancolumn any {a b A c d}]] [tarray::column sort -nocase -decreasing [newspancolumn any {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    #
+    # string -nocase
+    test column_intersect3-span-string-5.0 {
+        Intersect string - case-sensitive
+    } -body {
+        tarray::column intersect3 [newspancolumn string {a b A c d}] [newspancolumn string {a b a C}]
+    } -result [list {a b} {A c d} {a C}] -match intersect
+
+    test column_intersect3-span-string-5.1 {
+        Intersect string - case-insensitive
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn string {a b A c d}] [newspancolumn string {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.2 {
+        Intersect string - case-sensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.3 {
+        Intersect string - case-insensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.4 {
+        Intersect string - case-sensitive unsorted, ascending
+    } -body {
+        tarray::column intersect3 [newspancolumn string {a b A c d}] [tarray::column sort [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.5 {
+        Intersect string - case-insensitive unsorted,ascending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn string {a b A c d}] [tarray::column sort [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.6 {
+        Intersect string - case-sensitive ascending, ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort [newspancolumn string {a b A c d}]] [tarray::column sort [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.7 {
+        Intersect string - case-insensitive ascending,ascending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort [newspancolumn string {a b A c d}]] [tarray::column sort [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.8 {
+        Intersect string - case-sensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.9 {
+        Intersect string - case-insensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -decreasing [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.10 {
+        Intersect string - case-sensitive unsorted, descending
+    } -body {
+        tarray::column intersect3 [newspancolumn string {a b A c d}] [tarray::column sort -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.11 {
+        Intersect string - case-insensitive unsorted,descending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn string {a b A c d}] [tarray::column sort -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.12 {
+        Intersect string - case-sensitive descending, descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -decreasing [newspancolumn string {a b A c d}]] [tarray::column sort -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.13 {
+        Intersect string - case-insensitive descending,descending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -decreasing [newspancolumn string {a b A c d}]] [tarray::column sort -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    #
+    # presorted with -nocase
+    test column_intersect3-span-string-5.14 {
+        Intersect string - case-sensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.15 {
+        Intersect string - case-insensitive ascending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.16 {
+        Intersect string - case-sensitive unsorted, ascending
+    } -body {
+        tarray::column intersect3 [newspancolumn string {a b A c d}] [tarray::column sort -nocase [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.17 {
+        Intersect string - case-insensitive unsorted,ascending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn string {a b A c d}] [tarray::column sort -nocase [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.18 {
+        Intersect string - case-sensitive ascending, ascending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase [newspancolumn string {a b A c d}]] [tarray::column sort -nocase [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.19 {
+        Intersect string - case-insensitive ascending,ascending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase [newspancolumn string {a b A c d}]] [tarray::column sort -nocase [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.20 {
+        Intersect string - case-sensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase -decreasing [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.21 {
+        Intersect string - case-insensitive descending, unsorted
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newspancolumn string {a b A c d}]] [newspancolumn string {a b a C e}]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.22 {
+        Intersect string - case-sensitive unsorted, descending
+    } -body {
+        tarray::column intersect3 [newspancolumn string {a b A c d}] [tarray::column sort -nocase -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.23 {
+        Intersect string - case-insensitive unsorted,descending
+    } -body {
+        tarray::column intersect3 -nocase [newspancolumn string {a b A c d}] [tarray::column sort -nocase -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+    test column_intersect3-span-string-5.24 {
+        Intersect string - case-sensitive descending, descending
+    } -body {
+        tarray::column intersect3 [tarray::column sort -nocase -decreasing [newspancolumn string {a b A c d}]] [tarray::column sort -nocase -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b} {A c d} {a C e}] -match intersect
+
+    test column_intersect3-span-string-5.25 {
+        Intersect string - case-insensitive descending,descending
+    } -body {
+        tarray::column intersect3 -nocase [tarray::column sort -nocase -decreasing [newspancolumn string {a b A c d}]] [tarray::column sort -nocase -decreasing [newspancolumn string {a b a C e}]]
+    } -result [list {a b A c} {d} {e}] -match intersect
+
+
 }
 
 ::tcltest::cleanupTests
