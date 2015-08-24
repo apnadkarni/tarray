@@ -1456,7 +1456,7 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
         else {
             /* Not in table. Remove from lookup if it necessary */
             pos = -1;
-            if (delete_pos > 0) {
+            if (delete_pos >= 0) {
                 /* Only delete if we searched the full thdr */
                 if (span == NULL)
                     thdr_lookup_delete(thdr, delete_pos);

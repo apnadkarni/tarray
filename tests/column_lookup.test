@@ -146,5 +146,177 @@ namespace eval tarray::test {
         list $i1 $i2
     } -result {1000 100}
 
+    ################################################################
+    # Same tests but for span based columns
+    foreach type {any boolean byte double int uint wide} {
+        test column_lookup-span-$type-1.0 {
+            Lookup a column other than type string
+        } -body {
+            tarray::column lookup [samplespancolumn $type]
+        } -result "tarray is of the wrong type ($type)" -returnCodes error
+
+        test column_lookup-span-$type-1.1 {
+            Lookup a column other than type string
+        } -body {
+            tarray::column lookup [samplespancolumn $type] [samplevalue $type]
+        } -result "tarray is of the wrong type ($type)" -returnCodes error
+    }
+
+    test column_lookup-span-1.0 {
+        Build lookup for an empty column
+    } -body {
+        tarray::column lookup [newspancolumn string]
+    } -result ""
+
+    test column_lookup-span-1.1 {
+        lookup an empty column
+    } -body {
+        tarray::column lookup [newspancolumn string] anystring
+    } -result -1
+
+   test column_lookup-span-2.0 {
+       First lookup adds a key
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s end
+        set t1 [time {set i1 [tarray::column lookup $col $s]}]
+        set t2 [time {set i2 [tarray::column lookup $col $s]}]
+        list \
+            [string equal $s [tarray::column index $col $i2]] \
+            [expr {[lindex $t1 0] > 20*[lindex $t2 0]}]
+    } -result {1 1}
+
+   test column_lookup-span-2.1 {
+       Explicit builds adds keys
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col "${s}1" end-1
+        tarray::column vfill col "${s}2" end
+        set t0 [time {tarray::column search $col "${s}1"}]
+        tarray::column lookup $col
+        set t1 [time {set i1 [tarray::column lookup $col "${s}1"]}]
+        set t2 [time {set i2 [tarray::column lookup $col "${s}2"]}]
+        list \
+            [string equal ${s}1 [tarray::column index $col $i1]] \
+            [string equal ${s}2 [tarray::column index $col $i2]] \
+            [expr {[lindex $t0 0] > 20*[lindex $t1 0]}] \
+            [expr {[lindex $t0 0] > 20*[lindex $t2 0]}]
+    } -result {1 1 1 1}
+
+   test column_lookup-span-2.2 {
+       New key added
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col $s 10000
+        set i2 [tarray::column lookup $col $s]
+        list $i1 $i2
+    } -result {-1 10000}
+
+   test column_lookup-span-3.0 {
+       Nonexistent key
+    } -body {
+        set col [largespancolumn string]
+        # Ensure we get -1 even after lookup is built
+        list \
+            [tarray::column lookup $col nosuchstring] \
+            [tarray::column lookup $col nosuchstring]
+    } -result {-1 -1}
+
+   test column_lookup-span-3.1 {
+       Nonexistent key after deletion
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s end
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vdelete col $i1
+        set i2 [tarray::column lookup $col $s]
+        list [expr {$i1 == [tarray::column size $col]}] $i2
+    } -result {1 -1}
+
+   test column_lookup-span-3.2 {
+       Another key exists after deletion
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 100
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vdelete col $i1
+        set i2 [tarray::column lookup $col $s]
+        # Note i2 will be 999 since we deleted an earlier item
+        list $i1 $i2
+    } -result {100 999}
+
+   test column_lookup-span-4.0 {
+       Nonexistent key after overwriting
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col "someotherstring" $i1
+        set i2 [tarray::column lookup $col $s]
+        list $i1 $i2
+    } -result {1000 -1}
+
+   test column_lookup-span-4.1 {
+       Another key exists after overwriting
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 100
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col "someotherstring" $i1
+        set i2 [tarray::column lookup $col $s]
+        list $i1 $i2
+    } -result {100 1000}
+
+   test column_lookup-span-5.0 {
+       Key moved
+    } -body {
+        set col [largespancolumn string]
+        set s "lookupstring"
+        tarray::column vfill col $s 1000
+        set i1 [tarray::column lookup $col $s]
+        tarray::column vfill col "someotherstring" $i1
+        tarray::column vfill col $s 100
+        set i2 [tarray::column lookup $col $s]
+        # Note i2 will be 999 since we deleted an earlier item
+        list $i1 $i2
+    } -result {1000 100}
+
+    test column_lookup-span-6.0 {
+        Ensure key outside span column is not picked up
+    } -body {
+        set col [tarray::column create string]
+        set a "stringa"
+        set b "stringb"
+        set c "stringc"
+        tarray::column vfill col $a 0 29999
+        tarray::column vfill col $b 30000 59999
+        tarray::column vfill col $c 60000 99999
+        tarray::column lookup $col $a; # Init entry for the key
+        tarray::column lookup $col $b; # Init entry for the key
+        tarray::column lookup $col $c; # Init entry for the key
+        set span [tarray::column range $col 30001 59000]
+        list \
+            [tarray::column lookup $col $a] \
+            [tarray::column lookup $span $a] \
+            [tarray::column lookup $col $a] \
+            [tarray::column lookup $col $b] \
+            [tarray::column lookup $span $b] \
+            [tarray::column lookup $col $b] \
+            [tarray::column lookup $span $b] \
+            [tarray::column lookup $col $c] \
+            [tarray::column lookup $span $c] \
+            [tarray::column lookup $col $c]
+    } -result {0 -1 0 30000 0 30001 0 60000 -1 60000}
+        
 }
 ::tcltest::cleanupTests
