@@ -492,7 +492,7 @@ critcl::ccommand tarray::column::vsort {} {
     return ta_set_var_result(interp, status, objv[objc-1], tcol);
 }
 
-# TBD - is this documented?
+# TBD - is this documented? Also test cases
 critcl::cproc tarray::column::bitsset {Tcl_Interp* interp Tcl_Obj* COLUMN} ok {
     thdr_t *thdrP;
     span_t *span;
@@ -518,7 +518,7 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp Tcl_Obj* COLUMN} ok {
     }
     Tcl_SetObjResult(
         interp,
-        Tcl_NewIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), first, count)));
+        Tcl_NewIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), first, first+count)));
     return TCL_OK;
 }
 
@@ -1013,8 +1013,8 @@ critcl::ccommand tarray::column::intersect3 {} {
            int ones_in_a, ones_in_b, zeroes_in_a, zeroes_in_b;
            int ones, zeroes;
            ba_t *pbits;
-           ones_in_a = ba_count_ones(THDRELEMPTR(athdr, ba_t, 0), afirst, acount);
-           ones_in_b = ba_count_ones(THDRELEMPTR(bthdr, ba_t, 0), bfirst, bcount);
+           ones_in_a = ba_count_ones(THDRELEMPTR(athdr, ba_t, 0), afirst, afirst+acount);
+           ones_in_b = ba_count_ones(THDRELEMPTR(bthdr, ba_t, 0), bfirst, bfirst+bcount);
            zeroes_in_a = acount - ones_in_a;
            zeroes_in_b = bcount - ones_in_b;
            ones = ones_in_a < ones_in_b ? ones_in_a : ones_in_b;
@@ -1042,7 +1042,8 @@ critcl::ccommand tarray::column::intersect3 {} {
                bminusa->used += ones_in_b - ones;
            }
        }
-        break;
+       break;
+
     case TA_UINT:
         INTERSECT(unsigned int);
         break;
