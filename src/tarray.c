@@ -3839,9 +3839,9 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
         min_index = ba_find(baP, 0, start, start+count);
         max_index = ba_find(baP, 1, start, start+count);
         if (min_index < 0)
-            min_index = 0;      /* No 0's so first element (1) is the min */
+            min_index = start;   /* No 0's so first element (1) is the min */
         if (max_index < 0)
-            max_index = 0;      /* No 0's so first element (1) is the min */
+            max_index = start;   /* No 1's so first element (0) is the min */
         *min_indexP = min_index;
         if (ppomin)
             *ppomin = Tcl_NewBooleanObj(ba_get(baP, min_index));

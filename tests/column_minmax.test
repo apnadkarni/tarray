@@ -79,6 +79,84 @@ namespace eval tarray::test {
 
     }
 
+    ################################################################
+    # Same tests as above but Span based columns
+    
+    foreach type {any string boolean byte double int uint wide} {
+        test column_minmax-span-$type-1.0 {
+            Minmax an empty column
+        } -body {
+            tarray::column minmax [newspancolumn $type]
+        } -result "Invalid index range limit ''." -returnCodes error
+
+        test column_minmax-span-$type-1.1 {
+            Minmax an empty range
+        } -body {
+            tarray::column minmax -range {5 4} [samplespancolumn $type]
+        } -result "Invalid index range limit ''." -returnCodes error
+
+        test column_minmax-span-$type-1.2 {
+            Minmax an empty range
+        } -body {
+            set col [samplespancolumn $type]
+            set n [tarray::column size $col]
+            tarray::column minmax -range [list $n $n] $col
+        } -result "Invalid index range limit ''." -returnCodes error
+
+        test column_minmax-span-$type-2.0 {
+            Minmax
+        } -body {
+            set l [largelist $type]
+            set sorted [lsort [lsort_cmp $type] $l]
+            set min [lindex $sorted 0]
+            set max [lindex $sorted end]
+            lassign [tarray::column minmax [newspancolumn $type $l]] tmin tmax
+            list [expr {$tmin == $min}] [expr {$tmax == $max}]
+        } -result {1 1}
+
+        test column_minmax-span-$type-3.0 {
+            Minmax -indices
+        } -body {
+            set l [largelist $type]
+            set sorted [lsort [lsort_cmp $type] $l]
+            lassign [tarray::column minmax [newspancolumn $type $l]] tmin tmax
+            lassign [tarray::column minmax -indices [newspancolumn $type $l]] imin imax
+            list [expr {$tmin == [lindex $l $imin]}] [expr {$tmax == [lindex $l $imax]}]
+        } -result {1 1}
+
+        test column_minmax-span-$type-3.1 {
+            Minmax - verify first element returned
+        } -body {
+            set col [newspancolumn $type [lrepeat 100000 [samplevalue $type]]]
+            tarray::column minmax -indices $col
+        } -result {0 0}
+
+        test column_minmax-span-$type-3.2 {
+            Minmax -range
+        } -body {
+            set l [largelist $type]
+            set sorted [lsort [lsort_cmp $type] $l]
+            lassign [tarray::column minmax -range {100 90000} [newspancolumn $type $sorted]] tmin tmax
+            list [expr {$tmin == [lindex $sorted 100]}] [expr {$tmax == [lindex $sorted 90000]}]
+        } -result {1 1}
+    }
+
+    foreach type {any string} {
+        test column_minmax-span-$type-4.0 {
+            minmax -nocase unspecified
+        } -body {
+            set l {a A B b}
+            tarray::column minmax [newspancolumn $type $l]
+        } -result {A b}
+
+        test column_minmax-span-$type-4.1 {
+            minmax -nocase
+        } -body {
+            set l {a A B b}
+            tarray::column minmax -nocase [newspancolumn $type $l]
+        } -result {a B}
+
+    }
 }
 
 ::tcltest::cleanupTests
