@@ -66,5 +66,67 @@ namespace eval tarray::test {
         } -returnCodes error -result "*out of bounds*" -match glob
     }
 
+    ################################################################
+    # Same tests but for span columns
+    
+    foreach type {boolean string any byte double int uint wide} {
+        #
+        # column get indexlist
+
+        test column_index-span-$type-1.0 {
+            Get the first element in empty array
+        } -body {
+            tarray::column index [newspancolumn $type {}] 0
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_index-span-$type-2.0 {
+            Get the first element
+        } -body {
+            tarray::column index [samplespancolumn $type] 0
+        } -result [samplevalue $type 0]
+
+        test column_index-span-$type-2.1 {
+            Get end element
+        } -body {
+            tarray::column index [largespancolumn $type] end
+        } -result [lindex [largelist $type] end]
+
+        test column_index-span-$type-2.2 {
+            Get random element
+        } -body {
+            tarray::column index [samplespancolumn $type] 31
+        } -result [samplevalue $type 31]
+
+        test column_index-span-$type-2.3 {
+            Get random element
+        } -body {
+            tarray::column index [samplespancolumn $type] 32
+        } -result [samplevalue $type 32]
+
+        test column_index-span-$type-2.4 {
+            Get random element
+        } -body {
+            tarray::column index [samplespancolumn $type] 33
+        } -result [samplevalue $type 33]
+
+        test column_index-span-$type-2.1 {
+            Get end element
+        } -body {
+            tarray::column index [largespancolumn $type] end-1
+        } -result [lindex [largelist $type] end-1]
+
+        test column_index-span-$type-3.0 {
+            Get negative index
+        } -body {
+            tarray::column index [samplespancolumn $type] -1
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_index-span-$type-3.1 {
+            Get out of bounds index
+        } -body {
+            tarray::column index [samplespancolumn $type] 10000
+        } -returnCodes error -result "*out of bounds*" -match glob
+    }
+
     ::tcltest::cleanupTests
 }
