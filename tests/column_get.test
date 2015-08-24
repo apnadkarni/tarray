@@ -7,8 +7,10 @@ namespace eval tarray::test {
     # Initialize our own columns for testing so we do not have to create
     # a new one every time
     variable cols_for_get
+    variable spancols_for_get
     foreach type {boolean string any byte double int uint wide} {
         set cols_for_get($type) [samplecolumn $type]
+        set spancols_for_get($type) [samplespancolumn $type]
     }    
 
     proc cmp_get_indexlist_ascol {type indexlist ta} {
@@ -38,10 +40,20 @@ namespace eval tarray::test {
         return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) $indexlist]]
     }
 
+    proc test_getspan_indexlist_ascol {type indexlist} {
+        variable spancols_for_get
+        return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $spancols_for_get($type) $indexlist]]
+    }
+
     # Test values passed as tarray and returned as a column
     proc test_get_indices_ascol {type indexlist} {
         variable cols_for_get
         return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) [indexcolumn $indexlist]]]
+    }
+
+    proc test_getspan_indices_ascol {type indexlist} {
+        variable spancols_for_get
+        return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $spancols_for_get($type) [indexcolumn $indexlist]]]
     }
 
     proc cmp_get_indexlist_aslist {type indexlist result} {
@@ -64,10 +76,19 @@ namespace eval tarray::test {
         return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) $indexlist]]
     }
 
+    proc test_getspan_indexlist_aslist {type indexlist} {
+        variable spancols_for_get
+        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $spancols_for_get($type) $indexlist]]
+    }
+
     # Tests values passed as tarray returned as a list
     proc test_get_indices_aslist {type indexlist} {
         variable cols_for_get
         return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) [indexcolumn $indexlist]]]
+    }
+    proc test_getspan_indices_aslist {type indexlist} {
+        variable spancols_for_get
+        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $spancols_for_get($type) [indexcolumn $indexlist]]]
     }
 
     proc cmp_get_indexlist_asdict {type indexlist result} {
@@ -104,10 +125,21 @@ namespace eval tarray::test {
 
     }
 
+    proc test_getspan_indexlist_asdict {type indexlist} {
+        variable spancols_for_get
+        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $spancols_for_get($type) $indexlist]]
+
+    }
+
     # Tests values passed as list returned as a list
     proc test_get_indices_asdict {type indexlist} {
         variable cols_for_get
         return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $cols_for_get($type) [indexcolumn $indexlist]]]
+    }
+
+    proc test_getspan_indices_asdict {type indexlist} {
+        variable spancols_for_get
+        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $spancols_for_get($type) [indexcolumn $indexlist]]]
     }
 
     ################################################################
@@ -514,6 +546,412 @@ namespace eval tarray::test {
             test_get_indices_asdict $type [list [llength $sample($type)]]
         } -returnCodes error -result "*out of bounds*" -match glob
     }
+
+    ################################################################
+    # Same tests as above but for span columns
+
+    foreach type {boolean string any byte double int uint wide} {
+        #
+        # column get indexlist
+
+        test column_get-span-indexlist-ascol-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get [newspancolumn $type {}] {}
+        } -result [crep $type {}]
+
+        test column_get-span-indexlist-ascol-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [newspancolumn $type {}] {0}
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-span-indexlist-ascol-$type-2.0 {
+            Get the first element
+        } -body { test_getspan_indexlist_ascol $type 0 }
+
+        test column_get-span-indexlist-ascol-$type-2.1 {
+            Get empty indexlist
+        } -body { test_getspan_indexlist_ascol $type {} }
+
+        test column_get-span-indexlist-ascol-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_getspan_indexlist_ascol $type [list 0 $n]
+        }
+
+        test column_get-span-indexlist-ascol-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_getspan_indexlist_ascol $type {3 4 50 150} }
+
+        test column_get-span-indexlist-ascol-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_getspan_indexlist_ascol $type {100 65 30} }
+
+        test column_get-span-indexlist-ascol-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_getspan_indexlist_ascol $type {10 0 77 65 82} }
+
+        test column_get-span-indexlist-ascol-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_getspan_indexlist_ascol $type {10 0 77 65 82 77 10} }
+
+
+        test column_get-span-indexlist-ascol-$type-3.0 {
+            Get the end element
+        } -body {
+            test_getspan_indexlist_ascol $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-span-indexlist-ascol-$type-3.1 {
+            Get negative index
+        } -body {
+            test_getspan_indexlist_ascol $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indexlist-ascol-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_getspan_indexlist_ascol $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indexlist-ascol-$type-4.0 {
+            Get indexlist -column option
+        } -body {
+            tarray::column get -column [newspancolumn $type {0 1}] {1 0}
+        } -result [crep $type {1 0}] -match column
+
+
+        # get -list indexlist
+
+        test column_get-span-indexlist-aslist-$type-1.0 {
+            Get an empty index list from empty array
+        } -body { tarray::column get -list [newspancolumn $type {}] {} }
+
+        test column_get-span-indexlist-aslist-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -list [newspancolumn $type {}] {0}
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-span-indexlist-aslist-$type-2.0 {
+            Get the first element
+        } -body { test_getspan_indexlist_aslist $type 0 }
+
+        test column_get-span-indexlist-aslist-$type-2.1 {
+            Get empty indexlist
+        } -body { test_getspan_indexlist_aslist $type {} }
+
+        test column_get-span-indexlist-aslist-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_getspan_indexlist_aslist $type [list 0 $n]
+        }
+
+        test column_get-span-indexlist-aslist-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_getspan_indexlist_aslist $type {3 4 50 150} }
+
+        test column_get-span-indexlist-aslist-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_getspan_indexlist_aslist $type {100 65 30} }
+
+        test column_get-span-indexlist-aslist-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_getspan_indexlist_aslist $type {10 0 77 65 82} }
+
+        test column_get-span-indexlist-aslist-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_getspan_indexlist_aslist $type {10 0 77 65 82 77 10} }
+
+
+        test column_get-span-indexlist-aslist-$type-3.0 {
+            Get the end element
+        } -body {
+            test_getspan_indexlist_aslist $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-span-indexlist-aslist-$type-3.1 {
+            Get negative index
+        } -body {
+            test_getspan_indexlist_aslist $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indexlist-aslist-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_getspan_indexlist_aslist $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        #
+        # get -dict indexlist
+
+        test column_get-span-indexlist-asdict-$type-1.0 {
+            Get an empty index list from empty array
+        } -body { tarray::column get -dict [newspancolumn $type {}] {} }
+
+        test column_get-span-indexlist-asdict-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get -dict [newspancolumn $type {}] {0}
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-span-indexlist-asdict-$type-2.0 {
+            Get the first element
+        } -body { test_getspan_indexlist_asdict $type 0 }
+
+        test column_get-span-indexlist-asdict-$type-2.1 {
+            Get empty indexlist
+        } -body { test_getspan_indexlist_asdict $type {} }
+
+        test column_get-span-indexlist-asdict-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_getspan_indexlist_asdict $type [list 0 $n]
+        }
+
+        test column_get-span-indexlist-asdict-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_getspan_indexlist_asdict $type {3 4 50 150} }
+
+        test column_get-span-indexlist-asdict-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_getspan_indexlist_asdict $type {100 65 30} }
+
+        test column_get-span-indexlist-asdict-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_getspan_indexlist_asdict $type {10 0 77 65 82} }
+
+        test column_get-span-indexlist-asdict-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_getspan_indexlist_asdict $type {10 0 77 65 82 77 10} }
+
+        test column_get-span-indexlist-asdict-$type-3.0 {
+            Get the end element
+        } -body {
+            test_getspan_indexlist_asdict $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-span-indexlist-asdict-$type-3.1 {
+            Get negative index
+        } -body {
+            test_getspan_indexlist_asdict $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indexlist-asdict-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_getspan_indexlist_asdict $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        # column get indicesarray
+
+        test column_get-span-indices-ascol-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get [newspancolumn $type {}] [indexcolumn]
+        } -result [crep $type {}]
+
+        test column_get-span-indices-ascol-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [newspancolumn $type {}] [indexcolumn {0}]
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-span-indices-ascol-$type-2.0 {
+            Get the first element
+        } -body { test_getspan_indices_ascol $type 0 }
+
+        test column_get-span-indices-ascol-$type-2.1 {
+            Get empty indexlist
+        } -body { test_getspan_indices_ascol $type {} }
+
+        test column_get-span-indices-ascol-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_getspan_indices_ascol $type [list 0 $n]
+        }
+
+        test column_get-span-indices-ascol-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_ascol $type {3 4 50 150} }
+
+        test column_get-span-indices-ascol-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_getspan_indices_ascol $type {100 65 30} }
+
+        test column_get-span-indices-ascol-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_getspan_indices_ascol $type {10 0 77 65 82} }
+
+        test column_get-span-indices-ascol-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_getspan_indices_ascol $type {10 0 77 65 82 77 10} }
+
+        test column_get-span-indices-ascol-$type-3.0 {
+            Get the end element
+        } -body {
+            test_getspan_indices_ascol $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-span-indices-ascol-$type-3.1 {
+            Get negative index
+        } -body {
+            test_getspan_indices_ascol $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indices-ascol-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_getspan_indices_ascol $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indices-ascol-$type-4.0 {
+            Get indexlist -column option
+        } -body {
+            tarray::column get -column [newspancolumn $type {0 1}] {1 0}
+        } -result [crep $type {1 0}] -match column
+
+        #
+        # column get -list indices
+
+        test column_get-span-indices-aslist-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get -list [newspancolumn $type {}] [indexcolumn]
+        } -result {}
+
+        test column_get-span-indices-aslist-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [newspancolumn $type {}] [indexcolumn 0]
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-span-indices-aslist-$type-2.0 {
+            Get the first element
+        } -body { test_getspan_indices_aslist $type 0 }
+
+        test column_get-span-indices-aslist-$type-2.1 {
+            Get empty indexlist
+        } -body { test_getspan_indices_aslist $type {} }
+
+        test column_get-span-indices-aslist-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_getspan_indices_aslist $type [list 0 $n]
+        }
+
+        test column_get-span-indices-aslist-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_aslist $type {3 4 50 150} }
+
+        test column_get-span-indices-aslist-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_getspan_indices_aslist $type {100 65 30} }
+
+        test column_get-span-indices-aslist-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_getspan_indices_aslist $type {10 0 77 65 82} }
+
+        test column_get-span-indices-aslist-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_getspan_indices_aslist $type {10 0 77 65 82 77 10} }
+
+        test column_get-span-indices-aslist-$type-3.0 {
+            Get the end element
+        } -body {
+            test_getspan_indices_aslist $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-span-indices-aslist-$type-3.1 {
+            Get negative index
+        } -body {
+            test_getspan_indices_aslist $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indices-aslist-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_getspan_indices_aslist $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        #
+        # column get -dict indices
+
+        test column_get-span-indices-asdict-$type-1.0 {
+            Get an empty index list from empty array
+        } -body {
+            tarray::column get -dict [newspancolumn $type {}] [indexcolumn]
+        } -result {}
+
+        test column_get-span-indices-asdict-$type-1.1 {
+            Get the first element in empty array
+        } -body {
+            tarray::column get [newspancolumn $type {}] [indexcolumn 0]
+        } -returnCodes error -result "*index 0 out of bounds" -match glob
+
+        test column_get-span-indices-asdict-$type-2.0 {
+            Get the first element
+        } -body { test_getspan_indices_asdict $type 0 }
+
+        test column_get-span-indices-asdict-$type-2.1 {
+            Get empty indexlist
+        } -body { test_getspan_indices_asdict $type {} }
+
+        test column_get-span-indices-asdict-$type-2.2 {
+            Get first and last 
+        } -body {
+            set n [llength $sample($type)]
+            incr n -1
+            test_getspan_indices_asdict $type [list 0 $n]
+        }
+
+        test column_get-span-indices-asdict-$type-2.3 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_asdict $type {3 4 50 150} }
+
+        test column_get-span-indices-asdict-$type-2.4 {
+            Get reverse ordered indexlist
+        } -body { test_getspan_indices_asdict $type {100 65 30} }
+
+        test column_get-span-indices-asdict-$type-2.5 {
+            Get random ordered indexlist
+        } -body { test_getspan_indices_asdict $type {10 0 77 65 82} }
+
+        test column_get-span-indices-asdict-$type-2.6 {
+            Get indexlist with duplicates
+        } -body { test_getspan_indices_asdict $type {10 0 77 65 82 77 10} }
+
+
+        test column_get-span-indices-asdict-$type-3.0 {
+            Get the end element
+        } -body {
+            test_getspan_indices_asdict $type {0 end}
+        } -returnCodes error -result "*expected integer*" -match glob
+
+        test column_get-span-indices-asdict-$type-3.1 {
+            Get negative index
+        } -body {
+            test_getspan_indices_asdict $type {0 -1}
+        } -returnCodes error -result "*out of bounds*" -match glob
+
+        test column_get-span-indices-asdict-$type-3.2 {
+            Get out of bounds index
+        } -body {
+            test_getspan_indices_asdict $type [list [llength $sample($type)]]
+        } -returnCodes error -result "*out of bounds*" -match glob
+    }
+    
 }
 
 ::tcltest::cleanupTests
