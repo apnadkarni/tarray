@@ -35,6 +35,51 @@ namespace eval tarray::test {
             set ta [largecolumn $type]
             tarray::column reverse $ta
         } -result [crep $type [lreverse [largelist $type]]] -match column
+
+        # Same tests but for span columns
+
+        test column_reverse-span-$type-1.0 {
+            Reverse an empty column (shared)
+        } -body {
+            set ta [newspancolumn $type]
+            set ta [tarray::column reverse $ta]
+            check_not_span_column $ta
+            set ta
+        } -result [crep $type {}] -match column
+
+        test column_reverse-span-$type-1.1 {
+            Reverse an empty column (unshared)
+        } -body {
+            set ta [tarray::column reverse [newspancolumn $type]]
+            check_not_span_column $ta
+            set ta
+        } -result [crep $type {}] -match column
+
+        test column_reverse-span-$type-1.2 {
+            Reverse a one element column (unshared)
+        } -body {
+            set ta [tarray::column reverse [samplespancolumn $type 0 0]]
+            check_not_span_column $ta
+            set ta
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_reverse-span-$type-2.0 {
+            Reverse a column (unshared)
+        } -body {
+            set ta [tarray::column reverse [largespancolumn $type]]
+            check_not_span_column $ta
+            set ta
+        } -result [crep $type [lreverse [largelist $type]]] -match column
+
+        test column_reverse-span-$type-2.1 {
+            Reverse a column (shared)
+        } -body {
+            set ta [largespancolumn $type]
+            set ta [tarray::column reverse $ta]
+            check_not_span_column $ta
+            set ta
+        } -result [crep $type [lreverse [largelist $type]]] -match column
+
     }    
 }
 
