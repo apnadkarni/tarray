@@ -16,6 +16,18 @@ namespace eval tarray::test {
         } -body {
             tarray::column size [newcolumn $type [samplerange $type]]
         } -result [llength [samplerange $type]]
+
+        test column_size-span-$type-1.0 {
+            Size of empty column
+        } -body {
+            tarray::column size [newspancolumn $type]
+        } -result 0
+
+        test column_size-span-$type-2.0 {
+            Size of non-empty column
+        } -body {
+            tarray::column size [newspancolumn $type [samplerange $type]]
+        } -result [llength [samplerange $type]]
     }
 }
 
