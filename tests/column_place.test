@@ -4,9 +4,8 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    proc placetest {type indexlist_or_indexarray pass_values_as_list args} {
+    proc placetest {as_span type indexlist_or_indexarray pass_values_as_list args} {
         variable sample
-
         if {[catch {tarray::column size $indexlist_or_indexarray} n]} {
             # Not an column so assume a list
             set indexlist $indexlist_or_indexarray
@@ -31,14 +30,22 @@ namespace eval tarray::test {
             listset expected {*}$pos_and_val
         }
         if {$pass_values_as_list} {
-            return [col_change_and_verify $type $values $expected place $changes $indexlist_or_indexarray]
+            if {$as_span} {
+                return [spancol_change_and_verify $type $values $expected place $changes $indexlist_or_indexarray]
+            } else {
+                return [col_change_and_verify $type $values $expected place $changes $indexlist_or_indexarray]
+            }
         } else {
-            return [col_change_and_verify $type $values $expected place [tarray::column create $type $changes] $indexlist_or_indexarray]
+            if {$as_span} {
+                return [spancol_change_and_verify $type $values $expected place [newspancolumn $type $changes] $indexlist_or_indexarray]
+            } else {
+                return [col_change_and_verify $type $values $expected place [tarray::column create $type $changes] $indexlist_or_indexarray]
+            }
         }
     }
 
     # Unshared object version of above
-    proc placetest_u {type indexlist_or_indexarray pass_value_as_list args} {
+    proc placetest_u {as_span type indexlist_or_indexarray pass_value_as_list args} {
         variable sample
 
         if {[catch {tarray::column size $indexlist_or_indexarray} n]} {
@@ -65,9 +72,17 @@ namespace eval tarray::test {
             listset expected {*}$pos_and_val
         }
         if {$pass_value_as_list} {
-            set result [tarray::column place [newcolumn $type $values] $changes $indexlist_or_indexarray]
+            if {$as_span} {
+                set result [tarray::column place [newspancolumn $type $values] $changes $indexlist_or_indexarray]
+            } else {
+                set result [tarray::column place [newcolumn $type $values] $changes $indexlist_or_indexarray]
+            }
         } else {
-            set result [tarray::column place [newcolumn $type $values] [tarray::column create $type $changes] $indexlist_or_indexarray]
+            if {$as_span} {
+                set result [tarray::column place [newspancolumn $type $values] [tarray::column create $type $changes] $indexlist_or_indexarray]
+            } else {
+                set result [tarray::column place [newcolumn $type $values] [tarray::column create $type $changes] $indexlist_or_indexarray]
+            }
         }
         if {[clequal $result  $type $expected]} {
             return 0
@@ -77,21 +92,36 @@ namespace eval tarray::test {
     }
 
     proc placetest_valuelist {type indexlist_or_indexarray args} {
-        return [placetest $type $indexlist_or_indexarray 1 {*}$args]
+        return [placetest 0 $type $indexlist_or_indexarray 1 {*}$args]
+    }
+    
+    proc placetest_valuelist_span {type indexlist_or_indexarray args} {
+        return [placetest 1 $type $indexlist_or_indexarray 1 {*}$args]
+    }
+
+    proc placetest_valuecolumn {type indexlist_or_indexarray args} {
+        return [placetest 0 $type $indexlist_or_indexarray 0 {*}$args]
+    }
+
+    proc placetest_valuecolumn_span {type indexlist_or_indexarray args} {
+        return [placetest 1 $type $indexlist_or_indexarray 0 {*}$args]
     }
 
     # Unshared object version of above
     proc placetest_valuelist_u {type indexlist_or_indexarray args} {
-        return [placetest_u $type $indexlist_or_indexarray 1 {*}$args]
+        return [placetest_u 0 $type $indexlist_or_indexarray 1 {*}$args]
     }
 
-    proc placetest_valuecolumn {type indexlist_or_indexarray args} {
-        return [placetest $type $indexlist_or_indexarray 0 {*}$args]
+    proc placetest_valuelist_span_u {type indexlist_or_indexarray args} {
+        return [placetest_u 1 $type $indexlist_or_indexarray 1 {*}$args]
     }
 
-    # Unshared object version of above
     proc placetest_valuecolumn_u {type indexlist_or_indexarray args} {
-        return [placetest_u $type $indexlist_or_indexarray 0 {*}$args]
+        return [placetest_u 0 $type $indexlist_or_indexarray 0 {*}$args]
+    }
+
+    proc placetest_valuecolumn_span_u {type indexlist_or_indexarray args} {
+        return [placetest_u 1 $type $indexlist_or_indexarray 0 {*}$args]
     }
 
 
@@ -314,10 +344,114 @@ namespace eval tarray::test {
         } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
         if {$type ne "any" && $type ne "string"} {
-            test column_place-list-indexlist-$type-3.2 {
+            test column_place-list-indices-$type-3.2 {
                 Test invalid values
             } -body {
                 tarray::column place [samplecolumn $type 0 10] [badvalues $type] [indexcolumn 0]
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+        test column_place-list-spanindices-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuelist $type [indexspancolumn 0]
+        } -result 0
+        
+        test column_place-list-spanindices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] [indexspancolumn 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-list-spanindices-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuelist $type [indexspancolumn [indices 0 100]]
+        } -result 0 
+
+        test column_place-list-spanindices-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist $type [tarray::column sort -decreasing [indexspancolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_place-list-spanindices-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_u $type [indexspancolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-list-spanindices-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuelist $type [tarray::column sort [indexspancolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-list-spanindices-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuelist_u $type [indexspancolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-list-spanindices-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_u $type [indexspancolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-list-spanindices-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuelist_u $type [tarray::column sort [indexspancolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_place-list-spanindices-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist $type [indexspancolumn 128 127 1 0]
+        } -result 0 
+
+        test column_place-list-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-list-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-list-spanindices-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuelist_u $type [indexspancolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-list-spanindices-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuelist $type [indexspancolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-list-spanindices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-list-spanindices-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-list-spanindices-$type-3.2 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [badvalues $type] [indexspancolumn 0]
             } -result {*expected*but got*} -returnCodes error -match glob
         }
 
@@ -534,14 +668,769 @@ namespace eval tarray::test {
         } -result {*index -1 out of bounds*} -returnCodes error -match glob
 
         if {$type ne "any" && $type ne "string"} {
-            test column_place-column-indexlist-$type-3.2 {
+            test column_place-column-indices-$type-3.2 {
                 Test invalid values
             } -body {
                 tarray::column place [samplecolumn $type 0 10] [tarray::column create any {badvalues}] [indexcolumn 0]
             } -result {*not compatible*} -returnCodes error -match glob
         }
 
+        #
+        # column place valuecolumn spanindices
+        
+        test column_place-column-spanindices-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuecolumn $type [indexspancolumn 0]
+        } -result 0
+        
+        test column_place-column-spanindices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] [indexspancolumn 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
 
+        test column_place-column-spanindices-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [indexspancolumn [indices 0 100]]
+        } -result 0 
+
+        test column_place-column-spanindices-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [tarray::column sort -decreasing [indexspancolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_place-column-spanindices-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_u $type [indexspancolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-column-spanindices-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [tarray::column sort [indexspancolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-column-spanindices-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_u $type [indexspancolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-column-spanindices-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_u $type [indexspancolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-column-spanindices-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_u $type [tarray::column sort [indexspancolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_place-column-spanindices-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [indexspancolumn 128 127 1 0]
+        } -result 0 
+
+        test column_place-column-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-column-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-column-spanindices-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_u $type [indexspancolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-column-spanindices-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuecolumn $type [indexspancolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-column-spanindices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-column-spanindices-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-column-spanindices-$type-3.2 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [tarray::column create any {badvalues}] [indexspancolumn 0]
+            } -result {*not compatible*} -returnCodes error -match glob
+        }
+
+        ################################################################
+        # Repeat entire set of tests when target column is span based
+        
+        #
+        # column place valuelist indexlist
+
+        test column_place-span-list-indexlist-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuelist_span $type {0}
+        } -result 0
+        
+        test column_place-span-list-indexlist-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] {0}
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-span-list-indexlist-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indices 0 8] ;# XXX
+        } -result 0 
+
+        test column_place-span-list-indexlist-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [lsort -integer -decreasing [indices 0 50]]
+        } -result 0 
+
+        test column_place-span-list-indexlist-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type {3 1 2 0} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indexlist-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type {100 101 102 103} [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-span-list-indexlist-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type {128 127 126 125} [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-span-list-indexlist-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type {31 28 30 29} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indexlist-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type {2 31 64 100}
+        } -result 0 
+
+        test column_place-span-list-indexlist-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type {128 127 1 0}
+        } -result 0 
+
+        test column_place-span-list-indexlist-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type {60 16 100 15}
+        } -result 0
+
+        test column_place-span-list-indexlist-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type {34 1 10 33 32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indexlist-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type {32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indexlist-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] {12 13}
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-list-indexlist-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] {-1}
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-list-indexlist-$type-3.2 {
+            Test use of index end
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] {end}
+        } -result {*expected integer*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-span-list-indexlist-$type-3.3 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [badvalues $type] {0}
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+
+        #
+        # column place valuelist indices
+        
+        test column_place-span-list-indices-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuelist_span $type [indexcolumn 0]
+        } -result 0
+        
+        test column_place-span-list-indices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] [indexcolumn 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-span-list-indices-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexcolumn [indices 0 100]]
+        } -result 0 
+
+        test column_place-span-list-indices-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [tarray::column sort -decreasing [indexcolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_place-span-list-indices-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexcolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indices-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [tarray::column sort [indexcolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-span-list-indices-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexcolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-span-list-indices-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexcolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indices-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [tarray::column sort [indexcolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_place-span-list-indices-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexcolumn 128 127 1 0]
+        } -result 0 
+
+        test column_place-span-list-indices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-list-indices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-list-indices-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexcolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indices-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexcolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-indices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexcolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-list-indices-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexcolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-span-list-indices-$type-3.2 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [badvalues $type] [indexcolumn 0]
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+        test column_place-span-list-spanindices-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuelist_span $type [indexspancolumn 0]
+        } -result 0
+        
+        test column_place-span-list-spanindices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] [indexspancolumn 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-span-list-spanindices-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexspancolumn [indices 0 100]]
+        } -result 0 
+
+        test column_place-span-list-spanindices-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [tarray::column sort -decreasing [indexspancolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_place-span-list-spanindices-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexspancolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-spanindices-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [tarray::column sort [indexspancolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-span-list-spanindices-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexspancolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-span-list-spanindices-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexspancolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-spanindices-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [tarray::column sort [indexspancolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_place-span-list-spanindices-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexspancolumn 128 127 1 0]
+        } -result 0 
+
+        test column_place-span-list-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-list-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-list-spanindices-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuelist_span_u $type [indexspancolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-spanindices-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuelist_span $type [indexspancolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-list-spanindices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-list-spanindices-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-span-list-spanindices-$type-3.2 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [badvalues $type] [indexspancolumn 0]
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+        #
+        # column place valuecolumn indexlist
+
+        test column_place-span-column-indexlist-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuecolumn_span $type {0}
+        } -result 0
+        
+        test column_place-span-column-indexlist-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplecolumn $type 0 0] {0}
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-span-column-indexlist-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indices 0 100]
+        } -result 0 
+
+        test column_place-span-column-indexlist-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [lsort -integer -decreasing [indices 0 50]]
+        } -result 0 
+
+        test column_place-span-column-indexlist-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type {3 1 2 0} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indexlist-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type {100 101 102 103} [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-span-column-indexlist-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type {128 127 126 125} [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-span-column-indexlist-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type {31 28 30 29} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indexlist-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type {2 31 64 100}
+        } -result 0 
+
+        test column_place-span-column-indexlist-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type {128 127 1 0}
+        } -result 0 
+
+        test column_place-span-column-indexlist-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type {60 16 100 15}
+        } -result 0
+
+        test column_place-span-column-indexlist-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type {60 16 100 15}
+        } -result 0
+
+        test column_place-span-column-indexlist-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type {34 1 10 33 32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indexlist-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type {32} [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indexlist-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplecolumn $type 0 2] {12 13}
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-column-indexlist-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplecolumn $type 0 2] {-1}
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-column-indexlist-$type-3.2 {
+            Test use of index end
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplecolumn $type 0 2] {end}
+        } -result {*expected integer*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-span-column-indexlist-$type-3.3 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [tarray::column create any {badvalues}] {0}
+            } -result {*not compatible*} -returnCodes error -match glob
+        }
+
+        #
+        # column place valuecolumn indices
+        
+        test column_place-span-column-indices-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuecolumn_span $type [indexcolumn 0]
+        } -result 0
+        
+        test column_place-span-column-indices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] [indexcolumn 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-span-column-indices-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexcolumn [indices 0 100]]
+        } -result 0 
+
+        test column_place-span-column-indices-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [tarray::column sort -decreasing [indexcolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_place-span-column-indices-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexcolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indices-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [tarray::column sort [indexcolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-span-column-indices-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexcolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-span-column-indices-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexcolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indices-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [tarray::column sort [indexcolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_place-span-column-indices-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexcolumn 128 127 1 0]
+        } -result 0 
+
+        test column_place-span-column-indices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-column-indices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexcolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-column-indices-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexcolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indices-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexcolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-indices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexcolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-column-indices-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexcolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-span-column-indices-$type-3.2 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [tarray::column create any {badvalues}] [indexcolumn 0]
+            } -result {*not compatible*} -returnCodes error -match glob
+        }
+
+        #
+        # column place valuecolumn spanindices
+        
+        test column_place-span-column-spanindices-$type-1.0 {
+            Fill an empty column with a single element (shared)
+        } -body {
+            placetest_valuecolumn_span $type [indexspancolumn 0]
+        } -result 0
+        
+        test column_place-span-column-spanindices-$type-1.1 {
+            Fill empty column with a single element (unshared tclobj)
+        } -body {
+            tarray::column place [newcolumn $type {}] [samplerange $type 0 0] [indexspancolumn 0]
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_place-span-column-spanindices-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexspancolumn [indices 0 100]]
+        } -result 0 
+
+        test column_place-span-column-spanindices-$type-2.1 {
+            Test storing of leading elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [tarray::column sort -decreasing [indexspancolumn [indices 0 50]]]
+        } -result 0 
+
+        test column_place-span-column-spanindices-$type-2.2 {
+            Test storing of leading elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexspancolumn 3 1 2 0] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-spanindices-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [tarray::column sort [indexspancolumn 100 101 102 103]] [samplerange $type 0 103]
+        } -result 0 
+
+        test column_place-span-column-spanindices-$type-2.4 {
+            Test storing of trailing elements reverse order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexspancolumn 128 127 126 125] [samplerange $type 0 128]
+        } -result 0 
+
+        test column_place-span-column-spanindices-$type-2.5 {
+            Test storing of trailing elements random order (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexspancolumn 31 28 30 29] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-spanindices-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [tarray::column sort [indexspancolumn 2 31 64 100]]
+        } -result 0 
+
+        test column_place-span-column-spanindices-$type-2.7 {
+            Test storing of middle elements reverse order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexspancolumn 128 127 1 0]
+        } -result 0 
+
+        test column_place-span-column-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-column-spanindices-$type-2.8 {
+            Test storing of middle elements random order (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexspancolumn 60 16 100 15]
+        } -result 0
+
+        test column_place-span-column-spanindices-$type-2.9 {
+            Test extending (unshared tclobj)
+        } -body {
+            placetest_valuecolumn_span_u $type [indexspancolumn 34 1 10 33 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-spanindices-$type-2.10 {
+            Test extending single element (shared tclobj)
+        } -body {
+            placetest_valuecolumn_span $type [indexspancolumn 32] [samplerange $type 0 31]
+        } -result 0
+
+        test column_place-span-column-spanindices-$type-3.0 {
+            Test gap in indices
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn 12 13]
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_place-span-column-spanindices-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column place [samplecolumn $type 0 10] [samplerange $type 0 2] [indexspancolumn -1]
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_place-span-column-spanindices-$type-3.2 {
+                Test invalid values
+            } -body {
+                tarray::column place [samplecolumn $type 0 10] [tarray::column create any {badvalues}] [indexspancolumn 0]
+            } -result {*not compatible*} -returnCodes error -match glob
+        }
+        
     }
 
     ::tcltest::cleanupTests
