@@ -532,10 +532,15 @@ if {![info exists tarray::test::known]} {
                 lappend l $low
                 incr low
             }
+            return $l
         }
 
         proc indexcolumn {args} {
-            return [tarray::column create int [concat {*}$args]]
+            return [newcolumn int [concat {*}$args]]
+        }
+        
+        proc indexspancolumn {args} {
+            return [newspancolumn int [concat {*}$args]]
         }
 
         proc samplerange {type args} {
