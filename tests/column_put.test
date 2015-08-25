@@ -5,7 +5,7 @@ source testutil.tcl
 namespace eval tarray::test {
 
     # args - position init
-    proc puttest {type pass_as_list nvalues args} {
+    proc puttest {as_span type pass_as_list nvalues args} {
         variable sample
 
         if {[llength $args]} {
@@ -36,15 +36,23 @@ namespace eval tarray::test {
             set expected [lreplace $init $lpos [expr {$lpos+[llength $changes]-1}] {*}$changes]
         }
         if {$pass_as_list} {
-            return [col_change_and_verify $type $init $expected put $changes {*}$posargs]
+            if {$as_span} {
+                return [spancol_change_and_verify $type $init $expected put $changes {*}$posargs]
+            } else {
+                return [col_change_and_verify $type $init $expected put $changes {*}$posargs]
+            }
         } else {
-            return [col_change_and_verify $type $init $expected put [tarray::column create $type $changes] {*}$posargs]
+            if {$as_span} {
+                return [spancol_change_and_verify $type $init $expected put [newspancolumn $type $changes] {*}$posargs]
+            } else {
+                return [col_change_and_verify $type $init $expected put [newcolumn $type $changes] {*}$posargs]
+            }
         }
     }
 
     # Unshared object version of above
     # args - position init
-    proc puttest_u {type pass_as_list nvalues args} {
+    proc puttest_u {as_span type pass_as_list nvalues args} {
         variable sample
 
         if {[llength $args]} {
@@ -75,9 +83,17 @@ namespace eval tarray::test {
             set expected [lreplace $init $lpos [expr {$lpos+[llength $changes]-1}] {*}$changes]
         }
         if {$pass_as_list} {
-            set result [tarray::column put [newcolumn $type $init] $changes {*}$posargs]
+            if {$as_span} {
+                set result [tarray::column put [newspancolumn $type $init] $changes {*}$posargs]
+            } else {
+                set result [tarray::column put [newcolumn $type $init] $changes {*}$posargs]
+            }
         } else {
-            set result [tarray::column put [newcolumn $type $init] [tarray::column create $type $changes] {*}$posargs]
+            if {$as_span} {
+                set result [tarray::column put [newspancolumn $type $init] [newspancolumn $type $changes] {*}$posargs]
+            } else {
+                set result [tarray::column put [newcolumn $type $init] [newcolumn $type $changes] {*}$posargs]
+            }
         }
         if {[clequal $result  $type $expected]} {
             return 0
@@ -87,21 +103,36 @@ namespace eval tarray::test {
     }
 
     proc puttest_valuelist {type args} {
-        return [puttest $type 1 {*}$args]
+        return [puttest 0 $type 1 {*}$args]
     }
 
-    # Unshared object version of above
-    proc puttest_valuelist_u {type args} {
-        return [puttest_u $type 1 {*}$args]
+    proc puttest_valuelist_span {type args} {
+        return [puttest 1 $type 1 {*}$args]
     }
 
     proc puttest_valuecolumn {type args} {
-        return [puttest $type 0 {*}$args]
+        return [puttest 0 $type 0 {*}$args]
     }
 
-    # Unshared object version of above
+    proc puttest_valuecolumn_span {type args} {
+        return [puttest 1 $type 0 {*}$args]
+    }
+
+    # Unshared object versions of above
+    proc puttest_valuelist_u {type args} {
+        return [puttest_u 0 $type 1 {*}$args]
+    }
+
+    proc puttest_valuelist_span_u {type args} {
+        return [puttest_u 1 $type 1 {*}$args]
+    }
+
     proc puttest_valuecolumn_u {type args} {
-        return [puttest_u $type 0 {*}$args]
+        return [puttest_u 0 $type 0 {*}$args]
+    }
+
+    proc puttest_valuecolumn_span_u {type args} {
+        return [puttest_u 1 $type 0 {*}$args]
     }
 
     # Note two general types of tests - via a temp variable and directly
@@ -296,6 +327,189 @@ namespace eval tarray::test {
             } -result {*expected*but got*} -returnCodes error -match glob
         }
 
+        ################################################################
+        # Same tests as above for span based columns
+
+        #
+        # column put valuelist pos
+
+        test column_put-span-list-$type-1.0 {
+            Put a single value into an empty column (shared)
+        } -body {
+            puttest_valuelist_span $type 1 0 {}
+        } -result 0
+        
+        test column_put-span-list-$type-1.1 {
+            Put a single value into an empty column (unshared tclobj, default position)
+        } -body {
+            tarray::column put [newspancolumn $type {}] [samplerange $type 0 0] 
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_put-span-list-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            puttest_valuelist_span $type 100 0
+        } -result 0 
+
+        test column_put-span-list-$type-2.1 {
+            Test storing of leading elements (unshared tclobj)
+        } -body {
+            puttest_valuelist_span_u $type 128 0
+        } -result 0 
+
+        test column_put-span-list-$type-2.2 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            puttest_valuelist_span $type 10 63 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_put-span-list-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            puttest_valuelist_span $type 10 64 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_put-span-list-$type-2.4 {
+            Test storing of trailing elements (unshared tclobj, default end)
+        } -body {
+            puttest_valuelist_span_u $type 1
+        } -result 0 
+
+        test column_put-span-list-$type-2.5 {
+            Test storing of trailing elements (unshared tclobj, specified end)
+        } -body {
+            puttest_valuelist_span_u $type 20 end
+        } -result 0 
+
+        test column_put-span-list-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            puttest_valuelist_span_u $type 10 127
+        } -result 0 
+
+        test column_put-span-list-$type-2.7 {
+            Test storing of middle elements (shared tclobj, extend length)
+        } -body {
+            puttest_valuelist_span_u $type 500 400 [samplerange $type 0 450]
+        } -result 0 
+
+        test column_put-span-list-$type-2.8 {
+            Test storing of elements using end
+        } -body {
+            tarray::column put [samplespancolumn $type 0 9] [samplerange $type end-2 end] end-3
+        } -result [crep $type [samplerange $type 0 6 end-2 end]] -match column
+
+        test column_put-span-list-$type-3.0 {
+            Test out of bound index
+        } -body {
+            tarray::column put [samplespancolumn $type 0 10] [samplerange $type 0 2] 12
+
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_put-span-list-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column put [samplespancolumn $type 0 10] [samplerange $type 0 2] -1
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_put-span-list-$type-3.3 {
+                Test invalid values
+            } -body {
+                tarray::column put [samplespancolumn $type 0 10] [badvalues $type] 0
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
+
+        
+        #
+        # column put valuecolumn pos
+
+        test column_put-span-column-$type-1.0 {
+            Put a single value into an empty column (shared)
+        } -body {
+            puttest_valuecolumn_span $type 1 0 {}
+        } -result 0
+        
+        test column_put-span-column-$type-1.1 {
+            Put a single value into an empty column (unshared tclobj, default position)
+        } -body {
+            tarray::column put [newspancolumn $type {}] [samplespancolumn $type 0 0] 
+        } -result [crep $type [samplerange $type 0 0]] -match column
+
+        test column_put-span-column-$type-2.0 {
+            Test storing of leading elements (shared tclobj)
+        } -body {
+            puttest_valuecolumn_span $type 100 0
+        } -result 0 
+
+        test column_put-span-column-$type-2.1 {
+            Test storing of leading elements (unshared tclobj)
+        } -body {
+            puttest_valuecolumn_span_u $type 128 0
+        } -result 0 
+
+        test column_put-span-column-$type-2.2 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            puttest_valuecolumn_span $type 10 63 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_put-span-column-$type-2.3 {
+            Test storing of trailing elements (shared tclobj)
+        } -body {
+            puttest_valuecolumn_span $type 10 64 [samplerange $type 0 63]
+        } -result 0 
+
+        test column_put-span-column-$type-2.4 {
+            Test storing of trailing elements (unshared tclobj, default end)
+        } -body {
+            puttest_valuecolumn_span_u $type 1
+        } -result 0 
+
+        test column_put-span-column-$type-2.5 {
+            Test storing of trailing elements (unshared tclobj, specified end)
+        } -body {
+            puttest_valuecolumn_span_u $type 20 end
+        } -result 0 
+
+        test column_put-span-column-$type-2.6 {
+            Test storing of middle elements (unshared tclobj)
+        } -body {
+            puttest_valuecolumn_span_u $type 10 127
+        } -result 0 
+
+        test column_put-span-column-$type-2.7 {
+            Test storing of middle elements (shared tclobj, extend length)
+        } -body {
+            puttest_valuecolumn_span_u $type 500 400 [samplerange $type 0 450]
+        } -result 0 
+
+        test column_put-span-list-$type-2.8 {
+            Test storing of elements using end
+        } -body {
+            tarray::column put [samplespancolumn $type 0 9] [newspancolumn $type [samplerange $type end-2 end]] end-3
+        } -result [crep $type [samplerange $type 0 6 end-2 end]] -match column
+
+        test column_put-span-column-$type-3.0 {
+            Test out of bound index
+        } -body {
+            tarray::column put [samplespancolumn $type 0 10] [samplespancolumn $type 0 2] 12
+
+        } -result {*index 12 out of bounds*} -returnCodes error -match glob
+
+        test column_put-span-column-$type-3.1 {
+            Test negative index
+        } -body {
+            tarray::column put [samplespancolumn $type 0 10] [samplespancolumn $type 0 2] -1
+        } -result {*index -1 out of bounds*} -returnCodes error -match glob
+
+        if {$type ne "any" && $type ne "string"} {
+            test column_put-span-column-$type-3.3 {
+                Test invalid values
+            } -body {
+                tarray::column put [samplespancolumn $type 0 10] [newspancolumn $type [badvalues $type]] 0
+            } -result {*expected*but got*} -returnCodes error -match glob
+        }
 
     }
 
