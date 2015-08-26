@@ -21,7 +21,7 @@ namespace eval tarray::test {
         } else {
             set l [lshuffle [samplerange $type]]
         }
-        if {[clequal [tarray::column {*}[linsert $args 0 sort] [tarray::column create $type $l]] $type [lsort [lsort_cmp $type] {*}$args $l]]} {
+        if {[clequal [tarray::column {*}[linsert $args 0 sort] [newcolumn $type $l]] $type [lsort [lsort_cmp $type] {*}$args $l]]} {
             return 0
         } else {
             return 1
@@ -36,7 +36,7 @@ namespace eval tarray::test {
             set l [lshuffle [samplerange $type]]
         }
 
-        if {[clequal [tarray::column {*}[linsert $args 0 sort -indices] [tarray::column create $type $l]] int [lsort [lsort_cmp $type] -indices {*}$args $l]]} {
+        if {[clequal [tarray::column {*}[linsert $args 0 sort -indices] [newcolumn $type $l]] int [lsort [lsort_cmp $type] -indices {*}$args $l]]} {
             return 0
         } else {
             return 1
@@ -51,7 +51,7 @@ namespace eval tarray::test {
             set l [lshuffle [samplerange $type]]
         }
 
-        set ta [tarray::column create $type $l]
+        set ta [newcolumn $type $l]
 
         lassign [time {set sorted_ta [tarray::column sort {*}$presort_args $ta]}] unsorted_time
 
@@ -86,7 +86,7 @@ namespace eval tarray::test {
             set l [samplerange $type]
         }
         set l [lsort [lsort_cmp $type] {*}$presort_args $l]
-        set ta [tarray::column create $type $l]
+        set ta [newcolumn $type $l]
         set sorted_ta [tarray::column sort {*}$presort_args $ta]
 
         set indices [tarray::column sort -indices {*}$args $sorted_ta]
@@ -786,7 +786,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_shared small $type
+                sort_verify_shared large $type
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -797,7 +797,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_unshared small $type
+                sort_verify_unshared large $type
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -808,7 +808,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices small $type
+                sort_verify_indices large $type
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -819,7 +819,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_shared small $type -increasing
+                sort_verify_shared large $type -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -830,7 +830,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_unshared small $type -increasing
+                sort_verify_unshared large $type -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -841,7 +841,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices small $type -increasing -indices
+                sort_verify_indices large $type -increasing -indices
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -852,7 +852,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_shared small $type -decreasing
+                sort_verify_shared large $type -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -863,7 +863,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_unshared small $type -decreasing
+                sort_verify_unshared large $type -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -874,7 +874,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices small $type -decreasing -indices
+                sort_verify_indices large $type -decreasing -indices
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -885,7 +885,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted small $type -increasing -increasing
+                sort_verify_presorted large $type -increasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -896,7 +896,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted small $type -increasing -decreasing
+                sort_verify_presorted large $type -increasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -907,7 +907,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted small $type -decreasing -decreasing
+                sort_verify_presorted large $type -decreasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -918,7 +918,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_presorted small $type -decreasing -increasing
+                sort_verify_presorted large $type -decreasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -929,7 +929,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted small $type -increasing -increasing
+                sort_verify_indices_presorted large $type -increasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -940,7 +940,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted small $type -increasing -decreasing
+                sort_verify_indices_presorted large $type -increasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -951,7 +951,7 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted small $type -decreasing -decreasing
+                sort_verify_indices_presorted large $type -decreasing -decreasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
@@ -962,13 +962,14 @@ namespace eval tarray::test {
                 set old_thresh [tarray::unsupported::config sort_mt_threshold]
                 tarray::unsupported::config sort_mt_threshold 50
             } -body {
-                sort_verify_indices_presorted small $type -decreasing -increasing
+                sort_verify_indices_presorted large $type -decreasing -increasing
             } -cleanup {
                 tarray::unsupported::config sort_mt_threshold $old_thresh
             } -result 0
         }
 
         # TBD - need to test sort -indirect for multithreaded sorts
+        
     }
 }
 
