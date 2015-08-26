@@ -395,6 +395,9 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
             break;
         }
     }
+    if ((flags & (TA_SORT_INDICES|TA_SORT_INDIRECT)) == (TA_SORT_INDIRECT|TA_SORT_INDICES)) {
+        return ta_conflicting_options_error(ip, "-indirect", "-indices");
+    }
     *pflags = flags;
     return TCL_OK;
 }

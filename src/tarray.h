@@ -363,6 +363,7 @@ void ta_operator_panic(int oper);
 void ta_shared_panic(const char *where);
 void ta_small_panic(thdr_t *thdr, const char *where);
 void ta_memory_panic(int);
+TCL_RESULT ta_conflicting_options_error(Tcl_Interp *ip, const char *optA, const char *optB);
 TCL_RESULT ta_not_column_error(Tcl_Interp *);
 TCL_RESULT ta_not_table_error(Tcl_Interp *);
 TCL_RESULT ta_search_op_error(Tcl_Interp *, int op);

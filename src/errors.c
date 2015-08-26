@@ -243,6 +243,15 @@ TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_conflicting_options_error(Tcl_Interp *ip, const char *optA, const char *optB)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Options %s and %s cannot be used together.", optA, optB));
+        Tcl_SetErrorCode(ip, "TARRAY", "OPTION", "CONFLICT", NULL);
+    }
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int colindex)
 {
     if (ip) {

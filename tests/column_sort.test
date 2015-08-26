@@ -773,6 +773,15 @@ namespace eval tarray::test {
             set tcol [tarray::column create $type {a A b B}]
             tarray::column sort -indirect $tcol -nocase [tarray::column create int {-1 0 1 2}]
         } -result {tarray index -1 out of bounds} -returnCodes error
+
+        test column_sort-$type-indirect-2.4 {
+            Sort -indirect -indices $type
+        } -body {
+            set tcol [tarray::column create $type {a A b B}]
+            set indices [tarray::column sort -indices $tcol]
+            tarray::column sort -indices -indirect $tcol -nocase $indices
+        } -result {Options -indirect and -indices cannot be used together.} -returnCodes error
+
     }
 
     #
