@@ -1232,7 +1232,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         if (flags & TA_SEARCH_INLINE)
             o = first_match >= 0 ? ta_value_to_obj(&found_val) : Tcl_NewObj();
         else
-            o = Tcl_NewIntObj(haystack_lower+first_match);
+            o = Tcl_NewIntObj(first_match);
     }
 
     Tcl_SetObjResult(ip, o);
