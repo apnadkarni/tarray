@@ -510,7 +510,7 @@ if {![info exists tarray::test::known]} {
         
         proc newspancolumn {type {init {}}} {
             # Used to create a column that internally uses spans
-            set padlen 11; # Arbitrary number
+            set padlen 15; # Arbitrary number
             set pad [lrepeat $padlen [samplevalue $type]]
             set col [tarray::column create $type [concat $pad $init $pad]]
             set span [tarray::column range $col $padlen end-$padlen]
