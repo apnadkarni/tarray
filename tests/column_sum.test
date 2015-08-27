@@ -51,4 +51,60 @@ namespace eval tarray::test {
     } -body {
         tarray::column sum [tarray::column create uint {0xffffffff 1}]
     } -result 4294967296
+
+
+    ################################################################
+    # Same tests but for span columns
+
+    foreach type {any string boolean} {
+        test column_sum-span-$type-1.0 {
+            Sum column of wrong type
+        } -body {
+            tarray::column sum [newspancolumn $type]
+        } -result "tarray is of the wrong type ($type)" -returnCodes error
+    }
+
+    foreach type {byte double int uint wide} {
+        test column_sum-span-$type-1.0 {
+            Sum an empty column
+        } -body {
+            tarray::column sum [newspancolumn $type]
+        } -result [expr {$type eq "double" ? 0.0 : 0}]
+
+        test column_sum-span-$type-2.0 {
+            Sum a column
+        } -body {
+            tarray::column sum [samplespancolumn $type]
+        } -result [tcl::mathop::+ {*}[samplerange $type]]
+    }
+
+    foreach type {byte int uint} {
+        test column_sum-span-$type-2.1 {
+            Sum a column
+        } -body {
+            tarray::column sum [largespancolumn $type]
+        } -result [tcl::mathop::+ {*}[largelist $type]]
+    }
+
+    # wides tested separately as in Tcl they get converted to bignum
+    test column_sum-span-wide-2.1 {
+        Sum a column
+    } -body {
+        tarray::column sum [largespancolumn wide]
+    } -result [expr {wide([tcl::mathop::+ {*}[largelist wide]])}]
+    
+    test column_sum-span-int-3.0 {
+            Sum a column and make sure int handles correctly for overflow
+    } -body {
+        tarray::column sum [newspancolumn uint {0x7fffffff 1}]
+    } -result 2147483648
+
+    test column_sum-span-uint-3.0 {
+        Sum a column and make sure unsigned handles correctly for overflow
+    } -body {
+        tarray::column sum [newspancolumn uint {0xffffffff 1}]
+    } -result 4294967296
+
 }
+
+::tcltest::cleanupTests

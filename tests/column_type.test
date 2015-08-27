@@ -16,6 +16,18 @@ namespace eval tarray::test {
         } -body {
             tarray::column type [samplecolumn $type]
         } -result $type
+        
+        test column_type-span-$type-1.0 {
+            Type of empty column
+        } -body {
+            tarray::column type [newspancolumn $type]
+        } -result $type
+
+        test column_type-span-$type-2.0 {
+            Type of column
+        } -body {
+            tarray::column type [samplespancolumn $type]
+        } -result $type
     }
 }
 
