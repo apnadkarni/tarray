@@ -352,6 +352,24 @@ namespace eval tarray::test {
                 tarray::column sort -decreasing [tarray::column create $type {25 16 30 5 28 27 9 13 23 26 2 29 3 11 17 7 0 21 19 24 4 8 22 12 10 18 15 20 14 6 1 31}]
             } -result [crep $type {31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0}] -match column
         }
+
+
+        # Need a better way to test -indirect to verify sort order
+        # is maintained. For strings and any, we can do this better
+        # using -nocase in later tests. For other tests, we just
+        # do the following simplistic test for now. - TBD
+        test column_sort-indirect-$type-1.0 {
+            Verify basic indirect sort
+        } -setup {
+            set n 100000
+            set col [tarray::column create $type {} $n]
+            tarray::column vfill col [samplevalue $type] 0 [expr {$n-1}]
+            set indices [newcolumn int [lshuffle [indices 0 [expr $n-1]]]]
+        } -body {
+            set indices2 [tarray::column sort -indirect $col $indices]
+            # Since all elements are equal sort order should not change
+            cequal $indices $indices2
+        } -result 1
     }
 
     #
@@ -708,12 +726,10 @@ namespace eval tarray::test {
         } -result 0
         
         #
-        # Tests for -indirect
+        # Tests for -indirect with -nocase
         # We test that -indirect is in effect by testing order of elements
         # that are equal in the second -nocase sort. They should be in the
         # order of the indices array, not in the order of the original
-        # We do this for type "$type" using -nocase but how do we test
-        # similarly for other types ? TBD
         test column_sort-$type-indirect-1.0 {
             Sort -indirect $type
         } -body {
