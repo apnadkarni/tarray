@@ -500,9 +500,10 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
 
     elem_size = thdr->elem_bits / CHAR_BIT;
     if (psrc) {
+        int src_elem_size = psrc->elem_bits / CHAR_BIT;
         src_base = THDRELEMPTR(psrc, unsigned char, 0);
         if (span)
-            src_base += elem_size * span->first;
+            src_base += src_elem_size * span->first;
     } else
         src_base = NULL;
 
