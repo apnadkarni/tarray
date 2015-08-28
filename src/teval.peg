@@ -6,8 +6,7 @@ PEG TEvalParser (Program)
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
-    Statement <- Assignment 
-                 / MultiAssignment
+    Statement <- FunctionDefinition
                  / IfStatement
 		 / WhileStatement
 		 / ForStatement
@@ -16,6 +15,7 @@ void:  EOF <- !.;
 		 / ReturnStatement
 		 / BreakStatement
 		 / ContinueStatement
+    	      	 / Assignment 
                  / Expression
                  / TclScriptBlock
                  / Empty ;
@@ -47,11 +47,9 @@ void:    Empty <- WS ;
 leaf: TclScript <- (!('>' TclScriptEndMarker) .)* ;
 void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 
-
-
-    # Assigns multiple variables from a list / tarray. Expression here
-    # will be checked at run time to provide multiple values.
-    # TBD   MultiAssignment <- LValue (WS ',' WS LValue)+ WS '=' Expression;
+    FunctionDefinition <- 'function' WSob Identifier WS '(' WS ParameterDefinitions WS ')' WSob '{' Block '}' ;
+    ParameterDefinitions <- (Parameter (WS ',' WS Parameter)*)? ;
+    Parameter <- ParameterIdentifier (WS '=' WS PostfixExpr)? ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
@@ -151,6 +149,7 @@ IndirectLiteral <- [$] (String / Token) ;
 ColumnIdentifier <- Identifier;
 ElementIdentifier <- Identifier / String / Number;
 IdentifierList <- Identifier (WSNL ',' WSNL Identifier)* ;
+leaf: ParameterIdentifier <- ('_' / <alpha>) ('_' / <alnum>)* ;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )? ;

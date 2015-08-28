@@ -1,7 +1,7 @@
 namespace eval tarray::teval {
     # In production code we use the critcl C-based parser. For development
     # build the parser on the fly using the oo based parser.
-    variable _use_oo_parser 0
+    variable _use_oo_parser 1
 }
 
 package require tarray
@@ -125,8 +125,7 @@ proc tarray::tscript {script} {
 proc tarray::tproc {name arguments body} {
    _init_tcompiler
     proc tproc {name arguments body} {
-        set compilation [tcompiler compile $body]
-        uplevel 1 [list proc $name $arguments $compilation]
+        uplevel 1 [list proc $name $arguments [tcompiler compile $body]]
     }
     tailcall tproc $name $arguments $body
 }
@@ -272,8 +271,7 @@ oo::class create tarray::teval::Parser {
     }
                            
     method Assignment {from to lvalue assignop expr} {
-        puts expr:$expr
-        if {[lindex $lvalue 0] eq "Identifier"} {
+       if {[lindex $lvalue 0] eq "Identifier"} {
             set ident [lindex $lvalue 1]
             # Try for some optimization that can make use of the v* form of
             # when target of assignment is a simple identifier
@@ -646,6 +644,11 @@ oo::class create tarray::teval::Parser {
         return SelectorContext
     }
 
+    method ParameterIdentifier {from to} {
+        # TBD - why not forward this
+        return [string range $Script $from $to]
+    }
+    
     method Identifier {from to} {
         # TBD - why not forward this to _extract?
         return [list Identifier [string range $Script $from $to]]
@@ -727,6 +730,18 @@ oo::class create tarray::teval::Parser {
     method BuiltInFunction {from to} {
         return [string range $Script $from $to]
     }
+
+    method FunctionDefinition {from to name params body} {
+        return [list FunctionDefinition [lindex $name 1] $params $body]
+    }
+
+    method ParameterDefinitions {from to args} {
+        return $args
+    }
+    
+    method Parameter {from to args} {
+        return $args
+    }
 }
 
 oo::class create tarray::teval::Compiler {
@@ -769,7 +784,7 @@ oo::class create tarray::teval::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= += -= *= /= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement TryStatement ThrowStatement}} {
+        if {[lindex $child 0] in {= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
             return [my {*}$child]
         } else {
             return "return -level 0 [my {*}$child]"
@@ -1273,7 +1288,6 @@ oo::class create tarray::teval::Compiler {
     }
     
     method VBuiltInCall {fn arglist} {
-        puts arglist:[join $arglist ,]
         set fnargs {}
         foreach argelem [lrange $arglist 2 end] {
             foreach fnarg $argelem {
@@ -1281,6 +1295,19 @@ oo::class create tarray::teval::Compiler {
             }
         }
         return "\[tarray::teval::rt::$fn {[lindex $arglist 1 0 1]} [join $fnargs { }]\]"
+    }
+
+    method FunctionDefinition {name params body} {
+        set code [my _clause_to_code $body]
+        set arguments {}
+        foreach param $params {
+            if {[llength $param] == 2} {
+                lappend arguments "\[list [lindex $param 0] [my {*}[lindex $param 1]]\]"
+            } else {
+                lappend arguments [lindex $param 0]
+            }
+        }
+        return "proc {$name} \[list [join $arguments { }]\] {$code}"
     }
 }
 
