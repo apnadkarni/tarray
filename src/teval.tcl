@@ -2444,6 +2444,16 @@ if {1} {
     }
 
     tscript {
+        function fn () {puts( "Function fn")}
+        function fn2 (a, b=5+6) {return a+b}
+        fn()
+        fn2( 1, 2)
+        fn2 (10 )
+    }
+    fn
+    fn2 1 2
+    fn2 10
+    tscript {
         try {
             a = 1
         } on error {puts('error)} finally {puts('finally)}
