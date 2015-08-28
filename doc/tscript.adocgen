@@ -625,20 +625,51 @@ text {
 text {
     === Defining functions
 
-    The `tproc` command has the same form as
+    There are two ways to define functions that implemented in TScript:
+
+    * Using the `function` keyword within TScript code
+    * Using the `tproc` command within Tcl code
+
+    Both offer the same functionality, differing only because of
+    Tcl and TScript syntax.
+    
+    ==== Defining TScript functions with `function`
+    Within TScript, use `function` to define a TScript function. This
+    has the syntax
+} syntax {
+    function _NAME_ (?_PARAM_, ...?) _BODY_
+} text {
+    Parameters are separated by commas.
+} tscript {
+    function add(a, b) {return a + b}
+    add(1,2)
+} text {
+    They can take default values where the value is
+    separated from the parameter name with an `=` sign.
+} tscript {
+    function add(a, b = 1) {return a + b}
+    add(10)
+} text {
+    The default value may be any expression, not necessarily a constant.
+    Note however that the expressions are evaluated at the time
+    the function is defined and not at the time it is invoked.
+    
+    If the last parameter name is `args`, it is treated in the same
+    manner as in Tcl's `proc` command.
+} text {
+    ==== Defining TScript functions with `tproc`
+    
+    Unlike `function`, the `tproc` command is meant to be called from Tcl as opposed
+    to being used within TScript itself. It has the same form as
     the Tcl `proc` command except that the body of the procedure
     is TScript instead of Tcl.
 } syntax {
-    tproc _NAME_ _ARGS_ _BODY_
+    tproc _NAME_ _PARAMS_ _BODY_
 } text {
-    _ARGS_ takes the same form as in the `proc` command, including defaults
+    _PARAMS_ takes the same form as in the `proc` command, including defaults
     for parameter and variable parameters using the `args` notation.
 } shell {
     tproc add {a b} {return a + b}
-} text {
-    [NOTE]
-    The `tproc` command is meant to be called from Tcl as opposed
-    to being used within TScript itself. 
 }
 
 text {
