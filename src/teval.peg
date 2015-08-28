@@ -49,7 +49,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 
     FunctionDefinition <- 'function' WSob Identifier WS '(' WS ParameterDefinitions WS ')' WSob '{' Block '}' ;
     ParameterDefinitions <- (Parameter (WS ',' WS Parameter)*)? ;
-    Parameter <- ParameterIdentifier (WS '=' WS PostfixExpr)? ;
+    Parameter <- ParameterIdentifier (WS '=' WS Expression)? ;
 
     # Any term that can be assigned to. Note only range based slices
     # are allowed so cannot use VarSlice here.
