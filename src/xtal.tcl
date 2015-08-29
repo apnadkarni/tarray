@@ -1,25 +1,27 @@
-namespace eval tarray::teval {
+namespace eval xtal {
     # In production code we use the critcl C-based parser. For development
     # build the parser on the fly using the oo based parser.
     variable _use_oo_parser 1
+
+    namespace export xtal
 }
 
 package require tarray
-if {! $tarray::teval::_use_oo_parser} {
+if {! $xtal::_use_oo_parser} {
     # Production
-    package require tevalparser
+    package require xtalparser
 } else {
     # Development / grammar debug
-    catch {tarray::teval::ParserBase destroy}
-    catch {tarray::teval::Parser destroy}
-    catch {tarray::teval::Compiler destroy}
+    catch {xtal::ParserBase destroy}
+    catch {xtal::Parser destroy}
+    catch {xtal::Compiler destroy}
     lappend auto_path [file join [pwd] ../build/lib]
     package require pt::pgen
     package require fileutil
     # Next line because the generated code has a return which
     # causes script to exit if not caught
     switch [catch {
-        eval [pt::pgen peg [fileutil::cat ../src/teval.peg] oo -class tarray::teval::ParserBase -package tarray::teval -version 0.1]
+        eval [pt::pgen peg [fileutil::cat ../src/xtal.peg] oo -class xtal::ParserBase -package xtal -version 0.1]
     } msg opts] {
         0 - 2 {}
         default {
@@ -31,7 +33,7 @@ if {! $tarray::teval::_use_oo_parser} {
 package require pt::ast
 package require pt::util
 
-namespace eval tarray::ast {
+namespace eval xtal::ast {
     proc Print {s ast} {
         set children [lassign $ast type start end]
         set result   [list [list <$type> :: $start $end [string range $s $start $end]]]
@@ -50,94 +52,112 @@ namespace eval tarray::ast {
     }
 }
 
-namespace eval tarray::teval {
-    proc _map_search_op {op} {
-        # Maps relational operators to column search switches
-        # Note the order of options in each entry is important as they 
-        # are checked for in other places.
-        set map {
-            ==  {-eq}
-            !=  {-not -eq}
-            <   {-lt}
-            <=  {-not -gt}
-            >   {-gt}
-            >=  {-not -lt}
-            =^  {-nocase -eq}
-            !^  {-nocase -not -eq}
-            =~  {-re}
-            !~  {-not -re}
-            =~^ {-nocase -re}
-            !~^ {-nocase -not -re}
-            =*  {-pat}
-            !*  {-not -pat}
-            =*^ {-nocase -pat}
-            !*^ {-nocase -not -pat}
-        }
-        if {[dict exists $map $op]} {
-            return [dict get $map $op]
-        } else {
-            return ""
-        }
+proc xtal::_map_search_op {op} {
+    # Maps relational operators to column search switches
+    # Note the order of options in each entry is important as they 
+    # are checked for in other places.
+    set map {
+        ==  {-eq}
+        !=  {-not -eq}
+        <   {-lt}
+        <=  {-not -gt}
+        >   {-gt}
+        >=  {-not -lt}
+        =^  {-nocase -eq}
+        !^  {-nocase -not -eq}
+        =~  {-re}
+        !~  {-not -re}
+        =~^ {-nocase -re}
+        !~^ {-nocase -not -re}
+        =*  {-pat}
+        !*  {-not -pat}
+        =*^ {-nocase -pat}
+        !*^ {-nocase -not -pat}
     }
+    if {[dict exists $map $op]} {
+        return [dict get $map $op]
+    } else {
+        return ""
+    }
+}
     
-    proc _map_search_op_reverse {op} {
-        # Like _map_search_op except that instead of COLUMN OP OPERAND
-        # this maps OPERAND OP COLUMN
-        # Note regexp and glob operators are missing here since
-        # for consistency, the pattern must only appear on the RHS side
-        # of the operator.
-        # Note the order of options in each entry is important as they 
-        # are checked for in other places.
-        set map {
-            ==  {-eq}
-            !=  {-not -eq}
-            <   {-gt}
-            <=  {-not -lt}
-            >   {-lt}
-            >=  {-not -gt}
-            =^  {-nocase -eq}
-            !^  {-nocase -not -eq}
-        }
-        if {[dict exists $map $op]} {
-            return [dict get $map $op]
-        } else {
-            return ""
-        }
+proc xtal::_map_search_op_reverse {op} {
+    # Like _map_search_op except that instead of COLUMN OP OPERAND
+    # this maps OPERAND OP COLUMN
+    # Note regexp and glob operators are missing here since
+    # for consistency, the pattern must only appear on the RHS side
+    # of the operator.
+    # Note the order of options in each entry is important as they 
+    # are checked for in other places.
+    set map {
+        ==  {-eq}
+        !=  {-not -eq}
+        <   {-gt}
+        <=  {-not -lt}
+        >   {-lt}
+        >=  {-not -gt}
+        =^  {-nocase -eq}
+        !^  {-nocase -not -eq}
+    }
+    if {[dict exists $map $op]} {
+        return [dict get $map $op]
+    } else {
+        return ""
     }
 } 
 
-proc tarray::_init_tcompiler {} {
-    teval::Compiler create tcompiler $::tarray::teval::_use_oo_parser
-    proc _init_tcompiler {} {
-        return tcompiler
-    }
-    tailcall _init_tcompiler
+proc xtal::_init_compiler {} {
+    xtal::Compiler create compiler $::xtal::_use_oo_parser
+    ::proc _init_compiler {args} {}
+    return
 }
 
-proc tarray::tscript {script} {
-    _init_tcompiler
-    proc tscript {script} {
-        uplevel 1 [tcompiler compile $script]
+proc xtal::xtal {script} {
+    _init_compiler
+    ::proc xtal {script} {
+        uplevel 1 [compiler compile $script]
     }
-    tailcall tscript $script
+    tailcall xtal $script
 }
 
-proc tarray::tproc {name arguments body} {
-   _init_tcompiler
-    proc tproc {name arguments body} {
-        uplevel 1 [list proc $name $arguments [tcompiler compile $body]]
+proc xtal::function {name arguments body} {
+   _init_compiler
+    ::proc [namespace current]::proc {name arguments body} {
+        uplevel 1 [list ::proc $name $arguments [compiler compile $body]]
     }
-    tailcall tproc $name $arguments $body
+    tailcall [namespace current]::proc $name $arguments $body
 }
 
-oo::class create tarray::teval::Parser {
+proc xtal::source {arg1 args} {
+    if {[llength $args] == 0} {
+        set path $arg1
+    } else {
+        if {[llength $args] != 2 || $arg1 ne "-encoding"} {
+            error "invalid syntax: should be \"tsource ?-encoding ENCODING? PATH\""
+        }
+        lassign $args encoding path
+    }
+    set fd [open $path r]
+    try {
+        if {[info exists encoding]} {
+            fconfigure $fd -encoding $encoding -translation auto
+        } else {
+            fconfigure $fd -translation auto
+        }
+        set script [read $fd]
+        return [uplevel 1 [list [namespace current]::xtal $script]]
+    } finally {
+        close $fd
+    }
+}
+oo::class create xtal::Parser {
     variable Script
 
     constructor {use_oo_parser} {
         if {$use_oo_parser} {
-            tarray::teval::ParserBase create baseparser
+            xtal::ParserBase create baseparser
         } else {
-            tarray::teval::ParserBase_critcl baseparser
+            xtal::ParserBase_critcl baseparser
         }
     }
 
@@ -145,7 +165,7 @@ oo::class create tarray::teval::Parser {
     forward parset baseparser parset
     
     method ast {text} {
-        tarray::ast::print $text [my parset $text]
+        xtal::ast::print $text [my parset $text]
     }
     
     method _print {node {indent {}}} {
@@ -744,12 +764,12 @@ oo::class create tarray::teval::Parser {
     }
 }
 
-oo::class create tarray::teval::Compiler {
+oo::class create xtal::Compiler {
     variable Script Compilations SelectorNestingLevel
 
     constructor {use_oo_parser} {
-        namespace path ::tarray::teval
-        tarray::teval::Parser create parser $use_oo_parser
+        namespace path ::xtal
+        xtal::Parser create parser $use_oo_parser
     }
 
     forward print parser print
@@ -805,10 +825,10 @@ oo::class create tarray::teval::Compiler {
         set then_code [my _clause_to_code $then_clause]
 
         if {[llength $else_clause] == 0} {
-            return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code }"
+            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code }"
         } else {
             set else_code [my _clause_to_code $else_clause]
-            return "if {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
+            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
         }
     }
 
@@ -829,7 +849,7 @@ oo::class create tarray::teval::Compiler {
     }
     
     method WhileStatement {cond clause} {
-        return "while {\[tarray::teval::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause]}"
+        return "while {\[xtal::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause]}"
     }
 
     method TryStatement {body args} {
@@ -863,7 +883,7 @@ oo::class create tarray::teval::Compiler {
     }
 
     method ForNonRange {loopvar looptarget clause} {
-        return "tarray::teval::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause]}"
+        return "xtal::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause]}"
     }
 
     method = {lvalue rvalue} {
@@ -879,24 +899,24 @@ oo::class create tarray::teval::Compiler {
                 lassign $lvalue type ident indexexpr
                 switch -exact -- [lindex $indexexpr 0] {
                     Range {
-                        return "tarray::teval::rt::tarray_assign_range $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "xtal::rt::tarray_assign_range $ident [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
-                        return "tarray::teval::rt::tarray_assign_element $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "xtal::rt::tarray_assign_element $ident [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        set frag "tarray::teval::rt::tarray_assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
+                        set frag "xtal::rt::tarray_assign $ident [my {*}$rvalue] [my {*}$indexexpr]"
                         # TBD - optimize by only pushing context if selector has @@
                         return [string map [list %IDENT% "\[set $ident\]" %FRAG% $frag] {
-                            tarray::teval::rt::push_selector_context %IDENT%
+                            xtal::rt::push_selector_context %IDENT%
                             try {
                                 return -level 0 [%FRAG%]
                             } finally {
-                                tarray::teval::rt::pop_selector_context
+                                xtal::rt::pop_selector_context
                             }
                         }]
                     }
@@ -920,11 +940,11 @@ oo::class create tarray::teval::Compiler {
                     "" {
                         # T'c = ....
                         # No index 
-                        return "tarray::teval::rt::assign_element $operand $element [my {*}$rvalue]"
+                        return "xtal::rt::assign_element $operand $element [my {*}$rvalue]"
                     }
                     Range {
                         # T'c[4:j] = ...
-                        return "tarray::teval::rt::table_column_assign_range $operand $element [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "xtal::rt::table_column_assign_range $operand $element [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric literal index
@@ -935,8 +955,8 @@ oo::class create tarray::teval::Compiler {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        set stmt "tarray::teval::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
-                        return "tarray::teval::rt::push_selector_context \[tarray::teval::rt::element \[set $operand\] $element\]\ntry {   $stmt\n} finally {\ntarray::teval::rt::pop_selector_context\n}\n"
+                        set stmt "xtal::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "xtal::rt::push_selector_context \[xtal::rt::element \[set $operand\] $element\]\ntry {   $stmt\n} finally {\nxtal::rt::pop_selector_context\n}\n"
                     }
                 }
             }
@@ -962,10 +982,10 @@ oo::class create tarray::teval::Compiler {
                     "" {
                         # T.(a,b) = ...
                         # No index -> whole columns to be operated
-                        return "tarray::teval::rt::table_columns_replace $table \[list $collist\] [my {*}$rvalue]"
+                        return "xtal::rt::table_columns_replace $table \[list $collist\] [my {*}$rvalue]"
                     }
                     Range {
-                        return "tarray::teval::rt::table_columns_assign_range $table \[list $collist\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
+                        return "xtal::rt::table_columns_assign_range $table \[list $collist\] [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric index
@@ -976,7 +996,7 @@ oo::class create tarray::teval::Compiler {
                         # Index is general expression (including single vars)
                         # The actual operation depends on both the
                         # lvalue and the rvalue
-                        return "tarray::teval::rt::table_columns_assign $table \[list $collist\] [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "xtal::rt::table_columns_assign $table \[list $collist\] [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                 }
             }
@@ -1000,7 +1020,7 @@ oo::class create tarray::teval::Compiler {
     forward ^ my _mathop ^
 
     method _relop {op first second} {
-        return "\[tarray::teval::rt::relop$op [my {*}$first] [my {*}$second]\]"
+        return "\[xtal::rt::relop$op [my {*}$first] [my {*}$second]\]"
     }
 
     forward == my _relop ==
@@ -1015,13 +1035,13 @@ oo::class create tarray::teval::Compiler {
         set operands [lmap operand $args {
             my {*}$operand
         }]
-        return "\[tarray::teval::rt::$op [join $operands { }]\]"
+        return "\[xtal::rt::$op [join $operands { }]\]"
     }
     forward && my _boolop and
     forward || my _boolop or
 
     method _strop {op first second} {
-        return "\[tarray::teval::rt::strop $op [my {*}$first] [my {*}$second]\]"
+        return "\[xtal::rt::strop $op [my {*}$first] [my {*}$second]\]"
     }
     forward =^ my _strop =^
     forward !^ my _strop !^
@@ -1035,16 +1055,16 @@ oo::class create tarray::teval::Compiler {
     forward !*^ my _strop !*^
 
     method UnaryExpr {op child} {
-        return "\[tarray::teval::rt::unary $op [my {*}$child]\]"
+        return "\[xtal::rt::unary $op [my {*}$child]\]"
     }
 
     method SelectorGenerate {primary_expr selector_expr} {
         set frag {
-            tarray::teval::rt::push_selector_context %VALUE%
+            xtal::rt::push_selector_context %VALUE%
             try {
                 return -level 0 [%COMMAND%]
             } finally {
-                tarray::teval::rt::pop_selector_context
+                xtal::rt::pop_selector_context
             }
         }
         set first_op [lindex $selector_expr 1 0]
@@ -1052,20 +1072,20 @@ oo::class create tarray::teval::Compiler {
         try {
             if {$first_op eq "Range"} {
                 # Optimize C[range]
-                set command "tarray::teval::rt::range \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]] [my {*}[lindex $selector_expr 1 2]]"
+                set command "xtal::rt::range \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]] [my {*}[lindex $selector_expr 1 2]]"
             } elseif {[lindex $selector_expr 1 1] eq "SelectorContext" &&
-                      [set searchop [tarray::teval::_map_search_op $first_op]] ne ""} {
+                      [set searchop [xtal::_map_search_op $first_op]] ne ""} {
                 # Optimize C[@@ > 10]
-                set command "tarray::teval::rt::search_@@ {$searchop} \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 2]]"
+                set command "xtal::rt::search_@@ {$searchop} \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 2]]"
             } elseif {[lindex $selector_expr 1 2] eq "SelectorContext" &&
-                      [set searchop [tarray::teval::_map_search_op_reverse $first_op]] ne ""} {
+                      [set searchop [xtal::_map_search_op_reverse $first_op]] ne ""} {
                 # Optimize C[10 > @@] etc.
-                set command "tarray::teval::rt::search_@@ {$searchop} \[tarray::teval::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]]"
+                set command "xtal::rt::search_@@ {$searchop} \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]]"
             }
 
             if {![info exists command]} {
                 # No optimization matched. Use generic selector method
-                set command "tarray::teval::rt::selector \[tarray::teval::rt::selector_context\] [my {*}$selector_expr]"
+                set command "xtal::rt::selector \[xtal::rt::selector_context\] [my {*}$selector_expr]"
             }
             set primary "\[[string map [list %VALUE% $primary_expr %COMMAND% $command] $frag]\]"
         } finally {
@@ -1086,7 +1106,7 @@ oo::class create tarray::teval::Compiler {
                 IndirectLiteral -
                 Identifier { set primary [lindex $primary_expr 1] }
                 IndirectIdentifier {
-                    set primary "\[tarray::teval::rt::dereference [lindex $primary_expr 1]\]"
+                    set primary "\[xtal::rt::dereference [lindex $primary_expr 1]\]"
                 }
                 default { set primary [my {*}$primary_expr] }
             }
@@ -1120,7 +1140,7 @@ oo::class create tarray::teval::Compiler {
                     set primary "\[$primary [join $methods { }] [join $fnargs { }]\]"
                 }
                 Element {
-                    set primary "\[tarray::teval::rt::element $primary [my {*}$postexpr]\]"
+                    set primary "\[xtal::rt::element $primary [my {*}$postexpr]\]"
                 }
                 TableColumns {
                     set primary "\[tarray::table::slice $primary [my {*}$postexpr]\]"
@@ -1164,12 +1184,12 @@ oo::class create tarray::teval::Compiler {
     }
 
     method SelectorContext {} {
-        return "\[tarray::teval::rt::selector_context\]"
+        return "\[xtal::rt::selector_context\]"
     }
 
     method ColumnConstructor {coltype {inivalue {}}} {
         if {[llength $inivalue]} {
-            return "\[tarray::teval::rt::column_create $coltype [my {*}$inivalue]\]"
+            return "\[xtal::rt::column_create $coltype [my {*}$inivalue]\]"
         } else {
             return "\[tarray::column create $coltype {}\]"
         }
@@ -1193,18 +1213,18 @@ oo::class create tarray::teval::Compiler {
     method Number {n} {return $n}
     method Range {low high} {
         if {$SelectorNestingLevel} {
-            return "\[tarray::teval::rt::selector_range \[list [my {*}$low] [my {*}$high]\]\]"
+            return "\[xtal::rt::selector_range \[list [my {*}$low] [my {*}$high]\]\]"
         } else {
             return "\[list [my {*}$low] [my {*}$high]\]"
         }
     }
 
     method IndirectIdentifier {ident} {
-        return "\[tarray::teval::rt::dereference2 $ident\]"
+        return "\[xtal::rt::dereference2 $ident\]"
     }
     
     method IndirectLiteral {lit} {
-        return "\[tarray::teval::rt::dereference {$lit}\]"
+        return "\[xtal::rt::dereference {$lit}\]"
     }
 
     method Identifier {ident} {
@@ -1214,11 +1234,11 @@ oo::class create tarray::teval::Compiler {
     method TclScript s {return "\[try {\n$s\n}\]"}
 
     method ListCast {expr} {
-        return "\[tarray::teval::rt::listcast [my {*}$expr]\]"
+        return "\[xtal::rt::listcast [my {*}$expr]\]"
     }
 
     method DictCast {expr} {
-        return "\[tarray::teval::rt::dictcast [my {*}$expr]\]"
+        return "\[xtal::rt::dictcast [my {*}$expr]\]"
     }
 
     method VSort {ident options} {
@@ -1236,31 +1256,31 @@ oo::class create tarray::teval::Compiler {
             }
         }
         if {[info exists target]} {
-            return "\[tarray::teval::rt::sort_indirect [my {*}$operand] [my {*}$target] {$options}\]"
+            return "\[xtal::rt::sort_indirect [my {*}$operand] [my {*}$target] {$options}\]"
         } else {
-            return "\[tarray::teval::rt::sort [my {*}$operand] {$options}\]"
+            return "\[xtal::rt::sort [my {*}$operand] {$options}\]"
         }
     }
 
     method SearchCommand {operand args} {
         if {[lindex $args 0 0] eq "SearchTarget"} {
             set search_col [my {*}[lindex $args 0]]
-            set op [tarray::teval::_map_search_op [lindex $args 1 1]]
+            set op [xtal::_map_search_op [lindex $args 1 1]]
             if {$op eq ""} {
                 error "Unknown relational operator [lindex $args 1 1]"
             }
             set search_val [my {*}[lindex $args 2]]
             set opts "-among [my {*}$operand] [lrange $args 3 end]"
-            # return "\[tarray::teval::rt::search [my {*}[lindex $args 0]] [tarray::teval::_map_search_op [lindex $args 1 1]] [my {*}[lindex $args 2]] -among [my {*}$operand] [lrange $args 3 end]\]"
+            # return "\[xtal::rt::search [my {*}[lindex $args 0]] [xtal::_map_search_op [lindex $args 1 1]] [my {*}[lindex $args 2]] -among [my {*}$operand] [lrange $args 3 end]\]"
         } else {
             set search_col [my {*}$operand]
-            set op [tarray::teval::_map_search_op [lindex $args 0 1]]
+            set op [xtal::_map_search_op [lindex $args 0 1]]
             if {$op eq ""} {
                 error "Unknown relational operator [lindex $args 0 1]"
             }
             set search_val [my {*}[lindex $args 1]]
             set opts "[lrange $args 2 end]"
-            # return "\[tarray::teval::rt::search [my {*}$operand] [tarray::teval::_map_search_op [lindex $args 0 1]] [my {*}[lindex $args 1]] [lrange $args 2 end]\]" 
+            # return "\[xtal::rt::search [my {*}$operand] [xtal::_map_search_op [lindex $args 0 1]] [my {*}[lindex $args 1]] [lrange $args 2 end]\]" 
         }
         return "\[tarray::column::search $opts $op $search_col $search_val\]"
     }
@@ -1271,11 +1291,11 @@ oo::class create tarray::teval::Compiler {
 
     method BuiltInCall {fn arglist} {
         set fn [dict get {
-            delete tarray::teval::rt::delete
-            inject tarray::teval::rt::inject
-            insert tarray::teval::rt::insert
+            delete xtal::rt::delete
+            inject xtal::rt::inject
+            insert xtal::rt::insert
             lookup tarray::column::lookup
-            reverse tarray::teval::rt::reverse
+            reverse xtal::rt::reverse
             sum tarray::column::sum
         } $fn]
         set fnargs {}
@@ -1294,7 +1314,7 @@ oo::class create tarray::teval::Compiler {
                 lappend fnargs [my {*}$fnarg]
             }
         }
-        return "\[tarray::teval::rt::$fn {[lindex $arglist 1 0 1]} [join $fnargs { }]\]"
+        return "\[xtal::rt::$fn {[lindex $arglist 1 0 1]} [join $fnargs { }]\]"
     }
 
     method FunctionDefinition {name params body} {
@@ -1311,7 +1331,7 @@ oo::class create tarray::teval::Compiler {
     }
 }
 
-namespace eval tarray::teval::rt {
+namespace eval xtal::rt {
     variable _selector_contexts {}
 
     proc selector_context {} {
@@ -2334,8 +2354,8 @@ namespace eval tarray::teval::rt {
     }
 }
 
-proc tarray::teval::testconstexpr {expr desc} {
-    set t [tarray::tscript $expr]
+proc xtal::testconstexpr {expr desc} {
+    set t [xtal $expr]
     set e [expr $expr]
     if {$t != $e} {
         puts stderr "$desc failed for <$expr>. $t != $e"
@@ -2343,8 +2363,8 @@ proc tarray::teval::testconstexpr {expr desc} {
 }
 
 if {1} {
-    tarray::teval::Parser create tp $::tarray::teval::_use_oo_parser
-    tarray::teval::Compiler create tc $::tarray::teval::_use_oo_parser
+    xtal::Parser create tp $::xtal::_use_oo_parser
+    xtal::Compiler create tc $::xtal::_use_oo_parser
     namespace path tarray
     set I [column create int {10 20 30 40 50}]
     set J [column create int {100 200 300 400 500}]
@@ -2353,31 +2373,31 @@ if {1} {
 if {1} {
     catch {table slice $T $T};  # Caused crash due to shimmering, now should return error
     proc getI {} {return $::I}
-    tscript {I[@@ < 30]}
-    tscript {I'20}
-    tscript {I' "10"}
-    tscript {I[I < 30]}
-    tscript {getI()[@@ > 30]}
+    xtal::xtal {I[@@ < 30]}
+    xtal::xtal {I'20}
+    xtal::xtal {I' "10"}
+    xtal::xtal {I[I < 30]}
+    xtal::xtal {getI()[@@ > 30]}
     set x i
-    tscript {T[T'i < 35]}
-    tscript {T[T%x < 45]}
-    tscript {T'(i,s)[@@'i > 40]}
-    tscript {K = I}
-    tscript {K[0:1] = J[0:1]}
-    tscript {K[2:4] = 99}
-    tscript {K[{3,4}] = I[{4,3}]}
-    tscript {T'i[0:1] = I[3:4]}
-    tscript {T'(s,i)}
-    tscript {T's' thirty}
-    tscript {T's' "thirty"}
-    tscript {T'i[@@ < 40] = 33}
-    tscript {T's[T'i == 33] = "thirty-three"}
+    xtal::xtal {T[T'i < 35]}
+    xtal::xtal {T[T%x < 45]}
+    xtal::xtal {T'(i,s)[@@'i > 40]}
+    xtal::xtal {K = I}
+    xtal::xtal {K[0:1] = J[0:1]}
+    xtal::xtal {K[2:4] = 99}
+    xtal::xtal {K[{3,4}] = I[{4,3}]}
+    xtal::xtal {T'i[0:1] = I[3:4]}
+    xtal::xtal {T'(s,i)}
+    xtal::xtal {T's' thirty}
+    xtal::xtal {T's' "thirty"}
+    xtal::xtal {T'i[@@ < 40] = 33}
+    xtal::xtal {T's[T'i == 33] = "thirty-three"}
     set col s
-    tscript {T%col[0:1] = 'abc}
-    tscript {% I}
-    tscript {% {1,2,3}}
+    xtal::xtal {T%col[0:1] = 'abc}
+    xtal::xtal {% I}
+    xtal::xtal {% {1,2,3}}
 
-    namespace eval tarray::teval {
+    namespace eval xtal {
         testconstexpr {4-2+2} "+- Left associativity"
         testconstexpr {4-2-2} "- Left associativity"
         testconstexpr {1+2*3} "+* Operator precedence"
@@ -2386,49 +2406,49 @@ if {1} {
     catch {C destroy}
     oo::class create C { method m {args} {puts [join $args ,]} }
     set o [C new]
-    tscript {a = 'b ; b = 99; $a}
-    tscript {$o.m('abc, 10)}
-    tscript {$o.m(
+    xtal::xtal {a = 'b ; b = 99; $a}
+    xtal::xtal {$o.m('abc, 10)}
+    xtal::xtal {$o.m(
                   'abci
                   ,
                   10
                   )}
     set d {a 1 b 2 c 3}
-    tscript { d'b }
+    xtal::xtal { d'b }
     set x c
-    tscript {d%x}
+    xtal::xtal {d%x}
     set a 0 ; set b 1
-    tscript { < expr {$a > $b} > }
-    tscript {<expr {$a > $b}>}
-    tscript { <
+    xtal::xtal { < expr {$a > $b} > }
+    xtal::xtal {<expr {$a > $b}>}
+    xtal::xtal { <
         expr {$a > $b}
         > }
-    tscript {
+    xtal::xtal {
         a = 1 ; b = 2
         <
         puts [expr {$a > $b}]
         >
     }
-    tscript {
+    xtal::xtal {
         <lappend l 99>
         a = b
     }
     
-    tscript { a = <clock seconds> }
-    tscript { a = <clock seconds>; }
-    tscript { a = <clock seconds> ;}
-    tscript { a = <clock seconds> ; c = a}
-    tscript { a = <
+    xtal::xtal { a = <clock seconds> }
+    xtal::xtal { a = <clock seconds>; }
+    xtal::xtal { a = <clock seconds> ;}
+    xtal::xtal { a = <clock seconds> ; c = a}
+    xtal::xtal { a = <
         clock seconds> ; b = a
     }
 
-    tscript { @table () }
-    tscript { @table () {} }
-    tscript { @table (i int) }
-    tscript { @table (i int) {{2}}}
-    tscript { @table (i int, s string) }
-    tscript { @table (i int, s string ) {{2, 'two}, {3, 'three}} }
-    tscript { @table (i
+    xtal::xtal { @table () }
+    xtal::xtal { @table () {} }
+    xtal::xtal { @table (i int) }
+    xtal::xtal { @table (i int) {{2}}}
+    xtal::xtal { @table (i int, s string) }
+    xtal::xtal { @table (i int, s string ) {{2, 'two}, {3, 'three}} }
+    xtal::xtal { @table (i
                       int,
                       s string
                       ) {
@@ -2437,13 +2457,13 @@ if {1} {
                       } }
 
     set "variable with spaces" "value of variable with spaces"
-    tscript {
+    xtal::xtal {
         puts($"variable with spaces")
         var = "variable with spaces"
         puts($var)
     }
 
-    tscript {
+    xtal::xtal {
         function fn () {puts( "Function fn")}
         function fn2 (a, b=5+6) {return a+b}
         fn()
@@ -2453,13 +2473,13 @@ if {1} {
     fn
     fn2 1 2
     fn2 10
-    tscript {
+    xtal::xtal {
         try {
             a = 1
         } on error {puts('error)} finally {puts('finally)}
     }
     
-    tscript {
+    xtal::xtal {
         try {
             throw 'TSCRIPT, 'TEST, "Just a test"
         } on error res opts {
@@ -2470,7 +2490,7 @@ if {1} {
         }
     }
 
-    tscript {
+    xtal::xtal {
         try {
             nosuchvar
         } trap {'TCL, 'XXX} {
@@ -2483,7 +2503,7 @@ if {1} {
         }
     }
 
-    tscript {
+    xtal::xtal {
         Rainfall = @double {
             11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
         }
