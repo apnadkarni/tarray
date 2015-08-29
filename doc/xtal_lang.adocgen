@@ -1,5 +1,5 @@
 text {
-    ((= chap_tscript "The TScript Language"))
+    ((= chap_xtal "The XTal Language"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
@@ -21,7 +21,7 @@ text {
     This document assumes the reader is familiar with typed arrays.
     If not, please glance through the ((^ chap_guide)) before continuing.
 
-    The TScript language is an alternative for 
+    The Xtal language is an alternative for 
     working with typed array columns and tables. It provides 
     
     * convenient succint syntax
@@ -29,17 +29,17 @@ text {
     * search operators
     * flexible indexing
 
-    Although geared towards typed arrays, TScript is not limited to
+    Although geared towards typed arrays, Xtal is not limited to
     operating solely on those structures. It can be used with any data.
-    Note however, that TScript is not a replacement for Tcl.
+    Note however, that Xtal is not a replacement for Tcl.
     Rather, it is embedded in
     Tcl and the two can be intermixed according to whatever syntax suits
     the task at hand.
 
-    Neverthess, TScript is syntactically completely different from Tcl.
+    Neverthess, Xtal is syntactically completely different from Tcl.
 
     [WARNING]
-    TScript is still under development. Syntactic and functional changes
+    Xtal is still under development. Syntactic and functional changes
     are likely. The parser and runtime is currently implemented in Tcl
     for ease of development and therefore performance on
     _scalar_ operation (as opposed to columns and tables)
@@ -49,20 +49,21 @@ text {
 
 eval {
     package require tarray
-    source ../src/teval.tcl
+    source ../src/xtal.tcl
+    namespace import xtal::xtal
 }
 
 text {
-    ((== sect_tscript_quick_tour "Quick Tour"))
+    ((== sect_xtal_quick_tour "Quick Tour"))
 
-    This section provides a short tour of TScript to
+    This section provides a short tour of Xtal to
     introduce the reader to the language. 
 
-    The basic syntax of TScript is close to the C family of languages
+    The basic syntax of Xtal is close to the C family of languages
     than Tcl.
 
     .Variable and literals
-} tscript {
+} xtal {
     a = 1 ; b = 2
     c = 1 + a * b
 } text {
@@ -72,7 +73,7 @@ text {
     String literals can be expressed in two forms - surrounded by double
     quotes, or with a single preceding single quote for literals that
     only contain alphanumeric characters.
-} tscript {
+} xtal {
     puts("Two words")
     puts('OneWord)
 } text {
@@ -81,14 +82,14 @@ text {
     Commands or functions
     (we use the terms interchangeably) are called with parameters
     enclosed in parenthesis.
-} tscript {
+} xtal {
     hex = format("0x%x", 42)
 } text { 
 
-    .Mixing Tcl and TScript
-    Tcl code can be intermixed within TScript by bracketing it with
+    .Mixing Tcl and Xtal
+    Tcl code can be intermixed within Xtal by bracketing it with
     `<>`.
-} tscript {
+} xtal {
     L = {1, 2}
     < lappend L 3 >
     puts(L)
@@ -96,28 +97,28 @@ text {
     now = <clock seconds>
 } text {
     The Tcl fragment may also be spread across multiple lines.
-} tscript {
-    puts("TScript statement")
+} xtal {
+    puts("Xtal statement")
     <
     puts "First Tcl statement"
     puts "Second Tcl statement"
     >
 } text {
-    Similarly, TScript can be mixed with Tcl code with the `tscript`
+    Similarly, Xtal can be mixed with Tcl code with the `xtal`
     command.
 } shell {
     set L [list ab ba acb abc a]
-    tscript { L = L[L =~ "a.*b"] }
+    xtal { L = L[L =~ "a.*b"] }
 
-    tscript {
-        puts("puts called from TScript")
+    xtal {
+        puts("puts called from Xtal")
         <
-        puts "puts called from Tcl called from TScript"
-        tscript {puts("puts called from TScript called from Tcl called from TScript")}
+        puts "puts called from Tcl called from Xtal"
+        xtal {puts("puts called from Xtal called from Tcl called from Xtal")}
         >
     }
 } text {
-    As we see later, we can also define procs in TScript that are called
+    As we see later, we can also define procs in Xtal that are called
     from Tcl like any other Tcl command.
 }
 
@@ -125,7 +126,7 @@ text {
     .Working with lists
     Lists are constructed using braces but unlike in Tcl, elements
     are expressions separated with commas.
-} tscript {
+} xtal {
     L = {0, a, b, a + b, tcl::mathfunc::rand()}
 } text {
     Although you can call Tcl's list related commands, like
@@ -135,7 +136,7 @@ text {
     there are several convenient operators dealing with lists.
     
     The prefix operator `%` can be used to return the length of a list.
-} tscript {
+} xtal {
     L = {'zero, 'one, 'two, 'three}
     len = % L
 } text {
@@ -182,13 +183,13 @@ text {
 }
 
 text {
-    The primary purpose of TScript is really to work conveniently with
+    The primary purpose of Xtal is really to work conveniently with
     typed arrays - columns and tables - and we demonstrate that next.
 
     .Working with columns
 
-    A column is created in TScript as
-} tscript {
+    A column is created in Xtal as
+} xtal {
    Rainfall = @double {
         11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
     }
@@ -217,11 +218,11 @@ text {
 }
 
 text {
-    One feature that TScript supports for columns that is not available
+    One feature that Xtal supports for columns that is not available
     for lists is search using boolean expressions. For example,
     we can get the indices corresponding to the months where the
     rainfall lies within a specific range.
-} tscript {
+} xtal {
     print(Rainfall > 100 && Rainfall < 200)
 } text {
     Moreover, since the boolean expressions return an integer column containing
@@ -243,7 +244,7 @@ text {
 
     As for columns, we will use a small sample table
     containing a simple employee data base for demonstration purposes:
-} tscript {
+} xtal {
     Emps = @table (
         Name string,   Salary uint,   Age uint,   Location string
     ) {
@@ -291,7 +292,7 @@ text {
     print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"] ' (Name, Age))
 } text {
     Tables can be modified in multiple ways.
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     Emps[% Emps] = {'Mary, 38000, 25, 'Seattle}      # Add a row
 
     Emps'Salary = Emps'Salary + 2000                 # Modify entire column
@@ -302,114 +303,114 @@ text {
 }
 
 text {
-    == Running TScript 
+    == Running Xtal 
 
-    TScript is part of the `tarray` package which must be loaded to run
-    TScript code.
+    Xtal is part of the `tarray` package which must be loaded to run
+    Xtal code.
 } shell {
     package require tarray
     namespace path tarray;      # Allows use of tarray commands without qualification
 } eval {
-    source ../src/teval.tcl
+    source ../src/xtal.tcl
 } text {
-    A TScript code fragment may be run by one of several means.
+    A Xtal code fragment may be run by one of several means.
 
-    First, it can be run from within using the `tarray::tscript` command.
+    First, it can be run from within using the `xtal::xtal` command.
     This is roughly the equivalent of running a Tcl script using `eval`.
 } shell {
-    tscript { a = 1 }
+    xtal { a = 1 }
 } text {
-    The `tscript` command returns the result of the last statement it
+    The `xtal` command returns the result of the last statement it
     executes.
     
-    Second, you can define a TScript procedure from Tcl using `tarray::tproc` in
+    Second, you can define a Xtal procedure from Tcl using `xtal::function` in
     a similar fashion as the Tcl `proc` command. It can then be invoked
     in the same manner as a Tcl procedure.
 } shell {
-    tproc add {x y} { return x + y }
+    xtal::function add {x y} { return x + y }
     add 2 3
 } text {
-    Finally, you can load an entire TScript file using the
-    `tarray::tsource` command which has syntax similar to the
+    Finally, you can load an entire Xtal file using the
+    `xtal::source` command which has syntax similar to the
     Tcl `source` command.
 } syntax {
-    tsource ?-encoding _ENCODING_? _TSCRIPTFILE_
+    xtal::source ?-encoding _ENCODING_? _XTALFILE_
 } text {
 
     In this tour, for ease of exposition we will simply show the
-    relevant TScript fragments without any reference to how they
+    relevant Xtal fragments without any reference to how they
     are executed.
 }
 
 text {
-    ((== sect_basic_tscript_syntax "Basic syntax"))
+    ((== sect_basic_xtal_syntax "Basic syntax"))
 
-    The basic syntax of TScript is closer to the C family of languages
+    The basic syntax of Xtal is closer to the C family of languages
     than to Tcl.
 
     === Statements
 
-    Like Tcl, a TScript script is a sequence of statements separated
+    Like Tcl, a Xtal script is a sequence of statements separated
     by either a newline character or a semicolon.
-} tscript {
+} xtal {
     x = 2
     y = 3 ; z = x*y
 } text {
     A statement may be an assignment as above, or simply an expression:
-} tscript {10*x + y}
+} xtal {10*x + y}
 
 text {
     ==== Assignment statement
-    An assignment statement in TScript takes the form
+    An assignment statement in Xtal takes the form
 } syntax {
     _LVALUE_ = _RAVALUE_
 } text {
-    where _RVALUE_ may be a TScript expression or
-    ((^ sect_tscript_tcl "Tcl fragment")).
+    where _RVALUE_ may be a Xtal expression or
+    ((^ sect_xtal_tcl "Tcl fragment")).
 
-    In the current version of TScript, _LVALUE_ cannot be an arbitrary
+    In the current version of Xtal, _LVALUE_ cannot be an arbitrary
     expression and must take one of the following forms:
 
-    * an identifier as defined in ((^ sect_tscript_variables))
+    * an identifier as defined in ((^ sect_xtal_variables))
 
-    * optionally followed by a ((^ sect_tscript_lookup_ops "lookup")),
-    ((^ sect_tscript_column_sel_ops "column selection")) or
-    ((^ sect_tscript_table_slice_ops "table slicing")) operator
+    * optionally followed by a ((^ sect_xtal_lookup_ops "lookup")),
+    ((^ sect_xtal_column_sel_ops "column selection")) or
+    ((^ sect_xtal_table_slice_ops "table slicing")) operator
 
-    * optionally followed by an ((^ sect_tscript_indexing_ops "indexing")) operator
+    * optionally followed by an ((^ sect_xtal_indexing_ops "indexing")) operator
 }
 
 text {
-    ((=== sect_tscript_tcl "Mixing Tcl and TScript"))
+    ((=== sect_xtal_tcl "Mixing Tcl and Xtal"))
 
-    Tcl and TScript code can be intermixed. To embed TScript within
-    Tcl, use the `tarray::tscript` command as
+    Tcl and Xtal code can be intermixed. To embed Xtal within
+    Tcl, use the `xtal::xtal` command as
 } syntax {
-    tscript _TSCRIPT_
+    xtal _SCRIPT_
 } text {
-    where _TSCRIPT_ is the TScript fragment which may be spread across
+    where _SCRIPT_ is the Xtal fragment which may be spread across
     multiple lines.
 } shell {
-    tscript { x = 2 }
-    tscript {
+    xtal { x = 2 }
+    xtal {
         y = 3
         z = x * y
     }
 } text {
-    Conversely, Tcl can be embedded with TScript by placing the
+    Conversely, Tcl can be embedded with Xtal by placing the
     Tcl script within `<` and `>` delimiters.
 } prompt {} tshell {
     now = <clock seconds>
 } text {
     Multi-line scripts are permitted.
-} tscript {
+} xtal {
     <
         set x 2
         set y 3
         set z [expr {$x + $y}]
     >
 } text {
-    The terminating `>` _must_ be followed by a TScript statement terminator
+    The terminating `>` _must_ be followed by a Xtal statement terminator
     such as a newline or `;`, optionally with intervening whitespace.
 
     [NOTE]
@@ -426,7 +427,7 @@ text {
 }
 
 text {
-    ((=== sect_tscript_variables Variables))
+    ((=== sect_xtal_variables Variables))
 
     As seen above, variables are syntactically different from Tcl:
 
@@ -439,7 +440,7 @@ text {
     the same name resolution rules.
 } shell {
     set v "This is a variable"
-    tscript { v = "Modified from tscript" }
+    xtal { v = "Modified from xtal" }
     puts $v
 }
 
@@ -465,28 +466,28 @@ text {
     interpolation.
 } text {
     [WARNING]
-    Also note that braces have different semantics in TScript and
+    Also note that braces have different semantics in Xtal and
     cannot be used to delimit strings.
 } text {
     An alternate form of a string literal is a `'` character preceding
     a string that follows the rules for an identifier.
-} tscript { s = 'this::is::a::string } text {
+} xtal { s = 'this::is::a::string } text {
     This alternate form is merely a small convenience.
 }
 
 text {
     === Lists
 
-    Braces in TScript are used to construct lists, similar to the
+    Braces in Xtal are used to construct lists, similar to the
     `list` command in Tcl. _Note this differs from the use of braces in Tcl._
-} tscript {
+} xtal {
     l = {"a string", x, tcl::clock::seconds(), y+z}
 } text {
     The list elements are separated using commas and an element may
     be a literal, variable, function call or general expression.
     The list elements may be spread across multiple lines but must still
     be separated by commas.
-} tscript {
+} xtal {
     l = {
         x,
         "a string",
@@ -495,31 +496,32 @@ text {
 } text {
     As an aside, we could also have invoked the Tcl `list` command
     as a function to construct a list.
-} tscript {l = list(x,"a string",y+z)}
+} xtal {l = list(x,"a string",y+z)}
 
 text {
     == Functions
 
-    Functions in TScript may refer to either Tcl commands or to functions
-    defined through the TScript `tproc` function.
+    Functions in Xtal may refer to either Tcl commands or to functions
+    implemented in Xtal through the Tcl `xtal::function` command or the
+    though `function` in Xtal itself.
     
     === Invoking functions
     Invocation of functions/commands takes a form similar to function
     calls in C. 
     Function parameters are wrapped in parenthesis and separated by commas.
 
-} tscript {
+} xtal {
         hex = format("0x%x", 42)
 } text {
     The above calls Tcl's built-in `format` command.
     There is no difference between invoking commands implemented in Tcl or
-    in TScript via the `tproc` procedure.
+    in Xtal.
 
     [WARNING]
     ====
     There is a subtle
-    point to be noted when invoking commands from TScript as opposed to Tcl.
-    In TScript, a parameter that is not a literal is implicitly dereferenced
+    point to be noted when invoking commands from Xtal as opposed to Tcl.
+    In Xtal, a parameter that is not a literal is implicitly dereferenced
     when passed to a command. It is easy to forget this when calling
     Tcl commands that take variable _names_ as parameters.
     Thus 
@@ -528,21 +530,21 @@ text {
     ----
     is _not_ 
     ----
-    tscript { incr(val, -1) }
+    xtal { incr(val, -1) }
     ----
     which lands up passing the _value_ of `val` to the `incr`
     command which actually expects the name `val` itself to be the argument.
 
     The correct equivalents are either of the following:
     ----
-    tscript { incr("val", -1) }
-    tscript { incr('val, -1) }
+    xtal { incr("val", -1) }
+    xtal { incr('val, -1) }
     ----
     ====
 } text {
     As for list elements, the parameters for a function call may be
     spread across multiple lines.
-} tscript {
+} xtal {
     hex = format("0x%x",
                  42)
 } text {
@@ -557,7 +559,7 @@ text {
 text {
     ==== Calling ensemble commands
 
-    Ensemble commands such as `clock seconds` are called from TScript as
+    Ensemble commands such as `clock seconds` are called from Xtal as
 } prompt {} tshell {
     clock.seconds()
 } text {
@@ -568,20 +570,20 @@ text {
     tcl::clock::seconds()
 } text {
     Finally, in the very rare case that the ensemble subcommand does
-    not fit the syntax for a TScript identifier, you can pass it as the
+    not fit the syntax for a Xtal identifier, you can pass it as the
     first argument.
 } prompt {} tshell {
     clock("seconds")
 }
 
 text {
-    ((==== sect_tscript_calling_methods "Calling object methods"))
+    ((==== sect_xtal_calling_methods "Calling object methods"))
 
     Object methods are called in a manner similar to ensemble commands.
 } shell {
     oo::class create OExample { method m args {puts [join $args ,]} }
     OExample create o
-    tscript {
+    xtal {
         o.m('astring, 10)
         o.destroy()
     }
@@ -590,7 +592,7 @@ text {
     object is not fixed and the object is accessed through a variable.
 } errorok 1 shell {
     set obj [OExample new]
-    tscript {obj.m('astring, 10)}
+    xtal {obj.m('astring, 10)}
 } text {
     _Function and object names, unlike variables, do not get implicitly
     dereferenced._
@@ -600,24 +602,24 @@ text {
     $obj.destroy()
 } text {
     We will talk about the dereferencing operator
-    ((^ sect_tscript_deref_op later)).
+    ((^ sect_xtal_deref_op later)).
 }
 
 text {
     ==== Passing options to commands
 
-    When passing options to commands, TScript supports an additional
+    When passing options to commands, Xtal supports an additional
     syntax for arguments where the option name does not have to be
     quoted or separated from its value by a `,`.
 
     Instead of invoking the Tcl `subst` command as follows
-} tscript { subst("-novariables", "The value of val is $val") } text {
+} xtal { subst("-novariables", "The value of val is $val") } text {
     it can be invoked as
-} tscript { subst(-novariables "The value of val is $val") } text {
+} xtal { subst(-novariables "The value of val is $val") } text {
     Note the option name is not quoted and there is no `,` separating
     it from its value.
 
-    TScript recognizes this form based on the argument being composed
+    Xtal recognizes this form based on the argument being composed
     of two expressions with the first one being a token
     starting with a `-` character.
 }
@@ -625,28 +627,28 @@ text {
 text {
     === Defining functions
 
-    There are two ways to define functions that implemented in TScript:
+    There are two ways to define functions that implemented in Xtal:
 
-    * Using the `function` keyword within TScript code
-    * Using the `tproc` command within Tcl code
+    * Using the `function` keyword within Xtal code
+    * Using the `xtal::function` command within Tcl code
 
     Both offer the same functionality, differing only because of
-    Tcl and TScript syntax.
+    Tcl and Xtal syntax.
     
-    ==== Defining TScript functions with `function`
-    Within TScript, use `function` to define a TScript function. This
+    ==== Defining Xtal functions with `function`
+    Within Xtal, use `function` to define a Xtal function. This
     has the syntax
 } syntax {
     function _NAME_ (?_PARAM_, ...?) _BODY_
 } text {
     Parameters are separated by commas.
-} tscript {
+} xtal {
     function add(a, b) {return a + b}
     add(1,2)
 } text {
     They can take default values where the value is
     separated from the parameter name with an `=` sign.
-} tscript {
+} xtal {
     function add(a, b = 1) {return a + b}
     add(10)
 } text {
@@ -657,19 +659,20 @@ text {
     If the last parameter name is `args`, it is treated in the same
     manner as in Tcl's `proc` command.
 } text {
-    ==== Defining TScript functions with `tproc`
+    ==== Defining Xtal functions in Tcl with `xtal::function`
     
-    Unlike `function`, the `tproc` command is meant to be called from Tcl as opposed
-    to being used within TScript itself. It has the same form as
+    Unlike `function`, the `xtal::function`
+    command is meant to be called from Tcl as opposed
+    to being used within Xtal itself. It has the same form as
     the Tcl `proc` command except that the body of the procedure
-    is TScript instead of Tcl.
+    is Xtal instead of Tcl.
 } syntax {
-    tproc _NAME_ _PARAMS_ _BODY_
+    xtal::function _NAME_ _PARAMS_ _BODY_
 } text {
     _PARAMS_ takes the same form as in the `proc` command, including defaults
     for parameter and variable parameters using the `args` notation.
 } shell {
-    tproc add {a b} {return a + b}
+    xtal::function add {a b} {return a + b}
 }
 
 text {
@@ -679,13 +682,13 @@ text {
 } syntax {
     return _EXPRESSION_
 } text {
-    _EXPRESSION_ is any valid TScript expression.
+    _EXPRESSION_ is any valid Xtal expression.
 }
 
 text {
     == Control statements
 
-    TScript implements the `if`, `while` and `for` statements similar to Tcl
+    Xtal implements the `if`, `while` and `for` statements similar to Tcl
     but in a slightly different form.
 
     === The `if` statement
@@ -696,9 +699,9 @@ text {
     As indicated, the `else` clause is optional. If present, it must
     be on the same logical line as the preceding statement block.
 
-    _EXPRESSION_ can be any TScript expression and does not need
+    _EXPRESSION_ can be any Xtal expression and does not need
     to be enclosed in parenthesis.
-} tscript {
+} xtal {
     if %Emps {
         print(Emps)
     } else {
@@ -712,9 +715,9 @@ text {
 } syntax {
     while _EXPRESSION_ { _STATEMENTBLOCK_ }
 } text {
-    _EXPRESSION_ can be any TScript expression and does not need
+    _EXPRESSION_ can be any Xtal expression and does not need
     to be enclosed in parenthesis.
-} outputlimit 3 tscript {
+} outputlimit 3 xtal {
     i = 0
     while i < % Emps {
         puts(Emps'Name[i])
@@ -734,7 +737,7 @@ text {
     the value of the loop variable is less than or equal to _HIGHEXPR_. After
     each iteration, the loop variable is incremented by _INCREMENT_ which
     defaults to `1` if unspecified.
-} tscript {
+} xtal {
     for i in 0 : %Emps-1 by 2 {
         puts(Emps'Name[i])
     }
@@ -750,9 +753,9 @@ text {
 } syntax {
     for _IDENTIFIER_ in _COLLECTION_ _STATEMENTBLOCK_
 } text {
-    where _COLLECTION_ is any TScript expression that results
+    where _COLLECTION_ is any Xtal expression that results
     in a column, table or a Tcl list.
-} outputlimit 3 tscript {
+} outputlimit 3 xtal {
     for rainfall in Rainfall[Rainfall > 100] {
         puts(rainfall)
     }
@@ -781,7 +784,7 @@ text {
     === The `try` statement
     The `try` statement closely resembles Tcl's `try` command
     differing only in that the syntax is a little different
-    and the clauses are in TScript.
+    and the clauses are in Xtal.
 
     The general syntax of the command is
 } syntax {
@@ -819,7 +822,7 @@ text {
     receives the status dictionary.
 
     The following example will help clarify the working.
-} tscript {
+} xtal {
     try {
         x = nosuchvar
     } trap {'TCL, 'LOOKUP, 'VARNAME} message status_dict {
@@ -838,9 +841,9 @@ text {
     
     A more bare-bones version of the above, with a different error this
     time, would be
-} tscript {
+} xtal {
     try {
-        throw 'TSCRIPT, 'TEST, "This is only a test"
+        throw 'XTAL, 'TEST, "This is only a test"
     } trap {'TCL, 'LOOKUP, 'VARNAME} {
         puts("Oops, variable does not exist")
     } on error message {
@@ -861,11 +864,11 @@ text {
     as the message. Moreover, all arguments are gathered into a list
     which becomes the value of the error code.
 } shell {
-    catch { tscript {throw "This is the error message"} } message
+    catch { xtal {throw "This is the error message"} } message
     puts $message
     puts $::errorCode
 
-    catch { tscript {throw 'TSCRIPT, 'ERROR, "This is only a test"} } message
+    catch { xtal {throw 'XTAL, 'ERROR, "This is only a test"} } message
     puts $message
     puts $::errorCode
 }
@@ -873,7 +876,7 @@ text {
 text {
     == Columns and tables
 
-    We now come to the primary reason for the existence of TScript -
+    We now come to the primary reason for the existence of Xtal -
     convenient vector operations on columns and tables.
 
 } text {
@@ -887,9 +890,9 @@ text {
 } text {
     Here _TYPE_ is one of the tarray column types and _INITLIST_ is
     an optional initializer list. For example,
-} tscript { A = @int } text {
+} xtal { A = @int } text {
     creates an empty column of type `int` and assigns it to `A` and
-} tscript { A = @any {10, {1, 2, 3}, len} } text {
+} xtal { A = @any {10, {1, 2, 3}, len} } text {
     creates a column of type `any` with 3 elements.
 
     The second form is that of a function, which is
@@ -915,7 +918,7 @@ text {
     of the tarray column types. _TABLEROWS_ may be specified
     to initialize the table and should be a list of rows as
     for the `tarray::table create` command. Here is the table
-    definition from our ((^ sect_tscript_quick_tour)) section.
+    definition from our ((^ sect_xtal_quick_tour)) section.
     
 } syntax {
     Emps = @table (
@@ -933,7 +936,7 @@ text {
     In many cases, you may find it easier to use Tcl, either directly
     or embedded, to create tables. For example, the above table
     can be created with embedded Tcl as
-} tscript {
+} xtal {
     Emps = <
       table create {
         Name string   Salary uint    Age uint    Location string
@@ -950,7 +953,7 @@ text {
 }
 
 text {
-    ((=== sect_tscript_column_sel_ops "The `%` and `'` table column selection operators"))
+    ((=== sect_xtal_column_sel_ops "The `%` and `'` table column selection operators"))
     Columns from a table can be selected using the `'` and '%' operators.
 } syntax {
     _TABLE_'_COLNAME_
@@ -974,7 +977,7 @@ text {
 }
 
 text {
-    ((=== sect_tscript_table_slice_ops "The `'()` and `%()` table slicing operators"))
+    ((=== sect_xtal_table_slice_ops "The `'()` and `%()` table slicing operators"))
 
     The table slicing operators `'()` and '%()` operators
     return a table containing specific columns from a table.
@@ -1028,41 +1031,41 @@ text {
 text {
     == Operators
 
-    TScript operators fall into the following classes:
+    Xtal operators fall into the following classes:
 
-    * ((^ sect_tscript_arith_ops "Arithmetic operators"))
+    * ((^ sect_xtal_arith_ops "Arithmetic operators"))
     are similar to those in Tcl's `expr` command
     but work on both scalars as well as columns.
 
-    * ((^ sect_tscript_rel_ops "Relational operators")) and
-    ((^ sect_tscript_logic_ops "logical operators"))
+    * ((^ sect_xtal_rel_ops "Relational operators")) and
+    ((^ sect_xtal_logic_ops "logical operators"))
     are similar to those in `expr` when used
     with scalar operands. However, when used with column operands
     they have different semantics that provide very convenient search
     and indexing functionality.
 
-    * ((^ sect_tscript_set_ops "Set operators"))
+    * ((^ sect_xtal_set_ops "Set operators"))
     are applicable only to columns and implement operations like
     union and intersection.
     
-    * ((^ sect_tscript_lookup_ops "Lookup operators")) that perform
+    * ((^ sect_xtal_lookup_ops "Lookup operators")) that perform
     associative lookup on dictionaries and columns.
 
-    * ((^ sect_tscript_indexing_ops "Indexing operators"))
+    * ((^ sect_xtal_indexing_ops "Indexing operators"))
     that combine both traditional indexing as well as search
     operations on collection data types including lists, columns
     and tables.
 
-    * ((^ sect_tscript_misc_ops "Other miscellaneous operators")) that
+    * ((^ sect_xtal_misc_ops "Other miscellaneous operators")) that
     provide functionality like cardinality.
     
     Note that operator precedence follows that of Tcl.
 
-    ((=== sect_tscript_arith_ops "Arithmetic operators"))
+    ((=== sect_xtal_arith_ops "Arithmetic operators"))
 
     ==== Unary arithmetic operators
     
-    The TScript unary operators are `-`, `+`, `~` and `!` have the
+    The Xtal unary operators are `-`, `+`, `~` and `!` have the
     same semantics as in Tcl for operands that are not columns or tables.
 
     In the case of columns of type `byte`, `int`, `uint`,
@@ -1097,7 +1100,7 @@ text {
     full details of type promotion and intermediate values.
 
     Here is an example of mixed operand types:
-} tscript {
+} xtal {
         I = @int {10, 20, 30, 40}
         J = @byte {1, 2, 3, 4}
         print(I + 2 * J)
@@ -1108,23 +1111,23 @@ text {
 
     For example, we can reduce everyone's salaries by 2K since times
     are tough.
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     Emps'Salary = Emps'Salary - 2000
     print (Emps)
 }
 
 text {
     
-    ((=== sect_tscript_rel_ops "Relational operators"))
+    ((=== sect_xtal_rel_ops "Relational operators"))
     
     The relational operators include the `==`, `!=`, `<`, +<=+, `>`, `>=`
     operators that are present in Tcl.
 
     In addition, they include the additional operators related
     to string and pattern matching that are shown in 
-    ((^ tab_tscript_match_ops)).
+    ((^ tab_xtal_match_ops)).
     
-    ((.Table tab_tscript_match_ops "TScript arithmetic operators"))
+    ((.Table tab_xtal_match_ops "Xtal arithmetic operators"))
     [cols="10,30,60", options="headers"]
     |===
     |Operator
@@ -1201,7 +1204,7 @@ text {
 
     * If neither operand is a column, the result will be a boolean
     value based on standard Tcl operators or the operators shown
-    in ((^ tab_tscript_match_ops)).
+    in ((^ tab_xtal_match_ops)).
 
     * If (exactly) one of the operands is a column, each element
     of the column is individually compared with the other operand.
@@ -1211,15 +1214,15 @@ text {
 
     This last rule is illustrated by the example below which prints
     the indices for all months where the rainfall is less than 100mm.
-} tscript {
+} xtal {
     print(Rainfall < 100)
 } text {
     The real usefulness of this will become apparent when we discuss
-    ((^ sect_tscript_indexing_ops "indexing operators")).
+    ((^ sect_xtal_indexing_ops "indexing operators")).
 
     [NOTE]
     ====
-    TScript does not allow expressions of the form
+    Xtal does not allow expressions of the form
 } syntax {
     a < b < c
 } text {
@@ -1230,7 +1233,7 @@ text {
     ====
 }
 text {
-    ((=== sect_tscript_logic_ops "Logical operators"))
+    ((=== sect_xtal_logic_ops "Logical operators"))
 
     The logical operators include `&&` and `||` as in Tcl.
     _However, unlike Tcl these operators do not short-circuit the evaluation
@@ -1244,14 +1247,14 @@ text {
     value based on standard Tcl operators.
 
     * If both operands are columns, the operation is treated
-    as a set operation and described in ((^ sect_tscript_set_ops)).
+    as a set operation and described in ((^ sect_xtal_set_ops)).
 
     * If one operand is a column and the other is not, an error is
     raised.
 }
 
 text {
-    ((=== sect_tscript_set_ops "Set operators"))
+    ((=== sect_xtal_set_ops "Set operators"))
 
     The operators `&&` and `||` behave as set operators when both
     operands are columns. In this case, both operands must be of
@@ -1267,7 +1270,7 @@ text {
 }
 
 text {
-    ((=== sect_tscript_lookup_ops "Lookup operators"))
+    ((=== sect_xtal_lookup_ops "Lookup operators"))
 
     The operators `'` and `%` lookup keys in a dictionary
     or column.
@@ -1323,9 +1326,9 @@ text {
 }
 
 text {
-    ((=== sect_tscript_indexing_ops "Indexing and search operators"))
+    ((=== sect_xtal_indexing_ops "Indexing and search operators"))
 
-    Much of the convenience of TScript in dealing with columns and tables
+    Much of the convenience of Xtal in dealing with columns and tables
     stems from its variety of indexing options. Indices may be simple
     numerics, ranges, lists or selectors based on boolean expressions.
 
@@ -1360,23 +1363,23 @@ text {
     Alternatively, the index may specify an _index range_
     in the column or table using the syntax `_LOWEXPR_ : _HIGHEXPR_`.
     So, the rainfall for the first quarter can be retrieved by
-} tscript {q1_rainfall = Rainfall[0:2]} text {
+} xtal {q1_rainfall = Rainfall[0:2]} text {
     In this case the index operator returns a column (or table)
     containing the specified elements. Thus notice the difference
     between
-} tscript { Rainfall[0] } text {
+} xtal { Rainfall[0] } text {
     and
-} tscript { Rainfall[0:0] } text {
+} xtal { Rainfall[0:0] } text {
     though they both specify a single element.
 
     The range limits may be expressions that result in integer
     values.
-} tscript {
+} xtal {
     i = 0
     print(Emps[i:%Emps-1])
 } text {
     Again, ranges may be used with lists as well.
-} tscript {
+} xtal {
     {1, 2, 3, 4}[1:2]
 } text {
     We shall also see later that ranges can also be combined with
@@ -1389,12 +1392,12 @@ text {
     The third form of an index is an _index list_. Here you can
     specify a list of integers or a column of type `int` that
     contain the numeric indices of interest.
-} tscript {
+} xtal {
     i = 10
     Rainfall[{9, i, 11}]
 } text {
     We could have specified a column of type `int` instead.
-} tscript {
+} xtal {
     indices = @int {11, 10, 9}
     Rainfall[indices]
 } text {
@@ -1404,16 +1407,16 @@ text {
 
     Again, make a note of the difference with respect to a simple
     numeric index
-} tscript { Rainfall[0] } text {
+} xtal { Rainfall[0] } text {
     which returns the element, versus
-} tscript {
+} xtal {
     Rainfall[@int {0}] 
 } text {
     which returns a column containing that single element.
 
     Like simple indices and ranges, index lists can be used with
     lists as well.
-} tscript {
+} xtal {
     {1, 2, 3, 4}[@int{0, 2, 1, 3}]
 }
 
@@ -1423,7 +1426,7 @@ text {
     The final form an index can take is that of a _selector_ which
     is a boolean expression involving the column or table.
 
-    As we noted in ((^ sect_tscript_column_rel_ops "column operators"))
+    As we noted in ((^ sect_xtal_column_rel_ops "column operators"))
     comparison of a column with a scalar value results
     in an `int` column containing the indices for which the comparison
     of the corresponding element succeeded. This implies that
@@ -1437,18 +1440,18 @@ text {
     an index column.
 
     As a simple example of a selector, consider the following expression:
-} tscript { Rainfall > 100 } text {
+} xtal { Rainfall > 100 } text {
     The return value is a column containing the indices corresponding
     to the elements which have a value greater than `100`.
 
     Therefore, we can use such boolean selectors as indices to 
     retrieve the actual values themselves.
-} tscript { Rainfall[Rainfall > 100] } text {
+} xtal { Rainfall[Rainfall > 100] } text {
     Selectors can be used for tables as well with the operand being
     a contained column. Moreover, the selector need not be a simple
     boolean expression. The following prints all employees who are
     over 35 but have an income less than `70,000`.
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) 
 }
 
@@ -1458,7 +1461,7 @@ text {
     Selectors can include ranges as well.
     For example, the rainfall in the last quarter that
     exceeds 50mm is given by
-} tscript { Rainfall[9:11 && Rainfall > 50] } text {
+} xtal { Rainfall[9:11 && Rainfall > 50] } text {
     [WARNING]
     A selector can include function calls as well. However, note
     that the function is called just once, not once per element
@@ -1481,7 +1484,7 @@ text {
     following example.
 } shell {
     proc get_table {} { return $::Emps }
-    tscript { print( get_table() [@@'Age > 35 && @@'Salary < 70000]) }
+    xtal { print( get_table() [@@'Age > 35 && @@'Salary < 70000]) }
 }
 
 text {
@@ -1491,18 +1494,18 @@ text {
     examples earlier. Below are some slightly more involved examples.
 } text {
     To move everyone to Boston, fill the entire range with one value.
-} tscript {
+} xtal {
     Emps'Location[0 : %Emps - 1] = 'Boston
 } text {
     To give an increment only to low-paid
     employees make use of selectors.
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     Emps'Salary[Emps'Salary < 50000] = Emps'Salary[Emps'Salary < 50000] + 2000;
     print (Emps)
 } text {
     To modify a subset of the fields for a specific row,
     index a slice of the table. So to relocate Sally with a raise
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     Emps'(Salary, Location)[Emps'Name'Sally]  = {70000, 'Seattle}
     print (Emps[Emps'Name == 'Sally])
 } text {
@@ -1527,12 +1530,12 @@ text {
     l[2:3] = {102, 103}  # Ambiguity, assumes a fill operation
 } text {
     In the first case, values 102 and 103 are assigned to consecutive list
-    elements. Because the column is typed as integer, TScript can deduce the
+    elements. Because the column is typed as integer, Xtal can deduce the
     intended operation in both assignments to `I`. In the case of the
     second assignment to the list, there is ambiguity because lists can
     contain elements of any type. Thus the statement could be interpreted
     as filling the range with a single value or as assigning consecutive
-    elements of the right hand list. In such a case, TScript assumes
+    elements of the right hand list. In such a case, Xtal assumes
     a fill operation is intended.
 
     Similar situations can also arise when the column is of type `any` since
@@ -1541,7 +1544,7 @@ text {
 }
 
 text {
-    ((=== sect_tscript_misc_ops "Miscellaneous operators"))
+    ((=== sect_xtal_misc_ops "Miscellaneous operators"))
 }
 
 text {
@@ -1557,18 +1560,18 @@ text {
 }
 
 text {
-    ((==== sect_tscript_deref_op "The `$` dereferencing operator"))
+    ((==== sect_xtal_deref_op "The `$` dereferencing operator"))
 
     The operator `$` is a unary operator that dereferences
     the value of its operand. We have already seen an example of its use
-    ((^ sect_tscript_calling_methods earlier)) in calling object methods.
+    ((^ sect_xtal_calling_methods earlier)) in calling object methods.
 
     The operator can only be applied to an identifier or a string literal
     and not to an arbitrary expression. In both cases, it returns the
     value of the variable whose name is given by the operand value.
     
     The operator is useful in a couple of different situations. One is
-    when you need to reference a variable that does not follow TScript
+    when you need to reference a variable that does not follow Xtal
     identifier syntax, e.g. one with spaces in it, as shown in the
     Tcl code below. The other is when the variable is to be referenced
     indirectly.
@@ -1583,7 +1586,7 @@ text {
     puts ${variable with spaces in name}
     puts [set $varname]
 } text {
-    would be the following in TScript
+    would be the following in Xtal
 } prompt {} tshell {
     puts($"variable with spaces in name")
     puts($varname)
@@ -1624,14 +1627,14 @@ text {
     or a list of indices.
 
     So for instance we could get rid of all our high-priced employees.
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     Emps = @delete(Emps, Emps'Salary > 75000)
     print(Emps)
 }
 
 text {
     === The `@inject` function
-    The assignment operators in TScript cannot be used to insert elements
+    The assignment operators in Xtal cannot be used to insert elements
     between two elements in a column or rows in a table. The `@inject`
     and `@insert` functions are provided instead for that purpose. The
     `@inject` command inserts the contents of a list or column (table)
@@ -1642,7 +1645,7 @@ text {
     where _SOURCE_ is a list or column (table) to be inserted at position
     _START_ in __COLUMN_OR_TABLE__. For example, we can add a couple
     of low priced lackeys to replace the ones we layed off.
-} outputlimit 0 tscript {
+} outputlimit 0 xtal {
     Emps = @inject(Emps, {
         {'Tom,      30000,      38,       'Boston},
         {'Peyton,   30000,      38,       'Denver}
@@ -1694,7 +1697,7 @@ text {
 text {
     === The `@reverse` function
     The `@reverse` function reverses columns and tables.
-} tscript {
+} xtal {
     @reverse (@int {1,2,3})
 } 
 
@@ -1712,14 +1715,14 @@ text {
 } text {
     In this form, _COLUMNEXPR_ can be any expression that results in
     a column value. _RELOP_ is any
-    ((^ sect_tscript_rel_ops "relational operator")). Without any options
+    ((^ sect_xtal_rel_ops "relational operator")). Without any options
     specified, the command returns the index of the first element
     of the column that matches _EXPRESSION_.
     _SEARCHOPTIONS_ is a space-separated
     list of options that modify this behaviour. The possible
-    option values are shown in ((^ tab_tscript_search_options)).
+    option values are shown in ((^ tab_xtal_search_options)).
 
-    ((.Table tab_tscript_search_options "@search options"))
+    ((.Table tab_xtal_search_options "@search options"))
     [cols="20,80", options="header"]
     |===
     |Option
@@ -1771,15 +1774,15 @@ text {
     Suppose we want to list the salaries of 
     all employees in Boston who make more than 45000/year. We could write this
     using selectors.
-} tscript {
+} xtal {
     print (Emps'Name[Emps'Salary > 45000 && Emps'Location == 'Boston])
 } text {
     Alternatively, using `@search`,
-} tscript {
+} xtal {
     indices = @search (Emps'Salary > 45000) -> Emps'Location == 'Boston all
     print (Emps'Name[indices])
 } text {
-    In the first case, TScript searches the appropriate columns for
+    In the first case, Xtal searches the appropriate columns for
     salaries greater than the specified amount and then again for the
     specified location. Finally, it returns the intersection of the two
     and retrieves those names from the `Name` column of the table.
@@ -1791,7 +1794,7 @@ text {
 
     [NOTE]
     This performance benefit is only true because the current
-    TScript optimizer is extremely rudimentary and not capable of
+    Xtal optimizer is extremely rudimentary and not capable of
     recognising and transforming the selector into the more efficient
     form. It is hoped future releases will improve on this.
 }
@@ -1811,9 +1814,9 @@ text {
     a column value. The command then returns a column of the same type
     sorted based on the specified options. _SORTOPTIONS_ is a space-separated
     list of options that control the sorting operations. The possible
-    option values are shown in ((^ tab_tscript_sort_options)).
+    option values are shown in ((^ tab_xtal_sort_options)).
 
-    ((.Table tab_tscript_sort_options "@sort options"))
+    ((.Table tab_xtal_sort_options "@sort options"))
     [cols="20,80", options="header"]
     |===
     |Option
@@ -1904,7 +1907,7 @@ text {
     @sum(__NUMERIC_COLUMNEXPR__)
 } text {
     So to get our annual salary expenditure,
-} tscript {
+} xtal {
     @sum(Emps'Salary)
 }
 
