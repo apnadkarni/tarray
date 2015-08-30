@@ -172,28 +172,6 @@ proc tarray::table::join {atab acolname btab bcolname args} {
 }
     
 
-proc tarray::tsource {arg1 args} {
-    if {[llength $args] == 0} {
-        set path $arg1
-    } else {
-        if {[llength $args] != 2 || $arg1 ne "-encoding"} {
-            error "invalid syntax: should be \"tsource ?-encoding ENCODING? PATH\""
-        }
-        lassign $args encoding path
-    }
-    set fd [open $path r]
-    try {
-        if {[info exists encoding]} {
-            fconfigure $fd -encoding $encoding -translation auto
-        } else {
-            fconfigure $fd -translation auto
-        }
-        set script [read $fd]
-        return [uplevel 1 [list [namespace current]::tscript $script]]
-    } finally {
-        close $fd
-    }
-}
 
 proc tarray::unsupported::build_info {} {
     set result ""

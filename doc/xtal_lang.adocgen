@@ -1,5 +1,5 @@
 text {
-    ((= chap_xtal "The XTal Language"))
+    ((= chap_xtal "The Xtal Language"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
@@ -21,7 +21,8 @@ text {
     This document assumes the reader is familiar with typed arrays.
     If not, please glance through the ((^ chap_guide)) before continuing.
 
-    The Xtal language is an alternative for 
+    The Xtal language (e**X**tended **t**yped **a**rray **l**anguage)
+    is an alternative for 
     working with typed array columns and tables. It provides 
     
     * convenient succint syntax
@@ -29,14 +30,14 @@ text {
     * search operators
     * flexible indexing
 
-    Although geared towards typed arrays, Xtal is not limited to
-    operating solely on those structures. It can be used with any data.
+    Although geared towards operations on typed arrays, Xtal can be used as
+    a general purpose language in its own right.
     Note however, that Xtal is not a replacement for Tcl.
     Rather, it is embedded in
     Tcl and the two can be intermixed according to whatever syntax suits
     the task at hand.
 
-    Neverthess, Xtal is syntactically completely different from Tcl.
+    Nevertheless, Xtal is syntactically completely different from Tcl.
 
     [WARNING]
     Xtal is still under development. Syntactic and functional changes
@@ -104,12 +105,10 @@ text {
     puts "Second Tcl statement"
     >
 } text {
-    Similarly, Xtal can be mixed with Tcl code with the `xtal`
+    Similarly, Xtal can be mixed with Tcl code with the `xtal::xtal`
     command.
 } shell {
-    set L [list ab ba acb abc a]
-    xtal { L = L[L =~ "a.*b"] }
-
+    namespace import xtal::xtal
     xtal {
         puts("puts called from Xtal")
         <
@@ -130,7 +129,7 @@ text {
     L = {0, a, b, a + b, tcl::mathfunc::rand()}
 } text {
     Although you can call Tcl's list related commands, like
-} prompt {} tshell {
+} prompt {} xtal_shell {
     llength(L)
 } text {
     there are several convenient operators dealing with lists.
@@ -142,22 +141,26 @@ text {
 } text {
     Similarly, the indexing operator `[]` can be used instead
     of `lindex` and this supports multiple forms.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     L[0]  # Single element
     
     L[0:1] # Index range
     
     L[{3,1,2}] # Index list - note indices need not be in order
 } text {
-   The indexing operator can be used in assignments as well. 
-} prompt {} tshell {
+    The index operations can be search expressions as well.
+} prompt {} xtal_shell {
+    xtal { L = L[L =* "*o"] }
+} text {
+   The indexing operator can be used in assignments. 
+} prompt {} xtal_shell {
     L[0 : %L-2] = 999
     
     L[{3,2}] = {100, 101}
 } text {
     Other list operations are performed by calling the corresponding
     Tcl command.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     lsort(L)
 }
 
@@ -168,7 +171,7 @@ text {
     The difference between the two
     is that the former specifies the key via a variable and
     the latter as a literal.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
     
     colors'red
@@ -176,9 +179,7 @@ text {
     color = "blue"
 
     colors%color
-} text {
-    The same syntax can be used to modify the dictionary as well.
-} prompt {} tshell {
+
     colors%color = 0x0000ee
 }
 
@@ -195,7 +196,7 @@ text {
     }
 } text {
     We can use much the same operators with columns as we used for lists.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     % Rainfall           # Size of column
 
     Rainfall[0]          # Rainfall in January
@@ -207,7 +208,7 @@ text {
     When the indexing operation itself returns a column,
     the vector and folding operations available for columns can be 
     used in conjunction.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print( Rainfall / 10 )      # Print rainfall in centimeters
 
     @sum(Rainfall[9:11])  # Total rainfall in the last quarter
@@ -229,11 +230,11 @@ text {
     the element indices, they can be used with in any operation applicable
     to columns. For example, the `%` count operator will return the
     number of such months.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     %(Rainfall > 100 && Rainfall < 200) 
 } text {
     Or we could use indexing to retrieve the actual values themselves.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) 
 
     print ( Rainfall [@@ > 100 && @@ < 200] )     # @@ specifies the "current" context
@@ -257,7 +258,7 @@ text {
     print(Emps)
 } text {
     Tables rows can be accessed in the same manner as column elements.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     % Emps      # Number of employees
 
     print(Emps[3])     # Fourth row of table
@@ -270,7 +271,7 @@ text {
 text {
     Columns within a table are accessed with the `'` and `%` operators
     and indexed as usual.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print(Emps'Name)     # Column name supplied as literal
 
     colname = 'Salary
@@ -279,14 +280,14 @@ text {
     print(Emps'Salary[@@ >= 70000])    # High salaries
 } text {
     Table slice operators can be used extract subtables.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print(Emps'(Name, Location))
 
     print(Emps'(Name, Location)[2:4])
 }
 text {
     As for columns, boolean expression can be used to query tables.
-} outputlimit 0 prompt {} tshell {
+} outputlimit 0 prompt {} xtal_shell {
     print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"])
 
     print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"] ' (Name, Age))
@@ -300,6 +301,8 @@ text {
     Emps'Location[Emps'Name'Sally] = {{"New York"}}  # Modify a single cell
 
     print(Emps)
+} text {
+    That ends our quick tour of Xtal. We now describe it in more detail.
 }
 
 text {
@@ -399,7 +402,7 @@ text {
 } text {
     Conversely, Tcl can be embedded with Xtal by placing the
     Tcl script within `<` and `>` delimiters.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     now = <clock seconds>
 } text {
     Multi-line scripts are permitted.
@@ -449,7 +452,7 @@ text {
 
     Numeric literals are as in Tcl and have the same syntax as in Tcl.
     For example,
-} prompt {} tshell {
+} prompt {} xtal_shell {
     r = 2.0e10
     big = 123455678987654321000000000
 } text {
@@ -459,7 +462,7 @@ text {
 
     Unlike in Tcl, _a plain unquoted string is treated as an identifier_ and
     not a string literal.
-} errorok 1 prompt {} tshell {
+} errorok 1 prompt {} xtal_shell {
     s = unquoted
 } text {
     Also, unlike in Tcl double quoted strings, there is no
@@ -502,8 +505,8 @@ text {
     == Functions
 
     Functions in Xtal may refer to either Tcl commands or to functions
-    implemented in Xtal through the Tcl `xtal::function` command or the
-    though `function` in Xtal itself.
+    implemented in Xtal through the `xtal::function` Tcl command or
+    the Xtal `function` statement.
     
     === Invoking functions
     Invocation of functions/commands takes a form similar to function
@@ -551,7 +554,7 @@ text {
     The function called need not be an identifier; it can be supplied
     as any expression, for example a function call that returns a function
     name.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     < proc function_returning_function {} {return puts} >
     function_returning_function () ("Hello there!")
 }
@@ -560,19 +563,19 @@ text {
     ==== Calling ensemble commands
 
     Ensemble commands such as `clock seconds` are called from Xtal as
-} prompt {} tshell {
+} prompt {} xtal_shell {
     clock.seconds()
 } text {
     Note the use of `.` as the separator between the command and its
     subcommand. Depending on how the ensemble is defined, you can
     also directly invoke it.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     tcl::clock::seconds()
 } text {
     Finally, in the very rare case that the ensemble subcommand does
     not fit the syntax for a Xtal identifier, you can pass it as the
     first argument.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     clock("seconds")
 }
 
@@ -597,7 +600,7 @@ text {
     _Function and object names, unlike variables, do not get implicitly
     dereferenced._
     In this case, the `$` operator is used for dereferencing.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     $obj.m('astring, 10)
     $obj.destroy()
 } text {
@@ -903,7 +906,7 @@ text {
     if specified, is an expression that will be used to initialize the column.
     Thus this form can also be used to ''cast'' a column to a column of
     a different type.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     @int(Rainfall)
 }
 
@@ -961,7 +964,7 @@ text {
 } text {
     The former takes the actual name of the column as the operand while
     in the latter case the column is specified through a variable.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print(Emps'Name)
     colname = 'Location
     print(Emps%colname)
@@ -987,13 +990,13 @@ text {
 } text {
     The former takes the actual name of the column as the operand while
     in the latter case the column is specified through a variable.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print(Emps'(Name, Salary))
     colnameA = 'Name ; colnameB = 'Salary
     print(Emps%(colnameA, colnameB))
 } text {
     Note the difference between the following two expressions:
-} prompt {} tshell {
+} prompt {} xtal_shell {
     Emps'Name
     Emps'(Name)
 } text {
@@ -1017,7 +1020,7 @@ text {
     with the `@list` and `@dict` functions respectively. In the case
     of the latter, the key for the dictionary is the index of the
     value in the column or table.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     @list (Emps)
     
     @dict (Rainfall)
@@ -1281,7 +1284,7 @@ text {
     The `'` operator takes the key as a literal value and returns
     the corresponding element from the dictionary. If the key follows
     the syntax for an identifier, it does not have to be quoted.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     d = <dict create one 1 two 2 three 3 4 four "number five" 5> 
     d'two                 # String key "two" does not need quoting
     d ' "number five"     # Quoted string literal key
@@ -1290,7 +1293,7 @@ text {
 } text {
     On the other hand, the `%` operator takes an operand that
     is the _name of the variable_ containing the key.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     key = "number five"
     d%key
     d % key           # Note whitespace is optional
@@ -1299,7 +1302,7 @@ text {
     the lookup returns the index of the specified value. If the
     value occurs multiple times in the column, any of the corresponding
     indices may be returned.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     Emps'Name'Sally
     colname = "Name"
     Emps%colname'Sally
@@ -1314,7 +1317,7 @@ text {
 
     These operators can also be used on the left hand side of an
     assignment to set new values.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     d'c = 99
 
     I = @string {'zero, 'one, 'two, 'three}
@@ -1345,7 +1348,7 @@ text {
     as a literal or an expression that results in a integer value. As
     the operand of the `[]` operator, it retrieves the value of the element
     at that position.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     Rainfall[0]          # Index a column with a constant
 
     i = 1
@@ -1511,7 +1514,7 @@ text {
 } text {
     Use of indices in assignments is not limited to columns and rows.
     List elements can be assigned in the same manner.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     l = {1, 2, 3}
     l[0] = 101
     l[{3,4}] = 1000
@@ -1520,7 +1523,7 @@ text {
     ====
     Because Tcl is untyped, assigning to lists using indices can be ambiguous.
     For example, compare the results of the following two statements:
-} prompt {} tshell {
+} prompt {} xtal_shell {
     I = @int {1, 2, 3, 4}
     I[0:1] = 100
     I[2:3] = {102, 103}
@@ -1552,7 +1555,7 @@ text {
 
     The unary operator `%` returns the size
     of its operand which must be a list, column or table.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     len = % {1,2,3,4}   # Length of a list
     % Rainfall          # Size of a column
     % (Rainfall > 100)  # Size of a column returned by an expression
@@ -1587,7 +1590,7 @@ text {
     puts [set $varname]
 } text {
     would be the following in Xtal
-} prompt {} tshell {
+} prompt {} xtal_shell {
     puts($"variable with spaces in name")
     puts($varname)
 } text {
@@ -1665,7 +1668,7 @@ text {
 } text {
     The function inserts _COUNT_ instances of _VALUE_ at the index position
     _START_. _COUNT_ defaults to 1 if unspecified.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     @insert (@int {1,2,3}, 99, 0)
 
     @insert (@int {1,2,3}, 100, 1, 2)
@@ -1742,7 +1745,7 @@ text {
     |===
 
     The following examples illustrate the various combinations.
-} prompt {} tshell {
+} prompt {} xtal_shell {
     @search Emps'Salary > 40000
     
     @search Emps'Salary > 40000 all
@@ -1840,7 +1843,7 @@ text {
     |===
 
     So we might want to get the rainfall in sorted order.
-}  tshell {
+}  xtal_shell {
     print (Rainfall)
     
     print (@sort Rainfall)
@@ -1848,7 +1851,7 @@ text {
     But what is probably more interesting is the order of months so
     we might instead do the following
     (this time choosing a decreasing sort order).
-} tshell {
+} xtal_shell {
     print (@sort Rainfall decreasing indices)
 } text {
     This returns a column of type `int` containing the indices of
@@ -1859,7 +1862,7 @@ text {
     one sorted by age, the other by salary. Instead of keeping
     two copies of the table sorted differently, it is cheaper in
     terms of memory to keep indices sorted differently. For example,
-} tshell {
+} xtal_shell {
     EmpsByAge    = @sort Emps'Age    indices
     EmpsBySalary = @sort Emps'Salary indices decreasing
 
@@ -1887,13 +1890,13 @@ text {
     table is to be sorted. If we wanted to list salaries in
     sorted order but only for employees older than 35, we
     could do the following:
-} prompt {} tshell {
+} prompt {} xtal_shell {
     OlderEmployees = Emps'Age > 35
     
     print (Emps[@sort OlderEmployees -> Emps'Salary])
 } text {
     Or if you want to save on lines,
-} prompt {} tshell {
+} prompt {} xtal_shell {
     print (Emps[@sort (Emps'Age > 35) -> Emps'Salary])
 } text {
     This method is a lot cheaper than working directly with the table.

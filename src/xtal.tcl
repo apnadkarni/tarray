@@ -112,12 +112,16 @@ proc xtal::_init_compiler {} {
     return
 }
 
-proc xtal::xtal {script} {
+proc xtal::compile {script} {
     _init_compiler
-    ::proc xtal {script} {
-        uplevel 1 [compiler compile $script]
+    ::proc compile {script} {
+        return [compiler compile $script]
     }
-    tailcall xtal $script
+    tailcall compile $script
+}
+
+proc xtal::xtal {script} {
+    uplevel 1 [compile $script]
 }
 
 proc xtal::function {name arguments body} {
@@ -150,6 +154,7 @@ proc xtal::source {arg1 args} {
         close $fd
     }
 }
+
 oo::class create xtal::Parser {
     variable Script
 
