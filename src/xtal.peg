@@ -173,7 +173,6 @@ void: Separator <- Comment? EOL / ';';
 void:   Comment <- '#' (!EOL .)* ;
 void: EOL <- '\n';
 
-# TBD leaf: AssignOp <- '=' / '+=' / '-=' / '*=' / '/=' / '|=' / '&=';
 leaf: AssignOp <- '=' ;
 
 leaf: MulOp       <- '*' / '/'                                    ;
