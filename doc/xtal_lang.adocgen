@@ -1,5 +1,5 @@
 text {
-    ((= chap_xtal "The Xtal Language"))
+    ((= chap_xtal_lang "The Xtal Language"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
@@ -1429,7 +1429,7 @@ text {
     The final form an index can take is that of a _selector_ which
     is a boolean expression involving the column or table.
 
-    As we noted in ((^ sect_xtal_column_rel_ops "column operators"))
+    As we noted in ((^ sect_xtal_rel_ops "column operators"))
     comparison of a column with a scalar value results
     in an `int` column containing the indices for which the comparison
     of the corresponding element succeeded. This implies that

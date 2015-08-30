@@ -1,5 +1,5 @@
 text {
-    ((= chap_tarray_ref "tarray command reference"))
+    ((= chap_xtal_ref "xtal commands"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
@@ -9,9 +9,11 @@ text {
 text {
     == Introduction
 
-    The tarray extension implements typed arrays and associated
-    commands. See the ((^ chap_intro)) document for an overview
-    of the purpose and functionality of the extension.
+    The ((^ chap_xtal_lang "Xtal language")) provides a more succint
+    syntax for working with ((^ chap_intro "typed arrays")).
+    
+    This document is the reference for commands related
+    to working with Xtal scripts from Tcl.
 
     This document is reference for the top-level commands for the
     package. See
@@ -22,30 +24,22 @@ text {
 text {
     == Command reference
 
-    All commands are located in the `tarray` namespace.
+    All commands are located in the `xtal` namespace.
 
     === Commands
 
-    ((cmddef cmdref_column "column _COMMAND_ ?_ARGS..._?"))
-    Implements all functionality related to columns. For full details
-    see the ((^ chap_column_ref "column command reference")).
-    
-    ((cmddef cmdref_table "table _COMMAND_ ?_ARGS..._?"))
-    Implements all functionality related to tables. For full details
-    see the ((^ chap_table_ref "table command reference")).
-    
-    ((cmddef cmdref_tproc "tproc _NAME_ _ARGS_ _BODY_"))
+    ((cmddef cmdref_function "function _NAME_ _ARGS_ _BODY_"))
     This command is like the Tcl `proc` command except that _BODY_
-    is a ((^ chap_tscript TScript)) script and not a Tcl script.
+    is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
     
-    ((cmddef cmdref_tscript "tscript _TSCRIPT_"))
-    Executes a ((^ chap_tscript TScript)) script in the caller's context.
+    ((cmddef cmdref_xtal "xtal _SCRIPT_"))
+    Executes a ((^ chap_xtal_lang Xtal)) script in the caller's context.
 
-    ((cmddef cmdref_tsource "tsource ?-encoding _ENCODING_? _PATH_"))
+    ((cmddef cmdref_source "source ?-encoding _ENCODING_? _PATH_"))
 
-    Like the Tcl `source` command except that it reads a source file,
-    specified by _PATH_,
-    containing ((^ chap_tscript TScript)) and executes it in the caller's
+    Like the Tcl `source` command except that the source file,
+    specified by _PATH_, is expected to contain
+    ((^ chap_xtal_lang Xtal)) script which is then executed in the caller's
     context. The `-encoding` option may be specified to indicate the
     character encoding of the file. Otherwise system encoding is assumed.
 }

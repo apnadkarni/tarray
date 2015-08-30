@@ -7,10 +7,11 @@ text {
 
 text {
     [NOTE]
-    Note that this extension is still under development. It should be
-    robust enough with a fairly comprehensive test suite. However, the API is
+    This extension is still under development and has not reached
+    a V1.0 release state. It does have a 
+    fairly comprehensive test suite. However, the API is
     incomplete and subject to change. This is particularly true of the
-    TScript language.
+    Xtal language.
 
     == Introduction
     
@@ -23,8 +24,8 @@ text {
     when dealing with large data sets. At the same time, high level
     commands provide a convenient and concise means of operation.
 
-    In addition, the extension implements ((^ chap_tscript TScript)),
+    In addition, the extension implements ((^ chap_xtal_lang Xtal)),
     a language embedded
     in Tcl and geared towards vector operations on columns and tables.
-    See ((^ sect_tscript_quick_tour "TScript Quick Tour")) for a short overview.
+    See ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short overview.
 }
