@@ -7,7 +7,7 @@ text {
 
 text {
     Binary distributions of `tarray` are available from the SourceForge download
-    area at <URL:http://sourceforge.net/projects/tarray/files>. This document
+    area at http://sourceforge.net/projects/tarray/files. This document
     describes building `tarray` from sources.
 
     == Building `tarray` from sources

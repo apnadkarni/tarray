@@ -15,9 +15,9 @@ text {
 
     [NOTE]
     The examples here use the above commands for manipulating typed arrays.
-    The `tarray` extension also implements TScript, a mini-language, that
+    The `tarray` extension also implements Xtal, a mini-language, that
     makes operating on typed arrays easier and more succint. However, use
-    of TScript is not described here. See ((^ chap_tscript)) for details
+    of Xtal is not described here. See ((^ chap_xtal_lang)) for details
     on its use.
 }
 
