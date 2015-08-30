@@ -150,7 +150,7 @@ text {
 } text {
     The index operations can be search expressions as well.
 } prompt {} xtal_shell {
-    xtal { L = L[L =* "*o"] }
+    L[L =* "*o"]
 } text {
    The indexing operator can be used in assignments. 
 } prompt {} xtal_shell {
