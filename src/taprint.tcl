@@ -6,6 +6,7 @@ namespace eval tarray {
 proc tarray::_parse_print_opts {nelems optargs} {
     set opts [dict merge {
         -full 0
+        -channel stdout
     } $optargs]
 
     if {[dict get $opts -full]} {
@@ -37,7 +38,7 @@ proc tarray::_parse_print_opts {nelems optargs} {
         set ntail 0
     }
 
-    return [list $nhead $ntail]
+    return [list $nhead $ntail [dict get $opts -channel]]
 }
 
 proc tarray::table::print {t args} {
@@ -45,7 +46,7 @@ proc tarray::table::print {t args} {
 
     set ncols [width $t]
     set nrows [size $t]
-    lassign [tarray::_parse_print_opts $nrows $args] nhead ntail
+    lassign [tarray::_parse_print_opts $nrows $args] nhead ntail chan
     
     set m [namespace current]::matrix[incr _report_ctr]
     struct::matrix $m
@@ -76,7 +77,8 @@ proc tarray::table::print {t args} {
                 $m set row [incr rownum] [index $t end-$i]
             }
         } 
-        return [$r printmatrix $m]
+        $r printmatrix2channel $m $chan
+        return
     } finally {
         $r destroy
         $m destroy
@@ -84,7 +86,7 @@ proc tarray::table::print {t args} {
 }
 
 proc tarray::column::print {c args} {
-    lassign [tarray::_parse_print_opts [size $c] $args] nhead ntail
+    lassign [tarray::_parse_print_opts [size $c] $args] nhead ntail chan
     if {[type $c] in {string any}} {
         set sep "\n"
         set sep2 "\n...\n"
@@ -95,19 +97,21 @@ proc tarray::column::print {c args} {
     if {$nhead} {
         set l [range -list $c 0 [expr {$nhead-1}]]
         if {$ntail == 0} {
-            return [join $l $sep]
+            puts $chan [join $l $sep]
+            return
         }
     }
     if {$ntail} {
         set l2 [range -list $c end-[expr {$ntail-1}] end]
         if {$nhead == 0} {
-            return [join $l2 $sep]
-        } else { 
-            return "[join $l $sep]$sep2[join $l2 $sep]"
+            puts $chan [join $l2 $sep]
+        } else {
+            puts -nonewline $chan [join $l $sep]
+            puts -nonewline $sep2
+            puts [join $l2 $sep]
         }
     }
-    # Both head and tail 0
-    return ""
+    return
 }
 
 proc tarray::print {ta args} {
@@ -136,11 +140,13 @@ proc tarray::print {ta args} {
         tcaption $n
     }
 
-
     proc [namespace current]::print {ta args} {
         lassign [types $ta] type
         return [switch -exact -- [lindex [types $ta] 0] {
-            ""      {return $ta}
+            ""      {
+                set opts [dict merge {-channel stdout} $args]
+                puts [dict get $opts -channel] $ta
+            }
             table   {table print $ta {*}$args}
             default {column print $ta {*}$args}
         }]

@@ -956,8 +956,8 @@ text {
 }
 
 text {
-    ((=== sect_xtal_column_sel_ops "The `%` and `'` table column selection operators"))
-    Columns from a table can be selected using the `'` and '%' operators.
+    ((=== sect_xtal_column_sel_ops "The `'` and `%` table column selection operators"))
+    Columns from a table can be selected using the `'` and `%` operators.
 } syntax {
     _TABLE_'_COLNAME_
     _TABLE_%_VAR_
