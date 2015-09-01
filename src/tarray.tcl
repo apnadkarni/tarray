@@ -283,6 +283,7 @@ namespace eval tarray {
             math math
             minmax minmax
             place place
+            print print
             put put
             range range
             reverse reverse
@@ -323,6 +324,7 @@ namespace eval tarray {
             insert insert
             join join
             place place
+            print print
             put put
             range range
             reverse reverse
