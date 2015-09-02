@@ -619,11 +619,6 @@ oo::class create xtal::Parser {
         return [linsert $args 0 FunctionCall]
     }
 
-    method MethodCall {from to child} {
-        # child is {Identifier name}
-        return [list MethodCall [lindex $child 1]]
-    }
-
     method ArgumentList {from to args} {
         return [list ArgumentList {*}$args]
     }
@@ -633,7 +628,7 @@ oo::class create xtal::Parser {
     }
 
     method Element {from to op child} {
-        return [list Element [lindex $op 1] $child]
+        return [list Element $child]
     }
 
     method TableColumns {from to op {child {}}} {
@@ -704,7 +699,7 @@ oo::class create xtal::Parser {
     method Sequence {from to {child {}}} {
         return [linsert $child 0 Sequence]
     }
-    method SequenceElements {from to args} {
+    method SequenceContent {from to args} {
         return $args
     }
 
@@ -1131,8 +1126,8 @@ oo::class create xtal::Compiler {
                     # Each fnarg might be a method name, a plain argument
                     # or an option with value argument
                     foreach elem [lrange $postexpr 1 end] {
-                        if {[lindex $elem 0] eq "MethodCall"} {
-                            lappend methods [lindex $elem 1]
+                        if {[lindex $elem 0] eq "Element"} {
+                            lappend methods [my {*}$elem]
                         } else {
                             # ArgumentList
                             foreach argelem [lrange $elem 1 end] {
@@ -1159,32 +1154,21 @@ oo::class create xtal::Compiler {
         return [my {*}$child]
     }
 
-    method Element {op child} {
-        if {$op eq "'"} {
-            if {[lindex $child 0] eq "Identifier"} {
-                return [lindex $child 1]
-            } else {
-                return [my {*}$child]
+    method Element {child} {
+        switch -exact -- [lindex $child 0] {
+            IndirectLiteral -
+            Identifier { return [lindex $child 1] }
+            IndirectIdentifier {
+                return "\[xtal::rt::dereference [lindex $child 1]\]"
             }
-        } else {
-            return [my {*}$child]
+            default { return [my {*}$child] }
         }
     }
 
     method TableColumns {op args} {
-        if {$op eq "%"} {
-            set cols [lmap colarg $args {
-                my {*}$colarg
-            }]
-        } else {
-            set cols [lmap colarg $args {
-                if {[lindex $colarg 0] eq "Identifier"} {
-                    lindex $colarg 1
-                } else {
-                    my {*}$colarg
-                }
-            }]
-        }
+        set cols [lmap colarg $args {
+            my Element $colarg
+        }]
         return "\[list [join $cols]\]"
     }
 
@@ -2375,7 +2359,7 @@ if {1} {
     set J [column create int {100 200 300 400 500}]
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
 }
-if {1} {
+if {0} {
     catch {table slice $T $T};  # Caused crash due to shimmering, now should return error
     proc getI {} {return $::I}
     xtal::xtal {I[@@ < 30]}
