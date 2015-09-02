@@ -116,12 +116,11 @@ leaf:    BuiltInFunction <- 'delete'
 		  / Element
 		  / TableColumns ;
     Selector <- '[' WS ('end' / Expression) WS ']' ;
-    FunctionCall <- (MethodCall)* WS '(' WSNL ArgumentList? WSNL ')' ;
-    MethodCall  <- '.' WS Identifier ;
+    FunctionCall <- Element* WS '(' WSNL ArgumentList? WSNL ')' ;
     ArgumentList <- Argument (WSNL ',' WSNL Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
     Element <- ElementOp WS ElementIdentifier ;
-    TableColumns <- ColumnOp WS '(' WSNL TableColumnList? WSNL ')' ;
+    TableColumns <- ElementOp WS '(' WSNL TableColumnList? WSNL ')' ;
     TableColumnList <- ColumnIdentifier (WSNL ',' WSNL ColumnIdentifier)* ;
 
     # Constructors
@@ -158,15 +157,15 @@ leaf: SelectorContext <- '@@' ;
 leaf: ColumnType <- 'boolean' / 'byte' / 'int' / 'uint' / 'wide' / 'double' / 'string' / 'any' ;
 leaf: IndirectIdentifier <- [$] Identifier ;
 IndirectLiteral <- [$] (String / Token) ;
-ColumnIdentifier <- Identifier;
-ElementIdentifier <- Identifier / String / Number;
+ColumnIdentifier <- Identifier / IndirectIdentifier / IndirectLiteral / Token / String / Number;
+ElementIdentifier <- Identifier / IndirectIdentifier / IndirectLiteral / Token / String / Number;
 IdentifierList <- Identifier (WSNL ',' WSNL Identifier)* ;
 leaf: ParameterIdentifier <- ('_' / <alpha>) ('_' / <alnum>)* ;
 leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )? ;
-Sequence <- '{' WSNL SequenceElements? WSNL '}' ;
-SequenceElements <- Expression (WSNL ',' WSNL Expression)* ;
+Sequence <- '{' WSNL SequenceContent? WSNL '}' ;
+SequenceContent <- Expression (WSNL ',' WSNL Expression)* ;
 leaf: Token <- SingleQuote Identifier ;
 leaf: String <- Quote (!Quote Char)* Quote;
 void: Char   <- BackSlash ( Quote 
@@ -203,8 +202,7 @@ leaf: BitXorOp <- '^' ;
 leaf: LogicalAndOp <- '&&' ;
 leaf: LogicalOrOp <- '||' ;
 
-leaf: ColumnOp <- ['%] ;
-leaf: ElementOp <- ['%] ;
+leaf: ElementOp <- '.' ;
 
 void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
