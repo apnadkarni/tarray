@@ -345,7 +345,6 @@ oo::class create xtal::Parser {
                 }
                 TableColumns {
                     # args is column node, remaining args
-                    puts argsx:[join $args ,]
                     list LValueTableColumns [lindex $first_child 1] {*}$args
                 }
                 default {
@@ -956,7 +955,8 @@ oo::class create xtal::Compiler {
 
             LValueTableColumns {
                 lassign $lvalue type table columns indexexpr
-                set collist [lmap column $columns {
+                # columns is {TableColumns colnode1....}
+                set collist [lmap column [lrange $columns 1 end] {
                     my Element $column
                 }]
                 
