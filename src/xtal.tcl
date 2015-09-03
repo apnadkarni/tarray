@@ -333,22 +333,20 @@ oo::class create xtal::Parser {
         return [list [lindex $assignop 1] $lvalue $expr]
     }
 
-    method MultiAssignment {from to args} {
-        error "Multi assignments not implemented"
-    }
-
     method LValue {from to first_child args} {
         if {[llength $args] == 0} {
             return $first_child;
         } else {
             return [switch -exact -- [lindex $args 0 0] {
                 Element {
-                    # args is element_op (' or #), element identifier, remaining args
-                    list LValueElement [lindex $first_child 1] [lindex $args 0 1] [lindex $args 0 2] {*}[lrange $args 1 end]
+                    # args is element node followed by remaining args
+                    #
+                    list LValueElement [lindex $first_child 1] {*}[lrange $args 0 end]
                 }
                 TableColumns {
-                    # args is column_op (' or #), column identifier, remaining args
-                    list LValueTableColumns [lindex $first_child 1] [lindex $args 0 1] [lrange [lindex $args 0] 2 end] {*}[lrange $args 1 end]
+                    # args is column node, remaining args
+                    puts argsx:[join $args ,]
+                    list LValueTableColumns [lindex $first_child 1] {*}$args
                 }
                 default {
                     list LValueTarray [lindex $first_child 1] {*}$args
@@ -632,7 +630,7 @@ oo::class create xtal::Parser {
     }
 
     method TableColumns {from to op {child {}}} {
-        return [linsert $child 0 TableColumns [lindex $op 1]]
+        return [linsert $child 0 TableColumns]
     }
 
     method TableColumnList {from to args} {
@@ -924,31 +922,26 @@ oo::class create xtal::Compiler {
             }
             LValueElement {
                 # Assigning to a single element within a dict/column/table
-                lassign $lvalue elemtype operand elem_op element indexexpr
-                if {$elem_op eq "'"} {
-                    if {[lindex $element 0] eq "Identifier"} { 
-                        set element [lindex $element 1]
-                    } else {
-                        set element [my {*}$element]
-                    }
-                } else {
-                    set element [my {*}$element]
-                }
+                puts "lvalue: [join $lvalue ,]"
+                lassign $lvalue elemtype operand element indexexpr
+                set element [my Element $element]
 
                 # Note - only tables and columns can have indices
+                # TBD - if $indexexpr is not "", it has to be a table?
+                # Because C.elem[index] does not make sense if C is a column
                 switch -exact -- [lindex $indexexpr 0] {
                     "" {
-                        # T'c = ....
+                        # T.c = ....
                         # No index 
                         return "xtal::rt::assign_element $operand $element [my {*}$rvalue]"
                     }
                     Range {
-                        # T'c[4:j] = ...
+                        # T.c[4:j] = ...
                         return "xtal::rt::table_column_assign_range $operand $element [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
                     Number {
                         # Single numeric literal index
-                        # T'c[0] = ...
+                        # T.c[0] = ...
                         return "tarray::table::vfill -columns \[list $element\] $operand [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
@@ -962,21 +955,11 @@ oo::class create xtal::Compiler {
             }
 
             LValueTableColumns {
-                lassign $lvalue type table column_op columns indexexpr
-                set collist {}
-                if {$column_op eq "'"} {
-                    foreach column $columns {
-                        if {[lindex $column 0] eq "Identifier"} {
-                            lappend collist [lindex $column 1]
-                        } else {
-                            lappend collist [my {*}$column]
-                        }
-                    }
-                } else {
-                    foreach column $columns {
-                        lappend collist [my {*}$column]
-                    }
-                }
+                lassign $lvalue type table columns indexexpr
+                set collist [lmap column $columns {
+                    my Element $column
+                }]
+                
                 set collist [join $collist { }]
                 switch -exact -- [lindex $indexexpr 0] {
                     "" {
@@ -1165,7 +1148,7 @@ oo::class create xtal::Compiler {
         }
     }
 
-    method TableColumns {op args} {
+    method TableColumns {args} {
         set cols [lmap colarg $args {
             my Element $colarg
         }]
@@ -2359,30 +2342,30 @@ if {1} {
     set J [column create int {100 200 300 400 500}]
     set T [table create {i int s string} {{10 ten} {20 twenty} {30 thirty}}]
 }
-if {0} {
+if {1} {
     catch {table slice $T $T};  # Caused crash due to shimmering, now should return error
     proc getI {} {return $::I}
     xtal::xtal {I[@@ < 30]}
-    xtal::xtal {I'20}
-    xtal::xtal {I' "10"}
+    xtal::xtal {I.20}
+    xtal::xtal {I. "10"}
     xtal::xtal {I[I < 30]}
     xtal::xtal {getI()[@@ > 30]}
     set x i
-    xtal::xtal {T[T'i < 35]}
-    xtal::xtal {T[T%x < 45]}
-    xtal::xtal {T'(i,s)[@@'i > 40]}
+    xtal::xtal {T[T.i < 35]}
+    xtal::xtal {T[T.$x < 45]}
+    xtal::xtal {T.(i,s)[@@.i > 40]}
     xtal::xtal {K = I}
     xtal::xtal {K[0:1] = J[0:1]}
     xtal::xtal {K[2:4] = 99}
     xtal::xtal {K[{3,4}] = I[{4,3}]}
-    xtal::xtal {T'i[0:1] = I[3:4]}
-    xtal::xtal {T'(s,i)}
-    xtal::xtal {T's' thirty}
-    xtal::xtal {T's' "thirty"}
-    xtal::xtal {T'i[@@ < 40] = 33}
-    xtal::xtal {T's[T'i == 33] = "thirty-three"}
+    xtal::xtal {T.i[0:1] = I[3:4]}
+    xtal::xtal {T.(s,i)}
+    xtal::xtal {T.s. thirty}
+    xtal::xtal {T.s. "thirty"}
+    xtal::xtal {T.i[@@ < 40] = 33}
+    xtal::xtal {T.s[T.i == 33] = "thirty-three"}
     set col s
-    xtal::xtal {T%col[0:1] = 'abc}
+    xtal::xtal {T.$col[0:1] = 'abc}
     xtal::xtal {% I}
     xtal::xtal {% {1,2,3}}
 
@@ -2403,9 +2386,9 @@ if {0} {
                   10
                   )}
     set d {a 1 b 2 c 3}
-    xtal::xtal { d'b }
+    xtal::xtal { d.b }
     set x c
-    xtal::xtal {d%x}
+    xtal::xtal {d.$x}
     set a 0 ; set b 1
     xtal::xtal { < expr {$a > $b} > }
     xtal::xtal {<expr {$a > $b}>}
