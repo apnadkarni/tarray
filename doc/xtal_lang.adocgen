@@ -91,11 +91,11 @@ text {
     Tcl code can be intermixed within Xtal by bracketing it with
     `<>`.
 } xtal {
+    now = <clock seconds>
+
     L = {1, 2}
     < lappend L 3 >
     puts(L)
-
-    now = <clock seconds>
 } text {
     The Tcl fragment may also be spread across multiple lines.
 } xtal {
@@ -167,20 +167,13 @@ text {
 text {
     .Working with dictionaries
     Dictionary access has a similar shorthand using
-    using the `%` or `'` postfix operators.
-    The difference between the two
-    is that the former specifies the key via a variable and
-    the latter as a literal.
+    using the `.` lookup postfix operator.
 } prompt {} xtal_shell {
     colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
     
-    colors'red
+    colors.red
 
-    color = "blue"
-
-    colors%color
-
-    colors%color = 0x0000ee
+    colors.blue = 0x0000ee
 }
 
 text {
@@ -213,8 +206,8 @@ text {
 
     @sum(Rainfall[9:11])  # Total rainfall in the last quarter
 } text {
-    The lookup operators `'` and `%` used with dictionaries can also be used
-    with columns. In this case, they return the index of the first matching
+    The lookup postfix operator `.` used with dictionaries can also be used
+    with columns. In this case, it returns the index of the first matching
     element.
 }
 
@@ -269,36 +262,36 @@ text {
 }
 
 text {
-    Columns within a table are accessed with the `'` and `%` operators
+    Columns within a table are accessed with the `.` operator
     and indexed as usual.
 } prompt {} xtal_shell {
-    print(Emps'Name)     # Column name supplied as literal
+    print(Emps.Name)     # Column name supplied as literal
 
     colname = 'Salary
-    print(Emps%colname)   # Column name supplied in a variable
+    print(Emps.$colname)   # Column name supplied in a variable
 
-    print(Emps'Salary[@@ >= 70000])    # High salaries
+    print(Emps.Salary[@@ >= 70000])    # High salaries
 } text {
     Table slice operators can be used extract subtables.
 } prompt {} xtal_shell {
-    print(Emps'(Name, Location))
+    print(Emps.(Name, Location))
 
-    print(Emps'(Name, Location)[2:4])
+    print(Emps.(Name, Location)[2:4])
 }
 text {
     As for columns, boolean expression can be used to query tables.
 } outputlimit 0 prompt {} xtal_shell {
-    print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"])
+    print(Emps[Emps.Salary > 50000 && Emps.Location != "New York"])
 
-    print(Emps[Emps'Salary > 50000 && Emps'Location != "New York"] ' (Name, Age))
+    print(Emps[Emps.Salary > 50000 && Emps.Location != "New York"] . (Name, Age))
 } text {
     Tables can be modified in multiple ways.
 } outputlimit 0 xtal {
     Emps[% Emps] = {'Mary, 38000, 25, 'Seattle}      # Add a row
 
-    Emps'Salary = Emps'Salary + 2000                 # Modify entire column
+    Emps.Salary = Emps.Salary + 2000                 # Modify entire column
 
-    Emps'Location[Emps'Name'Sally] = {{"New York"}}  # Modify a single cell
+    Emps.Location[Emps.Name.Sally] = {{"New York"}}  # Modify a single cell
 
     print(Emps)
 } text {
@@ -376,7 +369,7 @@ text {
 
     * an identifier as defined in ((^ sect_xtal_variables))
 
-    * optionally followed by a ((^ sect_xtal_lookup_ops "lookup")),
+    * optionally followed by a ((^ sect_xtal_lookup_op "lookup")),
     ((^ sect_xtal_column_sel_ops "column selection")) or
     ((^ sect_xtal_table_slice_ops "table slicing")) operator
 
@@ -723,7 +716,7 @@ text {
 } outputlimit 3 xtal {
     i = 0
     while i < % Emps {
-        puts(Emps'Name[i])
+        puts(Emps.Name[i])
         i = i + 1
     }
 }
@@ -742,7 +735,7 @@ text {
     defaults to `1` if unspecified.
 } xtal {
     for i in 0 : %Emps-1 by 2 {
-        puts(Emps'Name[i])
+        puts(Emps.Name[i])
     }
 } text {
     The limits of the range are computed only once, before the loop is
@@ -956,18 +949,19 @@ text {
 }
 
 text {
-    ((=== sect_xtal_column_sel_ops "The `'` and `%` table column selection operators"))
-    Columns from a table can be selected using the `'` and `%` operators.
+    ((=== sect_xtal_column_sel_ops "The `.` table column selection operator"))
+    Columns from a table can be selected using the `.` operator.
 } syntax {
-    _TABLE_'_COLNAME_
-    _TABLE_%_VAR_
+    _TABLE_._COLSPEC_
 } text {
-    The former takes the actual name of the column as the operand while
-    in the latter case the column is specified through a variable.
+    The column specification _COLSPEC_ may be
+    the actual name of the column or
+    specified through a variable via
+    the ((^ sect_xtal_deref_op "dereferencing operator")).
 } prompt {} xtal_shell {
-    print(Emps'Name)
+    print(Emps.Name)
     colname = 'Location
-    print(Emps%colname)
+    print(Emps . $colname)
 } text {
     These operators can be used in two contexts:
 
@@ -980,35 +974,37 @@ text {
 }
 
 text {
-    ((=== sect_xtal_table_slice_ops "The `'()` and `%()` table slicing operators"))
+    ((=== sect_xtal_table_slice_ops "The `.()` table slicing operator"))
 
-    The table slicing operators `'()` and '%()` operators
+    The table slicing operators `.()` operator
     return a table containing specific columns from a table.
 } syntax {
-    _TABLE_'(?_COLNAME_,...?)
-    _TABLE_%(?_VAR_,...?)
+    _TABLE_.(?_COLSPEC_,...?)
 } text {
-    The former takes the actual name of the column as the operand while
-    in the latter case the column is specified through a variable.
+    Each column is specified using its name or by
+    ((^ sect_xtal_deref_op "derefencing")) a variable
+    containing its name.
 } prompt {} xtal_shell {
-    print(Emps'(Name, Salary))
-    colnameA = 'Name ; colnameB = 'Salary
-    print(Emps%(colnameA, colnameB))
+    colname = "Salary"
+    print(Emps.(Name, $colname))
 } text {
+    [NOTE]
+    ====
     Note the difference between the following two expressions:
 } prompt {} xtal_shell {
-    Emps'Name
-    Emps'(Name)
+    Emps.Name
+    Emps.(Name)
 } text {
     The first returns a column. The second returns a table containing
     a single column.
+    ====
     
     Like the table column selection operators,
-    these operators can also be used in two contexts:
+    the table slicing operator can also be used in two contexts:
 
-    * When used in expressions as above, they return table slices
+    * When used in expressions as above, it returns table slices
     * When referenced on the left side of an assignment statement,
-    they assign to the corresponding columns in the table
+    it assigns to the corresponding columns in the table
     
     Again, we will see examples later when we discuss indexing operators.
 }
@@ -1051,7 +1047,7 @@ text {
     are applicable only to columns and implement operations like
     union and intersection.
     
-    * ((^ sect_xtal_lookup_ops "Lookup operators")) that perform
+    * ((^ sect_xtal_lookup_op "The lookup operator")) that performs
     associative lookup on dictionaries and columns.
 
     * ((^ sect_xtal_indexing_ops "Indexing operators"))
@@ -1115,7 +1111,7 @@ text {
     For example, we can reduce everyone's salaries by 2K since times
     are tough.
 } outputlimit 0 xtal {
-    Emps'Salary = Emps'Salary - 2000
+    Emps.Salary = Emps.Salary - 2000
     print (Emps)
 }
 
@@ -1222,7 +1218,7 @@ text {
 } text {
     The real usefulness of this will become apparent when we discuss
     ((^ sect_xtal_indexing_ops "indexing operators")).
-
+    
     [NOTE]
     ====
     Xtal does not allow expressions of the form
@@ -1273,44 +1269,45 @@ text {
 }
 
 text {
-    ((=== sect_xtal_lookup_ops "Lookup operators"))
+    ((=== sect_xtal_lookup_op "Lookup operator"))
 
-    The operators `'` and `%` lookup keys in a dictionary
+    The operator `.` looks up keys in a dictionary
     or column.
 
     In the case of a dictionary, the operators retrieve
     the value associated with the key.
 
-    The `'` operator takes the key as a literal value and returns
+    The key operand is treated as a literal and returns
     the corresponding element from the dictionary. If the key follows
     the syntax for an identifier, it does not have to be quoted.
 } prompt {} xtal_shell {
     d = <dict create one 1 two 2 three 3 4 four "number five" 5> 
-    d'two                 # String key "two" does not need quoting
-    d ' "number five"     # Quoted string literal key
-    d ' three             # Note whitespace is optional
-    d'4                   # Numeric literal
+    d.two                 # String key "two" does not need quoting
+    d . "number five"     # Quoted string literal key
+    d . three             # Note whitespace is optional
+    d.4                   # Numeric literal
 } text {
-    On the other hand, the `%` operator takes an operand that
-    is the _name of the variable_ containing the key.
+    To look up a key that is stored in a variable use the
+    `$` ((^ sect_xtal_deref_op "dereferencing operator")).
 } prompt {} xtal_shell {
     key = "number five"
-    d%key
-    d % key           # Note whitespace is optional
+    d.$key
+    d . $key           # Note whitespace is optional
 } text { 
     In the case of a column
-    the lookup returns the index of the specified value. If the
-    value occurs multiple times in the column, any of the corresponding
-    indices may be returned.
+    the lookup returns the index of the specified value.
 } prompt {} xtal_shell {
-    Emps'Name'Sally
-    colname = "Name"
-    Emps%colname'Sally
+    Emps.Name.Sally
 } text {
-    In the prior example, note the overloading of the `'` and `%`
-    operators. When applied to tables, they act as column selectors.
+    In the prior example, note the overloading of the `.` operator
+    When applied to tables, it acts as a column selector.
     When applied to columns (selected from the table in this case)
-    they act as lookup operators.
+    it acts as a lookup operator.
+
+    [WARNING]
+    If the
+    value occurs multiple times in the column, any of the corresponding
+    indices may be returned and may not even be the same in repeated calls.
 
     In all cases, an error is raised if the value being looked up
     does not exist in the dictionary or column.
@@ -1318,10 +1315,10 @@ text {
     These operators can also be used on the left hand side of an
     assignment to set new values.
 } prompt {} xtal_shell {
-    d'c = 99
+    d.c = 99
 
     I = @string {'zero, 'one, 'two, 'three}
-    I'one = 1
+    I.one = 1
 } text {
     [NOTE]
     If a variable does not already exist, the operator creates it
@@ -1455,7 +1452,7 @@ text {
     boolean expression. The following prints all employees who are
     over 35 but have an income less than `70,000`.
 } outputlimit 0 xtal {
-    print(Emps[Emps'Age > 35 && Emps'Salary < 70000]) 
+    print(Emps[Emps.Age > 35 && Emps.Salary < 70000]) 
 }
 
 text {
@@ -1487,7 +1484,7 @@ text {
     following example.
 } shell {
     proc get_table {} { return $::Emps }
-    xtal { print( get_table() [@@'Age > 35 && @@'Salary < 70000]) }
+    xtal { print( get_table() [@@.Age > 35 && @@.Salary < 70000]) }
 }
 
 text {
@@ -1498,19 +1495,19 @@ text {
 } text {
     To move everyone to Boston, fill the entire range with one value.
 } xtal {
-    Emps'Location[0 : %Emps - 1] = 'Boston
+    Emps.Location[0 : %Emps - 1] = 'Boston
 } text {
     To give an increment only to low-paid
     employees make use of selectors.
 } outputlimit 0 xtal {
-    Emps'Salary[Emps'Salary < 50000] = Emps'Salary[Emps'Salary < 50000] + 2000;
+    Emps.Salary[Emps.Salary < 50000] = Emps.Salary[Emps.Salary < 50000] + 2000;
     print (Emps)
 } text {
     To modify a subset of the fields for a specific row,
     index a slice of the table. So to relocate Sally with a raise
 } outputlimit 0 xtal {
-    Emps'(Salary, Location)[Emps'Name'Sally]  = {70000, 'Seattle}
-    print (Emps[Emps'Name == 'Sally])
+    Emps.(Salary, Location)[Emps.Name.Sally]  = {70000, 'Seattle}
+    print (Emps[Emps.Name == 'Sally])
 } text {
     Use of indices in assignments is not limited to columns and rows.
     List elements can be assigned in the same manner.
@@ -1567,7 +1564,7 @@ text {
 
     The operator `$` is a unary operator that dereferences
     the value of its operand. We have already seen an example of its use
-    ((^ sect_xtal_calling_methods earlier)) in calling object methods.
+    earlier.
 
     The operator can only be applied to an identifier or a string literal
     and not to an arbitrary expression. In both cases, it returns the
@@ -1576,10 +1573,7 @@ text {
     The operator is useful in a couple of different situations. One is
     when you need to reference a variable that does not follow Xtal
     identifier syntax, e.g. one with spaces in it, as shown in the
-    Tcl code below. The other is when the variable is to be referenced
-    indirectly.
-
-    As an example, suppose you had the following
+    Tcl code below. 
 } shell {
     set "variable with spaces in name" "value of variable with spaces"
     set varname "variable with spaces in name"
@@ -1593,6 +1587,22 @@ text {
 } prompt {} xtal_shell {
     puts($"variable with spaces in name")
     puts($varname)
+} text {
+    The other use of the dereferencing operator is when Xtal expects
+    a symbol such as function or object name, a lookup operand,
+    a table column name etc. and you wish to supply it through a variable.
+    We saw examples of this earlier which are repeated below.
+} prompt {} xtal_shell {
+    obj = OExample.new()
+    $obj.destroy()            # Indirect object reference
+
+    d.$key                    # Indirect dictionary lookup
+
+    name = "Sally"
+    Emps.Name.$name           # Indirect column lookup
+
+    colname = 'Location
+    print(Emps . $colname)    # Indirect table column reference
 } text {
     [NOTE]
     Dereferencing operators cannot be used on the left hand side
@@ -1631,7 +1641,7 @@ text {
 
     So for instance we could get rid of all our high-priced employees.
 } outputlimit 0 xtal {
-    Emps = @delete(Emps, Emps'Salary > 75000)
+    Emps = @delete(Emps, Emps.Salary > 75000)
     print(Emps)
 }
 
@@ -1746,13 +1756,13 @@ text {
 
     The following examples illustrate the various combinations.
 } prompt {} xtal_shell {
-    @search Emps'Salary > 40000
+    @search Emps.Salary > 40000
     
-    @search Emps'Salary > 40000 all
+    @search Emps.Salary > 40000 all
     
-    @search Emps'Salary > 40000 inline
+    @search Emps.Salary > 40000 inline
     
-    @search Emps'Salary > 40000 inline all
+    @search Emps.Salary > 40000 inline all
 } text {
 } text {
     The second form that `@search` takes is
@@ -1778,12 +1788,12 @@ text {
     all employees in Boston who make more than 45000/year. We could write this
     using selectors.
 } xtal {
-    print (Emps'Name[Emps'Salary > 45000 && Emps'Location == 'Boston])
+    print (Emps.Name[Emps.Salary > 45000 && Emps.Location == 'Boston])
 } text {
     Alternatively, using `@search`,
 } xtal {
-    indices = @search (Emps'Salary > 45000) -> Emps'Location == 'Boston all
-    print (Emps'Name[indices])
+    indices = @search (Emps.Salary > 45000) -> Emps.Location == 'Boston all
+    print (Emps.Name[indices])
 } text {
     In the first case, Xtal searches the appropriate columns for
     salaries greater than the specified amount and then again for the
@@ -1863,8 +1873,8 @@ text {
     two copies of the table sorted differently, it is cheaper in
     terms of memory to keep indices sorted differently. For example,
 } xtal_shell {
-    EmpsByAge    = @sort Emps'Age    indices
-    EmpsBySalary = @sort Emps'Salary indices decreasing
+    EmpsByAge    = @sort Emps.Age    indices
+    EmpsBySalary = @sort Emps.Salary indices decreasing
 
     print (Emps[EmpsByAge])
 
@@ -1891,13 +1901,13 @@ text {
     sorted order but only for employees older than 35, we
     could do the following:
 } prompt {} xtal_shell {
-    OlderEmployees = Emps'Age > 35
+    OlderEmployees = Emps.Age > 35
     
-    print (Emps[@sort OlderEmployees -> Emps'Salary])
+    print (Emps[@sort OlderEmployees -> Emps.Salary])
 } text {
     Or if you want to save on lines,
 } prompt {} xtal_shell {
-    print (Emps[@sort (Emps'Age > 35) -> Emps'Salary])
+    print (Emps[@sort (Emps.Age > 35) -> Emps.Salary])
 } text {
     This method is a lot cheaper than working directly with the table.
 }
@@ -1911,6 +1921,6 @@ text {
 } text {
     So to get our annual salary expenditure,
 } xtal {
-    @sum(Emps'Salary)
+    @sum(Emps.Salary)
 }
 
