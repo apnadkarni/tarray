@@ -384,7 +384,13 @@ if {![info exists tarray::test::known]} {
             # Note we have to do the operation and *then* check that
             # tcol is unchanged.
             set tcol2 [tarray::column {*}$op $tcol {*}$args]
-            check_not_span_column $tcol2
+            if {$op ne "delete"} {
+                # Unless it is a delete operation, the returned
+                # column is expected to be a non-span column. With
+                # deletes from the front or the back, this may not
+                # be true
+                check_not_span_column $tcol2
+            }
             return [compare_tcols_lists $type $tcol2 $expected $tcol $init]
         }
 
@@ -399,7 +405,13 @@ if {![info exists tarray::test::known]} {
             set tcol [newspancolumn $type $init]
             set tcol2 [tarray::column {*}$vop tcol {*}$args]
             check_not_span_column $tcol
-            check_not_span_column $tcol2
+            if {$op ne "vdelete"} {
+                # Unless it is a delete operation, the returned
+                # column is expected to be a non-span column. With
+                # deletes from the front or the back, this may not
+                # be true
+                check_not_span_column $tcol2
+            }
             return [compare_tcols_lists $type $tcol2 $expected $tcol $expected]
         }
 

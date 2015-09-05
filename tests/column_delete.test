@@ -1551,6 +1551,9 @@ namespace eval tarray::test {
         } -body {
             tarray::column delete [samplespancolumn $type] 32 32
         } -result [crep $type [concat [lrange $sample($type) 0 31] [lrange $sample($type) 33 end]]] -match column
+
+        # TBD - need tests to verify that deletes from front or back
+        # use span capability
     }
 
 
