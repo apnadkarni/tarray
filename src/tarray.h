@@ -205,6 +205,15 @@ TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
 TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
 
+TA_INLINE span_t *span_alloc(int first, int count) {
+    span_t *span;
+    span = TA_ALLOCMEM(sizeof(*span));
+    span->nrefs = 0;
+    span->first = first;
+    span->count = count;
+    return span;
+}
+
 TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span); }
 TA_INLINE void span_incr_refs(span_t *span) { span->nrefs++; }
 TA_INLINE void span_decr_refs(span_t *span) {
@@ -232,7 +241,7 @@ TA_INLINE int span_shared(span_t *span) { return span->nrefs > 1; }
 /*
  * Retrieve the indx of the first element of a column.
  */
-#define OBJTHDRFIRST(optr_) (OBJTHDRSPAN(optr_) ? (OBJTHDRSPAN(optr_))->count : 0)
+#define OBJTHDRFIRST(optr_) (OBJTHDRSPAN(optr_) ? (OBJTHDRSPAN(optr_))->first : 0)
 
 /*
  * Retrieve a lvalue reference to the field used to point to the column 

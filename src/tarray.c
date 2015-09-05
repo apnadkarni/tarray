@@ -1959,12 +1959,8 @@ Tcl_Obj *tcol_new_span(thdr_t *thdr, int first, int count)
     Tcl_InvalidateStringRep(o);
     if (first == 0 && count == thdr->used)
         span = NULL;
-    else {
-        span = TA_ALLOCMEM(sizeof(*span));
-        span->nrefs = 0;
-        span->first = first;
-        span->count = count;
-    }
+    else
+        span = span_alloc(first, count);
     
     tcol_set_intrep(o, thdr, span);
     return o;
@@ -4217,48 +4213,115 @@ index_error:   /* index should hold the current index in error */
 
 }
 
+/* Trims the leading or end elements of a column. See asserts for conditions */
+TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
+{
+    thdr_t *thdr;
+    span_t *span;
+    int current_count, offset;
+    
+    TA_ASSERT(! Tcl_IsShared(tcol));
+    TA_ASSERT(low >= 0);
+    TA_ASSERT(tcol_affirm(tcol));
+    current_count = tcol_occupancy(tcol);
+    TA_ASSERT(low == 0 || (low+count) == current_count);
+
+    if (count == 0)
+        return TCL_OK; /* Nothing to be done */
+
+    if (low == 0 && (low+count) >= current_count) {
+        /* Deleting all elements in the column. Return an empty column */
+        thdr = thdr_alloc(ip, tcol_type(tcol), 0);
+        if (thdr == NULL)
+            return TCL_ERROR;
+        tcol_replace_intrep(tcol, thdr, NULL);
+        return TCL_OK;
+    }
+
+    thdr = OBJTHDR(tcol);
+    span = OBJTHDRSPAN(tcol);
+    
+    if (low == 0) {
+        /* Trimming from front */
+        offset = count;
+    } else {
+        /* Trimming from back */
+        offset = 0;
+    }
+    
+    tcol_replace_intrep(tcol, thdr, span_alloc(OBJTHDRFIRST(tcol)+offset, current_count - count));
+    TA_ASSERT(tcol_check);
+    return TCL_OK;
+}
+
 /* See asserts for conditions */
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
-    int low, count;
+    int low, count, current_count;
     int status;
+    thdr_t *thdr;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
+    current_count = tcol_occupancy(tcol);
+    
+    if (indexb) {
+        /* Delete a range. */
+        status = ta_fix_range_bounds(ip, current_count, indexa,
+                                     indexb, &low, &count);
+        if (status != TCL_OK)
+            return status;
+        TA_ASSERT(low >= 0);
+        TA_ASSERT(count <= current_count);
 
-    status = tcol_make_modifiable(ip, tcol, tcol_occupancy(tcol), 0);
-    if (status == TCL_OK) {
-        thdr_t *thdr = tcol_thdr(tcol);
-        if (indexb) {
-            status = ta_fix_range_bounds(ip, thdr->used, indexa,
-                                             indexb, &low, &count);
-            if (status == TCL_OK)
-                thdr_delete_range(thdr, low, count);
-        } else {
-            /* Not a range, either a list or single index */
-            thdr_t *pindices;
-            /* Note status is TCL_OK at this point */
-            switch (ta_obj_to_indices(ip, indexa, 1, thdr->used-1,
-                                      &pindices, &low)) {
-            case TA_INDEX_TYPE_ERROR:
-                status = TCL_ERROR;
-                break;
-            case TA_INDEX_TYPE_INT:
-                if (low >= 0) 
-                    thdr_delete_range(thdr, low, 1);
-                break;
-            case TA_INDEX_TYPE_THDR:
-                thdr_delete_indices(thdr, pindices);
-                thdr_decr_refs(pindices);
-                break;
-            }
+        /* If the column is already empty or range to be deleted is empty
+           return column as is */
+        if (current_count == 0 || count == 0)
+            return TCL_OK;
+        
+        /* If we are deleting from the front or the back we can just
+           adjust the span */
+        if (low == 0 || (low+count) == current_count) {
+            return tcol_trim_end(ip, tcol, low, count);
         }
-    }
+        status = tcol_make_modifiable(ip, tcol, current_count, 0);
+        if (status != TCL_OK)
+            return status;
+        thdr = tcol_thdr(tcol);
+        thdr_delete_range(thdr, low, count);
+        return TCL_OK;
+    } else {
+        /* Not a range, either a list or single index */
+        thdr_t *pindices;
+        int index_type;
 
-    return status;
+        index_type = ta_obj_to_indices(ip, indexa, 1, current_count-1, &pindices, &low);
+        if (index_type == TA_INDEX_TYPE_ERROR)
+            return TCL_ERROR;
+        if (current_count == 0)
+            return TCL_OK;
+        if (index_type == TA_INDEX_TYPE_INT &&
+            (low == 0 || low == (current_count-1))) {
+            return tcol_trim_end(ip, tcol, low, 1);
+        }
+        
+        status = tcol_make_modifiable(ip, tcol, current_count, 0);
+        if (status != TCL_OK)
+            return status;
+        thdr = tcol_thdr(tcol);
+        if (index_type == TA_INDEX_TYPE_INT) {
+            if (low >= 0) 
+                thdr_delete_range(thdr, low, 1);
+        } else {
+            /* TA_INDEX_TYPE_THDR */
+            thdr_delete_indices(thdr, pindices);
+            thdr_decr_refs(pindices);
+        }
+        return TCL_OK;
+    }
 }
 
 TCL_RESULT tcol_insert_elem(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
