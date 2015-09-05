@@ -28,18 +28,34 @@ text {
 
     === Commands
 
-    ((cmddef cmdref_function "function _NAME_ _ARGS_ _BODY_"))
+    ((cmddef cmdref_xtal_compile "compile _XTALFILE_ _TCLFILE_ ?-encoding _ENCODING_?"))
+    Translates the Xtal script in the file specified by _XTALFILE_ to the
+    Tcl equivalent and writes it out to the file _TCLFILE_.
+    The `-encoding` option may be specified to indicate the
+    character encoding and applies to both files.
+    System encoding is assumed by default.
+    
+    ((cmddef cmdref_xtal_function "function _NAME_ _ARGS_ _BODY_"))
     This command is like the Tcl `proc` command except that _BODY_
     is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
     
-    ((cmddef cmdref_xtal "xtal _SCRIPT_"))
-    Executes a ((^ chap_xtal_lang Xtal)) script in the caller's context.
-
-    ((cmddef cmdref_source "source ?-encoding _ENCODING_? _PATH_"))
-
+    ((cmddef cmdref_xtal_source "source ?-encoding _ENCODING_? _PATH_"))
     Like the Tcl `source` command except that the source file,
     specified by _PATH_, is expected to contain
     ((^ chap_xtal_lang Xtal)) script which is then executed in the caller's
     context. The `-encoding` option may be specified to indicate the
     character encoding of the file. Otherwise system encoding is assumed.
+
+    ((cmddef cmdref_xtal_translate "translate _XTALSCRIPT_"))
+    Translates the specified Xtal script to Tcl and returns it.
+
+    ((cmddef cmdref_xtal_translate_file "translate_file ?-encoding _ENCODING_? _PATH_"))
+    Translates the Xtal script in the file specified by _PATH_ to the
+    Tcl equivalent.
+    The `-encoding` option may be specified to indicate the
+    character encoding of the file. Otherwise system encoding is assumed.
+    
+    ((cmddef cmdref_xtal_xtal "xtal _SCRIPT_"))2
+    Executes a ((^ chap_xtal_lang Xtal)) script in the caller's context.
+
 }

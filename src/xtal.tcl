@@ -112,27 +112,27 @@ proc xtal::_init_compiler {} {
     return
 }
 
-proc xtal::compile {script} {
+proc xtal::translate {script} {
     _init_compiler
-    ::proc compile {script} {
-        return [compiler compile $script]
+    ::proc translate {script} {
+        return [compiler translate $script]
     }
-    tailcall compile $script
+    tailcall translate $script
 }
 
 proc xtal::xtal {script} {
-    uplevel 1 [compile $script]
+    uplevel 1 [translate $script]
 }
 
 proc xtal::function {name arguments body} {
    _init_compiler
     ::proc [namespace current]::proc {name arguments body} {
-        uplevel 1 [list ::proc $name $arguments [compiler compile $body]]
+        uplevel 1 [list ::proc $name $arguments [compiler translate $body]]
     }
     tailcall [namespace current]::proc $name $arguments $body
 }
 
-proc xtal::source {arg1 args} {
+proc xtal::translate_file {arg1 args} {
     if {[llength $args] == 0} {
         set path $arg1
     } else {
@@ -149,11 +149,32 @@ proc xtal::source {arg1 args} {
             fconfigure $fd -translation auto
         }
         set script [read $fd]
-        return [uplevel 1 [list [namespace current]::xtal $script]]
+        return [translate $script]
     } finally {
         close $fd
     }
 }
+
+proc xtal::source {args} {
+    set script [translate_file {*}$args]
+    return [uplevel 1 [list [namespace current]::xtal $script]]
+}
+
+proc xtal::compile {from to args} {
+    set script [translate_file $from {*}$args]
+    set fd [open $to w]
+    try {
+        if {[dict exists $args -encoding]} {
+            fconfigure $fd -translation auto -encoding [dict get $args -encoding]
+        } else {
+            fconfigure $fd -translation auto
+        }
+        puts $fd $script
+    } finally {
+        close $fd
+    }
+}
+
 
 oo::class create xtal::Parser {
     variable Script
@@ -182,12 +203,12 @@ oo::class create xtal::Parser {
     }
 
     method print {text} {
-        foreach stmt [my compile $text] {
+        foreach stmt [my translate $text] {
             my _print $stmt
         }
     }
 
-    method compile {text} {
+    method translate {text} {
         set Script $text
         if {[catch {my parset $text} ast eropts]} {
             if {[string match {pt::rde *} $ast]} {
@@ -771,12 +792,12 @@ oo::class create xtal::Compiler {
 
     forward print parser print
 
-    method compile {script} {
+    method translate {script} {
         if {[info exists Compilations($script)]} {
             return $Compilations($script)
         }
 
-        set ir [parser compile $script]
+        set ir [parser translate $script]
 
         # Initialize the per-compile variables
         set Script $script
@@ -794,7 +815,7 @@ oo::class create xtal::Compiler {
     }
 
     method eval {script} {
-        uplevel 1 [my compile $script]
+        uplevel 1 [my translate $script]
     }
 
     method Statement {child} {
