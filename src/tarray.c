@@ -4224,7 +4224,7 @@ TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
     TA_ASSERT(low >= 0);
     TA_ASSERT(tcol_affirm(tcol));
     current_count = tcol_occupancy(tcol);
-    TA_ASSERT(low == 0 || (low+count) == current_count);
+    TA_ASSERT(low == 0 || (low+count) >= current_count);
 
     if (count == 0)
         return TCL_OK; /* Nothing to be done */
@@ -4238,6 +4238,9 @@ TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
         return TCL_OK;
     }
 
+    if ((low+count) > current_count)
+        count = current_count - low;
+    
     thdr = OBJTHDR(tcol);
     span = OBJTHDRSPAN(tcol);
     
@@ -4275,7 +4278,6 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
         if (status != TCL_OK)
             return status;
         TA_ASSERT(low >= 0);
-        TA_ASSERT(count <= current_count);
 
         /* If the column is already empty or range to be deleted is empty
            return column as is */
@@ -4284,7 +4286,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
         
         /* If we are deleting from the front or the back we can just
            adjust the span */
-        if (low == 0 || (low+count) == current_count) {
+        if (low == 0 || (low+count) >= current_count) {
             return tcol_trim_end(ip, tcol, low, count);
         }
         status = tcol_make_modifiable(ip, tcol, current_count, 0);
