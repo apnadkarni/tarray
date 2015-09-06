@@ -1,5 +1,5 @@
 text {
-    ((= chap_intro "Introduction to typed arrays"))
+    ((= chap_intro "Introduction"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))

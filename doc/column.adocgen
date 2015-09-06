@@ -1,5 +1,5 @@
 text {
-    ((= chap_column_ref "tarray::column commands"))
+    ((= chap_column_ref "Column commands"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
