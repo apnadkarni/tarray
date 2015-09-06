@@ -1478,6 +1478,11 @@ TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
 
     TA_ASSERT(! Tcl_IsShared(table));
 
+    /* TBD - as for columns, make more efficient for the case where
+       we are deleting from the front or the back. This means
+       not calling table_make_modifiable since that will dup the columns
+       as well.
+    */
     if ((status = table_convert(ip, table)) != TCL_OK ||
         (status = table_make_modifiable(ip, table, table_length(table), 0)) != TCL_OK)
         return status;
