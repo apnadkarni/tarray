@@ -606,6 +606,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
                          int command);
 Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
                      int fmt);
+TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count);
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
