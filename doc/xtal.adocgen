@@ -1,5 +1,5 @@
 text {
-    ((= chap_xtal_ref "xtal commands"))
+    ((= chap_xtal_ref "Xtal commands"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
