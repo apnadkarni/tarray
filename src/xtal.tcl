@@ -1,7 +1,7 @@
 namespace eval xtal {
     # In production code we use the critcl C-based parser. For development
     # build the parser on the fly using the oo based parser.
-    variable _use_oo_parser 1
+    variable _use_oo_parser 0
 
     namespace export xtal
 }
@@ -942,7 +942,6 @@ oo::class create xtal::Compiler {
             }
             LValueElement {
                 # Assigning to a single element within a dict/column/table
-                puts "lvalue: [join $lvalue ,]"
                 lassign $lvalue elemtype operand element indexexpr
                 set element [my Element $element]
 
