@@ -8,8 +8,8 @@ namespace eval xtal {
 
 package require tarray
 if {! $xtal::_use_oo_parser} {
-    # Production
-    package require xtalparser
+    # Production - we are already embedded into the critcl based parser
+    # so nothing to do
 } else {
     # Development / grammar debug
     catch {xtal::ParserBase destroy}
