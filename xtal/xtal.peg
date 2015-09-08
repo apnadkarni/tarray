@@ -79,7 +79,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     RelExpr <- AddExpr (WS RelOp WS AddExpr)? ;
     AddExpr  <- MulExpr (WS AddOp WS MulExpr)* ;
     MulExpr <- UnaryExpr (WS MulOp WS UnaryExpr)* ;
-    UnaryExpr <- PostfixExpr / UnaryOp WS PostfixExpr ;
+    UnaryExpr <- PostfixExpr / UnaryOp WS UnaryExpr ;
     PostfixExpr  <- PrimaryExpr (WS PostfixOp)* ;
 
     # Basic terms
