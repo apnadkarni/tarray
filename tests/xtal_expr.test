@@ -1,0 +1,79 @@
+# xtal expression tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc testconstexpr {expr} {
+        set e [expr $expr]
+        set t [xtal::xtal $expr]
+        if {$t != $e} {
+            return "<$expr> failed"
+        }
+        # Verify constant folding works
+        if {[xtal::translate $expr] ne "return -level 0 [expr $expr]\n"} {
+            return "<$expr> constant folding failed"
+        }
+        return
+    }
+
+    proc testexpr {xtal_expr values} {
+        dict with values {}
+        set expr [regsub -all {[_[:alpha:]]+} $xtal_expr \$\\0]
+        if {[expr $expr] != [xtal::xtal $xtal_expr]} {
+            return "<$expr> failed"
+        }
+        return
+    }
+    set testnum 0
+    set values {
+        zero 0 one 1 two 2 three 3 four 4 minusone -1 minustwo -2
+        dzero 0.0 done_one 1.1 dtwo_two 2.2 dthree_three 3.3 dfour_four 4.4 dminusone_one -1.1 dminustwo_two -2.2
+        mask_ones 0xffffffff mask_a 0xaaaaaaaa
+    }
+
+    ### Test unary ops
+    foreach {expression desc} {
+        one            "Simple value"
+        
+        -one           "Unary minus"
+        "+ two"        "Unary plus"
+        "- minusone"   "Unary minus of negative"
+        +minusone      "Unary plus of negative"
+        --two          "Unary minus minus"
+        ++two          "Unary plus plus"
+        --minustwo     "Unary minus minus of negative"
+        "+ + minustwo" "Unary plus plus of negative"
+        -+two          "Unary minus plus"
+        +-two          "Unary plus minus"
+        -+minustwo     "Unary minus plus of negative"
+        " +- minustwo" "Unary plus minus of negative"
+
+        !zero          "Boolean negate"
+        "! one"        "Boolean negate"
+        "! ! zero"     "Boolean double negate with spaces"
+        !!two          "Boolean double negate of integer"
+        !minusone      "Boolean double negate of negative number"
+        !dzero         "Boolean negate of double"
+        !!done_one     "Boolean double negate of double"
+        
+        ~zero          "Complement 0"
+        "~ one"        "Complement 1"
+        "~ ~ zero"     "Double complement"
+        ~mask_ones     "Complement all 1's"
+        ~mask_a        "Complement alternating 1's"
+        ~minusone      "Complement negative number"
+        ~dzero         "Complement double"
+
+        {four-two+two} "+- Left associativity"
+        {four-two-two} "- Left associativity"
+        {one+two*four} "+* Operator precedence"
+        {one||zero&&zero} "Logical operator precedence"
+    } {
+        test xtal-unop-1.$testnum "$desc - $expression" -body [list testexpr $expression $values]
+        set constexpr [string map $values $expression]
+        test xtal-constunop-1.$testnum $constexpr -body [list testconstexpr $constexpr]
+        incr testnum
+    }
+}
+
+::tcltest::cleanupTests
