@@ -15,18 +15,18 @@ switch -exact -- [lindex $argv 0] {
         if {$ver eq ""} {
             usage
         }
-        set critcl_source [pt::pgen peg [fileutil::cat xtal.peg] critcl -class xtal::ParserBase -package xtalparser -name Xtal -version [lindex $argv 1]]
+        set critcl_source [pt::pgen peg [fileutil::cat xtal.peg] critcl -class xtal::ParserBase -package xtal -name Xtal -version [lindex $argv 1]]
         # We want the xtal.tcl file to be included in the package
         # so insert it into the generated critcl parser file
-        fileutil::writeFile xtalparser.critcl [regsub {return\s*$} $critcl_source "critcl::tsources xtal.tcl\n"]
+        fileutil::writeFile xtal.critcl [regsub {return\s*$} $critcl_source "critcl::tsources xtal.tcl\n"]
     }
     ext -
     extension {
         set buildarea [file normalize [file join [pwd] .. build]]
-        critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] -clean {*}[lrange $argv 1 end] xtalparser xtalparser.critcl]
+        critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] -clean {*}[lrange $argv 1 end] xtal xtal.critcl]
     }
     tea {
-        critcl::app::main [list -tea -libdir [file join $buildarea lib] {*}[lrange $argv 1 end] xtalparser xtalparser.critcl]
+        critcl::app::main [list -tea -libdir [file join $buildarea lib] {*}[lrange $argv 1 end] xtal xtal.critcl]
     }
     default {
         usage
