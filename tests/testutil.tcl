@@ -95,14 +95,9 @@ if {$tcl_version eq "8.6"} {
 
 
 if {![info exists tarray::test::known]} {
+    set auto_path [linsert $auto_path 0 [file normalize [file join [info script] .. .. build lib]]]
     namespace eval tarray::test {
         namespace import ::tcltest::test
-
-        set topdir [file dirname [file dirname [file normalize [info script]]]]
-        set pkgdir [file join $topdir build lib tarray]
-        if {[file exists [file join $pkgdir pkgIndex.tcl]]} {
-            set auto_path [linsert $auto_path 0 $pkgdir]
-        }
 
         ################################################################
         # Define standard data used in tests
@@ -826,4 +821,5 @@ if {![info exists tarray::test::known]} {
     }
 
     package require tarray
+    package require xtal
 }
