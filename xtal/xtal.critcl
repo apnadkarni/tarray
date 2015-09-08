@@ -13,8 +13,8 @@
 
 package require Tcl 8.4
 package require critcl
-# @sak notprovided xtalparser
-package provide    xtalparser 0.7
+# @sak notprovided xtal
+package provide    xtal 0.7
 
 # Note: The implementation of the PARAM virtual machine
 #       underlying the C/PARAM code used below is inlined
@@ -8688,7 +8688,7 @@ namespace eval ::xtal {
 	static const char*
 	PARSERnewName (Tcl_Interp* interp)
 	{
-#define KEY "tcllib/parser/xtalparser/critcl"
+#define KEY "tcllib/parser/xtal/critcl"
 
 	    Tcl_InterpDeleteProc* proc = PARSERgRelease;
 	    PARSERg*                  parserg;
