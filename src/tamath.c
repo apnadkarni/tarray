@@ -421,7 +421,8 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
             Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
             for (j = 1 ; j < noperands; ++j) {
                 TA_ASSERT(poperands[j].scalar_operand.type == TA_WIDE);
-                if (poperands[j].scalar_operand.wval == 0) {
+                if (op == TAM_OP_DIV &&
+                    poperands[j].scalar_operand.wval == 0) {
                     Tcl_SetResult(ip, "divide by zero", TCL_STATIC);
                     status = TCL_ERROR;
                     goto vamoose;
