@@ -39,7 +39,8 @@ struct thdr_math_mt_context {
     int      start;             /* Starting position in source thdr
                                    for this thread */
     int      count;             /* Number of elements in thdr to examine */
-    TCL_RESULT res;             /* Status of thread */
+    int      error_code;        /* If non-0, one of the error codes below */
+#define TAM_DIV0  1
     enum ta_math_op_e op;                /* Operation */
 };    
 
@@ -131,7 +132,9 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accu
     case TAM_OP_PLUS: return accumulator + operand;
     case TAM_OP_MINUS: return accumulator - operand;
     case TAM_OP_MUL: return accumulator * operand;
-    case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
+    case TAM_OP_DIV:
+        TA_ASSERT(operand != 0); /* Caller should have ensured */
+        return accumulator / operand;
     case TAM_OP_BITOR: return accumulator | operand;
     case TAM_OP_BITAND: return accumulator & operand;
     case TAM_OP_BITXOR: return accumulator ^ operand;
@@ -185,7 +188,24 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
             *THDRELEMPTR(pctx->thdr, type_, i) = (type_) accum;         \
         }                                                               \
     } while (0)
-
+    
+#define DIVLOOP(op_, type_)                                       \
+    do {                                                                \
+        int i, j;                                                       \
+        for (i = start; i < end; ++i) {                                 \
+            Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
+            for (j = 1; j < noperands; ++j) {                           \
+                Tcl_WideInt operand = ta_math_wide_from_operand(&poperands[j], i); \
+                if (operand == 0) {                                     \
+                    pctx->error_code = TAM_DIV0;                        \
+                    i = end; /* To break outer loop */                  \
+                    break;                                              \
+                }                                                       \
+                accum op_ operand; \
+            }                                                           \
+            *THDRELEMPTR(pctx->thdr, type_, i) = (type_) accum;         \
+        }                                                               \
+    } while (0)
 
     switch (pctx->op) {
     case TAM_OP_PLUS:
@@ -217,10 +237,10 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         break;
     case TAM_OP_DIV:
         switch (pctx->thdr->type) {
-        case TA_BYTE: INTEGERLOOP(/=, unsigned char); break;
-        case TA_INT: INTEGERLOOP(/=, int); break;
-        case TA_UINT: INTEGERLOOP(/=, unsigned int); break;
-        case TA_WIDE: INTEGERLOOP(/=, Tcl_WideInt); break;
+        case TA_BYTE: DIVLOOP(/=, unsigned char); break;
+        case TA_INT: DIVLOOP(/=, int); break;
+        case TA_UINT: DIVLOOP(/=, unsigned int); break;
+        case TA_WIDE: DIVLOOP(/=, Tcl_WideInt); break;
         case TA_DOUBLE: DOUBLELOOP(/=); break;
         }
         break;
@@ -401,6 +421,11 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
             Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
             for (j = 1 ; j < noperands; ++j) {
                 TA_ASSERT(poperands[j].scalar_operand.type == TA_WIDE);
+                if (poperands[j].scalar_operand.wval == 0) {
+                    Tcl_SetResult(ip, "divide by zero", TCL_STATIC);
+                    status = TCL_ERROR;
+                    goto vamoose;
+                }
                 wresult = ta_math_wide_operation(op, wresult, poperands[j].scalar_operand.wval);
             }
             Tcl_SetObjResult(ip, Tcl_NewWideIntObj(wresult));
@@ -455,7 +480,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     mt_context[0].thdr = result_thdr;
     mt_context[0].poperands = poperands;
     mt_context[0].noperands = noperands;
-    mt_context[0].res = TCL_OK;
+    mt_context[0].error_code = 0;
     mt_context[0].op = op;
     mt_context[0].start = 0;
     mt_context[0].count = mt_sizes[0];
@@ -470,7 +495,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
             mt_context[j].thdr = mt_context[0].thdr;
             mt_context[j].poperands = poperands;
             mt_context[j].noperands = noperands;
-            mt_context[j].res = TCL_OK;
+            mt_context[j].error_code = 0;
             mt_context[j].op = op;
             mt_context[j].count = mt_sizes[j];
             mt_context[j].start = mt_context[j-1].start + mt_context[j-1].count;
@@ -492,9 +517,19 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     /* First verify all threads ran successfully */
     status = TCL_OK;
     for (j = 0; j < ncontexts; ++j) {
-       if (mt_context[j].res != TCL_OK) {
-            status = TCL_ERROR;
-            break;
+       if (mt_context[j].error_code != 0) {
+           char *msg;
+           switch (mt_context[j].error_code) {
+           case TAM_DIV0:
+               msg = "divide by zero";
+               break;
+           default:
+               msg = "error in math operation";
+               break;
+           }
+           Tcl_SetResult(ip, msg, TCL_STATIC);
+           status = TCL_ERROR;
+           break;
         }
     }
 
