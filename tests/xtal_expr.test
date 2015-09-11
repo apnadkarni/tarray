@@ -3,30 +3,60 @@
 source testutil.tcl
 
 namespace eval tarray::test {
+
+    # Tests that an xtal basic expression yields the same result or error
+    # as Tcl's expr command when all operands are constants
     proc testconstexpr {expr} {
-        set e [expr $expr]
-        set t [xtal::xtal $expr]
-        if {$t != $e} {
+        set ecode [catch {expr $expr} eresult]
+        set xcode [catch {xtal::xtal $expr} xresult]
+        if {$ecode != $xcode || $eresult != $xresult} {
             return "<$expr> failed"
         }
         # Verify constant folding works
-        if {[xtal::translate $expr] ne "return -level 0 [expr $expr]\n"} {
-            return "<$expr> constant folding failed"
+        if {$xcode == 0} {
+            if {[xtal::translate $expr] ne "return -level 0 $eresult\n"} {
+                return "<$expr> constant folding failed"
+            }
         }
         return
     }
 
+    # Tests that an xtal basic expression yields the same result or error
+    # as Tcl's expr command
     proc testexpr {xtal_expr values} {
         dict with values {}
         set expr [regsub -all {[_[:alpha:]]+} $xtal_expr \$\\0]
-        if {[expr $expr] != [xtal::xtal $xtal_expr]} {
+        set ecode [catch {expr $expr} eresult]
+        set xcode [catch {xtal::xtal $xtal_expr} xresult]
+        if {$ecode != $xcode || $eresult != $xresult} {
             return "<$expr> failed"
         }
         return
     }
+    
+    # Tests that an xtal basic assignment yields the same result or error
+    # as Tcl's expr command
+    proc testexprassign {xtal_expr values} {
+        dict with values {}
+        set expr [regsub -all {[_[:alpha:]]+} $xtal_expr \$\\0]
+        set ecode [catch {expr $expr} eresult]
+        set xcode [catch {xtal::xtal "x = $xtal_expr"} xresult]
+        if {$xcode} {
+            if {$ecode == 0 || $eresult != $xresult} {
+                return "<$expr> failed"
+            }
+        } else {
+            if {$ecode || $eresult != $xresult || $x != $eresult} {
+                return "<$expr> failed"
+            }
+        }
+        return
+    }
+    
     set testnum 0
     # TBD - floating point using exponent format
     set values {
+        int_max 0x7fffffff int_min -2147483648
         zero 0 one 1 two 2 three 3 four 4 minusone -1 minustwo -2
         dzero 0.0 done_one 1.1 dtwo_two 2.2 dthree_three 3.3 dfour_four 4.4 dminusone_one -1.1 dminustwo_two -2.2
         mask_ones 0xffffffff mask_a 0xaaaaaaaa
@@ -52,6 +82,8 @@ namespace eval tarray::test {
         " +- minustwo" "Unary plus minus of negative"
         ---two         "Unary minus minus minus"
         +++two         "Unary plus plus plus"
+        -int_max       "Unary minus max int"
+        -int_min       "Unary minus min int"
 
         !zero          "Boolean negate"
         "! one"        "Boolean negate"
@@ -68,6 +100,7 @@ namespace eval tarray::test {
         ~mask_ones     "Complement all 1's"
         ~mask_a        "Complement alternating 1's"
         ~minusone      "Complement negative number"
+        ~dzero         "Complement double (fail)"
 
         -!zero         "Unary combination -!"
         !-one          "Unary combination !-"
@@ -76,51 +109,61 @@ namespace eval tarray::test {
         
     } {
         test xtal-unop-1.$testnum "$desc - $expression" -body [list testexpr $expression $values]
+        test xtal-unop-assign-1.$testnum "$desc - $expression" -body [list testexprassign $expression $values]
         set constexpr [string map $values $expression]
         test xtal-constunop-1.$testnum $constexpr -body [list testconstexpr $constexpr]
         incr testnum
     }
 
-    # Unary failure tests
-    # TBD - string fails
-    foreach {expression desc} {
-        ~dzero         "Complement double"
-    } {
-        test xtal-unop-1.$testnum "$desc - $expression" -body [list testexpr $expression $values] -result "can't use floating-point value as operand*" -match glob -returnCodes error
-        set constexpr [string map $values $expression]
-        test xtal-constunop-1.$testnum $constexpr -body [list testconstexpr $constexpr] -result "can't use floating-point value as operand*" -match glob  -returnCodes error
-        incr testnum
-    }
-    
-
     #
     # Test binary operators
     set testnum 0
     foreach {expression desc} {
-        one+one       "Binary +"
-        two+minusone  "Binary + unary"
-        two+-2        "Binary + unary constant"
-        "minusone + - 2"  "Binary + unary constant"
-        "+2- three"      "Binary + unary constant"
+        oneOPone        "Binary OP"
+        twoOPminusone   "Binary OP unary"
+        twoOP-2         "Binary OP unary constant"
+        "minusone OP - 2"   "Binary OP unary constant"
+ 
+        "int_max OP 1"            "Binary OP int_max"
+        "int_max  OP  -1"         "Binary OP int_max"
+        "int_max OP int_min"      "Binary OP int_max"
+        "int_max OP int_max"      "Binary OP int_max"
+        "one OP zero"             "Binary OP with zero"
+        "mask_a OP zero"          "Binary OP with zero"
+        "mask_ones OP zero"       "Binary OP with zero"
+        "mask_a OP one"           "Binary OP with zero"
+        "mask_ones OP one"        "Binary OP with zero"
 
-        done_one+done_one       "Binary +"
-        dtwo_two+dminusone_one  "Binary + unary"
-        dtwo_two+-2        "Binary + unary constant"
-        "dminusone_one + - 2"  "Binary + unary constant"
-        "+2- dthree_three"      "Binary + unary constant"
+        done_oneOPdone_one        "Binary OP"
+        dtwo_twoOPdminusone_one   "Binary OP unary"
+        dtwo_twoOP-2              "Binary OP unary constant"
+        "dminusone_one OP - 2"    "Binary OP unary constant"
+        done_oneOP0               "Binary OP with zero"
         
-        wide_int+wide_int          "Binary +"
-        "wide_int + wide_min"  "Binary + unary"
-        wide_max+-2        "Binary + unary constant"
-        "wide_min + + +2"  "Binary + unary constant"
-        "-2 + wide_max"    "Binary + unary constant"
+        wide_intOPwide_int      "Binary OP"
+        "wide_int OP wide_min"  "Binary OP unary"
+        wide_maxOP-2            "Binary OP unary constant"
+        "wide_min OP - + - 2"   "Binary OP unary constant"
+        "-2 OP wide_max"        "Binary OP unary constant"
+        wide_intOP0             "Binary OP with zero"
     } {
-        test xtal-binop-1.$testnum "$desc - $expression" -body [list testexpr $expression $values]
-        set constexpr [string map $values $expression]
-        test xtal-constbinop-1.$testnum $constexpr -body [list testconstexpr $constexpr]
-        incr testnum
+        foreach op {+ - * / & | ^ && || == != <= >= < >} {
+            set expression [string map [list OP $op] $expression]
+            set desc [string map [list OP $op] $desc]
+            test xtal-binop-1.$testnum "$desc - $expression" -body [list testexpr $expression $values]
+            test xtal-binop-assign-1.$testnum "$desc - $expression" -body [list testexprassign $expression $values]
+            set constexpr [string map $values $expression]
+            test xtal-constbinop-1.$testnum $constexpr -body [list testconstexpr $constexpr]
+            incr testnum
+        }
     }
 
+    # TBD - test strings including glob and regexp and nocase
+
+    # TBD - test invalid ops (eg. regexp with ints)
+
+
+    
     #
     # Test operator associativity
     foreach {expression desc} {

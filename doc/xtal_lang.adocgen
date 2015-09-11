@@ -49,9 +49,8 @@ text {
 }
 
 eval {
-    package require tarray
-    source ../src/xtal.tcl
-    namespace import xtal::xtal
+    package require xtal
+    namespace path [list xtal tarray];      # Allows use of xtal commands without qualification
 }
 
 text {
@@ -150,7 +149,7 @@ text {
 } text {
     The index operations can be search expressions as well.
 } prompt {} xtal_shell {
-    L[L =* "*o"]
+    L[L ~ ".*o"]
 } text {
    The indexing operator can be used in assignments. 
 } prompt {} xtal_shell {
@@ -304,10 +303,8 @@ text {
     Xtal is part of the `tarray` package which must be loaded to run
     Xtal code.
 } shell {
-    package require tarray
-    namespace path tarray;      # Allows use of tarray commands without qualification
-} eval {
-    source ../src/xtal.tcl
+    package require xtal
+    namespace path [list xtal tarray];      # Allows use of xtal commands without qualification
 } text {
     A Xtal code fragment may be run by one of several means.
 
@@ -1122,11 +1119,11 @@ text {
     The relational operators include the `==`, `!=`, `<`, +<=+, `>`, `>=`
     operators that are present in Tcl.
 
-    In addition, they include the additional operators related
-    to string and pattern matching that are shown in 
+    In addition, they include the operators related
+    to string comparisons that are shown in 
     ((^ tab_xtal_match_ops)).
     
-    ((.Table tab_xtal_match_ops "Xtal arithmetic operators"))
+    ((.Table tab_xtal_match_ops "Xtal relational operators not in Tcl"))
     [cols="10,30,60", options="headers"]
     |===
     |Operator
@@ -1141,12 +1138,12 @@ text {
     |`_STRINGA_ =^ _STRINGB_`
     |Returns 1 if the two strings are not equal in case-insensitive mode, else 0.
 
-    |`=~`
-    |`_STRING =~ REGEXP_`
+    |`~`
+    |`_STRING ~ REGEXP_`
     |Returns 1 if the string matches the specified regular expression, else 0.
 
-    |`=~^`
-    |`_STRING =~^ REGEXP_`
+    |`~^`
+    |`_STRING ~^ REGEXP_`
     |Returns 1 if the string matches the specified regular expression, else 0.
     The matching is done in case-insensitive mode.
 
@@ -1160,41 +1157,14 @@ text {
     |Returns 1 if the string does not match the specified regular expression,
     else 0. The matching is done in case-insensitive mode.
 
-    |`=*`
-    |`_STRING =* PATTERN_`
-    |Returns 1 if the string matches the specified pattern, else 0.
-    The matching is done as for the Tcl `string match` command.
-
-    |`=*^`
-    |`_STRING =*^ PATTERN_`
-    |Returns 1 if the string matches the specified pattern, else 0.
-    The matching is done as for the `string match` command
-    in case-insensitive mode.
-
-    |`!*`
-    |`_STRING !* PATTERN_`
-    |Returns 1 if the string does not match the specified pattern,
-    else 0. The matching is done as for the Tcl `string match` command.
-
-    |`!*^`
-    |`_STRING !*^ PATTERN_`
-    |Returns 1 if the string does not match the specified pattern,
-    else 0. The matching is done as for the `string match` command
-    in case-insensitive mode.
 
     |===
 
-    Note that for the regular expression and pattern match operators,
+    Note that for the regular expression operators,
     the order of the operands is significant - the first indicates 
-    the string being matched and the second is the pattern or regular
+    the string being matched and the second is the regular
     expression.
 
-    [TIP]
-    In the matching operators shown above, the first character,
-    `=` or `!`, indicates the sense of the match, the second character
-    specifies the operation `~` or `*` and the optional third
-    character `^`, if present, indicates a case-sensitive match.
-    
     .Rules of operation
     
     * If either operand is a table, an error will be generated.

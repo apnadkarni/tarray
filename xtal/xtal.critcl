@@ -1905,125 +1905,125 @@ namespace eval ::xtal {
         static void optional_630 (RDE_PARAM p);
         static void sequence_632 (RDE_PARAM p);
         static void sym_RelExpr (RDE_PARAM p);
-        static void choice_650 (RDE_PARAM p);
+        static void choice_646 (RDE_PARAM p);
         static void sym_RelOp (RDE_PARAM p);
-        static void optional_659 (RDE_PARAM p);
-        static void poskleene_662 (RDE_PARAM p);
-        static void sequence_664 (RDE_PARAM p);
-        static void choice_666 (RDE_PARAM p);
+        static void optional_655 (RDE_PARAM p);
+        static void poskleene_658 (RDE_PARAM p);
+        static void sequence_660 (RDE_PARAM p);
+        static void choice_662 (RDE_PARAM p);
         static void sym_ReturnCode (RDE_PARAM p);
+        static void sequence_668 (RDE_PARAM p);
+        static void optional_670 (RDE_PARAM p);
         static void sequence_672 (RDE_PARAM p);
-        static void optional_674 (RDE_PARAM p);
-        static void sequence_676 (RDE_PARAM p);
         static void sym_ReturnStatement (RDE_PARAM p);
-        static void sequence_684 (RDE_PARAM p);
-        static void optional_686 (RDE_PARAM p);
+        static void sequence_680 (RDE_PARAM p);
+        static void optional_682 (RDE_PARAM p);
+        static void sequence_691 (RDE_PARAM p);
+        static void kleene_693 (RDE_PARAM p);
         static void sequence_695 (RDE_PARAM p);
-        static void kleene_697 (RDE_PARAM p);
-        static void sequence_699 (RDE_PARAM p);
         static void sym_SearchCommand (RDE_PARAM p);
-        static void choice_704 (RDE_PARAM p);
+        static void choice_700 (RDE_PARAM p);
         static void sym_SearchOption (RDE_PARAM p);
-        static void sequence_710 (RDE_PARAM p);
+        static void sequence_706 (RDE_PARAM p);
         static void sym_SearchTarget (RDE_PARAM p);
-        static void choice_717 (RDE_PARAM p);
-        static void sequence_721 (RDE_PARAM p);
+        static void choice_713 (RDE_PARAM p);
+        static void sequence_717 (RDE_PARAM p);
         static void sym_Selector (RDE_PARAM p);
         static void sym_SelectorContext (RDE_PARAM p);
-        static void sequence_729 (RDE_PARAM p);
-        static void choice_732 (RDE_PARAM p);
+        static void sequence_725 (RDE_PARAM p);
+        static void choice_728 (RDE_PARAM p);
         static void sym_Separator (RDE_PARAM p);
-        static void optional_738 (RDE_PARAM p);
-        static void sequence_742 (RDE_PARAM p);
+        static void optional_734 (RDE_PARAM p);
+        static void sequence_738 (RDE_PARAM p);
         static void sym_Sequence (RDE_PARAM p);
+        static void sequence_746 (RDE_PARAM p);
+        static void kleene_748 (RDE_PARAM p);
         static void sequence_750 (RDE_PARAM p);
-        static void kleene_752 (RDE_PARAM p);
-        static void sequence_754 (RDE_PARAM p);
         static void sym_SequenceContent (RDE_PARAM p);
         static void sym_SingleQuote (RDE_PARAM p);
-        static void sequence_766 (RDE_PARAM p);
-        static void optional_768 (RDE_PARAM p);
+        static void sequence_762 (RDE_PARAM p);
+        static void optional_764 (RDE_PARAM p);
+        static void sequence_768 (RDE_PARAM p);
+        static void optional_770 (RDE_PARAM p);
         static void sequence_772 (RDE_PARAM p);
-        static void optional_774 (RDE_PARAM p);
-        static void sequence_776 (RDE_PARAM p);
         static void sym_SortCommand (RDE_PARAM p);
-        static void choice_783 (RDE_PARAM p);
+        static void choice_779 (RDE_PARAM p);
         static void sym_SortOption (RDE_PARAM p);
+        static void sequence_785 (RDE_PARAM p);
+        static void kleene_787 (RDE_PARAM p);
         static void sequence_789 (RDE_PARAM p);
-        static void kleene_791 (RDE_PARAM p);
-        static void sequence_793 (RDE_PARAM p);
         static void sym_SortOptions (RDE_PARAM p);
-        static void choice_809 (RDE_PARAM p);
+        static void choice_805 (RDE_PARAM p);
         static void sym_Statement (RDE_PARAM p);
-        static void notahead_814 (RDE_PARAM p);
-        static void sequence_817 (RDE_PARAM p);
-        static void kleene_819 (RDE_PARAM p);
-        static void sequence_822 (RDE_PARAM p);
+        static void notahead_810 (RDE_PARAM p);
+        static void sequence_813 (RDE_PARAM p);
+        static void kleene_815 (RDE_PARAM p);
+        static void sequence_818 (RDE_PARAM p);
         static void sym_String (RDE_PARAM p);
-        static void sequence_828 (RDE_PARAM p);
+        static void sequence_824 (RDE_PARAM p);
         static void sym_TableColumnDef (RDE_PARAM p);
+        static void sequence_832 (RDE_PARAM p);
+        static void kleene_834 (RDE_PARAM p);
         static void sequence_836 (RDE_PARAM p);
-        static void kleene_838 (RDE_PARAM p);
-        static void sequence_840 (RDE_PARAM p);
         static void sym_TableColumnDefs (RDE_PARAM p);
+        static void sequence_844 (RDE_PARAM p);
+        static void kleene_846 (RDE_PARAM p);
         static void sequence_848 (RDE_PARAM p);
-        static void kleene_850 (RDE_PARAM p);
-        static void sequence_852 (RDE_PARAM p);
         static void sym_TableColumnList (RDE_PARAM p);
-        static void optional_860 (RDE_PARAM p);
-        static void sequence_864 (RDE_PARAM p);
+        static void optional_856 (RDE_PARAM p);
+        static void sequence_860 (RDE_PARAM p);
         static void sym_TableColumns (RDE_PARAM p);
-        static void optional_872 (RDE_PARAM p);
-        static void optional_878 (RDE_PARAM p);
-        static void sequence_880 (RDE_PARAM p);
+        static void optional_868 (RDE_PARAM p);
+        static void optional_874 (RDE_PARAM p);
+        static void sequence_876 (RDE_PARAM p);
         static void sym_TableConstructor (RDE_PARAM p);
-        static void sequence_885 (RDE_PARAM p);
-        static void notahead_887 (RDE_PARAM p);
-        static void sequence_890 (RDE_PARAM p);
-        static void kleene_892 (RDE_PARAM p);
+        static void sequence_881 (RDE_PARAM p);
+        static void notahead_883 (RDE_PARAM p);
+        static void sequence_886 (RDE_PARAM p);
+        static void kleene_888 (RDE_PARAM p);
         static void sym_TclScript (RDE_PARAM p);
-        static void ahead_899 (RDE_PARAM p);
-        static void sequence_901 (RDE_PARAM p);
+        static void ahead_895 (RDE_PARAM p);
+        static void sequence_897 (RDE_PARAM p);
         static void sym_TclScriptBlock (RDE_PARAM p);
-        static void choice_908 (RDE_PARAM p);
-        static void sequence_910 (RDE_PARAM p);
+        static void choice_904 (RDE_PARAM p);
+        static void sequence_906 (RDE_PARAM p);
         static void sym_TclScriptEndMarker (RDE_PARAM p);
+        static void sequence_916 (RDE_PARAM p);
+        static void kleene_918 (RDE_PARAM p);
         static void sequence_920 (RDE_PARAM p);
-        static void kleene_922 (RDE_PARAM p);
-        static void sequence_924 (RDE_PARAM p);
         static void sym_ThrowStatement (RDE_PARAM p);
-        static void sequence_929 (RDE_PARAM p);
+        static void sequence_925 (RDE_PARAM p);
         static void sym_Token (RDE_PARAM p);
-        static void sequence_943 (RDE_PARAM p);
+        static void sequence_939 (RDE_PARAM p);
         static void sym_TrapHandler (RDE_PARAM p);
-        static void choice_954 (RDE_PARAM p);
-        static void sequence_956 (RDE_PARAM p);
-        static void kleene_958 (RDE_PARAM p);
+        static void choice_950 (RDE_PARAM p);
+        static void sequence_952 (RDE_PARAM p);
+        static void kleene_954 (RDE_PARAM p);
+        static void sequence_958 (RDE_PARAM p);
+        static void optional_960 (RDE_PARAM p);
         static void sequence_962 (RDE_PARAM p);
-        static void optional_964 (RDE_PARAM p);
-        static void sequence_966 (RDE_PARAM p);
         static void sym_TryStatement (RDE_PARAM p);
-        static void sequence_973 (RDE_PARAM p);
-        static void choice_975 (RDE_PARAM p);
+        static void sequence_969 (RDE_PARAM p);
+        static void choice_971 (RDE_PARAM p);
         static void sym_UnaryExpr (RDE_PARAM p);
         static void sym_UnaryOp (RDE_PARAM p);
-        static void sequence_987 (RDE_PARAM p);
+        static void sequence_983 (RDE_PARAM p);
         static void sym_WhileStatement (RDE_PARAM p);
-        static void sequence_992 (RDE_PARAM p);
-        static void sequence_997 (RDE_PARAM p);
-        static void choice_999 (RDE_PARAM p);
-        static void kleene_1001 (RDE_PARAM p);
+        static void sequence_988 (RDE_PARAM p);
+        static void sequence_993 (RDE_PARAM p);
+        static void choice_995 (RDE_PARAM p);
+        static void kleene_997 (RDE_PARAM p);
         static void sym_WS (RDE_PARAM p);
-        static void kleene_1005 (RDE_PARAM p);
+        static void kleene_1001 (RDE_PARAM p);
         static void sym_WSNL (RDE_PARAM p);
-        static void poskleene_1016 (RDE_PARAM p);
+        static void poskleene_1012 (RDE_PARAM p);
         static void sym_WSob (RDE_PARAM p);
         
         /*
          * Precomputed table of strings (symbols, error messages, etc.).
          */
         
-        static char const* p_string [310] = {
+        static char const* p_string [306] = {
             /*        0 = */   "alnum",
             /*        1 = */   "alpha",
             /*        2 = */   "ascii",
@@ -2232,108 +2232,104 @@ namespace eval ::xtal {
             /*      205 = */   "cl <>",
             /*      206 = */   "str =^",
             /*      207 = */   "str !^",
-            /*      208 = */   "str =~^",
-            /*      209 = */   "str =~",
+            /*      208 = */   "str ~^",
+            /*      209 = */   "t ~",
             /*      210 = */   "str !~^",
             /*      211 = */   "str !~",
-            /*      212 = */   "str =*^",
-            /*      213 = */   "str =*",
-            /*      214 = */   "str !*^",
-            /*      215 = */   "str !*",
-            /*      216 = */   "n RelOp",
-            /*      217 = */   "RelOp",
-            /*      218 = */   "str error",
-            /*      219 = */   "str ok",
-            /*      220 = */   "str return",
-            /*      221 = */   "n ReturnCode",
-            /*      222 = */   "ReturnCode",
-            /*      223 = */   "n ReturnStatement",
-            /*      224 = */   "ReturnStatement",
-            /*      225 = */   "str @search",
-            /*      226 = */   "n SearchCommand",
-            /*      227 = */   "SearchCommand",
-            /*      228 = */   "str inline",
-            /*      229 = */   "str all",
-            /*      230 = */   "n SearchOption",
-            /*      231 = */   "SearchOption",
-            /*      232 = */   "str ->",
-            /*      233 = */   "n SearchTarget",
-            /*      234 = */   "SearchTarget",
-            /*      235 = */   "str end",
-            /*      236 = */   "n Selector",
-            /*      237 = */   "Selector",
-            /*      238 = */   "str @@",
-            /*      239 = */   "n SelectorContext",
-            /*      240 = */   "SelectorContext",
-            /*      241 = */   "t \173;\175",
-            /*      242 = */   "n Separator",
-            /*      243 = */   "Separator",
-            /*      244 = */   "n Sequence",
-            /*      245 = */   "Sequence",
-            /*      246 = */   "n SequenceContent",
-            /*      247 = */   "SequenceContent",
-            /*      248 = */   "t '",
-            /*      249 = */   "n SingleQuote",
-            /*      250 = */   "SingleQuote",
-            /*      251 = */   "str @sort",
-            /*      252 = */   "n SortCommand",
-            /*      253 = */   "SortCommand",
-            /*      254 = */   "str indices",
-            /*      255 = */   "str nocase",
-            /*      256 = */   "str increasing",
-            /*      257 = */   "str decreasing",
-            /*      258 = */   "n SortOption",
-            /*      259 = */   "SortOption",
-            /*      260 = */   "n SortOptions",
-            /*      261 = */   "SortOptions",
-            /*      262 = */   "n Statement",
-            /*      263 = */   "Statement",
-            /*      264 = */   "n String",
-            /*      265 = */   "String",
-            /*      266 = */   "n TableColumnDef",
-            /*      267 = */   "TableColumnDef",
-            /*      268 = */   "n TableColumnDefs",
-            /*      269 = */   "TableColumnDefs",
-            /*      270 = */   "n TableColumnList",
-            /*      271 = */   "TableColumnList",
-            /*      272 = */   "n TableColumns",
-            /*      273 = */   "TableColumns",
-            /*      274 = */   "str @table",
-            /*      275 = */   "n TableConstructor",
-            /*      276 = */   "TableConstructor",
-            /*      277 = */   "t >",
-            /*      278 = */   "n TclScript",
-            /*      279 = */   "TclScript",
-            /*      280 = */   "t <",
-            /*      281 = */   "n TclScriptBlock",
-            /*      282 = */   "TclScriptBlock",
-            /*      283 = */   "n TclScriptEndMarker",
-            /*      284 = */   "TclScriptEndMarker",
-            /*      285 = */   "str throw",
-            /*      286 = */   "n ThrowStatement",
-            /*      287 = */   "ThrowStatement",
-            /*      288 = */   "n Token",
-            /*      289 = */   "Token",
-            /*      290 = */   "str trap",
-            /*      291 = */   "n TrapHandler",
-            /*      292 = */   "TrapHandler",
-            /*      293 = */   "str try",
-            /*      294 = */   "n TryStatement",
-            /*      295 = */   "TryStatement",
-            /*      296 = */   "n UnaryExpr",
-            /*      297 = */   "UnaryExpr",
-            /*      298 = */   "cl -+~!%",
-            /*      299 = */   "n UnaryOp",
-            /*      300 = */   "UnaryOp",
-            /*      301 = */   "str while",
-            /*      302 = */   "n WhileStatement",
-            /*      303 = */   "WhileStatement",
-            /*      304 = */   "n WS",
-            /*      305 = */   "WS",
-            /*      306 = */   "n WSNL",
-            /*      307 = */   "WSNL",
-            /*      308 = */   "n WSob",
-            /*      309 = */   "WSob"
+            /*      212 = */   "n RelOp",
+            /*      213 = */   "RelOp",
+            /*      214 = */   "str error",
+            /*      215 = */   "str ok",
+            /*      216 = */   "str return",
+            /*      217 = */   "n ReturnCode",
+            /*      218 = */   "ReturnCode",
+            /*      219 = */   "n ReturnStatement",
+            /*      220 = */   "ReturnStatement",
+            /*      221 = */   "str @search",
+            /*      222 = */   "n SearchCommand",
+            /*      223 = */   "SearchCommand",
+            /*      224 = */   "str inline",
+            /*      225 = */   "str all",
+            /*      226 = */   "n SearchOption",
+            /*      227 = */   "SearchOption",
+            /*      228 = */   "str ->",
+            /*      229 = */   "n SearchTarget",
+            /*      230 = */   "SearchTarget",
+            /*      231 = */   "str end",
+            /*      232 = */   "n Selector",
+            /*      233 = */   "Selector",
+            /*      234 = */   "str @@",
+            /*      235 = */   "n SelectorContext",
+            /*      236 = */   "SelectorContext",
+            /*      237 = */   "t \173;\175",
+            /*      238 = */   "n Separator",
+            /*      239 = */   "Separator",
+            /*      240 = */   "n Sequence",
+            /*      241 = */   "Sequence",
+            /*      242 = */   "n SequenceContent",
+            /*      243 = */   "SequenceContent",
+            /*      244 = */   "t '",
+            /*      245 = */   "n SingleQuote",
+            /*      246 = */   "SingleQuote",
+            /*      247 = */   "str @sort",
+            /*      248 = */   "n SortCommand",
+            /*      249 = */   "SortCommand",
+            /*      250 = */   "str indices",
+            /*      251 = */   "str nocase",
+            /*      252 = */   "str increasing",
+            /*      253 = */   "str decreasing",
+            /*      254 = */   "n SortOption",
+            /*      255 = */   "SortOption",
+            /*      256 = */   "n SortOptions",
+            /*      257 = */   "SortOptions",
+            /*      258 = */   "n Statement",
+            /*      259 = */   "Statement",
+            /*      260 = */   "n String",
+            /*      261 = */   "String",
+            /*      262 = */   "n TableColumnDef",
+            /*      263 = */   "TableColumnDef",
+            /*      264 = */   "n TableColumnDefs",
+            /*      265 = */   "TableColumnDefs",
+            /*      266 = */   "n TableColumnList",
+            /*      267 = */   "TableColumnList",
+            /*      268 = */   "n TableColumns",
+            /*      269 = */   "TableColumns",
+            /*      270 = */   "str @table",
+            /*      271 = */   "n TableConstructor",
+            /*      272 = */   "TableConstructor",
+            /*      273 = */   "t >",
+            /*      274 = */   "n TclScript",
+            /*      275 = */   "TclScript",
+            /*      276 = */   "t <",
+            /*      277 = */   "n TclScriptBlock",
+            /*      278 = */   "TclScriptBlock",
+            /*      279 = */   "n TclScriptEndMarker",
+            /*      280 = */   "TclScriptEndMarker",
+            /*      281 = */   "str throw",
+            /*      282 = */   "n ThrowStatement",
+            /*      283 = */   "ThrowStatement",
+            /*      284 = */   "n Token",
+            /*      285 = */   "Token",
+            /*      286 = */   "str trap",
+            /*      287 = */   "n TrapHandler",
+            /*      288 = */   "TrapHandler",
+            /*      289 = */   "str try",
+            /*      290 = */   "n TryStatement",
+            /*      291 = */   "TryStatement",
+            /*      292 = */   "n UnaryExpr",
+            /*      293 = */   "UnaryExpr",
+            /*      294 = */   "cl -+~!%",
+            /*      295 = */   "n UnaryOp",
+            /*      296 = */   "UnaryOp",
+            /*      297 = */   "str while",
+            /*      298 = */   "n WhileStatement",
+            /*      299 = */   "WhileStatement",
+            /*      300 = */   "n WS",
+            /*      301 = */   "WS",
+            /*      302 = */   "n WSNL",
+            /*      303 = */   "WSNL",
+            /*      304 = */   "n WSob",
+            /*      305 = */   "WSob"
         };
         
         /*
@@ -6360,23 +6356,19 @@ namespace eval ::xtal {
             *     [<>]
             *     "=^"
             *     "!^"
-            *     "=~^"
-            *     "=~"
+            *     "~^"
+            *     '~'
             *     "!~^"
             *     "!~"
-            *     "=*^"
-            *     "=*"
-            *     "!*^"
-            *     "!*"
             */
         
-            if (rde_param_i_symbol_start (p, 217)) return ;
-            choice_650 (p);
-            rde_param_i_symbol_done_leaf (p, 217, 216);
+            if (rde_param_i_symbol_start (p, 213)) return ;
+            choice_646 (p);
+            rde_param_i_symbol_done_leaf (p, 213, 212);
             return;
         }
         
-        static void choice_650 (RDE_PARAM p) {
+        static void choice_646 (RDE_PARAM p) {
            /*
             * /
             *     "=="
@@ -6386,14 +6378,10 @@ namespace eval ::xtal {
             *     [<>]
             *     "=^"
             *     "!^"
-            *     "=~^"
-            *     "=~"
+            *     "~^"
+            *     '~'
             *     "!~^"
             *     "!~"
-            *     "=*^"
-            *     "=*"
-            *     "!*^"
-            *     "!*"
             */
         
             rde_param_i_state_push_void (p);
@@ -6411,21 +6399,13 @@ namespace eval ::xtal {
             if (rde_param_i_bra_void2void(p)) return;
             rde_param_i_next_str (p, "!^", 207);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "=~^", 208);
+            rde_param_i_next_str (p, "~^", 208);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "=~", 209);
+            rde_param_i_next_char (p, "~", 209);
             if (rde_param_i_bra_void2void(p)) return;
             rde_param_i_next_str (p, "!~^", 210);
             if (rde_param_i_bra_void2void(p)) return;
             rde_param_i_next_str (p, "!~", 211);
-            if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "=*^", 212);
-            if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "=*", 213);
-            if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "!*^", 214);
-            if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "!*", 215);
             rde_param_i_state_merge_void (p);
             return;
         }
@@ -6449,13 +6429,13 @@ namespace eval ::xtal {
             *             <digit>
             */
         
-            if (rde_param_i_symbol_start (p, 222)) return ;
-            choice_666 (p);
-            rde_param_i_symbol_done_leaf (p, 222, 221);
+            if (rde_param_i_symbol_start (p, 218)) return ;
+            choice_662 (p);
+            rde_param_i_symbol_done_leaf (p, 218, 217);
             return;
         }
         
-        static void choice_666 (RDE_PARAM p) {
+        static void choice_662 (RDE_PARAM p) {
            /*
             * /
             *     "error"
@@ -6471,22 +6451,22 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "error", 218);
+            rde_param_i_next_str (p, "error", 214);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "ok", 219);
+            rde_param_i_next_str (p, "ok", 215);
             if (rde_param_i_bra_void2void(p)) return;
             rde_param_i_next_str (p, "continue", 91);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "return", 220);
+            rde_param_i_next_str (p, "return", 216);
             if (rde_param_i_bra_void2void(p)) return;
             rde_param_i_next_str (p, "break", 49);
             if (rde_param_i_bra_void2void(p)) return;
-            sequence_664 (p);
+            sequence_660 (p);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void sequence_664 (RDE_PARAM p) {
+        static void sequence_660 (RDE_PARAM p) {
            /*
             * x
             *     ?
@@ -6496,14 +6476,14 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            optional_659 (p);
+            optional_655 (p);
             if (rde_param_i_seq_void2void(p)) return;
-            poskleene_662 (p);
+            poskleene_658 (p);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void optional_659 (RDE_PARAM p) {
+        static void optional_655 (RDE_PARAM p) {
            /*
             * ?
             *     '-'
@@ -6515,7 +6495,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void poskleene_662 (RDE_PARAM p) {
+        static void poskleene_658 (RDE_PARAM p) {
            /*
             * +
             *     <digit>
@@ -6546,13 +6526,13 @@ namespace eval ::xtal {
             *             (Expression)
             */
         
-            if (rde_param_i_symbol_start_d (p, 224)) return ;
-            sequence_676 (p);
-            rde_param_i_symbol_done_d_reduce (p, 224, 223);
+            if (rde_param_i_symbol_start_d (p, 220)) return ;
+            sequence_672 (p);
+            rde_param_i_symbol_done_d_reduce (p, 220, 219);
             return;
         }
         
-        static void sequence_676 (RDE_PARAM p) {
+        static void sequence_672 (RDE_PARAM p) {
            /*
             * x
             *     "return"
@@ -6563,14 +6543,14 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "return", 220);
+            rde_param_i_next_str (p, "return", 216);
             if (rde_param_i_seq_void2value(p)) return;
-            optional_674 (p);
+            optional_670 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void optional_674 (RDE_PARAM p) {
+        static void optional_670 (RDE_PARAM p) {
            /*
             * ?
             *     x
@@ -6579,12 +6559,12 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_2 (p);
-            sequence_672 (p);
+            sequence_668 (p);
             rde_param_i_state_merge_ok (p);
             return;
         }
         
-        static void sequence_672 (RDE_PARAM p) {
+        static void sequence_668 (RDE_PARAM p) {
            /*
             * x
             *     (WSob)
@@ -6624,13 +6604,13 @@ namespace eval ::xtal {
             *             (SearchOption)
             */
         
-            if (rde_param_i_symbol_start_d (p, 227)) return ;
-            sequence_699 (p);
-            rde_param_i_symbol_done_d_reduce (p, 227, 226);
+            if (rde_param_i_symbol_start_d (p, 223)) return ;
+            sequence_695 (p);
+            rde_param_i_symbol_done_d_reduce (p, 223, 222);
             return;
         }
         
-        static void sequence_699 (RDE_PARAM p) {
+        static void sequence_695 (RDE_PARAM p) {
            /*
             * x
             *     "@search"
@@ -6652,13 +6632,13 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "@search", 225);
+            rde_param_i_next_str (p, "@search", 221);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_void2value(p)) return;
             sym_PostfixExpr (p);
             if (rde_param_i_seq_value2value(p)) return;
-            optional_686 (p);
+            optional_682 (p);
             if (rde_param_i_seq_value2value(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_value2value(p)) return;
@@ -6670,12 +6650,12 @@ namespace eval ::xtal {
             if (rde_param_i_seq_value2value(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_697 (p);
+            kleene_693 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void optional_686 (RDE_PARAM p) {
+        static void optional_682 (RDE_PARAM p) {
            /*
             * ?
             *     x
@@ -6684,12 +6664,12 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_2 (p);
-            sequence_684 (p);
+            sequence_680 (p);
             rde_param_i_state_merge_ok (p);
             return;
         }
         
-        static void sequence_684 (RDE_PARAM p) {
+        static void sequence_680 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -6704,7 +6684,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void kleene_697 (RDE_PARAM p) {
+        static void kleene_693 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -6714,13 +6694,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_695 (p);
+                sequence_691 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_695 (RDE_PARAM p) {
+        static void sequence_691 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -6746,13 +6726,13 @@ namespace eval ::xtal {
             *     "all"
             */
         
-            if (rde_param_i_symbol_start (p, 231)) return ;
-            choice_704 (p);
-            rde_param_i_symbol_done_leaf (p, 231, 230);
+            if (rde_param_i_symbol_start (p, 227)) return ;
+            choice_700 (p);
+            rde_param_i_symbol_done_leaf (p, 227, 226);
             return;
         }
         
-        static void choice_704 (RDE_PARAM p) {
+        static void choice_700 (RDE_PARAM p) {
            /*
             * /
             *     "inline"
@@ -6760,9 +6740,9 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "inline", 228);
+            rde_param_i_next_str (p, "inline", 224);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "all", 229);
+            rde_param_i_next_str (p, "all", 225);
             rde_param_i_state_merge_void (p);
             return;
         }
@@ -6779,13 +6759,13 @@ namespace eval ::xtal {
             *     (PostfixExpr)
             */
         
-            if (rde_param_i_symbol_start_d (p, 234)) return ;
-            sequence_710 (p);
-            rde_param_i_symbol_done_d_reduce (p, 234, 233);
+            if (rde_param_i_symbol_start_d (p, 230)) return ;
+            sequence_706 (p);
+            rde_param_i_symbol_done_d_reduce (p, 230, 229);
             return;
         }
         
-        static void sequence_710 (RDE_PARAM p) {
+        static void sequence_706 (RDE_PARAM p) {
            /*
             * x
             *     "->"
@@ -6794,7 +6774,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "->", 232);
+            rde_param_i_next_str (p, "->", 228);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_void2value(p)) return;
@@ -6819,13 +6799,13 @@ namespace eval ::xtal {
             *     ']'
             */
         
-            if (rde_param_i_symbol_start_d (p, 237)) return ;
-            sequence_721 (p);
-            rde_param_i_symbol_done_d_reduce (p, 237, 236);
+            if (rde_param_i_symbol_start_d (p, 233)) return ;
+            sequence_717 (p);
+            rde_param_i_symbol_done_d_reduce (p, 233, 232);
             return;
         }
         
-        static void sequence_721 (RDE_PARAM p) {
+        static void sequence_717 (RDE_PARAM p) {
            /*
             * x
             *     '['
@@ -6842,7 +6822,7 @@ namespace eval ::xtal {
             if (rde_param_i_seq_void2void(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_void2value(p)) return;
-            choice_717 (p);
+            choice_713 (p);
             if (rde_param_i_seq_value2value(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_value2value(p)) return;
@@ -6851,7 +6831,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void choice_717 (RDE_PARAM p) {
+        static void choice_713 (RDE_PARAM p) {
            /*
             * /
             *     "end"
@@ -6859,7 +6839,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "end", 235);
+            rde_param_i_next_str (p, "end", 231);
             if (rde_param_i_bra_void2value(p)) return;
             sym_Expression (p);
             rde_param_i_state_merge_value (p);
@@ -6875,9 +6855,9 @@ namespace eval ::xtal {
             * "@@"
             */
         
-            if (rde_param_i_symbol_start (p, 240)) return ;
-            rde_param_i_next_str (p, "@@", 238);
-            rde_param_i_symbol_done_leaf (p, 240, 239);
+            if (rde_param_i_symbol_start (p, 236)) return ;
+            rde_param_i_next_str (p, "@@", 234);
+            rde_param_i_symbol_done_leaf (p, 236, 235);
             return;
         }
         
@@ -6895,13 +6875,13 @@ namespace eval ::xtal {
             *     ';'
             */
         
-            if (rde_param_i_symbol_void_start (p, 243)) return ;
-            choice_732 (p);
-            rde_param_i_symbol_done_void (p, 243, 242);
+            if (rde_param_i_symbol_void_start (p, 239)) return ;
+            choice_728 (p);
+            rde_param_i_symbol_done_void (p, 239, 238);
             return;
         }
         
-        static void choice_732 (RDE_PARAM p) {
+        static void choice_728 (RDE_PARAM p) {
            /*
             * /
             *     x
@@ -6912,14 +6892,14 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            sequence_729 (p);
+            sequence_725 (p);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_char (p, ";", 241);
+            rde_param_i_next_char (p, ";", 237);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void sequence_729 (RDE_PARAM p) {
+        static void sequence_725 (RDE_PARAM p) {
            /*
             * x
             *     ?
@@ -6950,13 +6930,13 @@ namespace eval ::xtal {
             *     '\}'
             */
         
-            if (rde_param_i_symbol_start_d (p, 245)) return ;
-            sequence_742 (p);
-            rde_param_i_symbol_done_d_reduce (p, 245, 244);
+            if (rde_param_i_symbol_start_d (p, 241)) return ;
+            sequence_738 (p);
+            rde_param_i_symbol_done_d_reduce (p, 241, 240);
             return;
         }
         
-        static void sequence_742 (RDE_PARAM p) {
+        static void sequence_738 (RDE_PARAM p) {
            /*
             * x
             *     '\{'
@@ -6972,7 +6952,7 @@ namespace eval ::xtal {
             if (rde_param_i_seq_void2void(p)) return;
             sym_WSNL (p);
             if (rde_param_i_seq_void2value(p)) return;
-            optional_738 (p);
+            optional_734 (p);
             if (rde_param_i_seq_value2value(p)) return;
             sym_WSNL (p);
             if (rde_param_i_seq_value2value(p)) return;
@@ -6981,7 +6961,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void optional_738 (RDE_PARAM p) {
+        static void optional_734 (RDE_PARAM p) {
            /*
             * ?
             *     (SequenceContent)
@@ -7009,13 +6989,13 @@ namespace eval ::xtal {
             *             (Expression)
             */
         
-            if (rde_param_i_symbol_start_d (p, 247)) return ;
-            sequence_754 (p);
-            rde_param_i_symbol_done_d_reduce (p, 247, 246);
+            if (rde_param_i_symbol_start_d (p, 243)) return ;
+            sequence_750 (p);
+            rde_param_i_symbol_done_d_reduce (p, 243, 242);
             return;
         }
         
-        static void sequence_754 (RDE_PARAM p) {
+        static void sequence_750 (RDE_PARAM p) {
            /*
             * x
             *     (Expression)
@@ -7030,12 +7010,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_value (p);
             sym_Expression (p);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_752 (p);
+            kleene_748 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void kleene_752 (RDE_PARAM p) {
+        static void kleene_748 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -7047,13 +7027,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_750 (p);
+                sequence_746 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_750 (RDE_PARAM p) {
+        static void sequence_746 (RDE_PARAM p) {
            /*
             * x
             *     (WSNL)
@@ -7083,9 +7063,9 @@ namespace eval ::xtal {
             * '''
             */
         
-            if (rde_param_i_symbol_void_start (p, 250)) return ;
-            rde_param_i_next_char (p, "'", 248);
-            rde_param_i_symbol_done_void (p, 250, 249);
+            if (rde_param_i_symbol_void_start (p, 246)) return ;
+            rde_param_i_next_char (p, "'", 244);
+            rde_param_i_symbol_done_void (p, 246, 245);
             return;
         }
         
@@ -7111,13 +7091,13 @@ namespace eval ::xtal {
             *             (SortOptions)
             */
         
-            if (rde_param_i_symbol_start_d (p, 253)) return ;
-            sequence_776 (p);
-            rde_param_i_symbol_done_d_reduce (p, 253, 252);
+            if (rde_param_i_symbol_start_d (p, 249)) return ;
+            sequence_772 (p);
+            rde_param_i_symbol_done_d_reduce (p, 249, 248);
             return;
         }
         
-        static void sequence_776 (RDE_PARAM p) {
+        static void sequence_772 (RDE_PARAM p) {
            /*
             * x
             *     "@sort"
@@ -7136,20 +7116,20 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "@sort", 251);
+            rde_param_i_next_str (p, "@sort", 247);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_void2value(p)) return;
             sym_Expression (p);
             if (rde_param_i_seq_value2value(p)) return;
-            optional_768 (p);
+            optional_764 (p);
             if (rde_param_i_seq_value2value(p)) return;
-            optional_774 (p);
+            optional_770 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void optional_768 (RDE_PARAM p) {
+        static void optional_764 (RDE_PARAM p) {
            /*
             * ?
             *     x
@@ -7160,12 +7140,12 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_2 (p);
-            sequence_766 (p);
+            sequence_762 (p);
             rde_param_i_state_merge_ok (p);
             return;
         }
         
-        static void sequence_766 (RDE_PARAM p) {
+        static void sequence_762 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -7177,7 +7157,7 @@ namespace eval ::xtal {
             rde_param_i_state_push_void (p);
             sym_WS (p);
             if (rde_param_i_seq_void2void(p)) return;
-            rde_param_i_next_str (p, "->", 232);
+            rde_param_i_next_str (p, "->", 228);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_void2value(p)) return;
@@ -7186,7 +7166,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void optional_774 (RDE_PARAM p) {
+        static void optional_770 (RDE_PARAM p) {
            /*
             * ?
             *     x
@@ -7195,12 +7175,12 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_2 (p);
-            sequence_772 (p);
+            sequence_768 (p);
             rde_param_i_state_merge_ok (p);
             return;
         }
         
-        static void sequence_772 (RDE_PARAM p) {
+        static void sequence_768 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -7228,13 +7208,13 @@ namespace eval ::xtal {
             *     "decreasing"
             */
         
-            if (rde_param_i_symbol_start (p, 259)) return ;
-            choice_783 (p);
-            rde_param_i_symbol_done_leaf (p, 259, 258);
+            if (rde_param_i_symbol_start (p, 255)) return ;
+            choice_779 (p);
+            rde_param_i_symbol_done_leaf (p, 255, 254);
             return;
         }
         
-        static void choice_783 (RDE_PARAM p) {
+        static void choice_779 (RDE_PARAM p) {
            /*
             * /
             *     "indices"
@@ -7244,13 +7224,13 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "indices", 254);
+            rde_param_i_next_str (p, "indices", 250);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "nocase", 255);
+            rde_param_i_next_str (p, "nocase", 251);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "increasing", 256);
+            rde_param_i_next_str (p, "increasing", 252);
             if (rde_param_i_bra_void2void(p)) return;
-            rde_param_i_next_str (p, "decreasing", 257);
+            rde_param_i_next_str (p, "decreasing", 253);
             rde_param_i_state_merge_void (p);
             return;
         }
@@ -7269,13 +7249,13 @@ namespace eval ::xtal {
             *             (SortOption)
             */
         
-            if (rde_param_i_symbol_start_d (p, 261)) return ;
-            sequence_793 (p);
-            rde_param_i_symbol_done_d_reduce (p, 261, 260);
+            if (rde_param_i_symbol_start_d (p, 257)) return ;
+            sequence_789 (p);
+            rde_param_i_symbol_done_d_reduce (p, 257, 256);
             return;
         }
         
-        static void sequence_793 (RDE_PARAM p) {
+        static void sequence_789 (RDE_PARAM p) {
            /*
             * x
             *     (SortOption)
@@ -7288,12 +7268,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_value (p);
             sym_SortOption (p);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_791 (p);
+            kleene_787 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void kleene_791 (RDE_PARAM p) {
+        static void kleene_787 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -7303,13 +7283,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_789 (p);
+                sequence_785 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_789 (RDE_PARAM p) {
+        static void sequence_785 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -7346,13 +7326,13 @@ namespace eval ::xtal {
             *     (Empty)
             */
         
-            if (rde_param_i_symbol_start_d (p, 263)) return ;
-            choice_809 (p);
-            rde_param_i_symbol_done_d_reduce (p, 263, 262);
+            if (rde_param_i_symbol_start_d (p, 259)) return ;
+            choice_805 (p);
+            rde_param_i_symbol_done_d_reduce (p, 259, 258);
             return;
         }
         
-        static void choice_809 (RDE_PARAM p) {
+        static void choice_805 (RDE_PARAM p) {
            /*
             * /
             *     (FunctionDefinition)
@@ -7416,13 +7396,13 @@ namespace eval ::xtal {
             *     (Quote)
             */
         
-            if (rde_param_i_symbol_start (p, 265)) return ;
-            sequence_822 (p);
-            rde_param_i_symbol_done_leaf (p, 265, 264);
+            if (rde_param_i_symbol_start (p, 261)) return ;
+            sequence_818 (p);
+            rde_param_i_symbol_done_leaf (p, 261, 260);
             return;
         }
         
-        static void sequence_822 (RDE_PARAM p) {
+        static void sequence_818 (RDE_PARAM p) {
            /*
             * x
             *     (Quote)
@@ -7437,14 +7417,14 @@ namespace eval ::xtal {
             rde_param_i_state_push_void (p);
             sym_Quote (p);
             if (rde_param_i_seq_void2void(p)) return;
-            kleene_819 (p);
+            kleene_815 (p);
             if (rde_param_i_seq_void2void(p)) return;
             sym_Quote (p);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void kleene_819 (RDE_PARAM p) {
+        static void kleene_815 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -7455,13 +7435,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_817 (p);
+                sequence_813 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_817 (RDE_PARAM p) {
+        static void sequence_813 (RDE_PARAM p) {
            /*
             * x
             *     !
@@ -7470,14 +7450,14 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            notahead_814 (p);
+            notahead_810 (p);
             if (rde_param_i_seq_void2void(p)) return;
             sym_Char (p);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void notahead_814 (RDE_PARAM p) {
+        static void notahead_810 (RDE_PARAM p) {
            /*
             * !
             *     (Quote)
@@ -7501,13 +7481,13 @@ namespace eval ::xtal {
             *     (ColumnType)
             */
         
-            if (rde_param_i_symbol_start_d (p, 267)) return ;
-            sequence_828 (p);
-            rde_param_i_symbol_done_d_reduce (p, 267, 266);
+            if (rde_param_i_symbol_start_d (p, 263)) return ;
+            sequence_824 (p);
+            rde_param_i_symbol_done_d_reduce (p, 263, 262);
             return;
         }
         
-        static void sequence_828 (RDE_PARAM p) {
+        static void sequence_824 (RDE_PARAM p) {
            /*
             * x
             *     (ColumnIdentifier)
@@ -7541,13 +7521,13 @@ namespace eval ::xtal {
             *             (TableColumnDef)
             */
         
-            if (rde_param_i_symbol_start_d (p, 269)) return ;
-            sequence_840 (p);
-            rde_param_i_symbol_done_d_reduce (p, 269, 268);
+            if (rde_param_i_symbol_start_d (p, 265)) return ;
+            sequence_836 (p);
+            rde_param_i_symbol_done_d_reduce (p, 265, 264);
             return;
         }
         
-        static void sequence_840 (RDE_PARAM p) {
+        static void sequence_836 (RDE_PARAM p) {
            /*
             * x
             *     (TableColumnDef)
@@ -7562,12 +7542,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_value (p);
             sym_TableColumnDef (p);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_838 (p);
+            kleene_834 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void kleene_838 (RDE_PARAM p) {
+        static void kleene_834 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -7579,13 +7559,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_836 (p);
+                sequence_832 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_836 (RDE_PARAM p) {
+        static void sequence_832 (RDE_PARAM p) {
            /*
             * x
             *     (WSNL)
@@ -7622,13 +7602,13 @@ namespace eval ::xtal {
             *             (ColumnIdentifier)
             */
         
-            if (rde_param_i_symbol_start_d (p, 271)) return ;
-            sequence_852 (p);
-            rde_param_i_symbol_done_d_reduce (p, 271, 270);
+            if (rde_param_i_symbol_start_d (p, 267)) return ;
+            sequence_848 (p);
+            rde_param_i_symbol_done_d_reduce (p, 267, 266);
             return;
         }
         
-        static void sequence_852 (RDE_PARAM p) {
+        static void sequence_848 (RDE_PARAM p) {
            /*
             * x
             *     (ColumnIdentifier)
@@ -7643,12 +7623,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_value (p);
             sym_ColumnIdentifier (p);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_850 (p);
+            kleene_846 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void kleene_850 (RDE_PARAM p) {
+        static void kleene_846 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -7660,13 +7640,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_848 (p);
+                sequence_844 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_848 (RDE_PARAM p) {
+        static void sequence_844 (RDE_PARAM p) {
            /*
             * x
             *     (WSNL)
@@ -7704,13 +7684,13 @@ namespace eval ::xtal {
             *     '\)'
             */
         
-            if (rde_param_i_symbol_start_d (p, 273)) return ;
-            sequence_864 (p);
-            rde_param_i_symbol_done_d_reduce (p, 273, 272);
+            if (rde_param_i_symbol_start_d (p, 269)) return ;
+            sequence_860 (p);
+            rde_param_i_symbol_done_d_reduce (p, 269, 268);
             return;
         }
         
-        static void sequence_864 (RDE_PARAM p) {
+        static void sequence_860 (RDE_PARAM p) {
            /*
             * x
             *     (ElementOp)
@@ -7732,7 +7712,7 @@ namespace eval ::xtal {
             if (rde_param_i_seq_value2value(p)) return;
             sym_WSNL (p);
             if (rde_param_i_seq_value2value(p)) return;
-            optional_860 (p);
+            optional_856 (p);
             if (rde_param_i_seq_value2value(p)) return;
             sym_WSNL (p);
             if (rde_param_i_seq_value2value(p)) return;
@@ -7741,7 +7721,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void optional_860 (RDE_PARAM p) {
+        static void optional_856 (RDE_PARAM p) {
            /*
             * ?
             *     (TableColumnList)
@@ -7773,13 +7753,13 @@ namespace eval ::xtal {
             *         (Sequence)
             */
         
-            if (rde_param_i_symbol_start_d (p, 276)) return ;
-            sequence_880 (p);
-            rde_param_i_symbol_done_d_reduce (p, 276, 275);
+            if (rde_param_i_symbol_start_d (p, 272)) return ;
+            sequence_876 (p);
+            rde_param_i_symbol_done_d_reduce (p, 272, 271);
             return;
         }
         
-        static void sequence_880 (RDE_PARAM p) {
+        static void sequence_876 (RDE_PARAM p) {
            /*
             * x
             *     "@table"
@@ -7796,7 +7776,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "@table", 274);
+            rde_param_i_next_str (p, "@table", 270);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_void2void(p)) return;
@@ -7804,7 +7784,7 @@ namespace eval ::xtal {
             if (rde_param_i_seq_void2void(p)) return;
             sym_WSNL (p);
             if (rde_param_i_seq_void2value(p)) return;
-            optional_872 (p);
+            optional_868 (p);
             if (rde_param_i_seq_value2value(p)) return;
             sym_WSNL (p);
             if (rde_param_i_seq_value2value(p)) return;
@@ -7812,12 +7792,12 @@ namespace eval ::xtal {
             if (rde_param_i_seq_value2value(p)) return;
             sym_WS (p);
             if (rde_param_i_seq_value2value(p)) return;
-            optional_878 (p);
+            optional_874 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void optional_872 (RDE_PARAM p) {
+        static void optional_868 (RDE_PARAM p) {
            /*
             * ?
             *     (TableColumnDefs)
@@ -7829,7 +7809,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void optional_878 (RDE_PARAM p) {
+        static void optional_874 (RDE_PARAM p) {
            /*
             * ?
             *     (Sequence)
@@ -7856,13 +7836,13 @@ namespace eval ::xtal {
             *         <dot>
             */
         
-            if (rde_param_i_symbol_start (p, 279)) return ;
-            kleene_892 (p);
-            rde_param_i_symbol_done_leaf (p, 279, 278);
+            if (rde_param_i_symbol_start (p, 275)) return ;
+            kleene_888 (p);
+            rde_param_i_symbol_done_leaf (p, 275, 274);
             return;
         }
         
-        static void kleene_892 (RDE_PARAM p) {
+        static void kleene_888 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -7875,13 +7855,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_890 (p);
+                sequence_886 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_890 (RDE_PARAM p) {
+        static void sequence_886 (RDE_PARAM p) {
            /*
             * x
             *     !
@@ -7892,14 +7872,14 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            notahead_887 (p);
+            notahead_883 (p);
             if (rde_param_i_seq_void2void(p)) return;
             rde_param_i_input_next (p, 71);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void notahead_887 (RDE_PARAM p) {
+        static void notahead_883 (RDE_PARAM p) {
            /*
             * !
             *     x
@@ -7908,12 +7888,12 @@ namespace eval ::xtal {
             */
         
             rde_param_i_loc_push (p);
-            sequence_885 (p);
+            sequence_881 (p);
             rde_param_i_notahead_exit (p);
             return;
         }
         
-        static void sequence_885 (RDE_PARAM p) {
+        static void sequence_881 (RDE_PARAM p) {
            /*
             * x
             *     '>'
@@ -7921,7 +7901,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_char (p, ">", 277);
+            rde_param_i_next_char (p, ">", 273);
             if (rde_param_i_seq_void2void(p)) return;
             sym_TclScriptEndMarker (p);
             rde_param_i_state_merge_void (p);
@@ -7942,13 +7922,13 @@ namespace eval ::xtal {
             *         (TclScriptEndMarker)
             */
         
-            if (rde_param_i_symbol_start_d (p, 282)) return ;
-            sequence_901 (p);
-            rde_param_i_symbol_done_d_reduce (p, 282, 281);
+            if (rde_param_i_symbol_start_d (p, 278)) return ;
+            sequence_897 (p);
+            rde_param_i_symbol_done_d_reduce (p, 278, 277);
             return;
         }
         
-        static void sequence_901 (RDE_PARAM p) {
+        static void sequence_897 (RDE_PARAM p) {
            /*
             * x
             *     '<'
@@ -7959,18 +7939,18 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_char (p, "<", 280);
+            rde_param_i_next_char (p, "<", 276);
             if (rde_param_i_seq_void2value(p)) return;
             sym_TclScript (p);
             if (rde_param_i_seq_value2value(p)) return;
-            rde_param_i_next_char (p, ">", 277);
+            rde_param_i_next_char (p, ">", 273);
             if (rde_param_i_seq_value2value(p)) return;
-            ahead_899 (p);
+            ahead_895 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void ahead_899 (RDE_PARAM p) {
+        static void ahead_895 (RDE_PARAM p) {
            /*
             * &
             *     (TclScriptEndMarker)
@@ -7996,13 +7976,13 @@ namespace eval ::xtal {
             *         (EOF)
             */
         
-            if (rde_param_i_symbol_void_start (p, 284)) return ;
-            sequence_910 (p);
-            rde_param_i_symbol_done_void (p, 284, 283);
+            if (rde_param_i_symbol_void_start (p, 280)) return ;
+            sequence_906 (p);
+            rde_param_i_symbol_done_void (p, 280, 279);
             return;
         }
         
-        static void sequence_910 (RDE_PARAM p) {
+        static void sequence_906 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -8015,12 +7995,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_void (p);
             sym_WS (p);
             if (rde_param_i_seq_void2void(p)) return;
-            choice_908 (p);
+            choice_904 (p);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void choice_908 (RDE_PARAM p) {
+        static void choice_904 (RDE_PARAM p) {
            /*
             * /
             *     ';'
@@ -8029,7 +8009,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_char (p, ";", 241);
+            rde_param_i_next_char (p, ";", 237);
             if (rde_param_i_bra_void2void(p)) return;
             sym_EOL (p);
             if (rde_param_i_bra_void2void(p)) return;
@@ -8056,13 +8036,13 @@ namespace eval ::xtal {
             *             (Expression)
             */
         
-            if (rde_param_i_symbol_start_d (p, 287)) return ;
-            sequence_924 (p);
-            rde_param_i_symbol_done_d_reduce (p, 287, 286);
+            if (rde_param_i_symbol_start_d (p, 283)) return ;
+            sequence_920 (p);
+            rde_param_i_symbol_done_d_reduce (p, 283, 282);
             return;
         }
         
-        static void sequence_924 (RDE_PARAM p) {
+        static void sequence_920 (RDE_PARAM p) {
            /*
             * x
             *     "throw"
@@ -8077,18 +8057,18 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "throw", 285);
+            rde_param_i_next_str (p, "throw", 281);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WSob (p);
             if (rde_param_i_seq_void2value(p)) return;
             sym_Expression (p);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_922 (p);
+            kleene_918 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void kleene_922 (RDE_PARAM p) {
+        static void kleene_918 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -8100,13 +8080,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_920 (p);
+                sequence_916 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_920 (RDE_PARAM p) {
+        static void sequence_916 (RDE_PARAM p) {
            /*
             * x
             *     (WS)
@@ -8138,13 +8118,13 @@ namespace eval ::xtal {
             *     (Identifier)
             */
         
-            if (rde_param_i_symbol_start_d (p, 289)) return ;
-            sequence_929 (p);
-            rde_param_i_symbol_done_d_leaf (p, 289, 288);
+            if (rde_param_i_symbol_start_d (p, 285)) return ;
+            sequence_925 (p);
+            rde_param_i_symbol_done_d_leaf (p, 285, 284);
             return;
         }
         
-        static void sequence_929 (RDE_PARAM p) {
+        static void sequence_925 (RDE_PARAM p) {
            /*
             * x
             *     (SingleQuote)
@@ -8179,13 +8159,13 @@ namespace eval ::xtal {
             *     '\}'
             */
         
-            if (rde_param_i_symbol_start_d (p, 292)) return ;
-            sequence_943 (p);
-            rde_param_i_symbol_done_d_reduce (p, 292, 291);
+            if (rde_param_i_symbol_start_d (p, 288)) return ;
+            sequence_939 (p);
+            rde_param_i_symbol_done_d_reduce (p, 288, 287);
             return;
         }
         
-        static void sequence_943 (RDE_PARAM p) {
+        static void sequence_939 (RDE_PARAM p) {
            /*
             * x
             *     "trap"
@@ -8202,7 +8182,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "trap", 290);
+            rde_param_i_next_str (p, "trap", 286);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WSob (p);
             if (rde_param_i_seq_void2value(p)) return;
@@ -8245,13 +8225,13 @@ namespace eval ::xtal {
             *             (FinallyClause)
             */
         
-            if (rde_param_i_symbol_start_d (p, 295)) return ;
-            sequence_966 (p);
-            rde_param_i_symbol_done_d_reduce (p, 295, 294);
+            if (rde_param_i_symbol_start_d (p, 291)) return ;
+            sequence_962 (p);
+            rde_param_i_symbol_done_d_reduce (p, 291, 290);
             return;
         }
         
-        static void sequence_966 (RDE_PARAM p) {
+        static void sequence_962 (RDE_PARAM p) {
            /*
             * x
             *     "try"
@@ -8272,7 +8252,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "try", 293);
+            rde_param_i_next_str (p, "try", 289);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WSob (p);
             if (rde_param_i_seq_void2void(p)) return;
@@ -8282,14 +8262,14 @@ namespace eval ::xtal {
             if (rde_param_i_seq_value2value(p)) return;
             rde_param_i_next_char (p, "\175", 115);
             if (rde_param_i_seq_value2value(p)) return;
-            kleene_958 (p);
+            kleene_954 (p);
             if (rde_param_i_seq_value2value(p)) return;
-            optional_964 (p);
+            optional_960 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void kleene_958 (RDE_PARAM p) {
+        static void kleene_954 (RDE_PARAM p) {
            /*
             * *
             *     x
@@ -8301,13 +8281,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                sequence_956 (p);
+                sequence_952 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void sequence_956 (RDE_PARAM p) {
+        static void sequence_952 (RDE_PARAM p) {
            /*
             * x
             *     (WSob)
@@ -8319,12 +8299,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_void (p);
             sym_WSob (p);
             if (rde_param_i_seq_void2value(p)) return;
-            choice_954 (p);
+            choice_950 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void choice_954 (RDE_PARAM p) {
+        static void choice_950 (RDE_PARAM p) {
            /*
             * /
             *     (OnHandler)
@@ -8339,7 +8319,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void optional_964 (RDE_PARAM p) {
+        static void optional_960 (RDE_PARAM p) {
            /*
             * ?
             *     x
@@ -8348,12 +8328,12 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_2 (p);
-            sequence_962 (p);
+            sequence_958 (p);
             rde_param_i_state_merge_ok (p);
             return;
         }
         
-        static void sequence_962 (RDE_PARAM p) {
+        static void sequence_958 (RDE_PARAM p) {
            /*
             * x
             *     (WSob)
@@ -8382,13 +8362,13 @@ namespace eval ::xtal {
             *         (UnaryExpr)
             */
         
-            if (rde_param_i_symbol_start_d (p, 297)) return ;
-            choice_975 (p);
-            rde_param_i_symbol_done_d_reduce (p, 297, 296);
+            if (rde_param_i_symbol_start_d (p, 293)) return ;
+            choice_971 (p);
+            rde_param_i_symbol_done_d_reduce (p, 293, 292);
             return;
         }
         
-        static void choice_975 (RDE_PARAM p) {
+        static void choice_971 (RDE_PARAM p) {
            /*
             * /
             *     (PostfixExpr)
@@ -8401,12 +8381,12 @@ namespace eval ::xtal {
             rde_param_i_state_push_value (p);
             sym_PostfixExpr (p);
             if (rde_param_i_bra_value2value(p)) return;
-            sequence_973 (p);
+            sequence_969 (p);
             rde_param_i_state_merge_value (p);
             return;
         }
         
-        static void sequence_973 (RDE_PARAM p) {
+        static void sequence_969 (RDE_PARAM p) {
            /*
             * x
             *     (UnaryOp)
@@ -8433,9 +8413,9 @@ namespace eval ::xtal {
             * [-+~!%]
             */
         
-            if (rde_param_i_symbol_start (p, 300)) return ;
-            rde_param_i_next_class (p, "-+~!%", 298);
-            rde_param_i_symbol_done_leaf (p, 300, 299);
+            if (rde_param_i_symbol_start (p, 296)) return ;
+            rde_param_i_next_class (p, "-+~!%", 294);
+            rde_param_i_symbol_done_leaf (p, 296, 295);
             return;
         }
         
@@ -8455,13 +8435,13 @@ namespace eval ::xtal {
             *     '\}'
             */
         
-            if (rde_param_i_symbol_start_d (p, 303)) return ;
-            sequence_987 (p);
-            rde_param_i_symbol_done_d_reduce (p, 303, 302);
+            if (rde_param_i_symbol_start_d (p, 299)) return ;
+            sequence_983 (p);
+            rde_param_i_symbol_done_d_reduce (p, 299, 298);
             return;
         }
         
-        static void sequence_987 (RDE_PARAM p) {
+        static void sequence_983 (RDE_PARAM p) {
            /*
             * x
             *     "while"
@@ -8474,7 +8454,7 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            rde_param_i_next_str (p, "while", 301);
+            rde_param_i_next_str (p, "while", 297);
             if (rde_param_i_seq_void2void(p)) return;
             sym_WSob (p);
             if (rde_param_i_seq_void2value(p)) return;
@@ -8508,13 +8488,13 @@ namespace eval ::xtal {
             *             <space>
             */
         
-            if (rde_param_i_symbol_void_start (p, 305)) return ;
-            kleene_1001 (p);
-            rde_param_i_symbol_done_void (p, 305, 304);
+            if (rde_param_i_symbol_void_start (p, 301)) return ;
+            kleene_997 (p);
+            rde_param_i_symbol_done_void (p, 301, 300);
             return;
         }
         
-        static void kleene_1001 (RDE_PARAM p) {
+        static void kleene_997 (RDE_PARAM p) {
            /*
             * *
             *     /
@@ -8529,13 +8509,13 @@ namespace eval ::xtal {
         
             while (1) {
                 rde_param_i_state_push_2 (p);
-                choice_999 (p);
+                choice_995 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
         }
         
-        static void choice_999 (RDE_PARAM p) {
+        static void choice_995 (RDE_PARAM p) {
            /*
             * /
             *     x
@@ -8548,14 +8528,14 @@ namespace eval ::xtal {
             */
         
             rde_param_i_state_push_void (p);
-            sequence_992 (p);
+            sequence_988 (p);
             if (rde_param_i_bra_void2void(p)) return;
-            sequence_997 (p);
+            sequence_993 (p);
             rde_param_i_state_merge_void (p);
             return;
         }
         
-        static void sequence_992 (RDE_PARAM p) {
+        static void sequence_988 (RDE_PARAM p) {
            /*
             * x
             *     '\'
@@ -8570,7 +8550,7 @@ namespace eval ::xtal {
             return;
         }
         
-        static void sequence_997 (RDE_PARAM p) {
+        static void sequence_993 (RDE_PARAM p) {
            /*
             * x
             *     !
@@ -8596,13 +8576,13 @@ namespace eval ::xtal {
             *     <space>
             */
         
-            if (rde_param_i_symbol_void_start (p, 307)) return ;
-            kleene_1005 (p);
-            rde_param_i_symbol_done_void (p, 307, 306);
+            if (rde_param_i_symbol_void_start (p, 303)) return ;
+            kleene_1001 (p);
+            rde_param_i_symbol_done_void (p, 303, 302);
             return;
         }
         
-        static void kleene_1005 (RDE_PARAM p) {
+        static void kleene_1001 (RDE_PARAM p) {
            /*
             * *
             *     <space>
@@ -8633,13 +8613,13 @@ namespace eval ::xtal {
             *             <space>
             */
         
-            if (rde_param_i_symbol_void_start (p, 309)) return ;
-            poskleene_1016 (p);
-            rde_param_i_symbol_done_void (p, 309, 308);
+            if (rde_param_i_symbol_void_start (p, 305)) return ;
+            poskleene_1012 (p);
+            rde_param_i_symbol_done_void (p, 305, 304);
             return;
         }
         
-        static void poskleene_1016 (RDE_PARAM p) {
+        static void poskleene_1012 (RDE_PARAM p) {
            /*
             * +
             *     /
@@ -8653,11 +8633,11 @@ namespace eval ::xtal {
             */
         
             rde_param_i_loc_push (p);
-            choice_999 (p);
+            choice_995 (p);
             if (rde_param_i_kleene_abort(p)) return;
             while (1) {
                 rde_param_i_state_push_2 (p);
-                choice_999 (p);
+                choice_995 (p);
                 if (rde_param_i_kleene_close(p)) return;
             }
             return;
