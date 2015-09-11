@@ -1,7 +1,12 @@
 namespace eval xtal {
     # In production code we use the critcl C-based parser. For development
-    # build the parser on the fly using the oo based parser.
-    variable _use_oo_parser 0
+    # build the parser on the fly using the oo based parser. To do this,
+    # set the _use_oo_parser to 1 in the shell, package require tarray
+    # and then source this file.
+    variable _use_oo_parser
+    if {![info exists _use_oo_parser]} {
+        set _use_oo_parser 0
+    }
 
     namespace export xtal
 }
@@ -56,6 +61,12 @@ proc xtal::_map_search_op {op} {
     # Maps relational operators to column search switches
     # Note the order of options in each entry is important as they 
     # are checked for in other places.
+    # NOTE: The following string match are currently removed from the
+    # grammar so are not included in table below
+    # =*  {-pat}
+    # !*  {-not -pat}
+    # =*^ {-nocase -pat}
+    # !*^ {-nocase -not -pat}
     set map {
         ==  {-eq}
         !=  {-not -eq}
@@ -65,15 +76,12 @@ proc xtal::_map_search_op {op} {
         >=  {-not -lt}
         =^  {-nocase -eq}
         !^  {-nocase -not -eq}
-        =~  {-re}
+        ~  {-re}
         !~  {-not -re}
-        =~^ {-nocase -re}
+        ~^ {-nocase -re}
         !~^ {-nocase -not -re}
-        =*  {-pat}
-        !*  {-not -pat}
-        =*^ {-nocase -pat}
-        !*^ {-nocase -not -pat}
     }
+    
     if {[dict exists $map $op]} {
         return [dict get $map $op]
     } else {
@@ -1052,14 +1060,15 @@ oo::class create xtal::Compiler {
     }
     forward =^ my _strop =^
     forward !^ my _strop !^
-    forward =~ my _strop =~
+    forward ~ my _strop ~
     forward !~ my _strop !~
-    forward =~^ my _strop =~^
+    forward ~^ my _strop ~^
     forward !~^ my _strop !~^
-    forward =* my _strop =*
-    forward !* my _strop !*
-    forward =*^ my _strop =*^
-    forward !*^ my _strop !*^
+    # Next 4 are currently removed from the PEG grammar
+    # forward =* my _strop =*
+    # forward !* my _strop !*
+    # forward =*^ my _strop =*^
+    # forward !*^ my _strop !*^
 
     method UnaryExpr {op child} {
         return "\[xtal::rt::unary $op [my {*}$child]\]"
@@ -1961,9 +1970,9 @@ namespace eval xtal::rt {
                 return [switch -exact -- $op {
                     =^ {string equal -nocase $a $b}
                     !^ {expr {![string equal -nocase $a $b]}}
-                    =~ {regexp -- $b $a}
+                    ~ {regexp -- $b $a}
                     !~ {expr {![regexp -- $b $a]}}
-                    =~^ {regexp -nocase -- $b $a}
+                    ~^ {regexp -nocase -- $b $a}
                     !~^ {expr {![regexp -nocase -- $b $a]}}
                     =* {string match $b $a}
                     !* {expr {![string match $b $a]}}
@@ -1986,9 +1995,9 @@ namespace eval xtal::rt {
             return [switch -exact -- $op {
                 =^  { tarray::column::search -all -nocase -eq $b $a }
                 !^  { tarray::column::search -all -nocase -not -eq $b $a }
-                =~  { tarray::column::search -all -re $a $b }
+                ~  { tarray::column::search -all -re $a $b }
                 !~  { tarray::column::search -all -not -re $a $b }
-                =~^ { tarray::column::search -all -nocase -re $a $b }
+                ~^ { tarray::column::search -all -nocase -re $a $b }
                 !~^ { tarray::column::search -all -nocase -not -re $a $b }
                 =*  { tarray::column::search -all -pat $a $b }
                 !*  { tarray::column::search -all -not -pat $a $b }
