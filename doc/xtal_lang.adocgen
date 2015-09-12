@@ -21,7 +21,8 @@ text {
     This document assumes the reader is familiar with typed arrays.
     If not, please glance through the ((^ chap_guide)) before continuing.
 
-    The Xtal language (e**X**tended **t**yped **a**rray **l**anguage)
+    The (e**X**tended **t**yped **a**rray **l**anguage) *Xtal*
+    (pronounced __Crystal__footnote:[Coming from the electronics world.])
     is an alternative for 
     working with typed array columns and tables. It provides 
     
@@ -58,144 +59,39 @@ text {
 
     This section provides a short tour of Xtal to
     introduce the reader to the language. 
-
-    The basic syntax of Xtal is close to the C family of languages
-    than Tcl.
-
-    .Variable and literals
-} xtal {
-    a = 1 ; b = 2
-    c = 1 + a * b
-} text {
-    Thus unquoted identifiers are variables, not strings, and do not
-    need a `$` prefix as in Tcl. Expressions use the usual infix form.
-    
-    String literals can be expressed in two forms - surrounded by double
-    quotes, or with a single preceding single quote for literals that
-    only contain alphanumeric characters.
-} xtal {
-    puts("Two words")
-    puts('OneWord)
-} text {
-    .Calling functions
-    
-    Commands or functions
-    (we use the terms interchangeably) are called with parameters
-    enclosed in parenthesis.
-} xtal {
-    hex = format("0x%x", 42)
-} text { 
-
-    .Mixing Tcl and Xtal
-    Tcl code can be intermixed within Xtal by bracketing it with
-    `<>`.
-} xtal {
-    now = <clock seconds>
-
-    L = {1, 2}
-    < lappend L 3 >
-    puts(L)
-} text {
-    The Tcl fragment may also be spread across multiple lines.
-} xtal {
-    puts("Xtal statement")
-    <
-    puts "First Tcl statement"
-    puts "Second Tcl statement"
-    >
-} text {
-    Similarly, Xtal can be mixed with Tcl code with the `xtal::xtal`
-    command.
-} shell {
-    namespace import xtal::xtal
-    xtal {
-        puts("puts called from Xtal")
-        <
-        puts "puts called from Tcl called from Xtal"
-        xtal {puts("puts called from Xtal called from Tcl called from Xtal")}
-        >
-    }
-} text {
-    As we see later, we can also define procs in Xtal that are called
-    from Tcl like any other Tcl command.
 }
 
 text {
-    .Working with lists
-    Lists are constructed using braces but unlike in Tcl, elements
-    are expressions separated with commas.
-} xtal {
-    L = {0, a, b, a + b, tcl::mathfunc::rand()}
-} text {
-    Although you can call Tcl's list related commands, like
-} prompt {} xtal_shell {
-    llength(L)
-} text {
-    there are several convenient operators dealing with lists.
-    
-    The prefix operator `%` can be used to return the length of a list.
-} xtal {
-    L = {'zero, 'one, 'two, 'three}
-    len = % L
-} text {
-    Similarly, the indexing operator `[]` can be used instead
-    of `lindex` and this supports multiple forms.
-} prompt {} xtal_shell {
-    L[0]  # Single element
-    
-    L[0:1] # Index range
-    
-    L[{3,1,2}] # Index list - note indices need not be in order
-} text {
-    The index operations can be search expressions as well.
-} prompt {} xtal_shell {
-    L[L ~ ".*o"]
-} text {
-   The indexing operator can be used in assignments. 
-} prompt {} xtal_shell {
-    L[0 : %L-2] = 999
-    
-    L[{3,2}] = {100, 101}
-} text {
-    Other list operations are performed by calling the corresponding
-    Tcl command.
-} prompt {} xtal_shell {
-    lsort(L)
-}
-
-text {
-    .Working with dictionaries
-    Dictionary access has a similar shorthand using
-    using the `.` lookup postfix operator.
-} prompt {} xtal_shell {
-    colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
-    
-    colors.red
-
-    colors.blue = 0x0000ee
-}
-
-text {
-    The primary purpose of Xtal is really to work conveniently with
-    typed arrays - columns and tables - and we demonstrate that next.
+    Because the primary purpose of Xtal is to work conveniently with
+    typed arrays - columns and tables - we illustrate its use in that
+    context first.
 
     .Working with columns
 
-    A column is created in Xtal as
+    For purposes of demonstration,
+    let us start off by creating two columns containing the months in a year
+    and rainfall received in a particular year.
 } xtal {
-   Rainfall = @double {
+    Months = @string {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+    Rainfall = @double {
         11.0, 23.3, 18.4, 14.7, 70.3, 180.5, 210.2, 205.8, 126.4, 64.9, 33.1, 19.2
     }
 } text {
-    We can use much the same operators with columns as we used for lists.
+    Elements in the column are retrieved using indexing.
 } prompt {} xtal_shell {
-    % Rainfall           # Size of column
-
     Rainfall[0]          # Rainfall in January
     
-    Rainfall[9:11]       # Rainfall in the last quarter
-
     Rainfall[11] = 21.5  # Update the measured amount for December
+} text {
+    Instead of a simple integer index, we may specify a range instead in
+    which case a column of the same type containing the elements in the
+    specified range is returned.
+} prompt {} xtal_shell {
+    print(Rainfall[9:11])       # Rainfall in the last quarter
+} text {
+    Or we could specify a list of indices of interest.
+} prompt {} xtal_shell {
+    print(Rainfall[{0, 3, 6, 9}])  # Rainfall in first month of every quarter
 } text {
     When the indexing operation itself returns a column,
     the vector and folding operations available for columns can be 
@@ -203,38 +99,42 @@ text {
 } prompt {} xtal_shell {
     print( Rainfall / 10 )      # Print rainfall in centimeters
 
-    @sum(Rainfall[9:11])  # Total rainfall in the last quarter
-} text {
-    The lookup postfix operator `.` used with dictionaries can also be used
-    with columns. In this case, it returns the index of the first matching
-    element.
+    @sum(Rainfall[9:11])        # Total rainfall in the last quarter
 }
 
 text {
-    One feature that Xtal supports for columns that is not available
-    for lists is search using boolean expressions. For example,
-    we can get the indices corresponding to the months where the
-    rainfall lies within a specific range.
-} xtal {
-    print(Rainfall > 100 && Rainfall < 200)
-} text {
-    Moreover, since the boolean expressions return an integer column containing
-    the element indices, they can be used with in any operation applicable
-    to columns. For example, the `%` count operator will return the
-    number of such months.
-} prompt {} xtal_shell {
-    %(Rainfall > 100 && Rainfall < 200) 
-} text {
-    Or we could use indexing to retrieve the actual values themselves.
+    Yet another form that indexing can take is a boolean expression.
+    For example, we can list the rainfall values that lie within
+    a specific range.
 } prompt {} xtal_shell {
     print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) 
 
     print ( Rainfall [@@ > 100 && @@ < 200] )     # @@ specifies the "current" context
+} text {
+    Or perhaps more usefully, list the corresponding months.
+} prompt {} xtal_shell {
+    print ( Months [Rainfall > 100 && Rainfall < 200] ) 
+}
+
+text {
+    This form of indexing works because simple boolean expressions
+    involving columns return an integer column containing the indices
+    for elements which satisfy the expression. Thus, we have
+} xtal {
+    print(Rainfall > 100 && Rainfall < 200)
+} text {
+    This feature can be used in other contexts as well. So for example,
+    we can use the `%` size operator to count the
+    number of such months.
+} prompt {} xtal_shell {
+    %(Rainfall > 100 && Rainfall < 200) 
 }
 
 text {
     .Working with tables
 
+    Having looked at basic column operations, we turn our attention
+    to tables.
     As for columns, we will use a small sample table
     containing a simple employee data base for demonstration purposes:
 } xtal {
@@ -293,8 +193,151 @@ text {
     Emps.Location[Emps.Name.Sally] = {{"New York"}}  # Modify a single cell
 
     print(Emps)
+}
+
+text {
+    .Variable and literals
+    Having looked at basic operations on columns and tables,
+    we will quickly go over the general purpose features of the language.
+    
+    The syntax of Xtal is close to the C family of languages
+    than Tcl.
+    Thus unquoted identifiers are variables, not strings, and do not
+    need a `$` prefix as in Tcl and expressions use the usual infix form.
+} xtal {
+    a = 1 ; b = 2
+    c = 1 + a * b
 } text {
-    That ends our quick tour of Xtal. We now describe it in more detail.
+    String literals can be expressed in two forms - surrounded by double
+    quotes, or with a single preceding single quote for literals that
+    only contain alphanumeric characters.
+} xtal {
+    puts("Two words")
+    puts('OneWord)
+}
+
+text { 
+    .Mixing Tcl and Xtal
+    An important feature of Xtal is that, being built on top of Tcl,
+    it can be freely intermixed with it. This allows use of the syntax
+    that is most suitable for the task at hand.
+    
+    Tcl code can be intermixed within Xtal by bracketing it with
+    `<>`.
+} xtal {
+    now = <clock seconds>
+
+    L = {1, 2}
+    < lappend L 3 >
+    puts(L)
+} text {
+    The Tcl fragment may also be spread across multiple lines.
+} xtal {
+    puts("Xtal statement")
+    <
+    puts "First Tcl statement"
+    puts "Second Tcl statement"
+    >
+} text {
+    Similarly, Xtal can be mixed with Tcl code with the `xtal::xtal`
+    command.
+} shell {
+    namespace import xtal::xtal
+    xtal {
+        puts("puts called from Xtal")
+        <
+        puts "puts called from Tcl called from Xtal"
+        xtal {puts("puts called from Xtal called from Tcl called from Xtal")}
+        >
+    }
+} text {
+    As we see later, we can also define procs in Xtal that are called
+    from Tcl like any other Tcl command.
+}
+
+text {
+    .Calling functions
+    
+    Commands or functions
+    (we use the terms interchangeably) are called with parameters
+    enclosed in parenthesis as in the C family of languages.
+} xtal {
+    hex = format("0x%x", 42)
+}
+
+text {
+    .Working with lists
+    Lists are constructed using braces but unlike in Tcl, elements
+    are general expressions separated with commas.
+} xtal {
+    L = {0, a, b, a + b, tcl::mathfunc::rand()}
+} text {
+    Although you can call Tcl's list related commands, like
+} prompt {} xtal_shell {
+    llength(L)
+} text {
+    many of the operators we saw earlier with
+    columns and tables can also be used with lists.
+    
+    Thus the prefix operator `%` can be used to return the length of a list.
+} xtal {
+    L = {'zero, 'one, 'two, 'three}
+    len = % L
+} text {
+    Similarly, the indexing operator `[]` can be used instead
+    of `lindex` and this supports the many forms we saw earlier.
+} prompt {} xtal_shell {
+    L[0]       # Single element
+    
+    L[0:1]     # Index range
+    
+    L[{3,1,2}] # Index list - note indices need not be in order
+} text {
+    The index operations can be search expressions as well.
+} prompt {} xtal_shell {
+    L[L ~ ".*o$"]
+} text {
+   The indexing operator can be used in assignments. 
+} prompt {} xtal_shell {
+    L[0 : %L-2] = 999
+    
+    L[{3,2}] = {100, 101}
+} text {
+    Other list operations are performed by calling the corresponding
+    Tcl command.
+} prompt {} xtal_shell {
+    lsort(L)
+}
+
+text {
+    .Working with dictionaries
+    
+    Dictionary access has a similar shorthand using
+    using the `.` lookup postfix operator.
+} prompt {} xtal_shell {
+    colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
+    
+    colors.red
+
+    colors.blue = 0x0000ee
+}
+
+text {
+    The lookup postfix operator `.` used with dictionaries can also be used
+    with columns. In this case, it returns the index of the first matching
+    element.
+} prompt {} xtal_shell {
+    Months.Apr
+}
+
+text {
+    That ends our quick tour of the basic.
+    Xtal has other advanced features as well as standard programming
+    language constructs such
+    as control structures and built-in functions that we have left
+    out in our quick tour.
+
+    The rest of this document describes Xtal in more detail.
 }
 
 text {
