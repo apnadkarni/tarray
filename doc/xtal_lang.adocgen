@@ -675,7 +675,7 @@ text {
 } syntax {
     return _EXPRESSION_
 } text {
-    _EXPRESSION_ is any valid Xtal expression.
+    `_EXPRESSION_` is any valid Xtal expression.
 }
 
 text {
@@ -692,7 +692,7 @@ text {
     As indicated, the `else` clause is optional. If present, it must
     be on the same logical line as the preceding statement block.
 
-    _EXPRESSION_ can be any Xtal expression and does not need
+    `_EXPRESSION_` can be any Xtal expression and does not need
     to be enclosed in parenthesis.
 } xtal {
     if %Emps {
@@ -708,7 +708,7 @@ text {
 } syntax {
     while _EXPRESSION_ { _STATEMENTBLOCK_ }
 } text {
-    _EXPRESSION_ can be any Xtal expression and does not need
+    `_EXPRESSION_` can be any Xtal expression and does not need
     to be enclosed in parenthesis.
 } outputlimit 3 xtal {
     i = 0
@@ -725,18 +725,18 @@ text {
 } syntax {
     for _IDENTIFIER_ in _LOWEXPR_ : _HIGHEXPR_ ?by _INCREMENT_? _STATEMENTBLOCK_
 } text {
-    The loop variable _IDENTIFIER_ is initially assigned a value of
-    _LOWEXPR_. Thereafter, _STATEMENTBLOCK_ is executed as long as the
-    the value of the loop variable is less than or equal to _HIGHEXPR_. After
-    each iteration, the loop variable is incremented by _INCREMENT_ which
+    The loop variable `_IDENTIFIER_` is initially assigned a value of
+    `_LOWEXPR_`. Thereafter, `_STATEMENTBLOCK_` is executed as long as the
+    the value of the loop variable is less than or equal to `_HIGHEXPR_`. After
+    each iteration, the loop variable is incremented by `_INCREMENT_` which
     defaults to `1` if unspecified.
 } xtal {
     for i in 0 : %Emps-1 by 2 {
         puts(Emps.Name[i])
     }
 } text {
-    The limits of the range are computed only once, before the loop is
-    iterated.
+    The lower limit of the range is computed only once, before the loop is
+    iterated. The upper limit is computed on every iteration.
 }
 
 text {
@@ -746,7 +746,7 @@ text {
 } syntax {
     for _IDENTIFIER_ in _COLLECTION_ _STATEMENTBLOCK_
 } text {
-    where _COLLECTION_ is any Xtal expression that results
+    where `_COLLECTION_` is any Xtal expression that results
     in a column, table or a Tcl list.
 } outputlimit 3 xtal {
     for rainfall in Rainfall[Rainfall > 100] {
@@ -789,29 +789,29 @@ text {
     on _EXCEPTIONCODE_ ?_VARNAME_ ...? { _HANDLERBODY_ }
     trap _ERRORPREFIX_ ?_VARNAME_ ...? { _HANDLERBODY_ }
 } text {
-    The statement results in the execution of _BODY_. The exception code
+    The statement results in the execution of `_BODY_`. The exception code
     resulting from the execution is matched against each handler in turn.
-    The _HANDLERBODY_ corresponding to the first matching handler is
+    The `_HANDLERBODY_` corresponding to the first matching handler is
     executed and propagation of the exception stops in that case. Further
     handlers are not checked.
     If no handler matches, the exception is propagated. In all cases,
     irrespective of the exception code and whether any handler matched,
-    the _FINALBODY_ script is run if present.
+    the `_FINALBODY_` script is run if present.
 
-    In the case of the `on` handler, _EXCEPTIONCODE_ is an integer value
+    In the case of the `on` handler, `_EXCEPTIONCODE_` is an integer value
     or one of the strings `ok`, `error`, `continue`, `break` or `return`.
     The handler will match if this matches the exception code resulting
-    from the execution of _BODY_.
+    from the execution of `_BODY_`.
 
     The `trap` handler only matches if the exception code is `error`.
     Additionally the appropriate number of leading values from
     the `-errorcode` entry in the interpreter status dictionary
     must match the values specified in 
-    _ERRORPREFIX_ which must be of the form used for constructing lists.
+    `_ERRORPREFIX_` which must be of the form used for constructing lists.
     
     In both types of handlers, the handler script body may be preceded
     by zero or more variable names. If present, the first of these receives
-    the result of the execution of _BODY_. The second variable, if present,
+    the result of the execution of `_BODY_`. The second variable, if present,
     receives the status dictionary.
 
     The following example will help clarify the working.
@@ -828,7 +828,7 @@ text {
     }
 } text {
     [WARNING]
-    Make a note of how the _ERRORPREFIX_ is specified as a list construct.
+    Make a note of how the `_ERRORPREFIX_` is specified as a list construct.
     The elements may be general expressions and hence string constants
     have to be quoted as shown in the example.
     
@@ -881,7 +881,7 @@ text {
 } syntax {
     @__TYPE__ ?_INITLIST_?
 } text {
-    Here _TYPE_ is one of the tarray column types and _INITLIST_ is
+    Here `_TYPE_` is one of the tarray column types and `_INITLIST_` is
     an optional initializer list. For example,
 } xtal { A = @int } text {
     creates an empty column of type `int` and assigns it to `A` and
@@ -892,7 +892,7 @@ text {
 } syntax {
     @__TYPE__ (?EXPR?)
 } text {
-    Again, here _TYPE_ is one of the tarray column types. _EXPR_,
+    Again, here `_TYPE_` is one of the tarray column types. `_EXPR_`,
     if specified, is an expression that will be used to initialize the column.
     Thus this form can also be used to ''cast'' a column to a column of
     a different type.
@@ -907,8 +907,8 @@ text {
 } syntax {
     @table(?_COLNAME_ _TYPE_?, ...) ?_TABLEROWS_?
 } text {
-    where _COLNAME_ is the name of the column and _TYPE_ is one
-    of the tarray column types. _TABLEROWS_ may be specified
+    where `_COLNAME_` is the name of the column and `_TYPE_` is one
+    of the tarray column types. `_TABLEROWS_` may be specified
     to initialize the table and should be a list of rows as
     for the `tarray::table create` command. Here is the table
     definition from our ((^ sect_xtal_quick_tour)) section.
@@ -951,7 +951,7 @@ text {
 } syntax {
     _TABLE_._COLSPEC_
 } text {
-    The column specification _COLSPEC_ may be
+    The column specification `_COLSPEC_` may be
     the actual name of the column or
     specified through a variable via
     the ((^ sect_xtal_deref_op "dereferencing operator")).
@@ -1348,7 +1348,13 @@ text {
     i = 0
     print(Emps[i:%Emps-1])
 } text {
-    Again, ranges may be used with lists as well.
+    The upper limit in the range may be left unspecified in which
+    it defaults to the last element. Thus the above could also be
+    written as
+} xtal {
+    print(Emps[i:])
+} text {
+    Ranges may be used with lists as well.
 } xtal {
     {1, 2, 3, 4}[1:2]
 } text {
@@ -1604,9 +1610,9 @@ text {
     @delete(__COLUMN_OR_TABLE__, _FIRST_, _LAST_)
     @delete(__COLUMN_OR_TABLE__, _INDICES_)
 } text {
-    The first form deletes all elements in the index range from _FIRST_
-    to _LAST_. The second form deletes the elements whose indices are
-    specified by _INDICES_ which may be a single index, an index column
+    The first form deletes all elements in the index range from `_FIRST_`
+    to `_LAST_`. The second form deletes the elements whose indices are
+    specified by `_INDICES_` which may be a single index, an index column
     or a list of indices.
 
     So for instance we could get rid of all our high-priced employees.
@@ -1625,8 +1631,8 @@ text {
 } syntax {
     @inject(__COLUMN_OR_TABLE__, _SOURCE_, _START_)
 } text {
-    where _SOURCE_ is a list or column (table) to be inserted at position
-    _START_ in __COLUMN_OR_TABLE__. For example, we can add a couple
+    where `_SOURCE_` is a list or column (table) to be inserted at position
+    `_START_` in `__COLUMN_OR_TABLE__`. For example, we can add a couple
     of low priced lackeys to replace the ones we layed off.
 } outputlimit 0 xtal {
     Emps = @inject(Emps, {
@@ -1646,8 +1652,8 @@ text {
 } syntax {
     @insert(__COLUMN_OR_TABLE__, _VALUE_, _START_ ?, _COUNT_?)
 } text {
-    The function inserts _COUNT_ instances of _VALUE_ at the index position
-    _START_. _COUNT_ defaults to 1 if unspecified.
+    The function inserts `_COUNT_` instances of _VALUE_ at the index position
+    `_START_`. `_COUNT_` defaults to 1 if unspecified.
 } prompt {} xtal_shell {
     @insert (@int {1,2,3}, 99, 0)
 
@@ -1662,14 +1668,14 @@ text {
 } syntax {
     @lookup(_STRINGCOLUMN_ ?, _KEY_?)
 } text {
-    The command returns the index of an element in _STRINGCOLUMN_ that exactly
-    matches _LOOKUPKEY_ or -1 if not found. If _KEY_ is not specified,
+    The command returns the index of an element in `_STRINGCOLUMN_` that exactly
+    matches `_LOOKUPKEY_` or -1 if not found. If `_KEY_` is not specified,
     command builds an internal dictionary (see below) and the return value
     is an empty string.
 
     Unlike the `@search`
     command, the returned index is not necessarily that of the first
-    occurence in cases where _KEY_ occurs multiple times in the column.
+    occurence in cases where `_KEY_` occurs multiple times in the column.
 
     The primary purpose of this function is to provide fast 
     access to columns that are used as an index.
@@ -1696,12 +1702,12 @@ text {
 } syntax {
     @search _COLUMNEXPR_ _RELOP_ _EXPRESSION_ ?_SEARCHOPTIONS_?
 } text {
-    In this form, _COLUMNEXPR_ can be any expression that results in
-    a column value. _RELOP_ is any
+    In this form, `_COLUMNEXPR_` can be any expression that results in
+    a column value. `_RELOP_` is any
     ((^ sect_xtal_rel_ops "relational operator")). Without any options
     specified, the command returns the index of the first element
-    of the column that matches _EXPRESSION_.
-    _SEARCHOPTIONS_ is a space-separated
+    of the column that matches `_EXPRESSION_`.
+    `_SEARCHOPTIONS_` is a space-separated
     list of options that modify this behaviour. The possible
     option values are shown in ((^ tab_xtal_search_options)).
 
@@ -1739,8 +1745,8 @@ text {
 } syntax {
     @search _INDEXCOLUMN_ -> _COLUMNEXPR_ _ _RELOP_ _EXPRESSION_ ?_SEARCHOPTIONS_?
 } text {
-    In this case, _INDEXCOLUMN_ is expected to contain indices into
-    the column _COLUMNEXPR_ and the search only examines the corresponding
+    In this case, `_INDEXCOLUMN_` is expected to contain indices into
+    the column `_COLUMNEXPR_` and the search only examines the corresponding
     elements for a match. In all other respects, this form of the command
     behaves the same as the first form. See the next section for an
     example.
@@ -1793,9 +1799,9 @@ text {
 } syntax {
     @sort _COLUMNEXPR_ ?_SORTOPTIONS_?
 } text {
-    In this form, _COLUMNEXPR_ can be any expression that results in
+    In this form, `_COLUMNEXPR_` can be any expression that results in
     a column value. The command then returns a column of the same type
-    sorted based on the specified options. _SORTOPTIONS_ is a space-separated
+    sorted based on the specified options. `_SORTOPTIONS_` is a space-separated
     list of options that control the sorting operations. The possible
     option values are shown in ((^ tab_xtal_sort_options)).
 
@@ -1854,12 +1860,12 @@ text {
 } syntax {
     @sort _INDEXCOLUMN_ -> _COLUMNEXPR_ ?_SORTOPTIONS_?
 } text {
-    Here the sorting is done indirectly. _INDEXCOLUMN_ is an
+    Here the sorting is done indirectly. `_INDEXCOLUMN_` is an
     integer index column as the ones we computed above. This is
-    treated as containing indices into the column _COLUMNEXPR_.
-    The return value is _INDEXCOLUMN_ sorted by
+    treated as containing indices into the column `_COLUMNEXPR_`.
+    The return value is `_INDEXCOLUMN_` sorted by
     comparing the corresponding values from the column
-    _COLUMNEXPR_.
+    `_COLUMNEXPR_`.
 
     There are a couple of scenarios where this is useful. One is
     in keeping a stable sort order when sorting successively on

@@ -387,12 +387,21 @@ oo::class create xtal::Parser {
 
     method RangeExpr {from to first_child args} {
         if {[llength $args] == 0} {
+            # RangeExpr EXPR
             return $first_child
+        } elseif {[llength $args] == 1} {
+            # RangeExpr EXPR
+            return [list Range $first_child]
         } else {
-            return [list Range $first_child [lindex $args 0]]
+            # RangeExpr EXPR : EXPR 
+            return [list Range $first_child [lindex $args 1]]
         }
     }
 
+    method RangeSeparator {from to} {
+        return [list RangeSeparator [string range $Script $from $to]]
+    }
+            
     method AddExpr {from to first_child args} {
         # args will be a list of alternating AddOp and operand nodes
         if {[llength $args] == 0} {
@@ -1088,7 +1097,13 @@ oo::class create xtal::Compiler {
         try {
             if {$first_op eq "Range"} {
                 # Optimize C[range]
-                set command "xtal::rt::range \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]] [my {*}[lindex $selector_expr 1 2]]"
+                set range_high [lindex $selector_expr 1 2]
+                if {[llength $range_high]} {
+                    set range_high [my {*}$range_high]
+                } else {
+                    set range_high end
+                }
+                set command "xtal::rt::range \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]] $range_high"
             } elseif {[lindex $selector_expr 1 1] eq "SelectorContext" &&
                       [set searchop [xtal::_map_search_op $first_op]] ne ""} {
                 # Optimize C[@@ > 10]
@@ -1216,11 +1231,17 @@ oo::class create xtal::Compiler {
     method String s {return "{$s}"}
     method OptionString s {return "{$s}"}
     method Number {n} {return $n}
-    method Range {low high} {
-        if {$SelectorNestingLevel} {
-            return "\[xtal::rt::selector_range \[list [my {*}$low] [my {*}$high]\]\]"
+    method RangeEnd {} {return "end"}
+    method Range {low args} {
+        if {[llength $args]} {
+            set high [my {*}[lindex $args 0]]
         } else {
-            return "\[list [my {*}$low] [my {*}$high]\]"
+            set high "end"
+        }
+        if {$SelectorNestingLevel} {
+            return "\[xtal::rt::selector_range \[list [my {*}$low] $high\]\]"
+        } else {
+            return "\[list [my {*}$low] $high\]"
         }
     }
 
@@ -1387,7 +1408,10 @@ namespace eval xtal::rt {
 
         lassign [tarray::types $var $value] vartype valuetype
         
-        # TBD - need to handle "end" in range specification
+        if {$high eq "end"} {
+            set high [size $var]
+            incr high -1
+        }
 
         if {$low > $high} {
             error "Range lower limit $low is greater than upper limit $high."
@@ -1584,7 +1608,10 @@ namespace eval xtal::rt {
             error "$varname is not a table."
         }
 
-        # TBD - need to handle "end" in range specification
+        if {$high eq "end"} {
+            set high [tarray::table size $var]
+            incr high -1
+        }
         
         if {$low > $high} {
             error "Range lower limit $low is greater than upper limit $high."
@@ -1722,7 +1749,10 @@ namespace eval xtal::rt {
             error "$varname is not a table."
         }
 
-        # TBD - need to handle "end" in range specification
+        if {$high eq "end"} {
+            set high [tarray::table size $var]
+            incr high -1
+        }
         
         if {$low > $high} {
             error "Range lower limit $low is greater than upper limit $high."
@@ -2165,12 +2195,12 @@ namespace eval xtal::rt {
         return [tarray::column::create int $l]
     }
 
-    proc count {tab_or_col} {
-        if {[lindex [tarray::types $tab_or_col] 0] eq "table"} {
-            return [tarray::table::size $tab_or_col]
-        } else {
-            return [tarray::column::size $tab_or_col]
-        }
+    proc size {val} {
+        return [switch -exact -- [lindex [tarray::types $val] 0] {
+            "" { llength $val }
+            table { tarray::table::size $val }
+            default { tarray::column::size $val }
+        }]
     }
 
     proc dereference {varname} {
