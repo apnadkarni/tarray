@@ -71,7 +71,8 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
     Expression <- LogicalOrExpr ;
     LogicalOrExpr <- LogicalAndExpr ( WS LogicalOrOp WS LogicalAndExpr)* ;
     LogicalAndExpr <- RangeExpr (WS  LogicalAndOp WS RangeExpr)* ;
-    RangeExpr  <- BitOrExpr WS ':' WS BitOrExpr / BitOrExpr ;
+    RangeExpr  <- BitOrExpr WS RangeSeparator (WS BitOrExpr)? / BitOrExpr ;
+    leaf: RangeSeparator <- ':' ;
     # Following are written as to implement left-associativity
     BitOrExpr <- BitXorExpr (WS BitOrOp WS BitXorExpr)* ;
     BitXorExpr <- BitAndExpr (WS BitXorOp WS BitAndExpr)* ;
@@ -115,7 +116,7 @@ leaf:    BuiltInFunction <- 'delete'
 		  / FunctionCall
 		  / Element
 		  / TableColumns ;
-    Selector <- '[' WS ('end' / Expression) WS ']' ;
+    Selector <- '[' WS Expression WS ']' ;
     FunctionCall <- Element* WS '(' WSNL ArgumentList? WSNL ')' ;
     ArgumentList <- Argument (WSNL ',' WSNL Argument)* ;
     Argument <- OptionString WS Expression / Expression ;
