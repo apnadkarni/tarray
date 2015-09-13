@@ -12,9 +12,11 @@ text {
     which stores data in native format and provides efficient memory
     utilization and parallelized processing. Columns store elements
     of a single type, while tables, similar to data frames in the R
-    language, are an ordered sequence of named columns. The `tarray`
+    language, are an ordered sequence of named columns.
+
+    The `tarray`
     extension provides the corresponding
-    ((^ chap_column_ref `column`)) and ((^ chap_table_ref `table`))
+    ((^ chap_column_ref column)) and ((^ chap_table_ref table))
     Tcl commands for their manipulation.
 
     [TIP]
@@ -22,13 +24,13 @@ text {
     If not, please glance through the ((^ chap_guide)) before continuing.
 
     The (e**X**tended **t**yped **a**rray **l**anguage) *Xtal*
-    (pronounced __Crystal__footnote:[Coming from the electronics world.])
+    (pronounced __Crystal__footnote:[Xtal is an abbreviation for crystal in the electronics world.])
     is an alternative for 
-    working with typed array columns and tables. It provides 
+    working with columns and tables. It provides convenient
+    and succint syntax for 
     
-    * convenient succint syntax
     * vector operations
-    * search operators
+    * searching and sorting
     * flexible indexing
 
     Although geared towards operations on typed arrays, Xtal can be used as
@@ -37,8 +39,6 @@ text {
     Rather, it is embedded in
     Tcl and the two can be intermixed according to whatever syntax suits
     the task at hand.
-
-    Nevertheless, Xtal is syntactically completely different from Tcl.
 
     [WARNING]
     Xtal is still under development. Syntactic and functional changes
@@ -217,7 +217,7 @@ text {
 }
 
 text { 
-    .Mixing Tcl and Xtal
+    .Mixing `Tcl` and `Xtal`
     An important feature of Xtal is that, being built on top of Tcl,
     it can be freely intermixed with it. This allows use of the syntax
     that is most suitable for the task at hand.
@@ -272,26 +272,32 @@ text {
 } xtal {
     L = {0, a, b, a + b, tcl::mathfunc::rand()}
 } text {
-    Although you can call Tcl's list related commands, like
+    Note that these lists are just plain Tcl lists. The above is
+    equivalent to the Tcl command
+} script {
+    set L [list 0 $a $b [expr {$a+$b}] [tcl::mathfunc::rand]]
+} text {
+    Thus you can call Tcl's list related commands, like
 } prompt {} xtal_shell {
     llength(L)
 } text {
-    many of the operators we saw earlier with
-    columns and tables can also be used with lists.
+    Many of the operators we saw earlier with
+    columns and tables can also be used with lists. This can
+    be more convenient than the corresponding Tcl command.
     
-    Thus the prefix operator `%` can be used to return the length of a list.
+    The prefix operator `%` can be used to return the length of a list.
 } xtal {
     L = {'zero, 'one, 'two, 'three}
-    len = % L
+    len = % L  # Tcl - llength $L
 } text {
     Similarly, the indexing operator `[]` can be used instead
     of `lindex` and this supports the many forms we saw earlier.
 } prompt {} xtal_shell {
-    L[0]       # Single element
+    L[0]       # Single element. Tcl - lindex $L 0
     
-    L[0:1]     # Index range
+    L[0:1]     # Index range. Tcl - lrange $L 0 1
     
-    L[{3,1,2}] # Index list - note indices need not be in order
+    L[{3,1,2}] # Index list - no direct Tcl equivalent.
 } text {
     The index operations can be search expressions as well.
 } prompt {} xtal_shell {
@@ -312,7 +318,7 @@ text {
 text {
     .Working with dictionaries
     
-    Dictionary access has a similar shorthand using
+    Tcl dictionary access has a similar shorthand using
     using the `.` lookup postfix operator.
 } prompt {} xtal_shell {
     colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
@@ -343,11 +349,14 @@ text {
 text {
     == Running Xtal 
 
-    Xtal is part of the `tarray` package which must be loaded to run
-    Xtal code.
+    Xtal is implemented as the Tcl `xtal` package.
 } shell {
     package require xtal
-    namespace path [list xtal tarray];      # Allows use of xtal commands without qualification
+} text {
+    To save some typing we can add both `xtal` and `tarray`
+    to our namespace path.
+} shell {
+    namespace path [list xtal tarray]
 } text {
     A Xtal code fragment may be run by one of several means.
 
@@ -359,21 +368,33 @@ text {
     The `xtal` command returns the result of the last statement it
     executes.
     
-    Second, you can define a Xtal procedure from Tcl using `xtal::function` in
+    Second, you can define a Xtal procedure _from Tcl_ using `xtal::function` in
     a similar fashion as the Tcl `proc` command. It can then be invoked
     in the same manner as a Tcl procedure.
 } shell {
-    xtal::function add {x y} { return x + y }
+    function add {x y} { return x + y }
     add 2 3
 } text {
-    Finally, you can load an entire Xtal file using the
+    Third, you can load an entire Xtal file using the
     `xtal::source` command which has syntax similar to the
     Tcl `source` command.
 } syntax {
     xtal::source ?-encoding _ENCODING_? _XTALFILE_
 } text {
+    In all the above cases, the Xtal code is compiled to Tcl on the fly
+    at runtime. A more efficient alternative for larger applications
+    is to compile Xtal to Tcl
+    ahead of time with the `xtal::compile` command. This has the syntax
+} syntax {
+    compile _XTALINPUTFILE_ _TCLOUTPUTFILE_ ?-encoding _ENCODING_?
+} text {
+    The input file in Xtal is translated to a Tcl script which is written
+    out to _TCLOUTPUTFILE_. Only the output file needs to be shipped with
+    the application and is sourced like any other Tcl script.
+}
 
-    In this tour, for ease of exposition we will simply show the
+text {
+    In this document, for ease of exposition we will simply show the
     relevant Xtal fragments without any reference to how they
     are executed.
 }
@@ -457,9 +478,12 @@ text {
 text {
     === Comments
 
-    Comments begin with `#` and extend to the end of the line. Note
-    that unlike Tcl, `#` marks the beginning of a comment irrespective
-    of where it appears outside of a quoted string.
+    Comments begin with `#` and extend to the end of the line.
+
+    [NOTE]
+    Unlike Tcl, `#` marks the beginning of a comment irrespective
+    of where it appears outside of a quoted string and not only if
+    appears at the beginning of a statement.
 }
 
 text {
@@ -713,7 +737,7 @@ text {
 
 text {
     === The `return` statement
-    The TclScript `return` statement returns control to the caller
+    The Xtal `return` statement returns control to the caller
     from a function or procedure.
 } syntax {
     return _EXPRESSION_
@@ -724,7 +748,7 @@ text {
 text {
     == Control statements
 
-    Xtal implements the `if`, `while` and `for` statements similar to Tcl
+    Xtal implements control statement similar to Tcl
     but in a slightly different form.
 
     === The `if` statement
