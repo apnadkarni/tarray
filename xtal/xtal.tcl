@@ -804,7 +804,7 @@ oo::class create xtal::Parser {
 }
 
 oo::class create xtal::Compiler {
-    variable Script Compilations SelectorNestingLevel
+    variable Script Compilations SelectorNestingLevel IndentLevel
 
     constructor {use_oo_parser} {
         namespace path ::xtal
@@ -823,7 +823,7 @@ oo::class create xtal::Compiler {
         # Initialize the per-compile variables
         set Script $script
         set SelectorNestingLevel 0
-
+        set IndentLevel 0
         set code {}
         foreach stmt $ir {
             # Disregard empty nodes (blank lines)
@@ -835,28 +835,30 @@ oo::class create xtal::Compiler {
         return [set Compilations($script) $code]
     }
 
-    method eval {script} {
-        uplevel 1 [my translate $script]
-    }
+    method eval {script} { uplevel 1 [my translate $script] }
 
+    method Indent {} {return [string repeat "  " $IndentLevel]}
+    
     method Statement {child} {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
         if {[lindex $child 0] in {= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
-            return [my {*}$child]
+            return "[my Indent][my {*}$child]"
         } else {
-            return "return -level 0 [my {*}$child]"
+            return "[my Indent]return -level 0 [my {*}$child]"
         }
     }
 
     method _clause_to_code {clause} {
+        incr IndentLevel
         set code ""
         foreach stmt $clause {
             if {[llength $stmt]} {
-                append code "  [my {*}$stmt]\n"
+                append code "[my {*}$stmt]\n"
             }
         }
+        incr IndentLevel -1
         return $code
     }
     
@@ -864,10 +866,10 @@ oo::class create xtal::Compiler {
         set then_code [my _clause_to_code $then_clause]
 
         if {[llength $else_clause] == 0} {
-            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code }"
+            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code[my Indent]}"
         } else {
             set else_code [my _clause_to_code $else_clause]
-            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code} else {\n$else_code}"
+            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code} {\n[my Indent]$else_code[my Indent]}"
         }
     }
 
@@ -888,21 +890,21 @@ oo::class create xtal::Compiler {
     }
     
     method WhileStatement {cond clause} {
-        return "while {\[xtal::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause]}"
+        return "while {\[xtal::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause][my Indent]}"
     }
 
     method TryStatement {body args} {
-        set code "try {\n[my _clause_to_code $body]\n}"
+        set code "try {\n[my _clause_to_code $body]\n[my Indent]}"
         foreach arg $args {
             switch -exact -- [lindex $arg 0] {
                 OnHandler {
-                    append code " on [lindex $arg 1] {[lindex $arg 2]} {\n[my _clause_to_code [lindex $arg 3]]}"
+                    append code " on [lindex $arg 1] {[lindex $arg 2]} {\n[my _clause_to_code [lindex $arg 3]][my Indent]}"
                 }
                 TrapHandler {
-                    append code " trap [my {*}[lindex $arg 1]] {[lindex $arg 2]} {\n[my _clause_to_code [lindex $arg 3]]}"
+                    append code " trap [my {*}[lindex $arg 1]] {[lindex $arg 2]} {\n[my _clause_to_code [lindex $arg 3]][my Indent]}"
                 }
                 FinallyClause {
-                    append code " finally {\n[my _clause_to_code [lindex $arg 1]]}"
+                    append code " finally {\n[my _clause_to_code [lindex $arg 1]][my Indent]}"
                 }
             }
         }
@@ -918,11 +920,11 @@ oo::class create xtal::Compiler {
     }
     
     method ForRange {loopvar low high incr clause} {
-        return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n[my _clause_to_code $clause]}"
+        return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n[my _clause_to_code $clause][my Indent]}"
     }
 
     method ForNonRange {loopvar looptarget clause} {
-        return "xtal::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause]}"
+        return "xtal::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause][my Indent]}"
     }
 
     method = {lvalue rvalue} {
@@ -1353,7 +1355,7 @@ oo::class create xtal::Compiler {
                 lappend arguments [lindex $param 0]
             }
         }
-        return "proc {$name} \[list [join $arguments { }]\] {$code}"
+        return "proc {$name} \[list [join $arguments { }]\] {\n$code[my Indent]}"
     }
 }
 
