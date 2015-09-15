@@ -78,7 +78,7 @@ BSD
 #define FIELD_BUFFER_SIZE  2000
 
 
-/*
+/* TBD - are these actually used?
  *  Common set of error types for the read_rows() and tokenize()
  *  functions.
  */
@@ -143,12 +143,11 @@ typedef void* (*io_callback)(void *src, size_t nbytes, size_t *bytes_read,
 typedef int (*io_cleanup)(void *src);
 
 typedef struct parser_t {
-    void *source;
-    io_callback cb_io;
-    io_cleanup cb_cleanup;
+    Tcl_Channel chan;
 
     int chunksize;  // Number of bytes to prepare for each chunk
-    char *data;     // pointer to data to be processed
+    Tcl_Obj *dataObj; // Tcl_Obj where data is read from channel
+    char *data;     // Points into dataObj (data to be processed)
     int datalen;    // amount of data available
     int datapos;
 

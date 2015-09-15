@@ -116,12 +116,11 @@ int parser_cleanup(parser_t *self) {
         status = -1;
     }
 
-    if (self->cb_cleanup != NULL) {
-        if (self->cb_cleanup(self->source) < 0) {
-            status = -1;
-        }
+    if (self->dataObj) {
+        Tcl_DecrRefCount(self->dataObj);
+        self->dataObj = NULL;
     }
-
+    
     return status;
 }
 
@@ -131,7 +130,7 @@ int parser_init(parser_t *self) {
     /*
       Initialize data buffers
     */
-
+    
     self->stream = NULL;
     self->words = NULL;
     self->word_starts = NULL;
@@ -176,7 +175,9 @@ int parser_init(parser_t *self) {
     }
 
     /* amount of bytes buffered */
-    self->datalen = 0;
+    self->dataObj = Tcl_NewObj();
+    Tcl_IncrRefCount(self->dataObj);
+    self->data = Tcl_GetStringFromObj(self->dataObj, &self->datalen);
     self->datapos = 0;
 
     self->line_start[0] = 0;
@@ -514,31 +515,26 @@ int parser_set_skipfirstnrows(parser_t *self, int64_t nrows) {
 }
 
 static int parser_buffer_bytes(parser_t *self, size_t nbytes) {
-    int status;
-    size_t bytes_read;
+    int status, chars_read;
 
     status = 0;
     self->datapos = 0;
-    self->data = self->cb_io(self->source, nbytes, &bytes_read, &status);
-    TRACE(("parser_buffer_bytes self->cb_io: nbytes=%zu, datalen: %d, status=%d\n",
-           nbytes, bytes_read, status));
-    self->datalen = bytes_read;
-
-    if (status != REACHED_EOF && self->data == NULL) {
+    if (self->dataObj == NULL)
+        self->dataObj = Tcl_NewObj();
+    
+    chars_read = Tcl_ReadChars(self->chan, self->dataObj, nbytes, 0);
+    if (chars_read > 0) {
+        self->data = Tcl_GetStringFromObj(self->dataObj, &self->datalen);
+        return 0; /* Success */
+    } else if (chars_read == 0) {
+        /* Currently treat as EOF as we do not handle non-blocking chans */
+        self->datalen = 0;
+        return REACHED_EOF;
+    } else {
         self->error_msg = (char*) malloc(200);
-
-        if (status == CALLING_READ_FAILED) {
-            sprintf(self->error_msg, ("Calling read(nbytes) on source failed. "
-                                      "Try engine='python'."));
-        } else {
-            sprintf(self->error_msg, "Unknown error in IO callback");
-        }
+        sprintf(self->error_msg, "Calling read(nbytes) on source failed (Error %d).", Tcl_GetErrno());
         return -1;
     }
-
-    TRACE(("datalen: %d\n", self->datalen));
-
-    return status;
 }
 
 
@@ -1809,30 +1805,28 @@ TA_INLINE void uppercase(char *p) {
     for ( ; *p; ++p) *p = toupper(*p);
 }
 
-#ifdef NOTNEEDED
-int TA_INLINE to_longlong(char *item, Tcl_WideInt *p_value)
+TCL_RESULT tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
+                              int objc, Tcl_Obj *const objv[])
 {
-    char *p_end;
+    parser_t *parser;
+    int mode;
+    TCL_RESULT res;
+    Tcl_Channel chan;
 
-    // Try integer conversion.  We explicitly give the base to be 10. If
-    // we used 0, strtoll() would convert '012' to 10, because the leading 0 in
-    // '012' signals an octal number in C.  For a general purpose reader, that
-    // would be a bug, not a feature.
-    *p_value = strtoll(item, &p_end, 10);
+    if (objc < 2) {
+	Tcl_WrongNumArgs(ip, 1, objv, "CHANNEL");
+	return TCL_ERROR;
+    }
+        
+    chan = Tcl_GetChannel(ip, Tcl_GetString(objv[1]), &mode);
+    if (chan == NULL)
+        return TCL_ERROR;
 
-    // Allow trailing spaces.
-    while (isspace(*p_end)) ++p_end;
+    parser = parser_new();
+    parser->chunksize = 256*1024; /* TBD - chunksize */
+    parser_set_default_options(parser);
+    parser_init(parser);
+    parser->chan = chan;
 
-    return (errno == 0) && (!*p_end);
+    return tokenize_all_rows(parser) == 0 ? TCL_OK : TCL_ERROR;
 }
-
-int to_boolean(const char *item, uint8_t *val) {
-    int ival;
-
-    if (Tcl_GetBoolean(NULL, item, &ival) != TCL_ERROR)
-        return -1;
-
-    *val = (ival != 0);
-    return 0;
-}
-#endif

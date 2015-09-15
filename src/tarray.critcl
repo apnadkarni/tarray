@@ -1683,6 +1683,8 @@ critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj
     return status;
 }
 
+critcl::ccommand tarray::table::csv_read tacsv_read_cmd
+
 critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
     Tcl_Obj *objs[6];
 
