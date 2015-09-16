@@ -1,23 +1,20 @@
 /*
 
-Copyright (c) 2012, Lambda Foundry, Inc., except where noted
+  CSV parsing - Heavily adapted for tarray/Tcl 
 
-Incorporates components of WarrenWeckesser/textreader, licensed under 3-clause
-BSD
+  From:
+  Copyright (c) 2012, Lambda Foundry, Inc., except where noted
 
+  Incorporates components of WarrenWeckesser/textreader, licensed under 3-clause
+  BSD
    Low-level ascii-file processing from pandas. Combines some elements from
    Python's built-in csv module and Warren Weckesser's textreader project on
    GitHub. See Python Software Foundation License and BSD licenses for these.
 
-   Heavily adapted for tarray/Tcl
-  */
+*/
 
 #include "tarray.h"
 #include "tacsv.h"
-
-#include <ctype.h>
-#include <math.h>
-#include <float.h>
 
 KHASH_MAP_INIT_INT64(int64, size_t)
 
@@ -29,8 +26,6 @@ static void free_if_not_null(void **ptr) {
 }
 
 void parser_set_default_options(parser_t *self) {
-    self->decimal = '.';
-    self->sci = 'E';
 
     // For tokenization
     self->state = START_RECORD;
@@ -54,7 +49,6 @@ void parser_set_default_options(parser_t *self) {
     self->warn_bad_lines = 0;
 
     self->commentchar = '#';
-    self->thousands = '\0';
 
     self->skipset = NULL;
     self-> skip_first_N_rows = -1;
@@ -1411,10 +1405,6 @@ int tokenize_nrows(parser_t *self, size_t nrows) {
 int tokenize_all_rows(parser_t *self) {
     int status = _tokenize_helper(self, -1, 1);
     return status;
-}
-
-TA_INLINE void uppercase(char *p) {
-    for ( ; *p; ++p) *p = toupper(*p);
 }
 
 TCL_RESULT tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
