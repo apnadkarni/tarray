@@ -18,16 +18,7 @@ BSD
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <time.h>
 #include <errno.h>
-
-#include <ctype.h>
-
-#define ERROR_OK             0
-#define ERROR_NO_DIGITS      1
-#define ERROR_OVERFLOW       2
-#define ERROR_INVALID_CHARS  3
-#define ERROR_MINUS_SIGN     4
 
 #if defined(_MSC_VER)
 #include "ms_stdint.h"
@@ -56,39 +47,6 @@ BSD
     #define P_INLINE
   #endif
 #endif
-
-#if defined(_MSC_VER)
-#define strtoll _strtoi64
-#endif
-
-/*
-
-  C flat file parsing low level code for pandas / NumPy
-
- */
-
-#define FALSE 0
-#define TRUE  1
-
-/* Maximum number of columns in a file. */
-#define MAX_NUM_COLUMNS    2000
-
-/* Maximum number of characters in single field. */
-
-#define FIELD_BUFFER_SIZE  2000
-
-
-/* TBD - are these actually used?
- *  Common set of error types for the read_rows() and tokenize()
- *  functions.
- */
-
-#define CSV_ERROR_OUT_OF_MEMORY             1
-#define CSV_ERROR_INVALID_COLUMN_INDEX     10
-#define CSV_ERROR_CHANGED_NUMBER_OF_FIELDS 12
-#define CSV_ERROR_TOO_MANY_CHARS           21
-#define CSV_ERROR_TOO_MANY_FIELDS          22
-#define CSV_ERROR_NO_DATA                  23
 
 
 /* #define VERBOSE */
@@ -138,10 +96,6 @@ typedef enum {
 } QuoteStyle;
 
 
-typedef void* (*io_callback)(void *src, size_t nbytes, size_t *bytes_read,
-                            int *status);
-typedef int (*io_cleanup)(void *src);
-
 typedef struct parser_t {
     Tcl_Channel chan;
 
@@ -181,13 +135,6 @@ typedef struct parser_t {
     int error_bad_lines;
     int warn_bad_lines;
 
-    // floating point options
-    char decimal;
-    char sci;
-
-    // thousands separator (comma, period)
-    char thousands;
-
     int header; // Boolean: 1: has header, 0: no header
     int header_start; // header row start
     int header_end;   // header row end
@@ -195,7 +142,6 @@ typedef struct parser_t {
     void *skipset;
     int64_t skip_first_N_rows;
     int skip_footer;
-    double (*converter)(const char *, char **, char, char, char, int);
 
     // error handling
     char *warn_msg;
@@ -204,31 +150,9 @@ typedef struct parser_t {
     int skip_empty_lines;
 } parser_t;
 
-
-typedef struct coliter_t {
-    char **words;
-    int *line_start;
-    int col;
-} coliter_t;
-
-void coliter_setup(coliter_t *self, parser_t *parser, int i, int start);
-coliter_t *coliter_new(parser_t *self, int i);
-
-/* #define COLITER_NEXT(iter) iter->words[iter->line_start[iter->line++] + iter->col] */
-// #define COLITER_NEXT(iter) iter.words[iter.line_start[iter.line++] + iter.col]
-
-#define COLITER_NEXT(iter, word) do { \
-    const int i = *iter.line_start++ + iter.col; \
-    word = i < *iter.line_start ? iter.words[i]: ""; \
-    } while(0)
-
 parser_t* parser_new(void);
 
 int parser_init(parser_t *self);
-
-int parser_consume_rows(parser_t *self, size_t nrows);
-
-int parser_trim_buffers(parser_t *self);
 
 int parser_add_skiprow(parser_t *self, int64_t row);
 
@@ -243,25 +167,5 @@ void debug_print_parser(parser_t *self);
 int tokenize_nrows(parser_t *self, size_t nrows);
 
 int tokenize_all_rows(parser_t *self);
-
-/*
-
-  Have parsed / type-converted a chunk of data and want to free memory from the
-  token stream
-
- */
-//int clear_parsed_lines(parser_t *self, size_t nlines);
-
-int64_t str_to_int64(const char *p_item, int64_t int_min,
-                     int64_t int_max, int *error, char tsep);
-//uint64_t str_to_uint64(const char *p_item, uint64_t uint_max, int *error);
-
-double xstrtod(const char *p, char **q, char decimal, char sci, char tsep, int skip_trailing);
-double precise_xstrtod(const char *p, char **q, char decimal, char sci, char tsep, int skip_trailing);
-double round_trip(const char *p, char **q, char decimal, char sci, char tsep, int skip_trailing);
-//int P_INLINE to_complex(char *item, double *p_real, double *p_imag, char sci, char decimal);
-int P_INLINE to_longlong(char *item, Tcl_WideInt *p_value);
-//int P_INLINE to_longlong_thousands(char *item, long long *p_value, char tsep);
-int to_boolean(const char *item, uint8_t *val);
 
 #endif // _PARSER_COMMON_H_
