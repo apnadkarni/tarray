@@ -13,7 +13,6 @@
 
 */
 
-#include "tarray.h"
 #include "tacsv.h"
 
 KHASH_MAP_INIT_INT64(int64, size_t)
@@ -1406,18 +1405,18 @@ int tokenize_all_rows(parser_t *self) {
     return status;
 }
 
-TCL_RESULT tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
+int tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
     parser_t *parser;
     int i, mode, opt, len, ival, nrows;
     char *s;
-    TCL_RESULT res;
+    int res;
     Tcl_Obj **objs;
     Tcl_Channel chan;
     static const char *switches[] = {
         "-comment", "-delimiter", "-doublequote", "-escape",
-        "-ignorerrors", "-nrows", "-quote", "-quoting",
+        "-ignoreerrors", "-nrows", "-quote", "-quoting",
         "-skipblanklines", "-skipleadingspace", "-skiprows",
         "-startline", "-terminator",
         NULL

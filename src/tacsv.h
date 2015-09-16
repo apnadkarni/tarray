@@ -26,6 +26,7 @@ BSD
 #include <stdint.h>
 #endif
 
+#include "tcl.h"
 #include "khash.h"
 
 #define CHUNKSIZE 1024*256
