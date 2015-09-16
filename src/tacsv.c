@@ -1316,8 +1316,7 @@ static int parser_handle_eof(parser_t *self) {
 }
 
 void debug_print_parser(parser_t *self) {
-    int j, line;
-    char *token;
+    int line;
 
     for (line = 0; line < self->lines; ++line)
     {
@@ -1411,16 +1410,31 @@ TCL_RESULT tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
     parser_t *parser;
-    int mode;
+    int i, mode, opt, len, ival, nrows;
+    char *s;
     TCL_RESULT res;
+    Tcl_Obj **objs;
     Tcl_Channel chan;
+    static const char *switches[] = {
+        "-comment", "-delimiter", "-doublequote", "-escape",
+        "-ignorerrors", "-nrows", "-quote", "-quoting",
+        "-skipblanklines", "-skipleadingspace", "-skiprows",
+        "-startline", "-terminator",
+        NULL
+    };
+    enum switches_e {
+        CSV_COMMENT, CSV_DELIMITER, CSV_DOUBLEQUOTE, CSV_ESCAPE,
+        CSV_IGNOREERRORS, CSV_NROWS, CSV_QUOTE, CSV_QUOTING,
+        CSV_SKIPBLANKLINES, CSV_SKIPLEADINGSPACE, CSV_SKIPROWS,
+        CSV_STARTLINE, CSV_TERMINATOR,
+    };
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(ip, 1, objv, "CHANNEL");
 	return TCL_ERROR;
     }
         
-    chan = Tcl_GetChannel(ip, Tcl_GetString(objv[1]), &mode);
+    chan = Tcl_GetChannel(ip, Tcl_GetString(objv[objc-1]), &mode);
     if (chan == NULL)
         return TCL_ERROR;
 
@@ -1430,12 +1444,124 @@ TCL_RESULT tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
     parser_init(parser);
     parser->chan = chan;
 
-    if (tokenize_all_rows(parser) == 0) {
-        Tcl_SetObjResult(ip, parser->rowsObj);
-        res = TCL_OK;
-    } else {
-        res = TCL_ERROR;
+    nrows = 0;
+    res = TCL_ERROR;
+    for (i = 1; i < objc-1; i += 2) {
+	if (Tcl_GetIndexFromObj(ip, objv[i], switches, "option", 0, &opt)
+            != TCL_OK)
+            goto vamoose;
+        if ((i+1) >= (objc-1)) {
+            Tcl_SetResult(ip, "Missing argument for option", TCL_STATIC);
+            goto vamoose;
+        }
+        s = Tcl_GetStringFromObj(objv[i+1], &len);
+
+        switch ((enum switches_e) opt) {
+        case CSV_COMMENT:
+            if (len > 1)
+                goto invalid_option_value;
+            parser->commentchar = *s; /* '\0' -> No comment char */
+            break;
+        case CSV_DELIMITER:
+            if (len != 1)
+                goto invalid_option_value;
+            parser->delimiter = *s;
+            break;
+        case CSV_ESCAPE:
+            if (len > 1)
+                goto invalid_option_value;
+            parser->escapechar = *s; /* \0 -> no escape char */
+            break;
+        case CSV_NROWS:
+            res = Tcl_GetIntFromObj(ip, objv[i+1], &nrows);
+            if (res != TCL_OK)
+                goto invalid_option_value;
+            break;
+        case CSV_QUOTE:
+            if (len > 1)
+                goto invalid_option_value;
+            parser->quotechar = *s;
+            break;
+        case CSV_QUOTING:
+            if (!strcmp(s, "all"))
+                parser->quoting = QUOTE_ALL;
+            else if (!strcmp(s, "minimal"))
+                parser->quoting = QUOTE_MINIMAL;
+            else if (!strcmp(s, "nonnumeric"))
+                parser->quoting = QUOTE_NONNUMERIC;
+            else if (!strcmp(s, "none"))
+                parser->quoting = QUOTE_NONE;
+            else
+                goto invalid_option_value;
+            break;
+        case CSV_SKIPROWS:
+            res = Tcl_ListObjGetElements(ip, objv[i+1], &len, &objs);
+            if (res != TCL_OK)
+                goto vamoose;
+            else {
+                int j;
+                Tcl_WideInt wval;
+                for (j = 0; j < len; ++j) {
+                    res = Tcl_GetWideIntFromObj(ip, objs[j], &wval);
+                    if (res != TCL_OK)
+                        goto vamoose;
+                    if (wval < 0)
+                        goto invalid_option_value;
+                    parser_add_skiprow(parser, wval);
+                }
+            }
+            break;
+        case CSV_STARTLINE:
+            res = Tcl_GetIntFromObj(ip, objv[i+1], &ival);
+            if (res != TCL_OK)
+                goto invalid_option_value;
+            parser_set_skipfirstnrows(parser, ival);
+            break;
+        case CSV_TERMINATOR:
+            if (len != 1)
+                goto invalid_option_value;
+            parser->lineterminator = *s;
+            break;
+        default:
+            res = Tcl_GetBooleanFromObj(ip, objv[i+1], &ival);
+            if (res != TCL_OK)
+                goto invalid_option_value;
+            switch ((enum switches_e) opt) {
+            case CSV_DOUBLEQUOTE:
+                parser->doublequote = ival;
+                break;
+            case CSV_IGNOREERRORS:
+                parser->error_bad_lines = ival;
+                break;
+            case CSV_SKIPBLANKLINES:
+                parser->skip_empty_lines = ival;
+                break;
+            case CSV_SKIPLEADINGSPACE:
+                parser->skipinitialspace = ival;
+                break;
+            }
+            break;
+        }
     }
+    
+    /* Note res == TCL_ERROR at this point */
+    if (nrows) { 
+        if (tokenize_nrows(parser, nrows) == 0)
+            res = TCL_OK;
+    } else {
+        if (tokenize_all_rows(parser) == 0)
+            res = TCL_OK;
+    }
+
+    if (res == TCL_OK)
+        Tcl_SetObjResult(ip, parser->rowsObj);
+    
+vamoose: /* res should contain status */
     parser_free(parser);
     return res;
+
+invalid_option_value: /* objv[i] should be the invalid option */
+    Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid value for option %s", objv[i]));
+    res = TCL_ERROR;
+    goto vamoose;
 }
