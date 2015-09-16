@@ -28,32 +28,6 @@ static void free_if_not_null(void **ptr) {
     }
 }
 
-static void *grow_buffer(void *buffer, int length, int *capacity,
-                         int space, int elsize, int *error) {
-    int cap = *capacity;
-    void *newbuffer = buffer;
-
-    // Can we fit potentially nbytes tokens (+ null terminators) in the stream?
-    while ( (length + space > cap) && (newbuffer != NULL) ){
-        cap = cap? cap << 1 : 2;
-        buffer = newbuffer;
-        newbuffer = realloc(newbuffer, elsize * cap);
-    }
-
-    if (newbuffer == NULL) {
-        // realloc failed so don't change *capacity, set *error to errno
-        // and return the last good realloc'd buffer so it can be freed
-        *error = errno;
-        newbuffer = buffer;
-    } else {
-        // realloc worked, update *capacity and set *error to 0
-        // sigh, multiple return values
-        *capacity = cap;
-        *error = 0;
-    }
-    return newbuffer;
-}
-
 void parser_set_default_options(parser_t *self) {
     self->decimal = '.';
     self->sci = 'E';
@@ -91,15 +65,6 @@ parser_t* parser_new() {
     return (parser_t*) calloc(1, sizeof(parser_t));
 }
 
-int parser_clear_data_buffers(parser_t *self) {
-    free_if_not_null((void *)&self->stream);
-    free_if_not_null((void *)&self->words);
-    free_if_not_null((void *)&self->word_starts);
-    free_if_not_null((void *)&self->line_start);
-    free_if_not_null((void *)&self->line_fields);
-    return 0;
-}
-
 int parser_cleanup(parser_t *self) {
     int    status = 0;
 
@@ -112,84 +77,51 @@ int parser_cleanup(parser_t *self) {
         self->skipset = NULL;
     }
 
-    if (parser_clear_data_buffers(self) < 0) {
-        status = -1;
-    }
-
     if (self->dataObj) {
         Tcl_DecrRefCount(self->dataObj);
         self->dataObj = NULL;
+    }
+    
+    if (self->rowsObj) {
+        Tcl_DecrRefCount(self->rowsObj);
+        self->rowsObj = NULL;
+    }
+
+    if (self->rowObj) {
+        Tcl_DecrRefCount(self->rowObj);
+        self->rowObj = NULL;
+    }
+    
+    if (self->fieldObj) {
+        Tcl_DecrRefCount(self->fieldObj);
+        self->fieldObj = NULL;
     }
     
     return status;
 }
 
 int parser_init(parser_t *self) {
-    int sz;
-
-    /*
-      Initialize data buffers
-    */
-    
-    self->stream = NULL;
-    self->words = NULL;
-    self->word_starts = NULL;
-    self->line_start = NULL;
-    self->line_fields = NULL;
     self->error_msg = NULL;
     self->warn_msg = NULL;
 
-    // token stream
-    self->stream = (char*) malloc(STREAM_INIT_SIZE * sizeof(char));
-    if (self->stream == NULL) {
-        parser_cleanup(self);
-        return PARSER_OUT_OF_MEMORY;
-    }
-    self->stream_cap = STREAM_INIT_SIZE;
-    self->stream_len = 0;
-
-    // word pointers and metadata
-    sz = STREAM_INIT_SIZE / 10;
-    sz = sz? sz : 1;
-    self->words = (char**) malloc(sz * sizeof(char*));
-    self->word_starts = (int*) malloc(sz * sizeof(int));
-    self->words_cap = sz;
-    self->words_len = 0;
-
-    // line pointers and metadata
-    self->line_start = (int*) malloc(sz * sizeof(int));
-
-    self->line_fields = (int*) malloc(sz * sizeof(int));
-
-    self->lines_cap = sz;
     self->lines = 0;
     self->file_lines = 0;
 
-    if (self->stream == NULL || self->words == NULL ||
-        self->word_starts == NULL || self->line_start == NULL ||
-        self->line_fields == NULL) {
-
-        parser_cleanup(self);
-
-        return PARSER_OUT_OF_MEMORY;
-    }
-
-    /* amount of bytes buffered */
+    /* read bytes buffered */
     self->dataObj = Tcl_NewObj();
     Tcl_IncrRefCount(self->dataObj);
     self->data = Tcl_GetStringFromObj(self->dataObj, &self->datalen);
     self->datapos = 0;
 
-    self->line_start[0] = 0;
-    self->line_fields[0] = 0;
-
-    self->pword_start = self->stream;
-    self->word_start = 0;
-
+    /* Where we collect the rows */
+    self->rowsObj = Tcl_NewListObj(1000, NULL); /* TBD - guess 1000 rows */
+    Tcl_IncrRefCount(self->rowsObj);
+    self->rowObj = Tcl_NewListObj(10, NULL); /* TBD - Guess 10 fields */
+    Tcl_IncrRefCount(self->rowObj);
+    self->fieldObj = Tcl_NewObj();
+    Tcl_IncrRefCount(self->fieldObj);
+    
     self->state = START_RECORD;
-
-    self->error_msg = NULL;
-    self->warn_msg = NULL;
 
     self->commentchar = '\0';
 
@@ -203,160 +135,13 @@ void parser_free(parser_t *self) {
     free(self);
 }
 
-
-static int make_stream_space(parser_t *self, size_t nbytes) {
-    int i, status, cap;
-    void *orig_ptr, *newptr;
-
-    // Can we fit potentially nbytes tokens (+ null terminators) in the stream?
-
-    /*
-      TOKEN STREAM
-    */
-
-    orig_ptr = (void *) self->stream;
-    TRACE(("\n\nmake_stream_space: nbytes = %zu.  grow_buffer(self->stream...)\n", nbytes))
-    self->stream = (char*) grow_buffer((void *) self->stream,
-                                        self->stream_len,
-                                        &self->stream_cap, nbytes * 2,
-                                        sizeof(char), &status);
-    TRACE(("make_stream_space: self->stream=%p, self->stream_len = %zu, self->stream_cap=%zu, status=%zu\n",
-           self->stream, self->stream_len, self->stream_cap, status))
-
-    if (status != 0) {
-        return PARSER_OUT_OF_MEMORY;
-    }
-
-    // realloc sets errno when moving buffer?
-    if (self->stream != orig_ptr) {
-        // uff
-        /* TRACE(("Moving word pointers\n")) */
-
-        self->pword_start = self->stream + self->word_start;
-
-        for (i = 0; i < self->words_len; ++i)
-        {
-            self->words[i] = self->stream + self->word_starts[i];
-        }
-    }
-
-
-    /*
-      WORD VECTORS
-    */
-
-    cap = self->words_cap;
-    self->words = (char**) grow_buffer((void *) self->words,
-                                       self->words_len,
-                                       &self->words_cap, nbytes,
-                                       sizeof(char*), &status);
-    TRACE(("make_stream_space: grow_buffer(self->self->words, %zu, %zu, %zu, %d)\n",
-           self->words_len, self->words_cap, nbytes, status))
-    if (status != 0) {
-        return PARSER_OUT_OF_MEMORY;
-    }
-
-
-    // realloc took place
-    if (cap != self->words_cap) {
-        TRACE(("make_stream_space: cap != self->words_cap, nbytes = %d, self->words_cap=%d\n", nbytes, self->words_cap))
-        newptr = realloc((void *) self->word_starts, sizeof(int) * self->words_cap);
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->word_starts = (int*) newptr;
-        }
-    }
-
-
-    /*
-      LINE VECTORS
-    */
-    /*
-    printf("Line_start: ");
-
-    for (j = 0; j < self->lines + 1; ++j) {
-         printf("%d ", self->line_fields[j]);
-     }
-    printf("\n");
-
-    printf("lines_cap: %d\n", self->lines_cap);
-    */
-    cap = self->lines_cap;
-    self->line_start = (int*) grow_buffer((void *) self->line_start,
-                                          self->lines + 1,
-                                          &self->lines_cap, nbytes,
-                                          sizeof(int), &status);
-    TRACE(("make_stream_space: grow_buffer(self->line_start, %zu, %zu, %zu, %d)\n",
-           self->lines + 1, self->lines_cap, nbytes, status))
-    if (status != 0) {
-        return PARSER_OUT_OF_MEMORY;
-    }
-
-    // realloc took place
-    if (cap != self->lines_cap) {
-        TRACE(("make_stream_space: cap != self->lines_cap, nbytes = %d\n", nbytes))
-        newptr = realloc((void *) self->line_fields, sizeof(int) * self->lines_cap);
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->line_fields = (int*) newptr;
-        }
-    }
-
-    /* TRACE(("finished growing buffers\n")); */
-
-    return 0;
-}
-
-static int push_char(parser_t *self, char c) {
-    /* TRACE(("pushing %c \n", c)) */
-    TRACE(("push_char: self->stream[%zu] = %x, stream_cap=%zu\n", self->stream_len+1, c, self->stream_cap))
-    if (self->stream_len >= self->stream_cap) {
-        TRACE(("push_char: ERROR!!! self->stream_len(%d) >= self->stream_cap(%d)\n",
-               self->stream_len, self->stream_cap))
-        self->error_msg = (char*) malloc(64);
-        sprintf(self->error_msg, "Buffer overflow caught - possible malformed input file.\n");
-        return PARSER_OUT_OF_MEMORY;
-    }
-    self->stream[self->stream_len++] = c;
-    return 0;
-}
-
 static int P_INLINE end_field(parser_t *self) {
-    // XXX cruft
-//    self->numeric_field = 0;
-    if (self->words_len >= self->words_cap) {
-        TRACE(("end_field: ERROR!!! self->words_len(%zu) >= self->words_cap(%zu)\n", self->words_len, self->words_cap))
-        self->error_msg = (char*) malloc(64);
-        sprintf(self->error_msg, "Buffer overflow caught - possible malformed input file.\n");
-        return PARSER_OUT_OF_MEMORY;
-    }
-
-    // null terminate token
-    push_char(self, '\0');
-
-    // set pointer and metadata
-    self->words[self->words_len] = self->pword_start;
-
-    TRACE(("end_field: Char diff: %d\n", self->pword_start - self->words[0]));
-
-    TRACE(("end_field: Saw word %s at: %d. Total: %d\n",
-           self->pword_start, self->word_start, self->words_len + 1))
-
-    self->word_starts[self->words_len] = self->word_start;
-    self->words_len++;
-
-    // increment line field count
-    self->line_fields[self->lines]++;
-
-    // New field begin in stream
-    self->pword_start = self->stream + self->stream_len;
-    self->word_start = self->stream_len;
+    Tcl_ListObjAppendElement(NULL, self->rowObj, self->fieldObj);
+    self->fieldObj = Tcl_NewObj();
+    Tcl_IncrRefCount(self->fieldObj);
 
     return 0;
 }
-
 
 static void append_warning(parser_t *self, const char *msg) {
     int ex_length;
@@ -379,12 +164,20 @@ static void append_warning(parser_t *self, const char *msg) {
 static int end_line(parser_t *self) {
     int fields;
     int ex_fields = self->expected_fields;
-    char *msg;
 
-    fields = self->line_fields[self->lines];
+#ifndef TBD
+    /* TBD - don't deal with special cases */
+    fields = 0;
+    Tcl_ListObjLength(NULL, self->rowObj,  &fields);
+    Tcl_ListObjAppendElement(NULL, self->rowsObj, self->rowObj);
+    self->rowObj = Tcl_NewListObj(fields, NULL);
+    Tcl_IncrRefCount(self->rowObj);
 
     TRACE(("end_line: Line end, nfields: %d\n", fields));
 
+    self->file_lines++;
+    self->lines++;
+#else // TBD
     if (self->lines > 0) {
         if (self->expected_fields >= 0) {
             ex_fields = self->expected_fields;
@@ -405,7 +198,6 @@ static int end_line(parser_t *self) {
         self->line_fields[self->lines] = 0;
         return 0;
     }
-
     /* printf("Line: %d, Fields: %d, Ex-fields: %d\n", self->lines, fields, ex_fields); */
 
     if (!(self->lines <= self->header_end + 1)
@@ -482,7 +274,8 @@ static int end_line(parser_t *self) {
         // new line start with 0 fields
         self->line_fields[self->lines] = 0;
     }
-
+#endif // TBD
+    
     TRACE(("end_line: Finished line, at %d\n", self->lines));
 
     return 0;
@@ -539,62 +332,51 @@ static int parser_buffer_bytes(parser_t *self, size_t nbytes) {
 
 
 /*
-
   Tokenization macros and state machine code
-
 */
 
 //    printf("pushing %c\n", c);
 
-#define PUSH_CHAR(c)                                \
-    TRACE(("PUSH_CHAR: Pushing %c, slen= %d, stream_cap=%zu, stream_len=%zu\n", c, slen, self->stream_cap, self->stream_len)) \
-    if (slen >= maxstreamsize) {                    \
-        TRACE(("PUSH_CHAR: ERROR!!! slen(%d) >= maxstreamsize(%d)\n", slen, maxstreamsize))            \
-        self->error_msg = (char*) malloc(100);      \
-        sprintf(self->error_msg, "Buffer overflow caught - possible malformed input file.\n"); \
-        return PARSER_OUT_OF_MEMORY;                \
-    }                                               \
-    *stream++ = c;                                  \
-    slen++;
+#define PUSH_CHAR(c)                            \
+    do {                                        \
+        TRACE(("PUSH_CHAR: Pushing %c\n", c))   \
+        Tcl_AppendToObj(self->fieldObj, &c, 1); \
+    } while (0)
 
 // This is a little bit of a hack but works for now
-
-#define END_FIELD()                            \
-    self->stream_len = slen;                   \
-    if (end_field(self) < 0) {                 \
-        goto parsingerror;                     \
-    }                                          \
-    stream = self->stream + self->stream_len;  \
-    slen = self->stream_len;
+#define END_FIELD()                             \
+    do {                                        \
+        if (end_field(self) < 0) {              \
+            goto parsingerror;                  \
+        }                                       \
+    } while (0)
 
 #define END_LINE_STATE(STATE)                                           \
-    self->stream_len = slen;                                            \
-    if (end_line(self) < 0) {                                           \
-        goto parsingerror;                                              \
-    }                                                                   \
-    stream = self->stream + self->stream_len;                           \
-    slen = self->stream_len;                                            \
-    self->state = STATE;                                                \
-    if (line_limit > 0 && self->lines == start_lines + line_limit) {    \
-        goto linelimit;                                                 \
+    do {                                                                \
+        if (end_line(self) < 0) {                                       \
+            goto parsingerror;                                          \
+        }                                                               \
+        self->state = STATE;                                            \
+        if (line_limit > 0 && self->lines == start_lines + line_limit) { \
+            goto linelimit;                                             \
                                                                         \
-    }
+        }                                                               \
+    } while (0)
 
 #define END_LINE_AND_FIELD_STATE(STATE)                                 \
-    self->stream_len = slen;                                            \
-    if (end_line(self) < 0) {                                           \
-        goto parsingerror;                                              \
-    }                                                                   \
-    if (end_field(self) < 0) {                                          \
-        goto parsingerror;                                              \
-    }                                                                   \
-    stream = self->stream + self->stream_len;                           \
-    slen = self->stream_len;                                            \
-    self->state = STATE;                                                \
-    if (line_limit > 0 && self->lines == start_lines + line_limit) {    \
-        goto linelimit;                                                 \
+    do {                                                                \
+        if (end_line(self) < 0) {                                       \
+            goto parsingerror;                                          \
+        }                                                               \
+        if (end_field(self) < 0) {                                      \
+            goto parsingerror;                                          \
+        }                                                               \
+        self->state = STATE;                                            \
+        if (line_limit > 0 && self->lines == start_lines + line_limit) { \
+            goto linelimit;                                             \
                                                                         \
-    }
+        }                                                               \
+    } while (0)
 
 #define END_LINE() END_LINE_STATE(START_RECORD)
 
@@ -603,10 +385,10 @@ static int parser_buffer_bytes(parser_t *self, size_t nbytes) {
 typedef int (*parser_op)(parser_t *self, size_t line_limit);
 
 #define _TOKEN_CLEANUP()                                                \
-    self->stream_len = slen;                                            \
-    self->datapos = i;                                                  \
-    TRACE(("_TOKEN_CLEANUP: datapos: %d, datalen: %d\n", self->datapos, self->datalen));
-
+    do { \
+        self->datapos = i;                                              \
+        TRACE(("_TOKEN_CLEANUP: datapos: %d, datalen: %d\n", self->datapos, self->datalen)); \
+    } while (0)
 
 int skip_this_line(parser_t *self, int64_t rownum) {
     if (self->skipset != NULL) {
@@ -620,23 +402,12 @@ int skip_this_line(parser_t *self, int64_t rownum) {
 
 int tokenize_delimited(parser_t *self, size_t line_limit)
 {
-    int i, slen, start_lines;
-    long maxstreamsize;
+    int i, start_lines;
     char c;
-    char *stream;
     char *buf = self->data + self->datapos;
-
 
     start_lines = self->lines;
 
-    if (make_stream_space(self, self->datalen - self->datapos) < 0) {
-        self->error_msg = "out of memory";
-        return -1;
-    }
-
-    stream = self->stream + self->stream_len;
-    slen = self->stream_len;
-    maxstreamsize = self->stream_cap;
     TRACE(("%s\n", buf));
 
     for (i = self->datapos; i < self->datalen; ++i)
@@ -644,9 +415,8 @@ int tokenize_delimited(parser_t *self, size_t line_limit)
         // Next character in file
         c = *buf++;
 
-        TRACE(("tokenize_delimited - Iter: %d Char: 0x%x Line %d field_count %d, state %d\n",
-               i, c, self->file_lines + 1, self->line_fields[self->lines],
-               self->state));
+        TRACE(("tokenize_delimited - Iter: %d Char: 0x%x Line %d, state %d\n",
+               i, c, self->file_lines + 1, self->state));
 
         switch(self->state) {
 
@@ -903,12 +673,9 @@ int tokenize_delimited(parser_t *self, size_t line_limit)
                 /* \r line terminator */
 
                 /* UGH. we don't actually want to consume the token. fix this later */
-                self->stream_len = slen;
                 if (end_line(self) < 0) {
                     goto parsingerror;
                 }
-                stream = self->stream + self->stream_len;
-                slen = self->stream_len;
                 self->state = START_RECORD;
 
                 /* HACK, let's try this one again */
@@ -957,23 +724,11 @@ linelimit:
 int tokenize_delim_customterm(parser_t *self, size_t line_limit)
 {
 
-    int i, slen, start_lines;
-    long maxstreamsize;
+    int i, start_lines;
     char c;
-    char *stream;
     char *buf = self->data + self->datapos;
 
-
     start_lines = self->lines;
-
-    if (make_stream_space(self, self->datalen - self->datapos) < 0) {
-        self->error_msg = "out of memory";
-        return -1;
-    }
-
-    stream = self->stream + self->stream_len;
-    slen = self->stream_len;
-    maxstreamsize = self->stream_cap;
 
     TRACE(("%s\n", buf));
 
@@ -983,8 +738,7 @@ int tokenize_delim_customterm(parser_t *self, size_t line_limit)
         c = *buf++;
 
         TRACE(("tokenize_delim_customterm - Iter: %d Char: %c Line %d field_count %d, state %d\n",
-               i, c, self->file_lines + 1, self->line_fields[self->lines],
-               self->state));
+               i, c, self->file_lines + 1, self->state));
 
         switch(self->state) {
 
@@ -1222,22 +976,11 @@ linelimit:
 
 int tokenize_whitespace(parser_t *self, size_t line_limit)
 {
-    int i, slen, start_lines;
-    long maxstreamsize;
+    int i, start_lines;
     char c;
-    char *stream;
     char *buf = self->data + self->datapos;
 
     start_lines = self->lines;
-
-    if (make_stream_space(self, self->datalen - self->datapos) < 0) {
-        self->error_msg = "out of memory";
-        return -1;
-    }
-
-    stream = self->stream + self->stream_len;
-    slen = self->stream_len;
-    maxstreamsize = self->stream_cap;
 
     TRACE(("%s\n", buf));
 
@@ -1247,11 +990,9 @@ int tokenize_whitespace(parser_t *self, size_t line_limit)
         c = *buf++;
 
         TRACE(("tokenize_whitespace - Iter: %d Char: %c Line %d field_count %d, state %d\n",
-               i, c, self->file_lines + 1, self->line_fields[self->lines],
-               self->state));
+               i, c, self->file_lines + 1, self->state));
 
         switch(self->state) {
-
         case SKIP_LINE:
 //            TRACE(("tokenize_whitespace SKIP_LINE %c, state %d\n", c, self->state));
             if (c == '\n') {
@@ -1580,137 +1321,6 @@ static int parser_handle_eof(parser_t *self) {
     return -1;
 }
 
-int parser_consume_rows(parser_t *self, size_t nrows) {
-    int i, offset, word_deletions, char_count;
-
-    if (nrows > self->lines) {
-        nrows = self->lines;
-    }
-
-    /* do nothing */
-    if (nrows == 0)
-        return 0;
-
-    /* cannot guarantee that nrows + 1 has been observed */
-    word_deletions = self->line_start[nrows - 1] + self->line_fields[nrows - 1];
-    char_count = (self->word_starts[word_deletions - 1] +
-                  strlen(self->words[word_deletions - 1]) + 1);
-
-    TRACE(("parser_consume_rows: Deleting %d words, %d chars\n", word_deletions, char_count));
-
-    /* move stream, only if something to move */
-    if (char_count < self->stream_len) {
-        memmove((void*) self->stream, (void*) (self->stream + char_count),
-                self->stream_len - char_count);
-    }
-    /* buffer counts */
-    self->stream_len -= char_count;
-
-    /* move token metadata */
-    for (i = 0; i < self->words_len - word_deletions; ++i) {
-        offset = i + word_deletions;
-
-        self->words[i] = self->words[offset] - char_count;
-        self->word_starts[i] = self->word_starts[offset] - char_count;
-    }
-    self->words_len -= word_deletions;
-
-    /* move current word pointer to stream */
-    self->pword_start -= char_count;
-    self->word_start -= char_count;
-    /*
-    printf("Line_start: ");
-    for (i = 0; i < self->lines + 1; ++i) {
-         printf("%d ", self->line_fields[i]);
-     }
-    printf("\n");
-    */
-    /* move line metadata */
-    for (i = 0; i < self->lines - nrows + 1; ++i)
-    {
-        offset = i + nrows;
-        self->line_start[i] = self->line_start[offset] - word_deletions;
-
-        /* TRACE(("First word in line %d is now %s\n", i, */
-        /*        self->words[self->line_start[i]])); */
-
-        self->line_fields[i] = self->line_fields[offset];
-    }
-    self->lines -= nrows;
-    /* self->line_fields[self->lines] = 0; */
-
-    return 0;
-}
-
-static size_t _next_pow2(size_t sz) {
-    size_t result = 1;
-    while (result < sz) result *= 2;
-    return result;
-}
-
-int parser_trim_buffers(parser_t *self) {
-    /*
-      Free memory
-     */
-    size_t new_cap;
-    void *newptr;
-
-    /* trim stream */
-    new_cap = _next_pow2(self->stream_len) + 1;
-    TRACE(("parser_trim_buffers: new_cap = %zu, stream_cap = %zu, lines_cap = %zu\n",
-           new_cap, self->stream_cap, self->lines_cap));
-    if (new_cap < self->stream_cap) {
-        TRACE(("parser_trim_buffers: new_cap < self->stream_cap, calling safe_realloc\n"));
-        newptr = realloc((void*) self->stream, new_cap);
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->stream = newptr;
-            self->stream_cap = new_cap;
-        }
-    }
-
-    /* trim words, word_starts */
-    new_cap = _next_pow2(self->words_len) + 1;
-    if (new_cap < self->words_cap) {
-        TRACE(("parser_trim_buffers: new_cap < self->words_cap\n"));
-        newptr = realloc((void*) self->words, new_cap * sizeof(char*));
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->words = (char**) newptr;
-        }
-        newptr = realloc((void*) self->word_starts, new_cap * sizeof(int));
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->word_starts = (int*) newptr;
-            self->words_cap = new_cap;
-        }
-    }
-
-    /* trim line_start, line_fields */
-    new_cap = _next_pow2(self->lines) + 1;
-    if (new_cap < self->lines_cap) {
-        TRACE(("parser_trim_buffers: new_cap < self->lines_cap\n"));
-        newptr = realloc((void*) self->line_start, new_cap * sizeof(int));
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->line_start = (int*) newptr;
-        }
-        newptr = realloc((void*) self->line_fields, new_cap * sizeof(int));
-        if (newptr == NULL) {
-            return PARSER_OUT_OF_MEMORY;
-        } else {
-            self->line_fields = (int*) newptr;
-            self->lines_cap = new_cap;
-        }
-    }
-
-    return 0;
-}
-
 void debug_print_parser(parser_t *self) {
     int j, line;
     char *token;
@@ -1719,12 +1329,14 @@ void debug_print_parser(parser_t *self) {
     {
         printf("(Parsed) Line %d: ", line);
 
+#ifdef TBD
         for (j = 0; j < self->line_fields[j]; ++j)
         {
             token = self->words[j + self->line_start[line]];
             printf("%s ", token);
         }
         printf("\n");
+#endif
     }
 }
 
@@ -1828,5 +1440,12 @@ TCL_RESULT tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
     parser_init(parser);
     parser->chan = chan;
 
-    return tokenize_all_rows(parser) == 0 ? TCL_OK : TCL_ERROR;
+    if (tokenize_all_rows(parser) == 0) {
+        Tcl_SetObjResult(ip, parser->rowsObj);
+        res = TCL_OK;
+    } else {
+        res = TCL_ERROR;
+    }
+    parser_free(parser);
+    return res;
 }

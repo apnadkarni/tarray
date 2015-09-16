@@ -151,25 +151,13 @@ typedef struct parser_t {
     int datalen;    // amount of data available
     int datapos;
 
-    // where to write out tokenized data
-    char *stream;
-    int stream_len;
-    int stream_cap;
+    // Tcl_Obj containing the read rows
+    Tcl_Obj *rowsObj; // List of built rows
+    Tcl_Obj *rowObj;  // The row being built
+    Tcl_Obj *fieldObj; // The field being built
 
-    // Store words in (potentially ragged) matrix for now, hmm
-    char **words;
-    int *word_starts; // where we are in the stream
-    int words_len;
-    int words_cap;
-
-    char *pword_start;    // pointer to stream start of current field
-    int word_start;       // position start of current field
-
-    int *line_start;      // position in words for start of line
-    int *line_fields;     // Number of fields in each line
     int lines;            // Number of (good) lines observed
     int file_lines;       // Number of file lines observed (including bad or skipped)
-    int lines_cap;        // Vector capacity
 
     // Tokenizing stuff
     ParserState state;
