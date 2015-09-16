@@ -13,7 +13,7 @@
 
 */
 
-#include "tacsv.h"
+#include "csv.h"
 
 KHASH_MAP_INIT_INT64(int64, size_t)
 
@@ -1405,7 +1405,7 @@ int tokenize_all_rows(parser_t *self) {
     return status;
 }
 
-int tacsv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
+int csv_read_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
     parser_t *parser;

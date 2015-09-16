@@ -46,7 +46,7 @@ critcl::description {
 }
 
 critcl::clean_cache
-critcl::tcl 8.5
+critcl::tcl 8.6
 
 ################################################################
 # Compiler/platform specific flags
@@ -62,7 +62,7 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources bitarray.c tacsv.c errors.c table.c tafold.c tajoin.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
+critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -70,7 +70,7 @@ if {$build_opts(unsupported)} {
 
 }
 critcl::tsources tarray.tcl taprint.tcl
-critcl::cheaders tacsv.h tarray.h timsort-impl.h
+critcl::cheaders tarray.h timsort-impl.h
 
 critcl::ccode {
 #include "tarray.h"
@@ -1682,8 +1682,6 @@ critcl::cproc tarray::table::slice {Tcl_Interp* interp TableObjPtr TABLE Tcl_Obj
     }
     return status;
 }
-
-critcl::ccommand tarray::table::csv_read tacsv_read_cmd
 
 critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
     Tcl_Obj *objs[6];
