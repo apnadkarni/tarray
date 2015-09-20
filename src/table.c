@@ -93,7 +93,7 @@ int table_check(Tcl_Interp *ip, Tcl_Obj *otab)
     return 1;
 }
 
-static TCL_RESULT column_map_missing_columns_error(Tcl_Interp *ip)
+TCL_RESULT column_map_missing_columns_error(Tcl_Interp *ip)
 {
     if (ip)
         Tcl_SetResult(ip, "All columns in a table must be specified in a column map when extending the table.", TCL_STATIC);
@@ -177,7 +177,7 @@ error_handler:
 }
 
 
-TA_INLINE static TCL_RESULT column_map_verify(
+TA_INLINE TCL_RESULT column_map_verify(
     Tcl_Interp *ip, column_map_t *pmap, int width, int cur_size, int new_size)
 {
 
