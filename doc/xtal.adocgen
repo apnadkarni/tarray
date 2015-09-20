@@ -55,7 +55,7 @@ text {
     The `-encoding` option may be specified to indicate the
     character encoding of the file. Otherwise system encoding is assumed.
     
-    ((cmddef cmdref_xtal_xtal "xtal _SCRIPT_"))2
+    ((cmddef cmdref_xtal_xtal "xtal _SCRIPT_"))
     Executes a ((^ chap_xtal_lang Xtal)) script in the caller's context.
 
 }
