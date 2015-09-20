@@ -37,8 +37,8 @@ const char *g_type_tokens[] = {
     NULL
 };    
 
-Tcl_ObjType *g_tcl_list_type_ptr;
-Tcl_ObjType *g_tcl_string_type_ptr;
+const Tcl_ObjType *g_tcl_list_type_ptr;
+const Tcl_ObjType *g_tcl_string_type_ptr;
 
 /*
  * A TArray column is a Tcl_Obj type used for densely storing arrays
