@@ -1,16 +1,17 @@
 text {
-    ((= chap_build "Building tarray"))
+    ((= chap_build "Building tarray and xtal"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
 }
 
 text {
-    Binary distributions of `tarray` are available from the SourceForge download
+    Binary distributions of the `tarray` and `xtal` packages
+    are available from the SourceForge download
     area at http://sourceforge.net/projects/tarray/files. This document
     describes building `tarray` from sources.
 
-    == Building `tarray` from sources
+    == Building tarray
 
     The `tarray` extension is built using the 
     http://andreas-kupries.github.com/critcl/[Critcl] package which
@@ -29,17 +30,24 @@ text {
 
     . Change to the `src` directory in the `tarray` source distribution and
     run a command of the form
-    (where TARGETNAME is one of the `critcl` build targets):
 } syntax {
-    tclsh build.tcl -target TARGETNAME
+    tclsh build.tcl ?-target _TARGETNAME_?
 } text {
+    If specified, _TARGETNAME_ should be one of the supported
+    `critcl` build targets. Naturally, the build environment should
+    reflect the chosen target. If unspecified, it defaults to whatever
+    `critcl` guesses to be the host platform.
+
     This will create a
     `tarray` package under the "build" directory in your `tarray` source tree.
 
     You can of course create your own build scripts with different
     `Critcl` options using the `build.tcl` file as a template. 
 
-    == Enabling parallelized operations
+    For Windows, the `release.cmd` batch file encapsulates the above
+    build steps.
+    
+    === Enabling parallelized operations
     By default,
     the Windows builds have support for parallelized operations. 
     To build parallelized versions for other platforms,
@@ -47,3 +55,19 @@ text {
     true. For non-Windows platforms, the `libdispatch` library will need to
     be installed on the system if parallelization is enabled.
 }
+
+text {
+    == Building xtal
+
+    Building the `xtal` package follows a similar, but not identical,
+    pattern.
+
+    Change to the `xtal` directory in the `tarray` source distribution
+    and run the command
+} syntax {
+    tclsh build.tcl extension
+} text {
+    This will result in the `xtal` package being built in the `build`
+    directory.
+}
+    
