@@ -136,8 +136,8 @@ extern const char *g_type_tokens[];
 #define TA_SORT_INDIRECT   8
 
 /* Pointers to Tcl's built-in type descriptors */
-extern Tcl_ObjType *g_tcl_list_type_ptr;
-extern Tcl_ObjType *g_tcl_string_type_ptr;
+extern const Tcl_ObjType *g_tcl_list_type_ptr;
+extern const Tcl_ObjType *g_tcl_string_type_ptr;
 
 /* How many slots to allocate by default */
 #define TA_DEFAULT_NSLOTS 1000

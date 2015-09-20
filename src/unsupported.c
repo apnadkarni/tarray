@@ -45,8 +45,13 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     if (o->typePtr == &ta_column_type) {
         span_t *span = tcol_span(o);
         oresult[i++] = Tcl_NewStringObj("span*", -1);
-        sprintf(buf, "%p", (void *) span);
-        oresult[i++] = Tcl_NewStringObj(buf, -1);
+        if (span == NULL) {
+            /* Because gcc and vc++ differ in output for NULL %p */
+            oresult[i++] = Tcl_NewIntObj(0);
+        } else {
+            sprintf(buf, "%p", (void *) span);
+            oresult[i++] = Tcl_NewStringObj(buf, -1);
+        }
         if (span) {
             oresult[i++] = Tcl_NewStringObj("span.nrefs", -1);
             oresult[i++] = Tcl_NewIntObj(span->nrefs);
