@@ -1719,6 +1719,7 @@ critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
 critcl::cdata tarray::unsupported::hg_id       [exec hg identify]
 
 critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int first int count int min_hint int nsizes} ok {
+#ifdef TA_MT_ENABLE
     int sizes[16];
     Tcl_Obj *ores;
     int i, split_count;
@@ -1732,6 +1733,10 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
         Tcl_ListObjAppendElement(interp, ores, Tcl_NewIntObj(sizes[i]));
     Tcl_SetObjResult(interp, ores);
     return TCL_OK;
+#else
+    Tcl_SetResult(interp, "Multithreading not enabled", TCL_STATIC);
+    return TCL_ERROR;
+#endif
 }
 
 package provide tarray 0.7
