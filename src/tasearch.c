@@ -89,7 +89,7 @@ TCL_RESULT ta_search_nomatches(Tcl_Interp *ip, thdr_t *haystackP, ta_search_t *p
 }
 
 /* Helper to figure out next slot to test when search indices are specified */
-static int ta_search_calc_slot_indices(ta_search_t *psearch)
+int ta_search_calc_slot_indices(ta_search_t *psearch)
 {
     int slot;
 
@@ -107,7 +107,7 @@ static int ta_search_calc_slot_indices(ta_search_t *psearch)
 }
 
 /* Helper to figure out next slot to test */
-static TA_INLINE int ta_search_calc_slot(ta_search_t *psearch)
+TA_INLINE int ta_search_calc_slot(ta_search_t *psearch)
 {
     if (psearch->indices)
         return ta_search_calc_slot_indices(psearch);

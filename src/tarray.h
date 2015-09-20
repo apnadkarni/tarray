@@ -198,28 +198,8 @@ thdr_t *thdr_alloc(Tcl_Interp *, int tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
 
-TA_INLINE void thdr_incr_refs(thdr_t *thdr)  { thdr->nrefs++; }
-TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
-    if (thdr->nrefs-- <= 1) thdr_free(thdr);
-}
-TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
 
-TA_INLINE span_t *span_alloc(int first, int count) {
-    span_t *span;
-    span = TA_ALLOCMEM(sizeof(*span));
-    span->nrefs = 0;
-    span->first = first;
-    span->count = count;
-    return span;
-}
-
-TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span); }
-TA_INLINE void span_incr_refs(span_t *span) { span->nrefs++; }
-TA_INLINE void span_decr_refs(span_t *span) {
-    if (span->nrefs-- <= 1) span_free(span);
-}
-TA_INLINE int span_shared(span_t *span) { return span->nrefs > 1; }
 
 /*
  * Inline functions to manipulate internal representation of Tarray columns
@@ -253,104 +233,8 @@ extern struct Tcl_ObjType ta_column_type;
 extern struct Tcl_ObjType ta_table_type;
 extern struct Tcl_ObjType ta_index_type;
 
-TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o);
+//static TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o);
 
-/* This checks that o is currently a tcol, not that it can be converted to one */
-TA_INLINE int tcol_affirm(Tcl_Obj *o) {
-    return (o->typePtr == &ta_column_type);
-}
-
-TA_INLINE int table_affirm(Tcl_Obj *o) {
-    return (o->typePtr == &ta_table_type); 
-}
-
-/* Return the thdr a column */
-TA_INLINE thdr_t *tcol_thdr(Tcl_Obj *o) {
-    TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
-    return OBJTHDR(o);
-}
-
-/* Return the span of a column */
-TA_INLINE span_t *tcol_span(Tcl_Obj *o) {
-    TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
-    return OBJTHDRSPAN(o);
-}
-
-/* Sets a Tcl_Obj's internal rep pointer assuming it is uninitialized */
-TA_INLINE void tcol_set_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
-    thdr_incr_refs(thdr);
-    OBJTHDR(o) = thdr;
-    if (span)
-        span_incr_refs(span);
-    OBJTHDRSPAN(o) = span;
-    o->typePtr = &ta_column_type;
-}
-
-/*
- * Set an initialized internal rep for a Tcl_Obj, invalidating 
- * the string rep 
- */
-TA_INLINE void tcol_replace_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
-    TA_ASSERT(tcol_affirm(o));
-    TA_ASSERT(! Tcl_IsShared(o));
-    TA_ASSERT(tcol_thdr(o) != NULL);
-    thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
-    thdr_decr_refs(OBJTHDR(o));
-    OBJTHDR(o) = thdr;
-    if (span)
-        span_incr_refs(span);
-    if (OBJTHDRSPAN(o))
-        span_decr_refs(OBJTHDRSPAN(o));
-    OBJTHDRSPAN(o) = span;
-    Tcl_InvalidateStringRep(o);
-}
-
-
-/*
- * Inline functions to manipulate internal representation of Tarray tables
- */
-
-
-/* Return the internal rep of a table */
-TA_INLINE thdr_t *table_thdr(Tcl_Obj *o) {
-    TA_ASSERT(table_affirm(o));
-    return OBJTHDR(o);
-}
-
-/* Sets a Tcl_Obj's internal rep pointer assuming it is uninitialized */
-TA_INLINE void table_set_intrep(Tcl_Obj *o, thdr_t *thdr, Tcl_Obj *ocolnames)
-{
-    thdr_incr_refs(thdr);
-    OBJTHDR(o) = thdr;
-    Tcl_IncrRefCount(ocolnames);
-    OBJCOLNAMES(o) = ocolnames;
-    o->typePtr = &ta_table_type;
-}
-
-/*
- * Set an initialized internal rep for a Tcl_Obj, invalidating 
- * the string rep.
- * ocolnames is ignored if it is NULL.
- */
-TA_INLINE void table_replace_intrep(Tcl_Obj *o, thdr_t *thdr,
-                                    Tcl_Obj *ocolnames) {
-    TA_ASSERT(table_affirm(o));
-    TA_ASSERT(! Tcl_IsShared(o));
-    TA_ASSERT(table_thdr(o) != NULL);
-
-    thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
-    thdr_decr_refs(OBJTHDR(o));
-    OBJTHDR(o) = thdr;
-
-    if (ocolnames) {
-        Tcl_IncrRefCount(ocolnames);
-        if (OBJCOLNAMES(o))
-            Tcl_DecrRefCount(OBJCOLNAMES(o));
-        OBJCOLNAMES(o) = ocolnames;
-    }
-
-    Tcl_InvalidateStringRep(o);
-}
 
 
 int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
@@ -490,45 +374,6 @@ int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval);
 void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val);
 int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas);
 
-TA_INLINE tas_lookup_t thdr_lookup_init(thdr_t *thdr) {
-    thdr->lookup = tas_lookup_new();
-    return thdr->lookup;
-}
-TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
-    TA_ASSERT(thdr->type == TA_STRING);
-    /* Note we do not check against thdr->used because some callers do
-       not update that until later */
-    TA_ASSERT(thdr->usable > pos);
-    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
-        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), (ClientData) pos);
-}
-TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
-    tas_t **pptas;
-    int i;
-    /* Note we do not check against thdr->used because some callers do
-       not update that until later */
-    TA_ASSERT((start+count) <= thdr->usable);
-    if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
-        return;
-    pptas = THDRELEMPTR(thdr, tas_t *, start);
-    for (i = 0; i < count; ++i, ++pptas)
-        tas_lookup_add(thdr->lookup, *pptas, (ClientData) (start+i));
-}
-TA_INLINE void thdr_lookup_delete(thdr_t *thdr, int pos) {
-    TA_ASSERT(thdr->type == TA_STRING);
-    /* Note we do not check against thdr->used because some callers do
-       not update that until later */
-    TA_ASSERT(thdr->usable > pos);
-    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
-        tas_lookup_delete(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos));
-}
-TA_INLINE void thdr_lookup_free(thdr_t *thdr) {
-    TA_ASSERT(thdr->type == TA_STRING);
-    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE) {
-        tas_lookup_free(thdr->lookup);
-        thdr->lookup = TAS_LOOKUP_INVALID_HANDLE;
-    }
-}
 void thdr_lookup_build(thdr_t *thdr, span_t *span);
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
@@ -803,14 +648,170 @@ void ta_mt_group_release(ta_mt_group_t grp);
 /*
  *  Inlined functions
  */
-TA_INLINE int ta_strequal(const char *a, const char *b)
-{
-    /* Note a[0] may be == b[0] == \0 so do not pass a+1, b+1 to strcmp */
-    return a[0] == b[0] && strcmp(a, b) == 0;
+TA_INLINE void thdr_incr_refs(thdr_t *thdr)  { thdr->nrefs++; }
+TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
+    if (thdr->nrefs-- <= 1) thdr_free(thdr);
+}
+TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
+TA_INLINE span_t *span_alloc(int first, int count) {
+    span_t *span;
+    span = TA_ALLOCMEM(sizeof(*span));
+    span->nrefs = 0;
+    span->first = first;
+    span->count = count;
+    return span;
+}
+
+TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span); }
+TA_INLINE void span_incr_refs(span_t *span) { span->nrefs++; }
+TA_INLINE void span_decr_refs(span_t *span) {
+    if (span->nrefs-- <= 1) span_free(span);
+}
+TA_INLINE int span_shared(span_t *span) { return span->nrefs > 1; }
+/* This checks that o is currently a tcol, not that it can be converted to one */
+TA_INLINE int tcol_affirm(Tcl_Obj *o) {
+    return (o->typePtr == &ta_column_type);
+}
+
+TA_INLINE int table_affirm(Tcl_Obj *o) {
+    return (o->typePtr == &ta_table_type); 
 }
 
 TA_INLINE TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o) {
     return tcol_affirm(o) ? TCL_OK : tcol_convert_from_other(ip, o);
+}
+
+/* Return the thdr a column */
+TA_INLINE thdr_t *tcol_thdr(Tcl_Obj *o) {
+    TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
+    return OBJTHDR(o);
+}
+
+/* Return the span of a column */
+TA_INLINE span_t *tcol_span(Tcl_Obj *o) {
+    TA_NOFAIL(tcol_convert(NULL, o), TCL_OK);
+    return OBJTHDRSPAN(o);
+}
+
+/* Sets a Tcl_Obj's internal rep pointer assuming it is uninitialized */
+TA_INLINE void tcol_set_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
+    thdr_incr_refs(thdr);
+    OBJTHDR(o) = thdr;
+    if (span)
+        span_incr_refs(span);
+    OBJTHDRSPAN(o) = span;
+    o->typePtr = &ta_column_type;
+}
+
+/*
+ * Set an initialized internal rep for a Tcl_Obj, invalidating 
+ * the string rep 
+ */
+TA_INLINE void tcol_replace_intrep(Tcl_Obj *o, thdr_t *thdr, span_t *span) {
+    TA_ASSERT(tcol_affirm(o));
+    TA_ASSERT(! Tcl_IsShared(o));
+    TA_ASSERT(tcol_thdr(o) != NULL);
+    thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
+    thdr_decr_refs(OBJTHDR(o));
+    OBJTHDR(o) = thdr;
+    if (span)
+        span_incr_refs(span);
+    if (OBJTHDRSPAN(o))
+        span_decr_refs(OBJTHDRSPAN(o));
+    OBJTHDRSPAN(o) = span;
+    Tcl_InvalidateStringRep(o);
+}
+
+
+/*
+ * Inline functions to manipulate internal representation of Tarray tables
+ */
+
+
+/* Return the internal rep of a table */
+TA_INLINE thdr_t *table_thdr(Tcl_Obj *o) {
+    TA_ASSERT(table_affirm(o));
+    return OBJTHDR(o);
+}
+
+/* Sets a Tcl_Obj's internal rep pointer assuming it is uninitialized */
+TA_INLINE void table_set_intrep(Tcl_Obj *o, thdr_t *thdr, Tcl_Obj *ocolnames)
+{
+    thdr_incr_refs(thdr);
+    OBJTHDR(o) = thdr;
+    Tcl_IncrRefCount(ocolnames);
+    OBJCOLNAMES(o) = ocolnames;
+    o->typePtr = &ta_table_type;
+}
+
+/*
+ * Set an initialized internal rep for a Tcl_Obj, invalidating 
+ * the string rep.
+ * ocolnames is ignored if it is NULL.
+ */
+TA_INLINE void table_replace_intrep(Tcl_Obj *o, thdr_t *thdr,
+                                    Tcl_Obj *ocolnames) {
+    TA_ASSERT(table_affirm(o));
+    TA_ASSERT(! Tcl_IsShared(o));
+    TA_ASSERT(table_thdr(o) != NULL);
+
+    thdr_incr_refs(thdr);       /* BEFORE thdr_decr_ref in case same */
+    thdr_decr_refs(OBJTHDR(o));
+    OBJTHDR(o) = thdr;
+
+    if (ocolnames) {
+        Tcl_IncrRefCount(ocolnames);
+        if (OBJCOLNAMES(o))
+            Tcl_DecrRefCount(OBJCOLNAMES(o));
+        OBJCOLNAMES(o) = ocolnames;
+    }
+
+    Tcl_InvalidateStringRep(o);
+}
+TA_INLINE tas_lookup_t thdr_lookup_init(thdr_t *thdr) {
+    thdr->lookup = tas_lookup_new();
+    return thdr->lookup;
+}
+TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
+    TA_ASSERT(thdr->type == TA_STRING);
+    /* Note we do not check against thdr->used because some callers do
+       not update that until later */
+    TA_ASSERT(thdr->usable > pos);
+    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
+        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), (ClientData) pos);
+}
+TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
+    tas_t **pptas;
+    int i;
+    /* Note we do not check against thdr->used because some callers do
+       not update that until later */
+    TA_ASSERT((start+count) <= thdr->usable);
+    if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
+        return;
+    pptas = THDRELEMPTR(thdr, tas_t *, start);
+    for (i = 0; i < count; ++i, ++pptas)
+        tas_lookup_add(thdr->lookup, *pptas, (ClientData) (start+i));
+}
+TA_INLINE void thdr_lookup_delete(thdr_t *thdr, int pos) {
+    TA_ASSERT(thdr->type == TA_STRING);
+    /* Note we do not check against thdr->used because some callers do
+       not update that until later */
+    TA_ASSERT(thdr->usable > pos);
+    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
+        tas_lookup_delete(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos));
+}
+TA_INLINE void thdr_lookup_free(thdr_t *thdr) {
+    TA_ASSERT(thdr->type == TA_STRING);
+    if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE) {
+        tas_lookup_free(thdr->lookup);
+        thdr->lookup = TAS_LOOKUP_INVALID_HANDLE;
+    }
+}
+
+TA_INLINE int ta_strequal(const char *a, const char *b)
+{
+    /* Note a[0] may be == b[0] == \0 so do not pass a+1, b+1 to strcmp */
+    return a[0] == b[0] && strcmp(a, b) == 0;
 }
 
 TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return tcol_thdr(o)->type; }
