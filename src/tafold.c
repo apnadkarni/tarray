@@ -120,6 +120,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
         
 #if !defined(TA_MT_ENABLE)
     ncontexts = 1;
+    mt_sizes[0] = nelems;
 #else
     ncontexts = thdr_calc_mt_split_ex(thdr->type, start, nelems,
                                       ta_fold_mt_threshold, 
