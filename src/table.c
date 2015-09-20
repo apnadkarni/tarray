@@ -7,13 +7,7 @@
 
 #include <string.h>
 #include "tcl.h"
-#if __GNUC__ && !__GNUC_STDC_INLINE__
-/* Force generation of code for inline - older gnu compilers */
-/* TBD - is this needed in this file? tarray.c already has it */
-#define TA_INLINE
-#endif
 
-#define TA_ENABLE_ASSERT 1
 #include "tarray.h"
 
 
