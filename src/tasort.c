@@ -436,8 +436,9 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
 #if defined (TA_MT_ENABLE)
     int mt_sizes[4];
     struct ta_sort_mt_context sort_context[4];
-    int ncontexts, elem_size, i;
+    int ncontexts, i;
 #endif
+    int elem_size;
     char *src_base;
 
     TA_ASSERT(thdr->nrefs < 2);

@@ -518,7 +518,7 @@ text {
 } text {
     As a convenience, the above command can also be issued as
 } shell {
-    column math + $I $J 1000
+    column + $I $J 1000
 } text {
     See the description of `column math` for all the available operators.
     
