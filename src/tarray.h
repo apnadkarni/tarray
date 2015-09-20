@@ -736,7 +736,6 @@ Tcl_ObjCmdProc tcol_lookup_cmd;
 Tcl_ObjCmdProc tcol_math_cmd;
 Tcl_ObjCmdProc tcol_fold_cmd;
 Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
-Tcl_ObjCmdProc tacsv_read_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;
