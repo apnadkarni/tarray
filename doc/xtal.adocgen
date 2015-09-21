@@ -28,6 +28,9 @@ text {
 
     === Commands
 
+    // Turn off section numbering for command definitions
+    :!sectnums:
+
     ((cmddef cmdref_xtal_compile "compile _XTALFILE_ _TCLFILE_ ?-encoding _ENCODING_?"))
     Translates the Xtal script in the file specified by _XTALFILE_ to the
     Tcl equivalent and writes it out to the file _TCLFILE_.

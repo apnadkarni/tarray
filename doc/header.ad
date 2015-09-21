@@ -16,6 +16,12 @@ endif::bookbuild[]
 .ui, .menuseq, .menu {font-family:sans-serif}
 .literalblock pre,.listingblock pre:not(.highlight),.listingblock pre[class="highlight"],.listingblock pre[class^="highlight "],.listingblock pre.CodeRay,.listingblock pre.prettyprint{font-size:small;line-height:1.3}
 
+// So command definitions get left indent in ToC
+.sectlevel3 li {
+  padding-left: 1em;
+  text-indent: -1em;
+}
+
 .ta-toc {
   font-family: sans-serif;
   font-size: 0.90em;
@@ -29,13 +35,6 @@ endif::bookbuild[]
   right: 2px;
 }
 
-.ta-tocx:after {
-  content: "\25BC";
-  display: block;
-  position: absolute;
-  color: white;
-}
-
 .ta-toc-nav {
 margin: 0; font-size: 0.9em; line-height: 1.3; list-style-type: none; display: none;
 }
@@ -47,21 +46,29 @@ margin: 0; font-size: 0.9em; line-height: 1.3; list-style-type: none; display: n
 .ta-toc-nav li a {
   color: white; text-decoration: none;
 }
+
+.ta-drop-indicator {
+ font-size: 60%; vertical-align:middle;
+}
+
+.ta-toc:hover .ta-drop-indicator {
+  display: none;
+}
 </style>
 
 
 <div class='ta-toc'>
 <span style="color: white; text-decoration: none;">Main Content
-<span style="font-size: 60%; vertical-align:middle;">&#x25bc;</span></span>
+<span class='ta-drop-indicator'>&nbsp;&nbsp;&#x25bc;</span></span>
 <ul class='ta-toc-nav'>
 <hr style="margin: 2px 0px;">
-<li><a href="introduction.html">Introduction &#187;</a>
-<li><a href="guide.html">Programmer's Guide &#187;</a>
-<li><a href="column.html">Column Commands &#187;</a>
-<li><a href="table.html">Table Commands &#187;</a>
-<li><a href="xtal.html">Xtal Commands &#187;</a>
-<li><a href="xtal_lang.html">Xtal Language &#187;</a>
-<li><a href="build.html">Building &#187;</a>
+<li><a href="introduction.html">Introduction</a>
+<li><a href="guide.html">Programmer's Guide</a>
+<li><a href="column.html">Column Commands</a>
+<li><a href="table.html">Table Commands</a>
+<li><a href="xtal.html">Xtal Commands</a>
+<li><a href="xtal_lang.html">Xtal Language</a>
+<li><a href="build.html">Building</a>
 </ul>
 </div>
 ++++
