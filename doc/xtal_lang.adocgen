@@ -8,26 +8,15 @@ text {
 text {
     == Introduction
 
-    The ((^ chap_intro tarray)) Tcl extension implements _typed arrays_,
-    which stores data in native format and provides efficient memory
-    utilization and parallelized processing. Columns store elements
-    of a single type, while tables, similar to data frames in the R
-    language, are an ordered sequence of named columns.
-
-    The `tarray`
-    extension provides the corresponding
-    ((^ chap_column_ref column)) and ((^ chap_table_ref table))
-    Tcl commands for their manipulation.
-
     [TIP]
     This document assumes the reader is familiar with typed arrays.
     If not, please glance through the ((^ chap_guide)) before continuing.
 
     The (e**X**tended **t**yped **a**rray **l**anguage) *Xtal*
     (pronounced __Crystal__footnote:[Xtal is an abbreviation for crystal in the electronics world.])
-    is an alternative for 
-    working with columns and tables. It provides convenient
-    and succint syntax for 
+    is an alternative to Tcl commands for 
+    working with collections (lists, typed array columns and tables).
+    It provides convenient and succint syntax for 
     
     * vector operations
     * searching and sorting
@@ -196,7 +185,7 @@ text {
 }
 
 text {
-    .Variable and literals
+    .Variables and literals
     Having looked at basic operations on columns and tables,
     we will quickly go over the general purpose features of the language.
     
@@ -353,7 +342,7 @@ text {
 } shell {
     package require xtal
 } text {
-    To save some typing we can add both `xtal` and `tarray`
+    To save some typing we will add both `xtal` and `tarray`
     to our namespace path.
 } shell {
     namespace path [list xtal tarray]
@@ -816,8 +805,9 @@ text {
     where `_COLLECTION_` is any Xtal expression that results
     in a column, table or a Tcl list.
 } outputlimit 3 xtal {
-    for rainfall in Rainfall[Rainfall > 100] {
-        puts(rainfall)
+    puts("Rainy months:")
+    for month in Months[Rainfall > 100] {
+        puts(month)
     }
 }
 
