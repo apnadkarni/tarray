@@ -1,0 +1,109 @@
+# column math tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc mathid {} {
+        variable math_testnum
+        return math-[incr math_testnum]
+    }
+
+    proc col_with_0 {type} {
+        set col [largecolumn $type]
+        tarray::column vfill col 0 end
+        return $col
+    }
+    
+    proc verify_expr {args} {
+        if {[lindex $args 0] eq "math"} {
+            set op [lindex $args 1]
+            set params [lrange $args 2 end]
+        } else {
+            set op [lindex $args 0]
+            set params [lrange $args 1 end]
+        }
+        set cresult [tarray::column {*}$args]
+        set restype [lindex [tarray::types $cresult] 0]
+        if {[llength $params] == 1} {
+            # Note - for some operations behaviour with single argument
+            # is different from that of expr or tcl::mathop
+            if {$restype eq ""} {
+                # Scalar
+                return [expr {$cresult == [lindex $params 0]}]
+            } else {
+                return [cequal $cresult [lindex $params 0]]
+            }
+        }
+        # More than one arg
+        if {[lindex [tarray::types $cresult] 0] eq ""} {
+            # Scalar result
+            return [expr {$cresult == [tcl::mathop::$op {*}$params]}]
+        }
+        # Column result. Iterate over all elements 
+        set csize [tarray::column size $cresult]
+        for {set i 0} {$i < $csize} {incr i} {
+            set operands {}
+            foreach arg $params {
+                if {[lindex [tarray::types $arg] 0] eq ""} {
+                    lappend operands $arg
+                } else {
+                    lappend operands [tarray::column index $arg $i]
+                }
+            }
+            if {[tarray::column index $cresult $i] != [tcl::mathop::$op {*}$operands]} {
+                return 0
+            }
+        }
+        return 1
+    }
+
+    proc mathtest {desc args} {
+        test [mathid] $desc -body [list verify_expr {*}$args] -result 1
+    }
+
+    foreach op {+ - * /} {
+        test [mathid] "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
+        
+        foreach type {byte int uint wide double} {
+            mathtest "Single column arg" $op [samplecolumn $type]
+            mathtest "Single scalar arg" $op [samplevalue $type]
+
+
+        }
+
+        foreach type {boolean string any} {
+            test [mathid] "Unsupported type" -body [list tarray::column math $op [samplecolumn $type]] -result "tarray is of the wrong type ($type)" -returnCodes error
+            test [mathid] "Unsupported type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "tarray is of the wrong type ($type)" -returnCodes error
+        }
+                                                                
+    }
+        
+    #
+    # Divide by 0 tests
+    foreach type {byte int uint wide} {
+        test [mathid] "Scalar $type / 0" -body [list tarray::column math / [samplevalue $type] 0] -result "divide by zero" -returnCodes error
+        test [mathid] "Scalar $type / 0" -body [list tarray::column math / 0 0] -result "divide by zero" -returnCodes error
+        test [mathid] "Scalar $type / 0 / 1" -body [list tarray::column math / [samplevalue $type] 0 1] -result "divide by zero" -returnCodes error
+        test [mathid] "Column $type / 0" -body [list tarray::column math / [largecolumn $type] 0] -result "divide by zero" -returnCodes error
+        test [mathid] "Column $type / 0" -body [list tarray::column math / [col_with_0  $type] 0] -result "divide by zero" -returnCodes error
+        test [mathid] "Scalar $type / 0 column" -body [list tarray::column math / [samplevalue $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid] "Scalar $type / 0 column" -body [list tarray::column math / 0 [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid] "Column $type / 0 column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid] "Column $type / 0 column" -body [list tarray::column math / [col_with_0 $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid] "Column $type / 0 column / column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type] [largecolumn $type]] -result "divide by zero" -returnCodes error
+    }
+    mathtest "Scalar double / 0" / 5 0.0
+    #test [mathid] "Scalar double / 0" -body [list tarray::column math / [samplevalue int] 0.0] -result Inf
+    #test [mathid] "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
+    
+    # For numeric types
+
+    # zero arguments
+    # one argument
+    # multiple arguments
+    # type promotion
+    # Columns of different lengths
+}
+
+tcltest::cleanupTests
+
