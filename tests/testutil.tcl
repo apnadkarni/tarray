@@ -145,7 +145,7 @@ if {![info exists tarray::test::known]} {
             lappend good(uint) $l
 
             # Byte
-            set i -1
+            set i 11
             set l {}
             time {lappend l [expr {[incr i] & 0xff}]} $count
             lappend good(byte) $l
@@ -675,11 +675,12 @@ if {![info exists tarray::test::known]} {
             return [tarray::table create [col_def $types] [samplerows $types $low $high]]
         }
 
+        proc largesize {} {return 100000}
         proc largelist {type} {
             variable largelists
             # Note: must return the same list for a particular type
             if {![info exists largelists($type)]} {
-                tarray::unsupported::lrandom largelists($type) $type 100000
+                tarray::unsupported::lrandom largelists($type) $type [largesize]
             }
             return $largelists($type)
         }

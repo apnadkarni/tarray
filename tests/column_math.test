@@ -19,12 +19,36 @@ namespace eval tarray::test {
         return math-[incr math_testnum]
     }
 
+    proc col_without_0 {type} {
+        set col [largecolumn $type]
+        tarray::column vfill col 1 [tarray::column search -all $col 0]
+        return $col
+    }
+    
     proc col_with_0 {type} {
         set col [largecolumn $type]
         tarray::column vfill col 0 end
         return $col
     }
     
+    proc cast_equal {type col_val expr_val} {
+        switch -exact -- $type {
+            int  { set expr_val [expr {int($expr_val)}] }
+            byte { set expr_val [expr {$expr_val & 0xff}] }
+            uint { set expr_val [expr {wide($expr_val) & 0xffffffff}] }
+            wide { set expr_val [expr {wide($expr_val)}] }
+        }
+        return [expr {$col_val == $expr_val}]
+    }
+    
+    proc operand {type size} {
+        variable operands
+        if {![info exists operands($type,$size)]} {
+            tarray::unsupported::crandom operands($type,$size) $type $size
+        }
+        return $operands($type,$size)
+    }
+
     proc verify_expr {args} {
         if {[lindex $args 0] eq "math"} {
             set op [lindex $args 1]
@@ -40,18 +64,32 @@ namespace eval tarray::test {
             # is different from that of expr or tcl::mathop
             if {$restype eq ""} {
                 # Scalar
-                return [expr {$cresult == [lindex $params 0]}]
+                if {[expr {$cresult == [lindex $params 0]}]} {
+                    return ""
+                } else {
+                    return "$cresult != [lindex $params 0]"
+                }
             } else {
-                return [cequal $cresult [lindex $params 0]]
+                if {[cequal $cresult [lindex $params 0]]} {
+                    return ""
+                } else {
+                    return "Columns are not equal"
+                }
             }
         }
         # More than one arg
         if {[lindex [tarray::types $cresult] 0] eq ""} {
             # Scalar result
-            return [expr {$cresult == [tcl::mathop::$op {*}$params]}]
+            set expr_result [tcl::mathop::$op {*}$params]
+            if {[expr {$cresult == $expr_result}]} {
+                return ""
+            } else {
+                return "$cresult != $expr_result"
+            }
         }
         # Column result. Iterate over all elements 
         set csize [tarray::column size $cresult]
+        set ctype [tarray::column type $cresult]
         for {set i 0} {$i < $csize} {incr i} {
             set operands {}
             foreach arg $params {
@@ -61,21 +99,36 @@ namespace eval tarray::test {
                     lappend operands [tarray::column index $arg $i]
                 }
             }
-            if {[tarray::column index $cresult $i] != [tcl::mathop::$op {*}$operands]} {
-                return 0
+            set expr_result [tcl::mathop::$op {*}$operands]
+            if {![cast_equal $ctype [tarray::column index $cresult $i] $expr_result]} {
+                return "[tarray::column index $cresult $i] != $expr_result (operands=[join $operands ,])" 
             }
         }
-        return 1
+        return ""
     }
 
     foreach op {+ - * /} {
         test [mathid] "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
         
         foreach type {byte int uint wide double} {
-            test [mathid] "Single column arg" {verify_expr $op [samplecolumn $type]} 1
-            test [mathid] "Single scalar arg" {verify_expr $op [samplevalue $type]} 1
+            # Single arg tests
+            test [mathid] "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
+            test [mathid] "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
+            test [mathid] "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
+            test [mathid] "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
 
-
+            # Two arg tests
+            if {$op ne "/"} {
+                test [mathid] "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 0]}
+                test [mathid] "$type math $op scalar column" -body {verify_expr math $op [samplevalue $type] [largespancolumn $type]}
+                test [mathid] "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
+                test [mathid] "$type math $op column column" -body {verify_expr math $op [largespancolumn $type] [operand $type [largesize]]}
+            } else {
+                test [mathid] "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 0]}
+                test [mathid] "$type math $op scalar column" -body {verify_expr math $op [samplevalue $type] [col_without_0 $type]}
+                test [mathid] "$type math $op column scalar" -body {verify_expr math $op [col_with_0 $type] [samplevalue $type] }
+                test [mathid] "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
+            }
         }
 
         foreach type {boolean string any} {
@@ -99,12 +152,12 @@ namespace eval tarray::test {
         test [mathid] "Column $type / 0 column" -body [list tarray::column math / [col_with_0 $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
         test [mathid] "Column $type / 0 column / column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type] [largecolumn $type]] -result "divide by zero" -returnCodes error
     }
-    test [mathid] "Scalar double / 0" {verify_expr / 5 0.0} 1
+    test [mathid] "Scalar double / 0" -body {verify_expr / 5 0.0}
     test [mathid] "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
-    test [mathid] "Scalar double 0.0/0.0" {verify_expr / [samplecolumn double] 0} 1
-    test [mathid] "Column double / 0" {verify_expr / [samplecolumn double] 0} 1
-    test [mathid] "Scalar double / 0 column" {verify_expr / [samplevalue double] [col_with_0 double]} 1
-    test [mathid] "Column double / 0 column" {verify_expr / [samplecolumn double] [col_with_0 double]} 1
+    test [mathid] "Scalar double 0.0/0.0" -body {verify_expr / [samplecolumn double] 0}
+    test [mathid] "Column double / 0" -body {verify_expr / [samplecolumn double] 0}
+    test [mathid] "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
+    test [mathid] "Column double / 0 column" -body {verify_expr / [samplecolumn double] [col_with_0 double]}
      
     # For numeric types
 
