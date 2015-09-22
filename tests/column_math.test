@@ -1,6 +1,17 @@
 # column math tests
-
 source testutil.tcl
+
+# NOTE:
+# Even though many tests are boilerplate, do NOT wrap them inside
+# another procedure for two reasons -
+# - on error, tcltest prints body of test. If wrapped, this is the
+#  string rep which includes the (very long) column representation
+#  making the output unradable
+# - There is unnecessary conversion to strings when running tests
+# The following is an example of such a wrapper:
+# proc mathtest {desc args} {
+#     test [mathid] $desc -body [list verify_expr {*}$args] -result 1
+# }
 
 namespace eval tarray::test {
     proc mathid {} {
@@ -57,16 +68,12 @@ namespace eval tarray::test {
         return 1
     }
 
-    proc mathtest {desc args} {
-        test [mathid] $desc -body [list verify_expr {*}$args] -result 1
-    }
-
     foreach op {+ - * /} {
         test [mathid] "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
         
         foreach type {byte int uint wide double} {
-            mathtest "Single column arg" $op [samplecolumn $type]
-            mathtest "Single scalar arg" $op [samplevalue $type]
+            test [mathid] "Single column arg" {verify_expr $op [samplecolumn $type]} 1
+            test [mathid] "Single scalar arg" {verify_expr $op [samplevalue $type]} 1
 
 
         }
@@ -92,10 +99,13 @@ namespace eval tarray::test {
         test [mathid] "Column $type / 0 column" -body [list tarray::column math / [col_with_0 $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
         test [mathid] "Column $type / 0 column / column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type] [largecolumn $type]] -result "divide by zero" -returnCodes error
     }
-    mathtest "Scalar double / 0" / 5 0.0
-    #test [mathid] "Scalar double / 0" -body [list tarray::column math / [samplevalue int] 0.0] -result Inf
-    #test [mathid] "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
-    
+    test [mathid] "Scalar double / 0" {verify_expr / 5 0.0} 1
+    test [mathid] "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
+    test [mathid] "Scalar double 0.0/0.0" {verify_expr / [samplecolumn double] 0} 1
+    test [mathid] "Column double / 0" {verify_expr / [samplecolumn double] 0} 1
+    test [mathid] "Scalar double / 0 column" {verify_expr / [samplevalue double] [col_with_0 double]} 1
+    test [mathid] "Column double / 0 column" {verify_expr / [samplecolumn double] [col_with_0 double]} 1
+     
     # For numeric types
 
     # zero arguments
