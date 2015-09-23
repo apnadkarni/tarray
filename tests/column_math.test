@@ -124,9 +124,9 @@ namespace eval tarray::test {
                 test [mathid] "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
                 test [mathid] "$type math $op column column" -body {verify_expr math $op [largespancolumn $type] [operand $type [largesize]]}
             } else {
-                test [mathid] "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 0]}
-                test [mathid] "$type math $op scalar column" -body {verify_expr math $op [samplevalue $type] [col_without_0 $type]}
-                test [mathid] "$type math $op column scalar" -body {verify_expr math $op [col_with_0 $type] [samplevalue $type] }
+                test [mathid] "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] 2.3}
+                test [mathid] "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
+                test [mathid] "$type math $op column scalar" -body {verify_expr math $op [col_with_0 $type] 1.1e2 }
                 test [mathid] "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
             }
         }
@@ -138,26 +138,41 @@ namespace eval tarray::test {
                                                                 
     }
         
+    # Integer division tests, e.g. -5/10 should be -1, not 0,
+    # for consistency with expr. Unsigned types (byte, uint) not affected
+    test [mathid]-intdiv "Scalar / -200 100" -body {verify_expr / -200 100}
+    test [mathid]-intdiv "Scalar / -150 100" -body {verify_expr / -150 100}
+    test [mathid]-intdiv "Scalar / -50 100" -body {verify_expr / -50 100}
+    test [mathid]-intdiv "Scalar / 200 -100" -body {verify_expr / 200 -100}
+    test [mathid]-intdiv "Scalar / 150 -100" -body {verify_expr / 150 -100}
+    test [mathid]-intdiv "Scalar / 50 -100" -body {verify_expr / 50 -100}
+    foreach type {int wide} {
+        test [mathid]-intdiv "Column $type /  {-200,-100,-50} 100" -body [list verify_expr math / [tarray::column create $type {-200 -100 -50}] 100]
+        test [mathid]-intdiv "Column $type /  {200,100,50} -100" -body [list verify_expr / [tarray::column create $type {200 100 50}] -100]
+    }
+
+
+    
     #
     # Divide by 0 tests
     foreach type {byte int uint wide} {
-        test [mathid] "Scalar $type / 0" -body [list tarray::column math / [samplevalue $type] 0] -result "divide by zero" -returnCodes error
-        test [mathid] "Scalar $type / 0" -body [list tarray::column math / 0 0] -result "divide by zero" -returnCodes error
-        test [mathid] "Scalar $type / 0 / 1" -body [list tarray::column math / [samplevalue $type] 0 1] -result "divide by zero" -returnCodes error
-        test [mathid] "Column $type / 0" -body [list tarray::column math / [largecolumn $type] 0] -result "divide by zero" -returnCodes error
-        test [mathid] "Column $type / 0" -body [list tarray::column math / [col_with_0  $type] 0] -result "divide by zero" -returnCodes error
-        test [mathid] "Scalar $type / 0 column" -body [list tarray::column math / [samplevalue $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
-        test [mathid] "Scalar $type / 0 column" -body [list tarray::column math / 0 [col_with_0 $type]] -result "divide by zero" -returnCodes error
-        test [mathid] "Column $type / 0 column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
-        test [mathid] "Column $type / 0 column" -body [list tarray::column math / [col_with_0 $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
-        test [mathid] "Column $type / 0 column / column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type] [largecolumn $type]] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Scalar $type / 0" -body [list tarray::column math / [samplevalue $type] 0] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Scalar $type / 0" -body [list tarray::column math / 0 0] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Scalar $type / 0 / 1" -body [list tarray::column math / [samplevalue $type] 0 1] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Column $type / 0" -body [list tarray::column math / [largecolumn $type] 0] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Column $type / 0" -body [list tarray::column math / [col_with_0  $type] 0] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Scalar $type / 0 column" -body [list tarray::column math / [samplevalue $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Scalar $type / 0 column" -body [list tarray::column math / 0 [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Column $type / 0 column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Column $type / 0 column" -body [list tarray::column math / [col_with_0 $type] [col_with_0 $type]] -result "divide by zero" -returnCodes error
+        test [mathid]-div0 "Column $type / 0 column / column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type] [largecolumn $type]] -result "divide by zero" -returnCodes error
     }
-    test [mathid] "Scalar double / 0" -body {verify_expr / 5 0.0}
-    test [mathid] "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
-    test [mathid] "Scalar double 0.0/0.0" -body {verify_expr / [samplecolumn double] 0}
-    test [mathid] "Column double / 0" -body {verify_expr / [samplecolumn double] 0}
-    test [mathid] "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
-    test [mathid] "Column double / 0 column" -body {verify_expr / [samplecolumn double] [col_with_0 double]}
+    test [mathid]-div0 "Scalar double / 0" -body {verify_expr / 5 0.0}
+    test [mathid]-div0 "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
+    test [mathid]-div0 "Scalar double 0.0/0.0" -body {verify_expr / [samplecolumn double] 0}
+    test [mathid]-div0 "Column double / 0" -body {verify_expr / [samplecolumn double] 0}
+    test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
+    test [mathid]-div0 "Column double / 0 column" -body {verify_expr / [samplecolumn double] [col_with_0 double]}
      
     # For numeric types
 
