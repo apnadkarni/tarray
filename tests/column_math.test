@@ -115,10 +115,15 @@ namespace eval tarray::test {
         return ""
     }
 
-    foreach op {+ - * /} {
+    foreach op {+ - * / & |} {
         test [mathid]-arg0 "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
         
         foreach type {byte int uint wide double} {
+            if {$op in {& |} && $type eq "double"} {
+                test [mathid]-unsupported "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Bit operations not valid for type double" -returnCodes error
+                test [mathid]-unsupported "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Bit operations not valid for type double" -returnCodes error
+                continue
+            }
             # Single arg tests
             test [mathid]-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
             test [mathid]-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
@@ -138,23 +143,28 @@ namespace eval tarray::test {
                 test [mathid]-arg2 "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
             }
 
+            test [mathid]-badlen "Differing length columns $op, $type" -body {
+                tarray::column math $op [samplecolumn $type] [largecolumn $type]
+            } -result "Columns have differing lengths." -returnCodes error
         }
 
         # More than two args. This also tests type promotion
-        test [mathid]-multiarg "double math $op args" -body {verify_expr math $op 1.1e2 -5.3e-2 2 0x200000000}
-        test [mathid]-multiarg "double $op multi arg" -body {
-            set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn wide {1 7 0x100000000}] 1.1]
-        } -result [newcolumn double [list [$op 1.0 1.0 1.1] [$op 2.0 7.0 1.1] [$op 3.0 0x100000000 1.1]]] -match column
-        test [mathid]-multiarg "double $op multi arg" -body {
-            set col [tarray::column $op [newcolumn double {1 2 3}] [newcolumn wide {1 7 0x100000000}] 1]
-        } -result [newcolumn double [list [$op 1.0 1.0 1.0] [$op 2.0 7.0 1.0] [$op 3.0 0x100000000 1.0]]] -match column
+        if {$op ni {& |}} {
+            test [mathid]-multiarg "double math $op args" -body {verify_expr math $op 1.1e2 -5.3e-2 2 0x200000000}
+            test [mathid]-multiarg "double $op multi arg" -body {
+                set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn wide {1 7 0x100000000}] 1.1]
+            } -result [newcolumn double [list [$op 1.0 1.0 1.1] [$op 2.0 7.0 1.1] [$op 3.0 0x100000000 1.1]]] -match column
+            test [mathid]-multiarg "double $op multi arg" -body {
+                set col [tarray::column $op [newcolumn double {1 2 3}] [newcolumn wide {1 7 0x100000000}] 1]
+            } -result [newcolumn double [list [$op 1.0 1.0 1.0] [$op 2.0 7.0 1.0] [$op 3.0 0x100000000 1.0]]] -match column
+        }
         test [mathid]-multiarg "wide $op multi arg" -body {
             set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn uint {1 7 11}] 0x100000000]
         } -result [newcolumn wide [list [$op 1 1 0x100000000] [$op 2 7 0x100000000] [$op 3 11 0x100000000]]] -match column
          
         foreach type {boolean string any} {
-            test [mathid]-unsupported "Unsupported type" -body [list tarray::column math $op [samplecolumn $type]] -result "tarray is of the wrong type ($type)" -returnCodes error
-            test [mathid]-unsupported "Unsupported type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "tarray is of the wrong type ($type)" -returnCodes error
+            test [mathid]-unsupported "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "tarray is of the wrong type ($type)" -returnCodes error
+            test [mathid]-unsupported "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "tarray is of the wrong type ($type)" -returnCodes error
         }
                                                                 
     }
@@ -171,8 +181,6 @@ namespace eval tarray::test {
         test [mathid]-intdiv "Column $type /  {-200,-100,-50} 100" -body [list verify_expr math / [tarray::column create $type {-200 -100 -50}] 100]
         test [mathid]-intdiv "Column $type /  {200,100,50} -100" -body [list verify_expr / [tarray::column create $type {200 100 50}] -100]
     }
-
-
     
     #
     # Divide by 0 tests
@@ -195,12 +203,6 @@ namespace eval tarray::test {
     test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
     test [mathid]-div0 "Column double / 0 column" -body {verify_expr / [samplecolumn double] [col_with_0 double]}
      
-    # For numeric types
-
-    # one argument
-    # multiple arguments
-    # type promotion
-    # Columns of different lengths
 }
 
 tcltest::cleanupTests
