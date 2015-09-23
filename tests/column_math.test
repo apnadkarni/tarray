@@ -14,6 +14,8 @@ source testutil.tcl
 # }
 
 namespace eval tarray::test {
+    namespace import ::tcl::mathop::*
+    
     proc mathid {} {
         variable math_testnum
         return math-[incr math_testnum]
@@ -28,6 +30,12 @@ namespace eval tarray::test {
     proc col_with_0 {type} {
         set col [largecolumn $type]
         tarray::column vfill col 0 end
+        return $col
+    }
+    
+    proc col_const {type val count} {
+        set col [tarray::column create $type {} $count]
+        tarray::column vinsert col $val $count
         return $col
     }
     
@@ -108,32 +116,45 @@ namespace eval tarray::test {
     }
 
     foreach op {+ - * /} {
-        test [mathid] "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
+        test [mathid]-arg0 "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
         
         foreach type {byte int uint wide double} {
             # Single arg tests
-            test [mathid] "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
-            test [mathid] "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
-            test [mathid] "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
-            test [mathid] "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
+            test [mathid]-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
+            test [mathid]-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
+            test [mathid]-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
+            test [mathid]-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
 
             # Two arg tests
             if {$op ne "/"} {
-                test [mathid] "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 0]}
-                test [mathid] "$type math $op scalar column" -body {verify_expr math $op [samplevalue $type] [largespancolumn $type]}
-                test [mathid] "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
-                test [mathid] "$type math $op column column" -body {verify_expr math $op [largespancolumn $type] [operand $type [largesize]]}
+                test [mathid]-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 0]}
+                test [mathid]-arg2 "$type $op scalar column" -body {verify_expr $op [samplevalue $type] [largespancolumn $type]}
+                test [mathid]-arg2 "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
+                test [mathid]-arg2 "$type $op column column" -body {verify_expr $op [largespancolumn $type] [operand $type [largesize]]}
             } else {
-                test [mathid] "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] 2.3}
-                test [mathid] "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
-                test [mathid] "$type math $op column scalar" -body {verify_expr math $op [col_with_0 $type] 1.1e2 }
-                test [mathid] "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
+                test [mathid]-arg2 "$type $op scalar scalar" -body {verify_expr $op [samplevalue $type] 2.3}
+                test [mathid]-arg2 "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
+                test [mathid]-arg2 "$type $op column scalar" -body {verify_expr $op [col_with_0 $type] 1.1e2 }
+                test [mathid]-arg2 "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
             }
+
         }
 
+        # More than two args. This also tests type promotion
+        test [mathid]-multiarg "double math $op args" -body {verify_expr math $op 1.1e2 -5.3e-2 2 0x200000000}
+        test [mathid]-multiarg "double $op multi arg" -body {
+            set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn wide {1 7 0x100000000}] 1.1]
+        } -result [newcolumn double [list [$op 1.0 1.0 1.1] [$op 2.0 7.0 1.1] [$op 3.0 0x100000000 1.1]]] -match column
+        test [mathid]-multiarg "double $op multi arg" -body {
+            set col [tarray::column $op [newcolumn double {1 2 3}] [newcolumn wide {1 7 0x100000000}] 1]
+        } -result [newcolumn double [list [$op 1.0 1.0 1.0] [$op 2.0 7.0 1.0] [$op 3.0 0x100000000 1.0]]] -match column
+        test [mathid]-multiarg "wide $op multi arg" -body {
+            set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn uint {1 7 11}] 0x100000000]
+        } -result [newcolumn wide [list [$op 1 1 0x100000000] [$op 2 7 0x100000000] [$op 3 11 0x100000000]]] -match column
+         
         foreach type {boolean string any} {
-            test [mathid] "Unsupported type" -body [list tarray::column math $op [samplecolumn $type]] -result "tarray is of the wrong type ($type)" -returnCodes error
-            test [mathid] "Unsupported type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "tarray is of the wrong type ($type)" -returnCodes error
+            test [mathid]-unsupported "Unsupported type" -body [list tarray::column math $op [samplecolumn $type]] -result "tarray is of the wrong type ($type)" -returnCodes error
+            test [mathid]-unsupported "Unsupported type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "tarray is of the wrong type ($type)" -returnCodes error
         }
                                                                 
     }
@@ -176,7 +197,6 @@ namespace eval tarray::test {
      
     # For numeric types
 
-    # zero arguments
     # one argument
     # multiple arguments
     # type promotion
