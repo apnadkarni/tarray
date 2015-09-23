@@ -128,13 +128,22 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
 
 static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accumulator, Tcl_WideInt operand)
 {
+    Tcl_WideInt result;
     switch (op) {
     case TAM_OP_PLUS: return accumulator + operand;
     case TAM_OP_MINUS: return accumulator - operand;
     case TAM_OP_MUL: return accumulator * operand;
     case TAM_OP_DIV:
         TA_ASSERT(operand != 0); /* Caller should have ensured */
-        return accumulator / operand;
+        /* See INST_DIV in tclExecute.c in Tcl sources */
+        result = accumulator / operand;
+        if (((result < 0) || ((result == 0) &&
+                              ((accumulator < 0 && operand > 0) ||
+                               (accumulator > 0 && operand < 0)))) &&
+            ((result * operand) != accumulator)) {
+            result -= 1;
+        }
+        return result;
     case TAM_OP_BITOR: return accumulator | operand;
     case TAM_OP_BITAND: return accumulator & operand;
     case TAM_OP_BITXOR: return accumulator ^ operand;
@@ -189,19 +198,28 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }                                                               \
     } while (0)
     
-#define DIVLOOP(op_, type_)                                       \
+    /* Integer div. See INST_DIV in tclExecute.c in Tcl sources for semantics */
+#define DIVLOOP(type_)                                                  \
     do {                                                                \
         int i, j;                                                       \
         for (i = start; i < end; ++i) {                                 \
             Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
             for (j = 1; j < noperands; ++j) {                           \
+                Tcl_WideInt wresult;                                    \
                 Tcl_WideInt operand = ta_math_wide_from_operand(&poperands[j], i); \
                 if (operand == 0) {                                     \
                     pctx->error_code = TAM_DIV0;                        \
                     i = end; /* To break outer loop */                  \
                     break;                                              \
                 }                                                       \
-                accum op_ operand; \
+                wresult = accum / operand;                              \
+                if (((wresult < 0) || ((wresult == 0) &&                \
+                                       ((accum < 0 && operand > 0) ||   \
+                                        (accum > 0 && operand < 0)))) && \
+                    ((wresult * operand) != accum)) {                   \
+                    wresult -= 1;                                       \
+                }                                                       \
+                accum = wresult;                                        \
             }                                                           \
             *THDRELEMPTR(pctx->thdr, type_, i) = (type_) accum;         \
         }                                                               \
@@ -237,10 +255,10 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         break;
     case TAM_OP_DIV:
         switch (pctx->thdr->type) {
-        case TA_BYTE: DIVLOOP(/=, unsigned char); break;
-        case TA_INT: DIVLOOP(/=, int); break;
-        case TA_UINT: DIVLOOP(/=, unsigned int); break;
-        case TA_WIDE: DIVLOOP(/=, Tcl_WideInt); break;
+        case TA_BYTE: DIVLOOP(unsigned char); break;
+        case TA_INT: DIVLOOP(int); break;
+        case TA_UINT: DIVLOOP(unsigned int); break;
+        case TA_WIDE: DIVLOOP(Tcl_WideInt); break;
         case TA_DOUBLE: DOUBLELOOP(/=); break;
         }
         break;
