@@ -298,3 +298,14 @@ TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type)
         return ta_bad_type_error(ip, thdr);
     return TCL_OK;
 }
+
+TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Invalid operand '%.80s'.",
+                                       Tcl_GetString(o)));
+        Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
+    }
+    return TCL_ERROR;
+}

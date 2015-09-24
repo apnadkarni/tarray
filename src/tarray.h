@@ -282,6 +282,7 @@ TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int index);
 TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
+TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o);
 
 TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type);
 

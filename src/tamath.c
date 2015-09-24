@@ -322,13 +322,22 @@ static TCL_RESULT ta_math_boolean_op(
     if (poperands[0].thdr_operand == NULL) {
         /* First operand is a scalar. Initialize with corresponding value */
         ta_value_t tav;
-        TA_ASSERT(poperands[0].scalar_operand.type == TA_WIDE || poperands[0].scalar_operand.type == TA_DOUBLE);
-        if (poperands[0].scalar_operand.type == TA_DOUBLE)
+        switch (poperands[0].scalar_operand.type) {
+        case TA_DOUBLE:
             tav.bval = (poperands[0].scalar_operand.dval != 0);
-        else
+            break;
+        case TA_WIDE:
             tav.bval = (poperands[0].scalar_operand.wval != 0);
+            break;
+        case TA_BOOLEAN:
+            tav.bval = poperands[0].scalar_operand.bval;
+            break;
+        default:
+            ta_type_panic(poperands[0].scalar_operand.type);
+            break;
+        }
         tav.type = TA_BOOLEAN;
-        thdr_fill_range(ip, thdr, &tav, 0, size-1, 0);
+        thdr_fill_range(ip, thdr, &tav, 0, size, 0);
     } else {
         /* First operand is a column */
         TA_ASSERT(poperands[0].thdr_operand->type == TA_BOOLEAN);
@@ -337,16 +346,25 @@ static TCL_RESULT ta_math_boolean_op(
     }
         
     baP = THDRELEMPTR(thdr, ba_t, 0);
-    for (opindex = 0; opindex < noperands; ++opindex) {
+    for (opindex = 1; opindex < noperands; ++opindex) {
         struct ta_math_operand *poper = &poperands[opindex];
         int ival;
         if (poper->thdr_operand == NULL) {
             /* Scalar operand */
-            TA_ASSERT(poper->scalar_operand.type == TA_WIDE || poper->scalar_operand.type == TA_DOUBLE);
-            if (poper->scalar_operand.type == TA_DOUBLE)
+            switch (poper->scalar_operand.type) {
+            case TA_DOUBLE:
                 ival = (poper->scalar_operand.dval != 0);
-            else
+                break;
+            case TA_WIDE:
                 ival = (poper->scalar_operand.wval != 0);
+                break;
+            case TA_BOOLEAN:
+                ival = poper->scalar_operand.bval;
+                break;
+            default:
+                ta_type_panic(poper->scalar_operand.type);
+                break;
+            }
             if (op == TAM_OP_BITAND) {
                 if (ival == 0) {
                     ba_fill(baP, 0, size, 0);
@@ -436,7 +454,6 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         if (tcol_convert(NULL, objv[j]) == TCL_OK) {
             Tcl_Obj *tcol = objv[j];
             span_t *span;
-            unsigned char coltype;
             
             /* Check if size is consistent with previous thdrs */
             if (thdr_size) {
@@ -525,13 +542,28 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                         result_type = TA_BYTE;
                 }
             } else {
-                status = Tcl_GetDoubleFromObj(ip, objv[j], &ptav->dval);
+                status = Tcl_GetDoubleFromObj(NULL, objv[j], &ptav->dval);
                 if (status == TCL_OK) {
                     ptav->type = TA_DOUBLE;
                     if (result_type != TA_BOOLEAN)
                         result_type = TA_DOUBLE;
-                } else
-                    goto vamoose;
+                } else {
+                    /* Scalar is not a numeric. See if it might be a boolean
+                       (true or false)
+                    */
+                    int ival;
+                    status = Tcl_GetBooleanFromObj(NULL, objv[j], &ival);
+                    if (status != TCL_OK) {
+                        ta_invalid_operand_error(ip, objv[j]);
+                        goto vamoose;
+                    }
+                    if (result_type != TA_NONE && result_type != TA_BOOLEAN) {
+                        coltype = TA_BOOLEAN; /* For the error message */
+                        goto mismatched_types_error;
+                    }
+                    ptav->type = TA_BOOLEAN;
+                    ptav->bval = ival;
+                }
             }
             poperands[i].thdr_operand = NULL; /* Indicate scalar_operand is valid */
         }
