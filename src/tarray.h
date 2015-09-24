@@ -89,7 +89,7 @@ typedef int TCL_RESULT;
 
 
 /* Must match g_type_tokens definition in tarray.c ! */
-#define TA_BOOLEAN 0
+#define TA_NONE 0
 #define TA_UINT 1
 #define TA_INT 2
 #define TA_WIDE 3
@@ -97,6 +97,7 @@ typedef int TCL_RESULT;
 #define TA_BYTE 5
 #define TA_ANY 6
 #define TA_STRING 7
+#define TA_BOOLEAN 8
 
 
 typedef struct tas_t {

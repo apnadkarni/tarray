@@ -26,7 +26,7 @@ int ta_minmax_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 
 /* Must match definitions in tarray.h ! */
 const char *g_type_tokens[] = {
-    "boolean",
+    "<typeerror!>", /* 0 is not a valid tarray type. */
     "uint",
     "int",
     "wide",
@@ -34,6 +34,7 @@ const char *g_type_tokens[] = {
     "byte",
     "any",
     "string",
+    "boolean",
     NULL
 };    
 
