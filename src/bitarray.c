@@ -448,6 +448,47 @@ void ba_reverse(ba_t *baP, int off, int len)
 #endif
 }
 
+void ba_conjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Start by copying whole units */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
+        ba_put_unit(dst, dstoff+bitsoff, ba_get_unit(srca, offa+bitsoff) & ba_get_unit(srcb, offb+bitsoff));
+
+    /* Copy leftover bits */
+    ba_putn(dst, 
+            dstoff+bitsoff, 
+            ba_getn(srca, offa+bitsoff, nbits) & ba_getn(srcb, offb+bitsoff, nbits),
+            nbits);
+}
+
+void ba_disjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Start by copying whole units */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
+        ba_put_unit(dst, dstoff+bitsoff, ba_get_unit(srca, offa+bitsoff) | ba_get_unit(srcb, offb+bitsoff));
+
+    /* Copy leftover bits */
+    ba_putn(dst, 
+            dstoff+bitsoff, 
+            ba_getn(srca, offa+bitsoff, nbits) | ba_getn(srcb, offb+bitsoff, nbits),
+            nbits);
+}
+
+
 /* Simple check against errors in portability between platforms and compilers */
 int ba_sanity_check()
 {
