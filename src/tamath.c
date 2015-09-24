@@ -293,6 +293,102 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
 }
 
 
+static TCL_RESULT ta_math_boolean_op(
+    Tcl_Interp *ip, int op,
+    struct ta_math_operand *poperands,
+    int noperands,
+    int size /* Every col in poperands expected to be of this size */
+)
+{
+    thdr_t *thdr;
+    ba_t *baP;
+    int opindex;
+    
+    TA_ASSERT(noperands > 0);
+    
+    if (op != TAM_OP_BITAND && op != TAM_OP_BITOR && op != TAM_OP_BITXOR)
+        return ta_invalid_op_for_type(ip, TA_BOOLEAN);
+
+    thdr = thdr_alloc(ip, TA_BOOLEAN, size);
+    if (thdr == NULL)
+        return TCL_ERROR;
+    
+    if (size == 0) {
+        Tcl_SetObjResult(ip, tcol_new(thdr));
+        return TCL_OK;
+    }
+
+    /* Initialize the result vector */
+    if (poperands[0].thdr_operand == NULL) {
+        /* First operand is a scalar. Initialize with corresponding value */
+        ta_value_t tav;
+        TA_ASSERT(poperands[0].scalar_operand.type == TA_WIDE || poperands[0].scalar_operand.type == TA_DOUBLE);
+        if (poperands[0].scalar_operand.type == TA_DOUBLE)
+            tav.bval = (poperands[0].scalar_operand.dval != 0);
+        else
+            tav.bval = (poperands[0].scalar_operand.wval != 0);
+        tav.type = TA_BOOLEAN;
+        thdr_fill_range(ip, thdr, &tav, 0, size-1, 0);
+    } else {
+        /* First operand is a column */
+        TA_ASSERT(poperands[0].thdr_operand->type == TA_BOOLEAN);
+        thdr_copy(thdr, 0, poperands[0].thdr_operand, 
+                  poperands[0].span_start, size, 0);
+    }
+        
+    baP = THDRELEMPTR(thdr, ba_t, 0);
+    for (opindex = 0; opindex < noperands; ++opindex) {
+        struct ta_math_operand *poper = &poperands[opindex];
+        int ival;
+        if (poper->thdr_operand == NULL) {
+            /* Scalar operand */
+            TA_ASSERT(poper->scalar_operand.type == TA_WIDE || poper->scalar_operand.type == TA_DOUBLE);
+            if (poper->scalar_operand.type == TA_DOUBLE)
+                ival = (poper->scalar_operand.dval != 0);
+            else
+                ival = (poper->scalar_operand.wval != 0);
+            if (op == TAM_OP_BITAND) {
+                if (ival == 0) {
+                    ba_fill(baP, 0, size, 0);
+                    break;      /* No need to look at further operands */
+                } else {
+                    /* & with 1 is basically a no-op */
+                }
+            } else if (op == TAM_OP_BITOR) {
+                if (ival) {
+                    ba_fill(baP, 0, size, 1);
+                    break;      /* No need to look at further operands */
+                } else {
+                    /* | with 0 is basically a no-op */
+                }
+            } else {
+                TA_ASSERT(op == TAM_OP_BITXOR);
+                if (ival)
+                    ba_complement(baP, 0, size);
+                else {
+                    /* ^ with 0 is basically a no-op */
+                }
+            }
+        } else {
+            /* Column operand */
+            ba_t *ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
+            TA_ASSERT(poper->thdr_operand->type == TA_BOOLEAN);
+            TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
+            if (op == TAM_OP_BITAND) 
+                ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
+            else if (op == TAM_OP_BITOR) 
+                ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
+            else {
+                TA_ASSERT(op == TAM_OP_BITXOR);
+                ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
+            }
+        }
+    }
+
+    Tcl_SetObjResult(ip, tcol_new(thdr));
+    return TCL_OK;
+}
+
 TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
@@ -307,6 +403,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     int thdr_size = 0;
     int op;
     int only_scalars = 1;
+    unsigned char coltype = TA_NONE;
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "operation tarray ?tarray...?");
@@ -351,52 +448,63 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 thdr_size = tcol_occupancy(tcol); /* Init expected size of column */
             coltype = tcol_type(tcol);
             /* Special case TA_BOOLEAN. Only allowed with other boolean
-               columns (not even with scalars) */
-            if ((coltype == TA_BOOLEAN &&
-                 (result_type != TA_NONE && result_type != TA_BOOLEAN)) 
-                || 
-                (coltype != TA_BOOLEAN && result_type == TA_BOOLEAN)) {
-                status = ta_mismatched_types_error(ip, coltype, result_type);
-                goto vamoose;
-            }
-
-            /* Column. Check if permitted type */
-            switch (coltype) {
-            case TA_BYTE:
-                if (result_type == TA_NONE)
-                    result_type = TA_BYTE;
-                break;
-            case TA_INT:
-                if (result_type == TA_NONE || result_type == TA_BYTE)
-                    result_type = TA_INT;
-                break;
-            case TA_UINT:
-                if (result_type == TA_NONE || result_type == TA_BYTE || result_type == TA_INT)
-                    result_type = TA_UINT;
-                break;
-            case TA_WIDE:
-                if (result_type == TA_NONE || result_type != TA_DOUBLE)
-                    result_type = TA_WIDE;
-                break;
-            case TA_DOUBLE:
-                result_type = TA_DOUBLE;
-                break;
-            default:
-                status = ta_bad_type_error(ip, tcol_thdr(objv[j]));
-                goto vamoose;
+               columns or scalars */
+            if (coltype == TA_BOOLEAN) {
+                switch (result_type) {
+                case TA_BOOLEAN: break;
+                default:
+                    /* Error if previous *column* of different type was seen */
+                    if (only_scalars == 0)
+                        goto mismatched_types_error;
+                    /* FALLTHRU */
+                case TA_NONE: result_type = TA_BOOLEAN; break;
+                } 
+            } else {
+                if (result_type == TA_BOOLEAN)
+                     goto mismatched_types_error;
+                /* Column. Check if permitted type */
+                switch (coltype) {
+                case TA_BYTE:
+                    if (result_type == TA_NONE)
+                        result_type = TA_BYTE;
+                    break;
+                case TA_INT:
+                    if (result_type == TA_NONE || result_type == TA_BYTE)
+                        result_type = TA_INT;
+                    break;
+                case TA_UINT:
+                    if (result_type == TA_NONE || result_type == TA_BYTE || result_type == TA_INT)
+                        result_type = TA_UINT;
+                    break;
+                case TA_WIDE:
+                    if (result_type == TA_NONE || result_type != TA_DOUBLE)
+                        result_type = TA_WIDE;
+                    break;
+                case TA_DOUBLE:
+                    result_type = TA_DOUBLE;
+                    break;
+                default:
+                    status = ta_invalid_op_for_type(ip, coltype);
+                    goto vamoose;
+                }
             }
             poperands[i].thdr_operand = tcol_thdr(tcol);
             span = tcol_span(tcol);
             poperands[i].span_start = span ? span->first : 0;
             only_scalars = 0;
         } else {
-            /* Check if an integer, wide or double */
+            /* Scalar operand. Check if an integer, wide or double.
+               If we have already seen a boolean column, do NOT change
+               the expected result type.
+             */
             ta_value_t *ptav = &poperands[i].scalar_operand;
             if (Tcl_GetWideIntFromObj(NULL, objv[j], &ptav->wval) == TCL_OK) {
                 /* Note integers are also stored as wides during computation */
                 ptav->type = TA_WIDE;
 
-                if (result_type != TA_DOUBLE && result_type != TA_WIDE) {
+                if (result_type != TA_BOOLEAN 
+                    && result_type != TA_DOUBLE
+                    && result_type != TA_WIDE) {
                     /* If value fits in a byte, it fits in any type so
                        no need to change. Else figure out whether result
                        type needs promotion */
@@ -420,7 +528,8 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 status = Tcl_GetDoubleFromObj(ip, objv[j], &ptav->dval);
                 if (status == TCL_OK) {
                     ptav->type = TA_DOUBLE;
-                    result_type = TA_DOUBLE;
+                    if (result_type != TA_BOOLEAN)
+                        result_type = TA_DOUBLE;
                 } else
                     goto vamoose;
             }
@@ -430,10 +539,15 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     
     TA_ASSERT(result_type != TA_NONE && result_type != TA_STRING && result_type != TA_ANY);
     
+    if (result_type == TA_BOOLEAN) {
+        TA_ASSERT(only_scalars == 0);
+        status = ta_math_boolean_op(ip, op, poperands, noperands, thdr_size);
+        goto vamoose;
+    }
+    
     if (result_type == TA_DOUBLE &&
         (op == TAM_OP_BITAND || op == TAM_OP_BITOR || op == TAM_OP_BITXOR)) {
-        Tcl_SetObjResult(ip, Tcl_NewStringObj("Bit operations not valid for type double", -1));
-        status = TCL_ERROR;
+        status = ta_invalid_op_for_type(ip, TA_DOUBLE);
         goto vamoose;
     }
 
@@ -585,4 +699,8 @@ vamoose:
     }
 
     return status;
+
+mismatched_types_error:
+    status = ta_mismatched_types_error(ip, coltype, result_type);
+    goto vamoose;
 }

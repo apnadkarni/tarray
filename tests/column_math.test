@@ -115,32 +115,33 @@ namespace eval tarray::test {
         return ""
     }
 
-    foreach op {+ - * / & |} {
+    foreach op {+ - * / & | ^} {
         test [mathid]-arg0 "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
         
-        foreach type {byte int uint wide double} {
-            if {$op in {& |} && $type eq "double"} {
-                test [mathid]-unsupported "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Bit operations not valid for type double" -returnCodes error
-                test [mathid]-unsupported "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Bit operations not valid for type double" -returnCodes error
+        foreach type {boolean byte int uint wide double} {
+            if {($op in {& | ^} && $type eq "double") ||
+                ($op ni {& | ^} && $type eq "boolean")} {
+                test [mathid]-unsupported "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type double" -returnCodes error
+                test [mathid]-unsupported "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type double" -returnCodes error
                 continue
             }
             # Single arg tests
-            test [mathid]-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
-            test [mathid]-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
-            test [mathid]-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
-            test [mathid]-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
+            test [mathid]-$type-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
+            test [mathid]-$type-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
+            test [mathid]-$type-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
+            test [mathid]-$type-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
 
             # Two arg tests
             if {$op ne "/"} {
-                test [mathid]-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 0]}
-                test [mathid]-arg2 "$type $op scalar column" -body {verify_expr $op [samplevalue $type] [largespancolumn $type]}
-                test [mathid]-arg2 "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
-                test [mathid]-arg2 "$type $op column column" -body {verify_expr $op [largespancolumn $type] [operand $type [largesize]]}
+                test [mathid]-$type-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 10]}
+                test [mathid]-$type-arg2 "$type $op scalar column" -body {verify_expr $op [samplevalue $type] [largespancolumn $type]}
+                test [mathid]-$type-arg2 "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
+                test [mathid]-$type-arg2 "$type $op column column" -body {verify_expr $op [largespancolumn $type] [operand $type [largesize]]}
             } else {
-                test [mathid]-arg2 "$type $op scalar scalar" -body {verify_expr $op [samplevalue $type] 2.3}
-                test [mathid]-arg2 "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
-                test [mathid]-arg2 "$type $op column scalar" -body {verify_expr $op [col_with_0 $type] 1.1e2 }
-                test [mathid]-arg2 "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
+                test [mathid]-$type-arg2 "$type $op scalar scalar" -body {verify_expr $op [samplevalue $type] 2.3}
+                test [mathid]-$type-arg2 "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
+                test [mathid]-$type-arg2 "$type $op column scalar" -body {verify_expr $op [col_with_0 $type] 1.1e2 }
+                test [mathid]-$type-arg2 "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
             }
 
             test [mathid]-badlen "Differing length columns $op, $type" -body {
@@ -162,9 +163,9 @@ namespace eval tarray::test {
             set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn uint {1 7 11}] 0x100000000]
         } -result [newcolumn wide [list [$op 1 1 0x100000000] [$op 2 7 0x100000000] [$op 3 11 0x100000000]]] -match column
          
-        foreach type {boolean string any} {
-            test [mathid]-unsupported "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "tarray is of the wrong type ($type)" -returnCodes error
-            test [mathid]-unsupported "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "tarray is of the wrong type ($type)" -returnCodes error
+        foreach type {string any} {
+            test [mathid]-unsupported "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type" -returnCodes error
+            test [mathid]-unsupported "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type" -returnCodes error
         }
                                                                 
     }

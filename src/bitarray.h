@@ -287,8 +287,10 @@ int ba_find(ba_t *baP, int bval, int offset, int count);
 int ba_count_ones(ba_t *baP, int off, int count);
 int ba_count_zeroes(ba_t *baP, int off, int count);
 void ba_reverse(ba_t *baP, int off, int len);
+void ba_complement (ba_t *a, int offa, int count);
 void ba_conjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
 void ba_disjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
+void ba_xdisjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
 #ifdef NOTUSED
 void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
 void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
