@@ -199,6 +199,17 @@ TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_invalid_op_for_type(Tcl_Interp *ip, int typea)
+{
+    if (ip) {
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Operation is invalid for type %s", ta_type_string(typea)));
+        Tcl_SetErrorCode(ip, "TARRAY", "TYPE", "OPERATION", NULL);
+    }
+
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
 {
     if (ip) {

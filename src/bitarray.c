@@ -448,6 +448,27 @@ void ba_reverse(ba_t *baP, int off, int len)
 #endif
 }
 
+void ba_complement (ba_t *a, int offa, int count)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Start by complementing whole units */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
+        ba_put_unit(a, offa+bitsoff, ~ ba_get_unit(a, offa+bitsoff));
+
+    /* Copy leftover bits */
+    if (nbits)
+        ba_putn(a, 
+                offa+bitsoff, 
+                ~ ba_getn(a, offa+bitsoff, nbits),
+                nbits);
+}
+
 /* a &= b */
 /* Note - src and dst areas must not overlap */
 void ba_conjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
@@ -491,6 +512,29 @@ void ba_disjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
         ba_putn(a, 
                 offa+bitsoff, 
                 ba_getn(a, offa+bitsoff, nbits) | ba_getn(b, offb+bitsoff, nbits),
+                nbits);
+}
+
+/* a ^= b */
+/* Note - src and dst areas must not overlap */
+void ba_xdisjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Start by copying whole units */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
+        ba_put_unit(a, offa+bitsoff, ba_get_unit(a, offa+bitsoff) ^ ba_get_unit(b, offb+bitsoff));
+
+    /* Copy leftover bits */
+    if (nbits)
+        ba_putn(a, 
+                offa+bitsoff, 
+                ba_getn(a, offa+bitsoff, nbits) ^ ba_getn(b, offb+bitsoff, nbits),
                 nbits);
 }
 

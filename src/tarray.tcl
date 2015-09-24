@@ -306,6 +306,7 @@ namespace eval tarray {
             / /
             & &
             | |
+            ^ ^
         }
     }
 
