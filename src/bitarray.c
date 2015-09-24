@@ -448,7 +448,55 @@ void ba_reverse(ba_t *baP, int off, int len)
 #endif
 }
 
-void ba_conjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
+/* a &= b */
+/* Note - src and dst areas must not overlap */
+void ba_conjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Start by copying whole units */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
+        ba_put_unit(a, offa+bitsoff, ba_get_unit(a, offa+bitsoff) & ba_get_unit(b, offb+bitsoff));
+
+    /* Copy leftover bits */
+    if (nbits)
+        ba_putn(a, 
+                offa+bitsoff, 
+                ba_getn(a, offa+bitsoff, nbits) & ba_getn(b, offb+bitsoff, nbits),
+                nbits);
+}
+
+/* a |= b */
+/* Note - src and dst areas must not overlap */
+void ba_disjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Start by copying whole units */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
+        ba_put_unit(a, offa+bitsoff, ba_get_unit(a, offa+bitsoff) | ba_get_unit(b, offb+bitsoff));
+
+    /* Copy leftover bits */
+    if (nbits)
+        ba_putn(a, 
+                offa+bitsoff, 
+                ba_getn(a, offa+bitsoff, nbits) | ba_getn(b, offb+bitsoff, nbits),
+                nbits);
+}
+
+#ifdef NOTUSED
+/* Note - src and dst areas must not overlap */
+void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
 {
     int i, nunits, nbits, bitsoff;
 
@@ -462,13 +510,18 @@ void ba_conjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *d
         ba_put_unit(dst, dstoff+bitsoff, ba_get_unit(srca, offa+bitsoff) & ba_get_unit(srcb, offb+bitsoff));
 
     /* Copy leftover bits */
-    ba_putn(dst, 
-            dstoff+bitsoff, 
-            ba_getn(srca, offa+bitsoff, nbits) & ba_getn(srcb, offb+bitsoff, nbits),
-            nbits);
+    if (nbits) {
+        ba_putn(dst, 
+                dstoff+bitsoff, 
+                ba_getn(srca, offa+bitsoff, nbits) & ba_getn(srcb, offb+bitsoff, nbits),
+                nbits);
+    }
 }
+#endif
 
-void ba_disjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
+#ifdef NOTUSED
+/* Note - src and dst areas must not overlap */
+void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
 {
     int i, nunits, nbits, bitsoff;
 
@@ -482,12 +535,14 @@ void ba_disjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *d
         ba_put_unit(dst, dstoff+bitsoff, ba_get_unit(srca, offa+bitsoff) | ba_get_unit(srcb, offb+bitsoff));
 
     /* Copy leftover bits */
-    ba_putn(dst, 
-            dstoff+bitsoff, 
-            ba_getn(srca, offa+bitsoff, nbits) | ba_getn(srcb, offb+bitsoff, nbits),
-            nbits);
+    if (nbits) {
+        ba_putn(dst, 
+                dstoff+bitsoff, 
+                ba_getn(srca, offa+bitsoff, nbits) | ba_getn(srcb, offb+bitsoff, nbits),
+                nbits);
+    }
 }
-
+#endif
 
 /* Simple check against errors in portability between platforms and compilers */
 int ba_sanity_check()
