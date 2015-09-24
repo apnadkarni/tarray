@@ -260,6 +260,7 @@ interp alias {} tarray::column::* {} tarray::column::math *
 interp alias {} tarray::column::/ {} tarray::column::math /
 interp alias {} tarray::column::& {} tarray::column::math &
 interp alias {} tarray::column::| {} tarray::column::math |
+interp alias {} tarray::column::^ {} tarray::column::math ^
 
 interp alias {} tarray::column::sum {} tarray::column::fold +
 
