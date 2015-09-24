@@ -287,6 +287,8 @@ int ba_find(ba_t *baP, int bval, int offset, int count);
 int ba_count_ones(ba_t *baP, int off, int count);
 int ba_count_zeroes(ba_t *baP, int off, int count);
 void ba_reverse(ba_t *baP, int off, int len);
+void ba_conjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
+void ba_disjunct (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
 int ba_sanity_check(void);
 
 #endif
