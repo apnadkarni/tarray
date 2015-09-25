@@ -7,27 +7,39 @@ text {
 
 text {
     [NOTE]
-    This extension is still under development and has not reached
-    a V1.0 release state. The API may be subject to change.
+    This extension has not reached release status. The API however should
+    be stable.
 
-    == Introduction
+    == Columns and tables
     
     The `tarray` (_typed array_)
     extension implements two new Tcl collection data types -
     ((^ chap_column_ref columns)) and ((^ chap_table_ref tables)).
     Typed arrays store elements of a specific data type in native format
     and in comparison to Tcl collection types like lists and dicts,
-    offer benefits of
+    offer performance benefits of
 
     * efficient memory utilization
-    * parallel execution on multi-core systems
-    * vector arithmetic operations
-    * flexible indexing and search
+    * fast execution
+    * parallelization on multi-core systems
+
+    In addition, the extension provides some convenience features
+    that are not built into lists and dictionaries
+
+    * vector operations
+    * flexible indexing
+    * more powerful search and sort facilities
+
+    The column and table constructs are similar to _dataframes_ in
+    languages like R.
+
+    == The Xtal language
 
     The related extension `xtal` implements ((^ chap_xtal_lang Xtal)),
     a language geared towards vector operations on lists, columns and tables.
     Xtal can be embedded within Tcl in a similar fashion to the `expr`
-    command or used to write entire procedures and scripts.
-    
-    See ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short overview.
+    command or used to write entire procedures and scripts. Xtal adds
+    succint syntactic layer on top of the `tarray` extension.
+
+    See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short overview.
 }

@@ -98,7 +98,7 @@ text {
 } prompt {} xtal_shell {
     print ( Rainfall [Rainfall > 100 && Rainfall < 200] ) 
 
-    print ( Rainfall [@@ > 100 && @@ < 200] )     # @@ specifies the "current" context
+    print ( Rainfall [@@ > 100 && @@ < 200] )  # @@ is the "current" context
 } text {
     Or perhaps more usefully, list the corresponding months.
 } prompt {} xtal_shell {
@@ -142,11 +142,11 @@ text {
 } prompt {} xtal_shell {
     % Emps      # Number of employees
 
-    print(Emps[3])     # Fourth row of table
+    print(Emps[3])     # Row 3
 
-    print(Emps[2:4])   # Third through fifth rows
+    print(Emps[2:4])   # Rows 2 through 4
 
-    print(Emps[{3,1}]) # Fourth and second row
+    print(Emps[{3,1}]) # Rows 3 and 1
 }
 
 text {
@@ -307,7 +307,7 @@ text {
 text {
     .Working with dictionaries
     
-    Tcl dictionary access has a similar shorthand using
+    Tcl dictionary access has a similar shorthand
     using the `.` lookup postfix operator.
 } prompt {} xtal_shell {
     colors = {"red", 0xff0000, "green", 0x00ff00, "blue", 0x0000ff}
@@ -349,7 +349,8 @@ text {
 } text {
     A Xtal code fragment may be run by one of several means.
 
-    First, it can be run from within using the `xtal::xtal` command.
+    First, it can be run from within a Tcl script
+    using the `xtal::xtal` command.
     This is roughly the equivalent of running a Tcl script using `eval`.
 } shell {
     xtal { a = 1 }
