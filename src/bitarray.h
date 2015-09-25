@@ -97,6 +97,23 @@
 # define BA_MASK_FFFF 0x0000FFFF
 #endif
 
+void ba_putn(ba_t *baP, int off, ba_t ba, int n);
+void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len);
+void ba_fill(ba_t *baP, int off, int count, int ival);
+int ba_find(ba_t *baP, int bval, int offset, int count);
+int ba_count_ones(ba_t *baP, int off, int count);
+int ba_count_zeroes(ba_t *baP, int off, int count);
+void ba_reverse(ba_t *baP, int off, int len);
+void ba_complement (ba_t *a, int offa, int count);
+void ba_conjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
+void ba_disjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
+void ba_xdisjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
+#ifdef NOTUSED
+void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
+void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
+#endif
+int ba_sanity_check(void);
+
 /* Return a mask containing a 1 at a bit position,
    e.g. BITPOSMASK(2) -> 00100000 */
 BA_INLINE ba_t ba_position_mask(int pos)
@@ -163,39 +180,6 @@ BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
     }
 }
 
-/* Caller should take care of case where there are not n bits of memory
-   valid at offset off */
-BA_INLINE void ba_putn(ba_t *baP, int off, ba_t ba, int n)
-{
-    BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
-
-    baP += off / BA_UNIT_SIZE;
-    off = off % BA_UNIT_SIZE;
-    if (off == 0)
-        *baP = (n == BA_UNIT_SIZE ? ba : ba_merge_unit(ba, *baP, BITPOSMASKGE(n)));
-    else {
-        if ((n+off) > BA_UNIT_SIZE) {
-            /* bits are spread across two ba_t units */
-            baP[0] = ba_merge_unit(baP[0], (ba_t)(ba << off), BITPOSMASKGE(off));
-            n = off + n - BA_UNIT_SIZE;  /* # bits to store in top word */
-            baP[1] = ba_merge_unit(baP[1], (ba_t)(ba >> (BA_UNIT_SIZE - off)),
-                                   BITPOSMASKLT(n));
-        } else {
-            /* Bits fit in one word */
-            BA_ASSERT(n < BA_UNIT_SIZE); /* If == would have hit one of the cases above */
-            ba <<= off;
-            n += off;
-            BA_ASSERT(n <= BA_UNIT_SIZE);
-            if (n == BA_UNIT_SIZE) {
-                *baP = ba_merge_unit(*baP, ba, BITPOSMASKGE(off));
-            } else
-                *baP = ba_merge_unit(ba,
-                                     *baP,
-                                     (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
-        }
-    }
-}
-
 
 /* Caller should take care of case where there are not BA_UNIT_SIZE bits
    valid at offset off */
@@ -251,7 +235,6 @@ BA_INLINE ba_t ba_reverse_unit(ba_t ba)
 #endif
 }
 
-
 BA_INLINE int ba_get(ba_t *baP, int off)
 {
     return (baP[off / BA_UNIT_SIZE] & BITPOSMASK(off % BA_UNIT_SIZE)) != 0;
@@ -281,20 +264,13 @@ BA_INLINE void ba_reset(ba_t *baP, int off)
     *baP &= ~ BITPOSMASK(off);
 }
 
-void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len);
-void ba_fill(ba_t *baP, int off, int count, int ival);
-int ba_find(ba_t *baP, int bval, int offset, int count);
-int ba_count_ones(ba_t *baP, int off, int count);
-int ba_count_zeroes(ba_t *baP, int off, int count);
-void ba_reverse(ba_t *baP, int off, int len);
-void ba_complement (ba_t *a, int offa, int count);
-void ba_conjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
-void ba_disjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
-void ba_xdisjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
-#ifdef NOTUSED
-void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
-void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
-#endif
-int ba_sanity_check(void);
+/* Find number bits set in a bit array */
+BA_INLINE int ba_count_zeroes(ba_t *baP,  int off, int count)
+{
+    if (count <= off)
+        return 0;
+    else
+        return (count-off) - ba_count_ones(baP, off, count);
+}
 
 #endif
