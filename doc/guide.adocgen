@@ -22,7 +22,7 @@ text {
 }
 
 text {
-    == Installation and Loading
+    == Installation and loading
 
     Binary packages for some platforms are available from the
     http://www.sourceforge.net/projects/tarray[Sourceforge download area].
@@ -42,7 +42,7 @@ text {
 text {
     == Concepts
 
-    === Columns and Tables
+    === Columns and tables
 
     The extension implements two data types - ((^ chap_column_ref _columns_))
     and ((^ chap_table_ref _tables_)). The general term _typed array_ is used
@@ -123,7 +123,7 @@ text {
 }
 
 text {
-    === Specifying Indices
+    === Specifying indices
 
     Most commands require specification of the array locations to be targeted.
     This specification can be
@@ -155,7 +155,7 @@ text {
 }
 
 text {
-    === Values and Variables
+    === Values and variables
 
     Commands that modify typed arrays come in two flavors:
 
@@ -187,7 +187,7 @@ text {
 }
 
 text {
-    === Modifying Data
+    === Modifying data
 
     Modifying a typed array may involve either storing a _single_
     value at multiple target locations or a different value at each
@@ -318,7 +318,7 @@ text {
 }
 
 text {
-    === Retrieving Data
+    === Retrieving data
 
     Retrieving data from a typed array involves specifying which
     elements to retrieve and what format to retrieve them in when
@@ -547,7 +547,7 @@ text {
 }
 
 text {
-    === Other Commands
+    === Other commands
 
     The ((^ column_count "column count")) command
     can be used to count the number values in a
@@ -679,4 +679,3 @@ text {
     searches is an O(n) operation.
 }
 
-tbd {column sum}
