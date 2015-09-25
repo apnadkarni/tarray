@@ -192,7 +192,7 @@ TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("tarray types %s and %s are not compatible for attempted operation", ta_type_string(typea), ta_type_string(typeb)));
+                         Tcl_ObjPrintf("tarray types %s and %s are not compatible for attempted operation.", ta_type_string(typea), ta_type_string(typeb)));
         Tcl_SetErrorCode(ip, "TARRAY", "TYPE", "INCOMPATIBLE", NULL);
     }
 

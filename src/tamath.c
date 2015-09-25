@@ -561,6 +561,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                         coltype = TA_BOOLEAN; /* For the error message */
                         goto mismatched_types_error;
                     }
+                    result_type = TA_BOOLEAN;
                     ptav->type = TA_BOOLEAN;
                     ptav->bval = ival;
                 }
