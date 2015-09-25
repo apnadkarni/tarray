@@ -228,10 +228,10 @@ namespace eval tarray::test {
         foreach type {byte int uint wide double} {
              test [mathid]-boolean-err "boolean column non-boolean column" -body {
                 tarray::column math $op [samplecolumn boolean] [samplecolumn $type]
-            } -result "tarray types $type and boolean are not compatible for attempted operation" -returnCodes error
+            } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
              test [mathid]-boolean-err "boolean column non-boolean column" -body {
                 tarray::column $op [samplecolumn $type] [samplecolumn boolean]
-             } -result "tarray types boolean and $type are not compatible for attempted operation" -returnCodes error
+             } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
 
             test [mathid]-boolean-$op-$type "boolean column $op $type scalar" -body {
                 verify_expr $op [samplecolumn boolean] 1
@@ -246,10 +246,10 @@ namespace eval tarray::test {
         foreach type {byte int uint wide double} {
              test [mathid]-boolean-err "boolean column non-boolean column" -body {
                 tarray::column math $op [samplecolumn boolean] [samplecolumn $type]
-            } -result "tarray types $type and boolean are not compatible for attempted operation" -returnCodes error
+            } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
              test [mathid]-boolean-err "boolean column non-boolean column" -body {
                 tarray::column $op [samplecolumn $type] [samplecolumn boolean]
-             } -result "tarray types boolean and $type are not compatible for attempted operation" -returnCodes error
+             } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
 
 
         }

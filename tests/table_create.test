@@ -101,13 +101,13 @@ namespace eval tarray::test {
         Test creation with missing type
     } -body {
         tarray::table::create [list anycol any intcol int boolean] {{somestring 0}}
-    } -result "bad TArrayType \"\": must be boolean, uint, int, wide, double, byte, any, or string" -returnCodes error
+    } -result "bad column \"\": must be uint, int, wide, double, byte, any, string, or boolean" -returnCodes error
 
     test table_create-3.6 {
         Test creation with bad type
     } -body {
         tarray::table::create [list anycol any intcol int fubcol fub] {{somestring 0}}
-    } -result "bad TArrayType \"fub\": must be boolean, uint, int, wide, double, byte, any, or string" -returnCodes error
+    } -result "bad column \"fub\": must be uint, int, wide, double, byte, any, string, or boolean" -returnCodes error
 
     test table_create-3.7 {
         Test creation table using a narrower table

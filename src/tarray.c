@@ -144,9 +144,9 @@ int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
 
 const char *ta_type_string(int tatype)
 {
-    if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]))) {
+    if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]) - 1))
         return g_type_tokens[tatype];
-    } else
+    else
         return "<invalid>";
 }
 
@@ -355,7 +355,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
     TA_ASSERT(tcol_affirm(o));
 
     thdr = OBJTHDR(o);
-    TA_ASSERT(thdr->type < sizeof(g_type_tokens)/sizeof(g_type_tokens[0]));
+    TA_ASSERT(thdr->type < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]) - 1));
     count = thdr->used;
     span_start = 0;
     if ((span = OBJTHDRSPAN(o)) != NULL) {
@@ -1302,8 +1302,7 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
     if (Tcl_ListObjGetElements(NULL, o, &nelems, &elems) == TCL_OK
         && nelems == 3
         && !strcmp(Tcl_GetString(elems[0]), ta_column_type.name)
-        && Tcl_GetIndexFromObj(ip, elems[1], g_type_tokens, "TArrayType",
-                               TCL_EXACT, &tatype) == TCL_OK) {
+        && ta_parse_type(ip, elems[1], &tatype) == TCL_OK) {
         /* So far so good. Try and convert */
         thdr_t *thdr;
         Tcl_Obj **ovalues;
