@@ -346,15 +346,6 @@ int ba_find(ba_t *baP, int bval, int off, int count)
     return -1;
 }
 
-/* Find number bits set in a bit array */
-int ba_count_zeroes(ba_t *baP,  int off, int count)
-{
-    if (count <= off)
-        return 0;
-    else
-        return (count-off) - ba_count_ones(baP, off, count);
-}
-
 
 int ba_count_ones(ba_t *baP, int off, int count)
 {
@@ -587,6 +578,39 @@ void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *
     }
 }
 #endif
+
+/* Caller should take care of case where there are not n bits of memory
+   valid at offset off */
+void ba_putn(ba_t *baP, int off, ba_t ba, int n)
+{
+    BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
+
+    baP += off / BA_UNIT_SIZE;
+    off = off % BA_UNIT_SIZE;
+    if (off == 0)
+        *baP = (n == BA_UNIT_SIZE ? ba : ba_merge_unit(ba, *baP, BITPOSMASKGE(n)));
+    else {
+        if ((n+off) > BA_UNIT_SIZE) {
+            /* bits are spread across two ba_t units */
+            baP[0] = ba_merge_unit(baP[0], (ba_t)(ba << off), BITPOSMASKGE(off));
+            n = off + n - BA_UNIT_SIZE;  /* # bits to store in top word */
+            baP[1] = ba_merge_unit(baP[1], (ba_t)(ba >> (BA_UNIT_SIZE - off)),
+                                   BITPOSMASKLT(n));
+        } else {
+            /* Bits fit in one word */
+            BA_ASSERT(n < BA_UNIT_SIZE); /* If == would have hit one of the cases above */
+            ba <<= off;
+            n += off;
+            BA_ASSERT(n <= BA_UNIT_SIZE);
+            if (n == BA_UNIT_SIZE) {
+                *baP = ba_merge_unit(*baP, ba, BITPOSMASKGE(off));
+            } else
+                *baP = ba_merge_unit(ba,
+                                     *baP,
+                                     (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
+        }
+    }
+}
 
 /* Simple check against errors in portability between platforms and compilers */
 int ba_sanity_check()
