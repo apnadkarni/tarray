@@ -1121,11 +1121,16 @@ text {
     The Xtal unary operators are `-`, `+`, `~` and `!` have the
     same semantics as in Tcl for operands that are not columns or tables.
 
-    In the case of columns of type `byte`, `int`, `uint`,
-    `wide` and `double`, the `-`, `+` operators return columns
+    In the case of columns, the `-` and `+` operators can
+    be applied to numeric columns
+    (types `byte`, `int`, `uint`, `wide` and `double`).
+    The result is a column of the same type
     with each element being the result of the operator being applied
-    to the corresponding element of the operand. The `~` operator
-    is similar except that it cannot be applied to columns of type `double`.
+    to the corresponding element of the operand.
+
+    The `~` operator can be applied to integral columns
+    and columns of type boolean.
+
     For all other combinations of column type and operation, an error is
     raised.
 

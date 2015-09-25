@@ -1394,6 +1394,9 @@ namespace eval xtal::rt {
     proc tarray_assign_element {varname value index} {
         # Assign a value to a single column or table element
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vfill var $value $index }
             "" { lset var $index $value }
@@ -1408,6 +1411,10 @@ namespace eval xtal::rt {
         
         upvar 1 $varname var
 
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
+        
         lassign [tarray::types $var $value] vartype valuetype
         
         if {$high eq "end"} {
@@ -1518,6 +1525,11 @@ namespace eval xtal::rt {
         # value is the value to be assigned
         # index is a general expression
         #
+
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
+        
         lassign [tarray::types $var $value $index] vartype valuetype indextype
 
         if {$indextype ne "" && $indextype != "int"} {
@@ -1604,6 +1616,9 @@ namespace eval xtal::rt {
         
         upvar 1 $varname var
 
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         lassign [tarray::types $var $value] vartype valuetype
         
         if {$vartype ne "table"} {
@@ -1665,6 +1680,9 @@ namespace eval xtal::rt {
         # something else.
         
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         lassign [tarray::types $var $value $index] vartype valuetype indextype
         if {$vartype ne "table"} {
             error "$varname is not a table."
@@ -1719,6 +1737,9 @@ namespace eval xtal::rt {
     proc table_columns_replace {varname colnames value} {
         # Replaces the specified columns. value must also be a table
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         lassign [tarray::types $var $value] vartype valuetype
         if {$vartype ne "table" && $valuetype ne "table"} {
             error "Operand is not a tarray table"
@@ -1744,6 +1765,9 @@ namespace eval xtal::rt {
         # [low high] is the range to assign to
 
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
 
         lassign [tarray::types $var $value] vartype valuetype
         
@@ -1804,6 +1828,9 @@ namespace eval xtal::rt {
         # thing. For others, they will raise an error.
         
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         lassign [tarray::types $var $value] vartype valuetype
         if {$vartype ne "table"} {
             error "$varname is not a table."
@@ -2066,8 +2093,8 @@ namespace eval xtal::rt {
                         }
                     }
                     "~" {
-                        if {$type in {byte int uint wide}} {
-                            return [tarray::column::math ^ $a [dict get {byte 0xff int -1 uint 0xffffffff wide 0xffffffffffffffff} $type]]
+                        if {$type in {boolean byte int uint wide}} {
+                            return [tarray::column::math ^ $a [dict get {boolean 1 byte 0xff int -1 uint 0xffffffff wide 0xffffffffffffffff} $type]]
                         }
                     } 
                 }
@@ -2207,6 +2234,9 @@ namespace eval xtal::rt {
 
     proc dereference {varname} {
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         # Avoid shimmering of columns and tables
         if {[lindex [tarray::types $var] 0] ne ""} {
             error "Dereferencing of columns and tables not permitted."
@@ -2216,6 +2246,9 @@ namespace eval xtal::rt {
 
     proc dereference2 {varname} {
         upvar 1 $varname var
+        if {![info exists var]} {
+            error "can't read \"$varname\": no such variable"
+        }
         # Avoid shimmering of columns and tables
         if {[lindex [tarray::types $var] 0] ne ""} {
             error "Dereferencing of columns and tables not permitted."
@@ -2303,6 +2336,9 @@ namespace eval xtal::rt {
 
     proc vdelete {ident args} {
         upvar 1 $ident var
+        if {![info exists var]} {
+            error "can't read \"$ident\": no such variable"
+        }
         return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vdelete var {*}$args }
             "" { error "Operand is not a column or able" }
@@ -2320,6 +2356,9 @@ namespace eval xtal::rt {
 
     proc vinject {ident args} {
         upvar 1 $ident var
+        if {![info exists var]} {
+            error "can't read \"$ident\": no such variable"
+        }
         return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vinject var {*}$args }
             "" { error "Operand is not a column or able" }
@@ -2337,6 +2376,9 @@ namespace eval xtal::rt {
 
     proc vinsert {ident args} {
         upvar 1 $ident var
+        if {![info exists var]} {
+            error "can't read \"$ident\": no such variable"
+        }
         return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vinsert var {*}$args }
             "" { error "Operand is not a column or able" }
@@ -2354,6 +2396,9 @@ namespace eval xtal::rt {
 
     proc vreverse {ident} {
         upvar 1 $ident var
+        if {![info exists var]} {
+            error "can't read \"$ident\": no such variable"
+        }
         return [switch -exact -- [lindex [tarray::types $var] 0] {
             table { tarray::table::vreverse var }
             "" { error "Operand is not a column or able" }

@@ -203,9 +203,12 @@ text {
     ((^ tab_column_math_ops)) below.
 
     The operands may be any combination of scalar numerical values
-    and columns of type `byte`, `int`, `unsigned int`, `wide` or `double`.
-    If multiple columns are specified, they may be of differing types
-    but must have the same number of elements.
+    and columns of appropriate types shown in the table.
+    If multiple columns are specified, they may be of differing types except
+    that `boolean` columns may only be combined with scalar values and
+    other `boolean` columns and not with columns of other types.
+
+    All columns must have the same number of elements.
     
     If any operand is a double or a column of type `double`, all computation
     is done by converting each operand (or element of an operand) to
@@ -228,39 +231,46 @@ text {
     and size all of whose elements are equal to that scalar value.
     
     ((.Table tab_column_math_ops "Column math operators"))
-    [cols="10,90", options="header"]
+    [cols="10,60,30", options="header"]
     |===
     |Operator
     |Description
+    |Allowed column types
                                                             
     |`+`
     |Adds all specified operands.
-
+    |`byte`, `int`, `uint`, `wide`, `double`
+    
     |`-`
     |Subtracts all remaining operands from the first operand.
     Note the behaviour when a single operand is specified is different
     from the behaviour of the Tcl `expr` or `tcl::mathop::-` commands.
+    |`byte`, `int`, `uint`, `wide`, `double`
 
     |`*`
     |Multiplies all specified operands.
+    |`byte`, `int`, `uint`, `wide`, `double`
 
     |`/`
     |Successively divides the first operand by each subsequent operand.
     Note the behaviour when a single operand is specified is different
     from the behaviour of the Tcl `expr` or `tcl::mathop::/` commands.
-
+    |`byte`, `int`, `uint`, `wide`, `double`
 
     |`&`
     |Performs a bitwise-and operation on all the operands. This operation
     is not valid if any operand is a double or a column of type `double`.
+    |`boolean`, `byte`, `int`, `uint`, `wide`
 
     |`\|`
     |Performs a bitwise-or operation on all the operands. This operation
     is not valid if any operand is a double or a column of type `double`.
+    |`boolean`, `byte`, `int`, `uint`, `wide`
 
     |`^`
     |Performs a bitwise-xor operation on all the operands. This operation
     is not valid if any operand is a double or a column of type `double`.
+    |`boolean`, `byte`, `int`, `uint`, `wide`
 
     |===
 
