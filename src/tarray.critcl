@@ -270,10 +270,8 @@ critcl::ccommand tarray::column::create {} {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIndexFromObj(interp, objv[1], g_type_tokens, "TArrayType",
-                            TCL_EXACT, &tatype) != TCL_OK) {
+    if (ta_parse_type(interp, objv[1], &tatype) != TCL_OK)
 	return TCL_ERROR;
-    }
 
     init_size = 0;
     nelems = 0;
@@ -350,8 +348,7 @@ critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* 
     Tcl_Obj *o;
     span_t *span;
 
-    if (Tcl_GetIndexFromObj(interp, COLTYPE, g_type_tokens, "TArrayType",
-                            TCL_EXACT, &tatype) != TCL_OK)
+    if (ta_parse_type(interp, COLTYPE, &tatype) != TCL_OK)
 	return TCL_ERROR;
 
     /* Convert the column AFTER COLTYPE conversion above to protect against
