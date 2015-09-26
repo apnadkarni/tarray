@@ -287,6 +287,8 @@ text {
     L[0:1]     # Index range. Tcl - lrange $L 0 1
     
     L[{3,1,2}] # Index list - no direct Tcl equivalent.
+
+    L[%L] = "four" # Append. Tcl - lappend L four
 } text {
     The index operations can be search expressions as well.
 } prompt {} xtal_shell {
@@ -788,7 +790,7 @@ text {
     The `for` statement takes one of two forms. The first form is
     used to iterate over a range of integers.
 } syntax {
-    for _IDENTIFIER_ in _LOWEXPR_ : _HIGHEXPR_ ?by _INCREMENT_? _STATEMENTBLOCK_
+    for _IDENTIFIER_ in _LOWEXPR_ : ?_HIGHEXPR_? ?by _INCREMENT_? _STATEMENTBLOCK_
 } text {
     The loop variable `_IDENTIFIER_` is initially assigned a value of
     `_LOWEXPR_`. Thereafter, `_STATEMENTBLOCK_` is executed as long as the

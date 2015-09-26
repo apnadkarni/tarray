@@ -1,4 +1,4 @@
-# xtal expression tests
+# xtal if stmt tests
 
 source testutil.tcl
 
