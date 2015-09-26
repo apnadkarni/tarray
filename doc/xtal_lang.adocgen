@@ -787,38 +787,80 @@ text {
 
 text {
     === The `for` statement
-    The `for` statement takes one of two forms. The first form is
-    used to iterate over a range of integers.
+    The `for` statement is used to iterate over a range of integers
+    with a suitable increment.
 } syntax {
-    for _IDENTIFIER_ in _LOWEXPR_ : ?_HIGHEXPR_? ?by _INCREMENT_? _STATEMENTBLOCK_
+    for _IDENTIFIER_ _LOWEXPR_ ?: _HIGHEXPR_? ?: _INCREMENT_? _STATEMENTBLOCK_
 } text {
     The loop variable `_IDENTIFIER_` is initially assigned a value of
     `_LOWEXPR_`. Thereafter, `_STATEMENTBLOCK_` is executed as long as the
     the value of the loop variable is less than or equal to `_HIGHEXPR_`. After
     each iteration, the loop variable is incremented by `_INCREMENT_` which
-    defaults to `1` if unspecified.
-} xtal {
-    for i in 0 : %Emps-1 by 2 {
+    defaults to `1` if unspecified.     
+    The lower limit of the range is computed only once, before the loop is
+    iterated. The upper limit is computed on every iteration.
+
+} outputlimit 2 xtal {
+    for i 0 : %Emps-1 {
         puts(Emps.Name[i])
     }
 } text {
-    The lower limit of the range is computed only once, before the loop is
-    iterated. The upper limit is computed on every iteration.
+    If _HIGHEXPR_ is unspecified,
+    the loop will not terminate unless you break out of it with
+    a `return`, `break` or similar. Some examples of the various
+    forms:
+} xtal {
+    for i 0:2 { puts(i) }
+} xtal {
+    limit = 5
+    for i 0 : limit : 2 { puts(i) } 
+} xtal {
+    for i 0 {
+        if i >= 2 { break }
+        puts(i)
+    }
+} xtal {
+    for i 0::2 {
+        puts(i)
+        if i > 3 { break }
+    }
 }
 
 text {
-    The other form of the `for` statement behaves similar to the
+    === The `foreach` statement
+    This statement behaves similar to the
     Tcl `foreach` statement where the loop variable takes on values
-    from a collection. The syntax is 
+    from a collection. The syntax takes one of the forms
 } syntax {
-    for _IDENTIFIER_ in _COLLECTION_ _STATEMENTBLOCK_
+    foreach  _VAR_ in _COLLECTION_ _STATEMENTBLOCK_
+    foreach _KEYVAR_ , _VAR_ in _COLLECTION_ _STATEMENTBLOCK_
 } text {
-    where `_COLLECTION_` is any Xtal expression that results
-    in a column, table or a Tcl list.
+    where `_COLLECTION_` is any Xtal expression.
+    
+    In the first form, _STATEMENTBLOCK_ is executed for each element
+    in _COLLECTION_.
+    to variable named _VAR_. If _COLLECTION_ is a column, the variable
+    _VAR_ takes the value of each element of the column. If _COLLECTION_
+    is a table, _VAR_ is assigned each row of the table in list form.
+    Otherwise, _COLLECTION_ is treated as a Tcl list and _VAR_ takes
+    on the value of each element of the list.
 } outputlimit 3 xtal {
     puts("Rainy months:")
-    for month in Months[Rainfall > 100] {
+    foreach month Months[Rainfall > 100] {
         puts(month)
+    }
+} text {
+    The second form is similar in that again _STATEMENTBLOCK_ is executed
+    for each element of _COLLECTION_. For columns and tables, behaviour
+    is as above except that in addition to _VAR_, the variable named
+    _KEYVAR_ is assigned the index of the element in the column or table.
+    If _COLLECTION_ is not a column or table however, unlike the previous
+    case it is assumed to be a Tcl dictionary and not a list.
+    The _KEYVAR_ variable then takes on the values of the keys of the
+    dictionary.
+} outputlimit 3 xtal {
+    foreach color, code colors {
+        <puts "The code for $color is $code.">
     }
 }
 
