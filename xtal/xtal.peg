@@ -21,7 +21,8 @@ void:  EOF <- !.;
     Statement <- FunctionDefinition
                  / IfStatement
 		 / WhileStatement
-		 / ForStatement
+		 / ForRangeStatement
+		 / ForEachStatement
 		 / TryStatement
 		 / ThrowStatement
 		 / ReturnStatement
@@ -43,7 +44,9 @@ void:    Empty <- WS ;
 
     WhileStatement <- 'while' WSob Expression WSob '{' Block '}' ;
 
-    ForStatement <- 'for' WSob Identifier WSob 'in' WSob Expression WSob ('by' WSob Expression WSob)? '{' Block '}' ;
+    ForRangeStatement <- 'for' WSob Identifier WSob AddExpr (WS ':' (WS AddExpr)?)? (WS ForRangeIncrement)? WSob '{' Block '}' ; 
+    ForRangeIncrement <- ':' (WS AddExpr)? ;
+    ForEachStatement <- 'foreach' WSob Identifier WSob Expression WSob '{' Block '}' ;
 
     TryStatement <- 'try' WSob '{' Block '}' (WSob (OnHandler / TrapHandler))* (WSob FinallyClause)? ;
     OnHandler     <- 'on' WSob ReturnCode (WSob Identifier)* WSob '{' Block '}' ;

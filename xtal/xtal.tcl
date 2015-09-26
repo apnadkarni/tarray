@@ -5,7 +5,7 @@ namespace eval xtal {
     # and then source this file.
     variable _use_oo_parser
     if {![info exists _use_oo_parser]} {
-        set _use_oo_parser 0
+        set _use_oo_parser 1
     }
 
     namespace export xtal
@@ -282,6 +282,38 @@ oo::class create xtal::Parser {
 
     method ContinueStatement {from to} {
         return [list ContinueStatement]
+    }
+    
+    method ForRangeStatement {from to loopvar low args} { 
+        set nargs [llength $args]
+        set loopvar [lindex $loopvar 1]
+        if {$nargs == 1} {
+            # No upper limit, increment defaults to 1
+            return [list ForRangeStatement $loopvar $low {} {Number 1} [lindex $args 0]]
+        }
+
+        if {$nargs == 2} {
+            if {[lindex $args 0 0] eq "ForRangeIncrement"} {
+                # No upper limit but increment specified
+                return [list ForRangeStatement $loopvar $low {} [lindex $args 0 1] [lindex $args 1]]
+            } else {
+                # Upper limit, default increment
+                return [list ForRangeStatement $loopvar $low [lindex $args 0] {Number 1} [lindex $args 1]]
+            }
+        }
+
+        if {$nargs == 3 &&
+            [lindex $args 0 0] ne "ForRangeIncrement" &&
+            [lindex $args 1 0] eq "ForRangeIncrement"} {
+            # Both upper limit and increment specified
+            return [list ForRangeStatement $loopvar $low [lindex $args 0] [lindex $args 1 1] [lindex $args 2]]
+        }
+
+        error "Internal error parsing for statement. Unexpected argument count or types"
+    }
+
+    method ForRangeIncrement {from to args} {
+        return [list ForRangeIncrement {*}$args]
     }
     
     method ForStatement {from to loopvar looptarget args} { 
@@ -851,7 +883,7 @@ oo::class create xtal::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= IfStatement WhileStatement ForRange ForNonRange ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
+        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForNonRange ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
             return "[my Indent][my {*}$child]"
         } else {
             return "[my Indent]return -level 0 [my {*}$child]"
@@ -944,8 +976,13 @@ oo::class create xtal::Compiler {
         }
     }
     
-    method ForRange {loopvar low high incr clause} {
-        return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n[my _clause_to_code $clause][my Indent]}"
+    method ForRangeStatement {loopvar low high incr clause} {
+        if {[llength $high]} {
+            return "for {set $loopvar [my {*}$low]} {\[set $loopvar\] <= [my {*}$high]} {incr $loopvar [my {*}$incr]} {\n[my _clause_to_code $clause][my Indent]}"
+        } else {
+            # Make the conditional 1 since Tcl for does not allow empty cond
+            return "for {set $loopvar [my {*}$low]} {1} {incr $loopvar [my {*}$incr]} {\n[my _clause_to_code $clause][my Indent]}"
+        }
     }
 
     method ForNonRange {loopvar looptarget clause} {
