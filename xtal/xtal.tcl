@@ -1567,7 +1567,7 @@ namespace eval xtal::rt {
             } else {
                 if {[llength $index] == 1} {
                     lset var $index $value
-                    return
+                    return $var
                 }
             }
             if {[llength $value] == [llength $index]} {
