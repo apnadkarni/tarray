@@ -316,22 +316,8 @@ oo::class create xtal::Parser {
         return [list ForRangeIncrement {*}$args]
     }
     
-    method ForStatement {from to loopvar looptarget args} { 
-        if {[lindex $looptarget 0] eq "Range"} {
-            if {[llength $args] == 2} {
-                set loopincr [lindex $args 0]
-                set loopbody [lindex $args 1]
-            } else {
-                set loopincr [list Number 1]
-                set loopbody [lindex $args 0]
-            }
-            return [list ForRange [lindex $loopvar 1] [lindex $looptarget 1] [lindex $looptarget 2] $loopincr $loopbody]
-        } else {
-            if {[llength $args] != 1} {
-                error "Loop increment can only be specified for ranges"
-            }
-            return [list ForNonRange [lindex $loopvar 1] $looptarget [lindex $args 0]]
-        }
+    method ForEachStatement {from to loopvar collection body} { 
+        return [list ForEachStatement [lindex $loopvar 1] $collection $body]
     }
 
     method TryStatement {from to block args} {
@@ -883,7 +869,7 @@ oo::class create xtal::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForNonRange ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
+        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForEachStatement ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
             return "[my Indent][my {*}$child]"
         } else {
             return "[my Indent]return -level 0 [my {*}$child]"
@@ -985,7 +971,7 @@ oo::class create xtal::Compiler {
         }
     }
 
-    method ForNonRange {loopvar looptarget clause} {
+    method ForEachStatement {loopvar looptarget clause} {
         return "xtal::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause][my Indent]}"
     }
 
