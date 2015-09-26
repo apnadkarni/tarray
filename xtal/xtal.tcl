@@ -5,7 +5,7 @@ namespace eval xtal {
     # and then source this file.
     variable _use_oo_parser
     if {![info exists _use_oo_parser]} {
-        set _use_oo_parser 1
+        set _use_oo_parser 0
     }
 
     namespace export xtal
@@ -316,8 +316,14 @@ oo::class create xtal::Parser {
         return [list ForRangeIncrement {*}$args]
     }
     
-    method ForEachStatement {from to loopvar collection body} { 
-        return [list ForEachStatement [lindex $loopvar 1] $collection $body]
+    method ForEachStatement {from to var args} { 
+        if {[llength $args] == 2} {
+            # foreach loopvar collection body
+            return [list ForEachStatement [lindex $var 1] {*}$args]
+        } else {
+            # foreach keyvar loopvar collection body
+            return [list ForEachKeyedStatement [lindex $var 1] [lindex $args 0 1] [lindex $args 1] [lindex $args 2]]
+        }
     }
 
     method TryStatement {from to block args} {
@@ -869,7 +875,7 @@ oo::class create xtal::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForEachStatement ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
+        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForEachStatement ForEachKeyedStatement ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
             return "[my Indent][my {*}$child]"
         } else {
             return "[my Indent]return -level 0 [my {*}$child]"
@@ -971,6 +977,10 @@ oo::class create xtal::Compiler {
         }
     }
 
+    method ForEachKeyedStatement {keyvar loopvar looptarget clause} {
+        return "xtal::rt::keyedforloop $keyvar $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause][my Indent]}"
+    }
+    
     method ForEachStatement {loopvar looptarget clause} {
         return "xtal::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause][my Indent]}"
     }
@@ -2314,19 +2324,25 @@ namespace eval xtal::rt {
     }
 
     proc forloop {loopvar expr body} {
+        # TBD - for columns and tables perhaps looping using
+        # an index would be faster and/or cheaper in memory?
         switch -exact -- [lindex [tarray::types $expr] 0] {
-            ""    {
-                uplevel 1 [list foreach $loopvar $expr $body]
-            }
-            table { 
-                set l [tarray::table::range -list $expr 0 end]
-                uplevel 1 [list foreach $loopvar $l $body]
-            }
-            default { 
-                set l [tarray::column::range -list $expr 0 end]
-                uplevel 1 [list foreach $loopvar $l $body]
-            }
+            ""    {set l $expr}
+            table {set l [tarray::table::range -list $expr 0 end]}
+            default {set l [tarray::column::range -list $expr 0 end]}
         }
+        uplevel 1 [list foreach $loopvar $l $body]
+    }
+    
+    proc keyedforloop {keyvar loopvar expr body} {
+        # TBD - for columns and tables perhaps looping using
+        # an index would be faster and/or cheaper in memory?
+        switch -exact -- [lindex [tarray::types $expr] 0] {
+            ""      {set l $expr}
+            table   {set l [tarray::table::range -dict $expr 0 end]}
+            default {set l [tarray::column::range -dict $expr 0 end]}
+        }
+        uplevel 1 [list dict for [list $keyvar $loopvar] $l $body]
     }
 
     proc listcast {val} {
