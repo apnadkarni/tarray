@@ -260,6 +260,14 @@ oo::class create xtal::Parser {
         return [list IfStatement {*}$args]
     }
 
+    method ElseClause {from to clause} {
+        return [list ElseClause $clause]
+    }
+
+    method ElseifClause {from to expr clause} {
+        return [list ElseifClause $expr $clause]
+    }
+                
     method WhileStatement {from to args} {
         return [list WhileStatement {*}$args]
     }
@@ -862,15 +870,32 @@ oo::class create xtal::Compiler {
         return $code
     }
     
-    method IfStatement {cond then_clause {else_clause {}}} {
-        set then_code [my _clause_to_code $then_clause]
+    method IfStatement {cond clause args} {
+        set code "if {\[xtal::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause][my Indent]}"
 
-        if {[llength $else_clause] == 0} {
-            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code[my Indent]}"
-        } else {
-            set else_code [my _clause_to_code $else_clause]
-            return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code} {\n[my Indent]$else_code[my Indent]}"
+        foreach arg $args {
+            append code " [my {*}$arg]"
         }
+
+        append code \n
+        return $code
+
+        set code "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code"
+        if {[llength $args] == 0} {
+            return "${code}[my Indent]\}"
+        }
+
+        set else_code [my _clause_to_code [lindex $args end]]
+        return "${code}} {\n[my Indent]$else_code[my Indent]}"
+        #return "if {\[xtal::rt::condition [my {*}$cond]\]} {\n$then_code} {\n[my Indent]$else_code[my Indent]}"
+    }
+
+    method ElseClause {clause} {
+        return "else {\n[my Indent][my _clause_to_code $clause][my Indent]}"
+    }
+    
+    method ElseifClause {cond clause} {
+        return "elseif {\[xtal::rt::condition [my {*}$cond]\]} {\n[my _clause_to_code $clause][my Indent]}"
     }
 
     method ReturnStatement {expr} {
