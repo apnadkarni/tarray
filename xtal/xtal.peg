@@ -36,8 +36,10 @@ void:    Empty <- WS ;
     # Assignment to a single LValue
     Assignment <- LValue WS AssignOp WS (TclScriptBlock / Expression) ;
 
-    IfStatement <- 'if' WSob Expression WSob '{' Block '}'
-                   (WSob 'else' WSob '{' Block '}')? ;
+    IfStatement   <- 'if' WSob Expression WSob '{' Block '}'
+                      (WSob ElseifClause)* (WSob ElseClause)? ;
+    ElseifClause  <- 'elseif' WSob Expression WSob '{' Block '}' ;
+    ElseClause    <- 'else' WSob '{' Block '}' ;
 
     WhileStatement <- 'while' WSob Expression WSob '{' Block '}' ;
 

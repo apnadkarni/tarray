@@ -742,11 +742,19 @@ text {
     but in a slightly different form.
 
     === The `if` statement
-    The `if` statement has the syntax
+    The `if` statement has the general form
 } syntax {
-    if _EXPRESSION_ { _STATEMENTBLOCK_ } ?else { _STATEMENTBLOCK_ }?
+    if _EXPRESSION_ {
+        _STATEMENTBLOCK_
+    } elseif _EXPRESSION_ {
+        _STATEMENTBLOCK_
+    } else {
+        _STATEMENTBLOCK_
+    }         
 } text {
-    As indicated, the `else` clause is optional. If present, it must
+    There may be zero or more `elseif` clauses and the
+    `else` clause is optional. If present, the `else` and `elseif`
+    keywords must
     be on the same logical line as the preceding statement block.
 
     `_EXPRESSION_` can be any Xtal expression and does not need
