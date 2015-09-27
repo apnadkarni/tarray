@@ -197,12 +197,16 @@ text {
     a = 1 ; b = 2
     c = 1 + a * b
 } text {
-    String literals can be expressed in two forms - surrounded by double
-    quotes, or with a single preceding single quote for literals that
-    only contain alphanumeric characters.
-} xtal {
-    puts("Two words")
-    puts('OneWord')
+    String literals can be expressed in two forms - surrounded by
+    double quotes or by single
+    quotes. In the former case, variable and command substitutions
+    are performed as in Tcl. In the latter case, no variable or command
+    substitutions are done.
+
+} prompt {} xtal_shell {
+    puts('The value of b at time [clock seconds] is $b')
+
+    puts("The value of b at time [clock seconds] is $b")
 }
 
 text { 
@@ -506,32 +510,31 @@ text {
     big = 123455678987654321000000000
 } text {
 
-    String literals are delimited by double quotes and follow
-    the backslash substitution rules as in Tcl.
+    String literals are delimited by single or double quotes and follow
+    the backslash substitution rules as in Tcl. The difference between
+    the two is that double quoted strings undergo
+    variable and command substition as in Tcl whereas single quoted
+    strings do not.
 
     Unlike in Tcl, _a plain unquoted string is treated as an identifier_ and
     not a string literal.
 } errorok 1 prompt {} xtal_shell {
     s = unquoted
-} text {
-    Also, unlike in Tcl double quoted strings, there is no
-    interpolation.
+
+    s = "Sum of 2+2 is [expr 2+2]"
+
+    s = 'Sum of 2+2 is [expr 2+2]'
 } text {
     [WARNING]
-    Also note that braces have different semantics in Xtal and
+    Braces have different semantics in Xtal and
     cannot be used to delimit strings.
-} text {
-    An alternate form of a string literal is a `'` character preceding
-    a string that follows the rules for an identifier.
-} xtal { s = 'this::is::a::string' } text {
-    This alternate form is merely a small convenience.
 }
 
 text {
     === Lists
 
     Braces in Xtal are used to construct lists, similar to the
-    `list` command in Tcl. _Note this differs from the use of braces in Tcl._
+    `list` command in Tcl.
 } xtal {
     l = {"a string", x, tcl::clock::seconds(), y+z}
 } text {
