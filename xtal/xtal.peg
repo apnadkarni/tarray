@@ -44,8 +44,8 @@ void:    Empty <- WS ;
 
     WhileStatement <- 'while' WSob Expression WSob '{' Block '}' ;
 
-    ForRangeStatement <- 'for' WSob Identifier WSob AddExpr (WS ':' (WS AddExpr)?)? (WS ForRangeIncrement)? WSob '{' Block '}' ; 
-    ForRangeIncrement <- ':' (WS AddExpr)? ;
+    ForRangeStatement <- 'for' WSob Identifier WSob AddExpr (WS ':' AddExpr)? (WS ForRangeIncrement)? WSob '{' Block '}' ; 
+    ForRangeIncrement <- ':' WS AddExpr ;
     ForEachStatement <- 'foreach' WSob Identifier (WS ',' WS Identifier)? WSob Expression WSob '{' Block '}' ;
 
     TryStatement <- 'try' WSob '{' Block '}' (WSob (OnHandler / TrapHandler))* (WSob FinallyClause)? ;
@@ -173,7 +173,9 @@ leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('
 Sequence <- '{' WSNL SequenceContent? WSNL '}' ;
 SequenceContent <- Expression (WSNL ',' WSNL Expression)* ;
 leaf: Token <- SingleQuote Identifier ;
-leaf: String <- Quote (!Quote Char)* Quote;
+String <- PlainString / TclString ;
+leaf: TclString <- BackQuote (!BackQuote Char)* BackQuote ;
+leaf: PlainString <- Quote (!Quote Char)* Quote ;
 void: Char   <- BackSlash ( Quote 
                      / BackSlash
                      / [bfnrt]
@@ -184,6 +186,7 @@ void: Char   <- BackSlash ( Quote
            / . ;
 void: Quote <- '"';
 void: SingleQuote <- ['] ;
+void: BackQuote <- '`' ;
 void: Backslash <- '\\';
 
 void: Separator <- Comment? EOL / ';';

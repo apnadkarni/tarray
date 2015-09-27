@@ -754,7 +754,7 @@ oo::class create xtal::Parser {
     }
 
     method Token {from to} {
-        return [list String [string range $Script [expr {$from+1}] $to]]
+        return [list PlainString [string range $Script [expr {$from+1}] $to]]
     }
 
     method OptionString {from to} {
@@ -763,13 +763,27 @@ oo::class create xtal::Parser {
     }
 
     forward Number my _extract Number
-    method String {from to} {
-        return [list String [subst -novariables -nocommands [string range $Script $from+1 $to-1]]]
+
+    method String {from to child} {
+        return $child
+    }
+    
+    method PlainString {from to} {
+        return [list PlainString [subst -novariables -nocommands [string range $Script $from+1 $to-1]]]
     }
 
+    # We have to deal with TclStrings at run time because substitutions
+    # need to happen then
+    method TclString {from to} {
+        # TBD - Optimize - if no special chars then return as PlainString
+        # so as to not do unnecessary runtime processing
+        return [list TclString [string range $Script $from+1 $to-1]]
+    }
+    
     method Sequence {from to {child {}}} {
         return [linsert $child 0 Sequence]
     }
+
     method SequenceContent {from to args} {
         return $args
     }
@@ -1288,7 +1302,9 @@ oo::class create xtal::Compiler {
             my {*}$arg
         }] { }]\]"
     }
-    method String s {return "{$s}"}
+    
+    method PlainString s {return "{$s}"}
+    method TclString s {return "\[xtal::rt::tclstring {$s}\]"}
     method OptionString s {return "{$s}"}
     method Number {n} {return $n}
     method RangeEnd {} {return "end"}
@@ -1420,6 +1436,10 @@ oo::class create xtal::Compiler {
 namespace eval xtal::rt {
     variable _selector_contexts {}
 
+    proc tclstring s {
+        return [uplevel 1 [list subst $s]]
+    }
+    
     proc selector_context {} {
         variable _selector_contexts
         if {[llength $_selector_contexts]} {
