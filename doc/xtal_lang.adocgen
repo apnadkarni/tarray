@@ -130,11 +130,11 @@ text {
     Emps = @table (
         Name string,   Salary uint,   Age uint,   Location string
     ) {
-        {'Sally,      70000,      32,       'Boston},
-        {'Tom,        65000,      36,       'Boston},
-        {'Dick,       80000,      40,       "New York"},
-        {'Harry,      45000,      37,       "New York"},
-        {'Amanda,     48000,      35,       'Seattle}
+        {'Sally',      70000,      32,       'Boston'},
+        {'Tom',        65000,      36,       'Boston'},
+        {'Dick',       80000,      40,       'New York'},
+        {'Harry',      45000,      37,       'New York'},
+        {'Amanda',     48000,      35,       'Seattle'}
     }
     print(Emps)
 } text {
@@ -155,7 +155,7 @@ text {
 } prompt {} xtal_shell {
     print(Emps.Name)     # Column name supplied as literal
 
-    colname = 'Salary
+    colname = 'Salary'
     print(Emps.$colname)   # Column name supplied in a variable
 
     print(Emps.Salary[@@ >= 70000])    # High salaries
@@ -175,7 +175,7 @@ text {
 } text {
     Tables can be modified in multiple ways.
 } outputlimit 0 xtal {
-    Emps[% Emps] = {'Mary, 38000, 25, 'Seattle}      # Add a row
+    Emps[% Emps] = {'Mary', 38000, 25, 'Seattle'}      # Add a row
 
     Emps.Salary = Emps.Salary + 2000                 # Modify entire column
 
@@ -202,7 +202,7 @@ text {
     only contain alphanumeric characters.
 } xtal {
     puts("Two words")
-    puts('OneWord)
+    puts('OneWord')
 }
 
 text { 
@@ -276,7 +276,7 @@ text {
     
     The prefix operator `%` can be used to return the length of a list.
 } xtal {
-    L = {'zero, 'one, 'two, 'three}
+    L = {'zero', 'one', 'two', 'three'}
     len = % L  # Tcl - llength $L
 } text {
     Similarly, the indexing operator `[]` can be used instead
@@ -523,7 +523,7 @@ text {
 } text {
     An alternate form of a string literal is a `'` character preceding
     a string that follows the rules for an identifier.
-} xtal { s = 'this::is::a::string } text {
+} xtal { s = 'this::is::a::string' } text {
     This alternate form is merely a small convenience.
 }
 
@@ -590,7 +590,7 @@ text {
     The correct equivalents are either of the following:
     ----
     xtal { incr("val", -1) }
-    xtal { incr('val, -1) }
+    xtal { incr('val', -1) }
     ----
     ====
 } text {
@@ -636,7 +636,7 @@ text {
     oo::class create OExample { method m args {puts [join $args ,]} }
     OExample create o
     xtal {
-        o.m('astring, 10)
+        o.m('astring', 10)
         o.destroy()
     }
 } text {
@@ -644,13 +644,13 @@ text {
     object is not fixed and the object is accessed through a variable.
 } errorok 1 shell {
     set obj [OExample new]
-    xtal {obj.m('astring, 10)}
+    xtal {obj.m('astring', 10)}
 } text {
     _Function and object names, unlike variables, do not get implicitly
     dereferenced._
     In this case, the `$` operator is used for dereferencing.
 } prompt {} xtal_shell {
-    $obj.m('astring, 10)
+    $obj.m('astring', 10)
     $obj.destroy()
 } text {
     We will talk about the dereferencing operator
@@ -665,9 +665,9 @@ text {
     quoted or separated from its value by a `,`.
 
     Instead of invoking the Tcl `subst` command as follows
-} xtal { subst("-novariables", "The value of val is $val") } text {
+} xtal { subst("-novariables", 'The value of val is $val') } text {
     it can be invoked as
-} xtal { subst(-novariables "The value of val is $val") } text {
+} xtal { subst(-novariables 'The value of val is $val') } text {
     Note the option name is not quoted and there is no `,` separating
     it from its value.
 
@@ -928,7 +928,7 @@ text {
 } xtal {
     try {
         x = nosuchvar
-    } trap {'TCL, 'LOOKUP, 'VARNAME} message status_dict {
+    } trap {'TCL', 'LOOKUP', 'VARNAME'} message status_dict {
         puts("Oops, variable does not exist")
         puts(message)
     } on error message status_dict {
@@ -946,8 +946,8 @@ text {
     time, would be
 } xtal {
     try {
-        throw 'XTAL, 'TEST, "This is only a test"
-    } trap {'TCL, 'LOOKUP, 'VARNAME} {
+        throw 'XTAL', 'TEST', "This is only a test"
+    } trap {'TCL', 'LOOKUP', 'VARNAME'} {
         puts("Oops, variable does not exist")
     } on error message {
         puts(message)
@@ -971,7 +971,7 @@ text {
     puts $message
     puts $::errorCode
 
-    catch { xtal {throw 'XTAL, 'ERROR, "This is only a test"} } message
+    catch { xtal {throw 'XTAL', 'ERROR', "This is only a test"} } message
     puts $message
     puts $::errorCode
 }
@@ -1027,11 +1027,11 @@ text {
     Emps = @table (
         Name string,   Salary uint,   Age uint,   Location string
     ) {
-        {'Sally,      70000,      32,       'Boston},
-        {'Tom,        65000,      36,       'Boston},
-        {'Dick,       80000,      40,       "New York"},
-        {'Harry,      45000,      37,       "New York"},
-        {'Amanda,     48000,      35,       'Seattle}
+        {'Sally',      70000,      32,       'Boston'},
+        {'Tom',        65000,      36,       'Boston'},
+        {'Dick',       80000,      40,       'New York'},
+        {'Harry',      45000,      37,       'New York'},
+        {'Amanda',     48000,      35,       'Seattle'}
     }
 } text {
     [TIP]
@@ -1067,7 +1067,7 @@ text {
     the ((^ sect_xtal_deref_op "dereferencing operator")).
 } prompt {} xtal_shell {
     print(Emps.Name)
-    colname = 'Location
+    colname = 'Location'
     print(Emps . $colname)
 } text {
     These operators can be used in two contexts:
@@ -1402,7 +1402,7 @@ text {
 } prompt {} xtal_shell {
     d.c = 99
 
-    I = @string {'zero, 'one, 'two, 'three}
+    I = @string {'zero', 'one', 'two', 'three'}
     I.one = 1
 } text {
     [NOTE]
@@ -1586,7 +1586,7 @@ text {
 } text {
     To move everyone to Boston, fill the entire range with one value.
 } xtal {
-    Emps.Location[0 : %Emps - 1] = 'Boston
+    Emps.Location[0 : %Emps - 1] = 'Boston'
 } text {
     To give an increment only to low-paid
     employees make use of selectors.
@@ -1597,8 +1597,8 @@ text {
     To modify a subset of the fields for a specific row,
     index a slice of the table. So to relocate Sally with a raise
 } outputlimit 0 xtal {
-    Emps.(Salary, Location)[Emps.Name.Sally]  = {70000, 'Seattle}
-    print (Emps[Emps.Name == 'Sally])
+    Emps.(Salary, Location)[Emps.Name.Sally]  = {70000, 'Seattle'}
+    print (Emps[Emps.Name == 'Sally'])
 } text {
     Use of indices in assignments is not limited to columns and rows.
     List elements can be assigned in the same manner.
@@ -1692,7 +1692,7 @@ text {
     name = "Sally"
     Emps.Name.$name           # Indirect column lookup
 
-    colname = 'Location
+    colname = 'Location'
     print(Emps . $colname)    # Indirect table column reference
 } text {
     [NOTE]
@@ -1751,8 +1751,8 @@ text {
     of low priced lackeys to replace the ones we layed off.
 } outputlimit 0 xtal {
     Emps = @inject(Emps, {
-        {'Tom,      30000,      38,       'Boston},
-        {'Peyton,   30000,      38,       'Denver}
+        {'Tom',      30000,      38,       'Boston'},
+        {'Peyton',   30000,      38,       'Denver'}
     }, 0)
     print(Emps)
 } text {
@@ -1879,11 +1879,11 @@ text {
     all employees in Boston who make more than 45000/year. We could write this
     using selectors.
 } xtal {
-    print (Emps.Name[Emps.Salary > 45000 && Emps.Location == 'Boston])
+    print (Emps.Name[Emps.Salary > 45000 && Emps.Location == 'Boston'])
 } text {
     Alternatively, using `@search`,
 } xtal {
-    indices = @search (Emps.Salary > 45000) -> Emps.Location == 'Boston all
+    indices = @search (Emps.Salary > 45000) -> Emps.Location == 'Boston' all
     print (Emps.Name[indices])
 } text {
     In the first case, Xtal searches the appropriate columns for

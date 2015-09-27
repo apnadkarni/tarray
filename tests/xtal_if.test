@@ -77,11 +77,11 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x > 0 {
-                z = 'if
+                z = 'if'
             } elseif {
-                z = 'elseif
+                z = 'elseif'
             } else {
-                z = 'else
+                z = 'else'
             }
         }
     } -result "Parse error*" -match glob -returnCodes error
@@ -91,13 +91,13 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x < 2 {
-                z = 'if
+                z = 'if'
             } elseif x < 3 {
-                z = 'elseif
+                z = 'elseif'
             } elseif (x < 4) {
-                z = 'elseif2
+                z = 'elseif2'
             } else {
-                z = 'else
+                z = 'else'
             }
         }
     } -result if
@@ -107,13 +107,13 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x < 2 {
-                z = 'if
+                z = 'if'
             } elseif x < 3 {
-                z = 'elseif
+                z = 'elseif'
             } elseif (x < 4) {
-                z = 'elseif2
+                z = 'elseif2'
             } else {
-                z = 'else
+                z = 'else'
             }
         }
     } -result elseif
@@ -123,13 +123,13 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x < 2 {
-                z = 'if
+                z = 'if'
             } elseif x < 3 {
-                z = 'elseif
+                z = 'elseif'
             } elseif (x < 4) {
-                z = 'elseif2
+                z = 'elseif2'
             } else {
-                z = 'else
+                z = 'else'
             }
         }
     } -result elseif2
@@ -139,13 +139,13 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x < 2 {
-                z = 'if
+                z = 'if'
             } elseif x < 3 {
-                z = 'elseif
+                z = 'elseif'
             } elseif (x < 4) {
-                z = 'elseif2
+                z = 'elseif2'
             } else {
-                z = 'else
+                z = 'else'
             }
         }
     } -result else
@@ -155,9 +155,9 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x < 4 {
-                z = 'if
+                z = 'if'
             } elseif x < 5 {
-                z = 'elseif
+                z = 'elseif'
             }
         }
     } -result elseif
@@ -167,9 +167,9 @@ namespace eval tarray::test {
     } -body {
         xtal::xtal {
             if x < 4 {
-                z = 'if
+                z = 'if'
             } elseif x > 4 {
-                z = 'elseif
+                z = 'elseif'
             }
         }
     } -result ""
