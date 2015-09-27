@@ -161,8 +161,6 @@ namespace eval tarray::test {
     # TBD - test strings including glob and regexp and nocase
 
     # TBD - test invalid ops (eg. regexp with ints)
-
-
     
     #
     # Test operator associativity
@@ -178,7 +176,6 @@ namespace eval tarray::test {
         incr testnum
     }
 }
-
 if {0} {
     namespace path [list tarray xtal]
     proc xtal::testconstexpr {expr desc} {
@@ -209,6 +206,7 @@ if {0} {
         xtal::xtal {T[T.i < 35]}
         xtal::xtal {T[T.$x < 45]}
         xtal::xtal {T.(i,s)[@@.i > 40]}
+        xtal::xtal {K = J}
         xtal::xtal {K[0:] = I[0:]}
         xtal::xtal {K[0:1] = J[0:1]}
         xtal::xtal {K[2:4] = 99}
@@ -221,8 +219,8 @@ if {0} {
         xtal::xtal {T.i[@@ < 40] = 33}
         xtal::xtal {T.s[T.i == 33] = "thirty-three"}
         set col s
-        xtal::xtal {T.$col[0:1] = 'abc}
-        xtal::xtal {T.$col[1:] = 'def}
+        xtal::xtal {T.$col[0:1] = 'abc'}
+        xtal::xtal {T.$col[1:] = 'def'}
         xtal::xtal {% I}
         xtal::xtal {% {1,2,3}}
 
@@ -235,10 +233,10 @@ if {0} {
         catch {C destroy}
         oo::class create C { method m {args} {puts [join $args ,]} }
         set o [C new]
-        xtal::xtal {a = 'b ; b = 99; $a}
-        xtal::xtal {$o.m('abc, 10)}
+        xtal::xtal {a = 'b' ; b = 99; $a}
+        xtal::xtal {$o.m('abc', 10)}
         xtal::xtal {$o.m(
-                         'abci
+                         'abci'
                          ,
                          10
                          )}
@@ -276,13 +274,13 @@ if {0} {
         xtal::xtal { @table (i int) }
         xtal::xtal { @table (i int) {{2}}}
         xtal::xtal { @table (i int, s string) }
-        xtal::xtal { @table (i int, s string ) {{2, 'two}, {3, 'three}} }
+        xtal::xtal { @table (i int, s string ) {{2, 'two'}, {3, 'three'}} }
         xtal::xtal { @table (i
                              int,
                              s string
                              ) {
-                                 {2, 'two},
-                                 {3, 'three}
+                                 {2, 'two'},
+                                 {3, 'three'}
                              } }
 
         set "variable with spaces" "value of variable with spaces"
@@ -305,30 +303,30 @@ if {0} {
         xtal::xtal {
             try {
                 a = 1
-            } on error {puts('error)} finally {puts('finally)}
+            } on error {puts('error')} finally {puts('finally')}
         }
         
         xtal::xtal {
             try {
-                throw 'TSCRIPT, 'TEST, "Just a test"
+                throw 'TSCRIPT', 'TEST', "Just a test"
             } on error res opts {
                 puts(res)
                 puts (opts)
             } finally {
-                puts('finally)
+                puts('finally')
             }
         }
 
         xtal::xtal {
             try {
                 nosuchvar
-            } trap {'TCL, 'XXX} {
+            } trap {'TCL', 'XXX'} {
                 puts("Should not trigger")
-            } trap {'TCL, 'LOOKUP} res opts {
+            } trap {'TCL', 'LOOKUP'} res opts {
                 <puts "Result: $res">
                 <puts "Opts: $opts">
             } finally {
-                puts('finally)
+                puts('finally')
             }
         }
 
@@ -339,11 +337,11 @@ if {0} {
             Emps = @table (
                            Name string,   Salary uint,   Age uint,   Location string
                            ) {
-                               {'Sally,      70000,      32,       'Boston},
-                               {'Tom,        65000,      36,       'Boston},
-                               {'Dick,       80000,      40,       "New York"},
-                               {'Harry,      45000,      37,       "New York"},
-                               {'Amanda,     48000,      35,       'Seattle}
+                               {'Sally',      70000,      32,       'Boston'},
+                               {'Tom',        65000,      36,       'Boston'},
+                               {'Dick',       80000,      40,       "New York"},
+                               {'Harry',      45000,      37,       "New York"},
+                               {'Amanda',     48000,      35,       'Seattle'}
                            }
         }
     }

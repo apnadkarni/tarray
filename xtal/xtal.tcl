@@ -753,10 +753,6 @@ oo::class create xtal::Parser {
         return [list IndirectLiteral [lindex $child 1]]
     }
 
-    method Token {from to} {
-        return [list PlainString [string range $Script [expr {$from+1}] $to]]
-    }
-
     method OptionString {from to} {
         # TBD - why not forward this to _extract?
         return [list OptionString [string range $Script $from $to]]
