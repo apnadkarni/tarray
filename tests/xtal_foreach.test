@@ -1,0 +1,323 @@
+# xtal foreach stmt tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    #
+    # foreach over lists
+    test xtal-foreach-list-1.0 {foreach list} -setup { set l {} } -body {
+        xtal::xtal {
+            foreach e {1, 2, 'three'} {
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {1 2 three}
+
+    test xtal-foreach-list-1.1 {foreach function returning lists} -setup {
+        set l {}
+    } -body {
+        xtal::xtal {
+            function getl () {return {1, 2, 3, 4}}
+            foreach e getl() {
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {1 2 3 4}
+
+    test xtal-foreach-list-2.0 {foreach list break} -setup { set l {} } -body {
+        xtal::xtal {
+            foreach e {1, 2, 3, 4} {
+                if e > 2 { break }
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {1 2}
+    
+    test xtal-foreach-list-2.1 {foreach list continue} -setup { set l {} } -body {
+        xtal::xtal {
+            foreach e {1, 2, 3, 4} {
+                if e & 1 {continue}
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {2 4}
+    
+    # foreach with key over dicts
+    test xtal-foreach-dict-1.0 {foreach dict keyvar} -setup {
+        set d {a 1 b 2 c 3}
+    } -body {
+        xtal::xtal {
+            foreach k,e d {
+                d.$k = 10*e
+            }
+        }
+        set d
+    } -result {a 10 b 20 c 30}
+
+    test xtal-foreach-dict-1.1 {for function returning dicts} -setup {
+        unset -nocomplain d
+        proc getd {} {return {a 1 b 2 c 3}}
+    } -body {
+        xtal::xtal {
+            foreach k , e getd() {
+                d.$k = e-1
+            }
+        }
+        set d
+    } -result {a 0 b 1 c 2}
+    
+    test xtal-foreach-dict-2.0 {foreach dict keyvar break} -setup {
+        set d {a 1 b 2 c 3 d 4}
+    } -body {
+        xtal::xtal {
+            foreach k,e d {
+                if k == 'c' { break }
+                d.$k = 10*e
+            }
+        }
+        set d
+    } -result {a 10 b 20 c 3 d 4}
+    
+    test xtal-foreach-dict-2.1 {foreach dict keyvar continue} -setup {
+        set d {a 1 b 2 c 3 d 4}
+    } -body {
+        xtal::xtal {
+            foreach k,e d {
+                if (e & 1) == 0 { continue }
+                d.$k = 10*e
+            }
+        }
+        set d
+    } -result {a 10 b 2 c 30 d 4}
+
+    
+    #
+    # foreach over columns
+    test xtal-foreach-column-1.0 {foreach column} -setup {
+        set col [tarray::column create int {1 2 3 4}]
+        set l {}
+    } -body {
+        xtal::xtal {
+            foreach e col {
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {1 2 3 4}
+
+    test xtal-foreach-column-1.1 {foreach function returning columns} -setup {
+        set l {}
+    } -body {
+        xtal::xtal {
+            function getcol () {return @double {1.0, 2.0, 3.0, 4.0}}
+            foreach e getcol() {
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {1.0 2.0 3.0 4.0}
+
+    test xtal-foreach-column-2.0 {foreach column break} -setup {
+        set l {}
+    } -body {
+        xtal::xtal {
+            foreach e @int {1, 2, 3, 4} {
+                if e > 2 { break }
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {1 2}
+    
+    test xtal-foreach-column-2.1 {foreach column continue} -setup { set l {} } -body {
+        xtal::xtal {
+            foreach e @int {1, 2, 3, 4} {
+                if e & 1 {continue}
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {2 4}
+    
+    # foreach with key over columns
+    test xtal-foreach-column-key-1.0 {foreach column keyvar} -setup {
+        set col [tarray::column create string {a b c d}]
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k,e col {
+                d.$e = k
+            }
+        }
+        set d
+    } -result {a 0 b 1 c 2 d 3}
+
+    test xtal-foreach-column-key-1.1 {for function returning columns} -setup {
+        proc getcol {} {tarray::column create string {a b c}}
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k , e getcol() {
+                d.$e = k
+            }
+        }
+        set d
+    } -result {a 0 b 1 c 2}
+    
+    test xtal-foreach-column-key-2.0 {foreach column keyvar break} -setup {
+        set col [tarray::column create string {a b c d}]
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k,e col {
+                if e == 'c' { break }
+                d.$k = e
+            }
+        }
+        set d
+    } -result {0 a 1 b}
+    
+    test xtal-foreach-column-key-2.1 {foreach column keyvar continue} -setup {
+        set col [tarray::column create string {a b c d}]
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k,e col {
+                if (k & 1) == 0 { continue }
+                d.$e = 10*k
+            }
+        }
+        set d
+    } -result {b 10 d 30}
+    
+    #
+    # foreach table tests
+
+    test xtal-foreach-table-1.0 {foreach table} -setup {
+        xtal::xtal {
+            T = @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set l {}
+    } -body {
+        xtal::xtal {
+            foreach e T {
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {{10 ten} {20 twenty} {30 thirty}}
+
+    test xtal-foreach-table-1.1 {foreach function returning tables} -setup {
+        xtal::function gettab {} {
+            return @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set l {}
+    } -body {
+        xtal::xtal {
+            foreach e gettab () {
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {{10 ten} {20 twenty} {30 thirty}}
+
+    test xtal-foreach-table-2.0 {foreach table break} -setup {
+        xtal::xtal {
+            T = @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set l {}
+    } -body {
+        xtal::xtal {
+            foreach e T {
+                if e[0] > 25 { break }
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {{10 ten} {20 twenty}}
+    
+    test xtal-foreach-table-2.1 {foreach table continue} -setup {
+        xtal::xtal {
+            T = @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set l {}
+    } -body {
+        xtal::xtal {
+            foreach e T {
+                if e[1] == "twenty" {continue}
+                l[%l] = e
+            }
+        }
+        set l
+    } -result {{10 ten} {30 thirty}}
+    
+    # foreach with key over tables
+    test xtal-foreach-table-key-1.0 {foreach table keyvar} -setup {
+        xtal::xtal {
+            T = @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k,e T {
+                d.$k = e
+            }
+        }
+        set d
+    } -result {0 {10 ten} 1 {20 twenty} 2 {30 thirty}}
+
+    test xtal-foreach-table-key-2.0 {foreach table keyvar break} -setup {
+        xtal::xtal {
+            T = @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k,e T {
+                d.$k = e
+                if (k == 1) { break }
+            }
+        }
+        set d
+    } -result {0 {10 ten} 1 {20 twenty}}
+ 
+    test xtal-foreach-table-key-2.1 {foreach table keyvar continue} -setup {
+        xtal::xtal {
+            T = @table (i int, s string) {
+                {10, "ten"}, {20, "twenty"}, {30, "thirty"}
+            }
+        }
+        set d [dict create]
+    } -body {
+        xtal::xtal {
+            foreach k,e T {
+                if (k & 1) == 0 { continue }
+                d.$k = e[1]
+            }
+        }
+        set d
+    } -result {1 twenty}
+
+    
+    # TBD syntax errors
+    # TBD tests for modiying collection from within loop
+}
+
+::tcltest::cleanupTests
