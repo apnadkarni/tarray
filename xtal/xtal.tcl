@@ -2267,31 +2267,30 @@ namespace eval xtal::rt {
                 table   { tarray::table::index $a $selexpr }
                 default { tarray::column::index $a $selexpr }
             }]
-        } else {
-            # Treat $selexpr as a index column
-            if {$seltype eq ""} {
-                set selexpr [tarray::column::create int $selexpr]
-            } else {
-                if {$seltype ne "int"} {
-                    # TBD - cast to int column if not table? Or
-                    # do that in the C code?
-                    error "Selector is not an index column"
+        }
+
+        # Either operand is not a list or index is not a simple integer
+        return [switch -exact -- $atype {
+            "" {
+                # Operand is a list
+                set n [llength $a]
+                if {$seltype ne ""} {
+                    # If indices are not a list, convert them to one
+                    # TBD - would it be faster to iterate retrieving one
+                    # element from the index column at a time? Probably
+                    # replace with tarray::iterate once implemented
+                    set selexpr [tarray::column::range -list $selexpr 0 end]
+                }
+                lmap pos $selexpr {
+                    if {$pos < 0 || $pos >= $n} {
+                        error "list index out of range"
+                    }
+                    lindex $a $pos
                 }
             }
-            return [switch -exact -- $atype {
-                "" {
-                    set n [llength $a]
-                    lmap pos [tarray::column::range -list $selexpr 0 end] {
-                        if {$pos < 0 || $pos >= $n} {
-                            error "list index out of range"
-                        }
-                        lindex $a $pos
-                    }
-                }
-                table   { tarray::table::get $a $selexpr }
-                default { tarray::column::get $a $selexpr }
-            }]
-        }
+            table   { tarray::table::get $a $selexpr }
+            default { tarray::column::get $a $selexpr }
+        }]
     }
 
     proc selector_range {range} {
