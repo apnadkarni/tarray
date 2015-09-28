@@ -2257,7 +2257,13 @@ namespace eval xtal::rt {
         if {$seltype eq "" && [string is integer -strict $selexpr]} {
             # Not a column, treat as an index
             return [switch -exact -- $atype {
-                ""      { lindex $a $selexpr }
+                ""      {
+                    set n [llength $a]
+                    if {$selexpr < 0 || $selexpr >= $n} {
+                            error "list index out of range"
+                        }
+                    lindex $a $selexpr
+                }
                 table   { tarray::table::index $a $selexpr }
                 default { tarray::column::index $a $selexpr }
             }]
@@ -2267,12 +2273,18 @@ namespace eval xtal::rt {
                 set selexpr [tarray::column::create int $selexpr]
             } else {
                 if {$seltype ne "int"} {
+                    # TBD - cast to int column if not table? Or
+                    # do that in the C code?
                     error "Selector is not an index column"
                 }
             }
             return [switch -exact -- $atype {
                 "" {
+                    set n [llength $a]
                     lmap pos [tarray::column::range -list $selexpr 0 end] {
+                        if {$pos < 0 || $pos >= $n} {
+                            error "list index out of range"
+                        }
                         lindex $a $pos
                     }
                 }
