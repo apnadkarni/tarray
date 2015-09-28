@@ -1501,6 +1501,19 @@ text {
 } text {
     which returns a column containing that single element.
 
+    [WARNING]
+    ====
+    However, because Tcl cannot distinguish between an integer
+    and a list containing a single integer, the following
+    expression returns a single element and not a column with a
+    single element:
+} xtal {
+    Rainfall[{0}]
+} text {
+    Therefore it is better to supply index lists as
+    integer column as opposed to a list of integers.
+    ====
+
     Like simple indices and ranges, index lists can be used with
     lists as well.
 } xtal {
@@ -1513,6 +1526,8 @@ text {
     The final form an index can take is that of a _selector_ which
     is a boolean expression involving the column or table.
 
+    .Selecting from columns
+    
     As we noted in ((^ sect_xtal_rel_ops "column operators"))
     comparison of a column with a scalar value results
     in an `int` column containing the indices for which the comparison
@@ -1520,12 +1535,6 @@ text {
     the boolean expression can be used as an expression that return
     an index list.
     
-    [WARNING]
-    Unlike other indexing operations, selectors will not work as
-    expected with Tcl lists. In particular, Tcl lists in boolean
-    expressions are treated as any other Tcl value and do not return
-    an index column.
-
     As a simple example of a selector, consider the following expression:
 } xtal { Rainfall > 100 } text {
     The return value is a column containing the indices corresponding
@@ -1534,13 +1543,28 @@ text {
     Therefore, we can use such boolean selectors as indices to 
     retrieve the actual values themselves.
 } xtal { Rainfall[Rainfall > 100] } text {
+    .Selecting from tables
+    
     Selectors can be used for tables as well with the operand being
     a contained column. Moreover, the selector need not be a simple
     boolean expression. The following prints all employees who are
     over 35 but have an income less than `70,000`.
 } outputlimit 0 xtal {
     print(Emps[Emps.Age > 35 && Emps.Salary < 70000]) 
+} text {
+    .Selecting from lists
+    
+    Although selectors may be used with lists as well, there
+    are currently some limitations. Only the operators
+    `==`, `!=`, `~` and `!~` can be used in list selectors.
+    Moreover, because Tcl cannot be distinguished from plain
+    strings, even these operators behave as selectors
+    (as opposed to plain comparison operators) only when the
+    operand is the same identifier as list being indexed.
+    It is best to use the ((^ sect_xtal_current_context "@@ context")),
+    discussed later, when indexing lists.
 }
+    
 
 text {
     ===== Ranges in selectors
@@ -1559,7 +1583,7 @@ text {
 }
 
 text {
-    ===== The `@@` selector context
+    ((===== sect_xtal_current_context "The `@@` selector context"))
 
     In previous examples, we supplied the variable containing the table
     or column, for example `Emps`, to the selector expression. In some
