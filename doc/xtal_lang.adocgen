@@ -29,13 +29,6 @@ text {
     Tcl and the two can be intermixed according to whatever syntax suits
     the task at hand.
 
-    [WARNING]
-    Xtal is still under development. Syntactic and functional changes
-    are likely. The parser and runtime is currently implemented in Tcl
-    for ease of development and therefore performance on
-    _scalar_ operation (as opposed to columns and tables)
-    will lag that of Tcl. Both will be reimplemented in C before
-    final release.
 }
 
 eval {
@@ -2018,3 +2011,13 @@ text {
     @sum(Emps.Salary)
 }
 
+text {
+    == In Conclusion
+    
+    Xtal is still under development. Syntactic and functional changes
+    are likely. The parser and runtime is currently implemented in Tcl
+    for ease of development and therefore performance on
+    _scalar_ operation (as opposed to columns and tables)
+    will lag that of Tcl. Both will be reimplemented in C before
+    final release.
+}
