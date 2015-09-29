@@ -2045,3 +2045,11 @@ text {
     will lag that of Tcl. It will be reimplemented using Tcl's C API
     before final release.
 }
+
+tbd {
+    Ambiguity L[{0,1}] = {100,200} when L is a list - fill or put?
+    Similar may also arise for columns and tables when RHS is not
+    a column
+
+    - see tarray_assign implementation
+}

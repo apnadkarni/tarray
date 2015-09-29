@@ -646,6 +646,107 @@ namespace eval tarray::test::xtal_list {
     
     
     # TBD - assignments
+    test xtal-list-assign-1.0 {list assignment} -body {
+        xtal::xtal { l = L } ; set l
+    } -result $L
+    
+    ################################################################
+    # list assign index
+    test xtal-list-assign-index-1.0 {list assign index} -setup {set l $L} -body {
+        xtal::xtal { l[0] = "ten" }
+    } -result [lreplace $L 0 0 ten]
+
+    test xtal-list-assign-index-1.1 {list assign last index} -setup {set l $L} -body {
+        xtal::xtal { l[%l] = "ten" }
+    } -result [linsert $L end ten]
+    
+    test xtal-list-assign-index-1.2 {list assign last index} -setup {set l $L} -body {
+        xtal::xtal {i = 2;  l[i] = "TWO" }
+    } -result [lreplace $L 2 2 TWO]
+    
+    test xtal-list-assign-index-1.3 {list assign last index} -setup {set l $L} -body {
+        xtal::xtal { l[%l-1] = "ten" }
+    } -result [lreplace $L end end ten]
+
+    test xtal-list-assign-index-2.0 {list assign index} -setup {set l $L} -body {
+        xtal::xtal { l[-1] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-index-2.1 {list assign index} -setup {set l $L} -body {
+        xtal::xtal { l[%l+1] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-index-2.2 {list assign index} -setup {
+        unset -nocomplain l
+    } -body {
+        xtal::xtal { l[0] = "ten" }
+    } -result "can't read \"l\": no such variable" -returnCodes error
+
+    ################################################################
+    # list assign indexlist
+    test xtal-list-assign-indexlist-1.0 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{0,1}] = {"ZERO", "ONE"} }
+    } -result [lreplace $L 0 1 ZERO ONE]
+
+    test xtal-list-assign-indexlist-1.1 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{0,1}] = {"ZERO", "ONE", "TWO"} }
+    } -result [lreplace $L 0 1 {ZERO ONE TWO}]
+
+    test xtal-list-assign-indexlist-1.2 {list assign last indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{%l-1,%l}] = {"x","y" } }
+    } -result [lreplace $L end end x y]
+    
+    test xtal-list-assign-indexlist-1.3 {list assign indexlist out of order} -setup {set l $L} -body {
+        xtal::xtal { l[{2,1}] = {"TWO", "ONE"} }
+    } -result [lreplace $L 1 2 ONE TWO]
+    
+    test xtal-list-assign-indexlist-1.4 {list assign empty indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{}] = {} }
+    } -result $L
+
+    test xtal-list-assign-indexlist-1.5 {list assign empty indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{}] = "ten" }
+    } -result $L
+    
+    test xtal-list-assign-indexlist-1.6 {list assign indexlist vars} -setup {
+        set l $L
+        set i 1
+    } -body {
+        xtal::xtal { l[{i+1,i}] = {"TWO", "ONE"} }
+    } -result [lreplace $L 1 2 ONE TWO]
+
+    test xtal-list-assign-indexlist-1.7 {list assign indexlist extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[{%l,%l+1}] = {"x","y" } }
+    } -result [linsert $L end x y]
+    
+    test xtal-list-assign-indexlist-1.8 {list assign indexlist extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[{%l,%l+2, %l+1}] = {"x","y","z" } }
+    } -result  [linsert $L end x z y]
+
+    test xtal-list-assign-indexlist-2.0 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{-1,0}] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-indexlist-2.1 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{0,%l+1}] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-indexlist-2.2 {list assign indexlist} -setup {
+        unset -nocomplain l
+    } -body {
+        xtal::xtal { l[{0,1}] = "ten" }
+    } -result "can't read \"l\": no such variable" -returnCodes error
+
+    test xtal-list-assign-indexlist-2.3 {list assign indexlist extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[{%l,%l+2}] = {"x","y" } }
+    } -result "list index out of range" -returnCodes error
+
  }
 
 ::tcltest::cleanupTests
