@@ -1993,7 +1993,7 @@ namespace eval xtal::rt {
             if {[is_selector_context $a]} {
                 # $a is the selector context and so treat as a list
                 if {$btype ne "" || [is_selector_context $b]} {
-                    error "Operation $op not supported between columns or columns and lists."
+                    error "Operator $op not supported between columns or columns and lists."
                 }
                 # Return an int column containing matching indices
                 return [matching_list_indices $op $a $b]
@@ -2012,7 +2012,7 @@ namespace eval xtal::rt {
         } else {
             # $a is a column
             if {$btype ne "" || [is_selector_context $b]} {
-                error "Operation $op not supported between columns or columns and lists"
+                error "Operator $op not supported between columns or columns and lists"
             }
             # $b is a scalar
             return [tarray::column::search -all {*}[xtal::_map_search_op $op] $a $b]
@@ -2025,7 +2025,7 @@ namespace eval xtal::rt {
             if {[is_selector_context $a]} {
                 # $a is the selector context and so treat as a list
                 if {$btype ne "" || [is_selector_context $b]} {
-                    error "Operation == not supported between columns or columns and lists"
+                    error "Operator == not supported between columns or columns and lists"
                 }
                 # Return an int column containing matching indices
                 return [matching_list_indices == $a $b]
@@ -2044,7 +2044,7 @@ namespace eval xtal::rt {
         } else {
             # $a is a column
             if {$btype ne "" || [is_selector_context $b]} {
-                error "Operation == not supported between columns or columns and lists"
+                error "Operator == not supported between columns or columns and lists"
             }
             # $b is a scalar
             return [tarray::column::search -all -eq $a $b]
@@ -2178,7 +2178,7 @@ namespace eval xtal::rt {
             ~^  {lsearch -all -nocase -regexp $haystack $needle}
             !~^ {lsearch -all -nocase -not -regexp $haystack $needle}
             default {
-                error "Operation $op not supported on lists."
+                error "Operator $op not supported on lists."
             }
         }]
         return [::tarray::column create int $indices]
@@ -2190,7 +2190,7 @@ namespace eval xtal::rt {
             if {[is_selector_context $a]} {
                 # $a is the selector context and so treat as a list
                 if {$btype ne "" || [is_selector_context $b]} {
-                    error "Operation $op not supported between columns or columns and lists"
+                    error "Operator $op not supported between columns or columns and lists"
                 }
                 # Return an int column containing matching indices
                 return [matching_list_indices $op $a $b]
@@ -2202,7 +2202,7 @@ namespace eval xtal::rt {
                     if {$op in {=^ !^}} {
                         return [matching_list_indices $op $b $a]
                     }
-                    error "The right hand operand of pattern or regexp matching operator $op cannot be a vector."
+                    error "The right hand operand of operator $op cannot be a vector."
                 } 
                 # a and b are both scalars
                 return [switch -exact -- $op {
@@ -2218,13 +2218,13 @@ namespace eval xtal::rt {
                 return [switch -exact -- $op {
                     =^ { tarray::column::search -all -nocase -eq $b $a }
                     !^ { tarray::column::search -all -nocase -not -eq $b $a }
-                    default {error "The right hand operand of pattern or regexp matching operator $op cannot be a vector."}
+                    default {error "The right hand operand of operator $op cannot be a vector."}
                 }]
             }
         } else {
             # a is a column
             if {$btype ne "" || [is_selector_context $b]} {
-                error "Operation $op not supported between columns or columns and lists"
+                error "Operator $op not supported between columns or columns and lists"
             }
             # a column, b scalar
             return [switch -exact -- $op {
@@ -2616,7 +2616,7 @@ namespace eval xtal::rt {
                     "-nocase -pat" { lsearch -nocase -glob -all -inline $haystack $needle }
                     "-nocase -not -pat" { lsearch -nocase -not -glob -all -inline $haystack $needle }
                     default {
-                        error "The specified search operator is invalid for lists."
+                        error "The specified selector operator is invalid for lists."
                     }
                 }
             }
