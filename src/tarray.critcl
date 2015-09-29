@@ -216,6 +216,11 @@ critcl::cinit {
 ################################################################
 # General commands
 
+# Check if two Tcl_Obj pointers refer to the same object
+critcl::cproc tarray::_same_tclobj {Tcl_Obj* o1 Tcl_Obj* o2} int {
+    return o1 == o2;
+}
+
 # TBD - tests for the types command
 critcl::ccommand tarray::types {} {
     int i;
