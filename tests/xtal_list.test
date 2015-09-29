@@ -326,6 +326,8 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {L[L !~ ".o$" && %L-1:%L]}
     } -result {{3 three}}
     
+    #TBD - tests with ^
+    
     set testnum -1
     foreach op {> < >= <=} {
         test xtal-list-selector-range-err-1.[incr testnum] "list selector $op" -body {
@@ -335,6 +337,7 @@ namespace eval tarray::test::xtal_list {
             xtal::xtal "I\[@@ $op 30 && 0:2 \]"
         } -result "The specified selector operator is invalid for lists." -returnCodes error
     }
+
 
     # TBD - tests with || instead of &&
 }

@@ -2036,12 +2036,12 @@ text {
 }
 
 text {
-    == In Conclusion
+    == Futures
     
     Xtal is still under development. Syntactic and functional changes
-    are likely. The parser and runtime is currently implemented in Tcl
+    are likely. The runtime is currently scripted in Tcl
     for ease of development and therefore performance on
     _scalar_ operation (as opposed to columns and tables)
-    will lag that of Tcl. Both will be reimplemented in C before
-    final release.
+    will lag that of Tcl. It will be reimplemented using Tcl's C API
+    before final release.
 }

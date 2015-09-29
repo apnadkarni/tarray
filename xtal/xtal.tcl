@@ -61,12 +61,6 @@ proc xtal::_map_search_op {op} {
     # Maps relational operators to column search switches
     # Note the order of options in each entry is important as they 
     # are checked for in other places.
-    # NOTE: The following string match are currently removed from the
-    # grammar so are not included in table below
-    # =*  {-pat}
-    # !*  {-not -pat}
-    # =*^ {-nocase -pat}
-    # !*^ {-nocase -not -pat}
     set map {
         ==  {-eq}
         !=  {-not -eq}
@@ -1101,6 +1095,10 @@ oo::class create xtal::Compiler {
         }
     }
 
+    # TBD - optimizations
+    # _mathop, _relop, _strop result in switching on $op at runtime. Change to
+    # switch on $op during compile time (may be use _map_search_op etc.)
+
     method _mathop {op args} {
         return "\[tarray::column::math $op [join [lmap arg $args { my {*}$arg }] { }]\]"
     }
@@ -1114,7 +1112,7 @@ oo::class create xtal::Compiler {
     forward ^ my _mathop ^
 
     method _relop {op first second} {
-        return "\[xtal::rt::relop$op [my {*}$first] [my {*}$second]\]"
+        return "\[xtal::rt::relop $op [my {*}$first] [my {*}$second]\]"
     }
 
     forward == my _relop ==
@@ -1442,6 +1440,15 @@ namespace eval xtal::rt {
             return [lindex $_selector_contexts end]
         }
         error "Not in a selector context"
+    }
+
+    proc is_selector_context {val} {
+        variable _selector_contexts
+        if {[llength $_selector_contexts]} {
+            return [::tarray::_same_tclobj $val [lindex $_selector_contexts end]]
+        } else {
+            return 0
+        }
     }
 
     proc push_selector_context {val} {
@@ -1975,30 +1982,76 @@ namespace eval xtal::rt {
     proc _relop_check {a b} {
         lassign [tarray::types $a $b] atype btype
         if {$atype eq "table" || $btype eq "table"} {
-            error "Tables cannot be operands for a relational operator"
+            error "Tables cannot be operands for a relational operator."
         }
         return [list $atype $btype]
     }
-    proc relop== {a b} {
+
+    proc relop {op a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
+            if {[is_selector_context $a]} {
+                # $a is the selector context and so treat as a list
+                if {$btype ne "" || [is_selector_context $b]} {
+                    error "Operation $op not supported between columns or columns and lists."
+                }
+                # Return an int column containing matching indices
+                return [matching_list_indices $op $a $b]
+            }
+            # $a is a scalar
             if {$btype eq ""} {
-                # Neither is a tarray
+                if {[is_selector_context $b]} {
+                    # a is scalar, b is not
+                    return [matching_list_indices $op $b $a]
+                } 
+                # Both scalars
+                return [tcl::mathop::$op $a $b]
+            } else {
+                return [tarray::column::search -all {*}[xtal::_map_search_op_reverse $op] $b $a]
+            }
+        } else {
+            # $a is a column
+            if {$btype ne "" || [is_selector_context $b]} {
+                error "Operation $op not supported between columns or columns and lists"
+            }
+            # $b is a scalar
+            return [tarray::column::search -all {*}[xtal::_map_search_op $op] $a $b]
+        }
+    }
+
+    proc XXXrelop== {a b} {
+        lassign [_relop_check $a $b] atype btype
+        if {$atype eq ""} {
+            if {[is_selector_context $a]} {
+                # $a is the selector context and so treat as a list
+                if {$btype ne "" || [is_selector_context $b]} {
+                    error "Operation == not supported between columns or columns and lists"
+                }
+                # Return an int column containing matching indices
+                return [matching_list_indices == $a $b]
+            }
+            # $a is a scalar
+            if {$btype eq ""} {
+                if {[is_selector_context $b]} {
+                    # a is scalar, b is not
+                    return [matching_list_indices == $b $a]
+                } 
+                # Both scalars
                 return [tcl::mathop::== $a $b]
             } else {
                 return [tarray::column::search -all -eq $b $a]
             }
         } else {
-            if {$btype eq ""} {
-                return [tarray::column::search -all -eq $a $b]
-            } else {
-                # TBD 
-                error "Column==Column not implemented"
+            # $a is a column
+            if {$btype ne "" || [is_selector_context $b]} {
+                error "Operation == not supported between columns or columns and lists"
             }
+            # $b is a scalar
+            return [tarray::column::search -all -eq $a $b]
         }
     }
 
-    proc relop!= {a b} {
+    proc XXXrelop!= {a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
             if {$btype eq ""} {
@@ -2017,7 +2070,7 @@ namespace eval xtal::rt {
         }
     }
 
-    proc relop< {a b} {
+    proc XXXrelop< {a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
             if {$btype eq ""} {
@@ -2037,7 +2090,7 @@ namespace eval xtal::rt {
     }
 
 
-    proc relop<= {a b} {
+    proc XXXrelop<= {a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
             if {$btype eq ""} {
@@ -2057,7 +2110,7 @@ namespace eval xtal::rt {
     }
 
 
-    proc relop> {a b} {
+    proc XXXrelop> {a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
             if {$btype eq ""} {
@@ -2076,7 +2129,7 @@ namespace eval xtal::rt {
         }
     }
 
-    proc relop>= {a b} {
+    proc XXXrelop>= {a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
             if {$btype eq ""} {
@@ -2095,11 +2148,63 @@ namespace eval xtal::rt {
         }
     }
 
+    # TBD - is matching_column_indices actually used anywhere?
+    proc matching_column_indices {op haystack needle} {
+        return [switch -exact -- $op {
+            ==  { tarray::column::search -all -eq $haystack $needle }
+            !=  { tarray::column::search -all -not -eq $haystack $needle }
+            <   { tarray::column::search -all -lt $haystack $needle }
+            <=  { tarray::column::search -all -not -gt $haystack $needle }
+            >   { tarray::column::search -all -gt $haystack $needle }
+            >=  { tarray::column::search -all -not -lt $haystack $needle }
+            =^  { tarray::column::search -all -nocase -eq $haystack $needle }
+            !^  { tarray::column::search -all -nocase -not -eq $haystack $needle }
+            ~  { tarray::column::search -all -re $haystack $needle }
+            !~  { tarray::column::search -all -not -re $haystack $needle }
+            ~^ { tarray::column::search -all -nocase -re $haystack $needle }
+            !~^ { tarray::column::search -all -nocase -not -re $haystack $needle }
+        }]
+    }
+
+    proc matching_list_indices {op haystack needle} {
+        # haystack must be a list, not column
+        set indices [switch -exact -- $op {
+            ==  {lsearch -all -exact $haystack $needle}
+            !=  {lsearch -all -not -exact $haystack $needle}
+            =^  {lsearch -all -nocase -exact $haystack $needle}
+            !^  {lsearch -all -nocase -not -exact $haystack $needle}
+            ~   {lsearch -all -regexp $haystack $needle}
+            !~  {lsearch -all -not -regexp $haystack $needle}
+            ~^  {lsearch -all -nocase -regexp $haystack $needle}
+            !~^ {lsearch -all -nocase -not -regexp $haystack $needle}
+            default {
+                error "Operation $op not supported on lists."
+            }
+        }]
+        return [::tarray::column create int $indices]
+    }
+
     proc strop {op a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
+            if {[is_selector_context $a]} {
+                # $a is the selector context and so treat as a list
+                if {$btype ne "" || [is_selector_context $b]} {
+                    error "Operation $op not supported between columns or columns and lists"
+                }
+                # Return an int column containing matching indices
+                return [matching_list_indices $op $a $b]
+            }
+            # $a is not a column and not a selector context (i.e. scalar)
             if {$btype eq ""} {
-                # Neither is a tarray
+                if {[is_selector_context $b]} {
+                    # a is scalar, b is not. Only permit equality/inequality
+                    if {$op in {=^ !^}} {
+                        return [matching_list_indices $op $b $a]
+                    }
+                    error "The right hand operand of pattern or regexp matching operator $op cannot be a vector."
+                } 
+                # a and b are both scalars
                 return [switch -exact -- $op {
                     =^ {string equal -nocase $a $b}
                     !^ {expr {![string equal -nocase $a $b]}}
@@ -2107,24 +2212,21 @@ namespace eval xtal::rt {
                     !~ {expr {![regexp -- $b $a]}}
                     ~^ {regexp -nocase -- $b $a}
                     !~^ {expr {![regexp -nocase -- $b $a]}}
-                    =* {string match $b $a}
-                    !* {expr {![string match $b $a]}}
-                    =*^ {string match -nocase $b $a}
-                    !*^ {expr {![string match -nocase $b $a]}}
+                }]
+            } else {
+                # a is scalar, b is column. Only permit equality/inequality
+                return [switch -exact -- $op {
+                    =^ { tarray::column::search -all -nocase -eq $b $a }
+                    !^ { tarray::column::search -all -nocase -not -eq $b $a }
+                    default {error "The right hand operand of pattern or regexp matching operator $op cannot be a vector."}
                 }]
             }
-            # a is scalar, b is vector. Only permit equality/inequality
-            switch -exact -- $op {
-                =^ { return [tarray::column::search -all -nocase -eq $b $a] }
-                !^ { return [tarray::column::search -all -nocase -not -eq $b $a] }
-                default {error "The right hand operand of pattern or regexp matching operator $op cannot be a column."}
-            }
         } else {
-            # a is a tarray
-            if {$btype ne ""} {
-                error "Operation $op not supported between columns"
+            # a is a column
+            if {$btype ne "" || [is_selector_context $b]} {
+                error "Operation $op not supported between columns or columns and lists"
             }
-            # a tarray, b scalar
+            # a column, b scalar
             return [switch -exact -- $op {
                 =^  { tarray::column::search -all -nocase -eq $b $a }
                 !^  { tarray::column::search -all -nocase -not -eq $b $a }
@@ -2132,10 +2234,6 @@ namespace eval xtal::rt {
                 !~  { tarray::column::search -all -not -re $a $b }
                 ~^ { tarray::column::search -all -nocase -re $a $b }
                 !~^ { tarray::column::search -all -nocase -not -re $a $b }
-                =*  { tarray::column::search -all -pat $a $b }
-                !*  { tarray::column::search -all -not -pat $a $b }
-                =*^ { tarray::column::search -all -nocase -pat $a $b }
-                !*^ { tarray::column::search -all -nocase -not -pat $a $b }
             }]
         }
     }
