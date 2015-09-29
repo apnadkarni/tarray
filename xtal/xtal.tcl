@@ -2304,14 +2304,39 @@ namespace eval xtal::rt {
             error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$atype eq "" || $btype eq ""} {
-            error "Columns cannot be used as operands of a logical operator."
+        if {$atype ne "" || $btype ne ""} {
+            # Both are columns. Treat as intersection operator.
+            # TBD - optimize if a or b are empty or does intersect3 already do that
+            # TBD - are the elements in increasing order after intersect?
+            return [lindex [tarray::column::intersect3 $a $b] 0]
         }
 
-        # Both are tarrays. Treat as intersection operator.
-        # TBD - optimize if a or b are empty or does intersect3 already do that
-        # TBD - are the elements in increasing order after intersect?
-        return [lindex [tarray::column::intersect3 $a $b] 0]
+        # TBD - for consistency with the || case (see the _or2 routine)
+        # we disallow this until we figure out what to do there.
+        error "Invalid logical and operation on a column and a scalar"
+        
+        Rest of this code to be enabled in the future.
+        # At most one of a and b are scalars
+        if {$atype eq ""} {
+            # b is a column. Only permit if a is a boolean
+            if {[string is boolean $b]} {
+                if {$b} {
+                    return $a
+                } else {
+                    return [::tarray::column create $atype]
+                }
+            }
+        } else {
+            if {[string is boolean $a]} {
+                if {$a} {
+                    return $b
+                } else {
+                    return [::tarray::column create $btype]
+                }
+            }
+        }
+
+        error "Columns can only be logically and'ed with boolean scalars"
     }
 
     proc or {args} {
@@ -2334,19 +2359,22 @@ namespace eval xtal::rt {
             error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$atype eq "" || $btype eq ""} {
-            error "Columns cannot be used as operands of a logical operator."
+        if {$atype ne "" || $btype ne ""} {
+            # Both are tarrays. Treat as intersection operator
+            # Can't use tarray::intersect3+tarray::sort because of 
+            # uniqueness requirement
+            # TBD - are the elements in increasing order after union?
+            # TBD - implement union in C
+            return [tarray::column::create int \
+                        [lsort -integer -unique \
+                             [concat [tarray::column::range -list $a 0 end] \
+                                  [tarray::column::range -list $b 0 end]]]]
         }
         
-        # Both are tarrays. Treat as intersection operator
-        # Can't use tarray::intersect3+tarray::sort because of 
-        # uniqueness requirement
-        # TBD - are the elements in increasing order after union?
-        # TBD - implement union in C
-        return [tarray::column::create int \
-                    [lsort -integer -unique \
-                         [concat [tarray::column::range -list $a 0 end] \
-                              [tarray::column::range -list $b 0 end]]]]
+        # TBD  - we would like C[I || 1] to mean entire column C
+        # At this point we only have a = I and b = 1 and don't know
+        # how to convey "all" elements of C. So for now disallow.
+        error "Invalid logical or operation on a column and a scalar"
     }
 
     proc selector {a selexpr} {
