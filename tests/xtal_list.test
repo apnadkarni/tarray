@@ -602,7 +602,49 @@ namespace eval tarray::test::xtal_list {
         } -result "Operator $op not supported on lists." -returnCodes error
     }
 
-    # TBD - tests with compound expressions
+    ################################################################
+    # Compound expressions
+    test xtal-list-selector-compound-1.0 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && LC ~ "e"]}
+    } -result {zero one}
+    
+    test xtal-list-selector-compound-1.1 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && @@ !~ "e"]}
+    } -result {two}
+    
+    test xtal-list-selector-compound-1.2 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && 1]}
+    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    
+    test xtal-list-selector-compound-1.3 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && 0]}
+    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    
+    test xtal-list-selector-compound-2.0 {list selector || selector} -body {
+        xtal::xtal {LC[LC ~ "w" || LC ~ "t"]}
+    } -result {two {3 three} string}
+    
+    test xtal-list-selector-compound-2.1 {list selector || selector} -body {
+        xtal::xtal {LC[@@ ~ "w" || @@ ~^ "t"]}
+    } -result {two {3 three} string STRING}
+    
+    test xtal-list-selector-compound-2.2 {list selector || selector} -body {
+        xtal::xtal {LC[LC ~ "o" || 1]}
+    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    
+    test xtal-list-selector-compound-2.3 {list selector || selector} -body {
+        xtal::xtal {LC[LC ~ "o" || 0]}
+    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+
+    test xtal-list-selector-compound-3.0 {list selector && || selector} -body {
+        xtal::xtal {LC[(@@ ~ "r" || @@ ~ "n") && LC ~ "o"]}
+    } -result {zero one}
+
+    test xtal-list-selector-compound-3.1 {list selector && || selector} -body {
+        xtal::xtal {LC[@@ ~ "r" || @@ ~ "n" && LC ~ "o"]}
+    } -result {zero one {3 three} string}
+    
+    
     # TBD - assignments
  }
 
