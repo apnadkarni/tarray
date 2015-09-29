@@ -422,6 +422,10 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {I[1:%I-1 && I != 22]}
     } -result {-11 44}
     
+    test xtal-list-selector-and-range-1.2.2 {list selector !=} -body {
+        xtal::xtal {I[1:0 && I != 22]}
+    } -result {}
+    
     test xtal-list-selector-and-range-1.3 {list selector !=} -body {
         xtal::xtal {I[I != 23 && 0:2]}
     } -result [lrange $I 0 2]
@@ -497,8 +501,107 @@ namespace eval tarray::test::xtal_list {
         } -result "Operator $op not supported on lists." -returnCodes error
     }
 
+    ################################################################
+    # selector || range
+    test xtal-list-selector-or-range-1.0 {list selector ==} -body {
+        xtal::xtal {I[I == 22 || 1:3]}
+    } -result {-11 22 44 22}
+    
+    test xtal-list-selector-or-range-1.0.1 {list selector ==} -body {
+        xtal::xtal {I[3: || I == 22]}
+    } -result {22 44 22}
+    
+    test xtal-list-selector-or-range-1.1 {list selector ==} -body {
+        xtal::xtal {I[0:1 || I == 22]}
+    } -result {33 -11 22 22}
+    
+    test xtal-list-selector-or-range-1.1.1 {list selector ==} -body {
+        xtal::xtal {I[22 == I || 0:1]}
+    } -result {33 -11 22 22}
+    
+    test xtal-list-selector-or-range-1.2 {list selector !=} -body {
+        xtal::xtal {I[I != 22 || 1:%I-3]}
+    } -result {33 -11 22 44}
+    
+    test xtal-list-selector-or-range-1.2.1 {list selector !=} -body {
+        xtal::xtal {I[1:%I-1 || I != 22]}
+    } -result $I
+    
+    test xtal-list-selector-or-range-1.3 {list selector !=} -body {
+        xtal::xtal {I[I != 23 || 0:2]}
+    } -result $I
 
-    # TBD - tests with || instead of &&
+    test xtal-list-selector-or-range-1.4 {list selector ==} -body {
+        xtal::xtal {I[@@ == 22 || 0:1]}
+    } -result {33 -11 22 22}
+
+    test xtal-list-selector-or-range-1.4.1 {list selector ==} -body {
+        xtal::xtal {I[0:-1 || 22 == @@]}
+    } -result {22 22}
+
+    test xtal-list-selector-or-range-1.4.2 {list selector ==} -body {
+        xtal::xtal {I[0:%I || 22 == @@]}
+    } -result "list index out of range" -returnCodes error
+
+    test xtal-list-selector-or-range-1.5 {list selector !=} -body {
+        xtal::xtal {I[0:2 || @@ != 22]}
+    } -result {33 -11 22 44}
+
+    test xtal-list-selector-or-range-2.0 {list selector ~} -body {
+        xtal::xtal {L[0:1 || @@ ~ ".o$"]}
+    } -result {zero one two}
+    
+    test xtal-list-selector-or-range-2.0.1 {list selector ~} -body {
+        xtal::xtal {L[@@ ~ ".o$" || 0:1]}
+    } -result {zero one two}
+    
+    test xtal-list-selector-or-range-2.1 {list selector ~} -body {
+        xtal::xtal {L[0:%L-1 || L ~ ".x$"]}
+    } -result $L
+
+    test xtal-list-selector-or-range-2.2 {list selector !~} -body {
+        xtal::xtal {L[L !~ ".o$" || %L-2:%L-1]}
+    } -result {one two {3 three}}
+    
+    test xtal-list-selector-or-range-2.3 {list selector ~} -body {
+        xtal::xtal {LC[0:2 || LC ~ "s.*"]}
+    } -result {zero one two string}
+
+    test xtal-list-selector-2.3.1 {list selector ~} -body {
+        xtal::xtal {LC[0:2 || "s.*" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-or-range-2.4 {list selector ~} -body {
+        xtal::xtal {LC[0: || LC ~ "x.*"]}
+    } -result $LC
+
+    test xtal-list-selector-or-range-2.5 {list selector ~^} -body {
+        xtal::xtal {LC[0:%LC-2 || LC ~^ "s.*"]}
+    } -result $LC
+
+    test xtal-list-selector-or-range-2.6 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" || 0:%LC-1]}
+    } -result $LC
+
+    test xtal-list-selector-or-range-2.6.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" || 0:0]}
+    } -result {zero string STRING}
+
+    test xtal-list-selector-or-range-2.1.1 {list selector ~^} -body {
+        xtal::xtal {LC["s.*" ~^ LC]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+    
+    set testnum -1
+    foreach op {> < >= <=} {
+        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[0:3  || @@ $op 30\]"
+        } -result "Operator $op not supported on lists." -returnCodes error
+
+        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[@@ $op 30 || 0:2 \]"
+        } -result "Operator $op not supported on lists." -returnCodes error
+    }
+
     # TBD - tests with compound expressions
     # TBD - assignments
  }
