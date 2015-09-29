@@ -5,6 +5,7 @@ source testutil.tcl
 namespace eval tarray::test::xtal_list {
     namespace path ::tarray::test
     set L {zero one two {3 three}}
+    set LC {zero one two {3 three} string STRING}
     set I {33 -11 22 44 22}
     proc fn {arg} {return $arg}
 
@@ -142,8 +143,8 @@ namespace eval tarray::test::xtal_list {
 
     test xtal-list-indexlist-2.3 {list variable indexlist} -body {
         xtal::xtal {
-            I = {1,2,3,0}
-            I[I]
+            i = {1,2,3,0}
+            i[i]
         }
     } -result {2 3 0 1}
 
@@ -244,102 +245,262 @@ namespace eval tarray::test::xtal_list {
     test xtal-list-selector-1.0 {list selector ==} -body {
         xtal::xtal {I[I == 22]}
     } -result {22 22}
+
+    test xtal-list-selector-1.0.1 {list selector ==} -body {
+        xtal::xtal {I[22 == I]}
+    } -result {22 22}
     
     test xtal-list-selector-1.1 {list selector ==} -body {
         xtal::xtal {I[I == 23]}
     } -result {}
+
+    test xtal-list-selector-1.1.1 {list selector ==} -body {
+        xtal::xtal {I[23 == I]}
+    } -result {}
     
     test xtal-list-selector-1.2 {list selector !=} -body {
         xtal::xtal {I[I != 22]}
+    } -result {33 -11 44}
+
+    test xtal-list-selector-1.2.1 {list selector !=} -body {
+        xtal::xtal {I[22 != I]}
     } -result {33 -11 44}
     
     test xtal-list-selector-1.3 {list selector !=} -body {
         xtal::xtal {I[I != 23]}
     } -result $I
 
+    test xtal-list-selector-1.3.1 {list selector !=} -body {
+        xtal::xtal {I[23 != I]}
+    } -result $I
+
     test xtal-list-selector-1.4 {list selector ==} -body {
         xtal::xtal {I[@@ == 22]}
+    } -result {22 22}
+
+    test xtal-list-selector-1.4.1 {list selector ==} -body {
+        xtal::xtal {I[22 == @@]}
     } -result {22 22}
 
     test xtal-list-selector-1.5 {list selector !=} -body {
         xtal::xtal {I[@@ != 22]}
     } -result {33 -11 44}
 
+    test xtal-list-selector-1.5.1 {list selector !=} -body {
+        xtal::xtal {I[22 != @@]}
+    } -result {33 -11 44}
+
+    test xtal-list-selector-1.6 {list selector ==} -body {
+        xtal::xtal {LC[LC == "string"]}
+    } -result string
+
+    test xtal-list-selector-1.6.1 {list selector ==} -body {
+        xtal::xtal {LC["string" == LC]}
+    } -result string
+
+    test xtal-list-selector-1.7 {list selector =^} -body {
+        xtal::xtal {LC[LC =^ "string"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-1.7.1 {list selector =^} -body {
+        xtal::xtal {LC["string" =^ LC]}
+    } -result {string STRING}
+
+    test xtal-list-selector-1.8 {list selector =^} -body {
+        xtal::xtal {LC[@@ =^ "STRING"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-1.8.1 {list selector =^} -body {
+        xtal::xtal {LC["STRING" =^ @@]}
+    } -result {string STRING}
+            
+    test xtal-list-selector-1.9 {list selector !=} -body {
+        xtal::xtal {LC[LC != "string"]}
+    } -result {zero one two {3 three} STRING}
+
+    test xtal-list-selector-1.9.1 {list selector !=} -body {
+        xtal::xtal {LC["string" != LC]}
+    } -result {zero one two {3 three} STRING}
+
+    test xtal-list-selector-1.10 {list selector !^} -body {
+        xtal::xtal {LC[@@ !^ "string"]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-1.10.1 {list selector !^} -body {
+        xtal::xtal {LC["string" !^ @@]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-1.11 {list selector !^} -body {
+        xtal::xtal {LC[LC !^ "STRING"]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-1.11.1 {list selector !^} -body {
+        xtal::xtal {LC["STRING" !^ LC]}
+    } -result {zero one two {3 three}}
+            
     test xtal-list-selector-2.0 {list selector ~} -body {
-        xtal::xtal {L[L ~ ".o$"]}
-    } -result {zero two}
+        xtal::xtal {LC[LC ~ "s.*"]}
+    } -result string
+
+    test xtal-list-selector-2.0.1 {list selector ~} -body {
+        xtal::xtal {LC["s.*" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-2.1.1 {list selector ~^} -body {
+        xtal::xtal {LC["s.*" ~^ LC]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.2 {list selector ~^} -body {
+        xtal::xtal {LC[@@ ~^ "G$"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-2.2.1 {list selector ~^} -body {
+        xtal::xtal {LC["G$" ~^ @@]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
     
-    test xtal-list-selector-2.1 {list selector ~} -body {
-        xtal::xtal {L[L ~ ".x$"]}
+    test xtal-list-selector-2.3 {list selector ~} -body {
+        xtal::xtal {LC[LC ~ ".x$"]}
     } -result {}
 
-    test xtal-list-selector-2.2 {list selector !~} -body {
-        xtal::xtal {L[L !~ ".o$"]}
-    } -result {one {3 three}}
-    
-    test xtal-list-selector-2.3 {list selector !~} -body {
-        xtal::xtal {L[@@ !~ ".o$"]}
-    } -result {one {3 three}}
+    test xtal-list-selector-2.3.1 {list selector ~} -body {
+        xtal::xtal {LC[".x$" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
 
+    test xtal-list-selector-2.4 {list selector !~} -body {
+        xtal::xtal {LC[LC !~ "^s"]}
+    } -result {zero one two {3 three} STRING}
+
+    test xtal-list-selector-2.4.1 {list selector !~} -body {
+        xtal::xtal {LC["^s" !~ LC]}
+    } -result "The right hand operand of operator !~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.5 {list selector !~^} -body {
+        xtal::xtal {LC[LC !~^ "^s"]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-2.5.1 {list selector !~^} -body {
+        xtal::xtal {LC["^s" !~^ LC]}
+    } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
+    
     set testnum -1
     foreach op {> < >= <=} {
         test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
             xtal::xtal "I\[@@ $op 30\]"
         } -result "The specified selector operator is invalid for lists." -returnCodes error
+        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[30 $op I\]"
+        } -result "The specified selector operator is invalid for lists." -returnCodes error
     }
 
     ################################################################
-    # selector + range
-    test xtal-list-selector-range-1.0 {list selector ==} -body {
+    # selector && range
+    test xtal-list-selector-and-range-1.0 {list selector ==} -body {
         xtal::xtal {I[I == 22 && 3:]}
     } -result {22}
     
-    test xtal-list-selector-range-1.1 {list selector ==} -body {
+    test xtal-list-selector-and-range-1.0.1 {list selector ==} -body {
+        xtal::xtal {I[3: && I == 22]}
+    } -result {22}
+    
+    test xtal-list-selector-and-range-1.1 {list selector ==} -body {
         xtal::xtal {I[0:1 && I == 22]}
     } -result {}
     
-    test xtal-list-selector-range-1.2 {list selector !=} -body {
-        xtal::xtal {I[I != 22 && 1:%I-1]}
-    } -result {33 -11 44}
+    test xtal-list-selector-and-range-1.1.1 {list selector ==} -body {
+        xtal::xtal {I[22 == I && 0:1]}
+    } -result {}
     
-    test xtal-list-selector-range-1.3 {list selector !=} -body {
+    test xtal-list-selector-and-range-1.2 {list selector !=} -body {
+        xtal::xtal {I[I != 22 && 1:%I-1]}
+    } -result {-11 44}
+    
+    test xtal-list-selector-and-range-1.2.1 {list selector !=} -body {
+        xtal::xtal {I[1:%I-1 && I != 22]}
+    } -result {-11 44}
+    
+    test xtal-list-selector-and-range-1.3 {list selector !=} -body {
         xtal::xtal {I[I != 23 && 0:2]}
     } -result [lrange $I 0 2]
 
-    test xtal-list-selector-range-1.4 {list selector ==} -body {
+    test xtal-list-selector-and-range-1.4 {list selector ==} -body {
         xtal::xtal {I[@@ == 22 && 0:%I]}
     } -result {22 22}
 
-    test xtal-list-selector-range-1.5 {list selector !=} -body {
+    test xtal-list-selector-and-range-1.4.1 {list selector ==} -body {
+        xtal::xtal {I[0:%I && 22 == @@]}
+    } -result {22 22}
+
+    test xtal-list-selector-and-range-1.5 {list selector !=} -body {
         xtal::xtal {I[0:2 && @@ != 22]}
     } -result {33 -11}
 
-    test xtal-list-selector-range-2.0 {list selector ~} -body {
+    test xtal-list-selector-and-range-2.0 {list selector ~} -body {
         xtal::xtal {L[0:1 && @@ ~ ".o$"]}
     } -result {zero}
     
-    test xtal-list-selector-range-2.1 {list selector ~} -body {
+    test xtal-list-selector-and-range-2.0.1 {list selector ~} -body {
+        xtal::xtal {L[@@ ~ ".o$" && 0:1]}
+    } -result {zero}
+    
+    test xtal-list-selector-and-range-2.1 {list selector ~} -body {
         xtal::xtal {L[0:%I && L ~ ".x$"]}
     } -result {}
 
-    test xtal-list-selector-range-2.2 {list selector !~} -body {
+    test xtal-list-selector-and-range-2.2 {list selector !~} -body {
         xtal::xtal {L[L !~ ".o$" && %L-1:%L]}
     } -result {{3 three}}
     
-    #TBD - tests with ^
+    test xtal-list-selector-and-range-2.3 {list selector ~} -body {
+        xtal::xtal {LC[0:2 && LC ~ "s.*"]}
+    } -result {}
+
+    test xtal-list-selector-2.3.1 {list selector ~} -body {
+        xtal::xtal {LC[0:2 && "s.*" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-and-range-2.4 {list selector ~} -body {
+        xtal::xtal {LC[2:100 && LC ~ "s.*"]}
+    } -result string
+
+    test xtal-list-selector-and-range-2.5 {list selector ~^} -body {
+        xtal::xtal {LC[0: && LC ~^ "s.*"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.5.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" && 0:]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.6 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" && 0:%LC]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.6.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" && %LC-2:%LC]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.1.1 {list selector ~^} -body {
+        xtal::xtal {LC["s.*" ~^ LC]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
     
     set testnum -1
     foreach op {> < >= <=} {
-        test xtal-list-selector-range-err-1.[incr testnum] "list selector $op" -body {
+        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
             xtal::xtal "I\[0:3  && @@ $op 30\]"
-        } -result "The specified selector operator is invalid for lists." -returnCodes error
-        test xtal-list-selector-range-err-1.[incr testnum] "list selector $op" -body {
+        } -result "Operator $op not supported on lists." -returnCodes error
+
+        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
             xtal::xtal "I\[@@ $op 30 && 0:2 \]"
-        } -result "The specified selector operator is invalid for lists." -returnCodes error
+        } -result "Operator $op not supported on lists." -returnCodes error
     }
 
 
     # TBD - tests with || instead of &&
-}
+    # TBD - tests with compound expressions
+    # TBD - assignments
+ }
 
 ::tcltest::cleanupTests
