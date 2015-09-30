@@ -1629,7 +1629,12 @@ namespace eval xtal::rt {
             # Indices need to be in order else extending the list
             # length will not work right.
             set indirect_indices [lsort -indices -integer -increasing $index]
-            if {[llength $value] == [llength $index]} {
+
+            # TBD - there is ambiguity here as to whether to fill or place
+            # For now treat as a fill. In future may be treat as place
+            # if $valuetype is not "" and force lengths to match. Make sure
+            # to make this consistent with 
+            if {0 && [llength $value] == [llength $index]} {
                 foreach indirect_index $indirect_indices {
                     lset var [lindex $index $indirect_index] [lindex $value $indirect_index]
                 }

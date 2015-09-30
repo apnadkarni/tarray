@@ -69,7 +69,9 @@ text {
     which case a column of the same type containing the elements in the
     specified range is returned.
 } prompt {} xtal_shell {
-    print(Rainfall[9:11])       # Rainfall in the last quarter
+    print(Rainfall[9:11])        # Rainfall in the last quarter
+
+    print(@sum(Rainfall[9:11]))  # Total rainfall in last quarter
 } text {
     Or we could specify a list of indices of interest.
 } prompt {} xtal_shell {
@@ -146,12 +148,14 @@ text {
     Columns within a table are accessed with the `.` operator
     and indexed as usual.
 } prompt {} xtal_shell {
-    print(Emps.Name)     # Column name supplied as literal
+    print(Emps.Name)       # Column name supplied as literal
 
     colname = 'Salary'
     print(Emps.$colname)   # Column name supplied in a variable
 
-    print(Emps.Salary[@@ >= 70000])    # High salaries
+    print(Emps.Salary[@@ >= 70000])           # High salaries
+    
+    print(Emps.Name[Emps.Salary >= 70000])    # Highly paid employees
 } text {
     Table slice operators can be used extract subtables.
 } prompt {} xtal_shell {
