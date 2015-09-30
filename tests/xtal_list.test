@@ -614,11 +614,11 @@ namespace eval tarray::test::xtal_list {
     
     test xtal-list-selector-compound-1.2 {list selector && selector} -body {
         xtal::xtal {LC[LC ~ "o" && 1]}
-    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
     
     test xtal-list-selector-compound-1.3 {list selector && selector} -body {
         xtal::xtal {LC[LC ~ "o" && 0]}
-    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
     
     test xtal-list-selector-compound-2.0 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "w" || LC ~ "t"]}
@@ -630,11 +630,11 @@ namespace eval tarray::test::xtal_list {
     
     test xtal-list-selector-compound-2.2 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "o" || 1]}
-    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
     
     test xtal-list-selector-compound-2.3 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "o" || 0]}
-    } -result "Columns cannot be used as operands of a logical operator." -returnCodes error
+    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
 
     test xtal-list-selector-compound-3.0 {list selector && || selector} -body {
         xtal::xtal {LC[(@@ ~ "r" || @@ ~ "n") && LC ~ "o"]}
@@ -690,7 +690,7 @@ namespace eval tarray::test::xtal_list {
 
     test xtal-list-assign-indexlist-1.1 {list assign indexlist} -setup {set l $L} -body {
         xtal::xtal { l[{0,1}] = {"ZERO", "ONE", "TWO"} }
-    } -result [lreplace $L 0 1 {ZERO ONE TWO}]
+    } -result [lreplace $L 0 1 {ZERO ONE TWO} {ZERO ONE TWO}]
 
     test xtal-list-assign-indexlist-1.2 {list assign last indexlist} -setup {set l $L} -body {
         xtal::xtal { l[{%l-1,%l}] = {"x","y" } }

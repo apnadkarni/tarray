@@ -1626,13 +1626,16 @@ namespace eval xtal::rt {
                     return $var
                 }
             }
+            # Indices need to be in order else extending the list
+            # length will not work right.
+            set indirect_indices [lsort -indices -integer -increasing $index]
             if {[llength $value] == [llength $index]} {
-                foreach i $index val $value {
-                    lset var $i $val
+                foreach indirect_index $indirect_indices {
+                    lset var [lindex $index $indirect_index] [lindex $value $indirect_index]
                 }
             } else {
-                foreach i $index {
-                    lset var $i $value
+                foreach indirect_index $indirect_indices {
+                    lset var [lindex $index $indirect_index] $value
                 }
             }
             return $var
@@ -2304,7 +2307,7 @@ namespace eval xtal::rt {
             error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$atype ne "" || $btype ne ""} {
+        if {$atype ne "" && $btype ne ""} {
             # Both are columns. Treat as intersection operator.
             # TBD - optimize if a or b are empty or does intersect3 already do that
             # TBD - are the elements in increasing order after intersect?
@@ -2313,7 +2316,7 @@ namespace eval xtal::rt {
 
         # TBD - for consistency with the || case (see the _or2 routine)
         # we disallow this until we figure out what to do there.
-        error "Invalid logical and operation on a column and a scalar"
+        error "Invalid logical and operation on a column and a scalar."
         
         Rest of this code to be enabled in the future.
         # At most one of a and b are scalars
@@ -2359,7 +2362,7 @@ namespace eval xtal::rt {
             error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$atype ne "" || $btype ne ""} {
+        if {$atype ne "" && $btype ne ""} {
             # Both are tarrays. Treat as intersection operator
             # Can't use tarray::intersect3+tarray::sort because of 
             # uniqueness requirement
@@ -2374,7 +2377,7 @@ namespace eval xtal::rt {
         # TBD  - we would like C[I || 1] to mean entire column C
         # At this point we only have a = I and b = 1 and don't know
         # how to convey "all" elements of C. So for now disallow.
-        error "Invalid logical or operation on a column and a scalar"
+        error "Invalid logical or operation on a column and a scalar."
     }
 
     proc selector {a selexpr} {
