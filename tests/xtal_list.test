@@ -879,6 +879,49 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal { l[0:1] = "ten" }
     } -result "can't read \"l\": no such variable" -returnCodes error
 
- }
+    ################################################################
+    # assign selector
+    test xtal-list-assign-selector-1.0 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "o"] = "x"}
+    } -result {x x x {3 three} string STRING}
+    
+    test xtal-list-assign-selector-1.1 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "str"] = "x"}
+    } -result {zero one two {3 three} x STRING}
+
+    test xtal-list-assign-selector-1.2 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[@@ ~^ "str"] = "x"}
+    } -result {zero one two {3 three} x x}
+
+    test xtal-list-assign-selector-1.2 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[@@ ~^ "zz"] = "x"}
+    } -result $LC
+
+    test xtal-list-assign-selector-compound-1.0 {list assign compound} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "o" && @@ ~^ "E"] = "x"}
+    } -result {x x two {3 three} string STRING}
+    
+    test xtal-list-assign-selector-compound-1.1 {list assign compound} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[@@ ~^ "str" || l ~ "z"] = "x"}
+    } -result {x one two {3 three} x x}
+    
+    test xtal-list-assign-selector-compound-1.2 {list assign compound} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "o" && @@ ~ "g"] = "x"}
+    } -result $LC
+}
 
 ::tcltest::cleanupTests
