@@ -1,0 +1,945 @@
+# xtal list operation tests
+
+source testutil.tcl
+
+namespace eval tarray::test::xtal_column {
+    namespace path ::tarray::test
+    proc fn {arg} {return $arg}
+    set L {zero one two {3 three}}
+    set LC {zero one two {3 three} string STRING}
+    set I {33 -11 22 44 22}
+
+    ################################################################
+    # List construction
+
+    foreach type {boolean byte int uint wide double string any} {
+        test xtal-column-$type-1.0 {Construct column} -body "xtal::xtal {col = @$type} ; set col" -result [list tarray_column $type {}]
+        test xtal-column-$type-1.1 {Construct column} -body "xtal::xtal {col = @$type {}} ; set col" -result [list tarray_column $type {}]
+        test xtal-column-$type-1.2 {Construct column syntax error} -body "xtal::xtal {col = @$type {0 1}}" -result "Parse error*" -match glob -returnCodes error
+    }
+
+    foreach type {boolean byte int uint wide string any} {
+        test xtal-column-$type-2.0 {Construct column} -body "xtal::xtal {col = @$type {0,fn(1)}} ; set col" -result [list tarray_column $type {0 1}]
+        test xtal-column-$type-2.1 {
+            Construct column multiline
+        } -body [string map [list %TYPE% $type] {
+            xtal::xtal {
+                col = @%TYPE% {
+                    0,
+                    fn(1),
+                    0
+                }
+            }
+        }] -result [list tarray_column $type {0 1 0}]
+    }
+    test xtal-column-double-2.0 {Construct column} -body "xtal::xtal {col = @double {0.0,fn(1),-1e-20}} ; set col" -result [list tarray_column double {0.0 1.0 -1e-20}]
+    
+    test xtal-column-string-3.0 {Construct column} -body {
+        xtal::xtal {
+            i = 11
+            @string {i, 1.0, "a string, $i, [fn 99]", 'a string, $i, [fn 99]', fn(100)}
+        }
+    } -result [tarray::column create string {11 1.0 {a string, 11, 99} {a string, $i, [fn 99]} 100}]
+            
+    test xtal-column-any-3.0 {Construct multiline column} -body {
+        xtal::xtal {
+            i = 11
+            c = @any {i,
+                1.0
+                ,
+                "a string, $i, [fn 99]"
+                , 'a string, $i, [fn 99]',
+                fn(100)
+            }
+        }
+        set c
+    } -result [tarray::column create any {11 1.0 {a string, 11, 99} {a string, $i, [fn 99]} 100}]
+    
+    
+    ################################################################
+    # List indexing
+    foreach type {byte int uint wide string any} {
+        test xtal-column-$type-index-1.0 {
+            Literal column scalar index
+        } -body " xtal::xtal { @$type {10, 20, 30, 40}\[0\] } " -result 10
+
+        test xtal-column-$type-index-1.1 {
+            Literal column scalar index
+        } -body " xtal::xtal { i = 2; @$type {10, 20, 30, 40}\[i\] } " -result 30
+
+        test xtal-column-$type-index-1.2 {
+            Literal column scalar index
+        } -body " xtal::xtal { @$type {10, 20, 30, 40}\[ % @@ - 1\] } " -result 40
+
+        test xtal-column-$type-index-2.0 {
+            Literal column scalar index
+        } -body " xtal::xtal { c = @$type {10, 20, 30, 40} ; c\[0 \] } " -result 10
+
+        test xtal-column-$type-index-2.1 {
+            Literal column scalar index
+        } -body " xtal::xtal { i = 2 ; c = @$type {10, 20, 30, 40} ; c\[ i\] } " -result 30
+
+        test xtal-column-$type-index-2.2 {
+            Literal column scalar index
+        } -body " xtal::xtal { c = @$type {10, 20, 30, 40} ; c\[%L-1\] } " -result 40
+
+        test xtal-column-$type-index-2.3 {
+            Literal column scalar index
+        } -body " xtal::xtal { i = 3 ; c = @$type {10, 20, 30, 40} ; c\[%@@-i\] } " -result 20
+    }
+
+    test xtal-column-boolean-index-1.0 {
+        Literal column scalar index
+    } -body " xtal::xtal { @boolean {1, 0, 0, 1}\[0\] } " -result 1
+
+    test xtal-column-boolean-index-1.1 {
+        Literal column scalar index
+    } -body " xtal::xtal { i = 2; c = @boolean {1, 0, 0, 1}; c\[i\] } " -result 0
+     test xtal-column-double-index-1.0 {
+        Literal column scalar index
+    } -body " xtal::xtal { @double {1, 0, 1.1e10, 1}\[0\] } " -result 1.0
+
+    test xtal-column-double-index-1.1 {
+        Literal column scalar index
+    } -body " xtal::xtal { i = 2; c = @double {1, 0, 1.1e100, 1}; c\[i\] } " -result 1.1e+100
+    
+    foreach type {boolean byte int uint wide double string any} {
+        test xtal-column-$type-index-3.0 {
+            Literal column scalar index out of bounds
+        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[- 1\] } " -result "tarray index -1 out of bounds" -returnCodes error
+
+        test xtal-column-$type-index-3.1 {
+            Literal column scalar index out of bounds
+        } -body " xtal::xtal { i = 4 ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds" -returnCodes error
+
+        test xtal-column-$type-index-3.2 {
+            Literal column scalar index non-integer
+        } -body " xtal::xtal { c = @$type {0, 0, 0, 0}; c\['notanint'\] } " -result "expected integer but got \"notanint\"" -returnCodes error
+
+        test xtal-column-$type-index-3.3 {
+            Literal column scalar index non-integer
+        } -body " xtal::xtal { i = 0.0 ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "expected integer but got \"0.0\"" -returnCodes error
+
+        test xtal-column-$type-index-3.4 {
+            Literal column scalar index non-integer
+        } -body " xtal::xtal { c = @$type {0, 0, 0, 0}; c\[ \] } " -result "Parse error *" -match glob -returnCodes error
+
+    }
+
+    #
+    # Indexlists
+    test xtal-list-indexlist-1.0 {Literal list indexlist} -body {
+        xtal::xtal {
+            {100, 200, 300, 400}[{0,2}]
+        }
+    } -result {100 300}
+
+    test xtal-list-indexlist-1.1 {Literal list indexlist} -body {
+        xtal::xtal {
+            i = {3,0,1}
+            {100, 200, 300, 400}[i]
+        }
+    } -result {400 100 200}
+    
+    test xtal-list-indexlist-1.2 {Literal list empty indexlist} -body {
+        xtal::xtal {
+            {100, 200, 300, 400}[{}]
+        }
+    } -result {}
+
+    test xtal-list-indexlist-2.0 {list variable indexlist} -body {
+        xtal::xtal {L[{0,3}]}
+    } -result {zero {3 three}}
+
+    test xtal-list-indexlist-2.1 {list variable indexlist} -body {
+        xtal::xtal {i = {3,2,1,0} ; L[i]}
+    } -result {{3 three} two one zero}
+    
+    test xtal-list-indexlist-2.2 {list variable indexlist} -body {
+        xtal::xtal {i = {} ; L[i]}
+    } -result {}
+
+    test xtal-list-indexlist-2.3 {list variable indexlist} -body {
+        xtal::xtal {
+            i = {1,2,3,0}
+            i[i]
+        }
+    } -result {2 3 0 1}
+
+    test xtal-list-indexlist-3.0 {Literal list negative indexlist} -body {
+        xtal::xtal {{100, 200, 300, 400}[{-1, 0}]}
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-indexlist-3.1 {Literal list negative indexlist} -body {
+        xtal::xtal {i = {0, %L}; L[i]}
+    } -result "list index out of range" -returnCodes error
+    
+    #
+    # Index columns
+    test xtal-list-indexcolumn-1.0 {Literal list indexcolumn} -body {
+        xtal::xtal {
+            {100, 200, 300, 400}[@int {0,2}]
+        }
+    } -result {100 300}
+
+    test xtal-list-indexcolumn-1.1 {Literal list indexcolumn} -body {
+        xtal::xtal {
+            i = @int {3,0,1}
+            {100, 200, 300, 400}[i]
+        }
+    } -result {400 100 200}
+    
+    test xtal-list-indexcolumn-1.2 {Literal list empty indexcolumn} -body {
+        xtal::xtal {
+            {100, 200, 300, 400}[@int {}]
+        }
+    } -result {}
+
+    test xtal-list-indexcolumn-2.0 {list variable indexcolumn} -body {
+        xtal::xtal {L[@int {0,3}]}
+    } -result {zero {3 three}}
+
+    test xtal-list-indexcolumn-2.1 {list variable indexcolumn} -body {
+        xtal::xtal {i = @int {3,2,1,0} ; L[i]}
+    } -result {{3 three} two one zero}
+    
+    test xtal-list-indexcolumn-2.2 {list variable indexcolumn} -body {
+        xtal::xtal {i = @int {} ; L[i]}
+    } -result {}
+
+    test xtal-list-indexcolumn-3.0 {list negative indexcolumn} -body {
+        xtal::xtal {{100, 200, 300, 400}[@int {-1, 0}]}
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-indexcolumn-3.1 {list negative indexcolumn} -body {
+        xtal::xtal {i = @int {0, %L}; L[i]}
+    } -result "list index out of range" -returnCodes error
+
+    ################################################################
+    # range tests
+
+    test xtal-list-range-1.0 {list range} -body {
+        xtal::xtal {L[0:0]}
+    } -result zero
+
+    test xtal-list-range-1.1 {list range} -body {
+        xtal::xtal {L[ %L-1 : %@@-1 ]}
+    } -result {{3 three}}
+
+    test xtal-list-range-1.2 {list range} -body {
+        xtal::xtal {L[0:%L-1]}
+    } -result {zero one two {3 three}}
+    
+    test xtal-list-range-1.3 {list range} -body {
+        xtal::xtal {{100, "two hundred" , 300.0}[0:%L]}
+    } -result {100 {two hundred} 300.0}
+    
+    test xtal-list-range-1.4 {list empty range} -body {
+        xtal::xtal {L[0:-1]}
+    } -result {}
+
+    test xtal-list-range-1.5 {list empty range} -body {
+        xtal::xtal {L[3:1]}
+    } -result {}
+    
+    test xtal-list-range-1.6 {list range empty upper} -body {
+        xtal::xtal {L[0:]}
+    } -result {zero one two {3 three}}
+    
+    test xtal-list-range-2.0 {list empty range} -body {
+        xtal::xtal {L[:1]}
+    } -result "Parse error*" -match glob -returnCodes error 
+
+    test xtal-list-range-2.1 {list empty range} -body {
+        xtal::xtal {L["zero":1]}
+    } -result "bad index*" -match glob -returnCodes error 
+
+    test xtal-list-range-2.2 {list empty range} -body {
+        xtal::xtal {L[0:"one"]}
+    } -result "bad index*" -match glob -returnCodes error 
+
+    ################################################################
+    # selector indexes tests
+    test xtal-list-selector-1.0 {list selector ==} -body {
+        xtal::xtal {I[I == 22]}
+    } -result {22 22}
+
+    test xtal-list-selector-1.0.1 {list selector ==} -body {
+        xtal::xtal {I[22 == I]}
+    } -result {22 22}
+    
+    test xtal-list-selector-1.1 {list selector ==} -body {
+        xtal::xtal {I[I == 23]}
+    } -result {}
+
+    test xtal-list-selector-1.1.1 {list selector ==} -body {
+        xtal::xtal {I[23 == I]}
+    } -result {}
+    
+    test xtal-list-selector-1.2 {list selector !=} -body {
+        xtal::xtal {I[I != 22]}
+    } -result {33 -11 44}
+
+    test xtal-list-selector-1.2.1 {list selector !=} -body {
+        xtal::xtal {I[22 != I]}
+    } -result {33 -11 44}
+    
+    test xtal-list-selector-1.3 {list selector !=} -body {
+        xtal::xtal {I[I != 23]}
+    } -result $I
+
+    test xtal-list-selector-1.3.1 {list selector !=} -body {
+        xtal::xtal {I[23 != I]}
+    } -result $I
+
+    test xtal-list-selector-1.4 {list selector ==} -body {
+        xtal::xtal {I[@@ == 22]}
+    } -result {22 22}
+
+    test xtal-list-selector-1.4.1 {list selector ==} -body {
+        xtal::xtal {I[22 == @@]}
+    } -result {22 22}
+
+    test xtal-list-selector-1.5 {list selector !=} -body {
+        xtal::xtal {I[@@ != 22]}
+    } -result {33 -11 44}
+
+    test xtal-list-selector-1.5.1 {list selector !=} -body {
+        xtal::xtal {I[22 != @@]}
+    } -result {33 -11 44}
+
+    test xtal-list-selector-1.6 {list selector ==} -body {
+        xtal::xtal {LC[LC == "string"]}
+    } -result string
+
+    test xtal-list-selector-1.6.1 {list selector ==} -body {
+        xtal::xtal {LC["string" == LC]}
+    } -result string
+
+    test xtal-list-selector-1.7 {list selector =^} -body {
+        xtal::xtal {LC[LC =^ "string"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-1.7.1 {list selector =^} -body {
+        xtal::xtal {LC["string" =^ LC]}
+    } -result {string STRING}
+
+    test xtal-list-selector-1.8 {list selector =^} -body {
+        xtal::xtal {LC[@@ =^ "STRING"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-1.8.1 {list selector =^} -body {
+        xtal::xtal {LC["STRING" =^ @@]}
+    } -result {string STRING}
+            
+    test xtal-list-selector-1.9 {list selector !=} -body {
+        xtal::xtal {LC[LC != "string"]}
+    } -result {zero one two {3 three} STRING}
+
+    test xtal-list-selector-1.9.1 {list selector !=} -body {
+        xtal::xtal {LC["string" != LC]}
+    } -result {zero one two {3 three} STRING}
+
+    test xtal-list-selector-1.10 {list selector !^} -body {
+        xtal::xtal {LC[@@ !^ "string"]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-1.10.1 {list selector !^} -body {
+        xtal::xtal {LC["string" !^ @@]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-1.11 {list selector !^} -body {
+        xtal::xtal {LC[LC !^ "STRING"]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-1.11.1 {list selector !^} -body {
+        xtal::xtal {LC["STRING" !^ LC]}
+    } -result {zero one two {3 three}}
+            
+    test xtal-list-selector-2.0 {list selector ~} -body {
+        xtal::xtal {LC[LC ~ "s.*"]}
+    } -result string
+
+    test xtal-list-selector-2.0.1 {list selector ~} -body {
+        xtal::xtal {LC["s.*" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-2.1.1 {list selector ~^} -body {
+        xtal::xtal {LC["s.*" ~^ LC]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.2 {list selector ~^} -body {
+        xtal::xtal {LC[@@ ~^ "G$"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-2.2.1 {list selector ~^} -body {
+        xtal::xtal {LC["G$" ~^ @@]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+    
+    test xtal-list-selector-2.3 {list selector ~} -body {
+        xtal::xtal {LC[LC ~ ".x$"]}
+    } -result {}
+
+    test xtal-list-selector-2.3.1 {list selector ~} -body {
+        xtal::xtal {LC[".x$" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.4 {list selector !~} -body {
+        xtal::xtal {LC[LC !~ "^s"]}
+    } -result {zero one two {3 three} STRING}
+
+    test xtal-list-selector-2.4.1 {list selector !~} -body {
+        xtal::xtal {LC["^s" !~ LC]}
+    } -result "The right hand operand of operator !~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-2.5 {list selector !~^} -body {
+        xtal::xtal {LC[LC !~^ "^s"]}
+    } -result {zero one two {3 three}}
+
+    test xtal-list-selector-2.5.1 {list selector !~^} -body {
+        xtal::xtal {LC["^s" !~^ LC]}
+    } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
+    
+    set testnum -1
+    foreach op {> < >= <=} {
+        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[@@ $op 30\]"
+        } -result "The specified selector operator is invalid for lists." -returnCodes error
+        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[30 $op I\]"
+        } -result "The specified selector operator is invalid for lists." -returnCodes error
+    }
+
+    ################################################################
+    # selector && range
+    test xtal-list-selector-and-range-1.0 {list selector ==} -body {
+        xtal::xtal {I[I == 22 && 3:]}
+    } -result {22}
+    
+    test xtal-list-selector-and-range-1.0.1 {list selector ==} -body {
+        xtal::xtal {I[3: && I == 22]}
+    } -result {22}
+    
+    test xtal-list-selector-and-range-1.1 {list selector ==} -body {
+        xtal::xtal {I[0:1 && I == 22]}
+    } -result {}
+    
+    test xtal-list-selector-and-range-1.1.1 {list selector ==} -body {
+        xtal::xtal {I[22 == I && 0:1]}
+    } -result {}
+    
+    test xtal-list-selector-and-range-1.2 {list selector !=} -body {
+        xtal::xtal {I[I != 22 && 1:%I-1]}
+    } -result {-11 44}
+    
+    test xtal-list-selector-and-range-1.2.1 {list selector !=} -body {
+        xtal::xtal {I[1:%I-1 && I != 22]}
+    } -result {-11 44}
+    
+    test xtal-list-selector-and-range-1.2.2 {list selector !=} -body {
+        xtal::xtal {I[1:0 && I != 22]}
+    } -result {}
+    
+    test xtal-list-selector-and-range-1.3 {list selector !=} -body {
+        xtal::xtal {I[I != 23 && 0:2]}
+    } -result [lrange $I 0 2]
+
+    test xtal-list-selector-and-range-1.4 {list selector ==} -body {
+        xtal::xtal {I[@@ == 22 && 0:%I]}
+    } -result {22 22}
+
+    test xtal-list-selector-and-range-1.4.1 {list selector ==} -body {
+        xtal::xtal {I[0:%I && 22 == @@]}
+    } -result {22 22}
+
+    test xtal-list-selector-and-range-1.5 {list selector !=} -body {
+        xtal::xtal {I[0:2 && @@ != 22]}
+    } -result {33 -11}
+
+    test xtal-list-selector-and-range-2.0 {list selector ~} -body {
+        xtal::xtal {L[0:1 && @@ ~ ".o$"]}
+    } -result {zero}
+    
+    test xtal-list-selector-and-range-2.0.1 {list selector ~} -body {
+        xtal::xtal {L[@@ ~ ".o$" && 0:1]}
+    } -result {zero}
+    
+    test xtal-list-selector-and-range-2.1 {list selector ~} -body {
+        xtal::xtal {L[0:%I && L ~ ".x$"]}
+    } -result {}
+
+    test xtal-list-selector-and-range-2.2 {list selector !~} -body {
+        xtal::xtal {L[L !~ ".o$" && %L-1:%L]}
+    } -result {{3 three}}
+    
+    test xtal-list-selector-and-range-2.3 {list selector ~} -body {
+        xtal::xtal {LC[0:2 && LC ~ "s.*"]}
+    } -result {}
+
+    test xtal-list-selector-2.3.1 {list selector ~} -body {
+        xtal::xtal {LC[0:2 && "s.*" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-and-range-2.4 {list selector ~} -body {
+        xtal::xtal {LC[2:100 && LC ~ "s.*"]}
+    } -result string
+
+    test xtal-list-selector-and-range-2.5 {list selector ~^} -body {
+        xtal::xtal {LC[0: && LC ~^ "s.*"]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.5.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" && 0:]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.6 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" && 0:%LC]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.6.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" && %LC-2:%LC]}
+    } -result {string STRING}
+
+    test xtal-list-selector-and-range-2.1.1 {list selector ~^} -body {
+        xtal::xtal {LC["s.*" ~^ LC]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+    
+    set testnum -1
+    foreach op {> < >= <=} {
+        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[0:3  && @@ $op 30\]"
+        } -result "Operator $op not supported on lists." -returnCodes error
+
+        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[@@ $op 30 && 0:2 \]"
+        } -result "Operator $op not supported on lists." -returnCodes error
+    }
+
+    ################################################################
+    # selector || range
+    test xtal-list-selector-or-range-1.0 {list selector ==} -body {
+        xtal::xtal {I[I == 22 || 1:3]}
+    } -result {-11 22 44 22}
+    
+    test xtal-list-selector-or-range-1.0.1 {list selector ==} -body {
+        xtal::xtal {I[3: || I == 22]}
+    } -result {22 44 22}
+    
+    test xtal-list-selector-or-range-1.1 {list selector ==} -body {
+        xtal::xtal {I[0:1 || I == 22]}
+    } -result {33 -11 22 22}
+    
+    test xtal-list-selector-or-range-1.1.1 {list selector ==} -body {
+        xtal::xtal {I[22 == I || 0:1]}
+    } -result {33 -11 22 22}
+    
+    test xtal-list-selector-or-range-1.2 {list selector !=} -body {
+        xtal::xtal {I[I != 22 || 1:%I-3]}
+    } -result {33 -11 22 44}
+    
+    test xtal-list-selector-or-range-1.2.1 {list selector !=} -body {
+        xtal::xtal {I[1:%I-1 || I != 22]}
+    } -result $I
+    
+    test xtal-list-selector-or-range-1.3 {list selector !=} -body {
+        xtal::xtal {I[I != 23 || 0:2]}
+    } -result $I
+
+    test xtal-list-selector-or-range-1.4 {list selector ==} -body {
+        xtal::xtal {I[@@ == 22 || 0:1]}
+    } -result {33 -11 22 22}
+
+    test xtal-list-selector-or-range-1.4.1 {list selector ==} -body {
+        xtal::xtal {I[0:-1 || 22 == @@]}
+    } -result {22 22}
+
+    test xtal-list-selector-or-range-1.4.2 {list selector ==} -body {
+        xtal::xtal {I[0:%I || 22 == @@]}
+    } -result "list index out of range" -returnCodes error
+
+    test xtal-list-selector-or-range-1.5 {list selector !=} -body {
+        xtal::xtal {I[0:2 || @@ != 22]}
+    } -result {33 -11 22 44}
+
+    test xtal-list-selector-or-range-2.0 {list selector ~} -body {
+        xtal::xtal {L[0:1 || @@ ~ ".o$"]}
+    } -result {zero one two}
+    
+    test xtal-list-selector-or-range-2.0.1 {list selector ~} -body {
+        xtal::xtal {L[@@ ~ ".o$" || 0:1]}
+    } -result {zero one two}
+    
+    test xtal-list-selector-or-range-2.1 {list selector ~} -body {
+        xtal::xtal {L[0:%L-1 || L ~ ".x$"]}
+    } -result $L
+
+    test xtal-list-selector-or-range-2.2 {list selector !~} -body {
+        xtal::xtal {L[L !~ ".o$" || %L-2:%L-1]}
+    } -result {one two {3 three}}
+    
+    test xtal-list-selector-or-range-2.3 {list selector ~} -body {
+        xtal::xtal {LC[0:2 || LC ~ "s.*"]}
+    } -result {zero one two string}
+
+    test xtal-list-selector-2.3.1 {list selector ~} -body {
+        xtal::xtal {LC[0:2 || "s.*" ~ LC]}
+    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+    test xtal-list-selector-or-range-2.4 {list selector ~} -body {
+        xtal::xtal {LC[0: || LC ~ "x.*"]}
+    } -result $LC
+
+    test xtal-list-selector-or-range-2.5 {list selector ~^} -body {
+        xtal::xtal {LC[0:%LC-2 || LC ~^ "s.*"]}
+    } -result $LC
+
+    test xtal-list-selector-or-range-2.6 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" || 0:%LC-1]}
+    } -result $LC
+
+    test xtal-list-selector-or-range-2.6.1 {list selector ~^} -body {
+        xtal::xtal {LC[LC ~^ "s.*" || 0:0]}
+    } -result {zero string STRING}
+
+    test xtal-list-selector-or-range-2.1.1 {list selector ~^} -body {
+        xtal::xtal {LC["s.*" ~^ LC]}
+    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+    
+    set testnum -1
+    foreach op {> < >= <=} {
+        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[0:3  || @@ $op 30\]"
+        } -result "Operator $op not supported on lists." -returnCodes error
+
+        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
+            xtal::xtal "I\[@@ $op 30 || 0:2 \]"
+        } -result "Operator $op not supported on lists." -returnCodes error
+    }
+
+    ################################################################
+    # Compound expressions
+    test xtal-list-selector-compound-1.0 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && LC ~ "e"]}
+    } -result {zero one}
+    
+    test xtal-list-selector-compound-1.1 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && @@ !~ "e"]}
+    } -result {two}
+    
+    test xtal-list-selector-compound-1.2 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && 1]}
+    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
+    
+    test xtal-list-selector-compound-1.3 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "o" && 0]}
+    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
+    
+    test xtal-list-selector-compound-2.0 {list selector || selector} -body {
+        xtal::xtal {LC[LC ~ "w" || LC ~ "t"]}
+    } -result {two {3 three} string}
+    
+    test xtal-list-selector-compound-2.1 {list selector || selector} -body {
+        xtal::xtal {LC[@@ ~ "w" || @@ ~^ "t"]}
+    } -result {two {3 three} string STRING}
+    
+    test xtal-list-selector-compound-2.2 {list selector || selector} -body {
+        xtal::xtal {LC[LC ~ "o" || 1]}
+    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+    
+    test xtal-list-selector-compound-2.3 {list selector || selector} -body {
+        xtal::xtal {LC[LC ~ "o" || 0]}
+    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+
+    test xtal-list-selector-compound-3.0 {list selector && || selector} -body {
+        xtal::xtal {LC[(@@ ~ "r" || @@ ~ "n") && LC ~ "o"]}
+    } -result {zero one}
+
+    test xtal-list-selector-compound-3.1 {list selector && || selector} -body {
+        xtal::xtal {LC[@@ ~ "r" || @@ ~ "n" && LC ~ "o"]}
+    } -result {zero one {3 three} string}
+    
+    
+    ################################################################
+    # Assignments
+
+    test xtal-list-assign-1.0 {list assignment} -body {
+        xtal::xtal { l = L } ; set l
+    } -result $L
+    
+    ################################################################
+    # list assign index
+    test xtal-list-assign-index-1.0 {list assign index} -setup {set l $L} -body {
+        xtal::xtal { l[0] = "ten" }
+    } -result [lreplace $L 0 0 ten]
+
+    test xtal-list-assign-index-1.1 {list assign last index} -setup {set l $L} -body {
+        xtal::xtal { l[%l] = "ten" }
+    } -result [linsert $L end ten]
+    
+    test xtal-list-assign-index-1.2 {list assign last index} -setup {set l $L} -body {
+        xtal::xtal {i = 2;  l[i] = "TWO" }
+    } -result [lreplace $L 2 2 TWO]
+    
+    test xtal-list-assign-index-1.3 {list assign last index} -setup {set l $L} -body {
+        xtal::xtal { l[%l-1] = "ten" }
+    } -result [lreplace $L end end ten]
+
+    test xtal-list-assign-index-2.0 {list assign index} -setup {set l $L} -body {
+        xtal::xtal { l[-1] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-index-2.1 {list assign index} -setup {set l $L} -body {
+        xtal::xtal { l[%l+1] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-index-2.2 {list assign index} -setup {
+        unset -nocomplain l
+    } -body {
+        xtal::xtal { l[0] = "ten" }
+    } -result "can't read \"l\": no such variable" -returnCodes error
+
+    ################################################################
+    # list assign indexlist
+    test xtal-list-assign-indexlist-1.0 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{0,1}] = "x" }
+    } -result [lreplace $L 0 1 x x]
+
+    test xtal-list-assign-indexlist-1.1 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{0,1}] = {"x", "y"} }
+    } -result [lreplace $L 0 1 {x y} {x y}]
+
+    test xtal-list-assign-indexlist-1.2 {list assign last indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{%l-1,%l}] = {"x","y" } }
+    } -result [lreplace $L end end {x y} {x y}]
+    
+    test xtal-list-assign-indexlist-1.3 {list assign indexlist out of order} -setup {set l $L} -body {
+        xtal::xtal { l[{2,1}] = {"x", "y"} }
+    } -result [lreplace $L 1 2 {x y} {x y}]
+    
+    test xtal-list-assign-indexlist-1.4 {list assign empty indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{}] = {} }
+    } -result $L
+
+    test xtal-list-assign-indexlist-1.5 {list assign empty indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{}] = "ten" }
+    } -result $L
+    
+    test xtal-list-assign-indexlist-1.6 {list assign indexlist vars} -setup {
+        set l $L
+        set i 1
+    } -body {
+        xtal::xtal { l[{i+1,i}] = 'x' }
+    } -result [lreplace $L 1 2 x x]
+
+    test xtal-list-assign-indexlist-1.7 {list assign indexlist extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[{%l,%l+1}] = "x" }
+    } -result [linsert $L end x x]
+    
+    test xtal-list-assign-indexlist-1.8 {list assign indexlist extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[{%l,%l+2, %l+1}] = {"x","y","z" } }
+    } -result  [linsert $L end {x y z} {x y z} {x y z}]
+
+    test xtal-list-assign-indexlist-2.0 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{-1,0}] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-indexlist-2.1 {list assign indexlist} -setup {set l $L} -body {
+        xtal::xtal { l[{0,%l+1}] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-indexlist-2.2 {list assign indexlist} -setup {
+        unset -nocomplain l
+    } -body {
+        xtal::xtal { l[{0,1}] = "ten" }
+    } -result "can't read \"l\": no such variable" -returnCodes error
+
+    test xtal-list-assign-indexlist-2.3 {list assign indexlist extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[{%l,%l+2}] = {"x","y" } }
+    } -result "list index out of range" -returnCodes error
+
+    ################################################################
+    # list assign indexcolumn
+
+    test xtal-list-assign-indexcolumn-1.0 {list assign indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {0,1}] = "x" }
+    } -result [lreplace $L 0 1 x x]
+
+    test xtal-list-assign-indexcolumn-1.1 {list assign indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {0,1}] = {"ZERO", "ONE"} }
+    } -result [lreplace $L 0 1 {ZERO ONE} {ZERO ONE}]
+
+    test xtal-list-assign-indexcolumn-1.2 {list assign last indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {%l-1,%l}] = {"x","y" } }
+    } -result [lreplace $L end end {x y} {x y}]
+    
+    test xtal-list-assign-indexcolumn-1.3 {list assign indexcolumn out of order} -setup {set l $L} -body {
+        xtal::xtal { l[@int {2,1}] = "x" }
+    } -result [lreplace $L 1 2 x x]
+    
+    test xtal-list-assign-indexcolumn-1.4 {list assign empty indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {}] = {} }
+    } -result $L
+
+    test xtal-list-assign-indexcolumn-1.5 {list assign empty indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {}] = "ten" }
+    } -result $L
+    
+    test xtal-list-assign-indexcolumn-1.6 {list assign indexcolumn vars} -setup {
+        set l $L
+        set i 1
+    } -body {
+        xtal::xtal { l[@int {i+1,i}] = "x" }
+    } -result [lreplace $L 1 2 x x]
+
+    test xtal-list-assign-indexcolumn-1.7 {list assign indexcolumn extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[@int {%l,%l+1}] = {"x","y" } }
+    } -result [linsert $L end {x y} {x y}]
+    
+    test xtal-list-assign-indexcolumn-1.8 {list assign indexcolumn extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[@int {%l,%l+2, %l+1}] = "x" }
+    } -result  [linsert $L end x x x]
+
+    test xtal-list-assign-indexcolumn-2.0 {list assign indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {-1,0}] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-indexcolumn-2.1 {list assign indexcolumn} -setup {set l $L} -body {
+        xtal::xtal { l[@int {0,%l+1}] = "ten" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-indexcolumn-2.2 {list assign indexcolumn} -setup {
+        unset -nocomplain l
+    } -body {
+        xtal::xtal { l[@int {0,1}] = "ten" }
+    } -result "can't read \"l\": no such variable" -returnCodes error
+
+    test xtal-list-assign-indexcolumn-2.3 {list assign indexcolumn extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[@int {%l,%l+2}] = {"x","y" } }
+    } -result "list index out of range" -returnCodes error
+
+    ################################################################
+    # list range assignment
+
+    test xtal-list-assign-range-1.0 {list assign range} -setup {set l $L} -body {
+        xtal::xtal { l[0:1] = "ZERO" }
+    } -result [lreplace $L 0 1 ZERO ZERO]
+
+    test xtal-list-assign-range-1.1 {list assign range} -setup {set l $L} -body {
+        xtal::xtal { l[0:1] = {"ZERO", "ONE"} }
+    } -result [lreplace $L 0 1 {ZERO ONE} {ZERO ONE}]
+
+    test xtal-list-assign-range-1.2 {list assign last range} -setup {set l $L} -body {
+        xtal::xtal { l[%l-1:%l] = "x" }
+    } -result [lreplace $L end end x x]
+    
+    test xtal-list-assign-range-1.3 {list assign range vars} -setup {
+        set l $L
+        set i 1
+    } -body {
+        xtal::xtal { l[i:i+1] = 'x' }
+    } -result [lreplace $L 1 2 x x]
+
+    test xtal-list-assign-range-1.4 {list assign range extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[%l:%l+1] = {"x","y" } }
+    } -result [linsert $L end {x y} {x y}]
+    
+    test xtal-list-assign-range-1.5 {list assign range extend} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[%l:%l+2] = "x" }
+    } -result  [linsert $L end x x x]
+
+    test xtal-list-assign-range-1.6 {list assign empty range} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[0:] = "x" }
+    } -result [lrepeat [llength $L] x]
+    
+    test xtal-list-assign-range-2.0 {list assign empty range} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[-1:1] = "x" }
+    } -result "list index out of range" -returnCodes error
+    
+    test xtal-list-assign-range-2.1 {list assign empty range} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[2:1] = "x" }
+    } -result "Range lower limit 2 is greater than upper limit 1." -returnCodes error 
+    
+    test xtal-list-assign-range-2.2 {list assign empty range} -setup {
+        set l $L
+    } -body {
+        xtal::xtal { l[:] = "x" }
+    } -result "Parse error*" -match glob -returnCodes error
+    
+    test xtal-list-assign-range-2.3 {list assign range} -setup {
+        unset -nocomplain l
+    } -body {
+        xtal::xtal { l[0:1] = "ten" }
+    } -result "can't read \"l\": no such variable" -returnCodes error
+
+    ################################################################
+    # assign selector
+    test xtal-list-assign-selector-1.0 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "o"] = "x"}
+    } -result {x x x {3 three} string STRING}
+    
+    test xtal-list-assign-selector-1.1 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "str"] = "x"}
+    } -result {zero one two {3 three} x STRING}
+
+    test xtal-list-assign-selector-1.2 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[@@ ~^ "str"] = "x"}
+    } -result {zero one two {3 three} x x}
+
+    test xtal-list-assign-selector-1.2 {list assign selector} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[@@ ~^ "zz"] = "x"}
+    } -result $LC
+
+    test xtal-list-assign-selector-compound-1.0 {list assign compound} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "o" && @@ ~^ "E"] = "x"}
+    } -result {x x two {3 three} string STRING}
+    
+    test xtal-list-assign-selector-compound-1.1 {list assign compound} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[@@ ~^ "str" || l ~ "z"] = "x"}
+    } -result {x one two {3 three} x x}
+    
+    test xtal-list-assign-selector-compound-1.2 {list assign compound} -setup {
+        set l $LC
+    } -body {
+        xtal::xtal { l[l ~ "o" && @@ ~ "g"] = "x"}
+    } -result $LC
+}
+
+::tcltest::cleanupTests
