@@ -197,6 +197,10 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {i = @int {0, %L}; L[i]}
     } -result "list index out of range" -returnCodes error
 
+    test xtal-list-indexcolumn-3.2 {list non-integer indexcolumn} -body {
+        xtal::xtal {i = @double {0, 1}; L[i]}
+    } -result "bad index \"0.0\":*" -returnCodes error -match glob
+
     ################################################################
     # range tests
 

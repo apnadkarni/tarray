@@ -57,7 +57,7 @@ namespace eval tarray::test::xtal_column {
     
     
     ################################################################
-    # List indexing
+    # Column indexing
     foreach type {byte int uint wide string any} {
         test xtal-column-$type-index-1.0 {
             Literal column scalar index
@@ -126,137 +126,198 @@ namespace eval tarray::test::xtal_column {
 
     }
 
-    #
     # Indexlists
-    test xtal-list-indexlist-1.0 {Literal list indexlist} -body {
-        xtal::xtal {
-            {100, 200, 300, 400}[{0,2}]
-        }
-    } -result {100 300}
+    foreach type {byte int uint wide string any} {
+        test xtal-column-$type-indexlist-1.0 {
+            Literal column scalar indexlist
+        } -body " xtal::xtal { @$type {10, 20, 30, 40}\[{0,2}\] } " -result [newcolumn $type {10 30}]
 
-    test xtal-list-indexlist-1.1 {Literal list indexlist} -body {
-        xtal::xtal {
-            i = {3,0,1}
-            {100, 200, 300, 400}[i]
-        }
-    } -result {400 100 200}
+        test xtal-column-$type-indexlist-1.1 {
+            Literal column scalar indexlist
+        } -body " xtal::xtal { i = {3, 0, 1} ; @$type {10, 20, 30, 40}\[i\] } " -result [newcolumn $type {40 10 20}]
+
+        test xtal-column-$type-indexlist-1.2 {
+            Literal column scalar indexlist
+        } -body " xtal::xtal { i = {} ; @$type {10, 20, 30, 40}\[i\] } " -result [newcolumn $type {}]
+
+        test xtal-column-$type-indexlist-2.0 {
+            Literal column scalar indexlist
+        } -body " xtal::xtal { c = @$type {10, 20, 30, 40} ; c\[ {2, 0} \] } " -result [newcolumn $type {30 10}]
+
+        test xtal-column-$type-indexlist-2.1 {
+            Literal column scalar indexlist
+        } -body " xtal::xtal { i = {3,2,1,0} ; c = @$type {10, 20, 30, 40} ; c\[ i\] } " -result [newcolumn $type {40 30 20 10}]
+
+        test xtal-column-$type-indexlist-2.2 {
+            Literal column scalar indexlist
+        } -body " xtal::xtal { i = {} ; c = @$type {10, 20, 30, 40} ; c\[ i\] } " -result [newcolumn $type {}]
+
+    }
+
+    test xtal-column-boolean-indexlist-1.0 {
+        Literal column scalar indexlist
+    } -body " xtal::xtal { @boolean {1, 0, 0, 1}\[{0,3,1}\] } " -result [newcolumn boolean {1 1 0}]
+
+    test xtal-column-boolean-indexlist-1.1 {
+        Literal column scalar indexlist
+    } -body " xtal::xtal { i = {0, 1, 2}; c = @boolean {1, 0, 0, 1}; c\[i\] } " -result [newcolumn boolean {1 0 0}]
     
-    test xtal-list-indexlist-1.2 {Literal list empty indexlist} -body {
-        xtal::xtal {
-            {100, 200, 300, 400}[{}]
-        }
-    } -result {}
+    test xtal-column-double-indexlist-1.0 {
+        Literal column scalar indexlist
+    } -body " xtal::xtal { @double {1, 0, 1.1e10, 1}\[{0,3}\] } " -result [newcolumn double {1 1}]
 
-    test xtal-list-indexlist-2.0 {list variable indexlist} -body {
-        xtal::xtal {L[{0,3}]}
-    } -result {zero {3 three}}
-
-    test xtal-list-indexlist-2.1 {list variable indexlist} -body {
-        xtal::xtal {i = {3,2,1,0} ; L[i]}
-    } -result {{3 three} two one zero}
+    test xtal-column-double-indexlist-1.1 {
+        Literal column scalar indexlist
+    } -body " xtal::xtal { i = {0, 2}; c = @double {1, 0, 1.1e100, 1}; c\[i\] } " -result [newcolumn double {1 1.1e+100}]
     
-    test xtal-list-indexlist-2.2 {list variable indexlist} -body {
-        xtal::xtal {i = {} ; L[i]}
-    } -result {}
+    foreach type {boolean byte int uint wide double string any} {
+        test xtal-column-$type-indexlist-3.0 {
+            Literal column scalar indexlist out of bounds
+        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[{0, -1}\] } " -result "tarray index -1 out of bounds" -returnCodes error
 
-    test xtal-list-indexlist-2.3 {list variable indexlist} -body {
-        xtal::xtal {
-            i = {1,2,3,0}
-            i[i]
-        }
-    } -result {2 3 0 1}
+        test xtal-column-$type-indexlist-3.1 {
+            Literal column scalar indexlist out of bounds
+        } -body " xtal::xtal { i = {3,4} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds" -returnCodes error
 
-    test xtal-list-indexlist-3.0 {Literal list negative indexlist} -body {
-        xtal::xtal {{100, 200, 300, 400}[{-1, 0}]}
-    } -result "list index out of range" -returnCodes error
-    
-    test xtal-list-indexlist-3.1 {Literal list negative indexlist} -body {
-        xtal::xtal {i = {0, %L}; L[i]}
-    } -result "list index out of range" -returnCodes error
-    
-    #
+        test xtal-column-$type-indexlist-3.2 {
+            Literal column scalar indexlist non-integer
+        } -body " xtal::xtal { c = @$type {0, 0, 0, 0}; c\['notanint'\] } " -result "expected integer but got \"notanint\"" -returnCodes error
+
+        test xtal-column-$type-indexlist-3.3 {
+            Literal column scalar indexlist non-integer
+        } -body " xtal::xtal { i = {0, 0.0} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "expected integer but got \"0.0\"" -returnCodes error
+
+    }
+
     # Index columns
-    test xtal-list-indexcolumn-1.0 {Literal list indexcolumn} -body {
-        xtal::xtal {
-            {100, 200, 300, 400}[@int {0,2}]
-        }
-    } -result {100 300}
+    foreach type {byte int uint wide string any} {
+        test xtal-column-$type-indexcolumn-1.0 {
+            Literal column scalar indexcolumn
+        } -body " xtal::xtal { @$type {10, 20, 30, 40}\[@int {0,2}\] } " -result [newcolumn $type {10 30}]
 
-    test xtal-list-indexcolumn-1.1 {Literal list indexcolumn} -body {
-        xtal::xtal {
-            i = @int {3,0,1}
-            {100, 200, 300, 400}[i]
-        }
-    } -result {400 100 200}
+        test xtal-column-$type-indexcolumn-1.1 {
+            Literal column scalar indexcolumn
+        } -body " xtal::xtal { i = @int {3, 0, 1} ; @$type {10, 20, 30, 40}\[i\] } " -result [newcolumn $type {40 10 20}]
+
+        test xtal-column-$type-indexcolumn-1.2 {
+            Literal column scalar indexcolumn
+        } -body " xtal::xtal { i = @int {} ; @$type {10, 20, 30, 40}\[i\] } " -result [newcolumn $type {}]
+
+        test xtal-column-$type-indexcolumn-2.0 {
+            Literal column scalar indexcolumn
+        } -body " xtal::xtal { c = @$type {10, 20, 30, 40} ; c\[ @int {2, 0} \] } " -result [newcolumn $type {30 10}]
+
+        test xtal-column-$type-indexcolumn-2.1 {
+            Literal column scalar indexcolumn
+        } -body " xtal::xtal { i = @int {3,2,1,0} ; c = @$type {10, 20, 30, 40} ; c\[ i\] } " -result [newcolumn $type {40 30 20 10}]
+
+        test xtal-column-$type-indexcolumn-2.2 {
+            Literal column scalar indexcolumn
+        } -body " xtal::xtal { i = @int {} ; c = @$type {10, 20, 30, 40} ; c\[ i\] } " -result [newcolumn $type {}]
+
+    }
+
+    test xtal-column-boolean-indexcolumn-1.0 {
+        Literal column scalar indexcolumn
+    } -body " xtal::xtal { @boolean {1, 0, 0, 1}\[@int {0,3,1}\] } " -result [newcolumn boolean {1 1 0}]
+
+    test xtal-column-boolean-indexcolumn-1.1 {
+        Literal column scalar indexcolumn
+    } -body " xtal::xtal { i = @int {0, 1, 2}; c = @boolean {1, 0, 0, 1}; c\[i\] } " -result [newcolumn boolean {1 0 0}]
     
-    test xtal-list-indexcolumn-1.2 {Literal list empty indexcolumn} -body {
-        xtal::xtal {
-            {100, 200, 300, 400}[@int {}]
-        }
-    } -result {}
+    test xtal-column-double-indexcolumn-1.0 {
+        Literal column scalar indexcolumn
+    } -body " xtal::xtal { @double {1, 0, 1.1e10, 1}\[@int {0,3}\] } " -result [newcolumn double {1 1}]
 
-    test xtal-list-indexcolumn-2.0 {list variable indexcolumn} -body {
-        xtal::xtal {L[@int {0,3}]}
-    } -result {zero {3 three}}
-
-    test xtal-list-indexcolumn-2.1 {list variable indexcolumn} -body {
-        xtal::xtal {i = @int {3,2,1,0} ; L[i]}
-    } -result {{3 three} two one zero}
+    test xtal-column-double-indexcolumn-1.1 {
+        Literal column scalar indexcolumn
+    } -body " xtal::xtal { i = @int {0, 2}; c = @double {1, 0, 1.1e100, 1}; c\[i\] } " -result [newcolumn double {1 1.1e+100}]
     
-    test xtal-list-indexcolumn-2.2 {list variable indexcolumn} -body {
-        xtal::xtal {i = @int {} ; L[i]}
-    } -result {}
+    foreach type {boolean byte int uint wide double string any} {
+        test xtal-column-$type-indexcolumn-3.0 {
+            Literal column scalar indexcolumn out of bounds
+        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[@int {0, -1}\] } " -result "tarray index -1 out of bounds" -returnCodes error
 
-    test xtal-list-indexcolumn-3.0 {list negative indexcolumn} -body {
-        xtal::xtal {{100, 200, 300, 400}[@int {-1, 0}]}
-    } -result "list index out of range" -returnCodes error
-    
-    test xtal-list-indexcolumn-3.1 {list negative indexcolumn} -body {
-        xtal::xtal {i = @int {0, %L}; L[i]}
-    } -result "list index out of range" -returnCodes error
+        test xtal-column-$type-indexcolumn-3.1 {
+            Literal column scalar indexcolumn out of bounds
+        } -body " xtal::xtal { i = @int {3,4} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds" -returnCodes error
+
+        test xtal-column-$type-indexcolumn-3.2 {
+            Literal column scalar indexcolumn non-integer
+        } -body " xtal::xtal { i = @double {0, 1} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "Invalid index list*" -match glob -returnCodes error
+
+    }
 
     ################################################################
     # range tests
 
-    test xtal-list-range-1.0 {list range} -body {
-        xtal::xtal {L[0:0]}
-    } -result zero
+    foreach type {boolean byte int uint wide double string any} {
+        test xtal-column-$type-range-1.0 {column range} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[0:0]}
+        } -result [samplecolumn $type 0 0]
+        
+        test xtal-column-$type-range-1.1 {column range} -setup {
+            set L [samplecolumn $type 0 9]
+        } -body { 
+            xtal::xtal {L[ %L-1 : %@@-1 ]}
+        } -result [samplecolumn $type 9 9]
 
-    test xtal-list-range-1.1 {list range} -body {
-        xtal::xtal {L[ %L-1 : %@@-1 ]}
-    } -result {{3 three}}
+        test xtal-column-$type-range-1.2 {column range} -setup {
+            set L [samplecolumn $type 0 9]
+        } -body { 
+            xtal::xtal {L[ 0 : %L-1 ]}
+        } -result [samplecolumn $type 0 9]
 
-    test xtal-list-range-1.2 {list range} -body {
-        xtal::xtal {L[0:%L-1]}
-    } -result {zero one two {3 three}}
-    
-    test xtal-list-range-1.3 {list range} -body {
-        xtal::xtal {{100, "two hundred" , 300.0}[0:%L]}
-    } -result {100 {two hundred} 300.0}
-    
-    test xtal-list-range-1.4 {list empty range} -body {
-        xtal::xtal {L[0:-1]}
-    } -result {}
+        test xtal-column-$type-range-1.3 {column range} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[0:%L]}
+        } -result [samplecolumn $type]
 
-    test xtal-list-range-1.5 {list empty range} -body {
-        xtal::xtal {L[3:1]}
-    } -result {}
-    
-    test xtal-list-range-1.6 {list range empty upper} -body {
-        xtal::xtal {L[0:]}
-    } -result {zero one two {3 three}}
-    
-    test xtal-list-range-2.0 {list empty range} -body {
-        xtal::xtal {L[:1]}
-    } -result "Parse error*" -match glob -returnCodes error 
+        test xtal-column-$type-range-1.4 {column empty range} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[0:-1]}
+        } -result [newcolumn $type]
 
-    test xtal-list-range-2.1 {list empty range} -body {
-        xtal::xtal {L["zero":1]}
-    } -result "bad index*" -match glob -returnCodes error 
+        test xtal-column-$type-range-1.5 {column empty range} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[3:1]}
+        } -result [newcolumn $type]
 
-    test xtal-list-range-2.2 {list empty range} -body {
-        xtal::xtal {L[0:"one"]}
-    } -result "bad index*" -match glob -returnCodes error 
+        test xtal-column-$type-range-1.6 {column upper unspecified} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[1:]}
+        } -result [samplecolumn $type 1 end]
+        
+        test xtal-column-$type-range-2.0 {column lower unspecified} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[:1]}
+        } -result "Parse error*" -match glob -returnCodes error 
+
+        test xtal-column-$type-range-2.1 {column lower unspecified} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[:]}
+        } -result "Parse error*" -match glob -returnCodes error 
+
+        test xtal-column-$type-range-2.2 {column lower unspecified} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L["zero":1]}
+        } -result "Invalid index*" -match glob -returnCodes error 
+
+        test xtal-column-$type-range-2.3 {column lower unspecified} -setup {
+            set L [samplecolumn $type]
+        } -body { 
+            xtal::xtal {L[0:"one"]}
+        } -result "Invalid index*" -match glob -returnCodes error 
+    }
 
     ################################################################
     # selector indexes tests
