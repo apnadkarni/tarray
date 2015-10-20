@@ -5,9 +5,9 @@ source testutil.tcl
 namespace eval tarray::test::xtal_column {
     namespace path ::tarray::test
     proc fn {arg} {return $arg}
-    set L {zero one two {3 three}}
+    set I {} ;# TBD - delete
     set LC {zero one two {3 three} string STRING}
-    set I {33 -11 22 44 22}
+    set L {33 11 22 44 22}
 
     ################################################################
     # List construction
@@ -321,150 +321,258 @@ namespace eval tarray::test::xtal_column {
 
     ################################################################
     # selector indexes tests
-    test xtal-list-selector-1.0 {list selector ==} -body {
-        xtal::xtal {I[I == 22]}
-    } -result {22 22}
+    foreach type {byte int uint wide double string any} {
+        test xtal-column-$type-selector-1.0 {column selector ==} -body {
+            xtal::xtal {I[I == 22]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
 
-    test xtal-list-selector-1.0.1 {list selector ==} -body {
-        xtal::xtal {I[22 == I]}
-    } -result {22 22}
+        test xtal-column-$type-selector-1.0.1 {column selector ==} -body {
+            xtal::xtal {I[22 == I]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
+
+        test xtal-column-$type-selector-1.1 {column selector ==} -body {
+            xtal::xtal {I[I == 23]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {}]
+
+        test xtal-column-$type-selector-1.1.1 {column selector ==} -body {
+            xtal::xtal {I[23 == I]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {}]
+
+        test xtal-column-$type-selector-1.2 {column selector !=} -body {
+            xtal::xtal {I[I != 22]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 44}]
+
+        test xtal-column-$type-selector-1.2.1 {column selector !=} -body {
+            xtal::xtal {I[22 != I]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 44}]
+
+        test xtal-column-$type-selector-1.3 {column selector !=} -body {
+            xtal::xtal {I[I != 23]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type $L]
+
+        test xtal-column-$type-selector-1.3.1 {column selector !=} -body {
+            xtal::xtal {I[23 != I]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type $L]
+
+        test xtal-column-$type-selector-1.4 {column selector ==} -body {
+            xtal::xtal {I[@@ == 22]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
+
+        test xtal-column-$type-selector-1.4.1 {column selector ==} -body {
+            xtal::xtal {I[22 == @@]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
+
+        test xtal-column-$type-selector-1.5 {column selector !=} -body {
+            xtal::xtal {I[@@ != 22]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 44}]
+
+        test xtal-column-$type-selector-1.5.1 {column selector !=} -body {
+            xtal::xtal {I[22 != @@]}
+        } -setup {
+            set I [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 44}]
+
+    }
+
+    # Booleans are not tested above so do them
+    test xtal-column-boolean-selector-1.0 {column selector ==} -body {
+        xtal::xtal {I[I == 0 ]}
+    } -setup {
+        set I [newcolumn boolean {0 1 1 0 1}]
+    } -result [newcolumn $type {0 0}]
+
+    test xtal-column-boolean-selector-1.0.1 {column selector ==} -body {
+        xtal::xtal {I[1 == I]}
+    } -setup {
+        set I [newcolumn boolean {0 1 1 0 1}]
+    } -result [newcolumn $type {1 1 1}]
+
+    test xtal-column-boolean-selector-1.1 {column selector !=} -body {
+        xtal::xtal {I[I != 1 ]}
+    } -setup {
+        set I [newcolumn boolean {0 1 1 0 1}]
+    } -result [newcolumn $type {0 0}]
+
+    test xtal-column-boolean-selector-1.1.1 {column selector !=} -body {
+        xtal::xtal {I[0 != I]}
+    } -setup {
+        set I [newcolumn boolean {0 1 1 0 1}]
+    } -result [newcolumn $type {1 1 1}]
+
+    # String / any specific tests for case sensitivity, regexp etc.
+    foreach type {string any} {
+        test xtal-column-$type-selector-2.0 {
+            column selector == case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C[C == "string"]}
+        } -result [newcolumn $type [list "string"]]
+
+        test xtal-column-$type-selector-2.0.1 {
+            column selector == case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C["STRING" == C]}
+        } -result [newcolumn $type [list "STRING"]]
+
+        test xtal-column-$type-selector-2.1 {
+            column selector =^ case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C[C =^ "STRING"]}
+        } -result [newcolumn $type [list "string" "STRING"]]
+
+        test xtal-column-$type-selector-2.1.1 {
+            column selector =^ case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C["string" =^ C]}
+        } -result [newcolumn $type [list "string" "STRING"]]
+
+        test xtal-column-$type-selector-2.2 {
+            column selector =^ case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C[@@ =^ "StRinG"]}
+        } -result [newcolumn $type [list "string" "STRING"]]
+
+        test xtal-column-$type-selector-2.2.1 {
+            column selector =^ case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C["string" =^ @@]}
+        } -result [newcolumn $type [list "string" "STRING"]]
+
+        test xtal-column-$type-selector-2.3 {
+            column selector != case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C[C != "string"]}
+        } -result [newcolumn $type {zero one two {3 three} STRING}]
+
+        test xtal-column-$type-selector-2.3.1 {
+            column selector != case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C["string" != C]}
+        } -result [newcolumn $type {zero one two {3 three} STRING}]
+
+        test xtal-column-$type-selector-2.4 {
+            column selector !^ case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C[C !^ "STRING"]}
+        } -result [newcolumn $type {zero one two {3 three}}]
+
+        test xtal-column-$type-selector-2.4.1 {
+            column selector !^ case sensitivity
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {C["string" !^ @@]}
+        } -result [newcolumn $type {zero one two {3 three}}]
+
+        test xtal-column-$type-selector-3.0 {column selector ~} -body {
+            xtal::xtal {C[C ~ "s.*"]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result [newcolumn $type string]
+
+        test xtal-column-$type-selector-3.0.1 {column selector ~} -body {
+            xtal::xtal {C["s.*" ~ C]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+        test xtal-column-$type-selector-3.1 {column selector ~^} -body {
+            xtal::xtal {C[C ~^ "s.*"]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result [newcolumn $type {string STRING}]
+
+        test xtal-column-$type-selector-3.1.1 {column selector ~^} -body {
+            xtal::xtal {C["s.*" ~^ C]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+
+        test xtal-column-$type-selector-3.2 {column selector ~^} -body {
+            xtal::xtal {C[@@ ~^ "G$"]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result [newcolumn $type {string STRING}]
+
+        test xtal-column-$type-selector-3.2.1 {column selector ~^} -body {
+            xtal::xtal {C["G$" ~^ @@]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+
+        test xtal-column-$type-selector-3.3 {column selector ~^} -body {
+            xtal::xtal {C[@@ ~^ "x$"]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result [newcolumn $type {}]
+
+        test xtal-column-$type-selector-4.0 {column selector !~} -body {
+            xtal::xtal {C[C !~ "^s"]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result [newcolumn $type {zero one two {3 three} STRING}]
+
+        test xtal-column-$type-selector-4.0.1 {column selector !~} -body {
+            xtal::xtal {C["^s" !~ C]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result "The right hand operand of operator !~ cannot be a vector." -returnCodes error
+
+        test xtal-column-$type-selector-4.1 {column selector !~^} -body {
+            xtal::xtal {C[C !~^ "^s"]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result [newcolumn $type {zero one two {3 three}}]
+
+        test xtal-column-$type-selector-4.1.1 {column selector !~^} -body {
+            xtal::xtal {C["^s" !~^ C]}
+        } -setup {
+            set C [newcolumn $type $LC]
+        } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
+    }
     
-    test xtal-list-selector-1.1 {list selector ==} -body {
-        xtal::xtal {I[I == 23]}
-    } -result {}
 
-    test xtal-list-selector-1.1.1 {list selector ==} -body {
-        xtal::xtal {I[23 == I]}
-    } -result {}
-    
-    test xtal-list-selector-1.2 {list selector !=} -body {
-        xtal::xtal {I[I != 22]}
-    } -result {33 -11 44}
+    # TBD - verify errors with ~ etc for non-any and non-string
 
-    test xtal-list-selector-1.2.1 {list selector !=} -body {
-        xtal::xtal {I[22 != I]}
-    } -result {33 -11 44}
-    
-    test xtal-list-selector-1.3 {list selector !=} -body {
-        xtal::xtal {I[I != 23]}
-    } -result $I
-
-    test xtal-list-selector-1.3.1 {list selector !=} -body {
-        xtal::xtal {I[23 != I]}
-    } -result $I
-
-    test xtal-list-selector-1.4 {list selector ==} -body {
-        xtal::xtal {I[@@ == 22]}
-    } -result {22 22}
-
-    test xtal-list-selector-1.4.1 {list selector ==} -body {
-        xtal::xtal {I[22 == @@]}
-    } -result {22 22}
-
-    test xtal-list-selector-1.5 {list selector !=} -body {
-        xtal::xtal {I[@@ != 22]}
-    } -result {33 -11 44}
-
-    test xtal-list-selector-1.5.1 {list selector !=} -body {
-        xtal::xtal {I[22 != @@]}
-    } -result {33 -11 44}
-
-    test xtal-list-selector-1.6 {list selector ==} -body {
-        xtal::xtal {LC[LC == "string"]}
-    } -result string
-
-    test xtal-list-selector-1.6.1 {list selector ==} -body {
-        xtal::xtal {LC["string" == LC]}
-    } -result string
-
-    test xtal-list-selector-1.7 {list selector =^} -body {
-        xtal::xtal {LC[LC =^ "string"]}
-    } -result {string STRING}
-
-    test xtal-list-selector-1.7.1 {list selector =^} -body {
-        xtal::xtal {LC["string" =^ LC]}
-    } -result {string STRING}
-
-    test xtal-list-selector-1.8 {list selector =^} -body {
-        xtal::xtal {LC[@@ =^ "STRING"]}
-    } -result {string STRING}
-
-    test xtal-list-selector-1.8.1 {list selector =^} -body {
-        xtal::xtal {LC["STRING" =^ @@]}
-    } -result {string STRING}
-            
-    test xtal-list-selector-1.9 {list selector !=} -body {
-        xtal::xtal {LC[LC != "string"]}
-    } -result {zero one two {3 three} STRING}
-
-    test xtal-list-selector-1.9.1 {list selector !=} -body {
-        xtal::xtal {LC["string" != LC]}
-    } -result {zero one two {3 three} STRING}
-
-    test xtal-list-selector-1.10 {list selector !^} -body {
-        xtal::xtal {LC[@@ !^ "string"]}
-    } -result {zero one two {3 three}}
-
-    test xtal-list-selector-1.10.1 {list selector !^} -body {
-        xtal::xtal {LC["string" !^ @@]}
-    } -result {zero one two {3 three}}
-
-    test xtal-list-selector-1.11 {list selector !^} -body {
-        xtal::xtal {LC[LC !^ "STRING"]}
-    } -result {zero one two {3 three}}
-
-    test xtal-list-selector-1.11.1 {list selector !^} -body {
-        xtal::xtal {LC["STRING" !^ LC]}
-    } -result {zero one two {3 three}}
-            
-    test xtal-list-selector-2.0 {list selector ~} -body {
-        xtal::xtal {LC[LC ~ "s.*"]}
-    } -result string
-
-    test xtal-list-selector-2.0.1 {list selector ~} -body {
-        xtal::xtal {LC["s.*" ~ LC]}
-    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
-
-    test xtal-list-selector-2.1 {list selector ~^} -body {
-        xtal::xtal {LC[LC ~^ "s.*"]}
-    } -result {string STRING}
-
-    test xtal-list-selector-2.1.1 {list selector ~^} -body {
-        xtal::xtal {LC["s.*" ~^ LC]}
-    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
-
-    test xtal-list-selector-2.2 {list selector ~^} -body {
-        xtal::xtal {LC[@@ ~^ "G$"]}
-    } -result {string STRING}
-
-    test xtal-list-selector-2.2.1 {list selector ~^} -body {
-        xtal::xtal {LC["G$" ~^ @@]}
-    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
-    
-    test xtal-list-selector-2.3 {list selector ~} -body {
-        xtal::xtal {LC[LC ~ ".x$"]}
-    } -result {}
-
-    test xtal-list-selector-2.3.1 {list selector ~} -body {
-        xtal::xtal {LC[".x$" ~ LC]}
-    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
-
-    test xtal-list-selector-2.4 {list selector !~} -body {
-        xtal::xtal {LC[LC !~ "^s"]}
-    } -result {zero one two {3 three} STRING}
-
-    test xtal-list-selector-2.4.1 {list selector !~} -body {
-        xtal::xtal {LC["^s" !~ LC]}
-    } -result "The right hand operand of operator !~ cannot be a vector." -returnCodes error
-
-    test xtal-list-selector-2.5 {list selector !~^} -body {
-        xtal::xtal {LC[LC !~^ "^s"]}
-    } -result {zero one two {3 three}}
-
-    test xtal-list-selector-2.5.1 {list selector !~^} -body {
-        xtal::xtal {LC["^s" !~^ LC]}
-    } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
-    
     set testnum -1
     foreach op {> < >= <=} {
         test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
