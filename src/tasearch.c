@@ -900,7 +900,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                     thdr_decr_refs(mt_context[i].thdr);
             }
         }
-        Tcl_SetResult(ip, "Error during column search (out of memory or invalid regexp?)", TCL_STATIC);
+        Tcl_SetResult(ip, "Error during column search (possibly out of memory or invalid regexp).", TCL_STATIC);
     }
 
     return res;
@@ -1344,15 +1344,24 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         case TA_SEARCH_OPT_EQ:
         case TA_SEARCH_OPT_GT:
         case TA_SEARCH_OPT_LT:
+            search.op = (enum ta_search_switches_e) opt;
+            break;
         case TA_SEARCH_OPT_PAT:
         case TA_SEARCH_OPT_RE:
+            if (haystackP->type != TA_STRING && haystackP->type != TA_ANY) {
+                status = ta_invalid_op_for_type(ip, haystackP->type);
+                goto vamoose;
+            }
             search.op = (enum ta_search_switches_e) opt;
+            break;
         }
     }
 
     if (search.flags & TA_SEARCH_COUNT) {
-        if (search.flags & (TA_SEARCH_ALL|TA_SEARCH_INLINE))
-            return ta_search_bad_options(ip);
+        if (search.flags & (TA_SEARCH_ALL|TA_SEARCH_INLINE)) {
+            status = ta_search_bad_options(ip);
+            goto vamoose;
+        }
     }
 
     if (search.lower < 0)
