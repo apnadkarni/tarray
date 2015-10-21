@@ -203,7 +203,7 @@ TCL_RESULT ta_invalid_op_for_type(Tcl_Interp *ip, int typea)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Operation is invalid for type %s", ta_type_string(typea)));
+                         Tcl_ObjPrintf("Operation is invalid for type %s.", ta_type_string(typea)));
         Tcl_SetErrorCode(ip, "TARRAY", "TYPE", "OPERATION", NULL);
     }
 

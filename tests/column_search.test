@@ -5544,6 +5544,12 @@ namespace eval tarray::test {
         tarray::column search -re -not -inline -all [newcolumn any {abc aaa a12}] a
     } -result [crep any {}] -match column
 
+    test column_search-any-re-6.0 {
+        Search invalid regexp
+    } -body {
+        tarray::column search -re [newcolumn any {abc aaa a12}] "a\[."
+    } -result "Error during column search (possibly out of memory or invalid regexp)." -returnCodes error
+
     #
     # -nocase
 
@@ -8499,6 +8505,12 @@ namespace eval tarray::test {
         tarray::column search -re -not -inline -all [newcolumn string {abc aaa a12}] a
     } -result [crep string {}] -match column
 
+    test column_search-string-re-6.0 {
+        Search invalid regexp
+    } -body {
+        tarray::column search -re [newcolumn string {abc aaa a12}] "a\[."
+    } -result "Error during column search (possibly out of memory or invalid regexp)." -returnCodes error
+
     #
     # -nocase
 
@@ -8876,6 +8888,20 @@ namespace eval tarray::test {
         } -result [newcolumn int [list $highpos2]]
     }
 
+    # Ensure -re and -pat fail for non-string and non-any
+    foreach type {boolean byte int uint wide double} {
+        test column_search-$type-pat-1.0 {
+            Try invalid -pat search operation
+        } -body {
+            tarray::column search -pat [newcolumn $type] *
+        } -result "Operation is invalid for type $type." -returnCodes error
+
+        test column_search-$type-re-1.0 {
+            Try invalid -re search operation
+        } -body {
+            tarray::column search -re [newcolumn $type] .*
+        } -result "Operation is invalid for type $type." -returnCodes error
+    }
 
     # Special tests for any & string - nocase, re, pat
     foreach type {any string} {
@@ -9235,6 +9261,16 @@ namespace eval tarray::test {
             lset l 51000 bd
             tarray::column search -inline -all -range {0 50999} -re [newcolumn $type $l] ^b
         } -result [newcolumn $type {bc bcd}]
+
+        test column_search-large-$type-re-9.0 {
+            Search invalid regexp
+        } -body {
+            set l [lrepeat 100000 abc]
+            lset l 48000 bc
+            lset l 51000 bd
+            tarray::column search -inline -all -among [newspancolumn int {51000 40000 48000}] -re [newcolumn $type $l] "a\[."
+        } -result "couldn't compile regular expression pattern: brackets \[\] not balanced" -returnCodes error
+
     }
 
     # TBD - Verify MT is effective by setting thresholds

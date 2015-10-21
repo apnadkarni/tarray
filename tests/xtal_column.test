@@ -570,8 +570,21 @@ namespace eval tarray::test::xtal_column {
         } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
     }
     
-
     # TBD - verify errors with ~ etc for non-any and non-string
+    foreach type {boolean byte int uint wide double} {
+        test xtal-column-$type-selector-5.0 {column selector !~^} -body {
+            xtal::xtal {C[C ~ "0"]}
+        } -setup {
+            set C [newcolumn $type $L]
+        } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+        test xtal-column-$type-selector-5.0.1 {column selector !~^} -body {
+            xtal::xtal {C["^s" ~ C]}
+        } -setup {
+            set C [newcolumn $type $L]
+        } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+        
+    }
 
     set testnum -1
     foreach op {> < >= <=} {
