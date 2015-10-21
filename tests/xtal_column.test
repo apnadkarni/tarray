@@ -901,46 +901,87 @@ namespace eval tarray::test::xtal_column {
 
     ################################################################
     # Compound expressions
-    test xtal-list-selector-compound-1.0 {list selector && selector} -body {
-        xtal::xtal {LC[LC ~ "o" && LC ~ "e"]}
-    } -result {zero one}
-    
-    test xtal-list-selector-compound-1.1 {list selector && selector} -body {
-        xtal::xtal {LC[LC ~ "o" && @@ !~ "e"]}
-    } -result {two}
-    
-    test xtal-list-selector-compound-1.2 {list selector && selector} -body {
-        xtal::xtal {LC[LC ~ "o" && 1]}
-    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
-    
-    test xtal-list-selector-compound-1.3 {list selector && selector} -body {
-        xtal::xtal {LC[LC ~ "o" && 0]}
-    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
-    
-    test xtal-list-selector-compound-2.0 {list selector || selector} -body {
-        xtal::xtal {LC[LC ~ "w" || LC ~ "t"]}
-    } -result {two {3 three} string}
-    
-    test xtal-list-selector-compound-2.1 {list selector || selector} -body {
-        xtal::xtal {LC[@@ ~ "w" || @@ ~^ "t"]}
-    } -result {two {3 three} string STRING}
-    
-    test xtal-list-selector-compound-2.2 {list selector || selector} -body {
-        xtal::xtal {LC[LC ~ "o" || 1]}
-    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
-    
-    test xtal-list-selector-compound-2.3 {list selector || selector} -body {
-        xtal::xtal {LC[LC ~ "o" || 0]}
-    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+    foreach type {byte int uint wide double} {
+        test xtal-column-$type-selector-compound-1.0 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal { c[c < 33 && c > 20] }
+        } -result [newcolumn $type {22 22}]
 
-    test xtal-list-selector-compound-3.0 {list selector && || selector} -body {
-        xtal::xtal {LC[(@@ ~ "r" || @@ ~ "n") && LC ~ "o"]}
-    } -result {zero one}
+        test xtal-column-$type-selector-compound-1.1 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal { c[c > 33 && @@ < 20] }
+        } -result [newcolumn $type {}]
 
-    test xtal-list-selector-compound-3.1 {list selector && || selector} -body {
-        xtal::xtal {LC[@@ ~ "r" || @@ ~ "n" && LC ~ "o"]}
-    } -result {zero one {3 three} string}
-    
+        test xtal-column-$type-selector-compound-1.2 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal { c[@@ <= 22 || c > 40] }
+        } -result [newcolumn $type {11 22 44 22}]
+
+        test xtal-column-$type-selector-compound-1.3 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal { c[c == 44 || c > 30 && c < 40] }
+        } -result [newcolumn $type {33 44}]
+
+        test xtal-column-$type-selector-compound-1.4 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal { c[(c == 44 || c > 30) && c < 40] }
+        } -result [newcolumn $type {33}]
+    }
+            
+    foreach type {string any} {
+        test xtal-column-$type-selector-compound-1.0 {
+            list selector && selector
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {c[c ~ "o" && @@ ~ "e"]}
+        } -result [newcolumn $type {zero one}]
+
+        test xtal-column-$type-selector-compound-1.1 {
+            list selector && selector
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {c[c ~ "o" || @@ ~^ "^s"]}
+        } -result [newcolumn $type {zero one two string STRING}]
+
+        test xtal-column-$type-selector-compound-1.2 {
+            list selector && || selector
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {c[(@@ ~ "r" || @@ ~ "n") && c ~ "o"]}
+        } -result [newcolumn $type {zero one}]
+
+        test xtal-column-$type-selector-compound-1.3 {
+            list selector && || selector
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -body {
+            xtal::xtal {c[@@ ~ "r" || @@ ~ "n" && c ~ "o"]}
+        } -result [newcolumn $type {zero one {3 three} string}]
+    }
+
+    foreach type {byte int uint wide double string any} {
+        test xtal-column-$type-selector-compound-2.0 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal { c[c < 33 && 0] }
+        } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
+
+        test xtal-column-$type-selector-compound-2.1 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+            set i 1
+        } -body {
+            xtal::xtal { c[c < 33 || i] }
+        } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+    }
+
     
     
     ################################################################
