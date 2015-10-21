@@ -544,8 +544,8 @@ namespace eval tarray::test::xtal_list {
     } -result {22 22}
 
     test xtal-list-selector-or-range-1.4.2 {list selector ==} -body {
-        xtal::xtal {I[0:%I || 22 == @@]}
-    } -result "list index out of range" -returnCodes error
+        xtal::xtal {I[3:%I || 22 == @@]}
+    } -result {22 44 22}
 
     test xtal-list-selector-or-range-1.5 {list selector !=} -body {
         xtal::xtal {I[0:2 || @@ != 22]}

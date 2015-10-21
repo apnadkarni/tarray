@@ -45,6 +45,7 @@ typedef struct ta_search_s {
     enum ta_search_switches_e op;    /* Search operation */
 } ta_search_t;
 
+#ifdef OBSOLETE
 TCL_RESULT ta_search_op_error(Tcl_Interp *ip, int op)
 {
     if (ip) {
@@ -59,6 +60,7 @@ TCL_RESULT ta_search_op_error(Tcl_Interp *ip, int op)
     }
     return TCL_ERROR;
 }
+#endif
 
 TCL_RESULT ta_search_bad_options(Tcl_Interp *ip)
 {
@@ -132,7 +134,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
     TA_ASSERT(haystackP->type == TA_BOOLEAN);
 
     if (psearch->op != TA_SEARCH_OPT_EQ)
-        return ta_search_op_error(ip, psearch->op);
+        return ta_invalid_op_for_type(ip, TA_BOOLEAN);
 
     if (Tcl_GetBooleanFromObj(ip, needleObj, &bval) != TCL_OK)
         return TCL_ERROR;

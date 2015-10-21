@@ -2304,8 +2304,13 @@ namespace eval xtal::rt {
         if {$low < 0} {
             set low 0
         }
+        set max [expr {[size [selector_context]] - 1}]
         if {$high eq "end"} {
-            set high [expr {[size [selector_context]] - 1}]
+            set high $max
+        } else {
+            if {$high > $max} {
+                set high $max
+            }
         }
         set l {}
         for {set i $low} {$i <= $high} {incr i} {

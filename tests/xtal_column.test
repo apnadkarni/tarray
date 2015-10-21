@@ -81,7 +81,7 @@ namespace eval tarray::test::xtal_column {
 
         test xtal-column-$type-index-2.2 {
             Literal column scalar index
-        } -body " xtal::xtal { c = @$type {10, 20, 30, 40} ; c\[%L-1\] } " -result 40
+        } -body " xtal::xtal { c = @$type {10, 20, 30, 40} ; c\[%c-1\] } " -result 40
 
         test xtal-column-$type-index-2.3 {
             Literal column scalar index
@@ -253,69 +253,69 @@ namespace eval tarray::test::xtal_column {
 
     foreach type {boolean byte int uint wide double string any} {
         test xtal-column-$type-range-1.0 {column range} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[0:0]}
+            xtal::xtal {c[0:0]}
         } -result [samplecolumn $type 0 0]
         
         test xtal-column-$type-range-1.1 {column range} -setup {
-            set L [samplecolumn $type 0 9]
+            set c [samplecolumn $type 0 9]
         } -body { 
-            xtal::xtal {L[ %L-1 : %@@-1 ]}
+            xtal::xtal {c[ %c-1 : %@@-1 ]}
         } -result [samplecolumn $type 9 9]
 
         test xtal-column-$type-range-1.2 {column range} -setup {
-            set L [samplecolumn $type 0 9]
+            set c [samplecolumn $type 0 9]
         } -body { 
-            xtal::xtal {L[ 0 : %L-1 ]}
+            xtal::xtal {c[ 0 : %c-1 ]}
         } -result [samplecolumn $type 0 9]
 
         test xtal-column-$type-range-1.3 {column range} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[0:%L]}
+            xtal::xtal {c[0:%c]}
         } -result [samplecolumn $type]
 
         test xtal-column-$type-range-1.4 {column empty range} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[0:-1]}
+            xtal::xtal {c[0:-1]}
         } -result [newcolumn $type]
 
         test xtal-column-$type-range-1.5 {column empty range} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[3:1]}
+            xtal::xtal {c[3:1]}
         } -result [newcolumn $type]
 
         test xtal-column-$type-range-1.6 {column upper unspecified} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[1:]}
+            xtal::xtal {c[1:]}
         } -result [samplecolumn $type 1 end]
         
         test xtal-column-$type-range-2.0 {column lower unspecified} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[:1]}
+            xtal::xtal {c[:1]}
         } -result "Parse error*" -match glob -returnCodes error 
 
         test xtal-column-$type-range-2.1 {column lower unspecified} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[:]}
+            xtal::xtal {c[:]}
         } -result "Parse error*" -match glob -returnCodes error 
 
         test xtal-column-$type-range-2.2 {column lower unspecified} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L["zero":1]}
+            xtal::xtal {c["zero":1]}
         } -result "Invalid index*" -match glob -returnCodes error 
 
         test xtal-column-$type-range-2.3 {column lower unspecified} -setup {
-            set L [samplecolumn $type]
+            set c [samplecolumn $type]
         } -body { 
-            xtal::xtal {L[0:"one"]}
+            xtal::xtal {c[0:"one"]}
         } -result "Invalid index*" -match glob -returnCodes error 
     }
 
@@ -401,25 +401,25 @@ namespace eval tarray::test::xtal_column {
         xtal::xtal {I[I == 0 ]}
     } -setup {
         set I [newcolumn boolean {0 1 1 0 1}]
-    } -result [newcolumn $type {0 0}]
+    } -result [newcolumn boolean {0 0}]
 
     test xtal-column-boolean-selector-1.0.1 {column selector ==} -body {
         xtal::xtal {I[1 == I]}
     } -setup {
         set I [newcolumn boolean {0 1 1 0 1}]
-    } -result [newcolumn $type {1 1 1}]
+    } -result [newcolumn boolean {1 1 1}]
 
     test xtal-column-boolean-selector-1.1 {column selector !=} -body {
         xtal::xtal {I[I != 1 ]}
     } -setup {
         set I [newcolumn boolean {0 1 1 0 1}]
-    } -result [newcolumn $type {0 0}]
+    } -result [newcolumn boolean {0 0}]
 
     test xtal-column-boolean-selector-1.1.1 {column selector !=} -body {
         xtal::xtal {I[0 != I]}
     } -setup {
         set I [newcolumn boolean {0 1 1 0 1}]
-    } -result [newcolumn $type {1 1 1}]
+    } -result [newcolumn boolean {1 1 1}]
 
     # String / any specific tests for case sensitivity, regexp etc.
     foreach type {string any} {
@@ -570,13 +570,12 @@ namespace eval tarray::test::xtal_column {
         } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
     }
     
-    # TBD - verify errors with ~ etc for non-any and non-string
     foreach type {boolean byte int uint wide double} {
-        test xtal-column-$type-selector-5.0 {column selector !~^} -body {
+        test xtal-column-$type-selector-5.0 {column selector ~} -body {
             xtal::xtal {C[C ~ "0"]}
         } -setup {
             set C [newcolumn $type $L]
-        } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+        } -result "Operation is invalid for type $type." -returnCodes error
 
         test xtal-column-$type-selector-5.0.1 {column selector !~^} -body {
             xtal::xtal {C["^s" ~ C]}
@@ -584,223 +583,321 @@ namespace eval tarray::test::xtal_column {
             set C [newcolumn $type $L]
         } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
         
+        test xtal-column-$type-selector-5.1 {column selector !~} -body {
+            xtal::xtal {C[C !~ "0"]}
+        } -setup {
+            set C [newcolumn $type $L]
+        } -result "Operation is invalid for type $type." -returnCodes error
     }
 
+    # Comparison operators
     set testnum -1
-    foreach op {> < >= <=} {
-        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[@@ $op 30\]"
-        } -result "The specified selector operator is invalid for lists." -returnCodes error
-        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[30 $op I\]"
-        } -result "The specified selector operator is invalid for lists." -returnCodes error
+    foreach type {byte int uint wide double string any} {
+        foreach op {> < >= <= > < >= <=} operand {22 44 11 33 50 10 50 10} res {{33 44} {33 11 22 22} {33 11 22 44 22} {33 11 22 22} {} {} {} {}} {
+            test xtal-column-$type-selector-6.[incr testnum] "Column $op" -setup {
+                set c [newcolumn $type $L]
+            } -body {
+                xtal::xtal "c\[c $op $operand\]"
+            } -result [newcolumn $type $res]
+            
+            test xtal-column-$type-selector-6.[incr testnum] "Column $op" -setup {
+                set c [newcolumn $type $L]
+            } -body {
+                xtal::xtal "c\[@@ $op $operand\]"
+            } -result [newcolumn $type $res]
+        }
+        
+        foreach op {> < >= <= > < >= <=} operand {22 22 33 22 10 50 10 50} res {{11} {33 44} {33 11 22 22} {33 22 44 22} {} {} {} {}} {
+            test xtal-column-$type-selector-6.[incr testnum] "Column $op" -setup {
+                set c [newcolumn $type $L]
+            } -body {
+                xtal::xtal "c\[$operand $op c\]"
+            } -result [newcolumn $type $res]
+            
+            test xtal-column-$type-selector-6.[incr testnum] "Column $op" -setup {
+                set c [newcolumn $type $L]
+            } -body {
+                xtal::xtal "c\[$operand $op @@ \]"
+            } -result [newcolumn $type $res]
+
+        }
+
+        if {$type ni {any string}} {
+            foreach op {> < >= <= > < >= <=} operand {22 22 33 22 10 50 10 50} res {{11} {33 44} {33 11 22 22} {33 22 44 22} {} {} {} {}} {
+                test xtal-column-$type-selector-6.[incr testnum] "Column $op" -setup {
+                    set c [newcolumn $type $L]
+                } -body {
+                    xtal::xtal "c\[c $op 'astring'\]"
+                } -result "expected * but got \"astring\"" -returnCodes error -match glob
+                test xtal-column-$type-selector-6.[incr testnum] "Column $op" -setup {
+                    set c [newcolumn $type $L]
+                } -body {
+                    xtal::xtal "c\[c $op \"\"\]"
+                } -result "expected * but got \"\"" -returnCodes error -match glob
+            }
+        }
     }
 
+    foreach op {> < >= <= > < >= <=} {
+        test xtal-column-boolean-selector-6.[incr testnum] "Column boolean $op" -setup {
+            set c [newcolumn boolean {0 1 1 0 1}]
+        } -body {
+            xtal::xtal "c\[$operand $op c\]"
+        } -result "Operation is invalid for type boolean." -returnCodes error
+
+        test xtal-column-boolean-selector-6.[incr testnum] "Column boolean $op" -setup {
+            set c [newcolumn boolean {0 1 1 0 1}]
+        } -body {
+            xtal::xtal "c\[c $op $operand\]"
+        } -result "Operation is invalid for type boolean." -returnCodes error
+    }
+                   
     ################################################################
     # selector && range
-    test xtal-list-selector-and-range-1.0 {list selector ==} -body {
-        xtal::xtal {I[I == 22 && 3:]}
-    } -result {22}
-    
-    test xtal-list-selector-and-range-1.0.1 {list selector ==} -body {
-        xtal::xtal {I[3: && I == 22]}
-    } -result {22}
-    
-    test xtal-list-selector-and-range-1.1 {list selector ==} -body {
-        xtal::xtal {I[0:1 && I == 22]}
-    } -result {}
-    
-    test xtal-list-selector-and-range-1.1.1 {list selector ==} -body {
-        xtal::xtal {I[22 == I && 0:1]}
-    } -result {}
-    
-    test xtal-list-selector-and-range-1.2 {list selector !=} -body {
-        xtal::xtal {I[I != 22 && 1:%I-1]}
-    } -result {-11 44}
-    
-    test xtal-list-selector-and-range-1.2.1 {list selector !=} -body {
-        xtal::xtal {I[1:%I-1 && I != 22]}
-    } -result {-11 44}
-    
-    test xtal-list-selector-and-range-1.2.2 {list selector !=} -body {
-        xtal::xtal {I[1:0 && I != 22]}
-    } -result {}
-    
-    test xtal-list-selector-and-range-1.3 {list selector !=} -body {
-        xtal::xtal {I[I != 23 && 0:2]}
-    } -result [lrange $I 0 2]
+    foreach type {byte int uint wide double string any} {
+        test xtal-column-$type-selector-and-range-1.0 {column selector ==} -body {
+            xtal::xtal {c[c == 22 && 3:]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22}]
+        
+        test xtal-column-$type-selector-and-range-1.0.1 {column selector ==} -body {
+            xtal::xtal {c[3: && c == 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22}]
+        
+        test xtal-column-$type-selector-and-range-1.1 {column selector ==} -body {
+            xtal::xtal {c[0:1 && c == 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {}]
+        
+        test xtal-column-$type-selector-and-range-1.1.1 {column selector ==} -body {
+            xtal::xtal {c[22 == c && 0:1]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {}]
+        
+        test xtal-column-$type-selector-and-range-1.2 {column selector !=} -body {
+            xtal::xtal {c[c != 22 && 1:%c-1]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {11 44}]
+        
+        test xtal-column-$type-selector-and-range-1.2.1 {column selector !=} -body {
+            xtal::xtal {c[1:%c-1 && c != 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {11 44}]
+        
+        test xtal-column-$type-selector-and-range-1.2.2 {column selector !=} -body {
+            xtal::xtal {c[1:0 && c != 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {}]
+        
+        test xtal-column-$type-selector-and-range-1.3 {column selector !=} -body {
+            xtal::xtal {c[c != 23 && 0:2]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type [lrange $L 0 2]]
 
-    test xtal-list-selector-and-range-1.4 {list selector ==} -body {
-        xtal::xtal {I[@@ == 22 && 0:%I]}
-    } -result {22 22}
+        test xtal-column-$type-selector-and-range-1.4 {column selector ==} -body {
+            xtal::xtal {c[@@ == 22 && 0:%c]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
 
-    test xtal-list-selector-and-range-1.4.1 {list selector ==} -body {
-        xtal::xtal {I[0:%I && 22 == @@]}
-    } -result {22 22}
+        test xtal-column-$type-selector-and-range-1.4.1 {column selector ==} -body {
+            xtal::xtal {c[0:%c && 22 == @@]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
 
-    test xtal-list-selector-and-range-1.5 {list selector !=} -body {
-        xtal::xtal {I[0:2 && @@ != 22]}
-    } -result {33 -11}
-
-    test xtal-list-selector-and-range-2.0 {list selector ~} -body {
-        xtal::xtal {L[0:1 && @@ ~ ".o$"]}
-    } -result {zero}
-    
-    test xtal-list-selector-and-range-2.0.1 {list selector ~} -body {
-        xtal::xtal {L[@@ ~ ".o$" && 0:1]}
-    } -result {zero}
-    
-    test xtal-list-selector-and-range-2.1 {list selector ~} -body {
-        xtal::xtal {L[0:%I && L ~ ".x$"]}
-    } -result {}
-
-    test xtal-list-selector-and-range-2.2 {list selector !~} -body {
-        xtal::xtal {L[L !~ ".o$" && %L-1:%L]}
-    } -result {{3 three}}
-    
-    test xtal-list-selector-and-range-2.3 {list selector ~} -body {
-        xtal::xtal {LC[0:2 && LC ~ "s.*"]}
-    } -result {}
-
-    test xtal-list-selector-2.3.1 {list selector ~} -body {
-        xtal::xtal {LC[0:2 && "s.*" ~ LC]}
-    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
-
-    test xtal-list-selector-and-range-2.4 {list selector ~} -body {
-        xtal::xtal {LC[2:100 && LC ~ "s.*"]}
-    } -result string
-
-    test xtal-list-selector-and-range-2.5 {list selector ~^} -body {
-        xtal::xtal {LC[0: && LC ~^ "s.*"]}
-    } -result {string STRING}
-
-    test xtal-list-selector-and-range-2.5.1 {list selector ~^} -body {
-        xtal::xtal {LC[LC ~^ "s.*" && 0:]}
-    } -result {string STRING}
-
-    test xtal-list-selector-and-range-2.6 {list selector ~^} -body {
-        xtal::xtal {LC[LC ~^ "s.*" && 0:%LC]}
-    } -result {string STRING}
-
-    test xtal-list-selector-and-range-2.6.1 {list selector ~^} -body {
-        xtal::xtal {LC[LC ~^ "s.*" && %LC-2:%LC]}
-    } -result {string STRING}
-
-    test xtal-list-selector-and-range-2.1.1 {list selector ~^} -body {
-        xtal::xtal {LC["s.*" ~^ LC]}
-    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
-    
-    set testnum -1
-    foreach op {> < >= <=} {
-        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[0:3  && @@ $op 30\]"
-        } -result "Operator $op not supported on lists." -returnCodes error
-
-        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[@@ $op 30 && 0:2 \]"
-        } -result "Operator $op not supported on lists." -returnCodes error
+        test xtal-column-$type-selector-and-range-1.5 {column selector !=} -body {
+            xtal::xtal {c[0:2 && @@ != 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {33 11}]
     }
+
+    foreach type {any string} {
+        test xtal-column-$type-selector-and-range-2.0 {column selector ~} -body {
+            xtal::xtal {c[0:1 && @@ ~ ".o$"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {zero}]
+        
+        test xtal-column-$type-selector-and-range-2.0.1 {column selector ~} -body {
+            xtal::xtal {c[@@ ~ ".o$" && 0:1]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {zero}]
+        
+        test xtal-column-$type-selector-and-range-2.1 {column selector ~} -body {
+            xtal::xtal {c[0:%I && c ~ ".x$"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {}]
+
+        test xtal-column-$type-selector-and-range-2.2 {column selector !~} -body {
+            xtal::xtal {c[c !~ ".o$" && %c-1:%c]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {STRING}]
+        
+        test xtal-column-$type-selector-and-range-2.3 {column selector ~} -body {
+            xtal::xtal {c[0:2 && c ~ "s.*"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {}]
+
+        test xtal-column-$type-selector-2.3.1 {column selector ~} -body {
+            xtal::xtal {c[0:2 && "s.*" ~ c]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+
+        test xtal-column-$type-selector-and-range-2.4 {column selector ~} -body {
+            xtal::xtal {c[2:100 && c ~ "s.*"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type string]
+
+        test xtal-column-$type-selector-and-range-2.5 {column selector ~^} -body {
+            xtal::xtal {c[0: && c ~^ "s.*"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {string STRING}]
+
+        test xtal-column-$type-selector-and-range-2.5.1 {column selector ~^} -body {
+            xtal::xtal {c[c ~^ "s.*" && 0:]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {string STRING}]
+
+        test xtal-column-$type-selector-and-range-2.6 {column selector ~^} -body {
+            xtal::xtal {c[c ~^ "s.*" && 0:%c]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {string STRING}]
+
+        test xtal-column-$type-selector-and-range-2.6.1 {column selector ~^} -body {
+            xtal::xtal {c[c ~^ "s.*" && %c-2:%c]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {string STRING}]
+
+        test xtal-column-$type-selector-and-range-2.6.2 {column selector ~^} -body {
+            xtal::xtal {c["s.*" ~^ c && 0:]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
+    }    
+
+    # TBD - op >, <, >=, <= for selector-and-range
+    # TBD - boolean selector-and-range
 
     ################################################################
     # selector || range
-    test xtal-list-selector-or-range-1.0 {list selector ==} -body {
-        xtal::xtal {I[I == 22 || 1:3]}
-    } -result {-11 22 44 22}
-    
-    test xtal-list-selector-or-range-1.0.1 {list selector ==} -body {
-        xtal::xtal {I[3: || I == 22]}
-    } -result {22 44 22}
-    
-    test xtal-list-selector-or-range-1.1 {list selector ==} -body {
-        xtal::xtal {I[0:1 || I == 22]}
-    } -result {33 -11 22 22}
-    
-    test xtal-list-selector-or-range-1.1.1 {list selector ==} -body {
-        xtal::xtal {I[22 == I || 0:1]}
-    } -result {33 -11 22 22}
-    
-    test xtal-list-selector-or-range-1.2 {list selector !=} -body {
-        xtal::xtal {I[I != 22 || 1:%I-3]}
-    } -result {33 -11 22 44}
-    
-    test xtal-list-selector-or-range-1.2.1 {list selector !=} -body {
-        xtal::xtal {I[1:%I-1 || I != 22]}
-    } -result $I
-    
-    test xtal-list-selector-or-range-1.3 {list selector !=} -body {
-        xtal::xtal {I[I != 23 || 0:2]}
-    } -result $I
+    foreach type {byte int uint wide double string any} {
+        test xtal-column-$type-selector-or-range-1.0 {column selector ==} -body {
+            xtal::xtal {c[c == 22 || 1:3]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {11 22 44 22}]
+        
+        test xtal-column-$type-selector-or-range-1.0.1 {column selector ==} -body {
+            xtal::xtal {c[3: || c == 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22 44 22}]
+        
+        test xtal-column-$type-selector-or-range-1.1 {column selector ==} -body {
+            xtal::xtal {c[0:1 || c == 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 22 22}]
+        
+        test xtal-column-$type-selector-or-range-1.1.1 {column selector ==} -body {
+            xtal::xtal {c[22 == c || 0:1]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 22 22}]
+        
+        test xtal-column-$type-selector-or-range-1.2 {column selector !=} -body {
+            xtal::xtal {c[c != 22 || 1:%c-3]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 22 44}]
+        
+        test xtal-column-$type-selector-or-range-1.2.1 {column selector !=} -body {
+            xtal::xtal {c[1:%c-1 || c != 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type $L]
+        
+        test xtal-column-$type-selector-or-range-1.3 {column selector !=} -body {
+            xtal::xtal {c[c != 23 || 0:2]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type $L]
 
-    test xtal-list-selector-or-range-1.4 {list selector ==} -body {
-        xtal::xtal {I[@@ == 22 || 0:1]}
-    } -result {33 -11 22 22}
+        test xtal-column-$type-selector-or-range-1.4 {column selector ==} -body {
+            xtal::xtal {c[@@ == 22 || 0:1]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 22 22}]
 
-    test xtal-list-selector-or-range-1.4.1 {list selector ==} -body {
-        xtal::xtal {I[0:-1 || 22 == @@]}
-    } -result {22 22}
+        test xtal-column-$type-selector-or-range-1.4.1 {column selector ==} -body {
+            xtal::xtal {c[0:-1 || 22 == @@]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22 22}]
 
-    test xtal-list-selector-or-range-1.4.2 {list selector ==} -body {
-        xtal::xtal {I[0:%I || 22 == @@]}
-    } -result "list index out of range" -returnCodes error
+        test xtal-column-$type-selector-or-range-1.4.2 {column selector ==} -body {
+            xtal::xtal {c[3:%c || 22 == @@]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {22 44 22}]
 
-    test xtal-list-selector-or-range-1.5 {list selector !=} -body {
-        xtal::xtal {I[0:2 || @@ != 22]}
-    } -result {33 -11 22 44}
-
-    test xtal-list-selector-or-range-2.0 {list selector ~} -body {
-        xtal::xtal {L[0:1 || @@ ~ ".o$"]}
-    } -result {zero one two}
-    
-    test xtal-list-selector-or-range-2.0.1 {list selector ~} -body {
-        xtal::xtal {L[@@ ~ ".o$" || 0:1]}
-    } -result {zero one two}
-    
-    test xtal-list-selector-or-range-2.1 {list selector ~} -body {
-        xtal::xtal {L[0:%L-1 || L ~ ".x$"]}
-    } -result $L
-
-    test xtal-list-selector-or-range-2.2 {list selector !~} -body {
-        xtal::xtal {L[L !~ ".o$" || %L-2:%L-1]}
-    } -result {one two {3 three}}
-    
-    test xtal-list-selector-or-range-2.3 {list selector ~} -body {
-        xtal::xtal {LC[0:2 || LC ~ "s.*"]}
-    } -result {zero one two string}
-
-    test xtal-list-selector-2.3.1 {list selector ~} -body {
-        xtal::xtal {LC[0:2 || "s.*" ~ LC]}
-    } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
-
-    test xtal-list-selector-or-range-2.4 {list selector ~} -body {
-        xtal::xtal {LC[0: || LC ~ "x.*"]}
-    } -result $LC
-
-    test xtal-list-selector-or-range-2.5 {list selector ~^} -body {
-        xtal::xtal {LC[0:%LC-2 || LC ~^ "s.*"]}
-    } -result $LC
-
-    test xtal-list-selector-or-range-2.6 {list selector ~^} -body {
-        xtal::xtal {LC[LC ~^ "s.*" || 0:%LC-1]}
-    } -result $LC
-
-    test xtal-list-selector-or-range-2.6.1 {list selector ~^} -body {
-        xtal::xtal {LC[LC ~^ "s.*" || 0:0]}
-    } -result {zero string STRING}
-
-    test xtal-list-selector-or-range-2.1.1 {list selector ~^} -body {
-        xtal::xtal {LC["s.*" ~^ LC]}
-    } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
-    
-    set testnum -1
-    foreach op {> < >= <=} {
-        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[0:3  || @@ $op 30\]"
-        } -result "Operator $op not supported on lists." -returnCodes error
-
-        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[@@ $op 30 || 0:2 \]"
-        } -result "Operator $op not supported on lists." -returnCodes error
+        test xtal-column-$type-selector-or-range-1.5 {column selector !=} -body {
+            xtal::xtal {c[0:2 || @@ != 22]}
+        } -setup {
+            set c [newcolumn $type $L]
+        } -result [newcolumn $type {33 11 22 44}]
     }
+
+    foreach type {string any} {
+        test xtal-column-$type-selector-or-range-2.0 {column selector ~} -body {
+            xtal::xtal {c[0:1 || @@ ~ ".o$"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {zero one two}]
+
+        test xtal-column-$type-selector-or-range-2.1 {column selector !~} -body {
+            xtal::xtal {c[c !~ ".o$" || %c-2:%c-1]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type {one {3 three} string STRING}]
+
+        test xtal-column-$type-selector-or-range-2.2 {column selector ~^} -body {
+            xtal::xtal {c[0:%c-2 || c ~^ "s.*"]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result [newcolumn $type $LC]
+
+        test xtal-column-$type-selector-or-range-2.3 {column selector ~} -body {
+            xtal::xtal {c[0:%c-2 || "s.*" ~ c]}
+        } -setup {
+            set c [newcolumn $type $LC]
+        } -result "The right hand operand of operator ~ cannot be a vector." -returnCodes error
+    }
+    
+    
+    # TBD - op >, <, >=, <= for selector-or-range
+    # TBD - boolean selector-or-range
 
     ################################################################
     # Compound expressions
@@ -843,6 +940,7 @@ namespace eval tarray::test::xtal_column {
     test xtal-list-selector-compound-3.1 {list selector && || selector} -body {
         xtal::xtal {LC[@@ ~ "r" || @@ ~ "n" && LC ~ "o"]}
     } -result {zero one {3 three} string}
+    
     
     
     ################################################################
