@@ -93,7 +93,7 @@ TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("tarray index %d out of bounds", index));
+                         Tcl_ObjPrintf("tarray index %d out of bounds.", index));
         Tcl_SetErrorCode(ip, "TARRAY", "INDEX", "RANGE", NULL);
     }
     return TCL_ERROR;
