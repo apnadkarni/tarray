@@ -1691,7 +1691,7 @@ namespace eval xtal::rt {
                 if {$nvalues == 1} {
                     return [tarray::column::vfill var [tarray::column::index $value 0] $index]
                 } else {
-                    error "Target size [tarray::column::size $index] does not match source size $nvalues"
+                    error "Target size [tarray::column::size $index] does not match source size $nvalues."
                 }
             }
         }
