@@ -106,11 +106,11 @@ namespace eval tarray::test::xtal_column {
     foreach type {boolean byte int uint wide double string any} {
         test xtal-column-$type-index-3.0 {
             Literal column scalar index out of bounds
-        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[- 1\] } " -result "tarray index -1 out of bounds" -returnCodes error
+        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[- 1\] } " -result "tarray index -1 out of bounds." -returnCodes error
 
         test xtal-column-$type-index-3.1 {
             Literal column scalar index out of bounds
-        } -body " xtal::xtal { i = 4 ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds" -returnCodes error
+        } -body " xtal::xtal { i = 4 ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds." -returnCodes error
 
         test xtal-column-$type-index-3.2 {
             Literal column scalar index non-integer
@@ -173,11 +173,11 @@ namespace eval tarray::test::xtal_column {
     foreach type {boolean byte int uint wide double string any} {
         test xtal-column-$type-indexlist-3.0 {
             Literal column scalar indexlist out of bounds
-        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[{0, -1}\] } " -result "tarray index -1 out of bounds" -returnCodes error
+        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[{0, -1}\] } " -result "tarray index -1 out of bounds." -returnCodes error
 
         test xtal-column-$type-indexlist-3.1 {
             Literal column scalar indexlist out of bounds
-        } -body " xtal::xtal { i = {3,4} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds" -returnCodes error
+        } -body " xtal::xtal { i = {3,4} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds." -returnCodes error
 
         test xtal-column-$type-indexlist-3.2 {
             Literal column scalar indexlist non-integer
@@ -236,11 +236,11 @@ namespace eval tarray::test::xtal_column {
     foreach type {boolean byte int uint wide double string any} {
         test xtal-column-$type-indexcolumn-3.0 {
             Literal column scalar indexcolumn out of bounds
-        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[@int {0, -1}\] } " -result "tarray index -1 out of bounds" -returnCodes error
+        } -body " xtal::xtal { @$type {0, 0, 0, 0}\[@int {0, -1}\] } " -result "tarray index -1 out of bounds." -returnCodes error
 
         test xtal-column-$type-indexcolumn-3.1 {
             Literal column scalar indexcolumn out of bounds
-        } -body " xtal::xtal { i = @int {3,4} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds" -returnCodes error
+        } -body " xtal::xtal { i = @int {3,4} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "tarray index 4 out of bounds." -returnCodes error
 
         test xtal-column-$type-indexcolumn-3.2 {
             Literal column scalar indexcolumn non-integer
@@ -1294,147 +1294,162 @@ namespace eval tarray::test::xtal_column {
 
     ################################################################
     # list range assignment
-    # XXX
-    test xtal-list-assign-range-1.0 {list assign range} -setup {
-        set l [newcolumn $type $L]
-    } -body {
-        xtal::xtal { l[0:1] = "ZERO" }
-    } -result [newcolumn $type [lreplace $L 0 1 ZERO ZERO]]
+    #
+    foreach type {boolean byte int uint wide double string any} {
+        test xtal-column-$type-assign-range-1.0 {column assign range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[0:1] = 0 }
+        } -result [newcolumn $type [lreplace $L 0 1 0 0]]
 
-    test xtal-list-assign-range-1.1 {list assign range} -setup {
-        set l [newcolumn $type $L]
-    } -body {
-        xtal::xtal { l[0:1] = {"ZERO", "ONE"} }
-    } -result [newcolumn $type [lreplace $L 0 1 {ZERO ONE} {ZERO ONE}]]
+        test xtal-column-$type-assign-range-1.1 {column assign range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[0:1] = {0, 1} }
+        } -result [newcolumn $type [lreplace $L 0 1 0 1]]
 
-    test xtal-list-assign-range-1.2 {list assign last range} -setup {
-        set l [newcolumn $type $L]
-    } -body {
-        xtal::xtal { l[%l-1:%l] = "x" }
-    } -result [newcolumn $type [lreplace $L end end x x]]
-    
-    test xtal-list-assign-range-1.3 {list assign range vars} -setup {
-        
-        set l [newcolumn $type $L]
-        
-        set i 1
-    } -body {
-        xtal::xtal { l[i:i+1] = 'x' }
-    } -result [newcolumn $type [lreplace $L 1 2 x x]]
+        test xtal-column-$type-assign-range-1.1.1 {column assign range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[0:1] = @int {0, 1} }
+        } -result [newcolumn $type [lreplace $L 0 1 0 1]]
 
-    test xtal-list-assign-range-1.4 {list assign range extend} -setup {
+        test xtal-column-$type-assign-range-1.2 {column assign last range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[%l-1:%l] = 10 }
+        } -result [newcolumn $type [lreplace $L end end 10 10 ]]
         
-        set l [newcolumn $type $L]
-        
-    } -body {
-        xtal::xtal { l[%l:%l+1] = {"x","y" } }
-    } -result [newcolumn $type [linsert $L end {x y} {x y}]]
-    
-    test xtal-list-assign-range-1.5 {list assign range extend} -setup {
-        
-        set l [newcolumn $type $L]
-        
-    } -body {
-        xtal::xtal { l[%l:%l+2] = "x" }
-    } -result  [newcolumn $type [linsert $L end x x x]]
+        test xtal-column-$type-assign-range-1.3 {column assign range vars} -setup {
+            
+            set l [newcolumn $type $L]
+            
+            set i 1
+        } -body {
+            xtal::xtal { l[i:i+1] = 10 }
+        } -result [newcolumn $type [lreplace $L 1 2 10 10]]
 
-    test xtal-list-assign-range-1.6 {list assign empty range} -setup {
+        test xtal-column-$type-assign-range-1.4 {column assign range extend} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[%l:%l+1] = {10, 20} }
+        } -result [newcolumn $type [linsert $L end 10 20]]
         
-        set l [newcolumn $type $L]
-        
-    } -body {
-        xtal::xtal { l[0:] = "x" }
-    } -result [newcolumn $type [lrepeat [llength $L] x]]
-    
-    test xtal-list-assign-range-2.0 {list assign empty range} -setup {
-        
-        set l [newcolumn $type $L]
-        
-    } -body {
-        xtal::xtal { l[-1:1] = "x" }
-    } -result "list index out of range" -returnCodes error
-    
-    test xtal-list-assign-range-2.1 {list assign empty range} -setup {
-        
-        set l [newcolumn $type $L]
-        
-    } -body {
-        xtal::xtal { l[2:1] = "x" }
-    } -result "Range lower limit 2 is greater than upper limit 1." -returnCodes error 
-    
-    test xtal-list-assign-range-2.2 {list assign empty range} -setup {
-        
-        set l [newcolumn $type $L]
-        
-    } -body {
-        xtal::xtal { l[:] = "x" }
-    } -result "Parse error*" -match glob -returnCodes error
-    
-    test xtal-list-assign-range-2.3 {list assign range} -setup {
-        unset -nocomplain l
-    } -body {
-        xtal::xtal { l[0:1] = "ten" }
-    } -result "can't read \"l\": no such variable" -returnCodes error
+        test xtal-column-$type-assign-range-1.5 {column assign range extend} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[%l:%l+2] = 10 }
+        } -result  [newcolumn $type [linsert $L end 10 10 10]]
 
+        test xtal-column-$type-assign-range-1.6 {column assign empty range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[0:] = "10" }
+        } -result [newcolumn $type [lrepeat [llength $L] 10]]
+        
+        test xtal-column-$type-assign-range-2.0 {column assign empty range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            # TBD - Inconsistent with l[{-1,0,1}] = 10 which raises error
+            # and also with the case where l is a list
+            xtal::xtal { l[-1:1] = "10" }
+        } -result [newcolumn $type [lreplace $L 0 1 10 10]]
+        
+        test xtal-column-$type-assign-range-2.1 {column assign empty range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[2:1] = 10 }
+        } -result "Range lower limit 2 is greater than upper limit 1." -returnCodes error 
+        
+        test xtal-column-$type-assign-range-2.2 {column assign empty range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[:] = "x" }
+        } -result "Parse error*" -match glob -returnCodes error
+        
+        test xtal-column-$type-assign-range-2.3 {column assign range} -setup {
+            unset -nocomplain l
+        } -body {
+            xtal::xtal { l[0:1] = "ten" }
+        } -result "can't read \"l\": no such variable" -returnCodes error
+
+        test xtal-column-$type-assign-range-2.4 {column assign range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[0:1] = @int {0, 1, 2} }
+        } -result "Source size 3 differs from target column range 0:1." -returnCodes error
+
+        test xtal-column-$type-assign-range-2.5 {column assign range} -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[0:2] = @int {0, 1} }
+        } -result "Source size 2 differs from target column range 0:2." -returnCodes error
+    }
+    
     ################################################################
-    # assign selector
-    test xtal-list-assign-selector-1.0 {list assign selector} -setup {
+    #
+    foreach type {string any} {
+        test xtal-column-$type-assign-selector-1.0 {column assign selector} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[l ~ "o"] = "x"}
+        } -result [newcolumn $type {x x x {3 three} string STRING}]
         
-        set l [newcolumn $type $LC]
-        
-    } -body {
-        xtal::xtal { l[l ~ "o"] = "x"}
-    } -result [newcolumn $type {x x x {3 three} string STRING}]
-    
-    test xtal-list-assign-selector-1.1 {list assign selector} -setup {
-        
-        set l [newcolumn $type $LC]
-        
-    } -body {
-        xtal::xtal { l[l ~ "str"] = "x"}
-    } -result [newcolumn $type {zero one two {3 three} x STRING}]
+        test xtal-column-$type-assign-selector-1.1 {column assign selector} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[l ~ "str"] = "x"}
+        } -result [newcolumn $type {zero one two {3 three} x STRING}]
 
-    test xtal-list-assign-selector-1.2 {list assign selector} -setup {
-        
-        set l [newcolumn $type $LC]
-        
-    } -body {
-        xtal::xtal { l[@@ ~^ "str"] = "x"}
-    } -result [newcolumn $type {zero one two {3 three} x x}]
+        test xtal-column-$type-assign-selector-1.2 {column assign selector} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[@@ ~^ "str"] = "x"}
+        } -result [newcolumn $type {zero one two {3 three} x x}]
 
-    test xtal-list-assign-selector-1.2 {list assign selector} -setup {
-        
-        set l [newcolumn $type $LC]
-        
-    } -body {
-        xtal::xtal { l[@@ ~^ "zz"] = "x"}
-    } -result [newcolumn $type $LC]
+        test xtal-column-$type-assign-selector-1.2 {column assign selector} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[@@ ~^ "zz"] = "x"}
+        } -result [newcolumn $type $LC]
 
-    test xtal-list-assign-selector-compound-1.0 {list assign compound} -setup {
+        test xtal-column-$type-assign-selector-compound-1.0 {column assign compound} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[l ~ "o" && @@ ~^ "E"] = "x"}
+        } -result [newcolumn $type {x x two {3 three} string STRING}]
         
-        set l [newcolumn $type $LC]
+        test xtal-column-$type-assign-selector-compound-1.1 {column assign compound} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[@@ ~^ "str" || l ~ "z"] = "x"}
+        } -result [newcolumn $type {x one two {3 three} x x}]
         
-    } -body {
-        xtal::xtal { l[l ~ "o" && @@ ~^ "E"] = "x"}
-    } -result [newcolumn $type {x x two {3 three} string STRING}]
-    
-    test xtal-list-assign-selector-compound-1.1 {list assign compound} -setup {
-        
-        set l [newcolumn $type $LC]
-        
-    } -body {
-        xtal::xtal { l[@@ ~^ "str" || l ~ "z"] = "x"}
-    } -result [newcolumn $type {x one two {3 three} x x}]
-    
-    test xtal-list-assign-selector-compound-1.2 {list assign compound} -setup {
-        
-        set l [newcolumn $type $LC]
-        
-    } -body {
-        xtal::xtal { l[l ~ "o" && @@ ~ "g"] = "x"}
-    } -result [newcolumn $type $LC]
+        test xtal-column-$type-assign-selector-compound-1.2 {column assign compound} -setup {
+            set l [newcolumn $type $LC]
+        } -body {
+            xtal::xtal { l[l ~ "o" && @@ ~ "g"] = "x"}
+        } -result [newcolumn $type $LC]
+    }
 
-    # TBD - boolean assignments
+    foreach type {byte int uint wide double} {
+        test xtal-column-$type-assign-selector-compound-1.0 {
+            column assign compound selector
+        } -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[l > 20 && l < 40] = 25 }
+        } -result [newcolumn $type {25 11 25 44 25}]
+
+        test xtal-column-$type-assign-selector-compound-1.1 {
+            column assign compound selector
+        } -setup {
+            set l [newcolumn $type $L]
+        } -body {
+            xtal::xtal { l[l < 20 || l > 40] = 25 }
+        } -result [newcolumn $type {33 25 22 25 22}]
+    }
+
 }
 
 ::tcltest::cleanupTests
