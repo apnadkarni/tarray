@@ -1,0 +1,118 @@
+# xtal table operation tests
+
+source testutil.tcl
+
+namespace eval tarray::test::xtal_table {
+    namespace path ::tarray::test
+    proc fn {arg} {return $arg}
+
+    test xtal-table-create-1.0 {Create empty table} -body {
+        xtal::xtal { @table() }
+    } -result [tarray::table create {}]
+        
+    test xtal-table-create-1.1 {Create empty table} -body {
+        xtal::xtal { @table() {} }
+    } -result [tarray::table create {}]
+        
+    test xtal-table-create-2.0 {Create table} -body {
+        xtal::xtal { @table(Int int) }
+    } -result [tarray::table create {Int int}]
+        
+    test xtal-table-create-2.1 {Create table} -body {
+        xtal::xtal { @table(Int int) {1, fn(2)}}
+    } -result [tarray::table create {Int int} {1 2}]
+        
+    test xtal-table-create-3.0 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int int,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            Any any
+                            )}
+    } -result [tarray::table create {Boolean boolean Byte byte Int int UInt uint Wide wide Double double String string Any any}]
+
+    test xtal-table-create-3.1 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int int,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            Any any) {}}
+    } -result [tarray::table create {Boolean boolean Byte byte Int int UInt uint Wide wide Double double String string Any any}]
+
+    test xtal-table-create-3.2 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int int,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            Any any) {
+                                {0, 127, -1, 1, 0x7fffffffff, 1e10, "a string", "anything"},
+                                {1, fn(255), 10+10, 0xffffffff, -0x7fffffffff, 1.1e-10, 'something', fn('anything')}
+                            }
+        }
+    } -result [tarray::table create {Boolean boolean Byte byte Int int UInt uint Wide wide Double double String string Any any} [list [list 0 127 -1 1 0x7fffffffff 1e10 "a string" anything] [list 1 255 20 0xffffffff -0x7fffffffff 1.1e-10 something anything]]]
+
+    test xtal-table-create-4.0 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int int,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            Any any) {
+                                {0, 256, -1, 1, 0x7fffffffff, 1e10, "a string", "anything"},
+                                {1, fn(255), 10+10, 0xffffffff, -0x7fffffffff, 1.1e-10, 'something', fn('anything')}
+                            }
+        }
+    } -result "Value '256' not valid for type byte." -returnCodes error
+
+    test xtal-table-create-4.1 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int int,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            Any any) {
+                                {0, 1, -1, 1, 0x7fffffffff, 1e10, "a string", "anything"},
+                                {1, fn(255), 10+10, 0xffffffff, -0x7fffffffff, 1.1e-10, 'something'}
+                            }
+        }
+    } -result "Row or table width 7 does not match destination width 8." -returnCodes error
+
+    test xtal-table-create-4.2 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int xint,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            Any any)
+        }
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-table-create-4.3 {Create table} -body {
+        xtal::xtal { @table(Boolean boolean,
+                            Byte byte,
+                            Int int,
+                            UInt uint,
+                            Wide wide,
+                            Double double,
+                            String string,
+                            any)
+        }
+    } -result "Parse error*" -match glob -returnCodes error
+}
+
+::tcltest::cleanupTests
