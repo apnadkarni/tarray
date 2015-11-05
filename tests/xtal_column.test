@@ -1,4 +1,4 @@
-# xtal list operation tests
+# xtal column operation tests
 
 source testutil.tcl
 
