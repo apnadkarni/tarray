@@ -6,6 +6,19 @@ namespace eval tarray::test::xtal_table {
     namespace path ::tarray::test
     proc fn {arg} {return $arg}
 
+    # Table used as rvalue in tests
+    proc T {} {
+        return [tarray::table create {
+            Boolean boolean Byte byte Int int UInt uint Wide wide Double double String string Any any
+        } [list \
+               [list 0 127 -1 1 0x7fffffffff 1.0 "string a" "anything"] \
+               [list 1 255 -2 0xffffffff -0x7fffffffff 1.1e-10 "STRING B" "ANYTHING"] \
+               [list 0 0 0 0 0 0.0 0 0]]]
+        
+    }
+
+    #
+    # Table creation
     test xtal-table-create-1.0 {Create empty table} -body {
         xtal::xtal { @table() }
     } -result [tarray::table create {}]
@@ -113,6 +126,362 @@ namespace eval tarray::test::xtal_table {
                             any)
         }
     } -result "Parse error*" -match glob -returnCodes error
+
+    #
+    # Table indexing
+    
+    test xtal-table-index-1.0 {Table index} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[1]}
+    } -result [tarray::table index [T] 1]
+
+    test xtal-table-index-1.1 {Table index} -setup {
+        set t [T]
+        set i 0
+    } -body {
+        xtal::xtal {t[i]}
+    } -result [tarray::table index [T] 0]
+
+    test xtal-table-index-assign-1.0 {Table index assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[0] = {1, 128, -10, 10, 100, 2.0, "new string", "anything"}}
+        set t
+    } -result [tarray::table fill [T] {1 128 -10 10 100 2.0 "new string" "anything"} 0 0]
+
+    test xtal-table-index-assign-1.1 {Table index assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[%t] = t[0]}
+        set t
+    } -result [tarray::table fill [T] [tarray::table index [T] 0] end+1 end+1]
+
+    #
+    # Table range
+
+    test xtal-table-range-1.0 {Table range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[0:1]}
+    } -result [tarray::table range [T] 0 1]
+
+    test xtal-table-range-1.1 {Table range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[0:0]}
+    } -result [tarray::table range [T] 0 0]
+
+    test xtal-table-range-1.2 {Table range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[-1:%t]}
+    } -result [T]
+    
+    test xtal-table-range-assign-1.0 {Table range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[0:1] = {1, 128, -10, 10, 100, 2.0, "new string", "anything"}}
+        set t
+    } -result [tarray::table fill [T] {1 128 -10 10 100 2.0 "new string" "anything"} 0 1]
+
+    test xtal-table-range-assign-1.1 {Table range assign row} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t[0:%t+1] = {1, 128, -10, 10, 100, 2.0, "new string", "anything"}}
+        set t
+    } -result [tarray::table fill [T] {1 128 -10 10 100 2.0 "new string" "anything"} 0 4]
+
+    test xtal-table-range-assign-1.2 {Table range assign list of rows} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {
+            t[0:1] = {
+                {1, 128, -10, 10, 100, 2.0, "new string", "anything"},
+                {0, 129, -10, 10, 100, 2.0, "new string", "anything"}
+            }
+        }
+        set t
+    } -result [tarray::table put [T] {
+        {1 128 -10 10 100 2.0 "new string" "anything"}
+        {0 129 -10 10 100 2.0 "new string" "anything"}
+    } 0]
+
+    test xtal-table-range-assign-1.3 {Table range assign table} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t[1:3] = t }
+        set t
+    } -result [tarray::table put [T] [T] 1]
+
+    test xtal-table-range-assign-2.0 {Table range assign table} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t[0:1] = t[0:0] }
+        set t
+    } -result "Source size 1 differs from target table range 0:1." -returnCodes error
+
+    test xtal-table-range-assign-2.1 {Table range assign table} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t[0:0] = t[0:1] }
+        set t
+    } -result "Source size 2 differs from target table range 0:0." -returnCodes error
+
+    #
+    # Table index list
+
+    test xtal-table-indexlist-1.0 {Table indexlist} -setup { set t [T] } -body {
+        xtal::xtal { t[{}] }
+    } -result [tarray::table get [T] [list]]
+
+    test xtal-table-indexlist-1.1 {Table indexlist} -setup { set t [T] } -body {
+        xtal::xtal { t[{0,2}] }
+    } -result [tarray::table get [T] [list 0 2]]
+
+    test xtal-table-indexlist-1.2 {Table indexlist} -setup { set t [T] } -body {
+        xtal::xtal { t[{2,1}] }
+    } -result [tarray::table get [T] [list 2 1]]
+    
+    test xtal-table-indexlist-2.0 {Table indexlist} -setup { set t [T] } -body {
+        xtal::xtal { t[{-1,0}] }
+    } -result "tarray index -1 out of bounds." -returnCodes error
+    
+    test xtal-table-indexlist-2.1 {Table indexlist} -setup { set t [T] } -body {
+        xtal::xtal { t[{1,%t}] }
+    } -result "tarray index 3 out of bounds." -returnCodes error
+    
+    test xtal-table-indexlist-assign-1.0 {Table indexlist assign} -setup { set t [T] } -body {
+        xtal::xtal { t[{0,1}] = t[{1,0}] }
+    } -result [tarray::table place [T] [tarray::table get [T] {1 0}] {0 1}]
+    
+    test xtal-table-indexlist-assign-1.1 {Table indexlist assign list of rows} -setup {
+        set t [T]
+    } -body {
+        # TBD - this test currently fails. Need better heuristics in xtal
+        xtal::xtal {
+            t[{0,1}] = {
+                {1, 128, -10, 10, 100, 2.0, "new string", "anything"},
+                {0, 129, -10, 10, 100, 2.0, "new string", "anything"}
+            }
+        }
+        set t
+    } -result [tarray::table put [T] {
+        {1 128 -10 10 100 2.0 "new string" "anything"}
+        {0 129 -10 10 100 2.0 "new string" "anything"}
+    } 0]
+    
+    test xtal-table-indexlist-assign-1.2 {Table indexlist assign} -setup { set t [T] } -body {
+        xtal::xtal { t[{%t,%t+1}] = t[{1,0}] }
+    } -result [tarray::table place [T] [tarray::table get [T] {1 0}] {3 4}]
+
+    test xtal-table-indexlist-assign-1.3 {Table indexlist assign} -setup { set t [T] } -body {
+        xtal::xtal { t[{1,0}] = t }
+    } -result [tarray::table place [T] [T] {1 0}]
+    
+    #
+    # Table index column
+
+    test xtal-table-indexcolumn-1.0 {Table indexcolumn} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {}] }
+    } -result [tarray::table get [T] [list]]
+
+    test xtal-table-indexcolumn-1.1 {Table indexcolumn} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {0,2}] }
+    } -result [tarray::table get [T] [list 0 2]]
+
+    test xtal-table-indexcolumn-1.2 {Table indexcolumn} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {2,1}] }
+    } -result [tarray::table get [T] [list 2 1]]
+    
+    test xtal-table-indexcolumn-2.0 {Table indexcolumn} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {-1,0}] }
+    } -result "tarray index -1 out of bounds." -returnCodes error
+    
+    test xtal-table-indexcolumn-2.1 {Table indexcolumn} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {1,%t}] }
+    } -result "tarray index 3 out of bounds." -returnCodes error
+    
+    test xtal-table-indexcolumn-assign-1.0 {Table indexcolumn assign} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {0,1}] = t[{1,0}] }
+    } -result [tarray::table place [T] [tarray::table get [T] {1 0}] {0 1}]
+    
+    test xtal-table-indexcolumn-assign-1.1 {Table indexcolumn assign list of rows} -setup {
+        set t [T]
+    } -body {
+        # TBD - this test currently fails. Need better heuristics in xtal
+        xtal::xtal {
+            t[@int {0,1}] = {
+                {1, 128, -10, 10, 100, 2.0, "new string", "anything"},
+                {0, 129, -10, 10, 100, 2.0, "new string", "anything"}
+            }
+        }
+        set t
+    } -result [tarray::table put [T] {
+        {1 128 -10 10 100 2.0 "new string" "anything"}
+        {0 129 -10 10 100 2.0 "new string" "anything"}
+    } 0]
+    
+    test xtal-table-indexcolumn-assign-1.2 {Table indexcolumn assign} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {%t,%t+1}] = t[@int {1,0}] }
+    } -result [tarray::table place [T] [tarray::table get [T] {1 0}] {3 4}]
+
+    test xtal-table-indexcolumn-assign-1.3 {Table indexcolumn assign} -setup { set t [T] } -body {
+        xtal::xtal { t[@int {1,0}] = t }
+    } -result [tarray::table place [T] [T] {1 0}]
+
+    #
+    # Table column extraction
+    test xtal-table-column-1.0 {Table column select} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Int}
+    } -result [tarray::table column [T] Int]
+
+    test xtal-table-column-1.1 {Table column select (indirect)} -setup {
+        set t [T]
+        set col Wide
+    } -body {
+        xtal::xtal {t.$col}
+    } -result [tarray::table column [T] Wide]
+    
+    test xtal-table-column-1.2 {Table column select (numeric)} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.0}
+    } -result [tarray::table column [T] 0]
+
+    test xtal-table-column-1.3 {Table column select (function)} -body {
+        xtal::xtal {T().Int}
+    } -result [tarray::table column [T] Int]
+        
+    #
+    # Table column assignment
+
+    test xtal-table-column-assign-1.0 {Table column assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Int = @int {100, 200, 300}}
+        set t
+    } -result [tarray::table column [T] Int [tarray::column create int {100 200 300}]]
+    
+    test xtal-table-column-assign-1.1 {Table column assign} -setup {
+        set t [T]
+        set col Int
+    } -body {
+        xtal::xtal {t.$col = @int {1000, 2000, 3000}}
+        set t
+    } -result [tarray::table column [T] Int [tarray::column create int {1000 2000 3000}]]
+    
+    test xtal-table-column-assign-2.0 {Table column assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Int = @int {100, 200, 300, 400}}
+    } -result "Columns have differing lengths." -returnCodes error
+    
+    test xtal-table-column-assign-2.1 {Table column assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Int = {1000, 2000}}
+    } -returnCodes error -result "Object is not a column"
+
+    #
+    # Table columns slice
+    
+    test xtal-table-slice-1.0 {Table slice} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.(Boolean,Any)}
+    } -result [tarray::table slice [T] [list Boolean Any]]
+    
+    test xtal-table-slice-1.1 {Table slice (indirect, literal)} -setup {
+        set t [T]
+        set col Byte
+    } -body {
+        xtal::xtal {t.($col, "String")}
+    } -result [tarray::table slice [T] [list Byte String]]
+    
+    test xtal-table-slice-1.2 {Table slice (integer, indirect)} -setup {
+        set t [T]
+        set col 0
+    } -body {
+        xtal::xtal {t.($col, 1)}
+    } -result [tarray::table slice [T] [list 0 1]]
+    
+    test xtal-table-slice-1.3 {Table slice (single)} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.(Boolean)}
+    } -result [tarray::table slice [T] [list Boolean]]
+
+    #
+    
+    test xtal-table-slice-assign-1.0 {Table slice assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string} {
+            {1 hundred}
+            {0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String) = t2}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 1 hundred}
+        {20 0 twohundred}
+        }]
+
+    test xtal-table-slice-assign-1.1 {Table slice assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Int int Boolean boolean String string} {
+            {100 1 hundred}
+            {200 0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String) = t2.(Boolean, String)}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 1 hundred}
+        {20 0 twohundred}
+        }]
+
+    test xtal-table-slice-assign-1.2 {Table slice assign (out of order)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Int int Boolean boolean String string} {
+            {100 1 hundred}
+            {200 0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String, Int) = t2.(Boolean, String, Int)[{1, 0}]}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+            {200 0 twohundred}
+            {100 1 hundred}
+        }]
+
+    test xtal-table-slice-assign-2.0 {Table slice assign - size error} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string} {
+            {1 hundred}
+            {2 twohundred}
+            {3 threehundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String) = t2}
+        set t
+    } -result "Columns have differing lengths." -returnCodes error
+
 }
 
 ::tcltest::cleanupTests
