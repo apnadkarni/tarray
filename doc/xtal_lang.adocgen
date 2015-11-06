@@ -1802,7 +1802,7 @@ text {
 text {
     === The `@lookup` function
 
-    The function returns the index of an element in a column _which
+    The function returns the index of an element in a column which
     must be of type `string`. It has the syntax
 } syntax {
     @lookup(_STRINGCOLUMN_ ?, _KEY_?)
