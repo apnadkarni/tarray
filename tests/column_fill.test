@@ -221,20 +221,20 @@ namespace eval tarray::test {
             Test filling out-of-range (unshared, increasing indices)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) [lsort -increasing -integer {63 64 65 254 260}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-indexlist-$type-4.1 {
             Test filling out-of-range (unshared, decreasing index list)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) [lsort -decreasing -integer {63 64 65 254 260}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-indexlist-$type-4.2 {
             Test filling out-of-range (shared, unordered index list)
         } -body {
             set ta [newcolumn $type [lrange $sample($type) 0 255]]
             tarray::column fill $ta $fills($type) {255 260 254 256 258}
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-indexlist-$type-4.3 {
             Test filling with invalid syntax (shared, index list)
@@ -353,20 +353,20 @@ namespace eval tarray::test {
             Test filling out-of-range (unshared, increasing indices)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -increasing [indexcolumn {63 64 65 254 260}]]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-indices-$type-4.1 {
             Test filling out-of-range (unshared, decreasing index list)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -decreasing [indexcolumn 63 64 65 254 260]]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-indices-$type-4.2 {
             Test filling out-of-range (shared, unordered index list)
         } -body {
             set ta [newcolumn $type [lrange $sample($type) 0 255]]
             tarray::column fill $ta $fills($type) [indexcolumn {255 260 254 256 258}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
     }
 
 
@@ -484,13 +484,13 @@ namespace eval tarray::test {
             Test filling out-of-range (unshared)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) 257 300
-        } -result "*257*out of bounds" -match glob -returnCodes error
+        } -result "*257*out of bounds." -match glob -returnCodes error
 
         test column_fill-range-$type-4.4 {
             Test filling out-of-range (unshared)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) end+2 300
-        } -result "*257*out of bounds" -match glob -returnCodes error
+        } -result "*257*out of bounds." -match glob -returnCodes error
 
     }
 
@@ -722,20 +722,20 @@ namespace eval tarray::test {
             Test filling out-of-range (unshared, increasing indices)
         } -body {
             tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [lsort -increasing -integer {63 64 65 254 260}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-span-indexlist-$type-4.1 {
             Test filling out-of-range (unshared, decreasing index list)
         } -body {
             tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [lsort -decreasing -integer {63 64 65 254 260}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-span-indexlist-$type-4.2 {
             Test filling out-of-range (shared, unordered index list)
         } -body {
             set ta [newspancolumn $type [lrange $sample($type) 0 255]]
             tarray::column fill $ta $fills($type) {255 260 254 256 258}
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-span-indexlist-$type-4.3 {
             Test filling with invalid syntax (shared, index list)
@@ -860,20 +860,20 @@ namespace eval tarray::test {
             Test filling out-of-range (unshared, increasing indices)
         } -body {
             tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -increasing [indexcolumn {63 64 65 254 260}]]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-span-indices-$type-4.1 {
             Test filling out-of-range (unshared, decreasing index list)
         } -body {
             tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -decreasing [indexcolumn 63 64 65 254 260]]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-span-indices-$type-4.2 {
             Test filling out-of-range (shared, unordered index list)
         } -body {
             set ta [newspancolumn $type [lrange $sample($type) 0 255]]
             tarray::column fill $ta $fills($type) [indexcolumn {255 260 254 256 258}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
     }
 
 
@@ -1013,13 +1013,13 @@ namespace eval tarray::test {
             Test filling out-of-range (unshared)
         } -body {
             tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) 257 300
-        } -result "*257*out of bounds" -match glob -returnCodes error
+        } -result "*257*out of bounds." -match glob -returnCodes error
 
         test column_fill-span-range-$type-4.4 {
             Test filling out-of-range (unshared)
         } -body {
             tarray::column fill [newspancolumn $type [lrange $sample($type) 0 255]] $fills($type) end+2 300
-        } -result "*257*out of bounds" -match glob -returnCodes error
+        } -result "*257*out of bounds." -match glob -returnCodes error
 
     }
 

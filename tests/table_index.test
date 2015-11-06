@@ -11,13 +11,13 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table index [newtable {}] 0
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_index-1.1 {
         Get the first element in empty array
     } -body {
         tarray::table index [newtable {boolean any}] 0
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_index-2.0 {
         Get the first element

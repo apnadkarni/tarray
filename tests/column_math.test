@@ -124,8 +124,8 @@ namespace eval tarray::test {
         foreach type {boolean byte int uint wide double} {
             if {($op in {& | ^} && $type eq "double") ||
                 ($op ni {& | ^} && $type eq "boolean")} {
-                test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type" -returnCodes error
-                test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type" -returnCodes error
+                test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type." -returnCodes error
+                test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type." -returnCodes error
                 continue
             }
             # Single arg tests
@@ -184,8 +184,8 @@ namespace eval tarray::test {
          
         foreach type {boolean string any} {
             if {$type eq "boolean" && $op in {& | ^}} continue
-            test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type" -returnCodes error
-            test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type" -returnCodes error
+            test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type." -returnCodes error
+            test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type." -returnCodes error
         }
                                                                 
     }

@@ -200,21 +200,21 @@ namespace eval tarray::test {
     } -body {
         set types {any string boolean wide int uint byte double}
         tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  {5 7 9 11}
-    } -result "*11*out of bounds" -match glob -returnCodes error
+    } -result "*11*out of bounds." -match glob -returnCodes error
 
     test table_fill-indexlist-4.1 {
         Test filling out-of-range (unshared, decreasing index list)
     } -body {
         set types {any string boolean wide int uint byte double}
         tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [lsort -integer -decreasing {5 7 9 11}]
-    } -result "*11*out of bounds" -match glob -returnCodes error
+    } -result "*11*out of bounds." -match glob -returnCodes error
 
     test table_fill-indexlist-4.2 {
         Test filling out-of-range (shared, unordered index list)
     } -body {
         set types {any string boolean wide int uint byte double}
         tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  {9 11 13 8}
-    } -result "*out of bounds" -match glob -returnCodes error
+    } -result "*out of bounds." -match glob -returnCodes error
 
     test table_fill-indexlist-4.3 {
         Test filling with invalid syntax (shared, index list)
@@ -334,21 +334,21 @@ namespace eval tarray::test {
     } -body {
         set types {any string boolean wide int uint byte double}
         tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [tarray::column sort -increasing [indexcolumn {5 7 9 11}]]
-    } -result "*11*out of bounds" -match glob -returnCodes error
+    } -result "*11*out of bounds." -match glob -returnCodes error
 
     test table_fill-indices-4.1 {
         Test filling out-of-range (unshared, decreasing index list)
     } -body {
         set types {any string boolean wide int uint byte double}
         tab_change_and_verify_u $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [indexcolumn {5 7 9 11}]
-    } -result "*11*out of bounds" -match glob -returnCodes error
+    } -result "*11*out of bounds." -match glob -returnCodes error
 
     test table_fill-indices-4.2 {
         Test filling out-of-range (shared, unordered index list)
     } -body {
         set types {any string boolean wide int uint byte double}
         tab_change_and_verify $types [samplerows $types 0 9] [samplerows $types 0 9] fill [samplerow $types end]  [indexcolumn {9 11 13 8}]
-    } -result "*out of bounds" -match glob -returnCodes error
+    } -result "*out of bounds." -match glob -returnCodes error
 
 
     #
@@ -459,7 +459,7 @@ namespace eval tarray::test {
         set types {boolean int string wide string byte uint}
         set rows [samplerows $types 0 100]
         tab_change_and_verify_u $types $rows [concat $rows [listrepeat 100 [samplerow $types]]] fill [samplerow $types] 102 200
-    } -result "*102*out of bounds" -match glob -returnCodes error
+    } -result "*102*out of bounds." -match glob -returnCodes error
 
     #
     # Verify string rep regeneration
