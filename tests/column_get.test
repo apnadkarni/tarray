@@ -159,7 +159,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newcolumn $type {}] {0}
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-indexlist-ascol-$type-2.0 {
             Get the first element
@@ -229,7 +229,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get -list [newcolumn $type {}] {0}
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-indexlist-aslist-$type-2.0 {
             Get the first element
@@ -293,7 +293,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get -dict [newcolumn $type {}] {0}
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-indexlist-asdict-$type-2.0 {
             Get the first element
@@ -357,7 +357,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newcolumn $type {}] [indexcolumn {0}]
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-indices-ascol-$type-2.0 {
             Get the first element
@@ -428,7 +428,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newcolumn $type {}] [indexcolumn 0]
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-indices-aslist-$type-2.0 {
             Get the first element
@@ -493,7 +493,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newcolumn $type {}] [indexcolumn 0]
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-indices-asdict-$type-2.0 {
             Get the first element
@@ -564,7 +564,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newspancolumn $type {}] {0}
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-span-indexlist-ascol-$type-2.0 {
             Get the first element
@@ -634,7 +634,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get -list [newspancolumn $type {}] {0}
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-span-indexlist-aslist-$type-2.0 {
             Get the first element
@@ -698,7 +698,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get -dict [newspancolumn $type {}] {0}
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-span-indexlist-asdict-$type-2.0 {
             Get the first element
@@ -762,7 +762,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newspancolumn $type {}] [indexcolumn {0}]
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-span-indices-ascol-$type-2.0 {
             Get the first element
@@ -833,7 +833,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newspancolumn $type {}] [indexcolumn 0]
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-span-indices-aslist-$type-2.0 {
             Get the first element
@@ -898,7 +898,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column get [newspancolumn $type {}] [indexcolumn 0]
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_get-span-indices-asdict-$type-2.0 {
             Get the first element

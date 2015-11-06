@@ -92,7 +92,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {}] {0}
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indexlist-astable-1.2 {
         Get an empty index list from empty array
@@ -104,7 +104,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {uint boolean any wide}] {0}
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indexlist-astable-2.0 {
         Get the first element
@@ -171,7 +171,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get -list [newtable {} {}] {0}
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indexlist-aslist-1.2 {
         Get an empty index list from empty array
@@ -181,7 +181,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get -list [newtable {int wide} {}] {0}
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indexlist-aslist-2.0 {
         Get the first element
@@ -242,7 +242,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get -dict [newtable {}] {0}
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indexlist-asdict-2.0 {
         Get the first element
@@ -302,7 +302,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get [newtable {boolean uint any wide}] [indexcolumn 0]
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indices-astable-2.0 {
         Get the first element
@@ -363,7 +363,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get -list [newtable {int wide} {}] [indexcolumn 0]
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indices-aslist-2.0 {
         Get the first element
@@ -418,7 +418,7 @@ namespace eval tarray::test {
         Get the first element in empty array
     } -body {
         tarray::table get -dict [newtable {}] [indexcolumn 0]
-    } -returnCodes error -result "*index 0 out of bounds" -match glob
+    } -returnCodes error -result "*index 0 out of bounds." -match glob
 
     test table_get-indices-asdict-2.0 {
         Get the first element

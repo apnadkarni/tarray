@@ -193,21 +193,21 @@ namespace eval tarray::test {
         } -body {
             set ta [samplecolumn $type 0 255]
             tarray::column vfill ta $vfills($type) [lsort -increasing -integer {63 64 65 254 260}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_vfill-indexlist-$type-4.1 {
             Test filling out-of-range (decreasing index list)
         } -body {
             set ta [samplecolumn $type 0 255]
             tarray::column vfill ta $vfills($type) [lsort -decreasing -integer {63 64 65 254 260}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_vfill-indexlist-$type-4.2 {
             Test filling out-of-range (unordered index list)
         } -body {
             set ta [samplecolumn $type 0 255]
             tarray::column vfill ta $vfills($type) {255 260 254 256 258}
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_vfill-indexlist-$type-4.3 {
             Test filling with invalid syntax (index list)
@@ -335,21 +335,21 @@ namespace eval tarray::test {
         } -body {
             set ta [samplecolumn $type 0 255]
             tarray::column vfill ta $vfills($type) [tarray::column sort -increasing [indexcolumn {63 64 65 254 260}]]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_vfill-indices-$type-4.1 {
             Test filling out-of-range (unshared, decreasing index list)
         } -body {
             set ta [samplecolumn $type 0 255]
             tarray::column vfill ta $vfills($type) [tarray::column sort -decreasing [indexcolumn 63 64 65 254 260]]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_vfill-indices-$type-4.2 {
             Test filling out-of-range (shared, unordered index list)
         } -body {
             set ta [newcolumn $type [lrange $sample($type) 0 255]]
             tarray::column vfill ta $vfills($type) [indexcolumn {255 260 254 256 258}]
-        } -result "*260*out of bounds" -match glob -returnCodes error
+        } -result "*260*out of bounds." -match glob -returnCodes error
     }
 
 
@@ -457,7 +457,7 @@ namespace eval tarray::test {
         } -body {
             set ta [samplecolumn $type 0 255]
             tarray::column vfill ta $vfills($type) 257 300
-        } -result "*257*out of bounds" -match glob -returnCodes error
+        } -result "*257*out of bounds." -match glob -returnCodes error
     }
 
     ::tcltest::cleanupTests

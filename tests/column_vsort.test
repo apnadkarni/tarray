@@ -245,7 +245,7 @@ namespace eval tarray::test {
             set tcol [tarray::column create $type {a A b B}]
             set indices [tarray::column create int {0 1 2 4 3}]
             tarray::column vsort -indirect $tcol -nocase indices
-        } -result {tarray index 4 out of bounds} -returnCodes error
+        } -result {tarray index 4 out of bounds.} -returnCodes error
 
         test column_vsort-$type-indirect-2.3 {
             Sort -indirect any negative index
@@ -253,7 +253,7 @@ namespace eval tarray::test {
             set tcol [tarray::column create $type {a A b B}]
             set indices [tarray::column create int {0 -1 2 3}]
             tarray::column vsort -indirect $tcol -nocase indices
-        } -result {tarray index -1 out of bounds} -returnCodes error
+        } -result {tarray index -1 out of bounds.} -returnCodes error
     }
 
     #

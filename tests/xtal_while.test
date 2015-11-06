@@ -44,7 +44,7 @@ namespace eval tarray::test {
         xtal::xtal {
             l = ""
             while %l < 3 {
-                lappend('l, 'x)
+                lappend('l', 'x')
                 if %l > 1 {break}
             }
         }

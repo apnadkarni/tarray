@@ -801,14 +801,14 @@ namespace eval tarray::test {
         } -body {
             set tcol [tarray::column create $type {a A b B}]
             tarray::column sort -indirect $tcol -nocase [tarray::column create int {0 1 2 4 3}]
-        } -result {tarray index 4 out of bounds} -returnCodes error
+        } -result {tarray index 4 out of bounds.} -returnCodes error
 
         test column_sort-$type-indirect-2.3 {
             Sort -indirect $type negative index
         } -body {
             set tcol [tarray::column create $type {a A b B}]
             tarray::column sort -indirect $tcol -nocase [tarray::column create int {-1 0 1 2}]
-        } -result {tarray index -1 out of bounds} -returnCodes error
+        } -result {tarray index -1 out of bounds.} -returnCodes error
 
         test column_sort-$type-indirect-2.4 {
             Sort -indirect -indices $type
@@ -1416,14 +1416,14 @@ namespace eval tarray::test {
         } -body {
             set tcol [tarray::column create $type {a A b B}]
             tarray::column sort -indirect $tcol -nocase [tarray::column create int {0 1 2 4 3}]
-        } -result {tarray index 4 out of bounds} -returnCodes error
+        } -result {tarray index 4 out of bounds.} -returnCodes error
 
         test column_sort-span-$type-indirect-2.3 {
             Sort -indirect $type negative index
         } -body {
             set tcol [tarray::column create $type {a A b B}]
             tarray::column sort -indirect $tcol -nocase [tarray::column create int {-1 0 1 2}]
-        } -result {tarray index -1 out of bounds} -returnCodes error
+        } -result {tarray index -1 out of bounds.} -returnCodes error
 
         test column_sort-span-$type-indirect-2.4 {
             Sort -indirect -indices $type

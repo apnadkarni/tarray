@@ -15,7 +15,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column index [newcolumn $type {}] 0
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_index-$type-2.0 {
             Get the first element
@@ -77,7 +77,7 @@ namespace eval tarray::test {
             Get the first element in empty array
         } -body {
             tarray::column index [newspancolumn $type {}] 0
-        } -returnCodes error -result "*index 0 out of bounds" -match glob
+        } -returnCodes error -result "*index 0 out of bounds." -match glob
 
         test column_index-span-$type-2.0 {
             Get the first element
