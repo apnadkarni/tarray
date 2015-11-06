@@ -13,8 +13,23 @@ package require critcl 3.1
 package require critcl::app
 package require platform
 
+proc usage {} {
+    puts "Usage:\n  [info script] extension\n  [info script] tea\n"
+    exit 1
+}
 set buildarea [file normalize [file join [pwd] .. build]]
 
 # Note argv will override -target, -pkg and -libdir options if specified
-critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] {*}$argv tarray tarray.critcl]
 
+switch -exact -- [lindex $argv 0] {
+    ext -
+    extension {
+        critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] -clean {*}[lrange $argv 1 end] tarray tarray.critcl]
+    }
+    tea {
+        critcl::app::main [list -tea -libdir [file join $buildarea lib] {*}[lrange $argv 1 end] tarray tarray.critcl]
+    }
+    default {
+        usage
+    }
+}
