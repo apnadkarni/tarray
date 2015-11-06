@@ -10,7 +10,7 @@ namespace eval tarray::test::xtal_column {
     set L {33 11 22 44 22}
 
     ################################################################
-    # List construction
+    # Column construction
 
     foreach type {boolean byte int uint wide double string any} {
         test xtal-column-$type-1.0 {Construct column} -body "xtal::xtal {col = @$type} ; set col" -result [list tarray_column $type {}]
@@ -130,7 +130,7 @@ namespace eval tarray::test::xtal_column {
     foreach type {byte int uint wide string any} {
         test xtal-column-$type-indexlist-1.0 {
             Literal column scalar indexlist
-        } -body " xtal::xtal { @$type {10, 20, 30, 40}\[{0,2}\] } " -result [newcolumn $type {10 30}]
+        } -setup { set i 2 } -body " xtal::xtal { @$type {10, 20, 30, 40}\[{0,i,%@@-1}\] } " -result [newcolumn $type {10 30 40}]
 
         test xtal-column-$type-indexlist-1.1 {
             Literal column scalar indexlist

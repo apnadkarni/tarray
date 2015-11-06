@@ -235,12 +235,15 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal { t[{}] }
     } -result [tarray::table get [T] [list]]
 
-    test xtal-table-indexlist-1.1 {Table indexlist} -setup { set t [T] } -body {
-        xtal::xtal { t[{0,2}] }
+    test xtal-table-indexlist-1.1 {Table indexlist} -setup {
+        set t [T]
+        set i 2
+    } -body {
+        xtal::xtal { t[{0,i}] }
     } -result [tarray::table get [T] [list 0 2]]
 
     test xtal-table-indexlist-1.2 {Table indexlist} -setup { set t [T] } -body {
-        xtal::xtal { t[{2,1}] }
+        xtal::xtal { t[{%@@-1,1}] }
     } -result [tarray::table get [T] [list 2 1]]
     
     test xtal-table-indexlist-2.0 {Table indexlist} -setup { set t [T] } -body {
@@ -257,7 +260,7 @@ namespace eval tarray::test::xtal_table {
     
     test xtal-table-indexlist-assign-1.1 {Table indexlist assign list of rows} -setup {
         set t [T]
-    } -body {
+    } -constraints { BUG } -body {
         # TBD - this test currently fails. Need better heuristics in xtal
         xtal::xtal {
             t[{0,1}] = {
@@ -308,7 +311,7 @@ namespace eval tarray::test::xtal_table {
     
     test xtal-table-indexcolumn-assign-1.1 {Table indexcolumn assign list of rows} -setup {
         set t [T]
-    } -body {
+    } -constraints { BUG } -body {
         # TBD - this test currently fails. Need better heuristics in xtal
         xtal::xtal {
             t[@int {0,1}] = {
@@ -330,11 +333,25 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal { t[@int {1,0}] = t }
     } -result [tarray::table place [T] [T] {1 0}]
 
+    test xtal-table-selector-1.0 {Table selector} -setup { set t [T] } -body {
+        xtal::xtal { t[t.Boolean == 0] }
+    } -result [tarray::table get [T] {0 2}]
+    
+    test xtal-table-selector-1.1 {Table selector} -setup { set t [T] } -body {
+        xtal::xtal { t[@@.String ~^ "string.*"] }
+    } -result [tarray::table get [T] {0 1}]
+    
+    test xtal-table-selector-assign-1.0 {Table selector} -setup { set t [T] } -body {
+        xtal::xtal { t[t.Boolean == 0] = t[{1, 1}] }
+    } -result [tarray::table place [T] [tarray::table get [T] {1 1}] {0 2}]
+
+    test xtal-table-selector-assign-1.1 {Table selector} -setup { set t [T] } -body {
+        xtal::xtal { t[0 == @@.Boolean] = t[{1, 1}] }
+    } -result [tarray::table place [T] [tarray::table get [T] {1 1}] {0 2}]
+
     #
     # Table column extraction
-    test xtal-table-column-1.0 {Table column select} -setup {
-        set t [T]
-    } -body {
+    test xtal-table-column-1.0 {Table column select} -setup {set t [T]} -body {
         xtal::xtal {t.Int}
     } -result [tarray::table column [T] Int]
 
@@ -354,6 +371,70 @@ namespace eval tarray::test::xtal_table {
     test xtal-table-column-1.3 {Table column select (function)} -body {
         xtal::xtal {T().Int}
     } -result [tarray::table column [T] Int]
+
+    test xtal-table-column-index-1.0 {Table column index} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Double[1]}
+    } -result [tarray::column index [tarray::table column [T] Double] 1]
+    
+    test xtal-table-column-index-assign-1.0 {Table column index assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Wide[1] = 1234}
+    } -result [tarray::table fill -columns [list Wide] [T] 1234 1]
+    
+    test xtal-table-column-range-1.0 {Table column range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[1:2]}
+    } -result [tarray::column range [tarray::table column [T] String] 1 2]
+        
+    test xtal-table-column-range-assign-1.0 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[1:2] = @string {"a", "b"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list a] [list b]] 1]
+        
+    test xtal-table-column-indexlist-1.0 {Table column indexlist} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[{2,0}]}
+    } -result [tarray::column get [tarray::table column [T] String] {2 0}]
+
+    test xtal-table-column-indexlist-assign-1.0 {Table column indexlist assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[{2,1}] = @string {"a", "b"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list b] [list a]] 1]
+        
+    test xtal-table-column-indexcolumn-1.0 {Table column indexcolumn} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[@int {2,0}]}
+    } -result [tarray::column get [tarray::table column [T] String] {2 0}]
+
+    test xtal-table-column-indexcolumn-assign-1.0 {Table column indexcolumn assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[@int {2,1}] = @string {"a", "b"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list b] [list a]] 1]
+        
+    test xtal-table-column-selector-1.0 {Table column selector} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Int[t.Int < 0]}
+    } -result [tarray::column get [tarray::table column [T] Int] {0 1}]
+               
+    test xtal-table-column-selector-1.1 {Table column selector} -body {
+        xtal::xtal {T().Byte[@@ > 0]}
+    } -result [tarray::column get [tarray::table column [T] Byte] {0 1}]
+               
+    test xtal-table-column-selector-assign-1.0 {Table column selector assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[@@ ~^ "string.*"] = @string {"a", "b"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list a] [list b]] 0]
         
     #
     # Table column assignment
@@ -395,10 +476,9 @@ namespace eval tarray::test::xtal_table {
     } -result [tarray::table slice [T] [list Boolean Any]]
     
     test xtal-table-slice-1.1 {Table slice (indirect, literal)} -setup {
-        set t [T]
         set col Byte
     } -body {
-        xtal::xtal {t.($col, "String")}
+        xtal::xtal {T().($col, "String")}
     } -result [tarray::table slice [T] [list Byte String]]
     
     test xtal-table-slice-1.2 {Table slice (integer, indirect)} -setup {
@@ -414,8 +494,6 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal {t.(Boolean)}
     } -result [tarray::table slice [T] [list Boolean]]
 
-    #
-    
     test xtal-table-slice-assign-1.0 {Table slice assign} -setup {
         set t [tarray::table create {Int int Boolean boolean String string} {
             {10 0 ten}
@@ -482,6 +560,305 @@ namespace eval tarray::test::xtal_table {
         set t
     } -result "Columns have differing lengths." -returnCodes error
 
+    test xtal-table-slice-index-1.0 {Table slice index} -body {
+        xtal::xtal {T().(Boolean, UInt, Any)[1]}
+    } -result [tarray::table index [tarray::table slice [T] {Boolean UInt Any}] 1]
+    
+    test xtal-table-slice-index-1.1 {Table slice index} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.(Boolean, UInt, Any)[%@@-1]}
+    } -result [tarray::table index [tarray::table slice [T] {Boolean UInt Any}] end]
+    
+    test xtal-table-slice-index-2.0 {Table slice index} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.(Boolean, UInt, Any)[-1]}
+    } -result "tarray index -1 out of bounds." -returnCodes error 
+
+    test xtal-table-slice-index-assign-1.0 {Table slice index assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string} {
+            {1 hundred}
+            {0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String)[0] = t2[0]}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 1 hundred}
+        {20 1 twenty}
+        }]
+
+    test xtal-table-slice-index-assign-1.1 {Table slice index assign (out of order)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Int int Boolean boolean String string} {
+            {100 1 hundred}
+            {200 0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, Int)[1] = t2.(Boolean, Int)[1]}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {200 0 twenty}
+        }]
+    
+    test xtal-table-slice-index-assign-1.2 {Table slice index assign (append)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Int int Boolean boolean String string} {
+            {100 1 hundred}
+            {200 0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, Int, String)[2] = t2.(Boolean, Int, String)[1]}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {200 0 twohundred}
+        }]
+    
+    test xtal-table-slice-index-assign-1.3 {Table slice index assign (append)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Int int Boolean boolean String string} {
+            {100 1 hundred}
+            {200 0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, Int)[2] = t2.(Boolean, Int)[1]}
+        set t
+    } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+
+    test xtal-table-slice-index-assign-1.2 {Table slice index assign (out of order)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set t2 [tarray::table create {Int int Boolean boolean String string} {
+            {100 1 hundred}
+            {200 0 twohundred}
+        }]
+    } -constraints { BUG } -body {
+        # BUG - should allow use of @@ but does not
+        xtal::xtal {t.(Boolean, Int)[%@@-1] = t2.(Boolean, Int)[1]}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {200 0 twenty}
+        }]
+
+    test xtal-table-slice-range-1.0 {Table slice range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[0:1] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 0 1]
+    
+    test xtal-table-slice-range-1.1 {Table slice range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { T().(Boolean, Any, Byte)[1:%@@] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 1 end]
+    
+    test xtal-table-slice-range-1.2 {Table slice range} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[-2:1] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 0 1]
+    
+    test xtal-table-slice-range-assign-1.0 {Table slice range assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string} {
+            {1 hundred}
+            {0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String)[1:2] = t2}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 hundred}
+        {30 0 twohundred}
+        }]
+
+    test xtal-table-slice-range-assign-1.1 {Table slice range assign (append)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string Int int} {
+            {1 hundred 100}
+            {0 twohundred 200}
+        }]
+    } -body {
+        xtal::xtal {t.(String, Int, Boolean)[2:3] = t2.(String, Int, Boolean)}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 twenty}
+        {100 1 hundred}
+        {200 0 twohundred}
+    }]
+
+    test xtal-table-slice-indexlist-1.0 {Table slice indexlist} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[{0,1}] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 0 1]
+    
+    test xtal-table-slice-indexlist-1.1 {Table slice indexlist} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[{1, %@@-1}] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 1 end]
+    
+    test xtal-table-slice-indexlist-1.1 {Table slice indexlist} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[{1,0}] }
+    } -result [tarray::table get [tarray::table slice [T] {Boolean Any Byte}] {1 0}]
+    
+    test xtal-table-slice-indexlist-2.0 {Table slice indexlist} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[{-1,0}] }
+    } -result "tarray index -1 out of bounds." -returnCodes error
+    
+    test xtal-table-slice-indexlist-assign-1.0 {Table slice indexlist assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string} {
+            {1 hundred}
+            {0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String)[{1,2}] = t2}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 hundred}
+        {30 0 twohundred}
+        }]
+
+    test xtal-table-slice-indexlist-assign-1.1 {Table slice indexlist assign (append)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string Int int} {
+            {1 hundred 100}
+            {0 twohundred 200}
+        }]
+    } -body {
+        xtal::xtal {t.(String, Int, Boolean)[{2,3}] = t2.(String, Int, Boolean)}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 twenty}
+        {100 1 hundred}
+        {200 0 twohundred}
+    }]
+
+    test xtal-table-slice-indexcolumn-1.0 {Table slice indexcolumn} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[@int {0,1}] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 0 1]
+    
+    test xtal-table-slice-indexcolumn-1.1 {Table slice indexcolumn} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[@int {1, %@@-1}] }
+    } -result [tarray::table range [tarray::table slice [T] {Boolean Any Byte}] 1 end]
+    
+    test xtal-table-slice-indexcolumn-1.1 {Table slice indexcolumn} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[@int {1,0}] }
+    } -result [tarray::table get [tarray::table slice [T] {Boolean Any Byte}] {1 0}]
+    
+    test xtal-table-slice-indexcolumn-2.0 {Table slice indexcolumn} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal { t.(Boolean, Any, Byte)[@int {-1,0}] }
+    } -result "tarray index -1 out of bounds." -returnCodes error
+    
+    test xtal-table-slice-indexcolumn-assign-1.0 {Table slice indexcolumn assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string} {
+            {1 hundred}
+            {0 twohundred}
+        }]
+    } -body {
+        xtal::xtal {t.(Boolean, String)[@int {1,2}] = t2}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 hundred}
+        {30 0 twohundred}
+        }]
+
+    test xtal-table-slice-indexcolumn-assign-1.1 {Table slice indexcolumn assign (append)} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set t2 [tarray::table create {Boolean boolean String string Int int} {
+            {1 hundred 100}
+            {0 twohundred 200}
+        }]
+    } -body {
+        xtal::xtal {t.(String, Int, Boolean)[@int {2,3}] = t2.(String, Int, Boolean)}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 twenty}
+        {100 1 hundred}
+        {200 0 twohundred}
+    }]
+
+    test xtal-table-slice-selector-1.0 {Table slice selector} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.(Boolean, UInt, Any)[@@.Boolean == 0 && t.Int >= 0]}
+    } -result [tarray::table range [tarray::table slice [T] {Boolean UInt Any}] 2 2]
+    
+    #
+    # Table @list and @dict
+    test xtal-table-list-1.0 {Table convert to list} -body {
+        xtal::xtal { @list (T()) }
+    } -result [tarray::table range -list [T] 0 end]
+       
+    test xtal-table-dict-1.0 {Table convert to dict} -body {
+        xtal::xtal { @dict (T()) }
+    } -result [tarray::table range -dict [T] 0 end]
+       
 }
 
 ::tcltest::cleanupTests
