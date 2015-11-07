@@ -17,16 +17,26 @@ proc win32_target {} {
 # Set up configuration options for the package
 
 array set build_opts {}
-
-# Multithreaded sort defaults to 0 on non-Win32 because it requires dispatch.dll
-set build_opts(mt_enable) [win32_target]
-
-# Normally we use libdispatch only on non-Win32 and only if mt_enable is set
-# Override this in Win32 if you want explicitly use libdispatch even on Win32.
-# 
+# Figure out whether parallelized operations are to be enabled.
+# On Windows, parallelized operations are enabled via native Win32 calls.
+# Other platforms depend on the presence of libdispatch.
 set build_opts(use_libdispatch) 0
-if {$build_opts(mt_enable) && ![win32_target]} {
-    set build_opts(use_libdispatch) 1
+critcl::userconfig define MTENABLE {Enables MT} bool
+if {[win32_target]} {
+    set build_opts(mt_enable) [critcl::userconfig query MTENABLE]
+} else {
+    if {[critcl::userconfig query MTENABLE]} {
+        if {[critcl::check {
+            #include <dispatch/dispatch.h>
+        }]} {
+            set build_opts(mt_enable) 1
+            set build_opts(use_libdispatch) 1
+        } else {
+            set build_opts(mt_enable) 0
+        }
+    } else {
+        set build_opts(mt_enable) 0
+    }
 }
 
 # Enable compiling of unsupported functions
