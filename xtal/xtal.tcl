@@ -38,6 +38,43 @@ if {! $xtal::_use_oo_parser} {
 package require pt::ast
 package require pt::util
 
+# tcllib-1.17 (or the corresponding pt package) has a bug in Readables
+# with the use of the undefined variable details. Replace that routine
+# in case present. TBD - once fixed in pt releases, revisit this
+catch {
+    # Make sure pt::util::Readables is loaded (in case of lazy loading)
+    catch {pt::util::Readables}
+    if {[regexp {details} [info body pt::util::Readables]]} {
+        proc ::pt::util::Readables {msgs} {
+            set cl {}
+            set r {}
+            foreach pe $msgs {
+                switch -exact -- [lindex $pe 0] {
+                    t {
+                        # Fuse to multiple 't'-tags into a single 'cl'-tag.
+                        lappend cl [lindex $pe 1]
+                    }
+                    cl {
+                        # Fuse multiple 'cl'-tags into one.
+                        foreach c [split [lindex $pe 1]] { lappend cl $c }
+                    }
+                    default {
+                        lappend r [Readable $pe]
+                    }
+                }
+            }
+            if {[set n [llength $cl]]} {
+                if {$n > 1} {
+                    lappend r [Readable [list cl [join [lsort -dict $cl] {}]]]
+                } else {
+                    lappend r [Readable [list t [lindex $cl 0]]]
+                }
+            }
+            return [lsort -dict $r]
+        }
+    }
+}
+
 namespace eval xtal::ast {
     proc Print {s ast} {
         set children [lassign $ast type start end]
