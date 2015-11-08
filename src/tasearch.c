@@ -301,8 +301,9 @@ struct thdr_search_mt_context {
     enum ta_search_switches_e op; /* Search operation */
 };
 
-static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
+static void thdr_basic_search_mt_worker(void *pv)
 {
+    struct thdr_search_mt_context *pctx = pv;
     int compare_wanted;
     thdr_t *thdr = NULL;
     unsigned char type = pctx->haystack->type;
@@ -463,7 +464,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
             Tcl_Obj *needleObj = pctx->needle.oval; 
             int pos = pctx->start;
             int nocase = pctx->flags & TA_SEARCH_NOCASE;
-            Tcl_RegExp re;
+            Tcl_RegExp re = NULL;
 
             /* NOTE: regexp code is not thread safe. It is up to the caller
                to ensure only the interp thread calls this routine for
@@ -562,7 +563,7 @@ static void thdr_basic_search_mt_worker(struct thdr_search_mt_context *pctx)
             tas_t *needle = pctx->needle.ptas;
             int pos = pctx->start;
             int nocase = pctx->flags & TA_SEARCH_NOCASE;
-            Tcl_RegExp re;
+            Tcl_RegExp re = NULL;
 
             /* NOTE: regexp code is not thread safe. It is up to the caller
                to ensure only the interp thread calls this routine for
@@ -1072,7 +1073,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         do {
             Tcl_Obj *needle = needle_tav.oval; 
             int nocase = flags & TA_SEARCH_NOCASE;
-            Tcl_RegExp re;
+            Tcl_RegExp re = NULL;
 
             /* NOTE: regexp code is not thread safe. It is up to the caller
                to ensure only the interp thread calls this routine for
@@ -1168,7 +1169,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         do {
             tas_t *needle = needle_tav.ptas;
             int nocase = flags & TA_SEARCH_NOCASE;
-            Tcl_RegExp re;
+            Tcl_RegExp re = NULL;
 
             /* NOTE: regexp code is not thread safe. It is up to the caller
                to ensure only the interp thread calls this routine for

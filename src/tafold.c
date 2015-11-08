@@ -33,8 +33,9 @@ struct thdr_fold_mt_context {
 };    
 
 
-static void thdr_fold_mt_worker(struct thdr_fold_mt_context *pctx)
+static void thdr_fold_mt_worker(void *pv)
 {
+    struct thdr_fold_mt_context *pctx = pv;
     double daccumulator, *dstart, *dend;
 
 #define INTEGERLOOP(type_)                                      \

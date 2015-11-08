@@ -129,7 +129,7 @@ BA_INLINE int ba_count_unit_ones(ba_t ba)
     // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
     ba = ba - ((ba >> 1) & BA_MASK_55); // reuse input as temporary
     ba = (ba & BA_MASK_33) + ((ba >> 2) & BA_MASK_33);     // temp
-    return ((ba + (ba >> 4) & BA_MASK_0F) * BA_MASK_01) >> 24; // count
+    return (((ba + (ba >> 4)) & BA_MASK_0F) * BA_MASK_01) >> 24; // count
 #else
     int nbits;
     /* TBD - Need to optimize these cases too */
