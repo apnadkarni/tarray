@@ -67,7 +67,7 @@ margin: 0; font-size: 0.9em; line-height: 1.3; list-style-type: none; display: n
 <li><a href="table.html">Table Commands</a>
 <li><a href="xtal.html">Xtal Commands</a>
 <li><a href="xtal_lang.html">Xtal Language</a>
-<li><a href="build.html">Building</a>
+<li><a href="build.html">Installation</a>
 </ul>
 </div>
 ++++
