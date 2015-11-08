@@ -1297,10 +1297,13 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
 
     TA_ASSERT(! Tcl_IsShared(table));
 
+    status = table_convert(ip, table);
+    if (status != TCL_OK)
+        return status;
+    
     status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
     if (status != TCL_OK ||     /* Not a list */
         nrows == 0 ||           /* Nothing to modify */
-        (status = table_convert(ip, table)) != TCL_OK || /* Not a table */
         table_width(table) == 0) /* No columns to update */ {
         return status;           /* Maybe OK or ERROR */
     }
