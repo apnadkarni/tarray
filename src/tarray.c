@@ -199,7 +199,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
     char *dst;
     int quote_hash;
     Tcl_Obj *onames = NULL;
-    const char *names;
+    const char *names = NULL;
     int names_len;
     unsigned char tatype;
     span_t *span;
@@ -352,6 +352,8 @@ static void tcol_type_update_string(Tcl_Obj *o)
     thdr_t *thdr;
     span_t *span;
         
+    max_elem_space = 100; /* Unnecessary, keep gcc happy for all code paths */
+    
     TA_ASSERT(tcol_affirm(o));
 
     thdr = OBJTHDR(o);
@@ -557,9 +559,9 @@ static void ta_indexobj_update_string(Tcl_Obj *o)
     if (o->internalRep.longValue == 0)
         strcpy(buffer, "end");
     else if (o->internalRep.longValue > 0)
-        _snprintf(buffer, sizeof(buffer), "end+%d", o->internalRep.longValue);
+        _snprintf(buffer, sizeof(buffer), "end+%ld", o->internalRep.longValue);
     else
-        _snprintf(buffer, sizeof(buffer), "end%d", o->internalRep.longValue);
+        _snprintf(buffer, sizeof(buffer), "end%ld", o->internalRep.longValue);
 
     len = strlen(buffer);
     o->bytes = ckalloc(len+1);
@@ -881,6 +883,7 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
     /* BOOLEAN and ANY cannot be multithreaded */
     case TA_BOOLEAN:
     default:
+        second_block_size = 0; /* To keep gcc happy */
         ta_type_panic(tatype);
     }
 
@@ -1359,6 +1362,7 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
     case TA_ANY: ptav->oval = o; status = TCL_OK; break;
     case TA_STRING: ptav->ptas = tas_from_obj(o); status = TCL_OK; break;
     default:
+        status = TCL_ERROR; /* Keep gcc happy */
         ta_type_panic(tatype);
     }
     if (status == TCL_OK)
@@ -1428,8 +1432,9 @@ struct thdr_fill_mt_context {
     int   nelems;
 };
 
-static void thdr_fill_int_mt_worker(struct thdr_fill_mt_context *pctx)
+static void thdr_fill_int_mt_worker(void *pv)
 {
+    struct thdr_fill_mt_context *pctx = pv;
     int val = pctx->tav.ival;
     int *pint, *end;
 
@@ -1449,8 +1454,9 @@ static void thdr_fill_int_mt_worker(struct thdr_fill_mt_context *pctx)
         *pint++ = val;
 }
 
-static void thdr_fill_double_mt_worker(struct thdr_fill_mt_context *pctx)
+static void thdr_fill_double_mt_worker(void *pv)
 {
+    struct thdr_fill_mt_context *pctx = pv;
     double val = pctx->tav.dval;
     double *pdbl, *end;
     
@@ -1460,8 +1466,9 @@ static void thdr_fill_double_mt_worker(struct thdr_fill_mt_context *pctx)
         *pdbl++ = val;
 }
 
-static void thdr_fill_wide_mt_worker(struct thdr_fill_mt_context *pctx)
+static void thdr_fill_wide_mt_worker(void *pv)
 {
+    struct thdr_fill_mt_context *pctx = pv;
     Tcl_WideInt val = pctx->tav.wval;
     Tcl_WideInt *pwide, *end;
     
@@ -1481,8 +1488,9 @@ static void thdr_fill_wide_mt_worker(struct thdr_fill_mt_context *pctx)
         *pwide++ = val;
 }
 
-static void thdr_fill_byte_mt_worker(struct thdr_fill_mt_context *pctx)
+static void thdr_fill_byte_mt_worker(void *pv)
 {
+    struct thdr_fill_mt_context *pctx = pv;
     memset(pctx->base, pctx->tav.ucval, pctx->nelems);
 }
 
@@ -1494,7 +1502,7 @@ static void thdr_fill_byte_mt_worker(struct thdr_fill_mt_context *pctx)
 void thdr_fill_scalars(Tcl_Interp *ip, thdr_t *thdr,
                        const ta_value_t *ptav, int pos, int count)
 {
-    void (*workerfn)(struct thdr_fill_mt_context *);
+    ta_mt_function_t workerfn = NULL;
     int elem_size;
     struct thdr_fill_mt_context fill_context[2];
 
@@ -2344,6 +2352,7 @@ int thdr_required_size(int tatype, int count)
         space = count * sizeof(unsigned char);
         break;
     default:
+        space = 0; /* Keep gcc happy */
         ta_type_panic(tatype);
     }
 
@@ -2431,6 +2440,7 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
     case TA_STRING: nbits = sizeof(tas_t *) * CHAR_BIT; break;
     case TA_BYTE: nbits = sizeof(unsigned char) * CHAR_BIT; break;
     default:
+        nbits = 0; /* Keep gcc happy */
         ta_type_panic(tatype);
     }
     thdr->elem_bits = nbits;
@@ -3677,8 +3687,10 @@ struct thdr_minmax_mt_context {
 };
 
 
-static void thdr_minmax_mt_worker (struct thdr_minmax_mt_context *pctx)
+static void thdr_minmax_mt_worker (void *pv)
 {
+    struct thdr_minmax_mt_context *pctx = pv;
+
     TA_ASSERT(pctx->nelems > 0);
 
 #define MINMAXLOOP(pctx_, type_, minptr_, maxptr_)      \
@@ -4217,7 +4229,6 @@ index_error:   /* index should hold the current index in error */
 TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
 {
     thdr_t *thdr;
-    span_t *span;
     int current_count, offset;
     
     TA_ASSERT(! Tcl_IsShared(tcol));
@@ -4242,7 +4253,6 @@ TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
         count = current_count - low;
     
     thdr = OBJTHDR(tcol);
-    span = OBJTHDRSPAN(tcol);
     
     if (low == 0) {
         /* Trimming from front */

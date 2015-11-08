@@ -115,13 +115,17 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
     if (poperand->type == TA_DOUBLE)
         operand = poperand->dval;
     else
-        operand = (double) poperand->wval;
+        operand = poperand->wval;
 
     switch (op) {
     case TAM_OP_PLUS: return accumulator + operand;
     case TAM_OP_MINUS: return accumulator - operand;
     case TAM_OP_MUL: return accumulator * operand;
     case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
+    case TAM_OP_BITAND: /* Keep gcc happy */
+    case TAM_OP_BITOR:  /* ditto */
+    case TAM_OP_BITXOR: /* ditto */
+        Tcl_Panic("Invalid math double operand");
     }
     return 0.0;                 /* To keep compiler happy */
 }    
@@ -151,8 +155,9 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accu
     return 0;                   /* To keep compiler happy */
 }
 
-static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
+static void thdr_math_mt_worker(void *pv)
 {
+    struct thdr_math_mt_context *pctx = pv;
     struct ta_math_operand *poperands;
     int noperands;
     int start, end;
@@ -227,7 +232,7 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
 
     switch (pctx->op) {
     case TAM_OP_PLUS:
-        switch (pctx->thdr->type) {
+        switch (type) {
         case TA_BYTE: INTEGERLOOP(+=, unsigned char); break;
         case TA_INT: INTEGERLOOP(+=, int); break;
         case TA_UINT: INTEGERLOOP(+=, unsigned int); break;
@@ -236,7 +241,7 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }
         break;
     case TAM_OP_MINUS:
-        switch (pctx->thdr->type) {
+        switch (type) {
         case TA_BYTE: INTEGERLOOP(-=, unsigned char); break;
         case TA_INT: INTEGERLOOP(-=, int); break;
         case TA_UINT: INTEGERLOOP(-=, unsigned int); break;
@@ -245,7 +250,7 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }
         break;
     case TAM_OP_MUL:
-        switch (pctx->thdr->type) {
+        switch (type) {
         case TA_BYTE: INTEGERLOOP(*=, unsigned char); break;
         case TA_INT: INTEGERLOOP(*=, int); break;
         case TA_UINT: INTEGERLOOP(*=, unsigned int); break;
@@ -254,7 +259,7 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }
         break;
     case TAM_OP_DIV:
-        switch (pctx->thdr->type) {
+        switch (type) {
         case TA_BYTE: DIVLOOP(unsigned char); break;
         case TA_INT: DIVLOOP(int); break;
         case TA_UINT: DIVLOOP(unsigned int); break;
@@ -263,8 +268,8 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }
         break;
     case TAM_OP_BITAND:
-        TA_ASSERT(pctx->thdr->type != TA_DOUBLE);
-        switch (pctx->thdr->type) {
+        TA_ASSERT(type != TA_DOUBLE);
+        switch (type) {
         case TA_BYTE: INTEGERLOOP(&=, unsigned char); break;
         case TA_INT: INTEGERLOOP(&=, int); break;
         case TA_UINT: INTEGERLOOP(&=, unsigned int); break;
@@ -272,8 +277,8 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }
         break;
     case TAM_OP_BITOR:
-        TA_ASSERT(pctx->thdr->type != TA_DOUBLE);
-        switch (pctx->thdr->type) {
+        TA_ASSERT(type != TA_DOUBLE);
+        switch (type) {
         case TA_BYTE: INTEGERLOOP(|=, unsigned char); break;
         case TA_INT: INTEGERLOOP(|=, int); break;
         case TA_UINT: INTEGERLOOP(|=, unsigned int); break;
@@ -281,8 +286,8 @@ static void thdr_math_mt_worker(struct thdr_math_mt_context *pctx)
         }
         break;
     case TAM_OP_BITXOR:
-        TA_ASSERT(pctx->thdr->type != TA_DOUBLE);
-        switch (pctx->thdr->type) {
+        TA_ASSERT(type != TA_DOUBLE);
+        switch (type) {
         case TA_BYTE: INTEGERLOOP(^=, unsigned char); break;
         case TA_INT: INTEGERLOOP(^=, int); break;
         case TA_UINT: INTEGERLOOP(^=, unsigned int); break;
@@ -348,7 +353,7 @@ static TCL_RESULT ta_math_boolean_op(
     baP = THDRELEMPTR(thdr, ba_t, 0);
     for (opindex = 1; opindex < noperands; ++opindex) {
         struct ta_math_operand *poper = &poperands[opindex];
-        int ival;
+        int ival = 0;
         if (poper->thdr_operand == NULL) {
             /* Scalar operand */
             switch (poper->scalar_operand.type) {

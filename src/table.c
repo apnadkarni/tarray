@@ -646,7 +646,7 @@ TCL_RESULT table_fill_obj(
     column_map_t colmap;
     int cur_size, new_size;
     Tcl_Obj **tcols;
-    int is_range;
+    int is_range = 0;
 
     TA_ASSERT(! Tcl_IsShared(table));
 

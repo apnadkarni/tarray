@@ -414,13 +414,15 @@ struct ta_sort_mt_context {
     void *arg;                  /* Passed through for indexed compares */
 };
 
-static void ta_sort_mt_worker(struct ta_sort_mt_context *pctx)
+static void ta_sort_mt_worker(void *pv)
 {
+    struct ta_sort_mt_context *pctx = pv;
     timsort(pctx->base, pctx->nelems, pctx->elem_size, pctx->cmpfn);
 }
 
-static void ta_sort_mt_worker_r(struct ta_sort_mt_context *pctx)
+static void ta_sort_mt_worker_r(void *pv)
 {
+    struct ta_sort_mt_context *pctx = pv;
     timsort_r(pctx->base, pctx->nelems, pctx->elem_size, pctx->arg, pctx->cmpindexedfn);
 }
 
@@ -441,6 +443,9 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
     int elem_size;
     char *src_base;
 
+    cmpind = NULL; /* Unnecessary, only used if psrc!=NULL but keep gcc happy */
+    cmp = NULL; /* Ditto */
+    
     TA_ASSERT(thdr->nrefs < 2);
     /* The column to be sorted is never span based. span can be null
        only when sorting is indirect and in that case applies to psrc */
@@ -625,7 +630,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
     int decreasing = flags & TA_SORT_DECREASING;
     int return_indices = flags & TA_SORT_INDICES;
     int nocase = flags & TA_SORT_NOCASE;
-    int orig_sort_state;
+    int orig_sort_state = 0;
     span_t *span;
 
     /* Even if returning indices, they are returned in tcol
@@ -666,8 +671,9 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         case THDR_SORTED_DESCENDING:
             if (nocase)
                 orig_sort_state = 0; /* Can't use because different case matching */
-            else if (psrc->sort_order == THDR_SORTED_DESCENDING && decreasing ||
-                     psrc->sort_order == THDR_SORTED_ASCENDING && !decreasing)
+            else if ((psrc->sort_order == THDR_SORTED_DESCENDING && decreasing)
+                     ||
+                     (psrc->sort_order == THDR_SORTED_ASCENDING && !decreasing))
                 orig_sort_state = 1; /* Same sort order */
             else
                 orig_sort_state = -1; /* Reverse order */
@@ -676,8 +682,11 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
         case THDR_SORTED_DESCENDING_NOCASE:
             if (!nocase)
                 orig_sort_state = 0; /* Can't use because different case matching */
-            else if (psrc->sort_order == THDR_SORTED_DESCENDING_NOCASE && decreasing ||
-                     psrc->sort_order == THDR_SORTED_ASCENDING_NOCASE && !decreasing)
+            else if ((psrc->sort_order == THDR_SORTED_DESCENDING_NOCASE 
+                      && decreasing)
+                     ||
+                     (psrc->sort_order == THDR_SORTED_ASCENDING_NOCASE 
+                      && !decreasing))
                 orig_sort_state = 1; /* Same sort order */
             else
                 orig_sort_state = -1; /* Reverse order */

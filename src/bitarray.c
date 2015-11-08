@@ -207,6 +207,11 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
             saved_leading_partial = ba_getn(from, to_internal_off, leading_partial_len);
             ++to;               /* Point to aligned ba_t's */
             ++from;
+        } else {
+            /* Just to keep gcc -Wmaybe-uninitialized happy */
+            leadingP = NULL;
+            leading_partial_len = 0;
+            saved_leading_partial = 0;
         }
 
         if (len) {

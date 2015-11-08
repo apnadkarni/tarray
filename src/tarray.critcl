@@ -20,22 +20,18 @@ array set build_opts {}
 # Figure out whether parallelized operations are to be enabled.
 # On Windows, parallelized operations are enabled via native Win32 calls.
 # Other platforms depend on the presence of libdispatch.
-set build_opts(use_libdispatch) 0
-critcl::userconfig define MTENABLE {Enables MT} bool
 if {[win32_target]} {
-    set build_opts(mt_enable) [critcl::userconfig query MTENABLE]
+    set build_opts(mt_enable) 1
+    set build_opts(use_libdispatch) 0
 } else {
-    if {[critcl::userconfig query MTENABLE]} {
-        if {[critcl::check {
-            #include <dispatch/dispatch.h>
-        }]} {
-            set build_opts(mt_enable) 1
-            set build_opts(use_libdispatch) 1
-        } else {
-            set build_opts(mt_enable) 0
-        }
+    if {[critcl::check {
+        #include <dispatch/dispatch.h>
+    }]} {
+        set build_opts(mt_enable) 1
+        set build_opts(use_libdispatch) 1
     } else {
         set build_opts(mt_enable) 0
+        set build_opts(use_libdispatch) 0
     }
 }
 
@@ -80,7 +76,7 @@ if {$build_opts(unsupported)} {
 
 }
 critcl::tsources tarray.tcl taprint.tcl
-critcl::cheaders tarray.h timsort-impl.h
+critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h
 
 critcl::ccode {
 #include "tarray.h"
@@ -915,6 +911,7 @@ critcl::ccommand tarray::column::intersect3 {} {
         case THDR_SORTED_ASCENDING_NOCASE:  sort_flags = TA_SORT_NOCASE; break;
         case THDR_SORTED_DESCENDING_NOCASE: sort_flags = TA_SORT_NOCASE | TA_SORT_DECREASING; break;
         default:
+            sort_flags = 0; /* Keep gcc happy */
             Tcl_Panic("Unexpected sort order %d in function intersect", order);
         }
                                                                         
@@ -1728,7 +1725,8 @@ critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
 }
 
 critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
-critcl::cdata tarray::unsupported::hg_id       [exec hg identify]
+# Commented out because will not work when building from TEA
+#critcl::cdata tarray::unsupported::hg_id       [exec hg identify]
 
 critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int first int count int min_hint int nsizes} ok {
 #ifdef TA_MT_ENABLE
