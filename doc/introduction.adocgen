@@ -42,4 +42,17 @@ text {
     succint syntactic layer on top of the `tarray` extension.
 
     See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short overview.
+
+    == Documentation guide
+
+    * See ((^ chap_build)) for download and installation.
+    * The ((^ chap_guide)) chapter is an introduction to programming
+    using the `tarray` extension
+    * ((^ chap_column_ref)) and ((^ chap_table_ref))
+    comprise reference documentation
+    for commands related to columns and tables respectively.
+    * The ((^ chap_xtal_ref)) chapter contains reference documentation
+    for Tcl commands related to the Xtal language.
+    * The ((^ chap_xtal_lang)) chapter serves as both an introduction
+    to Xtal as well as a reference documentation for the language itself.
 }

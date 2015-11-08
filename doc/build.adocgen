@@ -1,22 +1,49 @@
 text {
-    ((= chap_build "Building tarray and xtal"))
+    ((= chap_build "Installation and build"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
 }
 
 text {
-    Binary distributions of the `tarray` and `xtal` packages
+    == Download and installation
+    
+    Distributions of the `tarray` and `xtal` packages
     are available from the SourceForge download
-    area at http://sourceforge.net/projects/tarray/files. This document
-    describes building `tarray` from sources.
+    area at http://sourceforge.net/projects/tarray/files. 
 
-    == Building tarray
+    === Installing on Windows
 
-    The `tarray` extension is built using the 
-    http://andreas-kupries.github.com/critcl/[Critcl] package which
-    allows for an extension to be built in several forms. This document only
-    summarizes building the `tarray` extension as a binary package.
+    Download `tarray-bin-VERSION.zip`, and
+    optionally `xtal-bin-VERSION.zip`, from
+    http://sourceforge.net/projects/tarray/files[SourceForge].
+    These contain both 32- and 64-bit binaries for Windows.
+    Unpack the distributions into any directory present in the
+    Tcl `auto_path` variable.
+
+    === Installing on other platforms
+
+    For other (Unix-like) platforms, the packages are distributed as TEA-compatible
+    extensions `tarray-VERSION.tar.gz` and `xtal-VERSION.tar.gz`.
+    To install an extension, extract into a directory and from the
+    top level directory run the following commands in the shell.
+} syntax {
+    ./configure --with-tcl=PATHTOTCLDIR
+    make install
+} text {
+    where _PATHTOTCLDIR_ is the full path to the directory containing
+    the `tclconfig.sh` file for the Tcl installation. Note there is no
+    need for a standalone `make` command since the `make install` does the
+    actual build as well as install.
+
+    The built extensions will support parallelized operations if
+    the `libdispatch` library is installed on the system. See
+    ((^ build_parallel)) for details.
+    
+    == Building from sources
+    
+    The `tarray` and `xtal` extensions are built using the 
+    http://andreas-kupries.github.com/critcl/[Critcl] package.
 
     . Download a copy of the `tarray` sources by either cloning its Mercurial
     repository or downloading a snapshot of the sources. See
@@ -31,43 +58,29 @@ text {
     . Change to the `src` directory in the `tarray` source distribution and
     run a command of the form
 } syntax {
-    tclsh build.tcl ?-target _TARGETNAME_?
+    tclsh build.tcl extension ?-target _TARGETNAME_?
 } text {
+    . Change to the `xtal` directory and again run the same command as above
+    to build that extension.
+
     If specified, _TARGETNAME_ should be one of the supported
     `critcl` build targets. Naturally, the build environment should
     reflect the chosen target. If unspecified, it defaults to whatever
     `critcl` guesses to be the host platform.
 
-    This will create a
-    `tarray` package under the "build" directory in your `tarray` source tree.
+    This will create the `tarray` and `xtal` packages
+    under the `build` directory in your source tree.
 
     You can of course create your own build scripts with different
     `Critcl` options using the `build.tcl` file as a template. 
 
-    For Windows, the `release.cmd` batch file encapsulates the above
-    build steps.
+    ((== build_parallel "Enabling parallelized operations"))
     
-    === Enabling parallelized operations
-    By default,
-    the Windows builds have support for parallelized operations. 
-    To build parallelized versions for other platforms,
-    edit `tarray.critcl` to set the `build_opts(mt_enable)` variable to
-    true. For non-Windows platforms, the `libdispatch` library will need to
-    be installed on the system if parallelization is enabled.
+    Windows builds have support for parallelized operations using
+    the native Win32 thread API's.
+    To build parallelized versions for Unix/Linux platforms, 
+    the `libdispatch` library has to be present on the system.
+    If this library is not detected, the extension will not parallelize
+    any operations. This library can be installed using the system's
+    package manager on most Linux systems.
 }
-
-text {
-    == Building xtal
-
-    Building the `xtal` package follows a similar, but not identical,
-    pattern.
-
-    Change to the `xtal` directory in the `tarray` source distribution
-    and run the command
-} syntax {
-    tclsh build.tcl extension
-} text {
-    This will result in the `xtal` package being built in the `build`
-    directory.
-}
-    
