@@ -171,7 +171,50 @@ proc tarray::table::join {atab acolname btab bcolname args} {
     return [create2 [concat $anewcolnames $bnewcolnames] [concat $aslice $bslice]]
 }
     
-
+proc tarray::csv_read_file {path args} {
+    set fd [open $path r]
+    try {
+        if {[dict exists $args -encoding]} {
+            chan configure $fd -encoding [dict get $args -encoding]
+            dict unset args -encoding
+        }
+        if {[dict exists $args -sniff]} {
+            if {[dict get $args -sniff]} {
+                set opts [dict merge [tclcsv::sniff $fd] $args]
+            }
+            dict unset args -sniff
+        }
+        if {![info exists opts]} {
+            set opts $args
+        }
+        # Get header if present
+        lassign [tclcsv::sniff_header {*}$opts $fd] types header
+        set def {}
+        foreach type $types title $header {
+            if {$title eq ""} {
+                set title "Col [incr colnum]"
+            }
+            lappend def $title $type
+        }
+        set tab [table create $def]
+        set reader [tclcsv::reader new {*}$opts $fd]
+        while {1} {
+            set recs [$reader next 1000]
+            table vput tab $recs
+            if {[llength $recs] < 1000} {
+                if {[$reader eof]} {
+                    break
+                }
+            }
+        }
+    } finally {
+        if {[info exists reader]} {
+            $reader destroy
+        }
+        close $fd
+    }
+    return $tab
+}
 
 proc tarray::unsupported::build_info {} {
     set result ""
@@ -185,23 +228,6 @@ proc tarray::unsupported::build_info {} {
     return $result
 }
 
-proc tarray::db::create {def {init {}} {size 0}} {
-    variable _tables
-    variable _table_ctr
-
-    set ncols [expr {[llength $def] / 2}]
-    set table [list ]
-    set table [dict create]
-    set col -1
-    foreach {name type} $def {
-        lappend table [tarray::column create $type {} $size]
-        dict set table fields $name [list type $type column [incr $col]]
-    }
-    dict set table data $table
-    set tok "table#[incr _table_ctr]"
-    set _tables($tok) $table
-    return $tok
-}
 
 proc tarray::unsupported::crandom {varname type count} {
     # Do not use lrandom because that will affect memory usage in benchmarks
