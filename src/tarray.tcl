@@ -192,9 +192,9 @@ proc tarray::csv_read_file {path args} {
         set def {}
         foreach type $types title $header {
             if {$title eq ""} {
-                set title "Col [incr colnum]"
+                set title "Col_[incr colnum]"
             }
-            lappend def $title $type
+            lappend def $title [dict get {integer wide real double string string} $type]
         }
         set tab [table create $def]
         set reader [tclcsv::reader new {*}$opts $fd]
