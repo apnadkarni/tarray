@@ -192,7 +192,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vinsert -columns {col0 col1 col2 col3 col5} tab {0 0 0 0 0} 0
-    } -result "No column with name 'col5'." -returnCodes error
+    } -result "No column with specified name 'col5'." -returnCodes error
 
     test table_vinsert-columnsopt-3.2 {
         Verify inserting duplicate column names

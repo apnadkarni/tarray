@@ -52,14 +52,14 @@ namespace eval tarray::test {
     } -body {
         set tab [sampletable {any boolean int wide}]
         tarray::table column $tab  nosuchcol
-    } -result "No column with name 'nosuchcol'." -returnCodes error -match glob
+    } -result "No column with specified name 'nosuchcol'." -returnCodes error -match glob
 
     test table-column-2.3 {
         Verify end is treated as column name
     } -body {
         set tab [sampletable {any boolean int wide}]
         tarray::table column $tab end
-    } -result "No column with name 'end'." -returnCodes error
+    } -result "No column with specified name 'end'." -returnCodes error
 
     test table-column-2.4 {
         Verify error when argument is not a table
@@ -151,7 +151,7 @@ namespace eval tarray::test {
         } {
             {abc 0 100} {def 1 200} {hij 0 300}
         } column nosuchcol [newcolumn any {abc def hij}]
-    } -result "No column with name 'nosuchcol'." -returnCodes error
+    } -result "No column with specified name 'nosuchcol'." -returnCodes error
 
     test table-column-set-2.3 {
         Attempt to set non-table

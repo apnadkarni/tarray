@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Ashok P. Nadkarni
+ * Copyright (c) 2012-2015 Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file LICENSE for license
@@ -10,6 +10,19 @@
 
 
 /* TBD - in error and panic routines make sure strings are not too long */
+
+static TCL_RESULT error_from_obj(Tcl_Interp *ip, char *s, Tcl_Obj *o)
+{
+    if (ip) {
+        Tcl_Obj *eobj;
+        if (o && o->bytes)
+            eobj = Tcl_ObjPrintf("%s '%.40s'.", s, o->bytes);
+        else
+            eobj = Tcl_ObjPrintf("%s.", s);
+        Tcl_SetObjResult(ip, eobj);
+    }
+    return TCL_ERROR;
+}
 
 void ta_string_overflow_panic(const char *where)
 {
@@ -112,10 +125,15 @@ TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count)
 TCL_RESULT ta_value_type_error(Tcl_Interp *ip, Tcl_Obj *o, int tatype)
 {
     if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Value '%.40s' not valid for type %s.",
-                                       Tcl_GetString(o),
-                                       ta_type_string(tatype)));
+        const char *typestr = ta_type_string(tatype);
+        if (o && o->bytes)
+            Tcl_SetObjResult(ip,
+                             Tcl_ObjPrintf("Value '%.40s' not valid for type %s.",
+                                           o->bytes, typestr));
+        else
+            Tcl_SetObjResult(ip,
+                             Tcl_ObjPrintf("Value not valid for type %s.",
+                                           typestr));
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "TYPE", NULL);
     }
     return TCL_ERROR;
@@ -166,26 +184,16 @@ TCL_RESULT ta_limit_error(Tcl_Interp *ip, int req_count)
 
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    if (ip) {
-        if (o)
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid index list '%.80s'. Must be an integer, or a list or typed array of type int.", Tcl_GetString(o)));
-        else
-            Tcl_SetResult(ip, "Invalid index list. Must be an integer, or a list or typed array of type int.", TCL_STATIC);
+    if (ip)
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "INDEXLIST", NULL);
-    }
-    return TCL_ERROR;
+    return error_from_obj(ip, "Invalid index list", o);
 }
 
 TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    if (ip) {
-        if (o)
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid index '%.80s'. Must be an integer or the keyword 'end'.", Tcl_GetString(o)));
-        else
-            Tcl_SetResult(ip, "Invalid index. Must be an integer or the keyword 'end'.", TCL_STATIC);
+    if (ip)
         Tcl_SetErrorCode(ip, "TARRAY", "VALUE", "INDEX", NULL);
-    }
-    return TCL_ERROR;
+    return error_from_obj(ip, "Invalid index", o);
 }
 
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb)
@@ -223,42 +231,30 @@ TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
 
 TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Invalid index range limit '%.80s'.",
-                                       o ? Tcl_GetString(o) : ""));
+    if (ip)
         Tcl_SetErrorCode(ip, "TARRAY", "RANGE", "VALUE", NULL);
-    }
-    return TCL_ERROR;
+    return error_from_obj(ip, "Invalid index range limit", o);
 }
 
 
 TCL_RESULT ta_column_name_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("No column with name '%.80s'.",
-                                       Tcl_GetString(o)));
+    if (ip)
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
-    }
-    return TCL_ERROR;
+    return error_from_obj(ip, "No column with specified name", o);
 }
 
 TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Duplicate columns specified in column list '%.80s'.", Tcl_GetString(o)));
+    if (ip)
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
-    }
-    return TCL_ERROR;
+    return error_from_obj(ip, "Duplicate columns specified in column list", o);
 }
 
 TCL_RESULT ta_conflicting_options_error(Tcl_Interp *ip, const char *optA, const char *optB)
 {
     if (ip) {
         Tcl_SetObjResult(ip, Tcl_ObjPrintf("Options %s and %s cannot be used together.", optA, optB));
-        Tcl_SetErrorCode(ip, "TARRAY", "OPTION", "CONFLICT", NULL);
     }
     return TCL_ERROR;
 }
@@ -301,11 +297,7 @@ TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type)
 
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Invalid operand '%.80s'.",
-                                       Tcl_GetString(o)));
-        Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
-    }
+    Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
+    return error_from_obj(ip, "Invalid operand", o);
     return TCL_ERROR;
 }
