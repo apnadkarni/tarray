@@ -754,7 +754,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vplace -columns {col5} tab {{ninetynine 99}} [tarray::column create int {0 1}]
-    } -result "No column with name 'col5'." -returnCodes error
+    } -result "No column with specified name 'col5'." -returnCodes error
 
     test table_vplace-columnsopt-3.2 {
         Verify placing duplicate column names

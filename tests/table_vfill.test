@@ -568,7 +568,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table vfill -columns {col5} tab {ninetynine 99} end
-    } -result "No column with name 'col5'." -returnCodes error
+    } -result "No column with specified name 'col5'." -returnCodes error
 
     test table_vfill-columnsopt-3.2 {
         Verify filling duplicate column names

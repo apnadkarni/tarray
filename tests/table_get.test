@@ -552,7 +552,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table get -columns {col3 col5} $tab {4}
-    } -result "No column with name 'col5'." -returnCodes error
+    } -result "No column with specified name 'col5'." -returnCodes error
 
     test table_get-columnsopt-3.2 {
         Verify getting duplicate columns

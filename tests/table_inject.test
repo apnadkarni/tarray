@@ -310,7 +310,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table inject -columns {col0 col1 col2 col3 col5} $tab [list {0 0 0 0 0}] 0
-    } -result "No column with name 'col5'." -returnCodes error
+    } -result "No column with specified name 'col5'." -returnCodes error
 
     test table_inject-columnsopt-3.2 {
         Verify injecting duplicate column names
