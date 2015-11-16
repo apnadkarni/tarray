@@ -13,13 +13,20 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Visual C++ prior to Visual Studio 2010 do not have stdint */
+#if defined(_MSC_VER) && _MSC_VER < 1700
+#include "ms_stdint.h"
+#else
+#include <stdint.h>
+#endif
+
 #include "tcl.h"
 
 #ifdef TA_USE_LIBDISPATCH
 # include <dispatch/dispatch.h>
 #endif
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER)
 /* For MSC, use compiler version since it protects against A being a pointer */
 # ifndef ARRAYSIZE
 /* Older SDK's do not define this */
@@ -137,6 +144,10 @@ extern const char *g_type_tokens[];
 #define TA_SORT_INDIRECT   8
 
 /* Pointers to Tcl's built-in type descriptors */
+extern const Tcl_ObjType *g_tcl_int_type_ptr;
+extern const Tcl_ObjType *g_tcl_double_type_ptr;
+extern const Tcl_ObjType *g_tcl_wide_type_ptr;
+extern const Tcl_ObjType *g_tcl_dict_type_ptr;
 extern const Tcl_ObjType *g_tcl_list_type_ptr;
 extern const Tcl_ObjType *g_tcl_string_type_ptr;
 
