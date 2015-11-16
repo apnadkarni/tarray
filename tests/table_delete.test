@@ -537,14 +537,14 @@ namespace eval tarray::test {
     } -body {
         set types {int any boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] delete foo 10
-    } -returnCodes error -match glob -result "Invalid index 'foo'. Must be an integer or the keyword 'end'."
+    } -returnCodes error -match glob -result "Invalid index 'foo'."
 
     test table_delete-range-5.1 {
         Test deletion of invalid syntax end index
     } -body {
         set types {int any boolean}
         tab_change_and_verify $types [samplerows $types 0 99] [samplerows $types 3 99] delete 0 foo
-    } -returnCodes error -match glob -result "Invalid index 'foo'. Must be an integer or the keyword 'end'."
+    } -returnCodes error -match glob -result "Invalid index 'foo'."
 
     test table_delete-range-6.0 {
         Test deletion of all indices from column (shared)
