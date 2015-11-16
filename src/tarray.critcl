@@ -214,6 +214,10 @@ critcl::ccode {
 
 critcl::cinit {
     TA_ASSERT(ba_sanity_check() == 0);
+    g_tcl_int_type_ptr = Tcl_GetObjType("int");
+    g_tcl_double_type_ptr = Tcl_GetObjType("double");
+    g_tcl_wide_type_ptr = Tcl_GetObjType("wide");
+    g_tcl_dict_type_ptr = Tcl_GetObjType("dict");
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
     g_tcl_string_type_ptr = Tcl_GetObjType("string");
 } {

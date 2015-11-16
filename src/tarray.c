@@ -38,6 +38,10 @@ const char *g_type_tokens[] = {
     NULL
 };    
 
+const Tcl_ObjType *g_tcl_int_type_ptr;
+const Tcl_ObjType *g_tcl_double_type_ptr;
+const Tcl_ObjType *g_tcl_wide_type_ptr;
+const Tcl_ObjType *g_tcl_dict_type_ptr;
 const Tcl_ObjType *g_tcl_list_type_ptr;
 const Tcl_ObjType *g_tcl_string_type_ptr;
 
@@ -640,10 +644,100 @@ error_handler:
     return TCL_ERROR;
 }
 
+/* We cannot rely on Tcl_GetWideIntFromObj because that does not signal an
+   error on signed overflow
+*/
+TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
+{
+#if 1
+    char c, *p;
+    Tcl_WideInt wide;
+    int n;
+    TCL_RESULT status;
+    /*
+     * Avoid shimmering in case of wrong arguments as shimmering from
+     * tables/columns can be VERY expensive 
+     * TBD - for doubles, should we do a conversion to wide and
+     * see if pure integer ?
+     */
+    if (o->typePtr == &ta_column_type ||
+        o->typePtr == &ta_table_type ||
+        o->typePtr == g_tcl_dict_type_ptr ||
+        o->typePtr == g_tcl_double_type_ptr ||
+        (o->typePtr == g_tcl_list_type_ptr &&
+         (Tcl_ListObjLength(NULL, o, &n) != TCL_OK || n != 1))) {
+        return ta_value_type_error(ip, o, TA_WIDE);
+    }
+
+    status = Tcl_GetWideIntFromObj(ip, o, &wide);
+    if (status != TCL_OK)
+        return status;
+    /* To deal with Tcl's lack of overflow checking, see if the
+     * sign matches the string representation if there is one.
+     */
+    if (o->bytes == NULL) {
+        /* No string rep so can't check for integer overflow */
+        if (pwide)
+            *pwide = wide;
+        return TCL_OK;
+    }
+
+    /* Check for overflow */
+    p = o->bytes;
+    while ((c = *p) != '\0' && isascii(c) && isspace(c))
+        ++p;
+    if (wide > 0 && *p == '-' || wide < 0 && *p != '-') {
+        return ta_value_type_error(ip, o, TA_WIDE);
+    }
+    if (pwide)
+        *pwide = wide;
+    return TCL_OK;
+    
+#else
+    
+    /* We do not want to rely on Tcl conversion to WideInt. So if
+     * a string rep is present, we will parse that even if the type
+     * is already an integer.
+     * Note we do not want to call Tcl_GetStringFromObj instead of
+     * checking o->bytes here so as to avoid unnecessary generation
+     * of a string rep
+     */
+    if (o->bytes == NULL) {
+        /*
+         * No string rep is present so we have to generate one.
+         * For some types (e.g. columns), no point generating a string
+         * since it could not possibly be a integer. For others like
+         * integers, generating a string is pointless since any
+         * overflow errors are not recoverable since original string
+         * rep is no longer present. For other types, generate a string.
+         */
+        int n;
+        if (o->typePtr == g_tcl_wide_type_ptr ||
+            o->typePtr == g_tcl_int_type_ptr)
+            return Tcl_GetWideIntFromObj(ip, o, pwide);
+        
+        /* TBD - for doubles, should we do a conversion to wide and
+           see if pure integer ? */
+        if (o->typePtr == &ta_column_type ||
+            o->typePtr == &ta_table_type ||
+            o->typePtr == g_tcl_dict_type_ptr ||
+            o->typePtr == g_tcl_double_type_ptr ||
+            (o->typePtr == g_tcl_list_type_ptr &&
+             (Tcl_ListObjLength(NULL, o, &n) != TCL_OK || n != 1))) {
+            return ta_value_type_error(ip, o, TA_WIDE);
+        }
+
+        Tcl_GetStringFromObj(o);
+        TA_ASSERT(o->bytes);
+    }
+    TBD - now use _strtoi64 to parse o->bytes;
+#endif    
+}
+
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
 {
     Tcl_WideInt wide;
-    if (Tcl_GetWideIntFromObj(ip, o, &wide) != TCL_OK)
+    if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
     if (wide < 0 || wide > 0xFFFFFFFF)
         return ta_value_type_error(ip, o, TA_UINT);
@@ -657,7 +751,7 @@ TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 {
     Tcl_WideInt wide;
-    if (Tcl_GetWideIntFromObj(ip, o, &wide) != TCL_OK)
+    if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
     if (wide < INT_MIN || wide > INT_MAX)
         return ta_value_type_error(ip, o, TA_INT);
@@ -667,12 +761,12 @@ TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
 {
-    int i;
-    if (Tcl_GetIntFromObj(ip, o, &i) != TCL_OK)
+    int wide;
+    if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
-    if (i < 0 || i > 255)
+    if (wide < 0 || wide > 255)
         return ta_value_type_error(ip, o, TA_BYTE);
-    *pb = (unsigned char) i;
+    *pb = (unsigned char) wide;
     return TCL_OK;
 }
 
@@ -680,8 +774,8 @@ TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *p
 {
     TCL_RESULT status;
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
-    /* TBD - optimize */
-    status = Tcl_GetWideIntFromObj(ip, o, pi);
+    /* TBD - optimize using _strtoi64 */
+    status = ta_get_wide_from_obj(ip, o, pi);
     Tcl_DecrRefCount(o);
     return status;
 }
@@ -1357,7 +1451,7 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
     case TA_BYTE: status = ta_get_byte_from_obj(ip, o, &ptav->ucval); break;
     case TA_INT: status = ta_get_int_from_obj(ip, o, &ptav->ival); break;
     case TA_UINT: status = ta_get_uint_from_obj(ip, o, &ptav->uival); break;
-    case TA_WIDE: status = Tcl_GetWideIntFromObj(ip, o, &ptav->wval); break;
+    case TA_WIDE: status = ta_get_wide_from_obj(ip, o, &ptav->wval); break;
     case TA_DOUBLE: status = Tcl_GetDoubleFromObj(ip, o, &ptav->dval); break;
     case TA_ANY: ptav->oval = o; status = TCL_OK; break;
     case TA_STRING: ptav->ptas = tas_from_obj(o); status = TCL_OK; break;
@@ -1714,7 +1808,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
         ta_verify_value_LOOP(int, ta_get_int_from_obj);
         break;
     case TA_WIDE:
-        ta_verify_value_LOOP(Tcl_WideInt, Tcl_GetWideIntFromObj);
+        ta_verify_value_LOOP(Tcl_WideInt, ta_get_wide_from_obj);
         break;
     case TA_DOUBLE:
         ta_verify_value_LOOP(double, Tcl_GetDoubleFromObj);
@@ -2078,7 +2172,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
        break;
     case TA_UINT: thdr_put_OBJCOPY(unsigned int, ta_get_uint_from_obj); break;
     case TA_INT: thdr_put_OBJCOPY(int, ta_get_int_from_obj); break;
-    case TA_WIDE: thdr_put_OBJCOPY(Tcl_WideInt, Tcl_GetWideIntFromObj); break;
+    case TA_WIDE: thdr_put_OBJCOPY(Tcl_WideInt, ta_get_wide_from_obj); break;
     case TA_DOUBLE:thdr_put_OBJCOPY(double, Tcl_GetDoubleFromObj); break;
     case TA_BYTE: thdr_put_OBJCOPY(unsigned char, ta_get_byte_from_obj); break;
     case TA_ANY:
@@ -2192,7 +2286,7 @@ void thdr_place_objs(
         PLACEVALUES(int, ta_get_int_from_obj);
         break;
     case TA_WIDE:
-        PLACEVALUES(Tcl_WideInt, Tcl_GetWideIntFromObj);
+        PLACEVALUES(Tcl_WideInt, ta_get_wide_from_obj);
         break;
     case TA_DOUBLE:
         PLACEVALUES(double, Tcl_GetDoubleFromObj);
