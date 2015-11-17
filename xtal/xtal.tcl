@@ -1545,29 +1545,35 @@ namespace eval xtal::rt {
         }
         
         set target_size [expr {$high - $low + 1}]
-        
+
         if {$vartype eq ""} {
             # variable to be treated as a list
             switch -exact -- $valuetype {
                 table {
-                    if {[tarray::table::size $value] != $target_size} {
-                        error "Source size [tarray::table::size $value] differs from target column range $low:$high."
-                    }
-                    set var [lreplace $var[set var ""] $low $high {*}[tarray::table::range $value 0 end]] 
+                    set value_size [tarray::table::size $value]
+                    set value [tarray::table::range $value 0 end]
                 }
-                "" {
-                    # Treat like a fill - TBD
-                    while {$low <= $high} {
-                        lset var $low $value
-                        incr low
-                    }
-                }
+                "" { set value_size [llength $value] }
                 default {
-                    if {[tarray::column::size $value] != $target_size} {
-                        error "Source size [tarray::column::size $value] differs from target column range $low:$high."
-                    }
-                    set var [lreplace $var[set var ""] $low $high {*}[tarray::column::range -list $value 0 end]] 
+                    set value_size [tarray::column::size $value]
+                    set value [tarray::column::range -list $value 0 end]
                 }
+            }
+            if {$value_size != $target_size} {
+                error "Source size $value_size differs from target range $low:$high."
+            }
+            set lsize [llength $var]
+            if {$low > $lsize || $low < 0} {
+                # Note $low == $lsize is ok. Will extend the vector
+                error "Range lower limit $low is out of bounds."
+            }
+            # Need to workaround a Tcl lreplace bug/inconsistency
+            # see http://core.tcl.tk/tcl/tktview?name=47ac84309b or
+            # http://core.tcl.tk/tcl/tktview?name=578c2fd960
+            if {$low == $lsize} {
+                lappend var {*}$value
+            } else {
+                set var [lreplace $var[set var ""] $low $high {*}$value]
             }
             return $var
         }
@@ -1577,24 +1583,18 @@ namespace eval xtal::rt {
             # If the value is also a table, we assume each row in the value
             # is to be assigned successively to the target range. Otherwise
             # it is a value to be filled in the target range.
-            if {$valuetype ne "table"} {
+            if {$valuetype eq "table"} {
+                set source_size [tarray::table::size $value]
+            } else {
                 if {$valuetype ne ""} {
-                    error "Cannot assign a column to a table"
+                    error "Cannot assign a column to a table range."
                 }
-
-                # Try converting to a table first.
-                set table_def [tarray::table::definition $var]
-                if {[catch {
-                    set value [tarray::table::create $table_def $value]
-                }]} {
-                    # Try treating as a single row of the table
-                    return [tarray::table::vfill var $value $low $high]
-                }
+                # List of rows
+                set source_size [llength $value]
             }
 
             # We have to use a put. Make sure the source range
             # and target range match
-            set source_size [tarray::table::size $value]
             if {$target_size != $source_size} {
                 error "Source size $source_size differs from target table range $low:$high."
             }
@@ -1605,36 +1605,22 @@ namespace eval xtal::rt {
         if {$valuetype eq "table"} {
             # No possibility of conversion. But target might be
             # of type any in which case we have to fill the range
-            return [tarray::column::vfill var $value $low $high]
-        } else {
-            if {$valuetype eq ""} {
-                # Try and convert to column of appropriate type
-                if {[catch {
-                    set value [tarray::column::create $vartype $value]
-                    set valuetype $vartype
-                }]} {
-                    # Try treating as a single element of column
-                    return [tarray::column::vfill var $value $low $high]
-                }
-            }
+            error "Cannot assign a table to a column range."
+        } 
 
-            # col->col We have to use a put. Make sure the source range
-            # and target range match
+        if {$valuetype eq ""} {
+            set source_size [llength $value]
+        } else {
             set source_size [tarray::column::size $value]
-            if {$target_size != $source_size} {
-                if {$source_size == 1} {
-                    return [tarray::column::vfill var [tarray::column::index $value 0] $low $high]
-                } else {
-                    error "Source size $source_size differs from target column range $low:$high."
-                }
-            } else {
-                if {$vartype eq $valuetype} {
-                    return [tarray::column::vput var $value $low]
-                } else {
-                    return [tarray::column::vput var [tarray::column::cast $value $vartype] $low]
-                }
+            if {$vartype ne $valuetype} {
+                set value [tarray::column::cast $value $vartype]
             }
         }
+
+        if {$target_size != $source_size} {
+            error "Source size $source_size differs from target column range $low:$high."
+        }
+        return [tarray::column::vput var $value $low]
     }
 
     proc tarray_assign {varname value index} {
