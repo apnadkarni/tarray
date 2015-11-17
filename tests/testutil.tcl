@@ -174,7 +174,7 @@ if {![info exists tarray::test::known]} {
         # Differently formatted valid values
         lappend good(boolean) {0 1 5 -5 -1 1.0 1e0 -1e2 true false TRUE FALSE t f T F y n Y N yes no YES NO on off ON OFF}
         lappend good(int) {0 1 -1 2147483647 -2147483648 0xdef -0xabc  012 -077}
-        lappend good(uint) {0 1 0xdef  0xffffffff 0x80000000 2147483648 4294967295 012}
+        lappend good(uint) {0 1 0xdef  0xffffffff 0x80000000 2147483648 2147483649 4294967295 012}
         lappend good(byte) {0 1 0xff 0x80 012 255}
         lappend good(wide) {0 1 -1 0xdef -0xabc  0x1ffffffff -0x1ffffffff 012 -077 987654321098 -987654321098 9223372036854775807 -9223372036854775808}
         lappend good(double) {0 1 0.0 1.1 0x2 -0x3 011 -022 -1.1 1e10 1e-10 2.2e20 -3.3e-30 Inf -Inf}
@@ -189,7 +189,7 @@ if {![info exists tarray::test::known]} {
         variable bad
         set bad(boolean) {abc}
         set bad(byte) {abc -1 256 1.0 1e0 true}
-        set bad(int) {abc 1e1 0x1ffffffff 4294967295 false}
+        set bad(int) {abc 1e1 0x1ffffffff 2147483649 4294967295 false}
         set bad(uint) {abc -1 0x1ffffffff 987654321098 1.0 1e0 true}
         set bad(wide) {abc 1e1 1.0 9223372036854775808 -9223372036854775809 false}
         set bad(double) {abc true}
