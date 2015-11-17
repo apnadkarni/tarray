@@ -38,7 +38,7 @@ text {
     The related extension `xtal` implements ((^ chap_xtal_lang Xtal)),
     a language geared towards vector operations on lists, columns and tables.
     Xtal can be embedded within Tcl in a similar fashion to the `expr`
-    command or used to write entire procedures and scripts. Xtal adds
+    command or used to write entire procedures and scripts. Xtal adds a
     succint syntactic layer on top of the `tarray` extension.
 
     See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short overview.
