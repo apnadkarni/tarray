@@ -181,22 +181,15 @@ namespace eval tarray::test::xtal_table {
     test xtal-table-range-assign-1.0 {Table range assign} -setup {
         set t [T]
     } -body {
-        xtal::xtal {t[0:1] = {1, 128, -10, 10, 100, 2.0, "new string", "anything"}}
+        xtal::xtal {t[0:1] = {{1, 128, -10, 10, 100, 2.0, "new string", "anything"}, {1, 128, -10, 10, 100, 2.0, "new string", "anything"}}}
         set t
     } -result [tarray::table fill [T] {1 128 -10 10 100 2.0 "new string" "anything"} 0 1]
 
-    test xtal-table-range-assign-1.1 {Table range assign row} -setup {
-        set t [T]
-    } -body {
-        xtal::xtal {t[0:%t+1] = {1, 128, -10, 10, 100, 2.0, "new string", "anything"}}
-        set t
-    } -result [tarray::table fill [T] {1 128 -10 10 100 2.0 "new string" "anything"} 0 4]
-
-    test xtal-table-range-assign-1.2 {Table range assign list of rows} -setup {
+    test xtal-table-range-assign-1.1 {Table range assign list of rows} -setup {
         set t [T]
     } -body {
         xtal::xtal {
-            t[0:1] = {
+            t[%t-1:%t] = {
                 {1, 128, -10, 10, 100, 2.0, "new string", "anything"},
                 {0, 129, -10, 10, 100, 2.0, "new string", "anything"}
             }
@@ -205,7 +198,7 @@ namespace eval tarray::test::xtal_table {
     } -result [tarray::table put [T] {
         {1 128 -10 10 100 2.0 "new string" "anything"}
         {0 129 -10 10 100 2.0 "new string" "anything"}
-    } 0]
+    } 2]
 
     test xtal-table-range-assign-1.3 {Table range assign table} -setup {
         set t [T]
