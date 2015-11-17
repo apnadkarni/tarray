@@ -13,12 +13,13 @@ text {
     see the ((^ chap_column_ref "column")) and ((^ chap_table_ref "table"))
     reference pages.
 
-    [NOTE]
-    The examples here use the above commands for manipulating typed arrays.
-    The `tarray` extension also implements Xtal, a mini-language, that
-    makes operating on typed arrays easier and more succint. However, use
-    of Xtal is not described here. See ((^ chap_xtal_lang)) for details
-    on its use.
+    [IMPORTANT]
+    The examples here use the above commands, `column` and `table`,
+    for manipulating typed arrays.
+    Typed array can also be manipulated using Xtal, a language embeddable
+    in Tcl that is geared towards typed arrays and vector operations.
+    However, Xtal is not described in this guide.
+    See ((^ chap_xtal_lang)) for details on its use.
 }
 
 text {
