@@ -436,6 +436,7 @@ oo::class create xtal::Parser {
                         [lindex $expr 2 1 0 1] eq $ident} {
                         switch -exact -- [lindex $expr 1] {
                             delete -
+                            fill   -
                             inject -
                             insert -
                             reverse {
@@ -1450,8 +1451,9 @@ oo::class create xtal::Compiler {
     }
 
     method BuiltInCall {fn arglist} {
-        set fn [dict get {
+        set qfn [dict get {
             delete xtal::rt::delete
+            fill   xtal::rt::fill
             inject xtal::rt::inject
             insert xtal::rt::insert
             lookup tarray::column::lookup
@@ -1461,17 +1463,37 @@ oo::class create xtal::Compiler {
         set fnargs {}
         foreach argelem [lrange $arglist 1 end] {
             foreach fnarg $argelem {
-                lappend fnargs [my {*}$fnarg]
+                if {($fn in {delete fill}) && [lindex $fnarg 0] eq "Range"} {
+                    # Translate Range args like i:j to two separate args
+                    lappend fnargs {*}[my {*}[lindex $fnarg 1]]
+                    if {[llength $fnarg] == 3} {
+                        lappend fnargs {*}[my {*}[lindex $fnarg 2]]
+                    } else {
+                        lappend fnargs "end"
+                    }
+                } else {
+                    lappend fnargs [my {*}$fnarg]
+                }
             }
         }
-        return "\[$fn [join $fnargs { }]\]"
+        return "\[$qfn [join $fnargs { }]\]"
     }
     
     method VBuiltInCall {fn arglist} {
         set fnargs {}
         foreach argelem [lrange $arglist 2 end] {
             foreach fnarg $argelem {
-                lappend fnargs [my {*}$fnarg]
+                if {($fn in {vdelete vfill}) && [lindex $fnarg 0] eq "Range"} {
+                    # Translate Range args like i:j to two separate args
+                    lappend fnargs {*}[my {*}[lindex $fnarg 1]]
+                    if {[llength $fnarg] == 3} {
+                        lappend fnargs {*}[my {*}[lindex $fnarg 2]]
+                    } else {
+                        lappend fnargs "end"
+                    }
+                } else {
+                    lappend fnargs [my {*}$fnarg]
+                }
             }
         }
         return "\[xtal::rt::$fn {[lindex $arglist 1 0 1]} [join $fnargs { }]\]"
@@ -2515,6 +2537,26 @@ namespace eval xtal::rt {
             table { tarray::table::vdelete var {*}$args }
             "" { error "Operand is not a column or able" }
             default { tarray::column::vdelete var {*}$args }
+        }]
+    }
+
+    proc fill {operand args} {
+        return [switch -exact -- [lindex [tarray::types $operand] 0] {
+            table { tarray::table::fill $operand {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::fill $operand {*}$args }
+        }]
+    }
+
+    proc vfill {ident args} {
+        upvar 1 $ident var
+        if {![info exists var]} {
+            error "can't read \"$ident\": no such variable"
+        }
+        return [switch -exact -- [lindex [tarray::types $var] 0] {
+            table { tarray::table::vfill var {*}$args }
+            "" { error "Operand is not a column or able" }
+            default { tarray::column::vfill var {*}$args }
         }]
     }
 

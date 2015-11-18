@@ -172,11 +172,11 @@ text {
 } text {
     Tables can be modified in multiple ways.
 } outputlimit 0 xtal {
-    Emps[% Emps] = {'Mary', 38000, 25, 'Seattle'}      # Add a row
+    Emps[% Emps] = {'Mary', 38000, 25, 'Seattle'}    # Add a row
 
     Emps.Salary = Emps.Salary + 2000                 # Modify entire column
 
-    Emps.Location[Emps.Name.Sally] = {{"New York"}}  # Modify a single cell
+    Emps.Location[Emps.Name.Sally] = "New York"      # Modify a single cell
 
     print(Emps)
 }
@@ -1717,10 +1717,10 @@ text {
 
 text {
     === The `@delete` function
-    The `@delete` deletes elements from a column or table. It has one
-    of two forms:
+    The `@delete` deletes elements from a column or table.
+    It has one of two forms:
 } syntax {
-    @delete(__COLUMN_OR_TABLE__, _FIRST_, _LAST_)
+    @delete(__COLUMN_OR_TABLE__, _FIRST_ : _LAST_)
     @delete(__COLUMN_OR_TABLE__, _INDICES_)
 } text {
     The first form deletes all elements in the index range from `_FIRST_`
@@ -1732,6 +1732,30 @@ text {
 } outputlimit 0 xtal {
     Emps = @delete(Emps, Emps.Salary > 75000)
     print(Emps)
+}
+
+text {
+    === The `@fill` function
+    The `@fill` fills elements from a column or table with a fixed value.
+    It has one of two forms:
+} syntax {
+    @fill(__COLUMN_OR_TABLE__, _VALUE_, _FIRST_ : _LAST_)
+    @fill(__COLUMN_OR_TABLE__, _VALUE, _INDICES_)
+} text {
+    The first form sets all elements in the index range from `_FIRST_`
+    to `_LAST_` to _VALUE_. The second form fills the elements whose indices are
+    specified by `_INDICES_` which may be a single index, an index column
+    or a list of indices.
+
+    We can raise all low paid employees to a minimum salary level.
+} outputlimit 0 xtal {
+    Emps.Salary = @fill(Emps.Salary, 50000, Emps.Salary < 50000)
+    print(Emps)
+} text {
+    The function can also be used to initialize a column or table
+    with a fixed value.
+} outputlimit 0 xtal {
+    Col = @fill(@int, 0, 0:9)
 }
 
 text {
