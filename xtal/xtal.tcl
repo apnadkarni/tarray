@@ -1962,26 +1962,41 @@ namespace eval xtal::rt {
         if {![info exists var]} {
             error "can't read \"$varname\": no such variable"
         }
-        lassign [tarray::types $var $value] vartype valuetype
+        lassign [tarray::types $var $value $index] vartype valuetype indextype
         if {$vartype ne "table"} {
             error "$varname is not a table."
         }
 
-        if {$valuetype ne "table"} {
-            if {$valuetype ne ""} {
-                error "Cannot assign a column to a table"
+        if {$indextype eq ""} {
+            set index_len [llength $index]
+            # Special case - if a single index, treat as assignment of
+            # a single value
+            if {$index_len == 1} {
+                set value [list $value]
             }
-
-            # Plain Tcl value, Try converting to a table first.
-            set table_def [tarray::table::definition $var $colnames]
-            if {[catch {
-                set value [tarray::table::create $table_def $value]
-            }]} {
-                # value cannot be treated as list of rowvalues
-                # Try treating as a single rowvalue of the table
-                return [tarray::table::vfill -columns $colnames var $value $index]
-            }
+        } elseif {$indextype eq "int"} {
+            set index_len [tarray::column::size $index]
+        } else {
+            error "Index must be a integer, an integer list, or an integer column."
         }
+        if {$valuetype eq ""} {
+            set value_len [llength $value]
+        } elseif {$valuetype eq "table"} {
+            set value_len [tarray::table::size $value]
+        } else {
+            error "Cannot assign a column to a table"
+        }
+
+        # The vplace commands do not mind if source len is greater than
+        # target length but current xtal semantics do not allow this so
+        # explicitly check.
+        if {$index_len != $value_len} {
+            error "Number of indices ($index_len) not same as number of values ($value_len)."
+        }
+        if {$index_len == 0} {
+            return $var
+        }
+
 
         # In this case, the table dimensions and type must match and
         # indexlist must be a int tarray or an int list else
