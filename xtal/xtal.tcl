@@ -1080,10 +1080,11 @@ oo::class create xtal::Compiler {
                         # T.c[4:j] = ...
                         return "xtal::rt::table_column_assign_range $operand $element [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
-                    Number {
+                    Numbex {
                         # Single numeric literal index
                         # T.c[0] = ...
-                        return "tarray::table::vfill -columns \[list $element\] $operand [my {*}$rvalue] [my {*}$indexexpr]"
+                        return "xtal::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
+                        #return "tarray::table::vfill -columns \[list $element\] $operand [my {*}$rvalue] [my {*}$indexexpr]"
                     }
                     default {
                         # Index is general expression (including single vars)
@@ -1779,17 +1780,15 @@ namespace eval xtal::rt {
         # If the value is table, we assume each row in the value
         # is to be assigned successively to the target range. Otherwise
         # it is a value to be filled in the target range.
-        if {$valuetype ne "table"} {
-            if {$valuetype ne ""} {
-                # If the specified value is a column, convert it to
-                # a table
-                set value [tarray::table::create2 [list $colname] [list $value]]
-                set source_size [tarray::table::size $value]
-            } else {
-                # Plain Tcl value
-                set source_size [llength $value]
-            }
+        if {$valuetype eq "table"} {
+            set source_size [tarray::table::size $value]
+        } elseif {$valuetype eq ""} {
+            # Plain Tcl value
+            set source_size [llength $value]
         } else {
+            # If the specified value is a column, convert it to
+            # a table
+            set value [tarray::table::create2 [list $colname] [list $value]]
             set source_size [tarray::table::size $value]
         }
 
@@ -1819,44 +1818,48 @@ namespace eval xtal::rt {
             error "$varname is not a table."
         }
 
-        if {$indextype ne "" && $indextype ne "int"} {
-            error "Invalid type for index. Must be an integer, integer list or column."
+        if {$indextype eq ""} {
+            set index_len [llength $index]
+            # Special case - if a single index, treat as assignment of
+            # a single value
+            if {$index_len == 1} {
+                set value [list $value]
+            }
+        } elseif {$indextype eq "int"} {
+            set index_len [tarray::column::size $index]
+        } else {
+            error "Index must be a integer, an integer list, or an integer column."
+        }
+        if {$valuetype eq ""} {
+            set value_len [llength $value]
+        } elseif {$valuetype eq "table"} {
+            error "Cannot assign table to a column."
+        } else {
+            set value_len [tarray::column::size $value]
         }
 
-        if {$valuetype ne "table"} {
-            if {$indextype eq ""} {
-                set index [tarray::column create int $index]
-                set indextype int
-            }
-            if {$valuetype ne ""} {
-                # If the specified value is a column, convert it to a table
-                set value [tarray::table::create2 [list $colname] [list $value]]
-            } else {
-                # Plain Tcl value. 
-                # Try converting to a table first.
-                set table_def [tarray::table::definition $var [list $colname]]
-                if {[catch {
-                    set value2 [tarray::table::create $table_def $value]
-                    # Successful conversion. Now check if the size
-                    # of the value table is equal to the size of the index
-                    # list. If not, then we cannot use vplace below.
-                    # Only possibility is that it is a single element to
-                    # be filled.
-                    set size [tarray::table::size $value2]
-                    if {$size != [tarray::column::size $index] && $size == 1} {
-                        return [tarray::table::vfill -columns [list $colname] var $value $index]
-                    }
-                    # All is hunky dory or there is an type error. Either way
-                    # let the vplace deal with it. We've done our best
-                    set value $value2                    
-                }]} {
-                    # value cannot be treated as a column or rowvalues
-                    # Try treating as a single cell of the table
-                    return [tarray::table::vfill -columns [list $colname] var $value $index]
-                }
-            }
+        # The vplace commands do not mind if source len is greater than
+        # target length but current xtal semantics do not allow this so
+        # explicitly check.
+        if {$index_len != $value_len} {
+            error "Number of indices ($index_len) not same as number of values ($value_len)."
+        }
+        if {$index_len == 0} {
+            return $var
         }
 
+        # If the specified value is a column, convert it to a table
+        # else it will be a list of rows
+        if {$valuetype eq ""} {
+            # Need to make each elem in list a row
+            # TBD - likely to be slow. Need optimization
+            set value [lmap val $value {
+                list $val
+            }]
+        } elseif {$valuetype ne "table"} {
+            # It's a column
+            set value [tarray::table::create2 [list $colname] [list $value]]
+        }
 
         # If value is a table we use vplace to update the target array.
         # In this case, the table dimensions and type must match and
@@ -1872,7 +1875,7 @@ namespace eval xtal::rt {
             error "can't read \"$varname\": no such variable"
         }
         lassign [tarray::types $var $value] vartype valuetype
-        if {$vartype ne "table" && $valuetype ne "table"} {
+        if {$vartype ne "table" || $valuetype ne "table"} {
             error "Operand is not a tarray table"
         }
 

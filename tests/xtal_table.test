@@ -1,5 +1,7 @@
 # xtal table operation tests
 
+# TBD - are there tests for each assignment type where rvalue is a Tcl list?
+
 source testutil.tcl
 
 namespace eval tarray::test::xtal_table {
@@ -375,6 +377,25 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal {t.Wide[1] = 1234}
     } -result [tarray::table fill -columns [list Wide] [T] 1234 1]
     
+    test xtal-table-column-index-assign-1.0.1 {Table column index assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[1] = {"ab", "cd"}}
+    } -result [tarray::table fill -columns [list String] [T] [list "ab cd"] 1]
+    
+    test xtal-table-column-index-assign-1.0.2 {Table column index assign} -setup {
+        set t [T]
+        set i 1
+    } -body {
+        xtal::xtal {t.String[i] = {"ab", "cd"}}
+    } -result [tarray::table fill -columns [list String] [T] [list "ab cd"] 1]
+
+    test xtal-table-column-index-assign-1.0.3 {Table column index assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[%t] = {"ab", "cd"}}
+    } -result "All columns in a table must be specified in a column map when extending the table." -returnCodes error
+
     test xtal-table-column-range-1.0 {Table column range} -setup {
         set t [T]
     } -body {
@@ -429,6 +450,12 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal {t.String[{2,1}] = @string {"a", "b"}}
     } -result [tarray::table put -columns [list String] [T] [list [list b] [list a]] 1]
         
+    test xtal-table-column-indexlist-assign-1.1 {Table column indexlist assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[{2,1}] = @string {"a", "b c"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list "b c"] [list a]] 1]
+        
     test xtal-table-column-indexcolumn-1.0 {Table column indexcolumn} -setup {
         set t [T]
     } -body {
@@ -438,8 +465,8 @@ namespace eval tarray::test::xtal_table {
     test xtal-table-column-indexcolumn-assign-1.0 {Table column indexcolumn assign} -setup {
         set t [T]
     } -body {
-        xtal::xtal {t.String[@int {2,1}] = @string {"a", "b"}}
-    } -result [tarray::table put -columns [list String] [T] [list [list b] [list a]] 1]
+        xtal::xtal {t.String[@int {2,1}] = @string {"a", "b c"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list "b c"] [list a]] 1]
         
     test xtal-table-column-selector-1.0 {Table column selector} -setup {
         set t [T]
