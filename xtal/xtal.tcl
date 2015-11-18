@@ -1080,7 +1080,7 @@ oo::class create xtal::Compiler {
                         # T.c[4:j] = ...
                         return "xtal::rt::table_column_assign_range $operand $element [my {*}$rvalue] {*}[my {*}$indexexpr]"
                     }
-                    Numbex {
+                    Number {
                         # Single numeric literal index
                         # T.c[0] = ...
                         return "xtal::rt::table_column_assign $operand $element [my {*}$rvalue] [my {*}$indexexpr]"
@@ -1777,14 +1777,13 @@ namespace eval xtal::rt {
             error "Range lower limit $low is greater than upper limit $high."
         }
 
-        # If the value is table, we assume each row in the value
-        # is to be assigned successively to the target range. Otherwise
-        # it is a value to be filled in the target range.
         if {$valuetype eq "table"} {
             set source_size [tarray::table::size $value]
         } elseif {$valuetype eq ""} {
             # Plain Tcl value
             set source_size [llength $value]
+            # Convert the list of values to a list of rows
+            set value [lmap val $value { list $val }]
         } else {
             # If the specified value is a column, convert it to
             # a table
@@ -1914,41 +1913,27 @@ namespace eval xtal::rt {
             incr high -1
         }
         
-        if {$low > $high} {
+        # TBD - does xtal permit the keyword end ?
+        set target_size [expr {$high - $low + 1}]
+        if {$target_size < 1} {
             error "Range lower limit $low is greater than upper limit $high."
         }
-        set target_size [expr {$high - $low + 1}]
 
-        # If the value is table, we assume each row in the value
-        # is to be assigned successively to the target range. Otherwise
-        # it is a value to be filled in the target range.
-        if {$valuetype ne "table"} {
-            if {$valuetype ne ""} {
-                error "Cannot assign a column to a table"
-            }
-
-            # Plain Tcl value, Try converting to a table first.
-            set table_def [tarray::table::definition $var $colnames]
-            if {[catch {
-                set value2 [tarray::table::create $table_def $value]
-                set source_size [tarray::table::size $value2]
-            }] || ($source_size == 1 && $source_size != $target_size)} {
-                # value cannot be treated as a table or rowvalues
-                # or the sizes do not match
-                # Try treating as a single row of the table
-                return [tarray::table::vfill -columns $colnames var $value $low $high]
-            }
-            set value $value2
+        if {$valuetype eq ""} {
+            set value_len [llength $value]
+        } elseif {$valuetype eq "table"} {
+            set value_len [tarray::table::size $value]
         } else {
-            set source_size [tarray::table::size $value]
+            error "Cannot assign a column to a table."
         }
 
         # We were passed a value that was a table or could be converted to one
         # We have to use a put. Make sure the source range
         # and target range match
-        if {$target_size != $source_size} {
-            error "Source size $source_size differs from target table range $low:$high."
+        if {$target_size != $value_len} {
+            error "Source size $value_len differs from target table range $low:$high."
         }
+        
         return [tarray::table::vput -columns $colnames var $value $low]
     }
 
