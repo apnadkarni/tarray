@@ -1540,11 +1540,11 @@ namespace eval xtal::rt {
             incr high -1
         }
 
-        if {$low > $high} {
+        set target_size [expr {$high - $low + 1}]
+        if {$target_size < 1} {
             error "Range lower limit $low is greater than upper limit $high."
         }
         
-        set target_size [expr {$high - $low + 1}]
 
         if {$vartype eq ""} {
             # variable to be treated as a list
@@ -1746,47 +1746,6 @@ namespace eval xtal::rt {
             set value [tarray::column::cast $value $vartype]
         }
         return [tarray::column::vplace var $value $index]
-        
-        if {$valuetype ne ""} {
-            
-            # single value to fill into the target (possibly raising
-            # an error in case incompatible).  In the former case,
-            # there is actually ambiguity since value may be a list
-            # compatible with the target array. For now we always
-            # treat it as a single value to be filled into target.
-
-            if {$indextype eq ""} {
-                set index [tarray::column create int $index]
-                set indextype int
-            }
-
-            if {$vartype eq "table"} {
-                return [tarray::table::vfill var $value $index]
-            } else {
-                if {$valuetype eq "table"} {
-                    error "Attempt to assign a table to a column"
-                }
-                if {$valuetype eq ""} {
-                    # Will error out if the wrong type
-                    set value [tarray::column::create $vartype $value]
-                    set valuetype $vartype
-                }
-                set nvalues [tarray::column::size $value]
-                if {[tarray::column::size $index] == $nvalues} {
-                    if {$vartype eq $valuetype} {
-                        return [tarray::column::vplace var $value $index]
-                    } else {
-                        return [tarray::column::vplace var [tarray::column::cast $value $vartype] $index]
-                    }       
-                }
-                # Size mismatch. If size of value is 1, then use fill
-                if {$nvalues == 1} {
-                    return [tarray::column::vfill var [tarray::column::index $value 0] $index]
-                } else {
-                    error "Target size [tarray::column::size $index] does not match source size $nvalues."
-                }
-            }
-        }
     }
 
     proc table_column_assign_range {varname colname value low high} {
@@ -1806,15 +1765,16 @@ namespace eval xtal::rt {
             error "$varname is not a table."
         }
 
+        # TBD - does xtal permit the keyword end ?
         if {$high eq "end"} {
             set high [tarray::table size $var]
             incr high -1
         }
         
-        if {$low > $high} {
+        set target_size [expr {$high - $low + 1}]
+        if {$target_size < 1} {
             error "Range lower limit $low is greater than upper limit $high."
         }
-        set target_size [expr {$high - $low + 1}]
 
         # If the value is table, we assume each row in the value
         # is to be assigned successively to the target range. Otherwise
@@ -1826,18 +1786,8 @@ namespace eval xtal::rt {
                 set value [tarray::table::create2 [list $colname] [list $value]]
                 set source_size [tarray::table::size $value]
             } else {
-                # Plain Tcl value, Try converting to a table first.
-                set table_def [tarray::table::definition $var [list $colname]]
-                if {[catch {
-                    set value2 [tarray::table::create $table_def $value]
-                    set source_size [tarray::table::size $value2]
-                }] || ($source_size == 1 && $target_size != $source_size)} {
-                    # value cannot be treated as a column or rowvalues
-                    # or it is a single row and target is multiple
-                    # Try treating as a single cell of the table
-                    return [tarray::table::vfill -columns [list $colname] var $value $low $high]
-                }
-                set value $value2
+                # Plain Tcl value
+                set source_size [llength $value]
             }
         } else {
             set source_size [tarray::table::size $value]
