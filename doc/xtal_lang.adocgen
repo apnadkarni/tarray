@@ -297,7 +297,7 @@ text {
 } text {
    The indexing operator can be used in assignments. 
 } prompt {} xtal_shell {
-    L[0 : %L-2] = 999
+    L[%L-2 : %L] = {999, 1000, 1001}
     
     L[{3,2}] = {100, 101}
 } text {
@@ -1607,9 +1607,9 @@ text {
     The various forms of indexing can also be
     used in the left side of assignments. We have already seen some
     examples earlier. Below are some slightly more involved examples.
-} text {
+} tbd {
     To move everyone to Boston, fill the entire range with one value.
-} xtal {
+} tbd {
     Emps.Location[0 : %Emps - 1] = 'Boston'
 } text {
     To give an increment only to low-paid
@@ -1629,33 +1629,7 @@ text {
 } prompt {} xtal_shell {
     l = {1, 2, 3}
     l[0] = 101
-    l[{3,4}] = 1000
-} text {
-    [WARNING]
-    ====
-    Because Tcl is untyped, assigning to lists using indices can be ambiguous.
-    For example, compare the results of the following two statements:
-} prompt {} xtal_shell {
-    I = @int {1, 2, 3, 4}
-    I[0:1] = 100
-    I[2:3] = {102, 103}
-    
-    l = {1, 2, 3, 4}
-    l[0:1] = 100
-    l[2:3] = {102, 103}  # Ambiguity, assumes a fill operation
-} text {
-    In the first case, values 102 and 103 are assigned to consecutive list
-    elements. Because the column is typed as integer, Xtal can deduce the
-    intended operation in both assignments to `I`. In the case of the
-    second assignment to the list, there is ambiguity because lists can
-    contain elements of any type. Thus the statement could be interpreted
-    as filling the range with a single value or as assigning consecutive
-    elements of the right hand list. In such a case, Xtal assumes
-    a fill operation is intended.
-
-    Similar situations can also arise when the column is of type `any` since
-    columns of that type can hold any type of value.
-    ====
+    l[{3,4}] = {1000, 1001}
 }
 
 text {
