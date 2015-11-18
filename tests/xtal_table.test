@@ -405,8 +405,8 @@ namespace eval tarray::test::xtal_table {
     test xtal-table-column-range-assign-1.0 {Table column range assign} -setup {
         set t [T]
     } -body {
-        xtal::xtal {t.String[1:2] = @string {"a", "b"}}
-    } -result [tarray::table put -columns [list String] [T] [list [list a] [list b]] 1]
+        xtal::xtal {t.String[1:2] = @string {"a", "b c"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list a] [list "b c"]] 1]
         
     test xtal-table-column-range-assign-1.0.1 {Table column range assign} -setup {
         set t [T]
@@ -432,6 +432,18 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal {t.Int[1:2] = {99, 999} }
     } -result [tarray::table put -columns [list Int] [T] [list [list 99] [list 999]] 1]
         
+    test xtal-table-column-range-assign-2.1 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[1:2] = {"a", "b c"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list a] [list "b c"]] 1]
+        
+    test xtal-table-column-range-assign-2.1.1 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[1:2] = {"a", "b", "c"}}
+    } -returnCodes error -result "Source size 3 differs from target table range 1:2." 
+
     test xtal-table-column-range-assign-3.0 {Table column range assign} -setup {
         set t [T]
     } -body {
@@ -630,14 +642,43 @@ namespace eval tarray::test::xtal_table {
             {20 1 twenty}
         }]
         set t2 [tarray::table create {Boolean boolean String string} {
+            {0 {two hundred}}
             {1 hundred}
-            {0 twohundred}
         }]
     } -body {
         xtal::xtal {t.(Boolean, String)[0] = t2[0]}
         set t
     } -result [tarray::table create {Int int Boolean boolean String string} {
-        {10 1 hundred}
+        {10 0 {two hundred}}
+        {20 1 twenty}
+        }]
+
+    test xtal-table-slice-index-assign-1.0.1 {Table slice index assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set l {0 {two hundred}}
+    } -body {
+        xtal::xtal {t.(Boolean, String)[0] = l}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 {two hundred}}
+        {20 1 twenty}
+        }]
+
+    test xtal-table-slice-index-assign-1.0.2 {Table slice index assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+        }]
+        set l {0 {two hundred}}
+        set i 0
+    } -body {
+        xtal::xtal {t.(Boolean, String)[i] = l}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 {two hundred}}
         {20 1 twenty}
         }]
 
@@ -734,7 +775,7 @@ namespace eval tarray::test::xtal_table {
         }]
         set t2 [tarray::table create {Boolean boolean String string} {
             {1 hundred}
-            {0 twohundred}
+            {0 {two hundred}}
         }]
     } -body {
         xtal::xtal {t.(Boolean, String)[1:2] = t2}
@@ -742,7 +783,26 @@ namespace eval tarray::test::xtal_table {
     } -result [tarray::table create {Int int Boolean boolean String string} {
         {10 0 ten}
         {20 1 hundred}
-        {30 0 twohundred}
+        {30 0 {two hundred}}
+        }]
+
+    test xtal-table-slice-range-assign-1.0.1 {Table slice range assign} -setup {
+        set t [tarray::table create {Int int Boolean boolean String string} {
+            {10 0 ten}
+            {20 1 twenty}
+            {30 1 thirty}
+        }]
+        set l {
+            {1 hundred}
+            {0 {two hundred}}
+        }
+    } -body {
+        xtal::xtal {t.(Boolean, String)[1:2] = l}
+        set t
+    } -result [tarray::table create {Int int Boolean boolean String string} {
+        {10 0 ten}
+        {20 1 hundred}
+        {30 0 {two hundred}}
         }]
 
     test xtal-table-slice-range-assign-1.1 {Table slice range assign (append)} -setup {
