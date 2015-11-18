@@ -41,6 +41,14 @@ text {
     This command is like the Tcl `proc` command except that _BODY_
     is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
     
+    ((cmddef cmdref_xtal_method "method _CLASS_ _METHOD_ _ARGS_ _BODY_"))
+    Defines a method named _METHOD_ for a TclOO class _CLASS_. _BODY_
+    is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
+    
+    ((cmddef cmdref_xtal_objmethod "objmethod _OBJ_ _METHOD_ _ARGS_ _BODY_"))
+    Defines a object method named _METHOD_ for a TclOO object _OBJ_. _BODY_
+    is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
+    
     ((cmddef cmdref_xtal_source "source ?-encoding _ENCODING_? _PATH_"))
     Like the Tcl `source` command except that the source file,
     specified by _PATH_, is expected to contain
