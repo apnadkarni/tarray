@@ -387,6 +387,36 @@ namespace eval tarray::test::xtal_table {
         xtal::xtal {t.String[1:2] = @string {"a", "b"}}
     } -result [tarray::table put -columns [list String] [T] [list [list a] [list b]] 1]
         
+    test xtal-table-column-range-assign-1.0.1 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[1:2] = @string {"a", "b", "c"}}
+    } -returnCodes error -result "Source size 3 differs from target table range 1:2." 
+
+    test xtal-table-column-range-assign-1.0.2 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[2:1] = @string {"b", "c"}}
+    } -returnCodes error -result "Range lower limit 2 is greater than upper limit 1." 
+
+    test xtal-table-column-range-assign-1.1 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.String[0:0] = @string {"a"}}
+    } -result [tarray::table put -columns [list String] [T] [list [list a]] 0]
+        
+    test xtal-table-column-range-assign-2.0 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Int[1:2] = {99, 999} }
+    } -result [tarray::table put -columns [list Int] [T] [list [list 99] [list 999]] 1]
+        
+    test xtal-table-column-range-assign-3.0 {Table column range assign} -setup {
+        set t [T]
+    } -body {
+        xtal::xtal {t.Wide[1:2] = t.Wide[0:1] }
+    } -result [tarray::table put -columns [list Wide] [T] [list [list 549755813887] [list -549755813887]] 1]
+
     test xtal-table-column-indexlist-1.0 {Table column indexlist} -setup {
         set t [T]
     } -body {
