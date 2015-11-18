@@ -253,8 +253,7 @@ namespace eval tarray::test::xtal_table {
     
     test xtal-table-indexlist-assign-1.1 {Table indexlist assign list of rows} -setup {
         set t [T]
-    } -constraints { BUG } -body {
-        # TBD - this test currently fails. Need better heuristics in xtal
+    } -body {
         xtal::xtal {
             t[{0,1}] = {
                 {1, 128, -10, 10, 100, 2.0, "new string", "anything"},
@@ -272,7 +271,7 @@ namespace eval tarray::test::xtal_table {
     } -result [tarray::table place [T] [tarray::table get [T] {1 0}] {3 4}]
 
     test xtal-table-indexlist-assign-1.3 {Table indexlist assign} -setup { set t [T] } -body {
-        xtal::xtal { t[{1,0}] = t }
+        xtal::xtal { t[{1,0}] = t[0:1] }
     } -result [tarray::table place [T] [T] {1 0}]
     
     #
@@ -304,8 +303,7 @@ namespace eval tarray::test::xtal_table {
     
     test xtal-table-indexcolumn-assign-1.1 {Table indexcolumn assign list of rows} -setup {
         set t [T]
-    } -constraints { BUG } -body {
-        # TBD - this test currently fails. Need better heuristics in xtal
+    } -body {
         xtal::xtal {
             t[@int {0,1}] = {
                 {1, 128, -10, 10, 100, 2.0, "new string", "anything"},
@@ -323,7 +321,7 @@ namespace eval tarray::test::xtal_table {
     } -result [tarray::table place [T] [tarray::table get [T] {1 0}] {3 4}]
 
     test xtal-table-indexcolumn-assign-1.3 {Table indexcolumn assign} -setup { set t [T] } -body {
-        xtal::xtal { t[@int {1,0}] = t }
+        xtal::xtal { t[@int {1,0}] = t[{0,1}] }
     } -result [tarray::table place [T] [T] {1 0}]
 
     test xtal-table-selector-1.0 {Table selector} -setup { set t [T] } -body {

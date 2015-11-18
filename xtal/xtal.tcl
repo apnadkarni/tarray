@@ -1636,35 +1636,51 @@ namespace eval xtal::rt {
         
         lassign [tarray::types $var $value $index] vartype valuetype indextype
 
-        if {$indextype ne "" && $indextype != "int"} {
+        if {$indextype eq ""} {
+            set index_len [llength $index]
+            # Special case - if a single index, treat as assignment of
+            # a single value
+            if {$index_len == 1} {
+                set value [list $value]
+            }
+        } elseif {$indextype eq "int"} {
+            set index_len [tarray::column::size $index]
+        } else {
             error "Index must be a integer, an integer list, or an integer column."
         }
+        if {$valuetype eq ""} {
+            set value_len [llength $value]
+        } elseif {$valuetype eq "table"} {
+            set value_len [tarray::table::size $value]
+        } else {
+            set value_len [tarray::column::size $value]
+        }
+
+        # The vplace commands do not mind if source len is greater than
+        # target length but current xtal semantics do not allow this so
+        # explicitly check.
+        if {$index_len != $value_len} {
+            error "Number of indices ($index_len) not same as number of values ($value_len)."
+        }
+        if {$index_len == 0} {
+            return $var
+        }
+
         if {$vartype eq ""} {
             # Assume var is a list
             if {$indextype eq "int"} {
                 set index [tarray::column::range -list $index 0 end]
             } else {
-                if {[llength $index] == 1} {
-                    lset var $index $value
+                if {$index_len == 1} {
+                    lset var $index [lindex $value 0]
                     return $var
                 }
             }
 
-            set index_len [llength $index]
-            if {$valuetype eq ""} {
-                set value_len [llength $value]
-            } elseif {$valuetype eq "table"} {
-                set value_len [tarray::table::size $value]
+            if {$valuetype eq "table"} {
                 set value [tarray::table::range -list $value 0 end]
-            } else {
-                set value_len [tarray::column::size $value]
+            } elseif {$valuetype ne ""} {
                 set value [tarray::column::range -list $value 0 end]
-            }
-            if {$index_len != $value_len} {
-                error "Number of indices ($index_len) not same as number of values ($value_len)."
-            }
-            if {$index_len == 0} {
-                return $var
             }
 
             # Indices need to be in order else extending the list
@@ -1696,16 +1712,43 @@ namespace eval xtal::rt {
         }
 
         # Variable is a table or column
+
+        if {$indextype eq "" && $index_len == 1} {
+            # Treat as a single value
+            if {$vartype eq "table"} {
+                return [tarray::table::vfill var [lindex $value 0] $index]
+            } else {
+                return [tarray::column::vfill var [lindex $value 0] $index]
+            }
+        }
+        
         if {$valuetype eq $vartype} {
+            # Both source and destination are same type.
             if {$vartype eq "table"} {
                 return [tarray::table::vplace var $value $index]
             } else {
                 return [tarray::column::vplace var $value $index]
             }
-        } else {
+        }
 
-            # Either value is not a tarray or is a tarray of the wrong
-            # type.  In the latter case, we simply treat it as a
+        # Either value is not a tarray or is a tarray of a different type.
+        if {$vartype eq "table"} {
+            # In case of tables, there is no cast/conversion possible
+            # so just do the assignment. value must be a table of list
+            # of rows. No need to check because vplace will error out itself.
+            return [tarray::table::vplace var $value $index]
+        }
+
+        # Variable is a column. Value is a column of a different type or
+        # a list of values. In the former case we need to cast. In the
+        # latter case vplace will convert the list itself.
+        if {$valuetype ne ""} {
+            set value [tarray::column::cast $value $vartype]
+        }
+        return [tarray::column::vplace var $value $index]
+        
+        if {$valuetype ne ""} {
+            
             # single value to fill into the target (possibly raising
             # an error in case incompatible).  In the former case,
             # there is actually ambiguity since value may be a list
