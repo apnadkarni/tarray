@@ -171,14 +171,17 @@ proc xtal::function {name arguments body} {
     tailcall [namespace current]::proc $name $arguments $body
 }
 
-proc xtal::translate_file {arg1 args} {
-    if {[llength $args] == 0} {
-        set path $arg1
-    } else {
-        if {[llength $args] != 2 || $arg1 ne "-encoding"} {
+proc xtal::translate_file {args} {
+    set nargs [llength $args]
+    if {$nargs != 1 && $nargs != 3} {
+        error "invalid syntax: should be \"tsource ?-encoding ENCODING? PATH\""
+    }
+    set path [lindex $arg end]
+    if {$nargs == 3} {
+        if {[lindex $args 0] ne "-encoding"} {
             error "invalid syntax: should be \"tsource ?-encoding ENCODING? PATH\""
         }
-        lassign $args encoding path
+        set encoding [lindex $args 1]
     }
     set fd [open $path r]
     try {
@@ -200,6 +203,13 @@ proc xtal::source {args} {
 }
 
 proc xtal::compile {from to args} {
+    set nargs [llength $args]
+    if {$nargs != 2 && $nargs != 4} {
+        error "invalid syntax: should be \"tcompile ?-encoding ENCODING? XTALFILE TCLFILE\""
+    }
+    set from [lindex $args end-1]
+    set to [lindex $args end]
+    set args [lrange $args 0 end-2]
     set script [translate_file $from {*}$args]
     set fd [open $to w]
     try {

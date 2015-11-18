@@ -13,11 +13,10 @@ text {
     syntax for working with ((^ chap_intro "typed arrays")).
     
     This document is the reference for commands related
-    to working with Xtal scripts from Tcl.
+    to working with Xtal scripts from Tcl. It does not describe
+    the language itself which is described in ((^ chap_xtal_lang)).
 
-    This document is reference for the top-level commands for the
-    package. See
-    the link:index.html[main contents] for guides and other reference
+    See the link:index.html[main contents] for guides and other reference
     documentation.
 }
 
@@ -31,7 +30,7 @@ text {
     // Turn off section numbering for command definitions
     :!sectnums:
 
-    ((cmddef cmdref_xtal_compile "compile _XTALFILE_ _TCLFILE_ ?-encoding _ENCODING_?"))
+    ((cmddef cmdref_xtal_compile "compile ?-encoding _ENCODING_? _XTALFILE_ _TCLFILE_"))
     Translates the Xtal script in the file specified by _XTALFILE_ to the
     Tcl equivalent and writes it out to the file _TCLFILE_.
     The `-encoding` option may be specified to indicate the
