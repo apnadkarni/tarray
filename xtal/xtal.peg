@@ -110,6 +110,7 @@ void: TclScriptEndMarker <- WS (';'/EOL/EOF) ;
 
     BuiltInCall <- [@] BuiltInFunction WS '(' WSNL ArgumentList? WSNL ')' ;
 leaf:    BuiltInFunction <- 'delete'
+	 		    / 'fill'
                             / 'inject'
                             / 'insert'
                             / 'lookup'
