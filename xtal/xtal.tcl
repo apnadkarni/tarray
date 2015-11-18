@@ -1637,7 +1637,7 @@ namespace eval xtal::rt {
         lassign [tarray::types $var $value $index] vartype valuetype indextype
 
         if {$indextype ne "" && $indextype != "int"} {
-            error "Index must be a integer, an integer list, or an integer column"
+            error "Index must be a integer, an integer list, or an integer column."
         }
         if {$vartype eq ""} {
             # Assume var is a list
@@ -1649,22 +1649,48 @@ namespace eval xtal::rt {
                     return $var
                 }
             }
+
+            set index_len [llength $index]
+            if {$valuetype eq ""} {
+                set value_len [llength $value]
+            } elseif {$valuetype eq "table"} {
+                set value_len [tarray::table::size $value]
+                set value [tarray::table::range -list $value 0 end]
+            } else {
+                set value_len [tarray::column::size $value]
+                set value [tarray::column::range -list $value 0 end]
+            }
+            if {$index_len != $value_len} {
+                error "Number of indices ($index_len) not same as number of values ($value_len)."
+            }
+            if {$index_len == 0} {
+                return $var
+            }
+
             # Indices need to be in order else extending the list
             # length will not work right.
             set indirect_indices [lsort -indices -integer -increasing $index]
 
-            # TBD - there is ambiguity here as to whether to fill or place
-            # For now treat as a fill. In future may be treat as place
-            # if $valuetype is not "" and force lengths to match. Make sure
-            # to make this consistent with 
-            if {0 && [llength $value] == [llength $index]} {
-                foreach indirect_index $indirect_indices {
-                    lset var [lindex $index $indirect_index] [lindex $value $indirect_index]
+            # Also need to validate indices BEFORE making any modifications
+            if {[lindex $index [lindex $indirect_indices 0]] < 0} {
+                error "Invalid index ([lindex $index [lindex $indirect_indices 0]])."
+            }
+            set index_limit [llength $var]
+            foreach indirect_index $indirect_indices {
+                # Test in order of most likely
+                set i [lindex $index $indirect_index]
+                if {$i < $index_limit} continue
+                if {$i == $index_limit} {
+                    incr index_limit
+                    continue
                 }
-            } else {
-                foreach indirect_index $indirect_indices {
-                    lset var [lindex $index $indirect_index] $value
-                }
+                # There is a gap in the indices while extending the list
+                error "Invalid index ($i)."
+            }
+            
+            # Now we are ready to update the var
+            foreach indirect_index $indirect_indices {
+                lset var [lindex $index $indirect_index] [lindex $value $indirect_index]
             }
             return $var
         }
