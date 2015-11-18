@@ -171,6 +171,22 @@ proc xtal::function {name arguments body} {
     tailcall [namespace current]::proc $name $arguments $body
 }
 
+proc xtal::method {class name arguments body} {
+   _init_compiler
+    ::proc [namespace current]::method {class name arguments body} {
+        uplevel 1 [list ::oo::define $class method $name $arguments [compiler translate $body]]
+    }
+    tailcall [namespace current]::method $class $name $arguments $body
+}
+
+proc xtal::objmethod {obj name arguments body} {
+   _init_compiler
+    ::proc [namespace current]::objmethod {obj name arguments body} {
+        uplevel 1 [list ::oo::objdefine $obj method $name $arguments [compiler translate $body]]
+    }
+    tailcall [namespace current]::objmethod $obj $name $arguments $body
+}
+
 proc xtal::translate_file {args} {
     set nargs [llength $args]
     if {$nargs != 1 && $nargs != 3} {
