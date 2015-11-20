@@ -9383,4 +9383,4 @@ namespace eval ::xtal {
 
 # # ## ### ##### ######## ############# #####################
 ## Ready (Note: Our package provide is at the top).
-critcl::tsources xtal.tcl
+critcl::tsources xtal.tcl shell.tcl
