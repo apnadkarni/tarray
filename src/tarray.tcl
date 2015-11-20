@@ -1,3 +1,10 @@
+#
+# Copyright (c) 2015, Ashok P. Nadkarni
+# All rights reserved.
+#
+# See the file LICENSE for license
+#
+
 namespace eval tarray {
     namespace eval column {}
     namespace eval table {}
