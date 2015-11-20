@@ -75,7 +75,7 @@ if {$build_opts(unsupported)} {
     critcl::ccommand tarray::unsupported::dump ta_dump_cmd
 
 }
-critcl::tsources tarray.tcl taprint.tcl
+critcl::tsources tabulate.tcl tarray.tcl taprint.tcl
 critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h
 
 critcl::ccode {
