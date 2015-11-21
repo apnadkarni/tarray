@@ -46,7 +46,7 @@ namespace eval xtal::shell {
                 }
                 .console mark set output end
                 .console tag delete input
-                set result [consoleinterp eval [list ::xtal::shell::Prettify 0 [consoleinterp record $cmd]]]
+                set result [consoleinterp eval [list ::xtal::shell::Prettify_graphic 0 [consoleinterp record $cmd]]]
                 if {$result ne ""} {
                     puts $result
                 }
@@ -179,7 +179,10 @@ namespace eval xtal::shell {
 
 # Prettify output. The interface params correspond to those for the
 # tkcon resultfilter command
-proc xtal::shell::Prettify {errorcode result} {
+proc xtal::shell::Prettify_graphic {errorcode result} {
+    return [tarray::prettify $result -style graphics]
+}
+proc xtal::shell::Prettify_ascii {errorcode result} {
     return [tarray::prettify $result]
 }
             
@@ -215,7 +218,7 @@ proc xtal::shell::XtalCmd? {cmd} {
 proc xtal::shell {} {
     if {[info commands ::tkcon] eq "::tkcon"} {
         ::tkcon eval eval $::xtal::shell::tkcon_monkeypatch
-        ::tkcon resultfilter ::xtal::shell::Prettify
+        ::tkcon resultfilter ::xtal::shell::Prettify_graphic
     } elseif {[info commands ::console] eq "::console"} {
         ::console eval $::xtal::shell::wish_monkeypatch
     } elseif {$::tcl_interactive} {
@@ -255,7 +258,7 @@ namespace eval xtal::shell::tclsh {
                     if {[catch {uplevel \#0 history add [list $l] exec} err]} {
                         puts stderr $err
                     } elseif {[string compare $err {}]} {
-                        puts [xtal::shell::Prettify 0 $err]
+                        puts [xtal::shell::Prettify_ascii 0 $err]
                     }
                     set long_command ""
                     catch $tcl_prompt1
