@@ -1,3 +1,4 @@
+
 #
 # Copyright (c) 2015, Ashok P. Nadkarni
 # All rights reserved.
@@ -45,7 +46,7 @@ namespace eval xtal::shell {
                 }
                 .console mark set output end
                 .console tag delete input
-                set result [consoleinterp eval [list ::xtal::shell::Prettify [consoleinterp record $cmd]]]
+                set result [consoleinterp eval [list ::xtal::shell::Prettify 0 [consoleinterp record $cmd]]]
                 if {$result ne ""} {
                     puts $result
                 }
@@ -215,10 +216,95 @@ proc xtal::shell {} {
     if {[info commands ::tkcon] eq "::tkcon"} {
         ::tkcon eval eval $::xtal::shell::tkcon_monkeypatch
         ::tkcon resultfilter ::xtal::shell::Prettify
-    } elseif {[info commands ::console] eq "console"} {
+    } elseif {[info commands ::console] eq "::console"} {
         ::console eval $::xtal::shell::wish_monkeypatch
+    } elseif {$::tcl_interactive} {
+        xtal::shell::tclsh::repl
     } else {
         error "Unsupported console environment."
     }
     return
+}
+
+# Interactive command loop in tclsh - adapted from http://wiki.tcl.tk/1968 
+namespace eval xtal::shell::tclsh {
+    proc banghist {val} {
+        variable verbose_history
+        if {![string compare $val "!"]} {set val ""}
+        if {$verbose_history} {puts "[::history event $val]"}
+        ::history redo $val
+    }
+    
+    proc read_stdin {} {
+        global tcl_prompt1
+        variable eventLoop
+        variable long_command
+        set l [gets stdin]
+        if {[eof stdin]} {
+            set eventLoop "done"     ;# terminate the vwait eventloop
+        } else {
+            if {[string compare $l {}]} {
+                append long_command "\n$l"
+                set l $long_command
+                if {[info complete $l]} {
+                    if {[catch {
+                        set is_xtal [::xtal::shell::XtalCmd? $l]
+                    }] == 0 && $is_xtal} {
+                        set l "::xtal::xtal {[string trimright $l \n]}\n"
+                    }
+                    if {[catch {uplevel \#0 history add [list $l] exec} err]} {
+                        puts stderr $err
+                    } elseif {[string compare $err {}]} {
+                        puts [xtal::shell::Prettify 0 $err]
+                    }
+                    set long_command ""
+                    catch $tcl_prompt1
+                } else {
+                    puts -nonewline "> "
+                }
+            } elseif {![string compare $long_command {}]} {
+                catch $tcl_prompt1
+            } else {
+                puts -nonewline "> "
+            }
+            flush stdout
+        }
+    }
+
+    proc repl {} {
+        variable long_command ""
+        variable verbose_history 0
+        if {![catch {rename ::unknown ::_xtal_tcl_unknown}]} {
+            proc ::unknown {cmdname args} {
+                if {[regexp "^!..*" $cmdname]} {
+                    ::xtal::shell::tclsh::banghist [string range $cmdname 1 end]
+                } else {
+                    ::_xtal_tcl_unknown $cmdname $args
+                }
+            }
+        }
+    
+        if {![info exists ::tcl_prompt1]} {
+            set ::tcl_prompt1 {puts -nonewline "xtal ([history nextid]) % "}
+            set prompt_replaced 1
+        } else {
+            set prompt_replaced 0
+        }
+
+        # set up our keyboard read event handler
+        # Vector stdin data to the socket
+        fileevent stdin readable [namespace current]::read_stdin
+        
+        catch $::tcl_prompt1
+        flush stdout
+        # wait for and handle or stdin events...
+        vwait [namespace current]::eventLoop
+        if {[info procs ::_xtal_tcl_unknown] ne ""} {
+            rename ::unknown ""
+            rename ::_xtal_tcl_unknown ::unknown
+        }
+        if {$prompt_replaced} {
+            unset -nocomplain ::tcl_prompt1
+        }
+    }
 }
