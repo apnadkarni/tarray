@@ -1,0 +1,41 @@
+text {
+    ((= chap_xtal_shell "The Xtal shell"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+
+text {
+    == Introduction
+
+    This document describes the use of the Xtal language in interactive
+    mode in Tcl shells. You can of course call the
+    ((^ cmdref_xtal_xtal xtal::xtal)) command to invoke Xtal scripts
+    in any standard Tcl interpreter with the `xtal` package loaded.
+    However, using syntax like
+} syntax {
+    xtal { i = 1 }
+} text {
+    is inconvenient.
+
+    Instead the Xtal shell provides a means where Xtal syntax can
+    be used alongside Tcl without having to be wrapped within `xtal::xtal`
+    commands. So for instance you can type both the following
+    equivalent Xtal and Tcl commands in the Xtal shell:
+} syntax {
+    my_dict.key = "value"
+    dict set my_dict key value
+}
+
+text {
+    == Running the shell
+    The Xtal shell is not a separate program but rather a plug-in
+    that is compatible with the `tclsh`
+    command line shell, the `wish` Tk console and
+    http://tkcon.sf.net[tkcon] enhanced Tk console.
+
+    In all three cases, the Xtal shell is started in the same fashion -
+    by running the `xtal::shell` command after loading the `xtal`
+    package.
+}

@@ -41,8 +41,13 @@ text {
     command or used to write entire procedures and scripts. Xtal adds a
     succint syntactic layer on top of the `tarray` extension.
 
-    See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short overview.
+    See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short
+    overview of the language.
 
+    You can also use Xtal in interactive mode, either at the `tclsh`
+    prompt, the `wish` console or `tkcon`. See
+    ((^ chap_xtal_shell)) for details.
+    
     == Documentation guide
 
     * See ((^ chap_build)) for download and installation.
@@ -55,4 +60,7 @@ text {
     for Tcl commands related to the Xtal language.
     * The ((^ chap_xtal_lang)) chapter serves as both an introduction
     to Xtal as well as a reference documentation for the language itself.
+    * The ((^ chap_xtal_shell)) chapter describes the use of
+    the Xtal shell for interactive use.
+
 }
