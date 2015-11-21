@@ -45,7 +45,7 @@ namespace eval xtal::shell {
                 }
                 .console mark set output end
                 .console tag delete input
-                set result [consoleinterp record $cmd]
+                set result [consoleinterp eval [list ::xtal::shell::Prettify [consoleinterp record $cmd]]]
                 if {$result ne ""} {
                     puts $result
                 }
@@ -176,6 +176,12 @@ namespace eval xtal::shell {
     }
 }
 
+# Prettify output. The interface params correspond to those for the
+# tkcon resultfilter command
+proc xtal::shell::Prettify {errorcode result} {
+    return [tarray::prettify $result]
+}
+            
 # Heuristic to check if passed command string might be Xtal
 proc xtal::shell::XtalCmd? {cmd} {
     # cmd is expected to be a properly formed list
@@ -208,6 +214,7 @@ proc xtal::shell::XtalCmd? {cmd} {
 proc xtal::shell {} {
     if {[info commands ::tkcon] eq "::tkcon"} {
         ::tkcon eval eval $::xtal::shell::tkcon_monkeypatch
+        ::tkcon resultfilter ::xtal::shell::Prettify
     } elseif {[info commands ::console] eq "console"} {
         ::console eval $::xtal::shell::wish_monkeypatch
     } else {
