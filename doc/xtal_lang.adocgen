@@ -354,7 +354,7 @@ text {
 } text {
     A Xtal code fragment may be run by one of several means.
 
-    First, it can be run from within a Tcl script
+    First, it can be run from within a Tcl script or a Tcl shell
     using the `xtal::xtal` command.
     This is roughly the equivalent of running a Tcl script using `eval`.
 } shell {
@@ -387,6 +387,14 @@ text {
     out to _TCLOUTPUTFILE_. Only the output file needs to be shipped with
     the application and is sourced like any other Tcl script.
 }
+
+text {
+    === Running interactively
+    You can also type Xtal commands directly in interactive mode
+    using the Xtal shell which accepts both Xtal and Tcl syntax.
+    This is described in ((^ chap_xtal_shell)).
+}
+
 
 text {
     In this document, for ease of exposition we will simply show the
