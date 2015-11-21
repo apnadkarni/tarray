@@ -317,6 +317,7 @@ namespace eval tarray {
             math math
             minmax minmax
             place place
+            prettify prettify
             print print
             put put
             range range
@@ -359,6 +360,7 @@ namespace eval tarray {
             insert insert
             join join
             place place
+            prettify prettify
             print print
             put put
             range range
@@ -377,6 +379,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column table tscript tsource print
+    namespace export column table tscript tsource prettify print
 }
 

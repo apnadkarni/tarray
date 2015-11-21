@@ -145,57 +145,26 @@ proc tarray::table::print {t args} {
     lassign [tarray::_parse_print_opts [size $t] $args] nhead ntail chan
     puts $chan [tarray::table::prettify $t -head $nhead -tail $ntail]
     return
-
-    set ncols [width $t]
-    set nrows [size $t]
-    lassign [tarray::_parse_print_opts $nrows $args] nhead ntail chan
-    
-    set m [namespace current]::matrix[incr _report_ctr]
-    struct::matrix $m
-    set r [namespace current]::report$_report_ctr
-    report::report $r $ncols style ta_captionedtable 1
-    try {
-        $m add columns $ncols
-        $m add rows 1
-        $m set row 0 [cnames $t]
-        set rownum 0
-        if {$nhead} {
-            $m add rows $nhead
-            for {set i 0} {$i < $nhead} {incr i} {
-                $m set row [incr rownum] [index $t $i]
-            }
-            if {$ntail} {
-                $m add rows 1
-                $m set row [incr rownum] [lrepeat $ncols .]
-            }
-        }
-        if {$ntail} {
-            $m add rows $ntail
-            if {$nhead == 0} {
-                $m add rows 1
-                $m set row [incr rownum] [lrepeat $ncols .]
-            }
-            for {set i [expr {$ntail-1}]} {$i >= 0} {incr i -1} { 
-                $m set row [incr rownum] [index $t end-$i]
-            }
-        } 
-        $r printmatrix2channel $m $chan
-        return
-    } finally {
-        $r destroy
-        $m destroy
-    }
 }
 
-proc tarray::print {ta args} {
-    lassign [types $ta] type
-    return [switch -exact -- [lindex [types $ta] 0] {
+proc tarray::prettify {val args} {
+    lassign [types $val] type
+    return [switch -exact -- [lindex [types $val] 0] {
+        ""      { return -level 0 $val }
+        table   {table prettify $val {*}$args}
+        default {column prettify $val {*}$args}
+    }]
+}
+ 
+proc tarray::print {val args} {
+    lassign [types $val] type
+    return [switch -exact -- [lindex [types $val] 0] {
         ""      {
             set opts [dict merge {-channel stdout} $args]
-            puts [dict get $opts -channel] $ta
+            puts [dict get $opts -channel] $val
         }
-        table   {table print $ta {*}$args}
-        default {column print $ta {*}$args}
+        table   {table print $val {*}$args}
+        default {column print $val {*}$args}
     }]
 }
 
