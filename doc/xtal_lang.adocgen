@@ -5,6 +5,8 @@ text {
     ((author "Ashok P. Nadkarni"))
 }
 
+outputlimit-default 10
+
 text {
     == Introduction
 
@@ -171,7 +173,7 @@ text {
     print(Emps[Emps.Salary > 50000 && Emps.Location != "New York"] . (Name, Age))
 } text {
     Tables can be modified in multiple ways.
-} outputlimit 0 xtal {
+} xtal {
     Emps[% Emps] = {'Mary', 38000, 25, 'Seattle'}    # Add a row
 
     Emps.Salary = Emps.Salary + 2000                 # Modify entire column
