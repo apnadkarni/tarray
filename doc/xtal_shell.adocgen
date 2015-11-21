@@ -31,11 +31,27 @@ text {
 text {
     == Running the shell
     The Xtal shell is not a separate program but rather a plug-in
-    that is compatible with the `tclsh`
-    command line shell, the `wish` Tk console and
-    http://tkcon.sf.net[tkcon] enhanced Tk console.
-
-    In all three cases, the Xtal shell is started in the same fashion -
+    that is compatible several Tcl shells.
+    In all cases, the Xtal shell is started in the same fashion -
     by running the `xtal::shell` command after loading the `xtal`
     package.
+
+}
+
+text {
+    The Xtal shell can be used within the `tclsh` command line shell.
+    
+    .Xtal shell in `tclsh`
+    image::xtal_tclsh_shell.png[Xtal tclsh shell]
+
+    It can also be used within the Wish console.
+
+    .Xtal shell in the `wish` console
+    image::xtal_wish_shell.png[Xtal wish shell]
+
+    And finally, it is also compatible with the popular
+    http://tkcon.sf.net[tkcon] enhanced Tk console.
+
+    .Xtal shell in `tkcon`
+    image::xtal_tkcon_shell.png[Xtal tkcon shell]
 }
