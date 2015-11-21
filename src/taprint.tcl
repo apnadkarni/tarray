@@ -7,35 +7,6 @@
 namespace eval tarray {
     namespace eval column {}
     namespace eval table {}
-
-    # The default characters used by the tabulate package are not ASCII
-    # so define an ASCII set based style
-    variable tabulate_style_ascii {
-        top {
-            left +
-            padding -
-            separator +
-            right +
-        }
-        separator {
-            left |
-            padding -
-            separator |
-            right |
-        }
-        row {
-            left |
-            padding { }
-            separator |
-            right |
-        }
-        bottom {
-            left +
-            padding -
-            separator +
-            right +
-        }
-    }
 }
 
 proc tarray::_parse_print_opts {nelems optargs} {
@@ -138,11 +109,18 @@ proc tarray::table::prettify {t args} {
         set rows [concat $rows [range -list $t end-[expr {$ntail-1}] end]]
     } 
 
+    set alignments [lmap type [tarray::types {*}[tarray::table::columns $t]] {
+        switch -exact -- $type {
+            boolean - byte - int - uint - wide - double { lindex right }
+            default { lindex left }
+        }
+    }]
+    
     if {[dict exists $args -style] && [dict get $args -style] eq "graphics"} {
         # Use the default UTF-8 graphics characters for table skeleton
-        return [tabulate::tabulate -align auto -data $rows]
+        return [tabulate::tabulate -alignments $alignments -data $rows -style $::tabulate::style::default]
     } else {
-        return [tabulate::tabulate -align auto -data $rows -style $::tarray::tabulate_style_ascii]
+        return [tabulate::tabulate -alignments $alignments -data $rows -style $::tabulate::style::loFi]
     }
 }
 
