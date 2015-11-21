@@ -140,9 +140,9 @@ proc tarray::table::prettify {t args} {
 
     if {[dict exists $args -style] && [dict get $args -style] eq "graphics"} {
         # Use the default UTF-8 graphics characters for table skeleton
-        return [tabulate::tabulate -data $rows]
+        return [tabulate::tabulate -align auto -data $rows]
     } else {
-        return [tabulate::tabulate -data $rows -style $::tarray::tabulate_style_ascii]
+        return [tabulate::tabulate -align auto -data $rows -style $::tarray::tabulate_style_ascii]
     }
 }
 

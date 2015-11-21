@@ -1,4 +1,5 @@
-#! /usr/bin/env tclsh
+# This is adapted from dbohdan's tabulate package
+# Currently minor modification to align numbers to the right via -align auto
 # Tabulate -- turn standard input into a table.
 # Copyright (C) 2015 Danyil Bohdan
 # License: MIT
@@ -53,7 +54,11 @@ proc ::tabulate::formatRow {row columnWidths substyle alignment} {
         set padding [expr {
             [dict get $columnWidths $i] - [string length $field]
         }]
-        switch -exact -- $alignment {
+        set column_alignment [lindex $alignment $i]
+        if {$column_alignment eq ""} {
+            set column_alignment [lindex $alignment end]
+        }
+        switch -exact -- $column_alignment {
             center {
                 set rightPadding [expr { $padding / 2 }]
                 set leftPadding [expr { $padding - $rightPadding }]
@@ -101,6 +106,38 @@ proc ::tabulate::tabulate args {
         }
     }
 
+    # If alignment is auto, examine a few rows for numeric types
+    # Don't want to include that in the above loop for performance reasons.
+    if {$align eq "auto"} {
+        # Figure out alignment for all columns
+        # Assume right-aligned. If any not a number, we'll change to left
+        set align [lrepeat [dict size $columnWidths] right]
+        set num_left_aligned 0
+        if {[llength $data] == 1} {
+            set start_row 0
+        } else {
+            set start_row 1;    # In case a header is present
+        }
+        foreach row [lrange $data $start_row 10] {
+            for {set i 0} {$i < [llength $row]} {incr i} {
+                if {[lindex $align $i] eq "left"} {
+                    # Already left aligned, no need to check field content
+                }
+                set field [lindex $row $i]
+                if {[string is entier -strict $field]
+                    || [string is double -strict $field]} {
+                    continue
+                }
+                lset align $i left
+                incr num_left_aligned
+            }
+            if {$num_left_aligned == [dict size $columnWidths]} {
+                # All left aligned already. No point checking further rows
+                break
+            }
+        }
+    }
+            
     # A dummy row for formatting the table's decorative elements with
     # [formatRow].
     set emptyRow {}
