@@ -16,6 +16,10 @@
 # tkcon getcommand and friends, may be explored.
 
 namespace eval xtal::shell {
+
+    # The following is an adaptation of the command dispatch code
+    # from the wish console. We will use this to replace the wish
+    # console dispatch at runtime.
     variable wish_monkeypatch {
         # ::tk::ConsoleInvoke --
         # Processes the command line input.  If the command is complete it
@@ -59,6 +63,8 @@ namespace eval xtal::shell {
         }
     }
 
+    # The following is an adaptation of the command dispatch code from
+    # tkcon. We will use this to replace the tkcon dispatch at runtime
     variable tkcon_monkeypatch {
         proc ::tkcon::EvalCmd {w cmd} {
             variable OPT
@@ -177,58 +183,6 @@ namespace eval xtal::shell {
     }
 }
 
-# Prettify output. The interface params correspond to those for the
-# tkcon resultfilter command
-proc xtal::shell::Prettify_graphic {errorcode result} {
-    return [tarray::prettify $result -style graphics]
-}
-proc xtal::shell::Prettify_ascii {errorcode result} {
-    return [tarray::prettify $result]
-}
-            
-# Heuristic to check if passed command string might be Xtal
-proc xtal::shell::XtalCmd? {cmd} {
-    # cmd is expected to be a properly formed list
-    # where [info complete $cmd] will return true
-
-    # Commands beginning with xtal are assumed to be invocations of
-    # Xtal from Tcl (so in effect not an xtal script)
-    if {[regexp {^\s*(::)?(xtal::)?xtal\s} $cmd]} {
-        return 0
-    }
-
-    # Try translating it. On failure, assume not xtal
-    if {[catch {::xtal::translate $cmd}]} {
-        return 0
-    }
-
-    # Syntactically xtal. Could be single word Tcl commands like
-    # "exit" which would be treated as xtal variables. Guard against
-    # that by checking that the variable exists, otherwise a Tcl command.
-    # We also have to ensure we don't confuse x+1 and f() as Tcl
-    # commands.
-    if {[llength $cmd] == 1 && 
-        ![regexp {[^[:alnum:]:_]+} [lindex $cmd 0]]} {
-        return [uplevel #0 [list info exists [lindex $cmd 0]]]
-    }
-
-    return 1
-}
-    
-proc xtal::shell {} {
-    if {[info commands ::tkcon] eq "::tkcon"} {
-        ::tkcon eval eval $::xtal::shell::tkcon_monkeypatch
-        ::tkcon resultfilter ::xtal::shell::Prettify_graphic
-    } elseif {[info commands ::console] eq "::console"} {
-        ::console eval $::xtal::shell::wish_monkeypatch
-    } elseif {$::tcl_interactive} {
-        xtal::shell::tclsh::repl
-    } else {
-        error "Unsupported console environment."
-    }
-    return
-}
-
 # Interactive command loop in tclsh - adapted from http://wiki.tcl.tk/1968 
 namespace eval xtal::shell::tclsh {
     proc banghist {val} {
@@ -311,3 +265,57 @@ namespace eval xtal::shell::tclsh {
         }
     }
 }
+
+
+# Prettify output. The interface params correspond to those for the
+# tkcon resultfilter command
+proc xtal::shell::Prettify_graphic {errorcode result} {
+    return [tarray::prettify $result -style graphics]
+}
+proc xtal::shell::Prettify_ascii {errorcode result} {
+    return [tarray::prettify $result]
+}
+            
+# Heuristic to check if passed command string might be Xtal
+proc xtal::shell::XtalCmd? {cmd} {
+    # cmd is expected to be a properly formed list
+    # where [info complete $cmd] will return true
+
+    # Commands beginning with xtal are assumed to be invocations of
+    # Xtal from Tcl (so in effect not an xtal script)
+    if {[regexp {^\s*(::)?(xtal::)?xtal\s} $cmd]} {
+        return 0
+    }
+
+    # Try translating it. On failure, assume not xtal
+    if {[catch {::xtal::translate $cmd}]} {
+        return 0
+    }
+
+    # Syntactically xtal. Could be single word Tcl commands like
+    # "exit" which would be treated as xtal variables. Guard against
+    # that by checking that the variable exists, otherwise a Tcl command.
+    # We also have to ensure we don't confuse x+1 and f() as Tcl
+    # commands.
+    if {[llength $cmd] == 1 && 
+        ![regexp {[^[:alnum:]:_]+} [lindex $cmd 0]]} {
+        return [uplevel #0 [list info exists [lindex $cmd 0]]]
+    }
+
+    return 1
+}
+    
+proc xtal::shell {} {
+    if {[info commands ::tkcon] eq "::tkcon"} {
+        ::tkcon eval eval $::xtal::shell::tkcon_monkeypatch
+        ::tkcon resultfilter ::xtal::shell::Prettify_graphic
+    } elseif {[info commands ::console] eq "::console"} {
+        ::console eval $::xtal::shell::wish_monkeypatch
+    } elseif {$::tcl_interactive} {
+        xtal::shell::tclsh::repl
+    } else {
+        error "Unsupported console environment."
+    }
+    return
+}
+
