@@ -17,8 +17,11 @@
 
 namespace eval xtal::shell {
     variable options
-    array set options {prettify 1}
+    array set options {-prettify 1}
 
+    # Indicates if the xtal shell is running and what env if so
+    variable host "";           # or "wish", "tclsh" or "tkcon"
+    
     # The following is an adaptation of the command dispatch code
     # from the wish console. We will use this to replace the wish
     # console dispatch at runtime.
@@ -272,7 +275,7 @@ namespace eval xtal::shell::tclsh {
 # tkcon resultfilter command
 proc xtal::shell::Prettify_graphic {errorcode result} {
     variable options
-    if {$options(prettify)} {
+    if {$options(-prettify)} {
         return [tarray::prettify $result -style graphics]
     } else {
         return $result
@@ -280,7 +283,7 @@ proc xtal::shell::Prettify_graphic {errorcode result} {
 }
 proc xtal::shell::Prettify_ascii {errorcode result} {
     variable options
-    if {$options(prettify)} {
+    if {$options(-prettify)} {
         return [tarray::prettify $result]
     } else {
         return $result
@@ -329,17 +332,42 @@ proc xtal::shell::XtalCmd? {cmd} {
     return 1
 }
     
-proc xtal::shell {} {
+proc xtal::shell::shell {args} {
+    variable host
+    variable options
+
+    # Change shell options
+    dict for {opt val} $args {
+        switch -exact -- $opt {
+            -prettify {
+                if {![string is boolean -strict $val]} {
+                    error "Invalid boolean value \"$val\""
+                }
+            }
+            default {
+                error "Unknown option \"$opt\""
+            }
+        }
+        set options($opt) $val
+    }
+    
+    if {$host ne ""} {
+        return;                 # Already running
+    }
     if {[info commands ::tkcon] eq "::tkcon"} {
         ::tkcon eval eval $::xtal::shell::tkcon_monkeypatch
         ::tkcon resultfilter ::xtal::shell::Prettify_graphic
+        set host tkcon
     } elseif {[info commands ::console] eq "::console"} {
         ::console eval $::xtal::shell::wish_monkeypatch
+        set host wish
     } elseif {$::tcl_interactive} {
         xtal::shell::tclsh::repl
+        set host tclsh
     } else {
         error "Unsupported console environment."
     }
     return
 }
 
+interp alias {} xtal::shell {} xtal::shell::shell
