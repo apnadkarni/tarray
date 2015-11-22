@@ -17,7 +17,10 @@
 
 namespace eval xtal::shell {
     variable options
-    array set options {-prettify 1}
+    array set options {
+        -lang auto
+        -prettify 1
+    }
 
     # Indicates if the xtal shell is running and what env if so
     variable host "";           # or "wish", "tclsh" or "tkcon"
@@ -292,11 +295,19 @@ proc xtal::shell::Prettify_ascii {errorcode result} {
             
 # Heuristic to check if passed command string might be Xtal
 proc xtal::shell::XtalCmd? {cmd} {
+    variable options
+    
     # cmd is expected to be a properly formed list
     # where [info complete $cmd] will return true. There are special
     # cases though where info complete returns 1 but the string
     # is not a well formed list (unmatched braces)
 
+    if {$options(-lang) eq "tcl"} {
+        return 0
+    } elseif {$options(-lang) eq "xtal"} {
+        return 1
+    }
+    
     # Commands beginning with xtal are assumed to be invocations of
     # Xtal from Tcl (so in effect not an xtal script)
     if {[regexp {^\s*(::)?(xtal::)?xtal\s} $cmd]} {
@@ -342,6 +353,11 @@ proc xtal::shell::shell {args} {
             -prettify {
                 if {![string is boolean -strict $val]} {
                     error "Invalid boolean value \"$val\""
+                }
+            }
+            -lang {
+                if {$val ni {tcl xtal auto}} {
+                    error "Invalid value \"$val\". Must be one of \"tcl\", \"xtal\" or \"auto\"."
                 }
             }
             default {

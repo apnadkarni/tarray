@@ -76,6 +76,10 @@ text {
 } text {
     This is to allow Tcl's `history` command, which obviously knows
     nothing about Xtal, to work correctly.
+
+    You can use the ((^ tab_xtal_shell_opts "-lang option"))
+    to the shell at any time to control which languages are accepted
+    by the shell.
 }
 
 text {
@@ -90,6 +94,12 @@ text {
     [cols="30,70"]
     |===
 
+    |`-lang tcl|xtal|auto`
+    |Specifies the language for input commands. The default value `auto`
+    results in the shell accepting both Tcl and Xtal syntax. If set
+    it to one of the other values, the shell will only interpret
+    input for that language.
+    
     |`-prettify` `_BOOLEAN_`
     |If true (default), the Xtal shell tries to format the output
     of commands in a more user-friendly format. If false, command
