@@ -94,10 +94,10 @@ text {
     [cols="30,70"]
     |===
 
-    |`-lang tcl|xtal|auto`
+    |`-lang _LANGUAGE_`
     |Specifies the language for input commands. The default value `auto`
     results in the shell accepting both Tcl and Xtal syntax. If set
-    it to one of the other values, the shell will only interpret
+    it to `tcl` or `xtal`, the shell will only interpret
     input for that language.
     
     |`-prettify` `_BOOLEAN_`
@@ -130,8 +130,8 @@ text {
     `puts` command to explicitly print results.
 
     Alternatively, you can turn pretty-printing on and off with the
-    `-prettify` ((^ sect_xtal_shell_options option))
-    to ((^ cmdref_xtal_shell)).
+    ((^ sect_xtal_shell_options "-prettify option"))
+    to the ((^ cmdref_xtal_shell shell)).
 } 
 
 text {
