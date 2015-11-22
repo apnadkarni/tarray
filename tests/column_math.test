@@ -224,21 +224,21 @@ namespace eval tarray::test {
     test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
     test [mathid]-div0 "Column double / 0 column" -body {verify_expr / [largecolumn double] [col_with_0 double]}
 
-        # Test special cases for booleans
-        foreach type {byte int uint wide double} {
-             test [mathid]-boolean-err "boolean column non-boolean column" -body {
-                tarray::column math $op [samplecolumn boolean] [samplecolumn $type]
-            } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
-             test [mathid]-boolean-err "boolean column non-boolean column" -body {
-                tarray::column $op [samplecolumn $type] [samplecolumn boolean]
-             } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
+    # Test special cases for booleans
+    foreach type {byte int uint wide double} {
+        test [mathid]-boolean-err "boolean column non-boolean column" -body {
+            tarray::column math $op [samplecolumn boolean] [samplecolumn $type]
+        } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
+        test [mathid]-boolean-err "boolean column non-boolean column" -body {
+            tarray::column $op [samplecolumn $type] [samplecolumn boolean]
+        } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
 
-            test [mathid]-boolean-$op-$type "boolean column $op $type scalar" -body {
-                verify_expr $op [samplecolumn boolean] 1
-            }
-
-            # Multiple boolean and scalar args
+        test [mathid]-boolean-$op-$type "boolean column $op $type scalar" -body {
+            verify_expr $op [samplecolumn boolean] 1
         }
+
+        # Multiple boolean and scalar args
+    }
         
     foreach op {& | ^} {
         # Test special cases for booleans
@@ -296,6 +296,17 @@ namespace eval tarray::test {
             }
         }
     }        
+
+    foreach type {int uint wide} {
+        foreach op {+ - * /} {
+            test [mathid]-scalarbyte-$type-$op "Bugfix test $type $op scalar byte" -body {
+                # This is a test for a bug that made the result type
+                # byte if second operand was a scalar byte
+                set col [tarray::column create $type {250}]
+                set res [tarray::column $op $col 10]
+            } -result [tarray::column create $type [list [expr "250 $op 10"]]]
+        }
+    }
 }
 
 tcltest::cleanupTests

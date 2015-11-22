@@ -543,8 +543,11 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                                     result_type = TA_INT;
                             }
                         }
-                    } else
+                    } else {
+                        /* Fits in byte. Change type only if not already set */
+                        if (result_type == TA_NONE)
                         result_type = TA_BYTE;
+                    }
                 }
             } else {
                 status = Tcl_GetDoubleFromObj(NULL, objv[j], &ptav->dval);
