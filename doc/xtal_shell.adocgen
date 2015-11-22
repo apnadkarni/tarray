@@ -57,9 +57,7 @@ text {
 }
 
 text {
-    == Operation
-
-    === Command execution
+    == Command execution
     
     The Xtal shell reads the command input and uses
     heuristics to make a determination as to whether it is Xtal
@@ -83,7 +81,7 @@ text {
 }
 
 text {
-    === Shell options
+    == Shell options
 
     The shell supports several options shown in
     ((^ tab_xtal_shell_opts)). These may be specified when
@@ -112,7 +110,7 @@ text {
 
     
 text {
-    ((=== sect_xtal_shell_output "Result formatting"))
+    ((== sect_xtal_shell_output "Result formatting"))
 
     Unlike the standard Tcl shells, the Xtal shell does not print the
     raw string values but rather tries to present a more readable format
@@ -135,7 +133,7 @@ text {
 } 
 
 text {
-    === Bugs and caveats
+    == Bugs and caveats
 
     .Error traces
     Because Xtal is translated to Tcl for execution, the error stack
@@ -154,6 +152,29 @@ text {
     < _TCLSCRIPT_ >
 } text {
     respectively.
+} text {
+    .Syntax confusion
+
+    It is worth stressing the different syntax used by Xtal and Tcl,
+    particularly with respect to variable referencing and list construction
+    as illustrated by the following short sequence in an Xtal shell.
+} fauxshell {
+    % x = 1
+    1
+    % a = x                ;# (Xtal) Assigns content of variable x
+    1
+    % set a x              ;# (Tcl) Assigns string "x"
+    x
+    % set a $x             ;# (Tcl) Assigns content of variable x
+    1
+    % l = {a, x, 1}        ;# (Xtal) List construction
+    1 1 1
+    % set l {a, x, 1}      ;# (Tcl) Assigns string
+    a, x, 1
+    % set l [list $a $x 1] ;# (Tcl) List construction
+    1 1 1
+} text {
+    It is easy to get tripped up by these differences.
 }
     
     
