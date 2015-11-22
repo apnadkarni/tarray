@@ -58,7 +58,7 @@ text {
     is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
 }
 text {
-    ((cmddef cmdref_xtal_shell "shell ?-prettify _BOOLEAN_?"))
+    ((cmddef cmdref_xtal_shell "shell ?-prettify _BOOLEAN_? ?-lang _LANGUAGE_?"))
     Enables the Xtal shell within a Tcl interactive session.
     The Xtal shell is a plug-in that adds the ability to interactively
     run Xtal within standard Tcl shells like
