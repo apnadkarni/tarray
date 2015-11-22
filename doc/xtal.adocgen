@@ -29,43 +29,71 @@ text {
 
     // Turn off section numbering for command definitions
     :!sectnums:
+}
 
+text {
     ((cmddef cmdref_xtal_compile "compile ?-encoding _ENCODING_? _XTALFILE_ _TCLFILE_"))
     Translates the Xtal script in the file specified by _XTALFILE_ to the
     Tcl equivalent and writes it out to the file _TCLFILE_.
     The `-encoding` option may be specified to indicate the
     character encoding and applies to both files.
     System encoding is assumed by default.
-    
+}
+
+text {
     ((cmddef cmdref_xtal_function "function _NAME_ _ARGS_ _BODY_"))
     This command is like the Tcl `proc` command except that _BODY_
     is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
-    
+}
+
+text {
     ((cmddef cmdref_xtal_method "method _CLASS_ _METHOD_ _ARGS_ _BODY_"))
     Defines a method named _METHOD_ for a TclOO class _CLASS_. _BODY_
     is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
-    
+}
+
+text {
     ((cmddef cmdref_xtal_objmethod "objmethod _OBJ_ _METHOD_ _ARGS_ _BODY_"))
     Defines a object method named _METHOD_ for a TclOO object _OBJ_. _BODY_
     is a ((^ chap_xtal_lang Xtal)) script and not a Tcl script.
+}
+text {
+    ((cmddef cmdref_xtal_shell "shell ?-prettify _BOOLEAN_?"))
+    Enables the Xtal shell within a Tcl interactive session.
+    The Xtal shell is a plug-in that adds the ability to interactively
+    run Xtal within standard Tcl shells like
+    `tclsh` and `tkcon`.
+
+    The command can also be used to change the shell options when
+    it is already running.
     
+    For a full description of the Xtal shell, options and its use,
+    see ((^ chap_xtal_shell)).
+}
+
+text {
     ((cmddef cmdref_xtal_source "source ?-encoding _ENCODING_? _PATH_"))
     Like the Tcl `source` command except that the source file,
     specified by _PATH_, is expected to contain
     ((^ chap_xtal_lang Xtal)) script which is then executed in the caller's
     context. The `-encoding` option may be specified to indicate the
     character encoding of the file. Otherwise system encoding is assumed.
+}
 
+text {
     ((cmddef cmdref_xtal_translate "translate _XTALSCRIPT_"))
     Translates the specified Xtal script to Tcl and returns it.
+}
 
+text {
     ((cmddef cmdref_xtal_translate_file "translate_file ?-encoding _ENCODING_? _PATH_"))
     Translates the Xtal script in the file specified by _PATH_ to the
     Tcl equivalent.
     The `-encoding` option may be specified to indicate the
     character encoding of the file. Otherwise system encoding is assumed.
-    
+}
+
+text {
     ((cmddef cmdref_xtal_xtal "xtal _SCRIPT_"))
     Executes a ((^ chap_xtal_lang Xtal)) script in the caller's context.
-
 }

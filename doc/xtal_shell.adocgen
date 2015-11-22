@@ -55,3 +55,95 @@ text {
     .Xtal shell in `tkcon`
     image::xtal_tkcon_shell.png[Xtal tkcon shell]
 }
+
+text {
+    == Operation
+
+    === Command execution
+    
+    The Xtal shell reads the command input and uses
+    heuristics to make a determination as to whether it is Xtal
+    or Tcl and executes it accordingly.
+
+    When the command is added to the Tcl event history though, it is always
+    added as a valid Tcl script, not Xtal. For example,
+} syntax {
+    x = 10
+} text {
+    would be added as
+} syntax {
+    xtal::xtal { x = 10 }
+} text {
+    This is to allow Tcl's `history` command, which obviously knows
+    nothing about Xtal, to work correctly.
+}
+
+text {
+    === Shell options
+
+    The shell supports several options shown in
+    ((^ tab_xtal_shell_opts)). These may be specified when
+    the shell is started or changed when it is running, in
+    both cases using the ((^ cmdref_xtal_shell xtal::shell)) command.
+
+    ((.Table tab_xtal_shell_opts "Xtal shell options"))
+    [cols="30,70"]
+    |===
+
+    |`-prettify` `_BOOLEAN_`
+    |If true (default), the Xtal shell tries to format the output
+    of commands in a more user-friendly format. If false, command
+    output is printed as a raw string as in the standard Tcl shell.
+    See ((^ sect_xtal_shell_output)).
+    
+    |===
+
+}
+
+    
+text {
+    ((=== sect_xtal_shell_output "Result formatting"))
+
+    Unlike the standard Tcl shells, the Xtal shell does not print the
+    raw string values but rather tries to present a more readable format
+    as shown in the example below.
+
+    .Xtal shell output
+    image::xtal_shell_output.png[Xtal shell output]
+
+    In the case of large tables or columns, the output will only include
+    the first few and last few items separated by ellipsis.
+    To see all items, you need to explicitly use the `tarray::print`
+    command with the appropriate options.
+
+    Similarly, to see the string format as in Tcl shells, use the
+    `puts` command to explicitly print results.
+
+    Alternatively, you can turn pretty-printing on and off with the
+    `-prettify` ((^ sect_xtal_shell_options option))
+    to ((^ cmdref_xtal_shell)).
+} 
+
+text {
+    === Bugs and caveats
+
+    .Error traces
+    Because Xtal is translated to Tcl for execution, the error stack
+    reflects the translated Tcl code, not the original Xtal source for
+    nested calls.
+
+    .Disambiguation
+    The heuristics for determining Xtal are a work-in-progress and
+    may in some cases guess wrong. In such cases,
+    you can explicitly wrap Xtal as
+} syntax {
+    xtal { _XTALSCRIPT_ }
+} text {
+    and Tcl as
+} syntax {
+    < _TCLSCRIPT_ >
+} text {
+    respectively.
+}
+    
+    
