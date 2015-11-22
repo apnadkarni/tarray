@@ -16,6 +16,8 @@
 # tkcon getcommand and friends, may be explored.
 
 namespace eval xtal::shell {
+    variable options
+    array set options {prettify 1}
 
     # The following is an adaptation of the command dispatch code
     # from the wish console. We will use this to replace the wish
@@ -266,20 +268,31 @@ namespace eval xtal::shell::tclsh {
     }
 }
 
-
 # Prettify output. The interface params correspond to those for the
 # tkcon resultfilter command
 proc xtal::shell::Prettify_graphic {errorcode result} {
-    return [tarray::prettify $result -style graphics]
+    variable options
+    if {$options(prettify)} {
+        return [tarray::prettify $result -style graphics]
+    } else {
+        return $result
+    }
 }
 proc xtal::shell::Prettify_ascii {errorcode result} {
-    return [tarray::prettify $result]
+    variable options
+    if {$options(prettify)} {
+        return [tarray::prettify $result]
+    } else {
+        return $result
+    }
 }
             
 # Heuristic to check if passed command string might be Xtal
 proc xtal::shell::XtalCmd? {cmd} {
     # cmd is expected to be a properly formed list
-    # where [info complete $cmd] will return true
+    # where [info complete $cmd] will return true. There are special
+    # cases though where info complete returns 1 but the string
+    # is not a well formed list (unmatched braces)
 
     # Commands beginning with xtal are assumed to be invocations of
     # Xtal from Tcl (so in effect not an xtal script)
@@ -287,8 +300,19 @@ proc xtal::shell::XtalCmd? {cmd} {
         return 0
     }
 
-    # Try translating it. On failure, assume not xtal
+    # Commands wrapped in <> are Tcl scripts wrapped in Xtal <>
+    if {[regexp {^\s*<.*>\s*$} $cmd]} {
+        return 1
+    }
+    
+    # Try translating it.
     if {[catch {::xtal::translate $cmd}]} {
+        # Translation failed. Could be because it is actually Tcl
+        # or could be Xtal but containing syntax errors.
+        if {[lsearch -exact $cmd "="] >= 1 } {
+            # Assume Xtal assignment
+            return 1
+        }
         return 0
     }
 
