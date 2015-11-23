@@ -54,6 +54,8 @@ text {
 
     .Xtal shell in `tkcon`
     image::xtal_tkcon_shell.png[Xtal tkcon shell]
+
+    Notice the use of both Xtal and Tcl syntax in the shell.
 }
 
 text {
