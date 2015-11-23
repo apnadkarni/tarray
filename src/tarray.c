@@ -761,7 +761,7 @@ TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
 {
-    int wide;
+    Tcl_WideInt wide;
     if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
     if (wide < 0 || wide > 255)
