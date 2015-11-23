@@ -6,10 +6,6 @@ text {
 }
 
 text {
-    [NOTE]
-    This extension has not reached release status. The API however should
-    be stable.
-
     == Columns and tables
     
     The `tarray` (_typed array_)
@@ -46,7 +42,7 @@ text {
     Emps[Emps.Salary > 30000 && Emps.Salary < 50000 && Emps.Location == "Boston"]
 } text {
     Xtal can be used with standard Tcl structures like lists and
-    dictionariers as well.
+    dictionaries as well.
     See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short
     overview of the language.
 

@@ -9,7 +9,8 @@ text {
 text {
     == Introduction
 
-    This document describes the use of the Xtal language in interactive
+    This document describes the use of the
+    ((^ chap_xtal_lang "Xtal language")) in interactive
     mode in Tcl shells. You can of course call the
     ((^ cmdref_xtal_xtal xtal::xtal)) command to invoke Xtal scripts
     in any standard Tcl interpreter with the `xtal` package loaded.
@@ -130,7 +131,7 @@ text {
     `puts` command to explicitly print results.
 
     Alternatively, you can turn pretty-printing on and off with the
-    ((^ sect_xtal_shell_options "-prettify option"))
+    ((^ tab_xtal_shell_opts "-prettify option"))
     to the ((^ cmdref_xtal_shell shell)).
 } 
 
