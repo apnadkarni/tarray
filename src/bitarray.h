@@ -102,7 +102,6 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len);
 void ba_fill(ba_t *baP, int off, int count, int ival);
 int ba_find(ba_t *baP, int bval, int offset, int count);
 int ba_count_ones(ba_t *baP, int off, int count);
-int ba_count_zeroes(ba_t *baP, int off, int count);
 void ba_reverse(ba_t *baP, int off, int len);
 void ba_complement (ba_t *a, int offa, int count);
 void ba_conjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
