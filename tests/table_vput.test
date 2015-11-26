@@ -459,6 +459,16 @@ namespace eval tarray::test {
         tarray::table vput -columns {col1 -1} tab {{ninetynine 99}} 0
     } -result "Column index '-1' out of bounds." -returnCodes error
 
+    test table_vput-shimmer-1.0 {
+        Bug #20 - VALUES and FIRST refer to same object crashes
+    } -setup {
+        set init [list [list 0] [list 1] [list 2]]
+        set def {col0 int}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table vput tab 3 3
+        set tab
+    } -result {tarray_table {col0} {{tarray_column int {0 1 2 3}}}}
 
 }
 

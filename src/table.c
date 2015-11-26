@@ -1297,11 +1297,22 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
 
     TA_ASSERT(! Tcl_IsShared(table));
 
+    /* 
+     * Note on reference counting / shimmering (related to Bug 20)
+     *  - table is expected to be unshared so no need to worry about that.
+     *  - orows and ofirst might point to the same object. Thus
+     *    we have to be careful to extract the integer value first
+     *    and then shimmer orows to a list. Otherwise, the list intrep
+     *    for ovalues might be shimmered away when ofirst is shimmered
+     *    to int.
+     */
+
     status = table_convert(ip, table);
     if (status != TCL_OK)
         return status;
     
-    status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
+    status = Tcl_ListObjLength(ip, orows, &nrows);
+    
     if (status != TCL_OK ||     /* Not a list */
         nrows == 0 ||           /* Nothing to modify */
         table_width(table) == 0) /* No columns to update */ {
@@ -1326,17 +1337,20 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
         return status;
 
     /* Verify new size is compatible with column mapping */
-    status = TCL_ERROR;
-    if (column_map_verify(ip, &colmap, table_width(table), old_size, new_size) == TCL_OK) {
-        /* Actually only *subset* of columns need to be modifiable - TBD */
-        if (table_make_modifiable(ip, table, new_size, new_size) == TCL_OK) {
-            /* Note this must be AFTER table_make_modifiable as columns might change */
-            if (column_map_get_columns(ip, &colmap, table, &tcols, &ntcols) == TCL_OK) {
-                /* Note even on error tcols_put_objs guarantees a consistent 
-                 * and unchanged tcols
-                 */
-                status = tcols_put_objs(ip, ntcols, tcols,
-                                        nrows, rows, off, insert);
+    status = Tcl_ListObjGetElements(ip, orows, &nrows, &rows);
+    if (status == TCL_OK) {
+        status = TCL_ERROR;
+        if (column_map_verify(ip, &colmap, table_width(table), old_size, new_size) == TCL_OK) {
+            /* Actually only *subset* of columns need to be modifiable - TBD */
+            if (table_make_modifiable(ip, table, new_size, new_size) == TCL_OK) {
+                /* Note this must be AFTER table_make_modifiable as columns might change */
+                if (column_map_get_columns(ip, &colmap, table, &tcols, &ntcols) == TCL_OK) {
+                    /* Note even on error tcols_put_objs guarantees a consistent 
+                     * and unchanged tcols
+                     */
+                    status = tcols_put_objs(ip, ntcols, tcols,
+                                            nrows, rows, off, insert);
+                }
             }
         }
     }

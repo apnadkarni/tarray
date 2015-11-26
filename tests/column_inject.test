@@ -446,6 +446,17 @@ namespace eval tarray::test {
             tarray::column inject [newspancolumn $type [samplerange $type 0 10]] [samplecolumn $type 0 end] 12
         } -result "*index 12*out of bounds*" -match glob -returnCodes error
     }
+
+    foreach type {boolean byte int uint double string any} {
+        test column_inject-shimmer-$type-1.0 {
+            Bug #20 - VALUES and FIRST refer to same object crashes
+        } -setup {
+            set c [newcolumn $type {0 1 2}]
+        } -body {
+            tarray::column inject $c 3 3 
+        } -result [newcolumn $type {0 1 2 3}]
+    }
 }
+
 
 ::tcltest::cleanupTests
