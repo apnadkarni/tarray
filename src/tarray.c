@@ -4709,19 +4709,30 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
-    status = Tcl_ListObjGetElements(ip, ovalues, &nvalues, &values);
-    if (status != TCL_OK)
-        return status;
-
+    /* 
+     * Note on reference counting / shimmering (related to Bug 20)
+     *  - tcol is expected to be unshared so no need to worry about that.
+     *  - ovalues and ofirst might point to the same object. Thus
+     *    we have to be careful to extract the integer ovalue first
+     *    and then shimmer ovalues to a list. Otherwise, the list intrep
+     *    for ovalues might be shimmered away when ofirst is shimmered
+     *    to int.
+     */
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
-
-    /* Get the limits of the range to set */
+    
 
     cur_used = tcol_occupancy(tcol);
     n = cur_used;
     if (ofirst)
         status = ta_convert_index(ip, ofirst, &n, n, 0, n);
+    if (status != TCL_OK)
+        return status;
+
+    status = Tcl_ListObjGetElements(ip, ovalues, &nvalues, &values);
+    if (status != TCL_OK)
+        return status;
+
     /* n contains starting offset */
     if (status == TCL_OK && nvalues) {
         /* Note this also invalidates the string rep as desired */

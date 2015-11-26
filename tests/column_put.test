@@ -513,5 +513,15 @@ namespace eval tarray::test {
 
     }
 
+    foreach type {boolean byte int uint double string any} {
+        test column_put-shimmer-$type-1.0 {
+            Bug #20 - VALUES and FIRST refer to same object crashes
+        } -setup {
+            set c [newcolumn $type {0 1 2}]
+        } -body {
+            tarray::column put $c 3 3 
+        } -result [newcolumn $type {0 1 2 3}]
+    }
+    
     ::tcltest::cleanupTests
 }

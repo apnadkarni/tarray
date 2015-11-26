@@ -372,7 +372,15 @@ namespace eval tarray::test {
         tarray::table inject -columns {0 1 2 -1} $tab [list {0 0 0 0}] end
     } -result "Column index '-1' out of bounds." -returnCodes error
 
-
+    test table_inject-shimmer-1.0 {
+        Bug #20 - VALUES and FIRST refer to same object crashes
+    } -setup {
+        set init [list [list 0] [list 1] [list 2]]
+        set def {col0 int}
+        set tab [tarray::table create $def $init]
+    } -body {
+        tarray::table inject $tab 3 3
+    } -result {tarray_table {col0} {{tarray_column int {0 1 2 3}}}}
 }
 
 ::tcltest::cleanupTests
