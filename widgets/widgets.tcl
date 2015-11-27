@@ -3,7 +3,7 @@ package require snit
 package require treectrl
 package require tarray
 source color.tcl;# TBD
-namespace eval tarray::widget {
+namespace eval tarray::ui {
     proc setup_nspath {} {
         uplevel 1 {namespace path [linsert [namespace path] end [namespace parent [namespace parent]]]}
     }
@@ -13,7 +13,7 @@ proc ldebug {args} {
     append ::log [concat $args]\n
 }
 
-snit::widgetadaptor tarray::widget::tableview {
+snit::widgetadaptor tarray::ui::tableview {
 
     ### Type constructor
 
@@ -143,7 +143,7 @@ snit::widgetadaptor tarray::widget::tableview {
             -command "$_treectrl xview" 
 	$_treectrl notify bind $win.hscroll <Scroll-x> [mymethod _position_scrollbar %W %l %u]
 	bind $win.hscroll <ButtonPress-1> "focus $_treectrl"
-
+         
         grid columnconfigure $win 0 -weight 1
         grid rowconfigure $win 0 -weight 1
         grid configure $_treectrl -row 0 -column 0 -sticky news
@@ -614,14 +614,34 @@ snit::widgetadaptor tarray::widget::tableview {
         }
     }
 
-    # TBD - also have a _modifyrows method ?
-    method _modifyrow {item row} {
+    method modify {first args} {
         if {$options(-highlight)} {
             $_treectrl item state set $item {!deleted !new modified}
         }
+        
+        # If $args specified, it must be a single integer value
+        # as must $first. The range $first:[lindex $args 0] is deleted.
+        # If $args is empty, $first can be a list of one or more
+        # indices
+        if {[llength $args]} {
+            if {[llength $args] != 1} {
+                error "wrong # args: should be \"W delete first last\""
+            }
+            set last [lindex $args 0]
+            if {$first < 0 || $first > $last} {
+                error "Invalid range $first:$last"
+            }
+            if {$last > [tarray::column size $_item_ids]} {
+                error "Range limit $last greater than table size"
+            }
+            for each index that is visible update data
+        } else {
+            for each index that is visible update data
+        }
+        return
 
-        set _itemvalues($item) $row
-
+        set item_id [tarray::column index $_item_ids $first]
+        
         # Only update treectrl if the item is actually displayed
         # else even its style might not have been initialized
         if {[info exists _actually_displayed_items($item)]} {
@@ -695,6 +715,7 @@ snit::widgetadaptor tarray::widget::tableview {
     method _visibilityhandler {invisible visible} {
         foreach item $invisible {
             #TBD - delete styles and text from elements ?
+            ldebug invisible=$invisible
             unset -nocomplain _actually_displayed_items($item)
         }
 
@@ -1062,7 +1083,7 @@ proc test {} {
     proc datasource {index} {
         return [list Row$index [clock format [clock seconds] -format %M:%S]]
     }
-    tarray::widget::tableview .tv datasource
+    tarray::ui::tableview .tv datasource
     .tv definecolumns {{ColA {Column A} text {}} {ColB {Column B} text {}}}
     .tv insert {0 1}
     pack .tv
