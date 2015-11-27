@@ -2,7 +2,7 @@
 # (original code by Jeff Hobbs)
 # Color manipulation routines
 
-namespace eval tarray::widget::color {
+namespace eval tarray::ui::color {
 }
 
 # rgb2dec --
@@ -14,7 +14,7 @@ namespace eval tarray::widget::color {
 # Results:
 #   Returns a #RRGGBB or #RRRRGGGGBBBB color
 #
-proc tarray::widget::color::rgb2dec c {
+proc tarray::ui::color::rgb2dec c {
     set c [string tolower $c]
     if {[regexp -nocase {^#([0-9a-f])([0-9a-f])([0-9a-f])$} $c x r g b]} {
         # double'ing the value make #9fc == #99ffcc
@@ -49,7 +49,7 @@ proc tarray::widget::color::rgb2dec c {
 # Results:
 #   Returns a #RRGGBB or #RRRRGGGGBBBB color
 #
-proc tarray::widget::color::dec2rgb {r {g 0} {b UNSET} {clip 0}} {
+proc tarray::ui::color::dec2rgb {r {g 0} {b UNSET} {clip 0}} {
     if {![string compare $b "UNSET"]} {
         set clip $g
         if {[regexp {^-?(0-9)+$} $r]} {
@@ -85,7 +85,7 @@ proc tarray::widget::color::dec2rgb {r {g 0} {b UNSET} {clip 0}} {
 # Results:
 #   Returns a shade between two colors based on the
 #
-proc tarray::widget::color::shade {orig dest frac} {
+proc tarray::ui::color::shade {orig dest frac} {
     if {$frac >= 1.0} { return $dest } elseif {$frac <= 0.0} { return $orig }
     foreach {origR origG origB} [rgb2dec $orig] \
             {destR destG destB} [rgb2dec $dest] {
@@ -114,7 +114,7 @@ proc tarray::widget::color::shade {orig dest frac} {
 # Results:
 #   Returns a complement of a color
 #
-proc tarray::widget::color::complement {orig {grays 1}} {
+proc tarray::ui::color::complement {orig {grays 1}} {
     foreach {r g b} [rgb2dec $orig] {break}
     set R [expr {(~$r)%256}]
     set G [expr {(~$g)%256}]
