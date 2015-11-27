@@ -75,7 +75,8 @@ snit::widgetadaptor tarray::ui::tableview {
     variable _row_ids
     # Column of tktreectrl item id's. One-to-one correspondence between
     # _row_ids and _item_ids, both indexed by physical (0-based) location
-    # in table
+    # in table. TBD - do we really need _item_ids? We can get it from
+    # $_treectrl item id [list rnc $row_index 0]
     variable _item_ids
     
     # What items are actually visible ?
@@ -682,11 +683,13 @@ snit::widgetadaptor tarray::ui::tableview {
             tarray::column vdelete _item_ids $first $last
             $_treectrl item delete [list root child $first] [list root child $last]
         } else {
+            ldebug "Deleting $first"
             # $first is a list of one or more indices
             tarray::column vdelete _row_ids $first
             set item_ids [tarray::column get -list $_item_ids $first]
             tarray::column vdelete _item_ids $first
             $_treectrl item delete [list list $item_ids]
+            ldebug "$first deleted"
         }
         return
     }
@@ -713,22 +716,43 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method _visibilityhandler {invisible visible} {
-        foreach item $invisible {
-            #TBD - delete styles and text from elements ?
-            ldebug invisible=$invisible
-            unset -nocomplain _actually_displayed_items($item)
+        ldebug invisible=$invisible
+        if {[llength $invisible]} {
+            $_treectrl item tag remove [list "list" $invisible] tv-displayed
         }
-
-        foreach item $visible {
-            lassign [$_treectrl item rnc $item] row_index col_index
-            ldebug visible=$visible row_index=$row_index
-            set _actually_displayed_items($item) 1
-            $self _initrow $item [{*}$_datasource [tarray::column index $_row_ids $row_index]]
+        if {0} {
+            foreach item $invisible {
+                #TBD - delete styles and text from elements ?
+                $_treectrl item tag add [list "list" $visible] tv-displayed
+                unset -nocomplain _actually_displayed_items($item)
+            }
+        }
+        
+        ldebug visible=$visible
+        if {[llength $visible]} {
+            $_treectrl item tag add [list "list" $visible] tv-displayed
+            foreach item $visible {
+                lassign [$_treectrl item rnc $item] row_index col_index
+                set _actually_displayed_items($item) 1
+                $self _initrow $item [{*}$_datasource [tarray::column index $_row_ids $row_index]]
+            }
         }
     }
 
     method rowids {} {return [tarray::column range -list $_row_ids 0 end]}
 
+    method _displayed_items {} {
+        return [$_treectrl item id {tag tv-displayed}]
+    }
+
+    method _item_to_row_index {item_id} {
+        return [lindex [$_treectrl item rnc $item_id] 0]
+    }
+                
+    method _item_to_row_id {item_id} {
+        return [tarray::column index $_row_ids [$self _item_to_row_index $item_id]]
+    }
+    
     method _selecthandler {removedselections newselections} {
         # Set the state for each column for the selected items to show
         # selection highlighting. Note we do not bother with the 
@@ -795,35 +819,6 @@ snit::widgetadaptor tarray::ui::tableview {
             lappend selection [$_treectrl item text $item]
         }
         return $selection
-    }
-
-    method getdisplayeditems {} {
-        # Returns list of items in display order
-
-        # TBD - faster way to do this using some other treectrl command ?
-        set items {}
-        foreach item [$_treectrl item id visible] {
-            lappend items [$_treectrl item order $item] $item
-        }
-
-        set item_ids {}
-        foreach {pos item} [lsort -integer -stride 2 $items] {
-            lappend item_ids $item
-        }
-        return $item_ids
-    }
-
-    method getdisplayedcontent {} {
-        # Returns a nested list of currently displayed rows in display order
-        set content {}
-        foreach item [$self getdisplayeditems] {
-            if {[info exists _itemvalues($item)]} {
-                lappend content $_itemvalues($item)
-            } else {
-                puts "no value for $item: [$_treectrl item text $item]"
-            }
-        }
-        return $content
     }
 
     method showtop {} {
@@ -1085,6 +1080,7 @@ proc test {} {
     }
     tarray::ui::tableview .tv datasource
     .tv definecolumns {{ColA {Column A} text {}} {ColB {Column B} text {}}}
-    .tv insert {0 1}
+    set n -1
+    time {.tv insert [incr n] $n} 20
     pack .tv
 }
