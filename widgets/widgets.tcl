@@ -79,9 +79,6 @@ snit::widgetadaptor tarray::ui::tableview {
     # $_treectrl item id [list rnc $row_index 0]
     variable _item_ids
     
-    # What items are actually visible ?
-    variable _actually_displayed_items
-
     # Stores various state info related to tooltips shown when mouse
     # hovers over an item
     variable _tooltip_state
@@ -97,16 +94,13 @@ snit::widgetadaptor tarray::ui::tableview {
             -showroot no -showbuttons no -showlines no \
             -selectmode extended -xscrollincrement 20 -xscrollsmoothing 1 \
             -canvaspadx {2 0} -canvaspady {2 0} \
-            -scrollmargin 16 -xscrolldelay "500 50" -yscrolldelay "500 50" \
-            -font WitsDefaultFont
+            -scrollmargin 16 -xscrolldelay "500 50" -yscrolldelay "500 50"
         # TBD -itemheight $height
 
         # Client table row id's being displayed
         set _row_ids [tarray::column create int]
         set _item_ids [tarray::column create int]
         
-        array set _actually_displayed_items {}
-
         # item and column identify where the mouse is hovering
         # -1 indicates invalid (ie mouse is outside an item)
         array set _tooltip_state {item -1 column -1 schedule_id -1}
@@ -165,7 +159,7 @@ snit::widgetadaptor tarray::ui::tableview {
         bind $_treectrl <ButtonPress-3> [mymethod _rightclickhandler %x %y %X %Y]
         # Create the background element used for coloring
         # TBD set sel_color [get_theme_setting bar frame normal bg]
-        set sel_color red
+        set sel_color blue
         $_treectrl gradient create gradientSelected \
             -stops [list [list 0.0 $sel_color 0.5] [list 1.0 $sel_color 0.0]] \
             -orient vertical
@@ -477,14 +471,6 @@ snit::widgetadaptor tarray::ui::tableview {
             set sort_col_name [$self column_id_to_name $_sort_column]
         }
         
-        unset -nocomplain _app_id_to_item
-        array set _app_id_to_item {}
-        unset -nocomplain _item_to_app_id
-        array set _item_to_app_id {}
-        unset -nocomplain _actually_displayed_items
-        array set _actually_displayed_items {}
-
-
         $_treectrl item delete all
         $_treectrl header delete all
         $_treectrl column delete all
@@ -640,32 +626,25 @@ snit::widgetadaptor tarray::ui::tableview {
             for each index that is visible update data
         }
         return
-
-        set item_id [tarray::column index $_item_ids $first]
-        
-        # Only update treectrl if the item is actually displayed
-        # else even its style might not have been initialized
-        if {[info exists _actually_displayed_items($item)]} {
-            # It is faster to build a (colid, text) 
-            # list and make a single call to $_treectrl item text
-            set vals {}
-            foreach col_id [$_treectrl column list] val $row {
-                lappend vals $col_id $val
-            }
-            $_treectrl item text $item {*}$vals
-        }
-
-        if {$options(-showchangesonly)} {
-            # Need to make it (potentially) hidden rows visible again
-            $_treectrl item configure $item -visible 1
-        }
     }
 
-    method delete {first args} {
+    method delete {row_ids} {
+        set rindices {}
+        foreach row_id $row_ids {
+            set rindex [tarray::column search $_row_ids $row_id]
+            if {$rindex >= 0} {
+                lappend rindices $rindex
+            }
+        }
+        return [$self delete_indices $rindices]
+    }
+    
+    method delete_indices {first args} {
         # TBD - when items are deleted is the visibility handler called?
-        # TBD - do we need to update our _actually_displayed_items list?
         # TBD - handling of selection - a selection event is generated
         #   need to handle that and remove from selection
+        
+        lassign [$self _first_display_item] first_item first_rindex
         
         # If $args specified, it must be a single integer value
         # as must $first. The range $first:[lindex $args 0] is deleted.
@@ -682,14 +661,18 @@ snit::widgetadaptor tarray::ui::tableview {
             tarray::column vdelete _row_ids $first $last
             tarray::column vdelete _item_ids $first $last
             $_treectrl item delete [list root child $first] [list root child $last]
-        } else {
-            ldebug "Deleting $first"
+            if {$last < $first_rindex} {
+                $_treectrl see $first_item
+            }
+        } elseif {[llength $first]} {
             # $first is a list of one or more indices
             tarray::column vdelete _row_ids $first
             set item_ids [tarray::column get -list $_item_ids $first]
             tarray::column vdelete _item_ids $first
             $_treectrl item delete [list list $item_ids]
-            ldebug "$first deleted"
+            if {$first_rindex ni $first} {
+                $_treectrl see $first_item
+            }
         }
         return
     }
@@ -716,24 +699,15 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method _visibilityhandler {invisible visible} {
-        ldebug invisible=$invisible
         if {[llength $invisible]} {
+            #TBD - delete styles and text from elements ?
             $_treectrl item tag remove [list "list" $invisible] tv-displayed
         }
-        if {0} {
-            foreach item $invisible {
-                #TBD - delete styles and text from elements ?
-                $_treectrl item tag add [list "list" $visible] tv-displayed
-                unset -nocomplain _actually_displayed_items($item)
-            }
-        }
         
-        ldebug visible=$visible
         if {[llength $visible]} {
             $_treectrl item tag add [list "list" $visible] tv-displayed
             foreach item $visible {
                 lassign [$_treectrl item rnc $item] row_index col_index
-                set _actually_displayed_items($item) 1
                 $self _initrow $item [{*}$_datasource [tarray::column index $_row_ids $row_index]]
             }
         }
@@ -745,14 +719,19 @@ snit::widgetadaptor tarray::ui::tableview {
         return [$_treectrl item id {tag tv-displayed}]
     }
 
-    method _item_to_row_index {item_id} {
+    method _item_to_rindex {item_id} {
         return [lindex [$_treectrl item rnc $item_id] 0]
     }
                 
     method _item_to_row_id {item_id} {
-        return [tarray::column index $_row_ids [$self _item_to_row_index $item_id]]
+        return [tarray::column index $_row_ids [$self _item_to_rindex $item_id]]
     }
     
+    method _first_display_item {} {
+        set id [$_treectrl item id [list nearest 0 0]]
+        return [list $id [lindex [$_treectrl item rnc $id] 0]]
+    }
+        
     method _selecthandler {removedselections newselections} {
         # Set the state for each column for the selected items to show
         # selection highlighting. Note we do not bother with the 
@@ -966,12 +945,6 @@ snit::widgetadaptor tarray::ui::tableview {
             return
         }
 
-        unset -nocomplain _itemvalues
-        if {0} {
-            Stubbed out because _itemvalues order no longer valid
-            $_treectrl column move $col_id $target_id
-        }
-
         # Work out the new order of column names
 
         # Remove the column being moved from the current list
@@ -992,94 +965,19 @@ snit::widgetadaptor tarray::ui::tableview {
         uplevel #0 [linsert $options(-layoutchangecommand) end $colnames]
     }
 
-    method setrows {rows} {
-
-        # Set the table content to rows
-        #   rows - list of id value pairs where value is a list in same
-        #    order as columns
-        set made_changes 0
-
-        set old_count [array size _app_id_to_item]
-
-        # TBD - if no highlighting, is it faster to delete all and reinsert ?
-        
-        array set current_ids {}
-        foreach {id row} $rows {
-            set current_ids($id) 1
-            if {[info exists _app_id_to_item($id)]} {
-                # Existing item. Check if the data has changed.
-                set changed 0
-                foreach i $row j $_itemvalues($_app_id_to_item($id)) {
-                    if {$i ne $j} {
-                        set changed 1
-                        break
-                    }
-                }
-                if {$changed} {
-                    set made_changes 1
-                    $self _modifyrow $_app_id_to_item($id) $row
-                }
-            } else {
-                # New item
-                # TBD - maybe faster to insert new rows all at once ?
-                lappend new_rows $row; # APN
-                lappend new_ids $id
-                # TBD - move this to _insertrow ?
-                #APN set _app_id_to_item($id) [$self _insertrow $row]
-                #APN set _item_to_app_id($_app_id_to_item($id)) $id
-                #APN set made_changes 1
-            }
-        }
-
-        #APN
-        if {[info exists new_rows]} {
-            set made_changes 1
-            foreach id $new_ids item [$self _insertrows $new_rows] {
-                set _app_id_to_item($id) $item
-                set _item_to_app_id($item) $id
-            }
-        }
-
-        # Now see which items need to be deleted
-        foreach {id item} [array get _app_id_to_item] {
-            if {![info exists current_ids($id)]} {
-                unset _item_to_app_id($_app_id_to_item($id))
-                unset _app_id_to_item($id)
-                lappend deleted $item
-            }
-        }
-        if {[info exists deleted]} {
-            set made_changes 1
-            $self _deleterows $deleted
-        }
-
-        if {$made_changes} {
-            $self resort
-            if {$old_count == 0} {
-                # For some reason when data is first added to empty
-                # table, it shows the third row at the top. Make it
-                # show the top row instead. We do not always do this
-                # because if the table was scrolled, we do not want
-                # to move it to the top. Also, need to do this after
-                # a delay so that the treectrl has updated, else
-                # top does not show for whatever reason.
-
-                # Now commented out because this problem seems
-                # fixed in treectrl 2.4.2
-                #after 100 [mymethod  showtop]
-            }
-        }
-
-        return [array size _app_id_to_item]
-    }
 }
 
 proc test {} {
     proc datasource {index} {
-        return [list Row$index [clock format [clock seconds] -format %M:%S]]
+        set now [clock seconds]
+        return [list Row$index $now [clock format $now -format %M:%S]]
     }
     tarray::ui::tableview .tv datasource
-    .tv definecolumns {{ColA {Column A} text {}} {ColB {Column B} text {}}}
+    .tv definecolumns {
+        {ColA {Column A} text {}}
+        {ColB {Column B} int {}}
+        {ColC {Column C} text {}}
+    }
     set n -1
     time {.tv insert [incr n] $n} 20
     pack .tv
