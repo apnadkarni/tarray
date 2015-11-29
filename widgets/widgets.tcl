@@ -39,8 +39,6 @@ snit::widgetadaptor tarray::ui::tableview {
     # Double click command
     option -pickcommand -default ""
 
-    # Called when columns are rearranged
-    option -layoutchangecommand -default ""
 
     # TBD Whether to only show changed rows (including new ones)
     # option -showchangesonly -default false -configuremethod _setshowchangesonly
@@ -64,6 +62,7 @@ snit::widgetadaptor tarray::ui::tableview {
     variable _constructed 0
 
     variable _columns {}
+    variable _column_order {}
 
     # TBD
     variable _sort_column -1
@@ -235,9 +234,9 @@ snit::widgetadaptor tarray::ui::tableview {
 
     method _rightclickhandler {winx winy screenx screeny} {
         if {$options(-rightclickcommand) ne ""} {
-            lassign [$_treectrl identify $winx $winy] type row_id col_id
+            lassign [$_treectrl identify $winx $winy] type item_id col_id
             if {$type eq "" || $type eq "item"} {
-                {*}$options(-rightclickcommand) $row_id $col_id $winx $winy $screenx $screeny
+                {*}$options(-rightclickcommand) $item_id $col_id $winx $winy $screenx $screeny
             } 
         }
     }
@@ -246,11 +245,7 @@ snit::widgetadaptor tarray::ui::tableview {
         if {$options(-pickcommand) ne ""} {
             lassign [$_treectrl identify $winx $winy] type item_id col_id
             if {$type eq "item"} {
-                if {[info exists _item_to_app_id($item_id)]} {
-                    set id $_item_to_app_id($item_id)
-                } else {
-                    set id ""
-                }
+                set id [$self _item_to_row_id $item_id]
                 uplevel #0 [linsert $options(-pickcommand) end $id $item_id $col_id $winx $winy $screenx $screeny]
             }
         }
@@ -512,7 +507,8 @@ snit::widgetadaptor tarray::ui::tableview {
             dict set _columns $name outline_state {!openE !openW openWE}
             lappend _item_style_phrase $col_id $style
         }
-
+        set _column_order [dict keys $_columns]
+        
         # Locked columns do not get squeezed. This gets very confusing when
         # the first (locked) column takes up the entire window width. The
         # scroll bars do not work in this case because there is no room for
@@ -541,6 +537,23 @@ snit::widgetadaptor tarray::ui::tableview {
             } else {
                 $self _sort_on_first_visible_column
             }
+        }
+    }
+
+    ###
+    # Methods for modifying view
+    
+    method _initrow {item {row {}}} {
+        $_treectrl item style set $item {*}$_item_style_phrase
+
+        if {[llength $row]} {
+            # It is faster to build a (colid, text) 
+            # list and make a single call to $_treectrl item text
+            set vals {}
+            foreach col_id [$_treectrl column list] val $row {
+                lappend vals $col_id $val
+            }
+            $_treectrl item text $item {*}$vals
         }
     }
 
@@ -585,20 +598,6 @@ snit::widgetadaptor tarray::ui::tableview {
         }
 
         return 
-    }
-
-    method _initrow {item {row {}}} {
-        $_treectrl item style set $item {*}$_item_style_phrase
-
-        if {[llength $row]} {
-            # It is faster to build a (colid, text) 
-            # list and make a single call to $_treectrl item text
-            set vals {}
-            foreach col_id [$_treectrl column list] val $row {
-                lappend vals $col_id $val
-            }
-            $_treectrl item text $item {*}$vals
-        }
     }
 
     method modify {first args} {
@@ -698,6 +697,13 @@ snit::widgetadaptor tarray::ui::tableview {
         }
     }
 
+    ###
+    # Tracking of items actually displayed
+
+    method _get_data {row_id} {
+        return [{*}$_datasource $row_id $_column_order]
+    }
+    
     method _visibilityhandler {invisible visible} {
         if {[llength $invisible]} {
             #TBD - delete styles and text from elements ?
@@ -708,16 +714,18 @@ snit::widgetadaptor tarray::ui::tableview {
             $_treectrl item tag add [list "list" $visible] tv-displayed
             foreach item $visible {
                 lassign [$_treectrl item rnc $item] row_index col_index
-                $self _initrow $item [{*}$_datasource [tarray::column index $_row_ids $row_index]]
+                $self _initrow $item [$self _get_data [tarray::column index $_row_ids $row_index]]
             }
         }
     }
 
-    method rowids {} {return [tarray::column range -list $_row_ids 0 end]}
-
     method _displayed_items {} {
         return [$_treectrl item id {tag tv-displayed}]
     }
+    
+    ###
+    # Map row ids/item ids/row indices
+    method rowids {} {return [tarray::column range -list $_row_ids 0 end]}
 
     method _item_to_rindex {item_id} {
         return [lindex [$_treectrl item rnc $item_id] 0]
@@ -733,6 +741,9 @@ snit::widgetadaptor tarray::ui::tableview {
         return [list $id [lindex [$_treectrl item rnc $id] 0]]
     }
         
+    ###
+    # Selection handling
+    
     method _selecthandler {removedselections newselections} {
         # Set the state for each column for the selected items to show
         # selection highlighting. Note we do not bother with the 
@@ -754,7 +765,7 @@ snit::widgetadaptor tarray::ui::tableview {
         }
     }
 
-    method getselecteditems {} {
+    method _getselecteditems {} {
         # Returns the list of currently selected item ids in the order they
         # are displayed
 
@@ -781,24 +792,11 @@ snit::widgetadaptor tarray::ui::tableview {
         # Neither [selection get], not [item id "state selected"]
         # return items in displayed order. So we have to sort that out
         # ourselves.
-        set ids {}
-        foreach item [$self getselecteditems] {
-            lappend ids $_item_to_app_id($item)
+        set row_ids {}
+        foreach item [$self _getselecteditems] {
+            lappend row_ids [$self _item_to_row_id $item]
         }
-        return $ids
-    }
-
-    method getselectedcontent {} {
-        # Returns a nested list of currently selected cells
-
-        # Neither [selection get], not [item id "state selected"]
-        # return items in displayed order. So we have to sort that out
-        # ourselves.
-        set selection {}
-        foreach item [$self getselecteditems] {
-            lappend selection [$_treectrl item text $item]
-        }
-        return $selection
+        return $row_ids
     }
 
     method showtop {} {
@@ -842,15 +840,6 @@ snit::widgetadaptor tarray::ui::tableview {
                     $_treectrl see $first
                 }
             }
-        }
-    }
-
-    method count {{includedeleted 0}} {
-        if {$includedeleted} {
-            # -1 for implicit root item
-            return [expr {[$_treectrl item count {root children}] - 1}]
-        } else {
-            return [$_treectrl item count {root children state {!deleted}}]
         }
     }
 
@@ -942,36 +931,44 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method _column_move_handler {col_id target_id} {
-        if {$options(-layoutchangecommand) eq ""} {
-            return
+
+        $_treectrl column move $col_id $target_id
+        set _column_order [lmap col_id [$_treectrl column list] {
+            lindex $_column_order $col_id
+        }]
+        return
+        
+        if {0} {
+            # Work out the new order of column names
+
+            # Remove the column being moved from the current list
+            set order [lsearch -exact -inline -not -all [$_treectrl column list] $col_id]
+            # Add it to the appropriate position
+            if {$target_id eq "tail"} {
+                set pos end
+            } else {
+                set pos [lsearch -exact $order $target_id]
+            }
+
+            set colnames {}
+            foreach col_id [linsert $order $pos $col_id] {
+                lappend colnames [$self column_id_to_name $col_id]
+            }
         }
 
-        # Work out the new order of column names
-
-        # Remove the column being moved from the current list
-        set order [lsearch -exact -inline -not -all [$_treectrl column list] $col_id]
-        # Add it to the appropriate position
-        if {$target_id eq "tail"} {
-            set pos end
-        } else {
-            set pos [lsearch -exact $order $target_id]
-        }
-
-        set colnames {}
-        foreach col_id [linsert $order $pos $col_id] {
-            lappend colnames [$self column_id_to_name $col_id]
-        }
-
-        # Notify client of new column order
-        uplevel #0 [linsert $options(-layoutchangecommand) end $colnames]
     }
 
 }
 
 proc test {} {
-    proc datasource {index} {
+    proc datasource {index cols} {
         set now [clock seconds]
-        return [list Row$index $now [clock format $now -format %M:%S]]
+        dict set item ColA "Row$index"
+        dict set item ColB $now
+        dict set item ColC [clock format $now -format %M:%S]
+        return [lmap col $cols {
+            dict get $item $col
+        }]
     }
     tarray::ui::tableview .tv datasource
     .tv definecolumns {
