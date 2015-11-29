@@ -169,13 +169,29 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl state define openE
         $_treectrl state define openWE
 
-        $_treectrl element create bgElem rect \
-            -fill [list gradientSelected selected $options(-newhighlight) new \
-                       $options(-deletedhighlight) deleted \
-                       $options(-modifiedhighlight) modified] \
-            -outline [list $sel_color selected] -rx 1 \
-            -open [list we openWE w openW e openE] \
-            -outlinewidth 1
+        
+        # Do we show plain selection highlighting or a gradient-based
+        # fancy one ? Right now use plain version. If switching to fancy
+        # version, note that the column drag code has to be modified
+        # to change the open border settings for the columns when
+        # they are moved (ie openWE etc. state assignments)
+        set plain_select 1
+        if {$plain_select} {
+            $_treectrl element create bgElem rect \
+                -fill [list lightblue selected $options(-newhighlight) new \
+                           $options(-deletedhighlight) deleted \
+                           $options(-modifiedhighlight) modified] \
+                -outline "" -rx 0 \
+                -outlinewidth 1
+        } else {
+            $_treectrl element create bgElem rect \
+                -fill [list gradientSelected selected $options(-newhighlight) new \
+                           $options(-deletedhighlight) deleted \
+                           $options(-modifiedhighlight) modified] \
+                -outline [list $sel_color selected] -rx 1 \
+                -open [list we openWE w openW e openE] \
+                -outlinewidth 1
+        }
 
         # Create the elements for text and numbers
         $_treectrl element create textElem text -lines 1 -justify left
