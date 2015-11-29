@@ -728,7 +728,8 @@ snit::widgetadaptor tarray::ui::tableview {
     }
     
     method _first_display_item {} {
-        set id [$_treectrl item id [list nearest 0 0]]
+        scan [$_treectrl bbox content] "%d %d" x y
+        set id [$_treectrl item id [list nearest $x $y]]
         return [list $id [lindex [$_treectrl item rnc $id] 0]]
     }
         
