@@ -2,7 +2,7 @@ package require Tk
 package require snit
 package require treectrl
 package require tarray
-source color.tcl;# TBD
+source [file join [file dirname [info script]] color.tcl];# TBD
 namespace eval tarray::ui {
     proc setup_nspath {} {
         uplevel 1 {namespace path [linsert [namespace path] end [namespace parent [namespace parent]]]}
@@ -65,7 +65,7 @@ snit::widgetadaptor tarray::ui::tableview {
     variable _column_order {}
 
     # TBD
-    variable _sort_column -1
+    variable _sort_column ""
     variable _sort_order ""
 
     variable _item_style_phrase {}
@@ -99,9 +99,6 @@ snit::widgetadaptor tarray::ui::tableview {
             -scrollmargin 16 -xscrolldelay "500 50" -yscrolldelay "500 50"
         # TBD -itemheight $height
 
-        # Client table row id's being displayed
-        set _row_ids [tarray::column create int]
-        set _item_ids [tarray::column create int]
         
         # item and column identify where the mouse is hovering
         # -1 indicates invalid (ie mouse is outside an item)
@@ -227,12 +224,43 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl header dragconfigure -enable yes
         $_treectrl header dragconfigure all -enable yes -draw yes
 
-        set _constructed 1
 
         $self definecolumns [$datasource columns]
+        $self _init_data
+        
+        set _constructed 1
     }
 
     destructor {
+    }
+
+    method _init_data {} {
+        # Client table row id's being displayed
+        if {$_sort_column eq ""} {
+            set _row_ids [$_datasource rowids]
+        } else {
+            set _row_ids [$_datasource rowids $_sort_column $_sort_order]
+        }
+        
+        set count [tarray::column size $_row_ids]
+        $_treectrl item delete all
+        set _item_ids [tarray::column create int [$_treectrl item create -parent root -open no -count $count]]
+        
+        if {[dict size $_columns]} {
+            set col [dict get $_columns [lindex $_column_order 0] Id]
+            for {set i 0} {$i < $count} {incr i} {
+                # TBD
+                # We will initialize styles and contents of a row only
+                # when they are actually displayed. This is to save
+                # memory with large tables. However, tktreectrl does not
+                # seem to call us back when an item is displayed if none
+                # of the items have their styles set. Also, we have to
+                # make sure sorting works correctly, so we set the style
+                # and content of the sort column.
+                $_treectrl item style set [tarray::column index $_item_ids $i] $col [dict get $_item_style_phrase $col]
+            }
+        }
+        return
     }
 
     # From sbset at http://wiki.tcl.tk/950
@@ -274,13 +302,17 @@ snit::widgetadaptor tarray::ui::tableview {
 
     method _headerhandler {hdr_id col_id} {
         if {$hdr_id == 0} {
+            set colname [$self column_id_to_name $col_id]
+            if {![dict get $_columns $colname Sortable]} {
+                return
+            }
             # Column header, sort accordingly
-            if {$col_id == $_sort_column && $_sort_order eq "-increasing"} {
+            if {$colname eq $_sort_column && $_sort_order eq "-increasing"} {
                 set order -decreasing
             } else {
                 set order -increasing
             }
-            $self _sort $col_id $order
+            $self _sort $colname $order
         } elseif {$hdr_id == 1} {
             # TBD - should this be just [event generate $win <<CheckWindow>> -when tail]
             event generate $win <<FilterSelect>> -data [$self column_id_to_name $col_id]
@@ -472,6 +504,11 @@ snit::widgetadaptor tarray::ui::tableview {
 
     method definecolumns {coldefs} {
 
+        # For now, do not allow changes after initial construction
+        if {$_constructed} {
+            error "Cannot change column definitions after initialization"
+        }
+
         # TBD - when no columns are in the table, 'item id {first visible}'
         # returns 1 (?). The 'see' command then crashes wish.
         # This is currently protected by forcing user to make
@@ -482,11 +519,10 @@ snit::widgetadaptor tarray::ui::tableview {
         # Note that to account for this being fixed in the future,
         # the code below dows not assume coldefs is non-empty
 
-        # Note what column we had sorted on
+        # Note what column we are currently sorted on
         # TBD
-        if {$_sort_column != -1} {
-            set sort_col_name [$self column_id_to_name $_sort_column]
-        }
+        set sort_col_name $_sort_column
+
         set _columns {}
         dict for {colname coldef} $coldefs {
             set def [dict merge {
@@ -561,9 +597,8 @@ snit::widgetadaptor tarray::ui::tableview {
 
         if {$_constructed && [dict size $_columns]} {
             # If the original sort column exists, resort using it
-            if {[info exists sort_col_name] &&
-                [dict exists $_columns $sort_col_name Id]} {
-                $self _sort [dict get $_columns $sort_col_name Id] $_sort_order
+            if {$sort_col_name ne ""} {
+                $self _sort $sort_col_name $_sort_order
             } else {
                 $self _sort_on_first_visible_column
             }
@@ -892,11 +927,33 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method _sort_on_first_visible_column {} {
-        $self _sort [lindex [$_treectrl column id "first visible"]] $options(-defaultsortorder)
+        $self _sort [$self column_id_to_name [lindex [$_treectrl column id "first visible"]]] $options(-defaultsortorder)
     }
 
-    method _sort {col_id order} {
-        if {$_sort_column != $col_id} {
+    method _sort {col_name order} {
+        if {$_sort_column eq $col_name && $_sort_order eq $order} {
+            return
+        }
+        # Reset the existing arrow indicator on the sort column
+        if {$_sort_column ne ""} {
+            $_treectrl column configure [$self column_name_to_id $_sort_column] -arrow none -itembackground {}
+        }
+        
+        # Set the indicator on the new sort column
+        if {$col_name ne ""} {
+            if {$order eq "-increasing"} {
+                set arrow up
+            } else {
+                set arrow down
+            }
+            $_treectrl column configure [$self column_name_to_id $col_name] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
+        }
+        set _sort_column $col_name
+        set _sort_order $order
+        $self _init_data
+        return
+        if {$_sort_column ne $col_name} {
+            TBD
             if {$_sort_column != -1} {
                 # Reset the sort arrow on existing sort column if the column
                 # is still visible
@@ -913,17 +970,13 @@ snit::widgetadaptor tarray::ui::tableview {
             }
         }
 
-        if {$order eq "-increasing"} {
-            set arrow up
-        } else {
-            set arrow down
-        }
 
-        $_treectrl column configure $col_id -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
-        set _sort_column $col_id
+        set _sort_column $col_name
         set _sort_order $order
-
-        $self resort
+        if {$col_name ne ""} {
+            $_treectrl column configure [$self column_name_to_id $col_name] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
+        }
+        # TBD $self resort
     }
 
     # Set the mode for showing all rows or changes only
@@ -1008,16 +1061,20 @@ snit::widgetadaptor tarray::ui::tableview {
 
 }
 
-proc test {} {
+proc test {{nrows 20}} {
     proc datasource {cmd args} {
         switch -exact -- $cmd {
             get {
                 lassign $args index cols
                 return [lindex [tarray::table get -list -columns $cols $::datatable $index] 0]
             }
-            sort {
-                lassign $args col order
-                return [tarray::table sort -indices $order $::datatable $col]
+            rowids {
+                if {[llength $args]} {
+                    lassign $args col order
+                    return [tarray::table::sort -indices $order $::datatable $col]
+                } else {
+                    return [tarray::indexcolumn [tarray::table size $::datatable]]
+                }
             }
             columns {
                 return {
@@ -1037,7 +1094,6 @@ proc test {} {
             default { error "Unknown command $cmd" }
         }
     }
-    tarray::ui::tableview .tv datasource
     set ::datatable [tarray::table create {
         ColA string ColB int ColC any
     }]
@@ -1045,7 +1101,7 @@ proc test {} {
     time {
         set now [clock seconds]
         tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
-        .tv insert $n $n
-    } 20
+    } $nrows
+    tarray::ui::tableview .tv datasource
     pack .tv -fill both -expand 1
 }
