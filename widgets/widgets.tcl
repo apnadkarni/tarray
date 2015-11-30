@@ -78,6 +78,9 @@ snit::widgetadaptor tarray::ui::tableview {
     # $_treectrl item id [list rnc $row_index 0]
     variable _item_ids
     
+    # Saves visible state like anchor, active item, selection etc
+    variable _display_state {}
+    
     # Stores various state info related to tooltips shown when mouse
     # hovers over an item
     variable _tooltip_state
@@ -210,7 +213,7 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl style layout numericStyle bgElem -detach yes -iexpand xy
 
         $self configurelist $args
-
+        
         $_treectrl notify install <Header-invoke>
         $_treectrl notify bind MyHeaderTag <Header-invoke> [mymethod _headerhandler %H %C]
 
@@ -225,6 +228,8 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl header dragconfigure all -enable yes -draw yes
 
         set _constructed 1
+
+        $self definecolumns [$datasource columns]
     }
 
     destructor {
@@ -717,7 +722,7 @@ snit::widgetadaptor tarray::ui::tableview {
     # Tracking of items actually displayed
 
     method _get_data {row_id} {
-        return [{*}$_datasource $row_id $_column_order]
+        return [{*}$_datasource get $row_id $_column_order]
     }
     
     method _visibilityhandler {invisible visible} {
@@ -737,6 +742,24 @@ snit::widgetadaptor tarray::ui::tableview {
 
     method _displayed_items {} {
         return [$_treectrl item id {tag tv-displayed}]
+    }
+    
+    method _save_display_state {} {
+        set _display_state \
+            [list \
+                 display_top [$self _first_display_item] \
+                 active [$_treectrl item id active] \
+                 anchor [$_treectrl item id anchor] \
+                 selected [$self _getselecteditems] \
+                ]
+    }
+    
+    method _restore_display_state {} {
+        $_treectrl selection clear
+        $_treectrl selection anchor [dict get $_display_state anchor]
+        $_treectrl selection add [list "list" [dict get $_display_state selected]]
+        $_treectrl activate [dict get $_display_state active]
+        $_treectrl see [dict get $_display_state display_top]
     }
     
     ###
@@ -977,22 +1000,35 @@ snit::widgetadaptor tarray::ui::tableview {
 }
 
 proc test {} {
-    proc datasource {index cols} {
-        set now [clock seconds]
-        dict set item ColA "Row$index"
-        dict set item ColB $now
-        dict set item ColC [clock format $now -format %M:%S]
-        return [lmap col $cols {
-            dict get $item $col
-        }]
+    proc datasource {cmd args} {
+        switch -exact -- $cmd {
+            get {
+                lassign $args index cols
+                return [lindex [tarray::table get -list -columns $cols $::datatable $index] 0]
+            }
+            sort {
+                lassign $args col order
+                return [tarray::table sort -indices $order $::datatable $col]
+            }
+            columns {
+                return {
+                    {ColA {Column A} text {}}
+                    {ColB {Column B} int {}}
+                    {ColC {Column C} text {}}
+                }
+            }
+            default { error "Unknown command $cmd" }
+        }
     }
     tarray::ui::tableview .tv datasource
-    .tv definecolumns {
-        {ColA {Column A} text {}}
-        {ColB {Column B} int {}}
-        {ColC {Column C} text {}}
-    }
+    set ::datatable [tarray::table create {
+        ColA string ColB int ColC any
+    }]
     set n -1
-    time {.tv insert [incr n] $n} 20
-    pack .tv
+    time {
+        set now [clock seconds]
+        tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
+        .tv insert $n $n
+    } 20
+    pack .tv -fill both -expand 1
 }
