@@ -197,20 +197,20 @@ snit::widgetadaptor tarray::ui::tableview {
         }
 
         # Create the elements for text and numbers
-        $_treectrl element create textElem text -lines 1 -justify left
-        $_treectrl element create numericElem  text -lines 1 -justify right
+        $_treectrl element create leftJustifyElem text -lines 1 -justify left
+        $_treectrl element create rightJustifyElem  text -lines 1 -justify right
 
         
         # Create the corresponding styles 
-        $_treectrl style create textStyle -orient horizontal
-        $_treectrl style elements textStyle {bgElem textElem}
-        $_treectrl style layout textStyle textElem -squeeze x -expand ns -padx 5
-        $_treectrl style layout textStyle bgElem -detach yes -iexpand xy
+        $_treectrl style create leftJustifyStyle -orient horizontal
+        $_treectrl style elements leftJustifyStyle {bgElem leftJustifyElem}
+        $_treectrl style layout leftJustifyStyle leftJustifyElem -squeeze x -expand ns -padx 5
+        $_treectrl style layout leftJustifyStyle bgElem -detach yes -iexpand xy
 
-        $_treectrl style create numericStyle -orient horizontal
-        $_treectrl style elements numericStyle {bgElem numericElem}
-        $_treectrl style layout numericStyle numericElem -squeeze x -expand ns -padx 5
-        $_treectrl style layout numericStyle bgElem -detach yes -iexpand xy
+        $_treectrl style create rightJustifyStyle -orient horizontal
+        $_treectrl style elements rightJustifyStyle {bgElem rightJustifyElem}
+        $_treectrl style layout rightJustifyStyle rightJustifyElem -squeeze x -expand ns -padx 5
+        $_treectrl style layout rightJustifyStyle bgElem -detach yes -iexpand xy
 
         $self configurelist $args
         
@@ -458,8 +458,8 @@ snit::widgetadaptor tarray::ui::tableview {
 
 
     method column_id_to_name {col_id} {
-        dict for {colname coldata} $_columns {
-            if {[dict get $coldata id] == $col_id} {
+        dict for {colname coldef} $_columns {
+            if {[dict get $coldef Id] == $col_id} {
                 return $colname
             }
         }
@@ -467,24 +467,44 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method column_name_to_id {colname} {
-        return [dict get $_columns $colname id]
+        return [dict get $_columns $colname Id]
     }
 
-    method definecolumns {cols} {
+    method definecolumns {coldefs} {
 
         # TBD - when no columns are in the table, 'item id {first visible}'
         # returns 1 (?). The 'see' command then crashes wish.
         # This is currently protected by forcing user to make
         # at least one column visible in the table editor.
-        if {[llength $cols] == 0} {
+        if {[dict size $coldefs] == 0} {
             error "At least one column must be included in table."
         }
         # Note that to account for this being fixed in the future,
-        # the code below dows not assume cols is non-empty
+        # the code below dows not assume coldefs is non-empty
 
         # Note what column we had sorted on
+        # TBD
         if {$_sort_column != -1} {
             set sort_col_name [$self column_id_to_name $_sort_column]
+        }
+        set _columns {}
+        dict for {colname coldef} $coldefs {
+            set def [dict merge {
+                Type string
+                Sortable 1
+                Squeeze 0
+            } $coldef]
+            if {![dict exists $def Label]} {
+                dict set def Label $colname
+            }
+            if {![dict exists $def Justify]} {
+                if {[dict get $def Type] in {string any}} {
+                    dict set def Justify left
+                } else {
+                    dict set def Justify right
+                }
+            }
+            dict set _columns $colname $def
         }
         
         $_treectrl item delete all
@@ -494,21 +514,9 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl header create -tags H2
 
         set _item_style_phrase {}
-        set _columns {}
-        set col_pos 0
-        foreach col $cols {
-            lassign $col name label type attrs
-            if {$type eq ""} {
-                set type text
-            }
-            dict set _columns $name meta $col
-            if {$type in {int long double number}} {
-                set justify right
-                set style numericStyle
-            } else {
-                set justify left
-                set style textStyle
-            }
+        dict for {colname coldef} $_columns {
+            set justify [dict get $coldef Justify]
+            set style ${justify}JustifyStyle
 
             # TBD - should squeeze be 1 or 0 ? If 1, everything fits in 
             # window but has ellipses. If 0, columns scroll off the window.
@@ -516,16 +524,17 @@ snit::widgetadaptor tarray::ui::tableview {
             # should be squeezable.
             # Note this also interacts with the column lock below. Locked
             # columns do not get squeezed ?
-            if {[dict exists $attrs -squeeze]} {
-                set squeeze [dict get $attrs -squeeze]
-                set minwidth 80
-            } else {
-                set squeeze 0
-                set minwidth 40
-            }
-            set col_id [$_treectrl column create -text $label -arrow none -squeeze $squeeze  -justify $justify -minwidth $minwidth]
-            dict set _columns $name id $col_id
-            dict set _columns $name outline_state {!openE !openW openWE}
+            set squeeze [dict get $coldef Squeeze]
+            set minwidth [expr {$squeeze ? 80 : 40}]
+
+            set col_id [$_treectrl column create \
+                            -text [dict get $coldef Label] \
+                            -arrow none \
+                            -squeeze $squeeze \
+                            -justify $justify \
+                            -minwidth $minwidth]
+            dict set _columns $colname Id $col_id
+            dict set _columns $colname OutlineState {!openE !openW openWE}
             lappend _item_style_phrase $col_id $style
         }
         set _column_order [dict keys $_columns]
@@ -540,11 +549,11 @@ snit::widgetadaptor tarray::ui::tableview {
             $_treectrl column configure "first visible" -lock left
         }
 
-        if {[llength $cols]} {
+        if {[dict size $_columns]} {
             # Set up the first and last columns to have "closed" outlines
             # for the selection rectangle.
-            dict set _columns [lindex $cols {0 0}] outline_state {!openWE !openW openE}
-            dict set _columns [lindex $cols {end 0}] outline_state {!openWE !openE openW}
+            dict set _columns [lindex $_column_order 0] OutlineState {!openWE !openW openE}
+            dict set _columns [lindex $_column_order end] OutlineState {!openWE !openE openW}
         }
 
         # Build the secondary table header
@@ -553,8 +562,8 @@ snit::widgetadaptor tarray::ui::tableview {
         if {$_constructed && [dict size $_columns]} {
             # If the original sort column exists, resort using it
             if {[info exists sort_col_name] &&
-                [dict exists $_columns $sort_col_name id]} {
-                $self _sort [dict get $_columns $sort_col_name id] $_sort_order
+                [dict exists $_columns $sort_col_name Id]} {
+                $self _sort [dict get $_columns $sort_col_name Id] $_sort_order
             } else {
                 $self _sort_on_first_visible_column
             }
@@ -613,7 +622,7 @@ snit::widgetadaptor tarray::ui::tableview {
                 # of the items have their styles set. Also, we have to
                 # make sure sorting works correctly, so we set the style
                 # and content of the sort column.
-                set col [dict get $_columns [lindex [dict keys $_columns] 0] id]
+                set col [dict get $_columns [lindex $_column_order 0] Id]
                 $_treectrl item style set $item $col [dict get $_item_style_phrase $col]
             }
         }
@@ -789,9 +798,9 @@ snit::widgetadaptor tarray::ui::tableview {
         # removedselections items. They can keep their state settings
         # since those anyways are unaffected if unselected.
         if {[llength $newselections]} {
-            foreach colname [dict keys $_columns] {
-                set col_id [dict get $_columns $colname id]
-                $_treectrl item state forcolumn [list "list" $newselections] $col_id [dict get $_columns $colname outline_state]
+            foreach colname $_column_order {
+                set col_id [dict get $_columns $colname Id]
+                $_treectrl item state forcolumn [list "list" $newselections] $col_id [dict get $_columns $colname OutlineState]
             }
         }
 
@@ -944,9 +953,9 @@ snit::widgetadaptor tarray::ui::tableview {
             $_treectrl header style set H2 all h2Style
             dict for {name colmeta} $_columns {
                 if {[dict exists $options(-filtervalues) $name]} {
-                    $_treectrl header text H2 [dict get $colmeta id] [dict get $options(-filtervalues) $name]
+                    $_treectrl header text H2 [dict get $colmeta Id] [dict get $options(-filtervalues) $name]
                 } else { 
-                    $_treectrl header text H2 [dict get $colmeta id] $options(-undefinedfiltertext)
+                    $_treectrl header text H2 [dict get $colmeta Id] $options(-undefinedfiltertext)
                 }
             }
         }
@@ -966,7 +975,7 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method getfilterbbox {colname} {
-        set bbox [$_treectrl header bbox H2 [dict get $_columns $colname id]]
+        set bbox [$_treectrl header bbox H2 [dict get $_columns $colname Id]]
     }
 
     method _column_move_handler {col_id target_id} {
@@ -1012,9 +1021,17 @@ proc test {} {
             }
             columns {
                 return {
-                    {ColA {Column A} text {}}
-                    {ColB {Column B} int {}}
-                    {ColC {Column C} text {}}
+                    ColA {
+                        Label {Column A}
+                    }
+                    ColB {
+                        Label {Column B}
+                        Type int
+                    }
+                    ColC {
+                        Justify right
+                        Sortable 0
+                    }
                 }
             }
             default { error "Unknown command $cmd" }
