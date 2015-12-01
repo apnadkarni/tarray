@@ -292,12 +292,60 @@ critcl::ccommand tarray::column::create {} {
     nelems = 0;
     elems = NULL;
     if (objc > 2) {
-        if (Tcl_ListObjGetElements(interp, objv[2], &nelems, &elems) != TCL_OK)
-            return TCL_ERROR;
         if (objc > 3) {
             if (Tcl_GetIntFromObj(interp, objv[3], &init_size) != TCL_OK)
                 return TCL_ERROR;
         }
+        if (tcol_convert(NULL, objv[2]) == TCL_OK) {
+            span_t *span;
+            int first, count;
+            thdr_t *thdr2;
+            o = objv[2];
+            if (tcol_type(o) == tatype) {
+                Tcl_SetObjResult(interp, o); /* Already the right type */
+                return TCL_OK;
+            }
+            thdrP = tcol_thdr(o);
+
+            /* Special case - if signed/unsigned issue AND unshared 
+               AND no string rep just flip the thdr header */
+            if (! Tcl_IsShared(o) && o->bytes == NULL) {
+                if (thdrP->nrefs == 1) {
+                    if (thdrP->type == TA_INT && tatype == TA_UINT ||
+                        thdrP->type == TA_UINT && tatype == TA_INT) {
+                        thdrP->type = tatype;
+                        thdrP->sort_order = THDR_UNSORTED;
+                        Tcl_SetObjResult(interp, o);
+                        return TCL_OK;
+                    }
+                }
+            }
+
+            span = tcol_span(o);
+            if (span) {
+                first = span->first;
+                count = span->count;
+            } else {
+                first = 0;
+                count = thdrP->used;
+            }
+            
+            thdr2 = thdr_alloc(interp, tatype, count > init_size ? count : init_size);
+            if (thdr2 == NULL)
+                return TCL_ERROR;
+            if (thdr_copy_cast(interp, thdr2, 0, thdrP, first, count, 0) != TCL_OK) {
+                thdr_decr_refs(thdr2);
+                return TCL_ERROR;
+            }
+            o = tcol_new(thdr2);
+            TA_ASSERT(tcol_check(interp, o));
+            Tcl_SetObjResult(interp, o);
+            return TCL_OK;
+        }
+        
+        /* Initializer is not a column. Treat as a list */
+        if (Tcl_ListObjGetElements(interp, objv[2], &nelems, &elems) != TCL_OK)
+            return TCL_ERROR;
     }
 
     thdrP = thdr_alloc_and_init(interp, tatype, nelems, elems, init_size);

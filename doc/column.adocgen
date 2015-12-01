@@ -87,8 +87,9 @@ text {
     Alias for `((^ column_math "column math \^"))`.
 
     ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
-    Returns a new column of type _COLTYPE_ containing elements
-    of _COLUMN_ cast to _COLTYPE_.
+    _DEPRECATED_. Returns a new column of type _COLTYPE_ containing elements
+    of _COLUMN_ cast to _COLTYPE_. This command is deprecated. Use
+    ((^ column_create "column create")) instead.
 
     ((cmddef column_count "column count ?-range _RANGE_? ?-among _INDICES_? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 
@@ -102,7 +103,9 @@ text {
     Returns a typed array of the type _TYPE_ which must be one of one of valid
     types described in ((^ sect_column_types Types)).
     If _INITIALIZER_ is specified, it is the
-    initial content of the typed array and must be a list with elements of
+    initial content of the typed array and can be either a column of any
+    compatible type or
+    a list containing elements of
     the appropriate type. For performance reasons, the _INITSIZE_ argument may
     be specified to indicate how many slots to preallocate for the array.
     This is only treated as a hint and actual size allocated may differ.

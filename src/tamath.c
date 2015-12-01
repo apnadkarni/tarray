@@ -115,7 +115,7 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
     if (poperand->type == TA_DOUBLE)
         operand = poperand->dval;
     else
-        operand = poperand->wval;
+        operand = (double) poperand->wval; /* TBD - overflow check? */
 
     switch (op) {
     case TAM_OP_PLUS: return accumulator + operand;
