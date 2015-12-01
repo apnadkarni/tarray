@@ -64,9 +64,8 @@ snit::widgetadaptor tarray::ui::tableview {
     variable _columns {}
     variable _column_order {}
 
-    # TBD
     variable _sort_column ""
-    variable _sort_order ""
+    variable _sort_order "" ;# -increasing or -decreasing
 
     variable _item_style_phrase {}
 
@@ -85,6 +84,9 @@ snit::widgetadaptor tarray::ui::tableview {
     # hovers over an item
     variable _tooltip_state
 
+    # Contains the name of the filter column being edited, if any
+    variable _filter_column_being_edited
+    
     constructor {datasource args} {
         set _datasource $datasource
 
@@ -117,7 +119,7 @@ snit::widgetadaptor tarray::ui::tableview {
         # bind $_treectrl <Enter> [mymethod _cancel_tooltip]
 
         # Define the filter header row
-        $_treectrl element create h2Elem text -lines 1 -justify left -font WitsFilterFont -statedomain header -fill blue
+        $_treectrl element create h2Elem text -lines 1 -justify left  -statedomain header -fill blue
         $_treectrl style create h2Style -orient horizontal -statedomain header
         $_treectrl style elements h2Style {h2Elem}
         $_treectrl style layout h2Style h2Elem -squeeze x -expand ns -padx 5
@@ -313,9 +315,10 @@ snit::widgetadaptor tarray::ui::tableview {
             }
             $self _sort $colname $order
         } elseif {$hdr_id == 1} {
-            # TBD - should this be just [event generate $win <<CheckWindow>> -when tail]
-            event generate $win <<FilterSelect>> -data [$self column_id_to_name $col_id]
+            #event generate $win <<FilterSelect>> -data [$self column_id_to_name $col_id]
+            $self _editfilter [$self column_id_to_name $col_id]
         }
+        return
     }
 
     method _cancel_tooltip {} {
@@ -929,6 +932,8 @@ snit::widgetadaptor tarray::ui::tableview {
         }
     }
 
+    ###
+    # Filtering code
     method _populatefilter {} {
         $_treectrl header style set H2 all h2Style
         dict for {name colmeta} $_columns {
@@ -954,10 +959,89 @@ snit::widgetadaptor tarray::ui::tableview {
         set options($opt) $val
     }
 
-    method getfilterbbox {colname} {
+    method _getfilterbbox {colname} {
         set bbox [$_treectrl header bbox H2 [dict get $_columns $colname Id]]
     }
 
+    method _editfilter {colname} {
+        set _filter_column_being_edited $colname
+        lassign [$self _getfilterbbox $colname] left top right bottom
+
+        set e $win.fedit
+        if {![winfo exists $e]} {
+            ttk::entry $e -font [$self cget -font] -text abc
+            bind $e <Return> [mymethod _closeeditfilter %W save]
+            bind $e <Tab> [mymethod _closeeditfilter %W saveandnext]
+            bind $e <Shift-Tab> [mymethod _closeeditfilter %W saveandprev]
+            bind $e <FocusOut> [mymethod _closeeditfilter %W save]
+            bind $e <Escape> [mymethod _closeeditfilter %W discard]
+            # TBD bind $e <KeyRelease-F1> [myproc _balloonpopup $e true]
+        }
+        place $e -x $left -y $top -width [expr {$right-$left}] -height [expr {$bottom-$top}]
+        $e delete 0 end
+        if {0 && [dict exists $options(-filter) properties $_filter_column_being_edited condition]} {
+            $e insert 0 [dict get $options(-filter) properties $_filter_column_being_edited condition]
+        }
+        focus $e
+        # TBD after 0 [myproc _balloonpopup $e]
+    }
+
+    method _closeeditfilter {entry action} {
+        if {$_filter_column_being_edited eq "" || ![winfo exists $entry]} {
+            return
+        }
+
+        if {[focus] eq ""} {
+            return
+        }
+
+        # TBD _balloonburst
+
+        set filter_col $_filter_column_being_edited
+        set _filter_column_being_edited ""
+        place forget $entry
+
+        if {0 && $action in {save saveandnext saveandprev}} {
+            set newcondition [string trim [$entry get]]
+            set old_filter $options(-filter)
+            set new_filter $old_filter
+            if {$newcondition eq ""} {
+                dict unset new_filter properties $filter_col
+            } else {
+                dict set new_filter properties $filter_col condition $newcondition
+            }
+            if {[catch {
+                $self _setfilter -filter $new_filter
+            } msg]} {
+                # Restore old filter on error
+                if {[catch {
+                    $self _setfilter -filter $old_filter
+                } msg2]} {
+                    $self _setfilter -filter {}
+                    after 0 [list [namespace which showerrordialog] "Error in filter definition ($msg2). Filter cleared."]
+                } else {
+                    after 0 [list [namespace which showerrordialog] "Error in filter definition ($msg). Original filter restored."]
+                }
+            } else {
+                if {$action in {saveandnext saveandprev}} {
+                    set colnum [lsearch -exact $options(-displaycolumns) $filter_col]
+                    if {$action eq "saveandnext"} {
+                        if {[incr colnum] >= [llength $options(-displaycolumns)]} {
+                            set colnum 0
+                        }
+                    } else {
+                        if {[incr colnum -1] < 0} {
+                            set colnum [llength $options(-displaycolumns)]
+                            incr colnum -1
+                        }
+                    }
+                    after 0 [list $self _editfilter [lindex $options(-displaycolumns) $colnum]]
+                }
+            }
+        }
+        return
+    }
+    
     method _column_move_handler {col_id target_id} {
 
         $_treectrl column move $col_id $target_id
@@ -1010,6 +1094,7 @@ proc test {{nrows 20}} {
         set now [clock seconds]
         tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
     } $nrows
-    tarray::ui::tableview .tv datasource
+    # TBD - make note of -yscrolldelay option for scrolling large tables
+    tarray::ui::tableview .tv datasource -showfilter 1 -yscrolldelay 500
     pack .tv -fill both -expand 1
 }
