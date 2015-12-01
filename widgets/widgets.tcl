@@ -46,9 +46,9 @@ snit::widgetadaptor tarray::ui::tableview {
     # Values to show in optional header, keyed by property name
     option -filtervalues -default {} -configuremethod _setfiltervalues
 
-    option -undefinedfiltertext -default "<Edit>"
+    option -undefinedfiltertext -default "<Filter>"
 
-    option -showfilter -default 1 -configuremethod _setshowfilter
+    option -showfilter -default 0 -configuremethod _setshowfilter
 
     # TBD sort order 
     option -defaultsortorder -default "-increasing"
@@ -223,7 +223,6 @@ snit::widgetadaptor tarray::ui::tableview {
 
         $_treectrl header dragconfigure -enable yes
         $_treectrl header dragconfigure all -enable yes -draw yes
-
 
         $self definecolumns [$datasource columns]
         $self _init_data
@@ -594,15 +593,6 @@ snit::widgetadaptor tarray::ui::tableview {
 
         # Build the secondary table header
         $self _populatefilter
-
-        if {$_constructed && [dict size $_columns]} {
-            # If the original sort column exists, resort using it
-            if {$sort_col_name ne ""} {
-                $self _sort $sort_col_name $_sort_order
-            } else {
-                $self _sort_on_first_visible_column
-            }
-        }
     }
 
     ###
@@ -893,43 +883,6 @@ snit::widgetadaptor tarray::ui::tableview {
         }
     }
 
-    # Sorts in existing order
-    method resort {} {
-        if {[dict size $_columns] == 0} {
-            return
-        }
-        if {$_sort_column == -1 || $_sort_order eq ""} {
-            $self _sort [dict get $_columns [lindex [dict keys $_columns] 0] id]  $options(-defaultsortorder); # Will recurse
-            return
-        }
-
-        $_treectrl item sort root $_sort_order -column $_sort_column -dictionary
-
-        if {0} {
-            Commented out because if widget is scrolled we do not want
-            to move displayed viewport to the top or selection
-
-            # Make sure selection, if any is still visible
-            set selected [$_treectrl selection get]
-            if {[llength $selected]} {
-                $_treectrl see [lindex $selected 0]
-            } else {
-                
-                # If list is not empty, show first entry. For some reason,
-                # the treectrl shows the 3rd entry (scrolled) when first
-                # displayed.
-                set first [$_treectrl item id "first visible"]
-                if {$first ne ""} {
-                    $_treectrl see $first
-                }
-            }
-        }
-    }
-
-    method _sort_on_first_visible_column {} {
-        $self _sort [$self column_id_to_name [lindex [$_treectrl column id "first visible"]]] $options(-defaultsortorder)
-    }
-
     method _sort {col_name order} {
         if {$_sort_column eq $col_name && $_sort_order eq $order} {
             return
@@ -952,31 +905,6 @@ snit::widgetadaptor tarray::ui::tableview {
         set _sort_order $order
         $self _init_data
         return
-        if {$_sort_column ne $col_name} {
-            TBD
-            if {$_sort_column != -1} {
-                # Reset the sort arrow on existing sort column if the column
-                # is still visible
-                set old [$_treectrl column id $_sort_column]
-                if {[llength $old]} {
-                    $_treectrl column configure $_sort_column -arrow none -itembackground {}
-                }
-            }
-            # Make sure that all cells in the sort column are updated with
-            # style and value
-            foreach {item row} [array get _itemvalues] {
-                $_treectrl item style set $item $col_id [dict get $_item_style_phrase $col_id]
-                $_treectrl item text $item $col_id [lindex $row $col_id]
-            }
-        }
-
-
-        set _sort_column $col_name
-        set _sort_order $order
-        if {$col_name ne ""} {
-            $_treectrl column configure [$self column_name_to_id $col_name] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
-        }
-        # TBD $self resort
     }
 
     # Set the mode for showing all rows or changes only
@@ -1002,16 +930,15 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method _populatefilter {} {
-        if {$_constructed} {
-            $_treectrl header style set H2 all h2Style
-            dict for {name colmeta} $_columns {
-                if {[dict exists $options(-filtervalues) $name]} {
-                    $_treectrl header text H2 [dict get $colmeta Id] [dict get $options(-filtervalues) $name]
-                } else { 
-                    $_treectrl header text H2 [dict get $colmeta Id] $options(-undefinedfiltertext)
-                }
+        $_treectrl header style set H2 all h2Style
+        dict for {name colmeta} $_columns {
+            if {[dict exists $options(-filtervalues) $name]} {
+                $_treectrl header text H2 [dict get $colmeta Id] [dict get $options(-filtervalues) $name]
+            } else { 
+                $_treectrl header text H2 [dict get $colmeta Id] $options(-undefinedfiltertext)
             }
         }
+        $_treectrl header configure H2 -visible $options(-showfilter)
     }
 
     method _setfiltervalues {opt val} {
@@ -1038,25 +965,6 @@ snit::widgetadaptor tarray::ui::tableview {
             lindex $_column_order $col_id
         }]
         return
-        
-        if {0} {
-            # Work out the new order of column names
-
-            # Remove the column being moved from the current list
-            set order [lsearch -exact -inline -not -all [$_treectrl column list] $col_id]
-            # Add it to the appropriate position
-            if {$target_id eq "tail"} {
-                set pos end
-            } else {
-                set pos [lsearch -exact $order $target_id]
-            }
-
-            set colnames {}
-            foreach col_id [linsert $order $pos $col_id] {
-                lappend colnames [$self column_id_to_name $col_id]
-            }
-        }
-
     }
 
 }
