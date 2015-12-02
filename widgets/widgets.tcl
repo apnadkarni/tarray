@@ -9,10 +9,6 @@ namespace eval tarray::ui {
     }
 }
 
-proc ldebug {args} {
-    append ::log [concat $args]\n
-}
-
 snit::widgetadaptor tarray::ui::tableview {
 
     ### Type constructor
@@ -818,7 +814,6 @@ snit::widgetadaptor tarray::ui::tableview {
         set item_id [$self _first_display_item]
         if {$item_id > 0} {
             dict set _display_state display_top [$self _item_to_row_id $item_id]
-            ldebug "Save $_display_state"
         }
         foreach item {active anchor} {
             set item_id [$_treectrl item id $item]
@@ -834,7 +829,6 @@ snit::widgetadaptor tarray::ui::tableview {
     
     method _restore_display_state {} {
         $_treectrl selection clear
-        ldebug "Restore $_display_state"
         if {[dict exists $_display_state anchor]} {
             set item [$self _row_id_to_item [dict get $_display_state anchor]]
             if {$item != 0} {
@@ -1189,7 +1183,8 @@ oo::class create tarray::ui::Table {
         tarray::ui::tableview $w [self] $_coldefs {*}$options
         bind $w <<SortColumn>> [list [self] sort %d]
         bind $w <Destroy> [list [self] destroy]
-        my update_display 
+        bind $w <<FilterChange>> [list [self] filter_change_handler %d]
+        my update_data 
     }
 
     destructor {
@@ -1216,13 +1211,92 @@ oo::class create tarray::ui::Table {
         # sorting. So we extract the column and sort on that instead.
         set col [tarray::table::column $_data $cname]
         set _row_ids [tarray::column::sort $order -nocase -indirect $col $_row_ids]
-        my update_display
+        my update_data
         return
     }
 
     method widget {} { return $_w }
 
-    method update_display {} {
+    method _parse_filter {cname cond} {
+
+        set cond [string trim $cond]
+        if {$cond eq ""} {
+            return {}
+        }
+        if {![regexp {^(==|!=|>|>=|<|<=|\*|~|in\s)\s*([^\s].*)$} $cond _ oper arg]} {
+            # No operator specified, assume equality test
+            set oper ==
+            set arg $cond
+            set cond "== $arg"
+        }
+
+        # Map operators to column search options
+        set map {
+            ==  {-eq}
+            !=  {-not -eq}
+            <   {-lt}
+            <=  {-not -gt}
+            >   {-gt}
+            >=  {-not -lt}
+            =^  {-nocase -eq}
+            !^  {-nocase -not -eq}
+            ~  {-re}
+            !~  {-not -re}
+            ~^ {-nocase -re}
+            !~^ {-nocase -not -re}
+        }
+        
+        return [list [dict get $map $oper] $arg $cond]
+    }
+        
+    method update_column_filter {cname cond} {
+
+        # Parse the string into an "executable" form
+        lassign [my _parse_filter $cname $cond] oper arg cond
+        
+        # First, special cases:
+
+        # Filter is unchanged
+        if {[dict exists $_filters $cname]} {
+            # The filter already existed. If unchanged, nothing to do.
+            if {[dict get $_filters $cname Oper] eq $oper &&
+                [dict get $_filters $cname Arg] eq $arg} {
+                return
+            }
+        } else {
+            # This column was previously unfiltered.
+
+            if {[llength $oper] == 0} {
+                return;         # Still unfiltered. Naught to do
+            }
+            
+            # We are now adding a filter no need to refilter all columns.
+            # Start with what we already have and intersect with this filter
+            set ids [tarray::column::search {*}$oper -among $_row_ids [tarray::table::column $_data $cname] $arg]
+            # Reached here without errors so we can commit
+            dict set _filters $cname [list Oper $oper Arg $arg]
+            dict set _filter_strings $cname $cond
+            set _row_ids $ids
+            my update_data
+            return
+        }
+
+        TBD - do it the hard way
+    }
+
+    method filter_change_handler {cname_and_cond} {
+        if {[catch {
+            lassign $cname_and_cond cname cond
+            my update_column_filter $cname $cond
+        } msg]} {
+            # Error - restore original filter strings
+            #TBD - bgerror error message
+            #TBD - restore filters
+            bgerror $msg
+        }
+    }
+    
+    method update_data {} {
         $_w setrows $_row_ids -sortcolumn $_sort_column -sortorder $_sort_order -filters $_filter_strings
     }
 
