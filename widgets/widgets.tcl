@@ -87,7 +87,7 @@ snit::widgetadaptor tarray::ui::tableview {
     # Contains the name of the filter column being edited, if any
     variable _filter_column_being_edited
     
-    constructor {datasource args} {
+    constructor {datasource coldefs args} {
         set _datasource $datasource
 
         installhull using ttk::frame -borderwidth 0
@@ -226,23 +226,24 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl header dragconfigure -enable yes
         $_treectrl header dragconfigure all -enable yes -draw yes
 
-        $self definecolumns [$datasource columns]
-        $self _init_data
-        
+        $self definecolumns $coldefs
+        $datasource update_display
         set _constructed 1
     }
 
     destructor {
     }
 
-    method _init_data {} {
-        # Client table row id's being displayed
-        if {$_sort_column eq ""} {
-            set _row_ids [$_datasource rowids]
-        } else {
-            set _row_ids [$_datasource rowids $_sort_column $_sort_order]
+    method setrows {row_ids args} {
+        set sort_column [from args -sortcolumn ""]
+        set sort_order [from args -sortorder -increasing]
+        set filters    [from args -filters ""]
+        if {[llength $args]} {
+            error "Invalid syntax. Must be \"$win setrows ROW_IDS ?-sortcolumn COLNAME? ?-sortorder -increasing|-decreasing? ?-filters FILTERDICT?\""
         }
-        
+
+        # row_ids may be a column or a list
+        set _row_ids [tarray::column::create int $row_ids]
         set count [tarray::column size $_row_ids]
         $_treectrl item delete all
         set _item_ids [tarray::column create int [$_treectrl item create -parent root -open no -count $count]]
@@ -505,7 +506,6 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method definecolumns {coldefs} {
-
         # For now, do not allow changes after initial construction
         if {$_constructed} {
             error "Cannot change column definitions after initialization"
@@ -1053,7 +1053,86 @@ snit::widgetadaptor tarray::ui::tableview {
 
 }
 
+
+oo::class create tarray::ui::Table {
+    # Variables used in class
+    variable _data;        #  Table containing data
+    variable _w;        #  Widget displaying data
+    variable _coldefs;  #  Column definitions
+    variable _row_ids;  #  Index column containing row_ids to display
+    
+    variable _sort_column    # Id of column used for sorting
+    variable _sort_order     # -increasing or -decreasing
+
+    variable _filters         # Dict mapping columns to filters
+    variable _filter_strings # Dict mapping columns to filter display strings
+
+    constructor {tab w args} {
+        if {[dict exists $args -columns]} {
+            set _coldefs [dict get $args -columns]
+            dict unset args -columns
+        } else {
+            set _coldefs [list]
+            foreach cname [tarray::table::cnames $tab] col [tarray::table::columns $tab] {
+                lappend _coldefs $cname [list Type [tarray::column::type $col]]
+            }
+        }
+        if {[dict size $args]} {
+            error "Unknown options [join [dict keys $args] {, }]"
+        }
+        set _data $tab
+        set _row_ids [tarray::indexcolumn [tarray::table::size $tab]]
+        
+        set _sort_column ""
+        set _sort_order "-increasing"
+
+        set _filters [dict create]
+        set _filter_strings [dict create]
+
+        set _w $w
+        tarray::ui::tableview $w [self] $_coldefs {*}$args
+        my update_display 
+    }
+
+    method widget {} { return $_w }
+
+    method update_display {} {
+        $_w setrows $_row_ids -sortcolumn $_sort_column -sortorder $_sort_order -filters $_filter_strings
+    }
+
+    method get {row_id cnames} {
+        return [lindex [tarray::table::get -list -columns $cnames $_data $row_id] 0]
+    }
+}
+
 proc test {{nrows 20}} {
+    set coldefs {
+        ColA {
+            Label {Column A}
+        }
+        ColB {
+            Label {Column B}
+            Type int
+        }
+        ColC {
+            Justify right
+            Sortable 0
+        }
+    }
+    set ::datatable [tarray::table create {
+        ColA string ColB int ColC any
+    }]
+    set n -1
+    time {
+        set now [clock seconds]
+        tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
+    } $nrows
+    # TBD - make note of -yscrolldelay option for scrolling large tables
+    tarray::ui::Table create tv $::datatable .tv
+    pack .tv -fill both -expand 1
+}
+
+proc test2 {{nrows 20}} {
     proc datasource {cmd args} {
         switch -exact -- $cmd {
             get {
