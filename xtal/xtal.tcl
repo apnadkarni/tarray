@@ -1554,7 +1554,7 @@ namespace eval xtal::rt {
         return [switch -exact -- [lindex [tarray::types $inival] 0] {
             table   { error "Cannot convert a table to a column" }
             ""      { tarray::column::create $type $inival }
-            default { tarray::column::cast $inival $type }
+            default { tarray::column::create $type $inival }
         }]
     }
     
@@ -1662,7 +1662,7 @@ namespace eval xtal::rt {
         } else {
             set source_size [tarray::column::size $value]
             if {$vartype ne $valuetype} {
-                set value [tarray::column::cast $value $vartype]
+                set value [tarray::column::create $vartype $value]
             }
         }
 
@@ -1792,7 +1792,7 @@ namespace eval xtal::rt {
         # a list of values. In the former case we need to cast. In the
         # latter case vplace will convert the list itself.
         if {$valuetype ne ""} {
-            set value [tarray::column::cast $value $vartype]
+            set value [tarray::column::create $vartype $value]
         }
         return [tarray::column::vplace var $value $index]
     }
