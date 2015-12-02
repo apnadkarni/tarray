@@ -227,7 +227,6 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl header dragconfigure all -enable yes -draw yes
 
         $self definecolumns $coldefs
-        $datasource update_display
         set _constructed 1
     }
 
@@ -242,7 +241,9 @@ snit::widgetadaptor tarray::ui::tableview {
             error "Invalid syntax. Must be \"$win setrows ROW_IDS ?-sortcolumn COLNAME? ?-sortorder -increasing|-decreasing? ?-filters FILTERDICT?\""
         }
 
-        # row_ids may be a column or a list
+        $self _save_display_state; # Want to preserve view/selections etc.
+
+        #_row_ids may be a column or a list
         set _row_ids [tarray::column::create int $row_ids]
         set count [tarray::column size $_row_ids]
         $_treectrl item delete all
@@ -251,7 +252,8 @@ snit::widgetadaptor tarray::ui::tableview {
         if {[dict size $_columns]} {
             set col [dict get $_columns [lindex $_column_order 0] Id]
             for {set i 0} {$i < $count} {incr i} {
-                # TBD
+                # TBD - the following comment is obsolete but the whole
+                # issue of lazy updates has to be worked on.
                 # We will initialize styles and contents of a row only
                 # when they are actually displayed. This is to save
                 # memory with large tables. However, tktreectrl does not
@@ -261,6 +263,29 @@ snit::widgetadaptor tarray::ui::tableview {
                 # and content of the sort column.
                 $_treectrl item style set [tarray::column index $_item_ids $i] $col [dict get $_item_style_phrase $col]
             }
+        }
+
+        $self _update_sort_indicators $sort_column $sort_order
+        $self _restore_display_state; # Want to preserve view/selections etc.
+        return
+    }
+
+    method _update_sort_indicators {cname order} {
+        # Reset the existing arrow indicator on the sort column
+        if {$_sort_column ne ""} {
+            $_treectrl column configure [$self column_name_to_id $_sort_column] -arrow none -itembackground {}
+        }
+        set _sort_column $cname
+        set _sort_order  $order
+        
+        # Set the indicator on the new sort column
+        if {$cname ne ""} {
+            if {$order eq "-increasing"} {
+                set arrow up
+            } else {
+                set arrow down
+            }
+            $_treectrl column configure [$self column_name_to_id $cname] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
         }
         return
     }
@@ -701,7 +726,12 @@ snit::widgetadaptor tarray::ui::tableview {
         # TBD - handling of selection - a selection event is generated
         #   need to handle that and remove from selection
         
-        lassign [$self _first_display_item] first_item first_rindex
+        set first_item [$self _first_display_item]
+        if {$first_item > 0} {
+            set first_rindex [$self _item_to_rindex $first_item]
+        } else {
+            set first_rindex -1
+        }
         
         # If $args specified, it must be a single integer value
         # as must $first. The range $first:[lindex $args 0] is deleted.
@@ -727,7 +757,7 @@ snit::widgetadaptor tarray::ui::tableview {
             set item_ids [tarray::column get -list $_item_ids $first]
             tarray::column vdelete _item_ids $first
             $_treectrl item delete [list list $item_ids]
-            if {$first_rindex ni $first} {
+            if {$first_rindex >= 0 && $first_rindex ni $first} {
                 $_treectrl see $first_item
             }
         }
@@ -782,21 +812,75 @@ snit::widgetadaptor tarray::ui::tableview {
     }
     
     method _save_display_state {} {
-        set _display_state \
-            [list \
-                 display_top [$self _first_display_item] \
-                 active [$_treectrl item id active] \
-                 anchor [$_treectrl item id anchor] \
-                 selected [$self _getselecteditems] \
-                ]
+        set _display_state [dict create]
+        set item_id [$self _first_display_item]
+        if {$item_id > 0} {
+            dict set _display_state display_top [$self _item_to_row_id $item_id]
+            ldebug "Save $_display_state"
+        }
+        foreach item {active anchor} {
+            set item_id [$_treectrl item id $item]
+            if {$item_id > 0} {
+                dict set _display_state $item [$self _item_to_row_id $item_id]
+            }
+        }
+        set selection [$self getselected]
+        if {[llength $selection]} {
+            dict set _display_state selection $selection
+        }
     }
     
     method _restore_display_state {} {
         $_treectrl selection clear
-        $_treectrl selection anchor [dict get $_display_state anchor]
-        $_treectrl selection add [list "list" [dict get $_display_state selected]]
-        $_treectrl activate [dict get $_display_state active]
-        $_treectrl see [dict get $_display_state display_top]
+        ldebug "Restore $_display_state"
+        if {[dict exists $_display_state anchor]} {
+            set item [$self _row_id_to_item [dict get $_display_state anchor]]
+            if {$item != 0} {
+                $_treectrl selection anchor $item
+            }
+        }
+        
+        if {[dict exists $_display_state selection]} {
+            set items [lmap rid [dict get $_display_state selection] {
+                set item [$self _row_id_to_item $rid]
+                if {$item == 0} continue
+                set item
+            }]
+            if {[llength $items]} {
+                $_treectrl selection add [list "list" $items]
+            }
+        }
+        
+        if {[dict exists $_display_state active]} {
+            set item [$self _row_id_to_item [dict get $_display_state active]]
+            if {$item != 0} {
+                $_treectrl activate $item
+            }
+        }
+        
+        if {0} {
+            # TBD Restoring the top line commented out because (a) most
+            # widgets (e.g. Windows explorer) take you back to the top after
+            # sorting by a column etc., and (b) cannot get this to work
+            # although the same commands typed into the console work.
+            if {[dict exists $_display_state display_top]} {
+                if {1} {
+                    set rindex [$self _row_id_to_rindex [dict get $_display_state display_top]]
+                    if {$rindex >= 0} {
+                        $_treectrl yview moveto 0.0
+                        $_treectrl yview scroll $rindex units
+                    }
+                } else {
+                    # This does not work as well as above if the row
+                    # happens to be already displayed in the middle
+                    set item [$self _row_id_to_item [dict get $_display_state display_top]]
+                    if {$item != 0} {
+                        $_treectrl see $item
+                    }
+                }
+            }
+        }
+        return
     }
     
     ###
@@ -811,10 +895,29 @@ snit::widgetadaptor tarray::ui::tableview {
         return [tarray::column index $_row_ids [$self _item_to_rindex $item_id]]
     }
     
+    method _row_id_to_rindex {rid} {
+        return [tarray::column::search $_row_ids $rid]
+    }
+    
+    method _row_id_to_item {rid} {
+        # 0 -> not found
+        set rindex [tarray::column::search $_row_ids $rid]
+        if {$rindex >= 0} {
+            return [tarray::column::index $_item_ids $rindex]
+        }
+        return 0
+    }
+    
     method _first_display_item {} {
-        scan [$_treectrl bbox content] "%d %d" x y
-        set id [$_treectrl item id [list nearest $x $y]]
-        return [list $id [lindex [$_treectrl item rnc $id] 0]]
+        # Note item id 0 is that of the implicit root item
+        if {[scan [$_treectrl bbox content] "%d %d" x y] == 2} {
+            set id [$_treectrl item id [list nearest $x $y]]
+            if {$id ne ""} {
+                return $id
+            }
+        }
+        # Empty -> No items in table
+        return 0
     }
         
     ###
@@ -886,27 +989,11 @@ snit::widgetadaptor tarray::ui::tableview {
         }
     }
 
-    method _sort {col_name order} {
-        if {$_sort_column eq $col_name && $_sort_order eq $order} {
+    method _sort {cname order} {
+        if {$_sort_column eq $cname && $_sort_order eq $order} {
             return
         }
-        # Reset the existing arrow indicator on the sort column
-        if {$_sort_column ne ""} {
-            $_treectrl column configure [$self column_name_to_id $_sort_column] -arrow none -itembackground {}
-        }
-        
-        # Set the indicator on the new sort column
-        if {$col_name ne ""} {
-            if {$order eq "-increasing"} {
-                set arrow up
-            } else {
-                set arrow down
-            }
-            $_treectrl column configure [$self column_name_to_id $col_name] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
-        }
-        set _sort_column $col_name
-        set _sort_order $order
-        $self _init_data
+        event generate $win <<SortColumn>> -data [list $cname $order]
         return
     }
 
@@ -1068,9 +1155,9 @@ oo::class create tarray::ui::Table {
     variable _filter_strings # Dict mapping columns to filter display strings
 
     constructor {tab w args} {
-        if {[dict exists $args -columns]} {
-            set _coldefs [dict get $args -columns]
-            dict unset args -columns
+        if {[dict exists $args -coldefs]} {
+            set _coldefs [dict get $args -coldefs]
+            dict unset args -coldefs
         } else {
             set _coldefs [list]
             foreach cname [tarray::table::cnames $tab] col [tarray::table::columns $tab] {
@@ -1091,7 +1178,37 @@ oo::class create tarray::ui::Table {
 
         set _w $w
         tarray::ui::tableview $w [self] $_coldefs {*}$args
+        bind $w <<SortColumn>> [list [self] sort %d]
+        bind $w <Destroy> [list [self] destroy]
         my update_display 
+    }
+
+    destructor {
+        if {[info exists _w]} {
+            catch {destroy $_w}
+        }
+        return
+    }
+    
+    method sort {cname_and_order} {
+        lassign $cname_and_order cname order
+        if {$cname eq "" ||
+            ($cname eq $_sort_column && $order eq $_sort_order)} {
+            return;             # Already in requested order
+        }
+
+        set _sort_column $cname
+        set _sort_order $order
+        
+        # We cannot use table::sort here because
+        # we only want to (potentially) sort a subset of the table since
+        # displayed rows may not be the full table if filtering is
+        # in effect and table::sort does not have support for indirect
+        # sorting. So we extract the column and sort on that instead.
+        set col [tarray::table::column $_data $cname]
+        set _row_ids [tarray::column::sort $order -nocase -indirect $col $_row_ids]
+        my update_display
+        return
     }
 
     method widget {} { return $_w }
@@ -1128,7 +1245,7 @@ proc test {{nrows 20}} {
         tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
     } $nrows
     # TBD - make note of -yscrolldelay option for scrolling large tables
-    tarray::ui::Table create tv $::datatable .tv
+    tarray::ui::Table create tv $::datatable .tv -coldefs $coldefs
     pack .tv -fill both -expand 1
 }
 
