@@ -1109,34 +1109,23 @@ snit::widgetadaptor tarray::ui::tableview {
                 dict set _filters $filter_col $newcondition
             }
             $self _update_column_filter_indicator $filter_col
-            return
-            if {[catch {
-                $self _setfilter -filter $new_filter
-            } msg]} {
-                # Restore old filter on error
-                if {[catch {
-                    $self _setfilter -filter $old_filter
-                } msg2]} {
-                    $self _setfilter -filter {}
-                    after 0 [list [namespace which showerrordialog] "Error in filter definition ($msg2). Filter cleared."]
-                } else {
-                    after 0 [list [namespace which showerrordialog] "Error in filter definition ($msg). Original filter restored."]
-                }
-            } else {
-                if {$action in {saveandnext saveandprev}} {
-                    set colnum [lsearch -exact $options(-displaycolumns) $filter_col]
-                    if {$action eq "saveandnext"} {
-                        if {[incr colnum] >= [llength $options(-displaycolumns)]} {
-                            set colnum 0
-                        }
-                    } else {
-                        if {[incr colnum -1] < 0} {
-                            set colnum [llength $options(-displaycolumns)]
-                            incr colnum -1
-                        }
+            event generate $win <<FilterChange>> -data [list $filter_col $newcondition]
+            # See if we need to tab into the next/prev filter
+            # TBD - make sure the setrows does not cover the new edit box when
+            # datasource call back
+            if {$action in {saveandnext saveandprev}} {
+                set colnum [lsearch -exact $_column_order $filter_col]
+                if {$action eq "saveandnext"} {
+                    if {[incr colnum] >= [llength $_column_order]} {
+                        set colnum 0
                     }
-                    after 0 [list $self _editfilter [lindex $options(-displaycolumns) $colnum]]
+                } else {
+                    if {[incr colnum -1] < 0} {
+                        set colnum [llength $_column_order]
+                        incr colnum -1
+                    }
                 }
+                after 0 [list $self _editfilter [lindex $_column_order $colnum]]
             }
         }
         return
