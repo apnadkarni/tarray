@@ -43,9 +43,6 @@ snit::widgetadaptor tarray::ui::tableview {
     # TBD Whether to only show changed rows (including new ones)
     # option -showchangesonly -default false -configuremethod _setshowchangesonly
 
-    # Values to show in optional header, keyed by property name
-    option -filtervalues -default {} -configuremethod _setfiltervalues
-
     option -undefinedfiltertext -default "<Filter>"
 
     option -showfilter -default 0 -configuremethod _setshowfilter
@@ -84,6 +81,9 @@ snit::widgetadaptor tarray::ui::tableview {
     # hovers over an item
     variable _tooltip_state
 
+    # Dictionary containing display strings for filters
+    variable _filters {}
+    
     # Contains the name of the filter column being edited, if any
     variable _filter_column_being_edited
     
@@ -241,7 +241,7 @@ snit::widgetadaptor tarray::ui::tableview {
             error "Invalid syntax. Must be \"$win setrows ROW_IDS ?-sortcolumn COLNAME? ?-sortorder -increasing|-decreasing? ?-filters FILTERDICT?\""
         }
 
-        $self _save_display_state; # Want to preserve view/selections etc.
+        $self _save_display_state; # Want to preserve selections etc.
 
         #_row_ids may be a column or a list
         set _row_ids [tarray::column::create int $row_ids]
@@ -266,7 +266,9 @@ snit::widgetadaptor tarray::ui::tableview {
         }
 
         $self _update_sort_indicators $sort_column $sort_order
-        $self _restore_display_state; # Want to preserve view/selections etc.
+        $self _update_filter_indicators $filters
+        
+        $self _restore_display_state
         return
     }
 
@@ -620,7 +622,7 @@ snit::widgetadaptor tarray::ui::tableview {
         }
 
         # Build the secondary table header
-        $self _populatefilter
+        $self _update_filter_indicators $_filters
     }
 
     ###
@@ -1021,23 +1023,34 @@ snit::widgetadaptor tarray::ui::tableview {
 
     ###
     # Filtering code
-    method _populatefilter {} {
+    method _update_filter_indicators {filters} {
+        # TBD - does setting of style have to be done every time?
         $_treectrl header style set H2 all h2Style
-        dict for {name colmeta} $_columns {
-            if {[dict exists $options(-filtervalues) $name]} {
-                $_treectrl header text H2 [dict get $colmeta Id] [dict get $options(-filtervalues) $name]
-            } else { 
-                $_treectrl header text H2 [dict get $colmeta Id] $options(-undefinedfiltertext)
-            }
+        set _filters $filters
+        
+        foreach cname [dict keys $_columns] {
+            $self _update_column_filter_indicator $cname
         }
+        
+        # TBD - does this have to be done every time?
         $_treectrl header configure H2 -visible $options(-showfilter)
     }
 
+    method _update_column_filter_indicator cname {
+        set cid [dict get $_columns $cname Id]
+        if {[dict exists $_filters $cname]} {
+            $_treectrl header text H2 $cid [dict get $_filters $cname]
+        } else { 
+            $_treectrl header text H2 $cid $options(-undefinedfiltertext)
+        }
+    }
+    
     method _setfiltervalues {opt val} {
+        TBD
         dict size $val;         # Verify valid dictionary
         set options($opt) $val
         if {$_constructed} {
-            $self _populatefilter
+            $self _update_filter_indicators {}
         }
     }
 
@@ -1088,15 +1101,15 @@ snit::widgetadaptor tarray::ui::tableview {
         set _filter_column_being_edited ""
         place forget $entry
 
-        if {0 && $action in {save saveandnext saveandprev}} {
+        if {$action in {save saveandnext saveandprev}} {
             set newcondition [string trim [$entry get]]
-            set old_filter $options(-filter)
-            set new_filter $old_filter
             if {$newcondition eq ""} {
-                dict unset new_filter properties $filter_col
+                dict unset _filters $filter_col
             } else {
-                dict set new_filter properties $filter_col condition $newcondition
+                dict set _filters $filter_col $newcondition
             }
+            $self _update_column_filter_indicator $filter_col
+            return
             if {[catch {
                 $self _setfilter -filter $new_filter
             } msg]} {
@@ -1155,6 +1168,7 @@ oo::class create tarray::ui::Table {
     variable _filter_strings # Dict mapping columns to filter display strings
 
     constructor {tab w args} {
+        set options {}
         if {[dict exists $args -coldefs]} {
             set _coldefs [dict get $args -coldefs]
             dict unset args -coldefs
@@ -1164,9 +1178,15 @@ oo::class create tarray::ui::Table {
                 lappend _coldefs $cname [list Type [tarray::column::type $col]]
             }
         }
+        if {[dict exists $args -showfilter]} {
+            lappend options -showfilter [dict get $args -showfilter]
+            dict unset args -showfilter
+        }
+        
         if {[dict size $args]} {
             error "Unknown options [join [dict keys $args] {, }]"
         }
+
         set _data $tab
         set _row_ids [tarray::indexcolumn [tarray::table::size $tab]]
         
@@ -1177,7 +1197,7 @@ oo::class create tarray::ui::Table {
         set _filter_strings [dict create]
 
         set _w $w
-        tarray::ui::tableview $w [self] $_coldefs {*}$args
+        tarray::ui::tableview $w [self] $_coldefs {*}$options
         bind $w <<SortColumn>> [list [self] sort %d]
         bind $w <Destroy> [list [self] destroy]
         my update_display 
@@ -1245,7 +1265,7 @@ proc test {{nrows 20}} {
         tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
     } $nrows
     # TBD - make note of -yscrolldelay option for scrolling large tables
-    tarray::ui::Table create tv $::datatable .tv -coldefs $coldefs
+    tarray::ui::Table create tv $::datatable .tv -coldefs $coldefs -showfilter 1
     pack .tv -fill both -expand 1
 }
 
