@@ -20,12 +20,6 @@ snit::widgetadaptor tarray::ui::tableview {
         font create WitsFilterFont {*}[font configure TkDefaultFont]
     }
 
-    # TBD - obsolete options?
-    option -highlight -default 0
-    option -newhighlight -default #00ff00; # Hex because Tk changed "green"
-    option -deletedhighlight -default red
-    option -modifiedhighlight -default yellow
-
     # Command to execute when list selection changes
     option -selectcommand -default ""
 
@@ -120,11 +114,6 @@ snit::widgetadaptor tarray::ui::tableview {
         $_treectrl style elements h2Style {h2Elem}
         $_treectrl style layout h2Style h2Elem -squeeze x -expand ns -padx 5
 
-        # TBD Define the states used to highlight changes
-        $_treectrl state define modified
-        $_treectrl state define new
-        $_treectrl state define deleted
-
         ttk::scrollbar $win.vscroll \
             -orient vertical \
             -command "$_treectrl yview" 
@@ -176,16 +165,12 @@ snit::widgetadaptor tarray::ui::tableview {
         set plain_select 1
         if {$plain_select} {
             $_treectrl element create bgElem rect \
-                -fill [list lightblue selected $options(-newhighlight) new \
-                           $options(-deletedhighlight) deleted \
-                           $options(-modifiedhighlight) modified] \
+                -fill [list lightblue selected] \
                 -outline "" -rx 0 \
                 -outlinewidth 1
         } else {
             $_treectrl element create bgElem rect \
-                -fill [list gradientSelected selected $options(-newhighlight) new \
-                           $options(-deletedhighlight) deleted \
-                           $options(-modifiedhighlight) modified] \
+                -fill [list gradientSelected selected \
                 -outline [list $sel_color selected] -rx 1 \
                 -open [list we openWE w openW e openE] \
                 -outlinewidth 1
@@ -687,10 +672,6 @@ snit::widgetadaptor tarray::ui::tableview {
     }
 
     method modify {first args} {
-        if {$options(-highlight)} {
-            $_treectrl item state set $item {!deleted !new modified}
-        }
-        
         # If $args specified, it must be a single integer value
         # as must $first. The range $first:[lindex $args 0] is deleted.
         # If $args is empty, $first can be a list of one or more
@@ -765,27 +746,6 @@ snit::widgetadaptor tarray::ui::tableview {
             }
         }
         return
-    }
-
-    method resethighlights {} {
-        set deleted_items [$_treectrl item id {state deleted}]
-        if {[llength $deleted_items]} {
-            foreach item $deleted_items {
-                unset -nocomplain _itemvalues($item)
-            }
-            $_treectrl item delete [list "list" $deleted_items]
-        }
-
-        $_treectrl item state set all {!modified !new}
-        if {$options(-showchangesonly)} {
-            # Note this is {root children}, not "all" else root
-            # and everything else becomes invisible
-
-            # Need to check count else treectrl throws error it no items
-            if {[$_treectrl item count {root children}] > 0} {
-                $_treectrl item configure {root children} -visible 0
-            }
-        }
     }
 
     ###
@@ -996,28 +956,6 @@ snit::widgetadaptor tarray::ui::tableview {
         }
         event generate $win <<SortColumn>> -data [list $cname $order]
         return
-    }
-
-    # Set the mode for showing all rows or changes only
-    method _setshowchangesonly {opt val} {
-        if {$options($opt) == $val} {
-            # No change
-            return
-        }
-        set options($opt) $val
-        if {$val} {
-            # Only show changes. So if any item is not in one of the
-            # states indicating change, make it invisible
-            # Note this is {root children}, not "all" else root
-            # and everything else becomes invisible
-
-            # Check if any items else _treectrl throws error
-            if {[$_treectrl item count {root children state {!modified !new !deleted}}] > 0} {
-                $_treectrl item configure {root children state {!modified !new !deleted}} -visible 0
-            }
-        } else {
-            $_treectrl item configure all -visible 1
-        }
     }
 
     ###
