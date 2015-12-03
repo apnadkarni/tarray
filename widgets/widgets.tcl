@@ -243,21 +243,26 @@ snit::widgetadaptor tarray::ui::tableview {
         set _row_ids [tarray::column::create int $row_ids]
         set count [tarray::column size $_row_ids]
         $_treectrl item delete all
-        set _item_ids [tarray::column create int [$_treectrl item create -parent root -open no -count $count]]
-        
-        if {[dict size $_columns]} {
-            set col [dict get $_columns [lindex $_column_order 0] Id]
-            for {set i 0} {$i < $count} {incr i} {
-                # TBD - the following comment is obsolete but the whole
-                # issue of lazy updates has to be worked on.
-                # We will initialize styles and contents of a row only
-                # when they are actually displayed. This is to save
-                # memory with large tables. However, tktreectrl does not
-                # seem to call us back when an item is displayed if none
-                # of the items have their styles set. Also, we have to
-                # make sure sorting works correctly, so we set the style
-                # and content of the sort column.
-                $_treectrl item style set [tarray::column index $_item_ids $i] $col [dict get $_item_style_phrase $col]
+        if {$count == 0} {
+            set _item_ids [tarray::column::create int]
+        } else {
+            #TBD may be optimize by using existing item ids ?
+            set _item_ids [tarray::column create int [$_treectrl item create -parent root -open no -count $count]]
+            
+            if {[dict size $_columns]} {
+                set col [dict get $_columns [lindex $_column_order 0] Id]
+                for {set i 0} {$i < $count} {incr i} {
+                    # TBD - the following comment is obsolete but the whole
+                    # issue of lazy updates has to be worked on.
+                    # We will initialize styles and contents of a row only
+                    # when they are actually displayed. This is to save
+                    # memory with large tables. However, tktreectrl does not
+                    # seem to call us back when an item is displayed if none
+                    # of the items have their styles set. Also, we have to
+                    # make sure sorting works correctly, so we set the style
+                    # and content of the sort column.
+                    $_treectrl item style set [tarray::column index $_item_ids $i] $col [dict get $_item_style_phrase $col]
+                }
             }
         }
 
@@ -1181,7 +1186,7 @@ oo::class create tarray::ui::Table {
 
         set _w $w
         tarray::ui::tableview $w [self] $_coldefs {*}$options
-        bind $w <<SortColumn>> [list [self] sort %d]
+        bind $w <<SortColumn>> [list [self] sort_handler %d]
         bind $w <Destroy> [list [self] destroy]
         bind $w <<FilterChange>> [list [self] filter_change_handler %d]
         my update_data 
@@ -1194,7 +1199,7 @@ oo::class create tarray::ui::Table {
         return
     }
     
-    method sort {cname_and_order} {
+    method sort_handler {cname_and_order} {
         lassign $cname_and_order cname order
         if {$cname eq "" ||
             ($cname eq $_sort_column && $order eq $_sort_order)} {
@@ -1204,14 +1209,21 @@ oo::class create tarray::ui::Table {
         set _sort_column $cname
         set _sort_order $order
         
+        my _sort
+        my update_data
+        return
+    }
+
+    method _sort {} {
         # We cannot use table::sort here because
         # we only want to (potentially) sort a subset of the table since
         # displayed rows may not be the full table if filtering is
         # in effect and table::sort does not have support for indirect
         # sorting. So we extract the column and sort on that instead.
-        set col [tarray::table::column $_data $cname]
-        set _row_ids [tarray::column::sort $order -nocase -indirect $col $_row_ids]
-        my update_data
+        if {$_sort_column ne ""} {
+            set col [tarray::table::column $_data $_sort_column]
+            set _row_ids [tarray::column::sort $_sort_order -nocase -indirect $col $_row_ids]
+        }
         return
     }
 
@@ -1256,7 +1268,6 @@ oo::class create tarray::ui::Table {
         
         # First, special cases:
 
-        # Filter is unchanged
         if {[dict exists $_filters $cname]} {
             # The filter already existed. If unchanged, nothing to do.
             if {[dict get $_filters $cname Oper] eq $oper &&
@@ -1272,18 +1283,72 @@ oo::class create tarray::ui::Table {
             
             # We are now adding a filter no need to refilter all columns.
             # Start with what we already have and intersect with this filter
-            set ids [tarray::column::search {*}$oper -among $_row_ids [tarray::table::column $_data $cname] $arg]
+            set ids [tarray::column::search {*}$oper -all -among $_row_ids [tarray::table::column $_data $cname] $arg]
             # Reached here without errors so we can commit
             dict set _filters $cname [list Oper $oper Arg $arg]
             dict set _filter_strings $cname $cond
             set _row_ids $ids
+            # Note no need to resort since we started with sorted _row_ids
             my update_data
             return
         }
 
-        TBD - do it the hard way
+        # In case of errors filters have to be preserved so make a copy
+        set new_filters $_filters
+        set new_filter_strings $_filter_strings
+        if {[llength $oper] == 0} {
+            dict unset new_filters $cname
+            dict unset new_filter_strings $cname
+        } else {
+            dict set new_filters $cname [list Oper $oper Arg $arg]
+            dict set new_filter_strings $cname $cond
+        }
+
+        if {[dict size $new_filters] == 0} {
+            # No filters
+            set _row_ids [tarray::indexcolumn [tarray::table::size $_data]]
+        } else {
+            # General case. Have to rerun all filters. In search for efficiency
+            # we will run all numeric filters first.
+            foreach types {{byte int uint wide double} {string any boolean}} {
+                dict for {cname filter} $new_filters {
+                    set col [tarray::table::column $_data $cname]
+                    if {[tarray::column::type $col] in $types} {
+                        if {[info exists filtered_rids]} {
+                            set filtered_rids [tarray::column::search {*}[dict get $new_filters $cname Oper] -all -among $filtered_rids [tarray::table::column $_data $cname] [dict get $new_filters $cname Arg]]
+                        } else {
+                            set filtered_rids [tarray::column::search {*}[dict get $new_filters $cname Oper] -all $col [dict get $new_filters $cname Arg]]
+                        }
+                        if {[info exists filtered_rids] && [llength $filtered_rids] == 0} {
+                            break;      # No point looking further
+                        }
+                    }
+                }
+                if {[info exists filtered_rids] && [llength $filtered_rids] == 0} {
+                    break;      # No point looking further
+                }
+            }
+            if {[info exists filtered_rids]} {
+                set _row_ids $filtered_rids
+            } else {
+                set _row_ids {}; # No matches
+            }
+        }
+
+        set _filters $new_filters
+        set _filter_strings $new_filter_strings
+        my _sort;               # Need to resort after filtering
+        my update_data
     }
 
+    method _commit_filters {filters filter_strings rids} {
+        set _filters $filters
+        set _filter_strings $filter_strings
+        set _row_ids $rids
+        my update_data
+        return
+    }
+    
     method filter_change_handler {cname_and_cond} {
         if {[catch {
             lassign $cname_and_cond cname cond
@@ -1292,7 +1357,7 @@ oo::class create tarray::ui::Table {
             # Error - restore original filter strings
             #TBD - bgerror error message
             #TBD - restore filters
-            bgerror $msg
+            bgerror $msg\n$::errorInfo
         }
     }
     
@@ -1321,59 +1386,14 @@ proc test {{nrows 20}} {
     }
     set ::datatable [tarray::table create {
         ColA string ColB int ColC any
-    }]
+    } {} $nrows]
     set n -1
     time {
-        set now [clock seconds]
-        tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
+        set now [clock clicks]
+        tarray::table vinsert ::datatable [list Row[incr n] [expr {$n*10}] $now] end
     } $nrows
     # TBD - make note of -yscrolldelay option for scrolling large tables
     tarray::ui::Table create tv $::datatable .tv -coldefs $coldefs -showfilter 1
     pack .tv -fill both -expand 1
 }
 
-proc test2 {{nrows 20}} {
-    proc datasource {cmd args} {
-        switch -exact -- $cmd {
-            get {
-                lassign $args index cols
-                return [lindex [tarray::table get -list -columns $cols $::datatable $index] 0]
-            }
-            rowids {
-                if {[llength $args]} {
-                    lassign $args col order
-                    return [tarray::table::sort -indices $order $::datatable $col]
-                } else {
-                    return [tarray::indexcolumn [tarray::table size $::datatable]]
-                }
-            }
-            columns {
-                return {
-                    ColA {
-                        Label {Column A}
-                    }
-                    ColB {
-                        Label {Column B}
-                        Type int
-                    }
-                    ColC {
-                        Justify right
-                        Sortable 0
-                    }
-                }
-            }
-            default { error "Unknown command $cmd" }
-        }
-    }
-    set ::datatable [tarray::table create {
-        ColA string ColB int ColC any
-    }]
-    set n -1
-    time {
-        set now [clock seconds]
-        tarray::table vinsert ::datatable [list Row[incr n] $now [clock format $now -format %M:%S]] end
-    } $nrows
-    # TBD - make note of -yscrolldelay option for scrolling large tables
-    tarray::ui::tableview .tv datasource -showfilter 1 -yscrolldelay 500
-    pack .tv -fill both -expand 1
-}
