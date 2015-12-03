@@ -1016,8 +1016,8 @@ snit::widgetadaptor tarray::ui::tableview {
         }
         place $e -x $left -y $top -width [expr {$right-$left}] -height [expr {$bottom-$top}]
         $e delete 0 end
-        if {0 && [dict exists $options(-filter) properties $_filter_column_being_edited condition]} {
-            $e insert 0 [dict get $options(-filter) properties $_filter_column_being_edited condition]
+        if {[dict exists $_filters $_filter_column_being_edited]} {
+            $e insert 0 [dict get $_filters $_filter_column_being_edited]
         }
         focus $e
         # TBD after 0 [myproc _balloonpopup $e]
