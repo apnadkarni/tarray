@@ -15,6 +15,16 @@ text {
     the link:index.html[main contents] for guides and other reference
     documentation.
 
+    === Installation and loading
+
+    include::download.ad[]
+    
+} shell {
+    package require tarray
+    namespace import tarray::column
+}
+
+text {
     === Columns
 
     A typed array column contains elements of a single
