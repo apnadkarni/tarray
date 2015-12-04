@@ -132,8 +132,8 @@ snit::widgetadaptor tarray::ui::dataview {
         bind $_treectrl <Control-a> [list %W selection add all]
 
         # Standard mouse bindings
-        bind $_treectrl <Double-1> [mymethod <Double-1> %x %y %X %Y]
-        bind $_treectrl <ButtonPress-3> [mymethod <ButtonPress-3> %x %y %X %Y]
+        bind $_treectrl <Double-1> [mymethod ProxyMouseClicks <<ItemDoubleClick>> %x %y]
+        bind $_treectrl <ButtonPress-3> [mymethod ProxyMouseClicks <<ItemRightClick>> %x %y]
         # Create the background element used for coloring
         $_treectrl gradient create gradientSelected \
             -stops [list [list 0.0 SystemHighlight 0.5] [list 1.0 SystemHighlight 0.0]] \
@@ -222,69 +222,6 @@ snit::widgetadaptor tarray::ui::dataview {
     destructor {
     }
 
-    method setrows {row_ids args} {
-        set sort_column [from args -sortcolumn ""]
-        set sort_order [from args -sortorder -increasing]
-        set filters    [from args -filters ""]
-        if {[llength $args]} {
-            error "Invalid syntax. Must be \"$win setrows ROW_IDS ?-sortcolumn COLNAME? ?-sortorder -increasing|-decreasing? ?-filters FILTERDICT?\""
-        }
-
-        $self SaveDisplayState; # Want to preserve selections etc.
-
-        #_row_ids may be a column or a list
-        set _row_ids [tarray::column::create int $row_ids]
-        set count [tarray::column size $_row_ids]
-        $_treectrl item delete all
-        if {$count == 0} {
-            set _item_ids [tarray::column::create int]
-        } else {
-            #TBD may be optimize by using existing item ids ?
-            set _item_ids [tarray::column create int [$_treectrl item create -parent root -open no -count $count]]
-            
-            if {[dict size $_columns]} {
-                set col [dict get $_columns [lindex $_column_order 0] Id]
-                for {set i 0} {$i < $count} {incr i} {
-                    # TBD - the following comment is obsolete but the whole
-                    # issue of lazy updates has to be worked on.
-                    # We will initialize styles and contents of a row only
-                    # when they are actually displayed. This is to save
-                    # memory with large tables. However, tktreectrl does not
-                    # seem to call us back when an item is displayed if none
-                    # of the items have their styles set. Also, we have to
-                    # make sure sorting works correctly, so we set the style
-                    # and content of the sort column.
-                    $_treectrl item style set [tarray::column index $_item_ids $i] $col [dict get $_item_style_phrase $col]
-                }
-            }
-        }
-
-        $self UpdateSortIndicators $sort_column $sort_order
-        $self UpdateFilterIndicators $filters
-        
-        $self RestoreDisplayState
-        return
-    }
-
-    method UpdateSortIndicators {cname order} {
-        # Reset the existing arrow indicator on the sort column
-        if {$_sort_column ne ""} {
-            $_treectrl column configure [$self column_name_to_id $_sort_column] -arrow none -itembackground {}
-        }
-        set _sort_column $cname
-        set _sort_order  $order
-        
-        # Set the indicator on the new sort column
-        if {$cname ne ""} {
-            if {$order eq "-increasing"} {
-                set arrow up
-            } else {
-                set arrow down
-            }
-            $_treectrl column configure [$self column_name_to_id $cname] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
-        }
-        return
-    }
 
     # From sbset at http://wiki.tcl.tk/950
     method PositionScrollbar {sb first last} {
@@ -365,25 +302,23 @@ snit::widgetadaptor tarray::ui::dataview {
         return $_treectrl
     }
 
-    method <ButtonPress-3> {winx winy screenx screeny} {
-        if {$options(-rightclickcommand) ne ""} {
-            lassign [$_treectrl identify $winx $winy] type item_id col_id
-            if {$type eq "" || $type eq "item"} {
-                {*}$options(-rightclickcommand) $item_id $col_id $winx $winy $screenx $screeny
-            } 
+    ###
+    # Handling of mouse clicks within table
+    method ProxyMouseClicks {event winx winy} {
+         lassign [$_treectrl identify -array state $winx $winy] type item_id col_id
+        if {$state(where) eq "item"} {
+            event generate $win $event \
+                -data [list RowId [
+                             $self ItemToRowId $state(item)
+                            ] ColId [
+                             $self column_id_to_name $state(column)
+                            ]]
         }
+        return
     }
 
-    method <Double-1> {winx winy screenx screeny} {
-        if {$options(-pickcommand) ne ""} {
-            lassign [$_treectrl identify $winx $winy] type item_id col_id
-            if {$type eq "item"} {
-                set id [$self ItemToRowId $item_id]
-                uplevel #0 [linsert $options(-pickcommand) end $id $item_id $col_id $winx $winy $screenx $screeny]
-            }
-        }
-    }
-
+    ###
+    # Header event handlers
     method <Header-invoke> {hdr_id col_id} {
         if {$hdr_id == 0} {
             set colname [$self column_id_to_name $col_id]
@@ -404,6 +339,28 @@ snit::widgetadaptor tarray::ui::dataview {
         return
     }
 
+    method UpdateSortIndicators {cname order} {
+        # Reset the existing arrow indicator on the sort column
+        if {$_sort_column ne ""} {
+            $_treectrl column configure [$self column_name_to_id $_sort_column] -arrow none -itembackground {}
+        }
+        set _sort_column $cname
+        set _sort_order  $order
+        
+        # Set the indicator on the new sort column
+        if {$cname ne ""} {
+            if {$order eq "-increasing"} {
+                set arrow up
+            } else {
+                set arrow down
+            }
+            $_treectrl column configure [$self column_name_to_id $cname] -arrow $arrow -itembackground [color::shade [$_treectrl cget -background] black 0.05]
+        }
+        return
+    }
+
+    ###
+    # Tooltip handling
     method CancelTooltip {} {
         if {[winfo exists $win.tooltip]} {
             wm withdraw $win.tooltip
@@ -573,7 +530,8 @@ snit::widgetadaptor tarray::ui::dataview {
         #        $self CancelTooltip
     }
 
-
+    ###
+    # Column handling
     method column_id_to_name {col_id} {
         dict for {colname coldef} $_columns {
             if {[dict get $coldef Id] == $col_id} {
@@ -680,7 +638,51 @@ snit::widgetadaptor tarray::ui::dataview {
     }
 
     ###
-    # Methods for modifying view
+    # Methods related to data
+    
+    method setrows {row_ids args} {
+        set sort_column [from args -sortcolumn ""]
+        set sort_order [from args -sortorder -increasing]
+        set filters    [from args -filters ""]
+        if {[llength $args]} {
+            error "Invalid syntax. Must be \"$win setrows ROW_IDS ?-sortcolumn COLNAME? ?-sortorder -increasing|-decreasing? ?-filters FILTERDICT?\""
+        }
+
+        $self SaveDisplayState; # Want to preserve selections etc.
+
+        #_row_ids may be a column or a list
+        set _row_ids [tarray::column::create int $row_ids]
+        set count [tarray::column size $_row_ids]
+        $_treectrl item delete all
+        if {$count == 0} {
+            set _item_ids [tarray::column::create int]
+        } else {
+            #TBD may be optimize by using existing item ids ?
+            set _item_ids [tarray::column create int [$_treectrl item create -parent root -open no -count $count]]
+            
+            if {[dict size $_columns]} {
+                set col [dict get $_columns [lindex $_column_order 0] Id]
+                for {set i 0} {$i < $count} {incr i} {
+                    # We will initialize styles and contents of a row only
+                    # when they are actually displayed. This is to save
+                    # memory with large tables. However, tktreectrl does not
+                    # seem to call us back when an item is displayed if none
+                    # of the items have their styles set.
+                    $_treectrl item style set [tarray::column index $_item_ids $i] $col [dict get $_item_style_phrase $col]
+                }
+            }
+        }
+
+        $self UpdateSortIndicators $sort_column $sort_order
+        $self UpdateFilterIndicators $filters
+        
+        $self RestoreDisplayState
+        return
+    }
+
+    method GetData {row_id} {
+        return [{*}$_datasource get $row_id $_column_order]
+    }
     
     method InitRow {item {row {}}} {
         $_treectrl item style set $item {*}$_item_style_phrase
@@ -696,7 +698,7 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
 
-    method insert {row_ids {pos 0} {tags {}}} {
+    method _NOT_IMPLEMENTED_YET_insert {row_ids {pos 0} {tags {}}} {
         if {[llength $row_ids] == 0} {
             return
         }
@@ -723,14 +725,11 @@ snit::widgetadaptor tarray::ui::dataview {
 
         if {[dict size $_columns]} {
             foreach item $items row_id $row_ids {
-                # TBD
                 # We will initialize styles and contents of a row only
                 # when they are actually displayed. This is to save
                 # memory with large tables. However, tktreectrl does not
                 # seem to call us back when an item is displayed if none
-                # of the items have their styles set. Also, we have to
-                # make sure sorting works correctly, so we set the style
-                # and content of the sort column.
+                # of the items have their styles set.
                 set col [dict get $_columns [lindex $_column_order 0] Id]
                 $_treectrl item style set $item $col [dict get $_item_style_phrase $col]
             }
@@ -739,7 +738,7 @@ snit::widgetadaptor tarray::ui::dataview {
         return 
     }
 
-    method modify {first args} {
+    method _NOT_IMPLEMENTED_YET_modify {first args} {
         # If $args specified, it must be a single integer value
         # as must $first. The range $first:[lindex $args 0] is deleted.
         # If $args is empty, $first can be a list of one or more
@@ -762,7 +761,7 @@ snit::widgetadaptor tarray::ui::dataview {
         return
     }
 
-    method delete {row_ids} {
+    method _NOT_IMPLEMENTED_YET_delete {row_ids} {
         set rindices {}
         foreach row_id $row_ids {
             set rindex [tarray::column search $_row_ids $row_id]
@@ -773,7 +772,7 @@ snit::widgetadaptor tarray::ui::dataview {
         return [$self delete_indices $rindices]
     }
     
-    method delete_indices {first args} {
+    method _NOT_IMPLEMENTED_YET_delete_indices {first args} {
         # TBD - when items are deleted is the visibility handler called?
         # TBD - handling of selection - a selection event is generated
         #   need to handle that and remove from selection
@@ -819,10 +818,6 @@ snit::widgetadaptor tarray::ui::dataview {
     ###
     # Tracking of items actually displayed
 
-    method GetData {row_id} {
-        return [{*}$_datasource get $row_id $_column_order]
-    }
-    
     method <ItemVisibility> {invisible visible} {
         if {[llength $invisible]} {
             #TBD - delete styles and text from elements ?
@@ -842,6 +837,31 @@ snit::widgetadaptor tarray::ui::dataview {
         return [$_treectrl item id {tag tv-displayed}]
     }
     
+    # Item ids of the first and last items actually displayed
+    method DisplayItemBounds {} {
+        # Note item id 0 is that of the implicit root item so returning
+        # 0 means empty table or too small to display any rows
+        set top_id 0
+        set bot_id 0
+        if {[scan [$_treectrl bbox content] "%d %d %d %d" left top right bottom] == 4} {
+            set top_id [$_treectrl item id [list nearest $left $top]]
+            if {$top_id eq ""} {
+                set top_id 0
+            }
+            set bot_id [$_treectrl item id [list nearest $right $bottom]]
+            if {$bot_id eq ""} {
+                set bot_id 0
+            }
+        }
+        return [list $top_id $bot_id]
+    }
+
+    method FirstDisplayItem {} {
+        return [lindex [$self DisplayItemBounds] 0]
+    }
+
+    ###
+    # Save/restore display state after filtering/sorting etc.
     method SaveDisplayState {} {
         set _display_state [dict create]
         set item_id [$self FirstDisplayItem]
@@ -914,8 +934,6 @@ snit::widgetadaptor tarray::ui::dataview {
     
     ###
     # Map row ids/item ids/row indices
-    method rowids {} {return [tarray::column range -list $_row_ids 0 end]}
-
     method ItemToRowIndex {item_id} {
         return [lindex [$_treectrl item rnc $item_id] 0]
     }
@@ -937,28 +955,6 @@ snit::widgetadaptor tarray::ui::dataview {
         return 0
     }
 
-    # Item ids of the first and last items actually displayed
-    method DisplayItemBounds {} {
-        # Note item id 0 is that of the implicit root item so returning
-        # 0 means empty table or too small to display any rows
-        set top_id 0
-        set bot_id 0
-        if {[scan [$_treectrl bbox content] "%d %d %d %d" left top right bottom] == 4} {
-            set top_id [$_treectrl item id [list nearest $left $top]]
-            if {$top_id eq ""} {
-                set top_id 0
-            }
-            set bot_id [$_treectrl item id [list nearest $right $bottom]]
-            if {$bot_id eq ""} {
-                set bot_id 0
-            }
-        }
-        return [list $top_id $bot_id]
-    }
-
-    method FirstDisplayItem {} {
-        return [lindex [$self DisplayItemBounds] 0]
-    }
         
     ###
     # Selection handling
@@ -1013,17 +1009,6 @@ snit::widgetadaptor tarray::ui::dataview {
             lappend row_ids [$self ItemToRowId $item]
         }
         return $row_ids
-    }
-
-    method showtop {} {
-        set first [$_treectrl item id "first visible"]
-        # TBD - when no columns are in the table, above command still
-        # returns 1 (?). The see command below then crashes wish.
-        # This is currently protected by forcing user to make
-        # at least one column visible in the table editor.
-        if {$first ne ""} {
-            $_treectrl see $first
-        }
     }
 
     method Sort {cname order} {
@@ -1136,6 +1121,9 @@ snit::widgetadaptor tarray::ui::dataview {
     }
     
     method UpdateColumnOutlines {item_ids} {
+        if {[llength $item_ids] == 0} {
+            return
+        }
         set cols [$_treectrl column list]
         if {[llength $cols] > 1} {
             $_treectrl item state forcolumn [list "list" $item_ids] [lindex $cols 0] {openE !openW !openWE}
