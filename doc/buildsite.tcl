@@ -2,7 +2,7 @@
 
 set target output
 set adocgen_files {
-    introduction guide column table xtal xtal_lang xtal_shell build
+    introduction guide column table xtal xtal_lang xtal_shell ui build
 }
 
 # file delete -force $target
@@ -11,7 +11,7 @@ file delete -force [file join $target images]
 file copy images [file join $target images]
 #file delete -force [file join $target scripts]
 #file copy scripts [file join $target scripts]
-file copy -force -- index.ad header.ad links.ad types.ad indices.ad $target
+file copy -force -- index.ad header.ad download.ad links.ad types.ad indices.ad $target
 puts [exec [info nameofexecutable] c:/src/tcl-on-windows/tools/adocgen.tcl -outdir $target -maketoc toc.ad -unsafe -overwrite -author "Ashok P. Nadkarni" {*}$argv {*}[lmap fn $adocgen_files {append fn .adocgen}] 2>@1]
 cd $target
 puts [exec asciidoctor index.ad {*}[lmap fn $adocgen_files {append fn .ad}]]

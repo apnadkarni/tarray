@@ -1,0 +1,42 @@
+text {
+    ((= chap_build "Tk widgets"))
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+    == Introduction
+
+    The `tarray_ui` package provides Tk widgets for displaying typed array
+    structures. Currently it includes a single widget,
+    `tableview`, which displays ((^ chap_table_ref "tables"))
+    with features like sorting and filtering. It is written
+    to minimize memory usage when displaying tables with a large
+    amount of data.
+
+    === Installation and loading
+
+    include::download.ad[]
+    
+} tbd {
+    package require tarray_ui
+} text {
+    In addition to Tk and `tarray` itself,
+    this package has dependencies on the following additional packages:
+
+    * `snit` available as part of
+    http://core.tcl.tk/tcllib/doc/trunk/embedded/index.html[tcllib].
+    
+    * `tktreectrl`, available from http://tktreectrl.sf.net[SourceForge].
+}
+
+
+tbd {
+    Mouse bindings
+}
+
+tbd {
+    keybindings - Ctrl-Home, Ctrl-C etc.
+}
+

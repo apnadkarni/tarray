@@ -18,6 +18,13 @@ text {
 
     See the link:index.html[main contents] for guides and other reference
     documentation.
+    
+    === Installation and loading
+
+    include::download.ad[]
+    
+} shell {
+    package require xtal
 }
 
 text {

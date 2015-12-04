@@ -14,6 +14,16 @@ text {
     commands related to typed tables. See ((^ chap_intro)) for an overview and
     ((^ chap_guide)) for a programming guide.
 
+    === Installation and loading
+
+    include::download.ad[]
+    
+} shell {
+    package require tarray
+    namespace import tarray::table
+}
+
+text {
     === Tables
 
     A typed table is an ordered sequence of _typed columns_ of

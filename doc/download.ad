@@ -1,0 +1,9 @@
+Binary packages for some platforms are available from the
+http://www.sourceforge.net/projects/tarray[Sourceforge download area].
+See the link:build.html[build instructions] for other platforms.
+
+To install the extension, extract the files from the distribution to any
+directory that is included in your Tcl installation's `auto_path` variable.
+
+Once installed, the extension can be loaded with the standard Tcl package
+require command.
