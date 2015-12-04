@@ -153,7 +153,8 @@ snit::widgetadaptor tarray::ui::dataview {
         # they are moved (ie openWE etc. state assignments). Same
         # is true if we specify an outline color.
         set gradient_select 0
-        set sel_color [color::shade SystemHighlight white 0.8]
+        set sel_color [color::shade SystemHighlight white 0.7]
+        set sel_color_nofocus lightgray
         if {$gradient_select} {
             $_treectrl element create bgElem rect \
                 -fill [list gradientSelected selected] \
@@ -168,7 +169,7 @@ snit::widgetadaptor tarray::ui::dataview {
             set outlinewidth 0
             if {$outlinewidth} {
                 $_treectrl element create bgElem rect \
-                    -fill [list $sel_color selected] \
+                    -fill [list $sel_color {selected focus} $sel_color_nofocus {selected !focus}] \
                     -open [list we openWE w openW e openE] \
                     -outline [list SystemHighlight selected]  -rx 0 \
                     -outlinewidth $outlinewidth
@@ -176,7 +177,7 @@ snit::widgetadaptor tarray::ui::dataview {
                 # Note - -outlinewidth has to be 1 here else only one
                 # item is displayed. Not sure why
                 $_treectrl element create bgElem rect \
-                    -fill [list $sel_color selected] \
+                    -fill [list $sel_color {selected focus} $sel_color_nofocus {selected !focus}] \
                     -open [list we openWE w openW e openE] \
                     -outline ""  -rx 0 \
                     -outlinewidth 1
