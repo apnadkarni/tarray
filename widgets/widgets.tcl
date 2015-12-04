@@ -9,6 +9,7 @@ namespace eval tarray::ui {
     }
 }
 
+# TBD - why is this a widgetadaptor and not a widget?
 snit::widgetadaptor tarray::ui::dataview {
 
     ### Type constructor
@@ -16,16 +17,6 @@ snit::widgetadaptor tarray::ui::dataview {
     typeconstructor {
         setup_nspath
     }
-
-    # Command to execute when list selection changes
-    option -selectcommand -default ""
-
-    # Right mouse button click
-    option -rightclickcommand -default ""
-
-    # Double click command
-    option -pickcommand -default ""
-
 
     option -undefinedfiltertext -default "<Filter>"
 
@@ -968,12 +959,8 @@ snit::widgetadaptor tarray::ui::dataview {
             $self UpdateColumnOutlines $newselections
         }
 
-        # Call the selection callback
-        if {$options(-selectcommand) ne ""} {
-            # Schedule it for later else double-clicks get lost because
-            # if the callback takes longer to run than the double-click
-            # time, it does not get treated as a double click
-            after 200 [linsert $options(-selectcommand) end $self]
+        if {[llength $removedselections] || [llength $newselections]} {
+            event generate $win <<ListboxSelect>> -data [list $removedselections $newselections]
         }
     }
 
