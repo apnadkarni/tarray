@@ -155,22 +155,38 @@ snit::widgetadaptor tarray::ui::dataview {
         # to change the open border settings for the columns when
         # they are moved (ie openWE etc. state assignments). Same
         # is true if we specify an outline color.
-        set plain_select 1
+        set gradient_select 0
         set sel_color [color::shade SystemHighlight white 0.8]
-        if {$plain_select} {
-            $_treectrl element create bgElem rect \
-                -fill [list $sel_color selected] \
-                -outline "" -rx 0 \
-                -outlinewidth 1
-        } else {
+        if {$gradient_select} {
             $_treectrl element create bgElem rect \
                 -fill [list gradientSelected selected] \
                 -outline [list $sel_color selected] -rx 1 \
                 -open [list we openWE w openW e openE] \
                 -outlinewidth 1
+        } else {
+            # Setting outlinewidth to 1 will show an outline around
+            # selected items like Win8 but when consecutive items are
+            # selected, the line between them is 2px wide unlike Win8
+            # TBD - make this an option?
+            set outlinewidth 0
+            if {$outlinewidth} {
+                $_treectrl element create bgElem rect \
+                    -fill [list $sel_color selected] \
+                    -open [list we openWE w openW e openE] \
+                    -outline [list SystemHighlight selected]  -rx 0 \
+                    -outlinewidth $outlinewidth
+            } else {
+                # Note - -outlinewidth has to be 1 here else only one
+                # item is displayed. Not sure why
+                $_treectrl element create bgElem rect \
+                    -fill [list $sel_color selected] \
+                    -open [list we openWE w openW e openE] \
+                    -outline ""  -rx 0 \
+                    -outlinewidth 1
+            }
         }
-
-        # Create the elements for text and numbers
+        
+        # Create the elements for actual text
         $_treectrl element create leftJustifyElem text -lines 1 -justify left
         $_treectrl element create rightJustifyElem  text -lines 1 -justify right
 
@@ -956,7 +972,9 @@ snit::widgetadaptor tarray::ui::dataview {
         # removedselections items. They can keep their state settings
         # since those anyways are unaffected if unselected.
         if {[llength $newselections]} {
+            $self UpdateColumnOutlines $newselections
             foreach colname $_column_order {
+                continue; #TBD
                 set col_id [dict get $_columns $colname Id]
                 $_treectrl item state forcolumn [list "list" $newselections] $col_id [dict get $_columns $colname OutlineState]
             }
@@ -1134,12 +1152,16 @@ snit::widgetadaptor tarray::ui::dataview {
         return
     }
     
-    method UpdateColumnOutlines {} {
+    method UpdateColumnOutlines {item_ids} {
         set cols [$_treectrl column list]
         if {[llength $cols] > 1} {
-        }
-        if {[llength $cols] == 0} {
-            return
+            $_treectrl item state forcolumn [list "list" $item_ids] [lindex $cols 0] {openE !openW !openWE}
+            $_treectrl item state forcolumn [list "list" $item_ids] [lindex $cols end] {!openE openW !openWE}
+            foreach cid [lrange $cols 1 end-1] {
+                $_treectrl item state forcolumn [list "list" $item_ids] $cid {!openE !openW openWE}
+            }
+        } elseif {[llength $cols] == 1} {
+            $_treectrl item state forcolumn [list "list" $item_ids] [lindex $cols 0] {openE openW !openWE}
         }
     }
     
@@ -1149,6 +1171,7 @@ snit::widgetadaptor tarray::ui::dataview {
         set _column_order [lmap col_id [$_treectrl column list] {
             lindex $_column_order $col_id
         }]
+        $self UpdateColumnOutlines [$_treectrl selection get]
         return
     }
 
