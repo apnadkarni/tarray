@@ -9,7 +9,7 @@ namespace eval tarray::ui {
     }
 }
 
-snit::widgetadaptor tarray::ui::tableview {
+snit::widgetadaptor tarray::ui::dataview {
 
     ### Type constructor
 
@@ -1176,15 +1176,18 @@ oo::class create tarray::ui::Table {
                 lappend _coldefs $cname [list Type [tarray::column::type $col]]
             }
         }
-        if {[dict exists $args -showfilter]} {
-            lappend options -showfilter [dict get $args -showfilter]
-            dict unset args -showfilter
+        if {1} {
+            set options $args;  # For now pass all unknown options to widget
+        } else {
+            if {[dict exists $args -showfilter]} {
+                lappend options -showfilter [dict get $args -showfilter]
+                dict unset args -showfilter
+            }
+            if {[dict size $args]} {
+                error "Unknown options [join [dict keys $args] {, }]"
+            }
         }
         
-        if {[dict size $args]} {
-            error "Unknown options [join [dict keys $args] {, }]"
-        }
-
         set _data $tab
         set _row_ids [tarray::indexcolumn [tarray::table::size $tab]]
         
@@ -1195,7 +1198,7 @@ oo::class create tarray::ui::Table {
         set _filter_strings [dict create]
 
         set _w $w
-        tarray::ui::tableview $w [self] $_coldefs {*}$options
+        tarray::ui::dataview $w [self] $_coldefs {*}$options
         bind $w <<SortColumn>> [list [self] sort_handler %d]
         bind $w <Destroy> [list [self] destroy]
         bind $w <<FilterChange>> [list [self] filter_change_handler %d]
@@ -1380,6 +1383,12 @@ oo::class create tarray::ui::Table {
     }
 }
 
+proc tarray::ui::tableview {w data args} {
+    # TBD - make note of -yscrolldelay option for scrolling large tables
+    Table new $data $w {*}$args
+}
+    
+
 proc test {{nrows 20}} {
     set coldefs {
         ColA {
@@ -1402,8 +1411,7 @@ proc test {{nrows 20}} {
         set now [clock clicks]
         tarray::table vinsert ::datatable [list Row[incr n] [expr {$n*10}] $now] end
     } $nrows
-    # TBD - make note of -yscrolldelay option for scrolling large tables
-    tarray::ui::Table create tv $::datatable .tv -coldefs $coldefs -showfilter 1
+    tarray::ui::tableview .tv $::datatable -coldefs $coldefs -showfilter 1
     pack .tv -fill both -expand 1
 }
 
