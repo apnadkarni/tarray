@@ -17,7 +17,7 @@ snit::widgetadaptor tarray::ui::dataview {
         setup_nspath
         # TBD font create WitsFilterFont {*}[font configure WitsDefaultItalicFont] -underline 1
         # TBD
-        font create WitsFilterFont {*}[font configure TkDefaultFont]
+        #font create WitsFilterFont {*}[font configure TkDefaultFont]
     }
 
     # Command to execute when list selection changes
@@ -30,14 +30,10 @@ snit::widgetadaptor tarray::ui::dataview {
     option -pickcommand -default ""
 
 
-    # TBD Whether to only show changed rows (including new ones)
-    # option -showchangesonly -default false -configuremethod _setshowchangesonly
-
     option -undefinedfiltertext -default "<Filter>"
 
     option -showfilter -default 0 -configuremethod SetShowFilter
 
-    # TBD sort order 
     option -defaultsortorder -default "-increasing"
 
     component _treectrl
@@ -89,8 +85,6 @@ snit::widgetadaptor tarray::ui::dataview {
             -selectmode extended -xscrollincrement 20 -xscrollsmoothing 1 \
             -canvaspadx {2 0} -canvaspady {2 0} \
             -scrollmargin 16 -xscrolldelay "500 50" -yscrolldelay "500 50"
-        # TBD -itemheight $height
-
         
         # item and column identify where the mouse is hovering
         # -1 indicates invalid (ie mouse is outside an item)
@@ -144,10 +138,8 @@ snit::widgetadaptor tarray::ui::dataview {
         bind $_treectrl <Double-1> [mymethod <Double-1> %x %y %X %Y]
         bind $_treectrl <ButtonPress-3> [mymethod <ButtonPress-3> %x %y %X %Y]
         # Create the background element used for coloring
-        # TBD set sel_color [get_theme_setting bar frame normal bg]
-        set sel_color blue
         $_treectrl gradient create gradientSelected \
-            -stops [list [list 0.0 $sel_color 0.5] [list 1.0 $sel_color 0.0]] \
+            -stops [list [list 0.0 SystemHighlight 0.5] [list 1.0 SystemHighlight 0.0]] \
             -orient vertical
 
         # Define states used to control selection highlighting - which
@@ -161,11 +153,13 @@ snit::widgetadaptor tarray::ui::dataview {
         # fancy one ? Right now use plain version. If switching to fancy
         # version, note that the column drag code has to be modified
         # to change the open border settings for the columns when
-        # they are moved (ie openWE etc. state assignments)
+        # they are moved (ie openWE etc. state assignments). Same
+        # is true if we specify an outline color.
         set plain_select 1
+        set sel_color [color::shade SystemHighlight white 0.8]
         if {$plain_select} {
             $_treectrl element create bgElem rect \
-                -fill [list lightblue selected] \
+                -fill [list $sel_color selected] \
                 -outline "" -rx 0 \
                 -outlinewidth 1
         } else {
@@ -1138,6 +1132,15 @@ snit::widgetadaptor tarray::ui::dataview {
             }
         }
         return
+    }
+    
+    method UpdateColumnOutlines {} {
+        set cols [$_treectrl column list]
+        if {[llength $cols] > 1} {
+        }
+        if {[llength $cols] == 0} {
+            return
+        }
     }
     
     method <ColumnDrag-receive> {col_id target_id} {
