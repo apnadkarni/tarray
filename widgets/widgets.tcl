@@ -15,9 +15,6 @@ snit::widgetadaptor tarray::ui::dataview {
 
     typeconstructor {
         setup_nspath
-        # TBD font create WitsFilterFont {*}[font configure WitsDefaultItalicFont] -underline 1
-        # TBD
-        #font create WitsFilterFont {*}[font configure TkDefaultFont]
     }
 
     # Command to execute when list selection changes
@@ -606,7 +603,6 @@ snit::widgetadaptor tarray::ui::dataview {
         # the code below dows not assume coldefs is non-empty
 
         # Note what column we are currently sorted on
-        # TBD
         set sort_col_name $_sort_column
 
         set _columns {}
@@ -973,11 +969,6 @@ snit::widgetadaptor tarray::ui::dataview {
         # since those anyways are unaffected if unselected.
         if {[llength $newselections]} {
             $self UpdateColumnOutlines $newselections
-            foreach colname $_column_order {
-                continue; #TBD
-                set col_id [dict get $_columns $colname Id]
-                $_treectrl item state forcolumn [list "list" $newselections] $col_id [dict get $_columns $colname OutlineState]
-            }
         }
 
         # Call the selection callback
@@ -1066,15 +1057,6 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
     
-    method SetFilterValues {opt val} {
-        TBD
-        dict size $val;         # Verify valid dictionary
-        set options($opt) $val
-        if {$_constructed} {
-            $self UpdateFilterIndicators {}
-        }
-    }
-
     method SetShowFilter {opt val} {
         $_treectrl header configure H2 -visible $val
         set options($opt) $val
@@ -1393,11 +1375,10 @@ oo::class create tarray::ui::Table {
         if {[catch {
             lassign $cname_and_cond cname cond
             my update_column_filter $cname $cond
-        } msg]} {
-            # Error - restore original filter strings
-            #TBD - bgerror error message
-            #TBD - restore filters
-            bgerror $msg\n$::errorInfo
+        } msg options]} {
+            # Error - restore original data
+            my update_data
+            return -options $options $msg
         }
     }
     export <<FilterChange>>
