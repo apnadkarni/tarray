@@ -170,7 +170,7 @@ snit::widgetadaptor tarray::ui::tableview {
                 -outlinewidth 1
         } else {
             $_treectrl element create bgElem rect \
-                -fill [list gradientSelected selected \
+                -fill [list gradientSelected selected] \
                 -outline [list $sel_color selected] -rx 1 \
                 -open [list we openWE w openW e openE] \
                 -outlinewidth 1
@@ -280,14 +280,75 @@ snit::widgetadaptor tarray::ui::tableview {
 
     # From sbset at http://wiki.tcl.tk/950
     method _position_scrollbar {sb first last} {
-        # Get infinite loop on X11
-        if {$::tcl_platform(platform) ne "unix"} {
+        if {0} {
+            Gets infinite loop due to infighting between horizontal and
+            vertical scrollbars even on Windows
             if {$first <= 0 && $last >= 1} {
                 grid remove $sb
             } else {
                 grid $sb
             }
         }
+
+        if {0} {
+            This does not work because the last item may not be fully
+            visible but scroll bars do not show up
+            lassign [$self _display_item_bounds] top_item bot_item
+            if {$top_item == 0 ||
+                ($top_item == [tarray::column::index $_item_ids 0] &&
+                 $bot_item == [tarray::column::index $_item_ids end])} {
+                # Either table empty/too small display area, or
+                # both first and last items are displayed in content area
+                grid remove $sb
+            } else {
+                grid $sb
+            }
+        }
+
+        # Note: The shimmering issue depends on content, font, and window
+        # dimensions. When tested with the test proc, setting column filter
+        # B to >60 followed by Col A filter to ~1 often (not always) produced
+        # the effect
+        
+        # Compare bottom of last item with content area bounds.
+        # If not visible or greater than content area, show the scroll bar
+        # We have to account for potential width of scrollbars to prevent
+        # shimmering
+        if {[tarray::column::size $_item_ids] == 0} {
+            grid remove $sb
+        } else {
+            set bbox [$_treectrl bbox content]
+            set item_bbox [$_treectrl item bbox [tarray::column::index $_item_ids end]]
+            if {$sb eq "$win.hscroll"} {
+                set item_bound [lindex $item_bbox 2]
+                if {$item_bound ne ""} {
+                    set content_bound [lindex $bbox 2]
+                    # It appears as though avoiding shimmering only
+                    # requires one of the scroll bar widths to be compensated
+                    # So don't bother with the vertical scroll width when
+                    # calculating horizontal scrolls. If shimmering
+                    # is still found to happen, might try enabling this as well.
+                    if {0} {
+                        set scroll_size [winfo width $win.vscroll]
+                    } else {
+                        set scroll_size 0
+                    }
+                }
+            } else {
+                set item_bound [lindex $item_bbox 3]
+                if {$item_bound ne ""} {
+                    set content_bound [lindex $bbox 3]
+                    set scroll_size [winfo height $win.hscroll]
+                }
+            }
+            if {$item_bound eq "" || ($item_bound+$scroll_size) > $content_bound} {
+                # Last item not visible or partially visible
+                grid $sb
+            } else {
+                grid remove $sb
+            }
+        }
+        
         $sb set $first $last
         return
     }
@@ -868,17 +929,28 @@ snit::widgetadaptor tarray::ui::tableview {
         }
         return 0
     }
-    
-    method _first_display_item {} {
-        # Note item id 0 is that of the implicit root item
-        if {[scan [$_treectrl bbox content] "%d %d" x y] == 2} {
-            set id [$_treectrl item id [list nearest $x $y]]
-            if {$id ne ""} {
-                return $id
+
+    # Item ids of the first and last items actually displayed
+    method _display_item_bounds {} {
+        # Note item id 0 is that of the implicit root item so returning
+        # 0 means empty table or too small to display any rows
+        set top_id 0
+        set bot_id 0
+        if {[scan [$_treectrl bbox content] "%d %d %d %d" left top right bottom] == 4} {
+            set top_id [$_treectrl item id [list nearest $left $top]]
+            if {$top_id eq ""} {
+                set top_id 0
+            }
+            set bot_id [$_treectrl item id [list nearest $right $bottom]]
+            if {$bot_id eq ""} {
+                set bot_id 0
             }
         }
-        # Empty -> No items in table
-        return 0
+        return [list $top_id $bot_id]
+    }
+
+    method _first_display_item {} {
+        return [lindex [$self _display_item_bounds] 0]
     }
         
     ###
