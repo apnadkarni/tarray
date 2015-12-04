@@ -35,7 +35,7 @@ snit::widgetadaptor tarray::ui::dataview {
 
     option -undefinedfiltertext -default "<Filter>"
 
-    option -showfilter -default 0 -configuremethod _setshowfilter
+    option -showfilter -default 0 -configuremethod SetShowFilter
 
     # TBD sort order 
     option -defaultsortorder -default "-increasing"
@@ -98,15 +98,15 @@ snit::widgetadaptor tarray::ui::dataview {
 
         $_treectrl header create -tags H2
 
-        $_treectrl notify bind $_treectrl <ItemVisibility> [mymethod _visibilityhandler %h %v]
-        $_treectrl notify bind $_treectrl <Selection> [mymethod _selecthandler %D %S ]
-        bind $_treectrl <Motion> [mymethod _motionhandler %x %y]
-        # See comments in _leavehandler as to why this is commented out
-        # bind $_treectrl <Leave> [mymethod _leavehandler %x %y]
+        $_treectrl notify bind $_treectrl <ItemVisibility> [mymethod <ItemVisibility> %h %v]
+        $_treectrl notify bind $_treectrl <Selection> [mymethod <Selection> %D %S ]
+        bind $_treectrl <Motion> [mymethod <Motion> %x %y]
+        # See comments in <Leave> as to why this is commented out
+        # bind $_treectrl <Leave> [mymethod <Leave> %x %y]
         # The following binding is needed because we removed the one above
         # else if you exit exactly where the tooltip was displayed
         # and reenter at the same point the tooltip is not displayed.
-        # bind $_treectrl <Enter> [mymethod _cancel_tooltip]
+        # bind $_treectrl <Enter> [mymethod CancelTooltip]
 
         # Define the filter header row
         $_treectrl element create h2Elem text -lines 1 -justify left  -statedomain header -fill blue
@@ -117,12 +117,12 @@ snit::widgetadaptor tarray::ui::dataview {
         ttk::scrollbar $win.vscroll \
             -orient vertical \
             -command "$_treectrl yview" 
-	$_treectrl notify bind $win.vscroll <Scroll-y> [mymethod _position_scrollbar %W %l %u]
+	$_treectrl notify bind $win.vscroll <Scroll-y> [mymethod PositionScrollbar %W %l %u]
 	bind $win.vscroll <ButtonPress-1> "focus $_treectrl"
         ttk::scrollbar $win.hscroll \
             -orient horizontal \
             -command "$_treectrl xview" 
-	$_treectrl notify bind $win.hscroll <Scroll-x> [mymethod _position_scrollbar %W %l %u]
+	$_treectrl notify bind $win.hscroll <Scroll-x> [mymethod PositionScrollbar %W %l %u]
 	bind $win.hscroll <ButtonPress-1> "focus $_treectrl"
          
         grid columnconfigure $win 0 -weight 1
@@ -141,8 +141,8 @@ snit::widgetadaptor tarray::ui::dataview {
         bind $_treectrl <Control-a> [list %W selection add all]
 
         # Standard mouse bindings
-        bind $_treectrl <Double-1> [mymethod _dblclickhandler %x %y %X %Y]
-        bind $_treectrl <ButtonPress-3> [mymethod _rightclickhandler %x %y %X %Y]
+        bind $_treectrl <Double-1> [mymethod <Double-1> %x %y %X %Y]
+        bind $_treectrl <ButtonPress-3> [mymethod <ButtonPress-3> %x %y %X %Y]
         # Create the background element used for coloring
         # TBD set sel_color [get_theme_setting bar frame normal bg]
         set sel_color blue
@@ -195,14 +195,14 @@ snit::widgetadaptor tarray::ui::dataview {
         $self configurelist $args
         
         $_treectrl notify install <Header-invoke>
-        $_treectrl notify bind MyHeaderTag <Header-invoke> [mymethod _headerhandler %H %C]
+        $_treectrl notify bind MyHeaderTag <Header-invoke> [mymethod <Header-invoke> %H %C]
 
         $_treectrl notify install <ColumnDrag-begin>
         $_treectrl notify install <ColumnDrag-end>
         $_treectrl notify install <ColumnDrag-indicator>
         $_treectrl notify install <ColumnDrag-receive>
 
-        $_treectrl notify bind MyHeaderTag <ColumnDrag-receive> [mymethod _column_move_handler %C %b]
+        $_treectrl notify bind MyHeaderTag <ColumnDrag-receive> [mymethod <ColumnDrag-receive> %C %b]
 
         $_treectrl header dragconfigure -enable yes
         $_treectrl header dragconfigure all -enable yes -draw yes
@@ -222,7 +222,7 @@ snit::widgetadaptor tarray::ui::dataview {
             error "Invalid syntax. Must be \"$win setrows ROW_IDS ?-sortcolumn COLNAME? ?-sortorder -increasing|-decreasing? ?-filters FILTERDICT?\""
         }
 
-        $self _save_display_state; # Want to preserve selections etc.
+        $self SaveDisplayState; # Want to preserve selections etc.
 
         #_row_ids may be a column or a list
         set _row_ids [tarray::column::create int $row_ids]
@@ -251,14 +251,14 @@ snit::widgetadaptor tarray::ui::dataview {
             }
         }
 
-        $self _update_sort_indicators $sort_column $sort_order
-        $self _update_filter_indicators $filters
+        $self UpdateSortIndicators $sort_column $sort_order
+        $self UpdateFilterIndicators $filters
         
-        $self _restore_display_state
+        $self RestoreDisplayState
         return
     }
 
-    method _update_sort_indicators {cname order} {
+    method UpdateSortIndicators {cname order} {
         # Reset the existing arrow indicator on the sort column
         if {$_sort_column ne ""} {
             $_treectrl column configure [$self column_name_to_id $_sort_column] -arrow none -itembackground {}
@@ -279,7 +279,7 @@ snit::widgetadaptor tarray::ui::dataview {
     }
 
     # From sbset at http://wiki.tcl.tk/950
-    method _position_scrollbar {sb first last} {
+    method PositionScrollbar {sb first last} {
         if {0} {
             Gets infinite loop due to infighting between horizontal and
             vertical scrollbars even on Windows
@@ -293,7 +293,7 @@ snit::widgetadaptor tarray::ui::dataview {
         if {0} {
             This does not work because the last item may not be fully
             visible but scroll bars do not show up
-            lassign [$self _display_item_bounds] top_item bot_item
+            lassign [$self DisplayItemBounds] top_item bot_item
             if {$top_item == 0 ||
                 ($top_item == [tarray::column::index $_item_ids 0] &&
                  $bot_item == [tarray::column::index $_item_ids end])} {
@@ -357,7 +357,7 @@ snit::widgetadaptor tarray::ui::dataview {
         return $_treectrl
     }
 
-    method _rightclickhandler {winx winy screenx screeny} {
+    method <ButtonPress-3> {winx winy screenx screeny} {
         if {$options(-rightclickcommand) ne ""} {
             lassign [$_treectrl identify $winx $winy] type item_id col_id
             if {$type eq "" || $type eq "item"} {
@@ -366,17 +366,17 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
 
-    method _dblclickhandler {winx winy screenx screeny} {
+    method <Double-1> {winx winy screenx screeny} {
         if {$options(-pickcommand) ne ""} {
             lassign [$_treectrl identify $winx $winy] type item_id col_id
             if {$type eq "item"} {
-                set id [$self _item_to_row_id $item_id]
+                set id [$self ItemToRowId $item_id]
                 uplevel #0 [linsert $options(-pickcommand) end $id $item_id $col_id $winx $winy $screenx $screeny]
             }
         }
     }
 
-    method _headerhandler {hdr_id col_id} {
+    method <Header-invoke> {hdr_id col_id} {
         if {$hdr_id == 0} {
             set colname [$self column_id_to_name $col_id]
             if {![dict get $_columns $colname Sortable]} {
@@ -388,15 +388,15 @@ snit::widgetadaptor tarray::ui::dataview {
             } else {
                 set order -increasing
             }
-            $self _sort $colname $order
+            $self Sort $colname $order
         } elseif {$hdr_id == 1} {
             #event generate $win <<FilterSelect>> -data [$self column_id_to_name $col_id]
-            $self _editfilter [$self column_id_to_name $col_id]
+            $self OpenEditFilter [$self column_id_to_name $col_id]
         }
         return
     }
 
-    method _cancel_tooltip {} {
+    method CancelTooltip {} {
         if {[winfo exists $win.tooltip]} {
             wm withdraw $win.tooltip
         }
@@ -409,16 +409,16 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
 
-    method _schedule_tooltip {item column winx winy} {
-        $self _cancel_tooltip;  # Cancel pending tooltip if any
+    method ScheduleTooltip {item column winx winy} {
+        $self CancelTooltip;  # Cancel pending tooltip if any
         set _tooltip_state(item) $item
         set _tooltip_state(column) $column
         set _tooltip_state(winx) $winx
         set _tooltip_state(winy) $winy
-        set _tooltip_state(schedule_id) [after 100 [mymethod _show_tooltip]]
+        set _tooltip_state(schedule_id) [after 100 [mymethod ShowTooltip]]
     }
 
-    method _show_tooltip {} {
+    method ShowTooltip {} {
         # Called back from event loop
         set _tooltip_state(schedule_id) -1
 
@@ -459,8 +459,8 @@ snit::widgetadaptor tarray::ui::dataview {
             label $win.tooltip.l -background [$_treectrl cget -background] -relief solid -borderwidth 1 -padx 4 -pady 0
             # We are showing tooltips ABOVE the row now so if mouse
             # enters the tooltip, it means the row is not being hovered
-            #bind $win.tooltip <Enter> [mymethod _cancel_tooltip]
-            bind $win.tooltip <Enter> [mymethod _proxymouse Enter "" %X %Y]
+            #bind $win.tooltip <Enter> [mymethod CancelTooltip]
+            bind $win.tooltip <Enter> [mymethod ProxyMouse Enter "" %X %Y]
 
             # Bind mouse clicks so they get passed on to parent frame
             foreach event {
@@ -469,7 +469,7 @@ snit::widgetadaptor tarray::ui::dataview {
                 Control-Button
                 Double-Button
             } {
-                bind $win.tooltip <$event> [mymethod _proxymouse $event %b %X %Y]
+                bind $win.tooltip <$event> [mymethod ProxyMouse $event %b %X %Y]
             }
             bind $win.tooltip <MouseWheel> "event generate $_treectrl <MouseWheel> -delta %D"
             
@@ -484,7 +484,7 @@ snit::widgetadaptor tarray::ui::dataview {
         raise $win.tooltip
     }
 
-    method _proxymouse {event button screenx screeny} {
+    method ProxyMouse {event button screenx screeny} {
 
         if {$_tooltip_state(item) == -1} {
             return;             # Cannot happen, can it ?
@@ -495,7 +495,7 @@ snit::widgetadaptor tarray::ui::dataview {
         set winx  $_tooltip_state(winx); # Save before cancel
         set winy  $_tooltip_state(winy); # Save before cancel
 
-        $self _cancel_tooltip
+        $self CancelTooltip
         focus $_treectrl
         switch -exact -- "$event-$button" {
             Enter- {
@@ -536,11 +536,11 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
 
-    method _motionhandler {x y} {
+    method <Motion> {x y} {
         $_treectrl identify -array pos $x $y
         if {$pos(where) ne "item" || $pos(column) eq ""} {
             # Mouse moved out of an item - cancel tooltip state
-            $self _cancel_tooltip
+            $self CancelTooltip
             return
         }
 
@@ -548,7 +548,7 @@ snit::widgetadaptor tarray::ui::dataview {
         # the request
         if {$pos(item) != $_tooltip_state(item) ||
             $pos(column) != $_tooltip_state(column)} {
-            $self _schedule_tooltip $pos(item) $pos(column) $x $y
+            $self ScheduleTooltip $pos(item) $pos(column) $x $y
             return
         }
 
@@ -556,13 +556,13 @@ snit::widgetadaptor tarray::ui::dataview {
         return
     }
 
-    method _leavehandler {x y} {
+    method <Leave> {x y} {
         # We used to bind the treectrl to <Leave> so the tooltip could
         # be removed. However, this had the problem that displaying the
         # tooltip would also generate a <Leave> causing the handler
         # to immediately cancel it. So we now bind to the tooltip
         # <Leave> handler to withdraw the tooltip.
-        #        $self _cancel_tooltip
+        #        $self CancelTooltip
     }
 
 
@@ -669,13 +669,13 @@ snit::widgetadaptor tarray::ui::dataview {
         }
 
         # Build the secondary table header
-        $self _update_filter_indicators $_filters
+        $self UpdateFilterIndicators $_filters
     }
 
     ###
     # Methods for modifying view
     
-    method _initrow {item {row {}}} {
+    method InitRow {item {row {}}} {
         $_treectrl item style set $item {*}$_item_style_phrase
 
         if {[llength $row]} {
@@ -771,9 +771,9 @@ snit::widgetadaptor tarray::ui::dataview {
         # TBD - handling of selection - a selection event is generated
         #   need to handle that and remove from selection
         
-        set first_item [$self _first_display_item]
+        set first_item [$self FirstDisplayItem]
         if {$first_item > 0} {
-            set first_rindex [$self _item_to_rindex $first_item]
+            set first_rindex [$self ItemToRowIndex $first_item]
         } else {
             set first_rindex -1
         }
@@ -812,11 +812,11 @@ snit::widgetadaptor tarray::ui::dataview {
     ###
     # Tracking of items actually displayed
 
-    method _get_data {row_id} {
+    method GetData {row_id} {
         return [{*}$_datasource get $row_id $_column_order]
     }
     
-    method _visibilityhandler {invisible visible} {
+    method <ItemVisibility> {invisible visible} {
         if {[llength $invisible]} {
             #TBD - delete styles and text from elements ?
             $_treectrl item tag remove [list "list" $invisible] tv-displayed
@@ -826,25 +826,25 @@ snit::widgetadaptor tarray::ui::dataview {
             $_treectrl item tag add [list "list" $visible] tv-displayed
             foreach item $visible {
                 lassign [$_treectrl item rnc $item] row_index col_index
-                $self _initrow $item [$self _get_data [tarray::column index $_row_ids $row_index]]
+                $self InitRow $item [$self GetData [tarray::column index $_row_ids $row_index]]
             }
         }
     }
 
-    method _displayed_items {} {
+    method DisplayedItems {} {
         return [$_treectrl item id {tag tv-displayed}]
     }
     
-    method _save_display_state {} {
+    method SaveDisplayState {} {
         set _display_state [dict create]
-        set item_id [$self _first_display_item]
+        set item_id [$self FirstDisplayItem]
         if {$item_id > 0} {
-            dict set _display_state display_top [$self _item_to_row_id $item_id]
+            dict set _display_state display_top [$self ItemToRowId $item_id]
         }
         foreach item {active anchor} {
             set item_id [$_treectrl item id $item]
             if {$item_id > 0} {
-                dict set _display_state $item [$self _item_to_row_id $item_id]
+                dict set _display_state $item [$self ItemToRowId $item_id]
             }
         }
         set selection [$self getselected]
@@ -853,10 +853,10 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
     
-    method _restore_display_state {} {
+    method RestoreDisplayState {} {
         $_treectrl selection clear
         if {[dict exists $_display_state anchor]} {
-            set item [$self _row_id_to_item [dict get $_display_state anchor]]
+            set item [$self RowIdToItem [dict get $_display_state anchor]]
             if {$item != 0} {
                 $_treectrl selection anchor $item
             }
@@ -864,7 +864,7 @@ snit::widgetadaptor tarray::ui::dataview {
         
         if {[dict exists $_display_state selection]} {
             set items [lmap rid [dict get $_display_state selection] {
-                set item [$self _row_id_to_item $rid]
+                set item [$self RowIdToItem $rid]
                 if {$item == 0} continue
                 set item
             }]
@@ -874,7 +874,7 @@ snit::widgetadaptor tarray::ui::dataview {
         }
         
         if {[dict exists $_display_state active]} {
-            set item [$self _row_id_to_item [dict get $_display_state active]]
+            set item [$self RowIdToItem [dict get $_display_state active]]
             if {$item != 0} {
                 $_treectrl activate $item
             }
@@ -887,7 +887,7 @@ snit::widgetadaptor tarray::ui::dataview {
             # although the same commands typed into the console work.
             if {[dict exists $_display_state display_top]} {
                 if {1} {
-                    set rindex [$self _row_id_to_rindex [dict get $_display_state display_top]]
+                    set rindex [$self RowIdToRowIndex [dict get $_display_state display_top]]
                     if {$rindex >= 0} {
                         $_treectrl yview moveto 0.0
                         $_treectrl yview scroll $rindex units
@@ -895,7 +895,7 @@ snit::widgetadaptor tarray::ui::dataview {
                 } else {
                     # This does not work as well as above if the row
                     # happens to be already displayed in the middle
-                    set item [$self _row_id_to_item [dict get $_display_state display_top]]
+                    set item [$self RowIdToItem [dict get $_display_state display_top]]
                     if {$item != 0} {
                         $_treectrl see $item
                     }
@@ -909,19 +909,19 @@ snit::widgetadaptor tarray::ui::dataview {
     # Map row ids/item ids/row indices
     method rowids {} {return [tarray::column range -list $_row_ids 0 end]}
 
-    method _item_to_rindex {item_id} {
+    method ItemToRowIndex {item_id} {
         return [lindex [$_treectrl item rnc $item_id] 0]
     }
                 
-    method _item_to_row_id {item_id} {
-        return [tarray::column index $_row_ids [$self _item_to_rindex $item_id]]
+    method ItemToRowId {item_id} {
+        return [tarray::column index $_row_ids [$self ItemToRowIndex $item_id]]
     }
     
-    method _row_id_to_rindex {rid} {
+    method RowIdToRowIndex {rid} {
         return [tarray::column::search $_row_ids $rid]
     }
     
-    method _row_id_to_item {rid} {
+    method RowIdToItem {rid} {
         # 0 -> not found
         set rindex [tarray::column::search $_row_ids $rid]
         if {$rindex >= 0} {
@@ -931,7 +931,7 @@ snit::widgetadaptor tarray::ui::dataview {
     }
 
     # Item ids of the first and last items actually displayed
-    method _display_item_bounds {} {
+    method DisplayItemBounds {} {
         # Note item id 0 is that of the implicit root item so returning
         # 0 means empty table or too small to display any rows
         set top_id 0
@@ -949,14 +949,14 @@ snit::widgetadaptor tarray::ui::dataview {
         return [list $top_id $bot_id]
     }
 
-    method _first_display_item {} {
-        return [lindex [$self _display_item_bounds] 0]
+    method FirstDisplayItem {} {
+        return [lindex [$self DisplayItemBounds] 0]
     }
         
     ###
     # Selection handling
     
-    method _selecthandler {removedselections newselections} {
+    method <Selection> {removedselections newselections} {
         # Set the state for each column for the selected items to show
         # selection highlighting. Note we do not bother with the 
         # removedselections items. They can keep their state settings
@@ -977,7 +977,7 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
 
-    method _getselecteditems {} {
+    method GetSelectedItems {} {
         # Returns the list of currently selected item ids in the order they
         # are displayed
 
@@ -1005,8 +1005,8 @@ snit::widgetadaptor tarray::ui::dataview {
         # return items in displayed order. So we have to sort that out
         # ourselves.
         set row_ids {}
-        foreach item [$self _getselecteditems] {
-            lappend row_ids [$self _item_to_row_id $item]
+        foreach item [$self GetSelectedItems] {
+            lappend row_ids [$self ItemToRowId $item]
         }
         return $row_ids
     }
@@ -1022,7 +1022,7 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
 
-    method _sort {cname order} {
+    method Sort {cname order} {
         if {$_sort_column eq $cname && $_sort_order eq $order} {
             return
         }
@@ -1032,20 +1032,20 @@ snit::widgetadaptor tarray::ui::dataview {
 
     ###
     # Filtering code
-    method _update_filter_indicators {filters} {
+    method UpdateFilterIndicators {filters} {
         # TBD - does setting of style have to be done every time?
         $_treectrl header style set H2 all h2Style
         set _filters $filters
         
         foreach cname [dict keys $_columns] {
-            $self _update_column_filter_indicator $cname
+            $self UpdateColumnFilterIndicator $cname
         }
         
         # TBD - does this have to be done every time?
         $_treectrl header configure H2 -visible $options(-showfilter)
     }
 
-    method _update_column_filter_indicator cname {
+    method UpdateColumnFilterIndicator cname {
         set cid [dict get $_columns $cname Id]
         if {[dict exists $_filters $cname]} {
             $_treectrl header text H2 $cid [dict get $_filters $cname]
@@ -1054,36 +1054,36 @@ snit::widgetadaptor tarray::ui::dataview {
         }
     }
     
-    method _setfiltervalues {opt val} {
+    method SetFilterValues {opt val} {
         TBD
         dict size $val;         # Verify valid dictionary
         set options($opt) $val
         if {$_constructed} {
-            $self _update_filter_indicators {}
+            $self UpdateFilterIndicators {}
         }
     }
 
-    method _setshowfilter {opt val} {
+    method SetShowFilter {opt val} {
         $_treectrl header configure H2 -visible $val
         set options($opt) $val
     }
 
-    method _getfilterbbox {colname} {
+    method GetFilterBbox {colname} {
         set bbox [$_treectrl header bbox H2 [dict get $_columns $colname Id]]
     }
 
-    method _editfilter {colname} {
+    method OpenEditFilter {colname} {
         set _filter_column_being_edited $colname
-        lassign [$self _getfilterbbox $colname] left top right bottom
+        lassign [$self GetFilterBbox $colname] left top right bottom
 
         set e $win.fedit
         if {![winfo exists $e]} {
             ttk::entry $e -font [$self cget -font] -text abc
-            bind $e <Return> [mymethod _closeeditfilter %W save]
-            bind $e <Tab> [mymethod _closeeditfilter %W saveandnext]
-            bind $e <Shift-Tab> [mymethod _closeeditfilter %W saveandprev]
-            bind $e <FocusOut> [mymethod _closeeditfilter %W save]
-            bind $e <Escape> [mymethod _closeeditfilter %W discard]
+            bind $e <Return> [mymethod CloseEditFilter %W save]
+            bind $e <Tab> [mymethod CloseEditFilter %W saveandnext]
+            bind $e <Shift-Tab> [mymethod CloseEditFilter %W saveandprev]
+            bind $e <FocusOut> [mymethod CloseEditFilter %W save]
+            bind $e <Escape> [mymethod CloseEditFilter %W discard]
             # TBD bind $e <KeyRelease-F1> [myproc _balloonpopup $e true]
         }
         place $e -x $left -y $top -width [expr {$right-$left}] -height [expr {$bottom-$top}]
@@ -1095,7 +1095,7 @@ snit::widgetadaptor tarray::ui::dataview {
         # TBD after 0 [myproc _balloonpopup $e]
     }
 
-    method _closeeditfilter {entry action} {
+    method CloseEditFilter {entry action} {
         if {$_filter_column_being_edited eq "" || ![winfo exists $entry]} {
             return
         }
@@ -1117,7 +1117,7 @@ snit::widgetadaptor tarray::ui::dataview {
             } else {
                 dict set _filters $filter_col $newcondition
             }
-            $self _update_column_filter_indicator $filter_col
+            $self UpdateColumnFilterIndicator $filter_col
             event generate $win <<FilterChange>> -data [list $filter_col $newcondition]
             # See if we need to tab into the next/prev filter
             # TBD - make sure the setrows does not cover the new edit box when
@@ -1134,13 +1134,13 @@ snit::widgetadaptor tarray::ui::dataview {
                         incr colnum -1
                     }
                 }
-                after 0 [list $self _editfilter [lindex $_column_order $colnum]]
+                after 0 [list $self OpenEditFilter [lindex $_column_order $colnum]]
             }
         }
         return
     }
     
-    method _column_move_handler {col_id target_id} {
+    method <ColumnDrag-receive> {col_id target_id} {
 
         $_treectrl column move $col_id $target_id
         set _column_order [lmap col_id [$_treectrl column list] {
@@ -1199,9 +1199,9 @@ oo::class create tarray::ui::Table {
 
         set _w $w
         tarray::ui::dataview $w [self] $_coldefs {*}$options
-        bind $w <<SortColumn>> [list [self] sort_handler %d]
+        bind $w <<SortColumn>> [list [self] <<SortColumn>> %d]
         bind $w <Destroy> [list [self] destroy]
-        bind $w <<FilterChange>> [list [self] filter_change_handler %d]
+        bind $w <<FilterChange>> [list [self] <<FilterChange>> %d]
         my update_data 
     }
 
@@ -1212,7 +1212,7 @@ oo::class create tarray::ui::Table {
         return
     }
     
-    method sort_handler {cname_and_order} {
+    method <<SortColumn>> {cname_and_order} {
         lassign $cname_and_order cname order
         if {$cname eq "" ||
             ($cname eq $_sort_column && $order eq $_sort_order)} {
@@ -1222,12 +1222,13 @@ oo::class create tarray::ui::Table {
         set _sort_column $cname
         set _sort_order $order
         
-        my _sort
+        my Sort
         my update_data
         return
     }
+    export <<SortColumn>>
 
-    method _sort {} {
+    method Sort {} {
         # We cannot use table::sort here because
         # we only want to (potentially) sort a subset of the table since
         # displayed rows may not be the full table if filtering is
@@ -1242,7 +1243,7 @@ oo::class create tarray::ui::Table {
 
     method widget {} { return $_w }
 
-    method _parse_filter {cname cond} {
+    method ParseFilter {cname cond} {
 
         set cond [string trim $cond]
         if {$cond eq ""} {
@@ -1277,7 +1278,7 @@ oo::class create tarray::ui::Table {
     method update_column_filter {cname cond} {
 
         # Parse the string into an "executable" form
-        lassign [my _parse_filter $cname $cond] oper arg cond
+        lassign [my ParseFilter $cname $cond] oper arg cond
         
         # First, special cases:
 
@@ -1350,11 +1351,11 @@ oo::class create tarray::ui::Table {
 
         set _filters $new_filters
         set _filter_strings $new_filter_strings
-        my _sort;               # Need to resort after filtering
+        my Sort;               # Need to resort after filtering
         my update_data
     }
 
-    method _commit_filters {filters filter_strings rids} {
+    method CommitFilters {filters filter_strings rids} {
         set _filters $filters
         set _filter_strings $filter_strings
         set _row_ids $rids
@@ -1362,7 +1363,7 @@ oo::class create tarray::ui::Table {
         return
     }
     
-    method filter_change_handler {cname_and_cond} {
+    method <<FilterChange>> {cname_and_cond} {
         if {[catch {
             lassign $cname_and_cond cname cond
             my update_column_filter $cname $cond
@@ -1373,6 +1374,7 @@ oo::class create tarray::ui::Table {
             bgerror $msg\n$::errorInfo
         }
     }
+    export <<FilterChange>>
     
     method update_data {} {
         $_w setrows $_row_ids -sortcolumn $_sort_column -sortorder $_sort_order -filters $_filter_strings
