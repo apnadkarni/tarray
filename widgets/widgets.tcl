@@ -624,6 +624,10 @@ snit::widget tarray::ui::dataview {
         $self UpdateFilterIndicators $_filters
     }
 
+    method getcolumnorder {} {
+        return $_column_order
+    }
+    
     ###
     # Methods related to data
     
@@ -1197,7 +1201,7 @@ oo::class create tarray::ui::Table {
         set sel [$_w getselected]
         set text {}
         if {[llength $sel]} {
-            foreach row [tarray::table get -list $_data $sel] {
+            foreach row [tarray::table get -columns [$_w getcolumnorder] -list $_data $sel] {
                 append text [join $row \t]\n
             }
             clipboard clear -displayof $w
