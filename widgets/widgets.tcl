@@ -13,9 +13,15 @@ snit::widget tarray::ui::dataview {
     hulltype ttk::frame
     
     ### Type constructor
-
+    typevariable _select_foreground
+    typevariable _select_background
     typeconstructor {
         setup_nspath
+        set l .selcolorpicker
+        listbox $l
+        set _select_foreground [$l cget -selectforeground]
+        set _select_background [$l cget -selectbackground]
+        destroy $l
     }
 
     option -undefinedfiltertext -default "<Filter>"
@@ -25,9 +31,12 @@ snit::widget tarray::ui::dataview {
     option -defaultsortorder -default "-increasing"
 
     component _treectrl
-    delegate method * to _treectrl
-    delegate option * to _treectrl
-
+    
+    #delegate method * to _treectrl
+    #delegate option * to _treectrl
+    delegate option -yscrolldelay to _treectrl
+    delegate option -xscrolldelay to _treectrl
+    
     variable _datasource
     
     variable _constructed 0
@@ -123,7 +132,7 @@ snit::widget tarray::ui::dataview {
         bind $_treectrl <ButtonPress-3> [mymethod ProxyMouseClicks <<ItemRightClick>> %x %y]
         # Create the background element used for coloring
         $_treectrl gradient create gradientSelected \
-            -stops [list [list 0.0 SystemHighlight 0.5] [list 1.0 SystemHighlight 0.0]] \
+            -stops [list [list 0.0 $_select_background 0.5] [list 1.0 $_select_background 0.0]] \
             -orient vertical
 
         # Define states used to control selection highlighting - which
@@ -131,7 +140,6 @@ snit::widget tarray::ui::dataview {
         $_treectrl state define openW
         $_treectrl state define openE
         $_treectrl state define openWE
-
         
         # Do we show plain selection highlighting or a gradient-based
         # fancy one ? Right now use plain version. If switching to fancy
@@ -140,7 +148,8 @@ snit::widget tarray::ui::dataview {
         # they are moved (ie openWE etc. state assignments). Same
         # is true if we specify an outline color.
         set gradient_select 0
-        set sel_color [color::shade SystemHighlight white 0.7]
+        #set sel_color [color::shade $_select_background white 0.7]
+        set sel_color $_select_background
         set sel_color_nofocus lightgray
         if {$gradient_select} {
             $_treectrl element create bgElem rect \
@@ -158,7 +167,7 @@ snit::widget tarray::ui::dataview {
                 $_treectrl element create bgElem rect \
                     -fill [list $sel_color {selected focus} $sel_color_nofocus {selected !focus}] \
                     -open [list we openWE w openW e openE] \
-                    -outline [list SystemHighlight selected]  -rx 0 \
+                    -outline [list $_select_background selected]  -rx 0 \
                     -outlinewidth $outlinewidth
             } else {
                 # Note - -outlinewidth has to be 1 here else only one
@@ -1044,22 +1053,27 @@ snit::widget tarray::ui::dataview {
         lassign [$self GetFilterBbox $colname] left top right bottom
 
         set e $win.fedit
+        set t $win.ftip
         if {![winfo exists $e]} {
-            ttk::entry $e -font [$self cget -font] -text abc
+            ttk::entry $e -font [$_treectrl cget -font] -text abc
             bind $e <Return> [mymethod CloseEditFilter %W save]
             bind $e <Tab> [mymethod CloseEditFilter %W saveandnext]
             bind $e <Shift-Tab> [mymethod CloseEditFilter %W saveandprev]
             bind $e <FocusOut> [mymethod CloseEditFilter %W save]
             bind $e <Escape> [mymethod CloseEditFilter %W discard]
-            # TBD bind $e <KeyRelease-F1> [myproc _balloonpopup $e true]
+            bind $e <Key> "+[list place forget $t]"
+            label $t -text "Press F1 for filter help" -bg [$_treectrl cget -background] -borderwidth 1 -relief solid
         }
+        # Bind here, not at create time because column name would change
+        bind $e <F1> [list event generate $win <<FilterHelp>> -data [list entry $e column $colname]]
         place $e -x $left -y $top -width [expr {$right-$left}] -height [expr {$bottom-$top}]
         $e delete 0 end
         if {[dict exists $_filters $_filter_column_being_edited]} {
             $e insert 0 [dict get $_filters $_filter_column_being_edited]
         }
         focus $e
-        # TBD after 0 [myproc _balloonpopup $e]
+        place $t -x $left -y $bottom
+        after 2000 [list place forget $t]
     }
 
     method CloseEditFilter {entry action} {
@@ -1070,8 +1084,6 @@ snit::widget tarray::ui::dataview {
         if {[focus] eq ""} {
             return
         }
-
-        # TBD _balloonburst
 
         set filter_col $_filter_column_being_edited
         set _filter_column_being_edited ""
