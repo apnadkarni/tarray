@@ -113,8 +113,10 @@ snit::widget tarray::ui::dataview {
         grid remove $win.hscroll
         grid remove $win.vscroll
 
-        # Bind to select all
-        bind $_treectrl <Control-a> [list %W selection add all]
+        # Bind standard virtual events
+        bind $_treectrl <<SelectAll>> [list %W selection add all]
+        bind $_treectrl <<Copy>> [list event generate $win <<Copy>>]
+        bind $_treectrl <<Cut>> [list event generate $win <<Cut>>]
 
         # Standard mouse bindings
         bind $_treectrl <Double-1> [mymethod ProxyMouseClicks <<ItemDoubleClick>> %x %y]
@@ -1180,6 +1182,7 @@ oo::class create tarray::ui::Table {
         bind $w <<SortColumn>> [list [self] <<SortColumn>> %d]
         bind $w <Destroy> [list [self] destroy]
         bind $w <<FilterChange>> [list [self] <<FilterChange>> %d]
+        bind $w <<Copy>> [list [self] <<Copy>> %W]
         my update_data 
     }
 
@@ -1189,6 +1192,20 @@ oo::class create tarray::ui::Table {
         }
         return
     }
+    
+    method <<Copy>> {w} {
+        set sel [$_w getselected]
+        set text {}
+        if {[llength $sel]} {
+            foreach row [tarray::table get -list $_data $sel] {
+                append text [join $row \t]\n
+            }
+            clipboard clear -displayof $w
+            clipboard append -displayof $w $text
+        }
+        return
+    }
+    export <<Copy>>
     
     method <<SortColumn>> {cname_and_order} {
         lassign $cname_and_order cname order
