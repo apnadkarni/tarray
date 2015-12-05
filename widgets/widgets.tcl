@@ -9,9 +9,9 @@ namespace eval tarray::ui {
     }
 }
 
-# TBD - why is this a widgetadaptor and not a widget?
-snit::widgetadaptor tarray::ui::dataview {
-
+snit::widget tarray::ui::dataview {
+    hulltype ttk::frame
+    
     ### Type constructor
 
     typeconstructor {
@@ -62,9 +62,9 @@ snit::widgetadaptor tarray::ui::dataview {
     variable _filter_column_being_edited
     
     constructor {datasource coldefs args} {
+        $hull configure -borderwidth 0
+        
         set _datasource $datasource
-
-        installhull using ttk::frame -borderwidth 0
 
         install _treectrl using treectrl $win.tbl \
             -highlightthickness 1 \
@@ -83,12 +83,6 @@ snit::widgetadaptor tarray::ui::dataview {
         $_treectrl notify bind $_treectrl <ItemVisibility> [mymethod <ItemVisibility> %h %v]
         $_treectrl notify bind $_treectrl <Selection> [mymethod <Selection> %D %S ]
         bind $_treectrl <Motion> [mymethod <Motion> %x %y]
-        # See comments in <Leave> as to why this is commented out
-        # bind $_treectrl <Leave> [mymethod <Leave> %x %y]
-        # The following binding is needed because we removed the one above
-        # else if you exit exactly where the tooltip was displayed
-        # and reenter at the same point the tooltip is not displayed.
-        # bind $_treectrl <Enter> [mymethod CancelTooltip]
 
         # Define the filter header row
         $_treectrl element create h2Elem text -lines 1 -justify left  -statedomain header -fill blue
