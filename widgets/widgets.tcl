@@ -9,6 +9,8 @@ namespace eval tarray::ui {
     }
 }
 
+# Provide a unmanaged toplevel with basic functionality like a close button
+# and ability to drag using the title bar.
 snit::widget tarray::ui::unmanaged {
     hulltype toplevel
 
@@ -1477,7 +1479,7 @@ oo::class create tarray::ui::Table {
             pack $l -expand 1 -fill both
         }
         #TBD - place the window
-        after 0 after idle [list tarray::ui::place_window $_filter_help_w [dict get $info entry]]
+        after 0 [list after idle [list tarray::ui::place_window $_filter_help_w [dict get $info entry] {right left top bottom}]]
         raise $_filter_help_w
     }
     export <<FilterHelp>>
@@ -1532,7 +1534,7 @@ proc tarray::ui::center_window {w} {
     wm deiconify $w
 }
 
-proc tarray::ui::place_window {w target {side ""}} {
+proc tarray::ui::place_window {w target {side center}} {
     update idletasks
 
     # TBD update idletasks needed ?
@@ -1550,19 +1552,27 @@ proc tarray::ui::place_window {w target {side ""}} {
     set wreqwidth [winfo reqwidth $w]
     set wreqheight [winfo reqheight $w]
 
-
-    if {$side ni {center centre top bottom left right}} {
-        # Place above if possible, else below
-        if {$wheight < $targety} {
-            # Enough room above the widget
-            set side top
-        } elseif {($targety + $targetheight + $wheight) < $screeny} {
-            set side bottom
-        } elseif {($targetx + $targetwidth + $wwidth) < $screenx} {
-            set side right
-        } else {
-            set side left
-        }
+    if {[llength $side] != 1} {
+        lappend side center;    # If all else fails default to center
+        # For each position, check if there is sufficient room on the
+        # given side in order and pick the first one that has room
+        foreach pos $side {
+            switch -exact -- $pos {
+                center - centre { break }
+                top { if {$wheight < $targety} break }
+                bottom {
+                    if {($targety + $targetheight + $wheight) < $screeny} break
+                }
+                right {
+                    if {($targetx + $targetwidth + $wwidth) < $screenx} break 
+                }
+                left { if {$wwidth < $targetx} break }
+                default {
+                    error "Bad position specifier \"$pos\"."
+                }
+            }
+        }    
+        set side $pos
     }
 
     switch -exact -- $side {
@@ -1641,3 +1651,4 @@ proc test {{nrows 20}} {
     pack .tv -fill both -expand 1
 }
 
+package provide tarray_ui 0.8
