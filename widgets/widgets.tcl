@@ -322,7 +322,7 @@ snit::widget tarray::ui::dataview {
         # Note: The shimmering issue depends on content, font, and window
         # dimensions. When tested with the test proc, setting column filter
         # B to >60 followed by Col A filter to ~1 often (not always) produced
-        # the effect
+        # the effect. Also Setting B to > 100
         
         # Compare bottom of last item with content area bounds.
         # If not visible or greater than content area, show the scroll bar
@@ -337,16 +337,7 @@ snit::widget tarray::ui::dataview {
                 set item_bound [lindex $item_bbox 2]
                 if {$item_bound ne ""} {
                     set content_bound [lindex $bbox 2]
-                    # It appears as though avoiding shimmering only
-                    # requires one of the scroll bar widths to be compensated
-                    # So don't bother with the vertical scroll width when
-                    # calculating horizontal scrolls. If shimmering
-                    # is still found to happen, might try enabling this as well.
-                    if {0} {
-                        set scroll_size [winfo width $win.vscroll]
-                    } else {
-                        set scroll_size 0
-                    }
+                    set scroll_size [winfo width $win.vscroll]
                 }
             } else {
                 set item_bound [lindex $item_bbox 3]
@@ -1188,7 +1179,10 @@ snit::widget tarray::ui::dataview {
                 }
                 after 0 [list $self OpenEditFilter [lindex $_column_order $colnum]]
             }
+        } else {
+            event generate $win <<FilterCancel>>
         }
+            
         return
     }
     
@@ -1228,11 +1222,12 @@ oo::class create tarray::ui::Table {
     variable _coldefs;  #  Column definitions
     variable _row_ids;  #  Index column containing row_ids to display
     
-    variable _sort_column    # Id of column used for sorting
-    variable _sort_order     # -increasing or -decreasing
+    variable _sort_column;    # Id of column used for sorting
+    variable _sort_order;     # -increasing or -decreasing
 
-    variable _filters         # Dict mapping columns to filters
-    variable _filter_strings # Dict mapping columns to filter display strings
+    variable _filters;         # Dict mapping columns to filters
+    variable _filter_strings;  # Dict mapping columns to filter display strings
+    variable _filter_help_w; # Help widget name
 
     constructor {tab w args} {
         set options {}
@@ -1265,13 +1260,15 @@ oo::class create tarray::ui::Table {
 
         set _filters [dict create]
         set _filter_strings [dict create]
+        set _filter_help_w ".tarrayfilterhelp"
 
         set _w $w
         tarray::ui::dataview $w [self] $_coldefs {*}$options
         bind $w <<SortColumn>> [list [self] <<SortColumn>> %d]
         bind $w <Destroy> [list [self] destroy]
         bind $w <<FilterHelp>> [list [self] <<FilterHelp>> %W %d]
-        bind $w <<FilterChange>> [list [self] <<FilterChange>> %d]
+        bind $w <<FilterChange>> [list [self] <<FilterChange>> %W %d]
+        bind $w <<FilterCancel>> [list [self] <<FilterCancel>> %W]
         bind $w <<Copy>> [list [self] <<Copy>> %W]
         my update_data 
     }
@@ -1451,10 +1448,9 @@ oo::class create tarray::ui::Table {
     }
     
     method <<FilterHelp>> {w info} {
-        set helpw .tarray-table-filter-help
-        if {![winfo exists $helpw]} {
-            tarray::ui::unmanaged $helpw -title "Filter Help"
-            set f [$helpw getframe]
+        if {![winfo exists $_filter_help_w]} {
+            tarray::ui::unmanaged $_filter_help_w -title "Filter Help"
+            set f [$_filter_help_w getframe]
             set l [ttk::label $f.l-msg -text "\n\
                     Filter Syntax: CONDITION VALUE\n\n\
                     Displays a row if the field value satisfies\n\
@@ -1481,12 +1477,18 @@ oo::class create tarray::ui::Table {
             pack $l -expand 1 -fill both
         }
         #TBD - place the window
-
-        raise $helpw
+        after 0 after idle [list tarray::ui::center $_filter_help_w]
+        raise $_filter_help_w
     }
     export <<FilterHelp>>
+
+    method <<FilterCancel>> {w} {
+        destroy $_filter_help_w
+    }
+    export <<FilterCancel>>
     
-    method <<FilterChange>> {cname_and_cond} {
+    method <<FilterChange>> {w cname_and_cond} {
+        destroy $_filter_help_w
         if {[catch {
             lassign $cname_and_cond cname cond
             my update_column_filter $cname $cond
@@ -1512,6 +1514,23 @@ proc tarray::ui::tableview {w data args} {
     Table new $data $w {*}$args
 }
     
+#
+# Places the given window at the center of the screen
+# The tk::PlaceWindow does not seem to work correctly for unmanaged windows
+# hence this.
+proc tarray::ui::center {w} {
+    regexp {^(\d+)x(\d+)\+(\d+)\+(\d+)$} [wm geometry $w] dontcare width height
+
+    # With tk8.5/Tile0.8 some windows do not get redrawn properly without a
+    # withdraw/deiconify - TBD
+    wm withdraw $w
+
+    set x [expr {([winfo screenwidth $w]-$width)/2}]
+    set y [expr {([winfo screenheight $w]-$height)/2}]
+
+    wm geometry $w +$x+$y
+    wm deiconify $w
+}
 
 proc test {{nrows 20}} {
     set coldefs {
