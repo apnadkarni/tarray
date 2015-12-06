@@ -1449,7 +1449,34 @@ oo::class create tarray::ui::Table {
     }
     
     method <<FilterHelp>> {w info} {
-        tk_messageBox -message "This is the help"
+        set helpw .tarray-table-filter-help
+        if {![winfo exists $helpw]} {
+            tarray::ui::unmanaged $helpw -title "Filter Help"
+            set f [$helpw getframe]
+            set l [ttk::label $f.l-msg -text "\n\
+                    Filter Syntax: CONDITION VALUE\n\n\
+                    Displays a row if the field value satisfies\n\
+                    CONDITION. Hit Return/Enter/Tab for the filter to \n\
+                    take effect. Hit Escape to cancel.\n\n\
+                    CONDITION may be one of the following:\n\
+                    ==\tequals VALUE\n\
+                    !=\tdoes not equal VALUE\n\
+                    >\tis greater than VALUE\n\
+                    >=\tis greater than or equal to VALUE\n\
+                    <\tis less than VALUE\n\
+                    <=\tis less than or equal to VALUE\n\
+                    *\tmatches VALUE pattern (case-insensitive)\n\
+                    ~\tmatches VALUE regexp (case-insensitive)\n\n\
+                    CONDITION defaults to == if unspecified.\n\
+                    \n Examples:\n\
+                    \tNew York (defaults to ==)\n\
+                    \t> 100\n\
+                    \t~ Mumbai|Bombay\n"]
+            pack $l -expand 1 -fill both
+        }
+        #TBD - place the window
+
+        raise $helpw
     }
     export <<FilterHelp>>
     
