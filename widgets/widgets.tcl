@@ -1334,7 +1334,7 @@ oo::class create tarray::ui::Table {
         if {$cond eq ""} {
             return {}
         }
-        if {![regexp {^(==|!=|>|>=|<|<=|\*|~|in\s)\s*([^\s].*)$} $cond _ oper arg]} {
+        if {![regexp {^(==|!=|>|>=|<|<=|\*|!\*|~|!~|~\^|!~\^\s)\s*([^\s].*)$} $cond _ oper arg]} {
             # No operator specified, assume equality test
             set oper ==
             set arg $cond
@@ -1351,10 +1351,12 @@ oo::class create tarray::ui::Table {
             >=  {-not -lt}
             =^  {-nocase -eq}
             !^  {-nocase -not -eq}
-            ~  {-re}
-            !~  {-not -re}
-            ~^ {-nocase -re}
-            !~^ {-nocase -not -re}
+            *  {-pat -nocase}
+            !* {-not -pat -nocase}
+            ~^  {-re}
+            !~^  {-not -re}
+            ~ {-nocase -re}
+            !~ {-nocase -not -re}
         }
         
         return [list [dict get $map $oper] $arg $cond]
@@ -1466,7 +1468,11 @@ oo::class create tarray::ui::Table {
                     <\tis less than VALUE\n\
                     <=\tis less than or equal to VALUE\n\
                     *\tmatches VALUE pattern (case-insensitive)\n\
-                    ~\tmatches VALUE regexp (case-insensitive)\n\n\
+                    !*\tdoes not match VALUE pattern (case-insensitive)\n\
+                    ~\tmatches VALUE regexp (case-insensitive)\n\
+                    !~\tdoes not match VALUE regexp (case-insensitive)\n\
+                    ~^\tmatches VALUE regexp (case-sensitive)\n\
+                    !~\tdoes not match VALUE regexp (case-sensitive)\n\n\
                     CONDITION defaults to == if unspecified.\n\
                     \n Examples:\n\
                     \tNew York (defaults to ==)\n\
