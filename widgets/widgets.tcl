@@ -1477,7 +1477,7 @@ oo::class create tarray::ui::Table {
             pack $l -expand 1 -fill both
         }
         #TBD - place the window
-        after 0 after idle [list tarray::ui::center $_filter_help_w]
+        after 0 after idle [list tarray::ui::place_window $_filter_help_w [dict get $info entry]]
         raise $_filter_help_w
     }
     export <<FilterHelp>>
@@ -1518,7 +1518,7 @@ proc tarray::ui::tableview {w data args} {
 # Places the given window at the center of the screen
 # The tk::PlaceWindow does not seem to work correctly for unmanaged windows
 # hence this.
-proc tarray::ui::center {w} {
+proc tarray::ui::center_window {w} {
     regexp {^(\d+)x(\d+)\+(\d+)\+(\d+)$} [wm geometry $w] dontcare width height
 
     # With tk8.5/Tile0.8 some windows do not get redrawn properly without a
@@ -1530,6 +1530,89 @@ proc tarray::ui::center {w} {
 
     wm geometry $w +$x+$y
     wm deiconify $w
+}
+
+proc tarray::ui::place_window {w target {side ""}} {
+    update idletasks
+
+    # TBD update idletasks needed ?
+    set targetx [winfo rootx $target]
+    set targety [winfo rooty $target]
+    set targetwidth  [winfo width $target]
+    set targetheight [winfo height $target]
+
+    set screenx [winfo screenwidth $target]
+    set screeny [winfo screenheight $target]
+
+    set wwidth [winfo width $w]
+    set wheight [winfo height $w]
+
+    set wreqwidth [winfo reqwidth $w]
+    set wreqheight [winfo reqheight $w]
+
+
+    if {$side ni {center centre top bottom left right}} {
+        # Place above if possible, else below
+        if {$wheight < $targety} {
+            # Enough room above the widget
+            set side top
+        } elseif {($targety + $targetheight + $wheight) < $screeny} {
+            set side bottom
+        } elseif {($targetx + $targetwidth + $wwidth) < $screenx} {
+            set side right
+        } else {
+            set side left
+        }
+    }
+
+    switch -exact -- $side {
+        centre -
+        center { util::center_window $w $target }
+        top {
+            set x $targetx
+            set y [expr {$targety - $wheight}]
+            set adjust x
+        }
+        bottom {
+            set x $targetx
+            set y [expr {$targety + $targetheight}]
+            set adjust x
+        }
+        left {
+            set x [expr {$targetx - $wwidth}]
+            set y $targety
+            set adjust y
+        }
+        right {
+            set x [expr {$targetx + $targetwidth}]
+            set y $targety
+            set adjust y
+        }
+    }
+
+    if {$side ni {center centre}} {
+        # Keep us within the screen, but only adjust in one axis
+        # The routine only guarantees full visibility if a specific
+        # $side is not specified.
+        if {$adjust eq "x"} {
+            if {$x < 0} {
+                set x 0
+            } elseif {($x + $wwidth) > $screenx} {
+                set x [expr {$screenx - $wwidth}]
+            }
+        } else {
+            if {$y < 0} {
+                set y 0
+            } elseif {($y + $wheight) > $screeny} {
+                set y [expr {$screeny - $wheight}]
+            }
+        }
+        wm geometry $w +$x+$y
+    }
+
+    wm deiconify $w
+    raise $w
+    return
 }
 
 proc test {{nrows 20}} {
