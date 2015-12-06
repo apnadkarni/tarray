@@ -9,6 +9,79 @@ namespace eval tarray::ui {
     }
 }
 
+snit::widget tarray::ui::unmanaged {
+    hulltype toplevel
+
+    ### Option definitions
+
+    option -title -default ""
+    option -closehandler -default ""
+    
+    delegate option * to hull
+
+    ### Components
+
+    component _titlef;          # Title frame
+
+    component _clientf;         # Client frame
+
+    ### Variables
+    
+    # Position of mouse within window while it's being dragged
+    variable _drag_pointer_offset_x
+    variable _drag_pointer_offset_y
+    
+    constructor {args} {
+        $self configurelist $args
+
+        install _titlef using ttk::frame $win.f-title
+        install _clientf using ttk::frame $win.f-client
+
+        ttk::label $_titlef.l-title -textvariable [myvar options(-title)] -font TkSmallCaptionFont -anchor c
+        # Bind to label for dragging window since window manager will not do
+        # it for us.
+        bind $_titlef.l-title <Enter> "$win configure -cursor size"
+        bind $_titlef.l-title <Leave> "$win configure -cursor {}"
+        bind $_titlef.l-title <Button-1> [mymethod _startdrag %W %x %y]
+        bind $_titlef.l-title <Button1-Motion> [mymethod _drag %W %X %Y]
+        
+        ttk::label $_titlef.l-close -text X
+        bind $_titlef.l-close <Button-1> "destroy $win"
+
+        ttk::separator $_clientf.sep
+
+        pack $_titlef.l-close -side right -fill none -expand 0
+        pack $_titlef.l-title -side left -fill both -expand 1
+         
+        pack $_clientf.sep -side top -fill both -expand 1
+
+        pack $_titlef -fill x -expand 0 -padx 5
+        pack $_clientf -fill both -expand 1 -padx 5
+
+        wm overrideredirect $win 1
+    }
+
+    method getframe {} {
+        return $_clientf
+    }
+
+    #
+    # Called when mouse is clicked in title bar to start dragging
+    method _startdrag {w x y} {
+        if {$w ne "$_titlef.l-title"} return
+        set _drag_pointer_offset_x $x
+        set _drag_pointer_offset_y $y
+    }
+
+    #
+    # Called when mouse is dragged in title bar to move window
+    method _drag {w screenx screeny} {
+        if {$w ne "$_titlef.l-title"} return
+        wm geometry $win +[expr {$screenx - $_drag_pointer_offset_x}]+[expr {$screeny - $_drag_pointer_offset_y}]
+    }
+
+}
+                
 snit::widget tarray::ui::dataview {
     hulltype ttk::frame
     
@@ -1088,7 +1161,7 @@ snit::widget tarray::ui::dataview {
         set filter_col $_filter_column_being_edited
         set _filter_column_being_edited ""
         place forget $entry
-
+        place forget $win.ftip
         if {$action in {save saveandnext saveandprev}} {
             set newcondition [string trim [$entry get]]
             if {$newcondition eq ""} {
@@ -1197,6 +1270,7 @@ oo::class create tarray::ui::Table {
         tarray::ui::dataview $w [self] $_coldefs {*}$options
         bind $w <<SortColumn>> [list [self] <<SortColumn>> %d]
         bind $w <Destroy> [list [self] destroy]
+        bind $w <<FilterHelp>> [list [self] <<FilterHelp>> %W %d]
         bind $w <<FilterChange>> [list [self] <<FilterChange>> %d]
         bind $w <<Copy>> [list [self] <<Copy>> %W]
         my update_data 
@@ -1373,6 +1447,11 @@ oo::class create tarray::ui::Table {
         my update_data
         return
     }
+    
+    method <<FilterHelp>> {w info} {
+        tk_messageBox -message "This is the help"
+    }
+    export <<FilterHelp>>
     
     method <<FilterChange>> {cname_and_cond} {
         if {[catch {
