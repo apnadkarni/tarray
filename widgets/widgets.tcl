@@ -107,6 +107,7 @@ snit::widget tarray::ui::dataview {
 
     option -defaultsortorder -default "-increasing"
 
+    option -formatter -default ""
     option -visuals -default "" -readonly 1
     
     component _treectrl
@@ -830,16 +831,17 @@ snit::widget tarray::ui::dataview {
     }
 
     method SetItemVisuals {item visuals} {
-        if {[dict exists $visuals ""]} {
-            set visual [dict get $visuals ""]
+        puts visuals:$visuals
+        if {[dict exists $visuals "" Visual]} {
+            set visual [dict get $visuals "" Visual]
             $_treectrl item state set $item $_visuals_reset_phrase
             if {$visual ne ""} {
                 $_treectrl item state set $item $visual
             }
         }
         foreach cname $_column_order {
-            if {[dict exists $visuals $cname]} {
-                set visual [dict get $visuals $cname]
+            if {[dict exists $visuals $cname Visual]} {
+                set visual [dict get $visuals $cname Visual]
                 set cid [$self column_name_to_id $cname]
                 $_treectrl item state forcolumn $item $cid $_visuals_reset_phrase
                 if {$visual ne ""} {
@@ -980,7 +982,22 @@ snit::widget tarray::ui::dataview {
             $_treectrl item tag add [list "list" $visible] tv-displayed
             foreach item $visible {
                 lassign [$_treectrl item rnc $item] row_index col_index
-                $self InitRow $item [$self GetData [tarray::column index $_row_ids $row_index]]
+                set row_id [tarray::column index $_row_ids $row_index]
+                set row_data [$self GetData $row_id]
+                if {[llength $options(-formatter)] == 0} {
+                    $self InitRow $item $row_data 
+                } else {
+                    set keyed_data {}
+                    foreach cname $_column_order val $row_data {
+                        lappend keyed_data $cname [list Value $val]
+                    }
+                    set formatted_data [{*}$options(-formatter) $row_id $keyed_data]
+                    set row_data [lmap cname $_column_order {
+                        dict get $formatted_data $cname Value
+                    }]
+                    $self InitRow $item $row_data 
+                    $self SetItemVisuals $item $formatted_data
+                }
             }
         }
     }
@@ -1714,6 +1731,22 @@ proc tarray::ui::place_window {w target {side center}} {
     wm deiconify $w
     raise $w
     return
+}
+
+proc formatter {row_id data} {
+    if {[dict exists $data ColB Value]} {
+        set val [dict get $data ColB Value]
+        if {(($val/10) % 4) == 0} {
+            dict set data ColB Value [format 0x%x $val]
+            dict set data ColB Visual visual1
+            dict set data "" Visual visual2
+        } else {
+            # Have to rest highlights
+            dict set data ColB Visual ""
+            dict set data "" Visual ""
+        }
+    }
+    return $data
 }
 
 proc test {args} {
