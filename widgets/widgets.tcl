@@ -107,6 +107,8 @@ snit::widget tarray::ui::dataview {
 
     option -defaultsortorder -default "-increasing"
 
+    option -visuals -default "" -readonly 1
+    
     component _treectrl
     
     #delegate method * to _treectrl
@@ -125,6 +127,7 @@ snit::widget tarray::ui::dataview {
     variable _sort_order "" ;# -increasing or -decreasing
 
     variable _item_style_phrase {}
+    variable _visuals_reset_phrase {}; # Used to reset all user defined visual states
 
     # Column of row id's where the row id identifies a row for the data source
     variable _row_ids
@@ -151,6 +154,8 @@ snit::widget tarray::ui::dataview {
         $hull configure -borderwidth 0
         
         set _datasource $datasource
+        
+        $self _parse_visuals -visuals [from args -visuals ""]
 
         install _treectrl using treectrl $win.tbl \
             -highlightthickness 1 \
@@ -209,7 +214,8 @@ snit::widget tarray::ui::dataview {
         # Standard mouse bindings
         bind $_treectrl <Double-1> [mymethod ProxyMouseClicks <<ItemDoubleClick>> %x %y]
         bind $_treectrl <ButtonPress-3> [mymethod ProxyMouseClicks <<ItemRightClick>> %x %y]
-        # Create the background element used for coloring
+        
+        # Create the gradient element used for coloring
         $_treectrl gradient create gradientSelected \
             -stops [list [list 0.0 $_select_background 0.5] [list 1.0 $_select_background 0.0]] \
             -orient vertical
@@ -221,18 +227,44 @@ snit::widget tarray::ui::dataview {
         $_treectrl state define openWE
         
         # Do we show plain selection highlighting or a gradient-based
-        # fancy one ? Right now use plain version. If switching to fancy
-        # version, note that the column drag code has to be modified
-        # to change the open border settings for the columns when
-        # they are moved (ie openWE etc. state assignments). Same
-        # is true if we specify an outline color.
+        # fancy one ? Right now use plain version as the gradient one
+        # does not look that great with multiple consecutive selections.
         set gradient_select 0
         #set sel_color [color::shade $_select_background white 0.7]
         set sel_color $_select_background
         set sel_color_nofocus lightgray
+        
+        # Define the states used for controlling visuals and collect
+        # the corresponding attributes for assigning to treectrl elements
+        set font_visuals {}
+        set fg_visuals {}
         if {$gradient_select} {
+            set bg_visuals [list gradientSelected selected]
+        } else {
+            set bg_visuals [list $sel_color {selected focus}]
+        }
+        dict for {name attrs} $options(-visuals) {
+            $_treectrl state define $name
+            if {[dict exists $attrs Background]} {
+                lappend bg_visuals [dict get $attrs Background] $name
+            }
+            if {[dict exists $attrs Foreground]} {
+                lappend fg_visuals [dict get $attrs Foreground] $name
+            }
+            if {[dict exists $attrs Font]} {
+                lappend font_visuals [dict get $attrs Font] $name
+            }
+        }
+        if {! $gradient_select} {
+            # Background for selected items when widget does not have focus
+            lappend bg_visuals $sel_color_nofocus {selected !focus}
+        }
+
+        if {$gradient_select} {
+            # The visuals corresponding to the built-in "selected" state
+            # always appear first as they override anything else.
             $_treectrl element create bgElem rect \
-                -fill [list gradientSelected selected] \
+                -fill $bg_visuals \
                 -outline [list $sel_color selected] -rx 1 \
                 -open [list we openWE w openW e openE] \
                 -outlinewidth 1
@@ -244,7 +276,7 @@ snit::widget tarray::ui::dataview {
             set outlinewidth 0
             if {$outlinewidth} {
                 $_treectrl element create bgElem rect \
-                    -fill [list $sel_color {selected focus} $sel_color_nofocus {selected !focus}] \
+                    -fill $bg_visuals \
                     -open [list we openWE w openW e openE] \
                     -outline [list $_select_background selected]  -rx 0 \
                     -outlinewidth $outlinewidth
@@ -252,7 +284,7 @@ snit::widget tarray::ui::dataview {
                 # Note - -outlinewidth has to be 1 here else only one
                 # item is displayed. Not sure why
                 $_treectrl element create bgElem rect \
-                    -fill [list $sel_color {selected focus} $sel_color_nofocus {selected !focus}] \
+                    -fill $bg_visuals \
                     -open [list we openWE w openW e openE] \
                     -outline ""  -rx 0 \
                     -outlinewidth 1
@@ -298,8 +330,35 @@ snit::widget tarray::ui::dataview {
     destructor {
     }
 
+    method _parse_visuals {opt optval} {
+        set visuals_reset_phrase {}
+        set visuals {}
+        dict for {name attrs} $optval {
+            if {![regexp {^visual[1-7]$} $name]} {
+                error "Unknown visual name \"$name\"."
+            }
+            lappend visuals_reset_phrase "!$name"
+            dict for {attr val} $attrs {
+                switch -exact -- $attr {
+                    "-fg" - "-foreground" {
+                        dict set visuals $name Foreground $val
+                    }
+                    "-bg" - "-background" {
+                        dict set visuals $name Background $val
+                    }
+                    "-font" { dict set visuals $name Font $val }
+                    default {
+                        error "Unknown visual attribute \"$attr\"."
+                    }
+                }
+            }
+        }
+        set options(-visuals) $visuals
+        set _visuals_reset_phrase [join $visuals_reset_phrase { }]
+        return
+    }
 
-    # From sbset at http://wiki.tcl.tk/950
+    
     method PositionScrollbar {sb first last} {
         if {0} {
             Gets infinite loop due to infighting between horizontal and
@@ -562,7 +621,7 @@ snit::widget tarray::ui::dataview {
                 }
             }
             default {
-                puts "$event-$button"
+                # puts "$event-$button"
             }
         }
     }
@@ -755,6 +814,8 @@ snit::widget tarray::ui::dataview {
     }
     
     method InitRow {item {row {}}} {
+        # TBD - does this have to be done every time or can we
+        # keep track of which items have been init'ed and not un-inited?
         $_treectrl item style set $item {*}$_item_style_phrase
 
         if {[llength $row]} {
@@ -766,6 +827,27 @@ snit::widget tarray::ui::dataview {
             }
             $_treectrl item text $item {*}$vals
         }
+    }
+
+    method SetItemVisuals {item visuals} {
+        if {[dict exists $visuals ""]} {
+            set visual [dict get $visuals ""]
+            $_treectrl item state set $item $_visuals_reset_phrase
+            if {$visual ne ""} {
+                $_treectrl item state set $item $visual
+            }
+        }
+        foreach cname $_column_order {
+            if {[dict exists $visuals $cname]} {
+                set visual [dict get $visuals $cname]
+                set cid [$self column_name_to_id $cname]
+                $_treectrl item state forcolumn $item $cid $_visuals_reset_phrase
+                if {$visual ne ""} {
+                    $_treectrl item state forcolumn $item $cid $visual
+                }
+            }
+        }
+                                 
     }
 
     method _NOT_IMPLEMENTED_YET_insert {row_ids {pos 0} {tags {}}} {
@@ -1634,7 +1716,12 @@ proc tarray::ui::place_window {w target {side center}} {
     return
 }
 
-proc test {{nrows 20}} {
+proc test {args} {
+    if {[llength $args] == 0} {
+        set nrows 20
+    } else {
+        set args [lassign $args nrows]
+    }
     set coldefs {
         ColA {
             Label {Column A}
@@ -1656,7 +1743,7 @@ proc test {{nrows 20}} {
         set now [clock clicks]
         tarray::table vinsert ::datatable [list Row[incr n] [expr {$n*10}] $now] end
     } $nrows
-    tarray::ui::tableview .tv $::datatable -coldefs $coldefs -showfilter 1
+    tarray::ui::tableview .tv $::datatable -coldefs $coldefs {*}$args
     pack .tv -fill both -expand 1
 }
 
