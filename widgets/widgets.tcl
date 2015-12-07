@@ -34,12 +34,14 @@ snit::widget tarray::ui::unmanaged {
     variable _drag_pointer_offset_y
     
     constructor {args} {
+        $hull configure -highlightthickness 1 -highlightcolor grey -highlightbackground lightgrey
+        
         $self configurelist $args
 
         install _titlef using ttk::frame $win.f-title
         install _clientf using ttk::frame $win.f-client
 
-        ttk::label $_titlef.l-title -textvariable [myvar options(-title)] -font TkSmallCaptionFont -anchor c
+        label $_titlef.l-title -textvariable [myvar options(-title)] -font TkSmallCaptionFont -anchor c
         # Bind to label for dragging window since window manager will not do
         # it for us.
         bind $_titlef.l-title <Enter> "$win configure -cursor size"
@@ -47,7 +49,7 @@ snit::widget tarray::ui::unmanaged {
         bind $_titlef.l-title <Button-1> [mymethod _startdrag %W %x %y]
         bind $_titlef.l-title <Button1-Motion> [mymethod _drag %W %X %Y]
         
-        ttk::label $_titlef.l-close -text X
+        label $_titlef.l-close -text X -bg [tarray::ui::color::shade [$_titlef.l-title cget -bg] black 0.2] -padx 5
         bind $_titlef.l-close <Button-1> "destroy $win"
 
         ttk::separator $_clientf.sep
@@ -197,10 +199,12 @@ snit::widget tarray::ui::dataview {
         grid remove $win.hscroll
         grid remove $win.vscroll
 
-        # Bind standard virtual events
+        # Bind common keys 
         bind $_treectrl <<SelectAll>> [list %W selection add all]
         bind $_treectrl <<Copy>> [list event generate $win <<Copy>>]
         bind $_treectrl <<Cut>> [list event generate $win <<Cut>>]
+        bind $_treectrl <<SelectNone>> [list %W selection clear]
+        bind $_treectrl <Escape> [list %W selection clear]
 
         # Standard mouse bindings
         bind $_treectrl <Double-1> [mymethod ProxyMouseClicks <<ItemDoubleClick>> %x %y]
@@ -288,6 +292,7 @@ snit::widget tarray::ui::dataview {
 
         $self definecolumns $coldefs
         set _constructed 1
+        after 0 "focus $_treectrl"
     }
 
     destructor {
@@ -395,7 +400,6 @@ snit::widget tarray::ui::dataview {
             }
             $self Sort $colname $order
         } elseif {$hdr_id == 1} {
-            #event generate $win <<FilterSelect>> -data [$self column_id_to_name $col_id]
             $self OpenEditFilter [$self column_id_to_name $col_id]
         }
         return
@@ -1114,7 +1118,11 @@ snit::widget tarray::ui::dataview {
         set bbox [$_treectrl header bbox H2 [dict get $_columns $colname Id]]
     }
 
-    method OpenEditFilter {colname} {
+    method OpenEditFilter {{colname {}}} {
+        if {$colname eq ""} {
+            set colname [lindex $_column_order 0]
+        }
+        
         set _filter_column_being_edited $colname
         lassign [$self GetFilterBbox $colname] left top right bottom
 
@@ -1452,6 +1460,7 @@ oo::class create tarray::ui::Table {
     method <<FilterHelp>> {w info} {
         if {![winfo exists $_filter_help_w]} {
             tarray::ui::unmanaged $_filter_help_w -title "Filter Help"
+            bind $_filter_help_w <Escape> [list destroy $_filter_help_w]
             set f [$_filter_help_w getframe]
             set l [ttk::label $f.l-msg -text "\n\
                     Filter Syntax: CONDITION VALUE\n\n\
@@ -1478,7 +1487,7 @@ oo::class create tarray::ui::Table {
                     \t~ Mumbai|Bombay\n"]
             pack $l -expand 1 -fill both
         }
-        #TBD - place the window
+
         after 0 [list after idle [list tarray::ui::place_window $_filter_help_w [dict get $info entry] {right left top bottom}]]
         raise $_filter_help_w
     }

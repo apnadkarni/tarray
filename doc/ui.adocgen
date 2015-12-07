@@ -28,10 +28,10 @@ text {
     * `snit` available as part of
     http://core.tcl.tk/tcllib/doc/trunk/embedded/index.html[tcllib].
     
-    * `tktreectrl`, available from http://tktreectrl.sf.net[SourceForge].
+    * `treectrl`, available from http://tktreectrl.sf.net[SourceForge].
 }
 
-
+tbd { Filters }
 tbd {
     Mouse bindings
 }
