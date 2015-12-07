@@ -158,6 +158,8 @@ snit::widget tarray::ui::dataview {
         
         $self _parse_visuals -visuals [from args -visuals ""]
 
+        # TBD - do we need all these scroll options? Could they impact
+        # shimmering
         install _treectrl using treectrl $win.tbl \
             -highlightthickness 1 \
             -borderwidth 0 \
@@ -293,9 +295,8 @@ snit::widget tarray::ui::dataview {
         }
         
         # Create the elements for actual text
-        $_treectrl element create leftJustifyElem text -lines 1 -justify left
-        $_treectrl element create rightJustifyElem  text -lines 1 -justify right
-
+        $_treectrl element create leftJustifyElem text -lines 1 -justify left -fill $fg_visuals -font $font_visuals
+        $_treectrl element create rightJustifyElem  text -lines 1 -justify right -fill $fg_visuals -font $font_visuals
         
         # Create the corresponding styles 
         $_treectrl style create leftJustifyStyle -orient horizontal
@@ -831,7 +832,6 @@ snit::widget tarray::ui::dataview {
     }
 
     method SetItemVisuals {item visuals} {
-        puts visuals:$visuals
         if {[dict exists $visuals "" Visual]} {
             set visual [dict get $visuals "" Visual]
             $_treectrl item state set $item $_visuals_reset_phrase
@@ -1779,5 +1779,6 @@ proc test {args} {
     tarray::ui::tableview .tv $::datatable -coldefs $coldefs {*}$args
     pack .tv -fill both -expand 1
 }
+# test 20 -visuals {visual1 {-bg red -font Courier} visual2 {-fg green -bg blue}} -formatter formatter
 
 package provide tarray_ui 0.8
