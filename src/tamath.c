@@ -778,6 +778,87 @@ static void convert_series_operand(ta_value_t *ptav, unsigned char tatype) {
     ptav->type = tatype;
 }
 
+static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, double step)
+{
+    thdr_t *thdr;
+    int nmax;
+    double   dbl, dmax, *pdbl;
+    
+    if (step == 0 ||
+        step > 0 && start > limit ||
+        step < 0 && start < limit) {
+        ta_invalid_operand_error(ip, NULL);
+        return NULL;
+    }
+
+    if (limit == start) 
+        return thdr_alloc(ip, TA_DOUBLE, 0);
+    
+    /* Below can probably be condensed but it reflects my thought
+       process regarding over/under flows
+    */
+    
+    if (start >= 0 && limit >= 0 ||
+        start < 0 && limit < 0) {
+        /* Both have same sign, so limit-start cannot overflow */
+        dmax = ceil((limit - start)/step);
+        TA_ASSERT(ta_finite_double(dmax));
+        TA_ASSERT(dmax >= 0); /* Since limit < start => step < 0 */
+    } else {
+        /* limit and start have different signs. limit-start may overflow
+           so compute number of steps from 0 separately.
+           Note the two cases below work out to be the same! But keeping
+           them separate as it's clearer in my mind that way.
+        */
+        if (limit > 0) {
+            TA_ASSERT(start < 0);
+            TA_ASSERT(step > 0); /* Since limit > start */
+            dmax = ceil(limit / step);
+            TA_ASSERT(ta_finite_double(dmax));
+            TA_ASSERT(dmax >= 0); /* Since limit > 0, step > 0 */
+            dbl = ceil(-start / step);
+            TA_ASSERT(ta_finite_double(dbl));
+            TA_ASSERT(dbl >= 0); /* Since start < 0, step > 0 */
+            dmax += dbl;
+        } else {
+            TA_ASSERT(start > 0);
+            TA_ASSERT(step < 0); /* Since limit < start */
+            dmax = ceil(limit / step);
+            TA_ASSERT(ta_finite_double(dmax));
+            TA_ASSERT(dmax >= 0); /* Since limit < 0, step < 0 */
+            dbl = start / -step;
+            TA_ASSERT(ta_finite_double(dbl));
+            TA_ASSERT(dbl >= 0); /* Since start > 0, step < 0 */
+            dmax += dbl;
+        }
+    }
+
+    if (dmax >= INT_MAX) {
+        ta_limit_error(ip, (Tcl_WideInt)dmax);
+        return NULL;
+    }
+    nmax = (int) dmax;
+    
+    /* Note nmax may be an overestimate by 2 but no matter */
+    
+    thdr = thdr_alloc(ip, TA_DOUBLE, (int) nmax);
+    if (thdr) {
+        pdbl = THDRELEMPTR(thdr, double, 0);
+
+        if (step > 0) {
+            for (dbl = start; dbl < limit; dbl += step)
+                *pdbl++ = dbl;
+        } else {
+            for (dbl = start; dbl > limit; dbl += step)
+                *pdbl++ = dbl;
+        }
+        thdr->used = (pdbl - THDRELEMPTR(thdr, double, 0));
+        TA_ASSERT(thdr->used <= nmax);
+    }
+    
+    return thdr;
+}
+    
 static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt limit, Tcl_WideInt step)
 {
     thdr_t *thdr;
@@ -794,11 +875,6 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
     if (limit == start) 
         return thdr_alloc(ip, TA_WIDE, 0);
     
-    /*
-     * Need to be careful of overflows so just convert to wide and check.
-     * Note because of checks above, nmax is +ve irrespective of
-     * sign of step.
-     */
     if (start >= 0 && limit >= 0 ||
         start < 0 && limit < 0) {
         /* Both have same sign, so limit-start cannot overflow */
@@ -897,9 +973,6 @@ static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
 TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
-    int i, *pi;
-    Tcl_WideInt wide;
-    unsigned int count;
     ta_value_t start, limit, step;
     TCL_RESULT status;
     thdr_t *thdr = NULL;
@@ -941,6 +1014,7 @@ TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
         convert_series_operand(&start, TA_DOUBLE);
         convert_series_operand(&limit, TA_DOUBLE);
         convert_series_operand(&step, TA_DOUBLE);
+        thdr = init_double_series(ip, start.dval, limit.dval, step.dval);
     } 
     else if (start.type == TA_WIDE || limit.type == TA_WIDE || step.type == TA_WIDE) {
         convert_series_operand(&start, TA_WIDE);

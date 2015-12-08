@@ -12,6 +12,8 @@
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
+#include <float.h>
+#include <math.h>
 
 /* Visual C++ prior to Visual Studio 2010 do not have stdint */
 #if defined(_MSC_VER) && _MSC_VER < 1700
@@ -941,5 +943,19 @@ TA_INLINE int table_length(Tcl_Obj *table)
     return table_width(table) == 0 ? 0 : tcol_occupancy(table_column(table, 0));
 }
 
+/* Math - checking for valid doubles */
+TA_INLINE int ta_isNaN(double dbl)
+{
+    /* If dbl is NaN, dbl != dbl */
+    return ! (dbl == dbl);
+}
+        
+TA_INLINE int ta_finite_double(double dbl)
+{
+    /* If dbl is Nan, both comparisons fail.
+       If it is -Inf or Inf, one or the other fails
+    */
+    return (dbl <= DBL_MAX && dbl >= -DBL_MAX);    
+}
 
 #endif

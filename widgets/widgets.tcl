@@ -819,7 +819,7 @@ snit::widget tarray::ui::dataview {
         # TBD - does this have to be done every time or can we
         # keep track of which items have been init'ed and not un-inited?
         $_treectrl item style set $item {*}$_item_style_phrase
-
+        
         if {[llength $row]} {
             # It is faster to build a (colid, text) 
             # list and make a single call to $_treectrl item text
@@ -1776,9 +1776,18 @@ proc test {args} {
         set now [clock clicks]
         tarray::table vinsert ::datatable [list Row[incr n] [expr {$n*10}] $now] end
     } $nrows
-    tarray::ui::tableview .tv $::datatable -coldefs $coldefs {*}$args
+    #tarray::ui::tableview .tv $::datatable -coldefs $coldefs {*}$args
+    tarray::ui::tableview .tv $::datatable  {*}$args
     pack .tv -fill both -expand 1
 }
 # test 20 -visuals {visual1 {-bg red -font Courier} visual2 {-fg green -bg blue}} -formatter formatter
+
+proc cities2 {} {
+    uplevel #0 source ../tests/cities.tcl
+    #package require tclcsv
+    tarray_cities2 ::cities ../tests/cities1000.txt
+    tarray::ui::tableview .cities $::cities -showfilter 1
+    pack .cities -fill both -expand 1
+}
 
 package provide tarray_ui 0.8
