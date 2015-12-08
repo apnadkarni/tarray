@@ -15,6 +15,8 @@ static TCL_RESULT error_from_obj(Tcl_Interp *ip, char *s, Tcl_Obj *o)
 {
     if (ip) {
         Tcl_Obj *eobj;
+        /* Take care not to generate a string if one does not exist */
+        /* TBD - maybe only do this based on the object type ?*/
         if (o && o->bytes)
             eobj = Tcl_ObjPrintf("%s '%.40s'.", s, o->bytes);
         else
@@ -171,11 +173,11 @@ TCL_RESULT ta_memory_error(Tcl_Interp *ip, int req_size)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_limit_error(Tcl_Interp *ip, int req_count)
+TCL_RESULT ta_limit_error(Tcl_Interp *ip, Tcl_WideInt req_count)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Requested array size (%d bytes) greater than limit.",
+                         Tcl_ObjPrintf("Requested array size (%ld) greater than limit.",
                                        req_count));
         Tcl_SetErrorCode(ip, "TARRAY", "SIZELIMIT", NULL);
     }
@@ -298,6 +300,5 @@ TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type)
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
     Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
-    return error_from_obj(ip, "Invalid operand", o);
-    return TCL_ERROR;
+    return error_from_obj(ip, "Invalid operand(s)", o);
 }

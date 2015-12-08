@@ -180,6 +180,7 @@ proc tarray::table::join {atab acolname btab bcolname args} {
     
 proc tarray::csv_read_file {path args} {
     set fd [open $path r]
+    fconfigure $fd -buffersize 100000
     try {
         if {[dict exists $args -encoding]} {
             chan configure $fd -encoding [dict get $args -encoding]
@@ -335,6 +336,7 @@ namespace eval tarray {
             reverse reverse
             size size
             search search
+            series series
             sort sort
             sum sum
             type type

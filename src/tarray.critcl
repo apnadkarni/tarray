@@ -582,6 +582,8 @@ critcl::cproc tarray::column::bitsset {Tcl_Interp* interp Tcl_Obj* COLUMN} ok {
     return TCL_OK;
 }
 
+critcl::ccommand tarray::column::series tcol_series_cmd
+
 critcl::ccommand tarray::column::search tcol_search_cmd
 
 critcl::ccommand tarray::column::lookup tcol_lookup_cmd
