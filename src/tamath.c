@@ -745,3 +745,165 @@ mismatched_types_error:
     status = ta_mismatched_types_error(ip, coltype, result_type);
     goto vamoose;
 }
+
+/* Parses a Tcl_Obj as an int, wide or double. Error otherwise */
+static TCL_RESULT parse_series_operand(Tcl_Interp *ip, Tcl_Obj *o, ta_value_t *ptav)
+{
+    if (ta_value_from_obj(NULL, o, TA_INT, ptav) == TCL_OK ||
+        ta_value_from_obj(NULL, o, TA_WIDE, ptav) == TCL_OK ||
+        ta_value_from_obj(ip, o, TA_DOUBLE, ptav) == TCL_OK)
+        return TCL_OK;
+    return TCL_ERROR;
+}
+
+/* Only converts specific type combinations needed by tcol_series_cmd! */
+static void convert_series_operand(ta_value_t *ptav, unsigned char tatype) {
+    if (ptav->type == tatype)
+        return;
+    switch (tatype) {
+    case TA_WIDE:
+        TA_ASSERT(ptav->type == TA_INT);
+        ptav->wval = ptav->ival;
+        break;
+    case TA_DOUBLE:
+        TA_ASSERT(ptav->type == TA_INT || ptav->type == TA_WIDE);
+        if (ptav->type == TA_INT)
+            ptav->dval = ptav->ival;
+        else 
+            ptav->dval = (double) ptav->wval;
+        break;
+    default:
+        ta_type_panic(tatype);
+    }
+    ptav->type = tatype;
+}
+
+
+static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
+{
+    thdr_t *thdr;
+    int i, *pi;
+    Tcl_WideInt nmax;
+
+    if (step == 0 ||
+        step > 0 && start > limit ||
+        step < 0 && start < limit) {
+        ta_invalid_operand_error(ip, NULL);
+        return NULL;
+    }
+
+    if (limit == start) 
+        return thdr_alloc(ip, TA_INT, 0);
+    
+    /* Special case most common operation - an index column */
+    if (start == 0 && step == 1) {
+        TA_ASSERT(limit >= start);
+        thdr = thdr_alloc(ip, TA_INT, limit - start);
+        if (thdr == NULL)
+            return NULL;
+        pi = THDRELEMPTR(thdr, int, 0);
+        for (i = start; i < limit; ++i)
+            *pi++ = i;
+        thdr->used = limit - start;
+        return thdr;
+    }
+
+    /*
+     * Need to be careful of overflows so just convert to wide and check.
+     * Note because of checks above, nmax is +ve irrespective of
+     * sign of step.
+     */
+    nmax = (((Tcl_WideInt) limit - (Tcl_WideInt) start) / step) + 1;
+    TA_ASSERT(nmax > 0);
+    if (nmax >= INT_MAX) {
+        ta_limit_error(ip, nmax);
+        return NULL;
+    }
+    
+    thdr = thdr_alloc(ip, TA_INT, (int) nmax);
+    if (thdr) {
+        pi = THDRELEMPTR(thdr, int, 0);
+
+        if (step > 0) {
+            for (i = start; i < limit; i += step)
+                *pi++ = i;
+        } else {
+            for (i = start; i > limit; i += step)
+                *pi++ = i;
+        }
+        thdr->used = (pi - THDRELEMPTR(thdr, int, 0));
+        TA_ASSERT(thdr->used == nmax || thdr->used == (nmax-1));
+    }
+    
+    return thdr;
+}
+
+TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
+                              int objc, Tcl_Obj *const objv[])
+{
+    int i, *pi;
+    Tcl_WideInt wide;
+    unsigned int count;
+    ta_value_t start, limit, step;
+    TCL_RESULT status;
+    thdr_t *thdr = NULL;
+    
+    if (objc < 2 || objc > 4) {
+	Tcl_WrongNumArgs(ip, 1, objv, "?START? LIMIT ?STEP?");
+	return TCL_ERROR;
+    }
+
+    /*
+     * series LIMIT
+     * series LIMIT STEP
+     * series START LIMIT STEP
+     */
+    status = parse_series_operand(ip, objv[objc == 4 ? 2 : 1], &limit);
+    if (status == TCL_ERROR)
+        return status;
+    if (objc == 2) {
+        step.type = TA_INT;
+        step.ival = 1;
+        start.type = TA_INT;
+        start.ival = 0;
+    } else {
+        status = parse_series_operand(ip, objv[objc == 4 ? 3 : 2], &step);
+        if (status == TCL_ERROR)
+            return status;
+        if (objc == 3) {
+            start.type = TA_INT;
+            start.ival = 0;
+        } else {
+            status = parse_series_operand(ip, objv[1], &start);
+            if (status == TCL_ERROR)
+                return status;
+        }
+    }
+    
+    /* Figure out the type of the result column. */
+    if (start.type == TA_DOUBLE || limit.type == TA_DOUBLE || step.type == TA_DOUBLE) {
+        convert_series_operand(&start, TA_DOUBLE);
+        convert_series_operand(&limit, TA_DOUBLE);
+        convert_series_operand(&step, TA_DOUBLE);
+    } 
+    else if (start.type == TA_WIDE || limit.type == TA_WIDE || step.type == TA_WIDE) {
+        convert_series_operand(&start, TA_WIDE);
+        convert_series_operand(&limit, TA_WIDE);
+        convert_series_operand(&step, TA_WIDE);
+    } 
+    else {
+        TA_ASSERT(start.type == TA_INT);
+        TA_ASSERT(limit.type == TA_INT);
+        TA_ASSERT(step.type == TA_INT);
+        thdr = init_int_series(ip, start.ival, limit.ival, step.ival);
+    } 
+            
+    /* TBD - what if start==limit? Return single value or error or empty? */
+
+    if (thdr) {
+        TA_ASSERT(thdr->used <= thdr->usable);
+        Tcl_SetObjResult(ip, tcol_new(thdr));
+        return TCL_OK;
+    } else
+        return TCL_ERROR;
+}

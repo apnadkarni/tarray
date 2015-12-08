@@ -277,7 +277,7 @@ TCL_RESULT ta_table_length_error(Tcl_Interp *);
 TCL_RESULT ta_row_width_error(Tcl_Interp *, int rowwidth, int tablewidth);
 TCL_RESULT ta_bad_type_error(Tcl_Interp *ip, thdr_t *thdr);
 TCL_RESULT ta_memory_error(Tcl_Interp *, int size);
-TCL_RESULT ta_limit_error(Tcl_Interp *, int);
+TCL_RESULT ta_limit_error(Tcl_Interp *, Tcl_WideInt);
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
@@ -588,6 +588,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
    critcl itself only generates declarations of the form "int foo()"
    compiler complains (warnings) when passed to Tcl_CreateObjCommand
 */
+Tcl_ObjCmdProc tcol_series_cmd;
 Tcl_ObjCmdProc tcol_search_cmd;
 Tcl_ObjCmdProc ta_dump_cmd;
 Tcl_ObjCmdProc tcol_minmax_cmd;
