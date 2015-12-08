@@ -778,7 +778,76 @@ static void convert_series_operand(ta_value_t *ptav, unsigned char tatype) {
     ptav->type = tatype;
 }
 
+static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt limit, Tcl_WideInt step)
+{
+    thdr_t *thdr;
+    Tcl_WideInt wide, *pwide;
+    uint64_t nmax;
 
+    if (step == 0 ||
+        step > 0 && start > limit ||
+        step < 0 && start < limit) {
+        ta_invalid_operand_error(ip, NULL);
+        return NULL;
+    }
+
+    if (limit == start) 
+        return thdr_alloc(ip, TA_WIDE, 0);
+    
+    /*
+     * Need to be careful of overflows so just convert to wide and check.
+     * Note because of checks above, nmax is +ve irrespective of
+     * sign of step.
+     */
+    if (start >= 0 && limit >= 0 ||
+        start < 0 && limit < 0) {
+        /* Both have same sign, so limit-start cannot overflow */
+        TA_ASSERT(((limit - start)/step) >= 0); /* limit < start => step < 0 */
+        nmax = ((limit - start)/step) + 1;
+    } else {
+        /* limit and start have different signs. limit-start may overflow
+           so compute number of steps from 0 separately as *unsigned* 
+           numbers and check for overflow on the unsigned number.
+           Note the two cases below work out to be the same! But keeping
+           them separate as it's clearer in my mind that way.
+        */
+        if (limit > 0) {
+            TA_ASSERT(start < 0);
+            TA_ASSERT(step > 0); /* Since limit > start */
+            nmax = 1 + (limit / step);
+            nmax += 1 + (-start / step);
+        } else {
+            TA_ASSERT(start > 0);
+            TA_ASSERT(step < 0); /* Since limit < start */
+            nmax = 1 + (start / -step);
+            nmax += 1 + (limit / step);
+        }
+        /* Note nmax may be an overestimate but no matter */
+    }
+    
+    if (nmax >= INT_MAX) {
+        ta_limit_error(ip, nmax);
+        return NULL;
+    }
+    
+    thdr = thdr_alloc(ip, TA_WIDE, (int) nmax);
+    if (thdr) {
+        pwide = THDRELEMPTR(thdr, Tcl_WideInt, 0);
+
+        if (step > 0) {
+            for (wide = start; wide < limit; wide += step)
+                *pwide++ = wide;
+        } else {
+            for (wide = start; wide > limit; wide += step)
+                *pwide++ = wide;
+        }
+        thdr->used = (pwide - THDRELEMPTR(thdr, Tcl_WideInt, 0));
+        TA_ASSERT(thdr->used <= nmax);
+    }
+    
+    return thdr;
+}
+    
 static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
 {
     thdr_t *thdr;
@@ -795,19 +864,6 @@ static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
     if (limit == start) 
         return thdr_alloc(ip, TA_INT, 0);
     
-    /* Special case most common operation - an index column */
-    if (start == 0 && step == 1) {
-        TA_ASSERT(limit >= start);
-        thdr = thdr_alloc(ip, TA_INT, limit - start);
-        if (thdr == NULL)
-            return NULL;
-        pi = THDRELEMPTR(thdr, int, 0);
-        for (i = start; i < limit; ++i)
-            *pi++ = i;
-        thdr->used = limit - start;
-        return thdr;
-    }
-
     /*
      * Need to be careful of overflows so just convert to wide and check.
      * Note because of checks above, nmax is +ve irrespective of
@@ -890,6 +946,7 @@ TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
         convert_series_operand(&start, TA_WIDE);
         convert_series_operand(&limit, TA_WIDE);
         convert_series_operand(&step, TA_WIDE);
+        thdr = init_wide_series(ip, start.wval, limit.wval, step.wval);
     } 
     else {
         TA_ASSERT(start.type == TA_INT);
