@@ -176,9 +176,20 @@ TCL_RESULT ta_memory_error(Tcl_Interp *ip, int req_size)
 TCL_RESULT ta_limit_error(Tcl_Interp *ip, Tcl_WideInt req_count)
 {
     if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Requested array size (%ld) greater than limit.",
-                                       req_count));
+        Tcl_Obj *ores;
+        char *fmt = "Requested array size (%ld) greater than limit.";
+        if (req_count > INT_MAX || req_count < INT_MIN) {
+            /* Because Tcl_ObjPrintf as of 8.6.4 cannot print wides with %ld */
+            Tcl_Obj *o = Tcl_NewWideIntObj(req_count);
+            Tcl_IncrRefCount(o);
+            ores = Tcl_Format(ip, fmt, 1, &o);
+            Tcl_DecrRefCount(o);
+        } else
+            ores = Tcl_ObjPrintf(fmt, req_count);
+        if (ores)
+            Tcl_SetObjResult(ip, ores);
+        else
+            Tcl_SetResult(ip, "Array size limit exceeded.", TCL_STATIC);
         Tcl_SetErrorCode(ip, "TARRAY", "SIZELIMIT", NULL);
     }
     return TCL_ERROR;
