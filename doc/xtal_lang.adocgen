@@ -842,8 +842,8 @@ text {
     Tcl `foreach` statement where the loop variable takes on values
     from a collection. The syntax takes one of the forms
 } syntax {
-    foreach  _VAR_ in _COLLECTION_ _STATEMENTBLOCK_
-    foreach _KEYVAR_ , _VAR_ in _COLLECTION_ _STATEMENTBLOCK_
+    foreach  _VAR_ _COLLECTION_ _STATEMENTBLOCK_
+    foreach _KEYVAR_ , _VAR_ _COLLECTION_ _STATEMENTBLOCK_
 } text {
     where `_COLLECTION_` is any Xtal expression.
     
