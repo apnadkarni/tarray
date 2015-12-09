@@ -399,6 +399,19 @@ text {
     option may be specified. This is ignored for all array types except
     types `any` and `string`.
 
+    ((cmddef column_series "column series _STOP_"))
+    ((cmddef column_series "column series _STOP_ _STEP_"))
+    ((cmddef column_series "column series _START_ _STOP_ _STEP_"))
+    Returns a column with values between _START_ (included)
+    and _STOP_ (excluded) incremented by _STEP_. _START_ and _STEP_
+    default to 0 and 1 respectively if unspecified. If _STEP_ is less
+    than 0, _STOP_ must be less than _START_.
+
+    The type of the returned column may be `int`, `wide` or `double`
+    depending on the operands. For example, a _STEP_ of 1.0 would
+    result in a column of type `double` whereas a _STEP_ of 1 would
+    return a `int` or `wide` depending on the range of operands.
+    
     ((cmddef column_size "column size _COLUMN_"))
 
     Returns the number of elements in the typed column.

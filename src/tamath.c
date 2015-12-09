@@ -810,7 +810,7 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
            Note the two cases below work out to be the same! But keeping
            them separate as it's clearer in my mind that way.
         */
-        if (limit > 0) {
+        if (limit >= 0) {
             TA_ASSERT(start < 0);
             TA_ASSERT(step > 0); /* Since limit > start */
             dmax = ceil(limit / step);
@@ -821,7 +821,7 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
             TA_ASSERT(dbl >= 0); /* Since start < 0, step > 0 */
             dmax += dbl;
         } else {
-            TA_ASSERT(start > 0);
+            TA_ASSERT(start >= 0);
             TA_ASSERT(step < 0); /* Since limit < start */
             dmax = ceil(limit / step);
             TA_ASSERT(ta_finite_double(dmax));
@@ -919,13 +919,13 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
            Note the two cases below work out to be the same! But keeping
            them separate as it's clearer in my mind that way.
         */
-        if (limit > 0) {
+        if (limit >= 0) {
             TA_ASSERT(start < 0);
             TA_ASSERT(step > 0); /* Since limit > start */
             nmax = 1 + (limit / step);
             nmax += 1 + (-start / step);
         } else {
-            TA_ASSERT(start > 0);
+            TA_ASSERT(start >= 0);
             TA_ASSERT(step < 0); /* Since limit < start */
             nmax = 1 + (start / -step);
             nmax += 1 + (limit / step);
