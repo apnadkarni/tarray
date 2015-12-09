@@ -2392,7 +2392,6 @@ namespace eval xtal::rt {
     }
 
     proc selector_range {range} {
-        # TBD - replace with C version
         lassign $range low high
         if {$low < 0} {
             set low 0
@@ -2405,11 +2404,7 @@ namespace eval xtal::rt {
                 set high $max
             }
         }
-        set l {}
-        for {set i $low} {$i <= $high} {incr i} {
-            lappend l $i
-        }
-        return [tarray::column::create int $l]
+        return [tarray::column::series $low [incr high] 1]
     }
 
     proc size {val} {

@@ -1362,7 +1362,7 @@ oo::class create tarray::ui::Table {
         }
         
         set _data $tab
-        set _row_ids [tarray::indexcolumn [tarray::table::size $tab]]
+        set _row_ids [tarray::column::series [tarray::table::size $tab]]
         
         set _sort_column ""
         set _sort_order "-increasing"
@@ -1513,7 +1513,7 @@ oo::class create tarray::ui::Table {
 
         if {[dict size $new_filters] == 0} {
             # No filters
-            set _row_ids [tarray::indexcolumn [tarray::table::size $_data]]
+            set _row_ids [tarray::column::series [tarray::table::size $_data]]
         } else {
             # General case. Have to rerun all filters. In search for efficiency
             # we will run all numeric filters first.
