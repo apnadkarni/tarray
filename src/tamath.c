@@ -780,7 +780,7 @@ static void convert_series_operand(ta_value_t *ptav, unsigned char tatype) {
 
 static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, double step)
 {
-    thdr_t *thdr;
+    thdr_t *thdr = NULL;
     int nmax;
     double   dbl, dmax, *pdbl;
     
@@ -833,30 +833,62 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
         }
     }
 
-    if (dmax >= INT_MAX) {
-        ta_limit_error(ip, (Tcl_WideInt)dmax);
-        return NULL;
-    }
-    nmax = (int) dmax;
-    
-    /* Note nmax may be an overestimate by 2 but no matter */
+    /* Note because of float rounding, dmax is only an estimate so in the
+     * loop below we will reallocate if necessary. To reduce chances of 
+     * reallocation, add some margin to nmax
+     */
+    if (dmax >= (INT_MAX-10))
+        goto memory_limit_error;
+
+    nmax = 10 + (int) dmax;
     
     thdr = thdr_alloc(ip, TA_DOUBLE, (int) nmax);
     if (thdr) {
+        int i;
+        thdr_t *thdr2;
         pdbl = THDRELEMPTR(thdr, double, 0);
 
         if (step > 0) {
-            for (dbl = start; dbl < limit; dbl += step)
+            for (i = 0, dbl = start; dbl < limit; dbl += step, ++i) {
+                if (i == nmax) {
+                    if (nmax > (INT_MAX-10))
+                        goto memory_limit_error;
+                    nmax += 10; /* TBD - compute limit-double/step ? */
+                    thdr2 = thdr_realloc(ip, thdr, nmax);
+                    if (thdr2 == NULL)
+                        goto error_exit;
+                    thdr = thdr2;
+                    pdbl = THDRELEMPTR(thdr, double, i);
+                }
                 *pdbl++ = dbl;
+            }
         } else {
-            for (dbl = start; dbl > limit; dbl += step)
+            for (i = 0, dbl = start; dbl > limit; dbl += step, ++i) {
+                if (i == nmax) {
+                    if (nmax > (INT_MAX-10))
+                        goto memory_limit_error;
+                    nmax += 10; /* TBD - compute limit-double/step ? */
+                    thdr2 = thdr_realloc(ip, thdr, nmax);
+                    if (thdr2 == NULL)
+                        goto error_exit;
+                    thdr = thdr2;
+                    pdbl = THDRELEMPTR(thdr, double, i);
+                }
                 *pdbl++ = dbl;
+            }
         }
         thdr->used = (pdbl - THDRELEMPTR(thdr, double, 0));
         TA_ASSERT(thdr->used <= nmax);
     }
     
     return thdr;
+
+memory_limit_error:
+    Tcl_SetResult(ip, "Request exceeds max size.", TCL_STATIC);
+error_exit:
+    if (thdr)
+        thdr_free(thdr);
+    return NULL;
 }
     
 static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt limit, Tcl_WideInt step)
