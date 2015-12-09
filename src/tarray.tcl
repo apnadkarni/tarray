@@ -317,6 +317,7 @@ namespace eval tarray {
             insert insert
             intersect3 intersect3
             lookup lookup
+            loop loop
             math math
             minmax minmax
             place place

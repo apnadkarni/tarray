@@ -68,7 +68,8 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
+critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c taloop.c \
+    tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -89,7 +90,6 @@ if {$build_opts(mt_enable)} {
     }
 
     critcl::cflags -DTA_MT_ENABLE
-
 }
 
 critcl::ccommand tarray::unsupported::config {} {
@@ -220,6 +220,9 @@ critcl::cinit {
     g_tcl_dict_type_ptr = Tcl_GetObjType("dict");
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
     g_tcl_string_type_ptr = Tcl_GetObjType("string");
+
+    Tcl_NRCreateCommand(interp, "::tarray::column::loop",
+                        ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
 } {
 }
 
