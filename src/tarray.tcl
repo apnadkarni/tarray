@@ -224,15 +224,6 @@ proc tarray::csv_read_file {path args} {
     return $tab
 }
 
-# TBD - replace with C version
-proc tarray::indexcolumn {size} {
-    set col [column create int {} $size]
-    for {set i 0} {$i < $size} {incr i} {
-        column vfill col $i $i
-    }
-    return $col
-}
-
 proc tarray::unsupported::build_info {} {
     set result ""
     catch {append result [encoding convertfrom utf-8 [critcl_info]]}
