@@ -1255,12 +1255,12 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
     int i, n, opt, endval, count;
-    thdr_t *haystackP;
+    thdr_t *haystackP = NULL;
     ta_search_t search;
     Tcl_Obj *orange;
     Tcl_Obj **range;
     TCL_RESULT status;
-    span_t *span;
+    span_t *span = NULL;
 
     if (objc < 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "?options? tarray pattern");
@@ -1271,7 +1271,11 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_ERROR;
 
     haystackP = tcol_thdr(objv[objc-2]);
+    thdr_incr_refs(haystackP); /* So it does not disappear via shimmering */
     span = tcol_span(objv[objc-2]);
+    if (span)
+        span_incr_refs(span);   /* So it does not disappear via shimmering */
+    
     count = span ? span->count : haystackP->used;
     search.indices = NULL;
     search.flags = 0;
@@ -1386,6 +1390,10 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
 vamoose:
     if (search.indices)
         thdr_decr_refs(search.indices);
+    if (span)
+        span_decr_refs(span); /* Undo shimmering protection incr */
+    if (haystackP)
+        thdr_decr_refs(haystackP); /* Undo shimmering protection incr */
 
     return status;
 }
@@ -1394,11 +1402,12 @@ vamoose:
 TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
                            int objc, Tcl_Obj *const objv[])
 {
-    thdr_t *thdr;
+    thdr_t *thdr = NULL;
     tas_t *ptas, *pkey;
     ClientData value;
     int pos, delete_pos;
-    span_t *span;
+    span_t *span = NULL;
+    TCL_RESULT status;
 
     if (objc < 2 || objc > 3) {
 	Tcl_WrongNumArgs(ip, 1, objv, "column ?key?");
@@ -1417,6 +1426,14 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_OK;
     }
 
+    /*
+     * Protect against shimmering deallocating thdr/span.
+     * IMPORTANT: only exit via vamoose beyond this point
+     */
+    thdr_incr_refs(thdr);
+    if (span)
+        span_incr_refs(span);
+        
     if (thdr->lookup == TAS_LOOKUP_INVALID_HANDLE)
         thdr_lookup_init(thdr);
 
@@ -1478,5 +1495,12 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     TA_ASSERT((pos == -1) || (span == NULL && pos < thdr->used) || (span && pos < span->count));
     Tcl_SetObjResult(ip, Tcl_NewIntObj(pos));
-    return TCL_OK;
+    status = TCL_OK;
+    
+vamoose:
+    if (span)
+        span_decr_refs(span);   /* Undo shimmering protection incr */
+    if (thdr)
+        thdr_decr_refs(thdr);   /* Undo shimmering protection incr */
+    return status;
 }
