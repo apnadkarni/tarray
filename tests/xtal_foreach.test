@@ -47,54 +47,54 @@ namespace eval tarray::test {
         set l
     } -result {2 4}
     
-    # foreach with key over dicts
-    test xtal-foreach-dict-1.0 {foreach dict keyvar} -setup {
-        set d {a 1 b 2 c 3}
+    # foreach with key over lists
+    test xtal-foreach-list-key-1.0 {foreach list keyvar} -setup {
+        set d {a 0 b 1}
     } -body {
         xtal::xtal {
             foreach k,e d {
-                d.$k = 10*e
+                d[k] = {k, e}
             }
         }
         set d
-    } -result {a 10 b 20 c 30}
+    } -result {{0 a} {1 0} {2 b} {3 1}}
 
-    test xtal-foreach-dict-1.1 {for function returning dicts} -setup {
+    test xtal-foreach-list-key-1.1 {foreach index list function} -setup {
         unset -nocomplain d
-        proc getd {} {return {a 1 b 2 c 3}}
+        proc getd {} {return {a 0 b 1}}
     } -body {
         xtal::xtal {
+            d = ""
             foreach k , e getd() {
-                d.$k = e-1
+                d[k] = {k, e}
             }
         }
         set d
-    } -result {a 0 b 1 c 2}
+    } -result {{0 a} {1 0} {2 b} {3 1}}
     
-    test xtal-foreach-dict-2.0 {foreach dict keyvar break} -setup {
-        set d {a 1 b 2 c 3 d 4}
+    test xtal-foreach-list-key-2.0 {foreach dict keyvar break} -setup {
+        set d {0 10 20 30}
     } -body {
         xtal::xtal {
             foreach k,e d {
-                if k == 'c' { break }
-                d.$k = 10*e
+                if k == 2 { break }
+                d[k] = 10*e
             }
         }
         set d
-    } -result {a 10 b 20 c 3 d 4}
+    } -result {0 100 20 30}
     
-    test xtal-foreach-dict-2.1 {foreach dict keyvar continue} -setup {
-        set d {a 1 b 2 c 3 d 4}
+    test xtal-foreach-list-key-2.1 {foreach dict keyvar continue} -setup {
+        set d {0 1 2 3 4 5}
     } -body {
         xtal::xtal {
             foreach k,e d {
                 if (e & 1) == 0 { continue }
-                d.$k = 10*e
+                d[k] = 10*e
             }
         }
         set d
-    } -result {a 10 b 2 c 30 d 4}
-
+    } -result {0 10 2 30 4 50}
     
     #
     # foreach over columns
@@ -321,3 +321,6 @@ namespace eval tarray::test {
 }
 
 ::tcltest::cleanupTests
+
+# TBD - tests that check if values of loop and index variables change
+# if loop operand is empty (in Tcl foreach, they do not)

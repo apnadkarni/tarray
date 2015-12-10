@@ -843,7 +843,7 @@ text {
     from a collection. The syntax takes one of the forms
 } syntax {
     foreach  _VAR_ _COLLECTION_ _STATEMENTBLOCK_
-    foreach _KEYVAR_ , _VAR_ _COLLECTION_ _STATEMENTBLOCK_
+    foreach _INDEXVAR_ , _VAR_ _COLLECTION_ _STATEMENTBLOCK_
 } text {
     where `_COLLECTION_` is any Xtal expression.
     
@@ -861,18 +861,21 @@ text {
     }
 } text {
     The second form is similar in that again _STATEMENTBLOCK_ is executed
-    for each element of _COLLECTION_. For columns and tables, behaviour
+    for each element of _COLLECTION_. However in addition to _VAR_
+    being assigned the value of the element, the variable named _INDEXVAR_
     is as above except that in addition to _VAR_, the variable named
-    _KEYVAR_ is assigned the index of the element in the column or table.
-    If _COLLECTION_ is not a column or table however, unlike the previous
-    case it is assumed to be a Tcl dictionary and not a list.
-    The _KEYVAR_ variable then takes on the values of the keys of the
-    dictionary.
+    is assigned the index of the element.
 } outputlimit 3 xtal {
-    foreach color, code colors {
-        <puts "The code for $color is $code.">
+    foreach index, rainfall Rainfall {
+        if rainfall > 100 {puts(Months[index])}
     }
+} text {
+    [TIP]
+    Both the above examples print the same information. The first
+    one is more succint and clear, and possibly faster, but the
+    latter will use significantly less memory when the data is large.
 }
+
 
 text {
     === The `break` statement
