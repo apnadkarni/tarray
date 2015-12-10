@@ -379,7 +379,7 @@ oo::class create xtal::Parser {
             return [list ForEachStatement [lindex $var 1] {*}$args]
         } else {
             # foreach keyvar loopvar collection body
-            return [list ForEachKeyedStatement [lindex $var 1] [lindex $args 0 1] [lindex $args 1] [lindex $args 2]]
+            return [list ForEachIndexedStatement [lindex $var 1] [lindex $args 0 1] [lindex $args 1] [lindex $args 2]]
         }
     }
 
@@ -943,7 +943,7 @@ oo::class create xtal::Compiler {
         # If not an assignment operator, for example just a function call
         # or variable name, need explicit return else we land up with
         # something like {[set x]} as the compiled code
-        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForEachStatement ForEachKeyedStatement ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
+        if {[lindex $child 0] in {= IfStatement WhileStatement ForRangeStatement ForEachStatement ForEachIndexedStatement ReturnStatement BreakStatement ContinueStatement FunctionDefinition TryStatement ThrowStatement}} {
             return "[my Indent][my {*}$child]"
         } else {
             return "[my Indent]return -level 0 [my {*}$child]"
@@ -1045,12 +1045,26 @@ oo::class create xtal::Compiler {
         }
     }
 
-    method ForEachKeyedStatement {keyvar loopvar looptarget clause} {
-        return "xtal::rt::keyedforloop $keyvar $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause][my Indent]}"
+    method ForEachIndexedStatement {indexvar loopvar looptarget clause} {
+        # See comments for ForEachStatement
+        append stmt "if {!\[info exists {$loopvar}\]} {set {$loopvar} {};unset {$loopvar}}\n"
+        append stmt [my Indent]
+        append stmt "if {!\[info exists {$indexvar}\]} {set {$indexvar} {};unset {$indexvar}}\n"
+        append stmt [my Indent]
+        append stmt "tarray::loop {$indexvar} {$loopvar} [my {*}$looptarget] {\n"
+        append stmt "[my _clause_to_code $clause][my Indent]}"
+        return $stmt
     }
     
     method ForEachStatement {loopvar looptarget clause} {
-        return "xtal::rt::forloop $loopvar [my {*}$looptarget] {\n[my _clause_to_code $clause][my Indent]}"
+        # Creating the loop variable first, even if unset immediately
+        # marks it as a local in the current scope, considerably speeds
+        # up execution of the script - via miguel sofer on the chat
+        append stmt "if {!\[info exists {$loopvar}\]} {set {$loopvar} {};unset {$loopvar}}\n"
+        append stmt [my Indent]
+        append stmt "tarray::loop {$loopvar} [my {*}$looptarget] {\n"
+        append stmt "[my _clause_to_code $clause][my Indent]}"
+        return $stmt
     }
 
     method = {lvalue rvalue} {
@@ -2446,28 +2460,6 @@ namespace eval xtal::rt {
             table { return [expr {[tarray::table::size $expr] > 0}] }
             default { return [expr {[tarray::column::size $expr] > 0}] }
         }
-    }
-
-    proc forloop {loopvar expr body} {
-        # TBD - for columns and tables perhaps looping using
-        # an index would be faster and/or cheaper in memory?
-        switch -exact -- [lindex [tarray::types $expr] 0] {
-            ""    {set l $expr}
-            table {set l [tarray::table::range -list $expr 0 end]}
-            default {set l [tarray::column::range -list $expr 0 end]}
-        }
-        uplevel 1 [list foreach $loopvar $l $body]
-    }
-    
-    proc keyedforloop {keyvar loopvar expr body} {
-        # TBD - for columns and tables perhaps looping using
-        # an index would be faster and/or cheaper in memory?
-        switch -exact -- [lindex [tarray::types $expr] 0] {
-            ""      {set l $expr}
-            table   {set l [tarray::table::range -dict $expr 0 end]}
-            default {set l [tarray::column::range -dict $expr 0 end]}
-        }
-        uplevel 1 [list dict for [list $keyvar $loopvar] $l $body]
     }
 
     proc listcast {val} {
