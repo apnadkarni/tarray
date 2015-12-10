@@ -154,6 +154,19 @@ const char *ta_type_string(int tatype)
         return "<invalid>";
 }
 
+/* Generally call the inline ta_collection_type wrapper instead of this */
+enum ta_collection_type_e ta_detect_collection_type(Tcl_Obj *o)
+{
+    int len;
+    if (tcol_convert(NULL, o) == TCL_OK)
+        return TA_COLL_COLUMN;
+    if (table_convert(NULL, o) == TCL_OK)
+        return TA_COLL_TABLE;
+    if (Tcl_ListObjLength(NULL, o, &len) == TCL_OK)
+        return TA_COLL_LIST;
+    return TA_COLL_NONE;
+}
+
 static void tcol_type_free_intrep(Tcl_Obj *o)
 {
     thdr_t *thdr;
