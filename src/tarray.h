@@ -108,6 +108,13 @@ typedef int TCL_RESULT;
 #define TA_STRING 7
 #define TA_BOOLEAN 8
 
+/* Type of tarray */
+enum ta_collection_type_e {
+    TA_COLL_NONE,               /* Not a collection */
+    TA_COLL_LIST,               /* Tcl list */
+    TA_COLL_COLUMN,             /* tarray column */
+    TA_COLL_TABLE,              /* tarray table */
+};
 
 typedef struct tas_t {
     unsigned char nrefs;
@@ -247,14 +254,12 @@ extern struct Tcl_ObjType ta_column_type;
 extern struct Tcl_ObjType ta_table_type;
 extern struct Tcl_ObjType ta_index_type;
 
-//static TCL_RESULT tcol_convert(Tcl_Interp *ip, Tcl_Obj *o);
-
-
 
 int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 
 const char *ta_type_string(int tatype);
 void ta_update_string_for_variable_element_size(Tcl_Obj *o);
+enum ta_collection_type_e ta_detect_collection_type(Tcl_Obj *o);
 
 int ta_utf8_compare(char *, char *, int ignorecase);
 int ta_utf8_equal(char *, char *, int ignorecase);
@@ -945,7 +950,20 @@ TA_INLINE int table_length(Tcl_Obj *table)
     return table_width(table) == 0 ? 0 : tcol_occupancy(table_column(table, 0));
 }
 
-/* Math - checking for valid doubles */
+/* Generic tarray helpers */
+TA_INLINE enum ta_collection_type_e ta_collection_type(Tcl_Obj *o)
+{
+    if (tcol_affirm(o))
+        return TA_COLL_COLUMN;
+    else if (table_affirm(o))
+        return TA_COLL_TABLE;
+    else
+        return ta_detect_collection_type(o);
+}
+    
+/* 
+ * Math - checking for valid doubles 
+ */
 TA_INLINE int ta_isNaN(double dbl)
 {
     /* If dbl is NaN, dbl != dbl */

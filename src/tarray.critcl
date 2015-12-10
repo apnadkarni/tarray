@@ -221,7 +221,7 @@ critcl::cinit {
     g_tcl_list_type_ptr = Tcl_GetObjType("list");
     g_tcl_string_type_ptr = Tcl_GetObjType("string");
 
-    Tcl_NRCreateCommand(interp, "::tarray::column::loop",
+    Tcl_NRCreateCommand(interp, "::tarray::loop",
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
 } {
 }
