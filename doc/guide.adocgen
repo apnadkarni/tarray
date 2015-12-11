@@ -8,18 +8,44 @@ text {
 text {
 
     This document is a programmer's guide for installing and using the `tarray`
-    extension (Version 0.7) from Tcl. For a detailed description of
-    each command and options,
-    see the ((^ chap_column_ref "column")) and ((^ chap_table_ref "table"))
-    reference pages.
+    extension from Tcl. It does not list or detail every command implemented
+    by the extension. See the command reference pages accessible from the
+    link:index.html[Main Table of Contents] for that information.
 
     [IMPORTANT]
-    The examples here use the above commands, `column` and `table`,
-    for manipulating typed arrays.
     Typed array can also be manipulated using Xtal, a language embeddable
     in Tcl that is geared towards typed arrays and vector operations.
-    However, Xtal is not described in this guide.
+    However, Xtal is for the most part not described in this guide.
     See ((^ chap_xtal_lang)) for details on its use.
+}
+
+text {
+    == Introduction
+    
+    The extension implements two data types - ((^ chap_column_ref _columns_))
+    and ((^ chap_table_ref _tables_)). The general term _typed array_ is used
+    to refer to either of these. A typed column is an array containing elements
+    of a single ((^ sect_guide_types _type_))
+    that is specified when the column is created. The command
+    ((^ chap_column_ref tarray::column))
+    can be used to create and manipulate typed columns.
+
+    A typed table is an ordered sequence of named columns of equal
+    size. It can be also be viewed as an array of records where the
+    record fields happen to use column-wise storage. The corresponding
+    ((^ chap_table_ref tarray::table)) command operates on typed
+    tables. Columns in a table can be referenced using either their
+    name or their position in the ordered sequence.
+
+    The extension places its commands in the `tarray` namespace.
+    The primary commands implemented by the extension
+    are ((^ chap_column_ref column)) and
+    ((^ chap_table_ref table)), each being
+    an ensemble of subcommands that operate on columns and
+    table respectively.
+
+    Other commands provide functionality like iteration and formatting
+    that are independent of the data type.
 }
 
 text {
@@ -27,55 +53,34 @@ text {
 
     include::download.ad[]
     
+    The examples in this guide assume the commands have
+    been imported into the calling namespace, as shown below,
+    or are in its namespace path.
+
 } shell {
     package require tarray
-    namespace import tarray::column tarray::table
+    namespace import tarray::column tarray::table tarray::print
+} text {
+    If in addition you want to use the Xtal language, you need to
+    load its package as well.
+} shell {
+    package require xtal
+    namespace import xtal::xtal
 }
 
 text {
-    == Concepts
-
-    === Columns and tables
-
-    The extension implements two data types - ((^ chap_column_ref _columns_))
-    and ((^ chap_table_ref _tables_)). The general term _typed array_ is used
-    to refer to either of these. A typed column is an array containing elements
-    of a single ((^ sect_guide_types _type_))
-    that is specified when the column is created. The command
-    ((^ chap_column_ref `tarray::column`))
-    can be used to create and manipulate typed columns.
-
-    A typed table is an ordered sequence of named columns of equal
-    size. It can be also be viewed as an array of records where the
-    record fields happen to use column-wise storage. The corresponding
-    ((^ chap_table_ref `tarray::table`)) command operates on typed
-    tables. Columns in a table can be referenced using either their
-    name or their position in the ordered sequence.
-
-} text {
-    ((=== sect_guide_types Types))
+    ((== sect_guide_types Types))
 
     include::types.ad[]
 
-    ((=== sect_guide_indices Indices))
+    ((== sect_guide_indices Indices))
 
     include::indices.ad[]
+
 }
 
 text {
-    == Using typed arrays
-
-    The tarray extension implements two commands,
-    ((^ chap_column_ref `column`)) and
-    ((^ chap_table_ref `table`)), both in the `tarray::` namespace.
-    Each is an ensemble of subcommands that operate on columns and
-    table respectively. The examples below assume the commands have
-    been imported into the calling namespace or are in its namespace
-    path.
-}
-
-text {
-    === Creating typed arrays
+    == Creating columns and tables
 
     The `create` subcommand creates columns and tables.
 } shell {
@@ -126,7 +131,7 @@ text {
 }
 
 text {
-    === Specifying indices
+    == Specifying indices
 
     Most commands require specification of the array locations to be targeted.
     This specification can be
@@ -158,7 +163,7 @@ text {
 }
 
 text {
-    === Values and variables
+    == Values and variables
 
     Commands that modify typed arrays come in two flavors:
 
@@ -190,7 +195,7 @@ text {
 }
 
 text {
-    === Modifying data
+    == Storing data
 
     Modifying a typed array may involve either storing a _single_
     value at multiple target locations or a different value at each
@@ -256,6 +261,8 @@ text {
 } text {
     The population of the second table row is changed to 851.
 
+    .Extending columns and tables
+    
     A point to be noted about all the above commands is that they may
     extend the size of the array if necessary. However, two conditions
     must apply for this:
@@ -304,7 +311,11 @@ text {
     column with all values in the passed list, `1.0`, `2.0`, `3.0`,
     inserted at index `2`. The last command returns a new column where
     all existing values in the column are reinserted at index `2`.
+}
 
+text {
+    == Deleting data
+    
     Elements in a typed array can be deleted with the `delete` and
     `vdelete` commands.  Succeeding elements are moved up to occupy the deleted
     slots. Like the `fill` command, the indices of the elements to be
@@ -315,13 +326,10 @@ text {
 } text {
     will delete all negative elements from the column.
 
-    Finally, typed arrays support `reverse` and `vreverse` commands which
-    reverse the order of elements, an operation that is useful in many
-    algorithms.
 }
 
 text {
-    === Retrieving data
+    == Retrieving data
 
     Retrieving data from a typed array involves specifying which
     elements to retrieve and what format to retrieve them in when
@@ -376,7 +384,7 @@ text {
 }
 
 text {
-    === Searching
+    == Searching and filtering
 
     The column search command works similarly to Tcl's `lsearch`. It
     returns the indices (by default) or the values (with the -inline
@@ -438,10 +446,21 @@ text {
     The ((^ column_intersect3 "column intersect3"))
     command offers another way to search across
     multiple columns as described later.
+
+    [TIP]
+    ====
+    For more complex queries, it is more convenient to use the
+    ((^ chap_xtal_lang "Xtal")) extension instead of some combination
+    of `search` and `intersect3`. For example, to find all countries
+    with a population more than a billion in less than 5 million sq.km,
+} shell {
+    xtal::xtal { countries.country[countries.population > 1000000000 && countries.area < 5000000]}
+} text {
+    ====
 }
 
 text {
-    === Sorting
+    == Sorting and ordering
 
     Columns can be sorted using the column sort command or its
     variable targeting analogue column vsort. The commands take the
@@ -457,7 +476,7 @@ text {
 } text {
     returns rows in the sorted order based on country name.
 
-    ((==== sect_guide_sort_stability "Sort stability"))
+    ((. sect_guide_sort_stability "Sort stability"))
     
     When sorting tables, for display purposes for example, it is often
     necessary to display elements that have the same value in the sort
@@ -505,10 +524,19 @@ text {
     In this last statement, the sort is done indirectly using values
     from table but the positioning of elements when these values
     compare equal is based on the order in the original table.
-} 
+} text { 
+    .Reversing element order
+    Another form of reordering data is reversing the order of elements.
+    Both columns and tables support `reverse` and `vreverse` commands which
+    reverse the order of elements, an operation that is useful in many
+    algorithms.
+} shell {
+    print [table column $tab name]
+    print [column reverse [table column $tab name]]
+}
 
 text {
-    === Arithmetic operations
+    == Arithmetic operations
 
     The ((^ column_math "column math")) command can be used
     to perform arithmetic operations on columns on a per-element basic.
@@ -550,11 +578,29 @@ text {
 }
 
 text {
-    === Other commands
+    == Counting elements
 
-    The ((^ column_count "column count")) command
-    can be used to count the number values in a
-    column that match specified criteria.
+    The ((^ column_size "column size")) and
+    The ((^ table_size "table size"))
+    commands return the number of elements in a
+    column or table.
+} shell {
+    table size $populations
+} text {
+    If you are only interested in the count for elements that match
+    specific criteria, you can use the 
+    ((^ column_count "column count")) command instead. Thus
+} shell {
+    column count -gt [table column $populations population] 1000000000
+} text {
+    returns the number of countries with more than a billion people. 
+
+    [TIP]
+    Just as for searches, for more complex criteria, it is more
+    convenient to use an ((^ chap_xtal_lang "Xtal")) query instead.
+}
+text {
+    == Other commands
 
     The ((^ column_lookup "column lookup")) command
     provides for a faster, dictionary based
@@ -581,12 +627,6 @@ text {
     lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
 } text {
 
-    The ((^ column_size "column size"))
-    command returns the number of elements in a
-    column. The table size and table width commands return the number
-    of rows and columns respectively in a table.
-} text {
-
     The ((^ column_type "column type"))
     command returns the type of elements in a column
     while the table types command returns a list of the types of each
@@ -596,7 +636,8 @@ text {
 text {
     == Usage Hints
 
-    * When specifying indices to commands, Tcl lists of integers and columns of
+    .Specifying multiple indices
+    When specifying indices to commands, Tcl lists of integers and columns of
     type `int` are usually interchangeable. Similarly, when passing multiple
     values to a command, either a Tcl list or a column of the appropriate type
     can be used. Note there is an ambiguity in the specific case where the
@@ -606,7 +647,8 @@ text {
     three elements `tarray`, `any` and the `{...}`. In this case the operand
     gets interpreted as a column.
 
-    * Given that the `tarray` extension is meant for dealing with
+    .Copy-on-write efficiency
+    Given that the `tarray` extension is meant for dealing with
     large amounts of data, it is useful to keep in mind Tcl's
     object reference counting and copy-on-write
     implementation. Modifying a typed array that is shared will
@@ -623,7 +665,8 @@ text {
     assuming the value in is not itself shared. This is similar to use of Tcl's
     `lset` command to modify lists.
 
-    * As arrays get large `tarray` prioritizes memory usage over efficiency. As
+    .Memory efficiency
+    As arrays get large `tarray` prioritizes memory usage over efficiency. As
     arrays grow, the additional extra memory is conservatively allocated
     (unlike Tcl which aggressively allocates extra memory).
     If the size of a typed array
@@ -634,7 +677,7 @@ text {
 } text {
     preallocates space for a million elements.
 
-    * Typed arrays are by design implemented as consecutive elements
+    Typed arrays are by design implemented as consecutive elements
     in contiguous memory. Certain operations, such as insertion and
     deletion, will not be efficient when arrays get very large. For
     applications where such operations are common, other structures
@@ -645,7 +688,8 @@ text {
     operations for efficiency. Whether this is required or not should
     be determined based on application benchmarks.
 
-    * Both lists and columns have some differences in terms of
+    .List and column differences
+    Both lists and columns have some differences in terms of
     functionality.  Columns do not have the -stride option but the
     same functionality can be implemented through tables. List
     indexing offers nesting while although columns can be nested, the
@@ -654,7 +698,8 @@ text {
     indexing operations (eg. extraction or storing of multiple
     elements through index lists).
 
-    * Columns of type `any` are stored as Tcl_Obj objects internally
+    .Considerations for columns of type `any`
+    Columns of type `any` are stored as Tcl_Obj objects internally
     and thus are very similar to Tcl lists. Any advantage of an `any`
     typed array over using a simple Tcl list in terms of the memory
     footprint comes only from conservative memory overallocation, not
@@ -663,7 +708,11 @@ text {
     `any` are mostly beneficial when used in conjunction with other
     column types, for example in a table.
 
-    * The type `any` can be any Tcl value, including typed
+    Note that columns of type `string` are more efficient than type
+    `any` for storing small strings.
+
+    .Nesting typed arrays
+    The type `any` can be any Tcl value, including typed
     arrays. Typed arrays can therefore be nested (tables are currently
     implemented as nested columns). However, unlike some of the Tcl
     list commands, `tarray` does not have commands that implicitly
@@ -672,7 +721,8 @@ text {
 } syntax {
     column index [column index $outer_column 4] 0
 } text {
-    * The package internally keeps track of the sorting state of a column. A
+    .Sort optimization
+    The package internally keeps track of the sorting state of a column. A
     column is internally marked after certain operations where the result is
     known to be sorted. An obvious example is the column sort command. A less
     obvious case is an index column returned from certain search operations.
