@@ -233,3 +233,4 @@ namespace eval tarray::test {
 # TBD tests for modiying collection from within loop
 # TBD - tests that check if values of loop and index variables change
 # if loop operand is empty (in Tcl loop they do not)
+# TBD - yield tests within loop
