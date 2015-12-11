@@ -202,6 +202,28 @@ namespace eval tarray::test {
         set l
     } -result {0 ten 2 thirty}
 
+    # Make sure column and table loop ensembles work
+    test column-loop-1.0 {loop column break} -setup {
+        set l {}
+    } -body {
+        tarray::column loop e [newcolumn int {1 2 3 4}] {
+            if {$e > 2} break
+            lappend l $e
+        }
+        set l
+    } -result {1 2}
+    
+    test table-loop-1.0 {loop table} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::table loop e $T {
+            lappend l $e
+        }
+        set l
+    } -result {{10 ten} {20 twenty} {30 thirty}}
     
 }
 
