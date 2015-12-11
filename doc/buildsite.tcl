@@ -2,7 +2,7 @@
 
 set target output
 set adocgen_files {
-    introduction guide column table xtal xtal_lang xtal_shell ui build
+    introduction guide commands column table xtal xtal_lang xtal_shell ui build
 }
 
 # file delete -force $target

@@ -190,6 +190,10 @@ text {
     in the table as the command would not know what values to use for the
     unspecified columns.
 
+    ((cmddef table_loop "table loop _VAR_ _TABLE_ _SCRIPT_"))
+    ((cmddef table_loop "table loop _INDEXVAR_ _VAR_ _TABLE_ _SCRIPT_"))
+    See ((^ tarray_loop loop)).
+
     ((cmddef table_place "table place ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ _INDICES_"))
 
     Returns a table with the specified values at the corresponding indices.
@@ -204,6 +208,12 @@ text {
     columns of the table or to match the order of columns to the supplied
     data.
 
+    ((cmddef table_prettify "table prettify _TABLE_ ?_options_?"))
+    See ((^ tarray_prettify prettify)).
+    
+    ((cmddef table_print "table print _TABLE_ ?_CHAN_? ?_options_?"))
+    See ((^ tarray_print print)).
+    
     ((cmddef table_put "table put ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ ?_FIRST_?"))
 
     Returns a table with the elements starting at index _FIRST_ replaced by

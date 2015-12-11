@@ -842,14 +842,13 @@ text {
     Tcl `foreach` statement where the loop variable takes on values
     from a collection. The syntax takes one of the forms
 } syntax {
-    foreach  _VAR_ _COLLECTION_ _STATEMENTBLOCK_
-    foreach _INDEXVAR_ , _VAR_ _COLLECTION_ _STATEMENTBLOCK_
+    foreach  _VAR_ _COLLECTION_ _SCRIPT_
+    foreach _INDEXVAR_ , _VAR_ _COLLECTION_ _SCRIPT_
 } text {
     where `_COLLECTION_` is any Xtal expression.
     
-    In the first form, _STATEMENTBLOCK_ is executed for each element
-    in _COLLECTION_.
-    to variable named _VAR_. If _COLLECTION_ is a column, the variable
+    In the first form, _SCRIPT_ is executed for each element
+    in _COLLECTION_. If _COLLECTION_ is a column, the variable
     _VAR_ takes the value of each element of the column. If _COLLECTION_
     is a table, _VAR_ is assigned each row of the table in list form.
     Otherwise, _COLLECTION_ is treated as a Tcl list and _VAR_ takes
@@ -860,10 +859,9 @@ text {
         puts(month)
     }
 } text {
-    The second form is similar in that again _STATEMENTBLOCK_ is executed
+    The second form is similar in that again _SCRIPT_ is executed
     for each element of _COLLECTION_. However in addition to _VAR_
     being assigned the value of the element, the variable named _INDEXVAR_
-    is as above except that in addition to _VAR_, the variable named
     is assigned the index of the element.
 } outputlimit 3 xtal {
     foreach index, rainfall Rainfall {
