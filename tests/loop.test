@@ -1,0 +1,213 @@
+# loop tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    #
+    # loop over lists
+    test loop-list-1.0 {loop list} -setup { set l {} } -body {
+        tarray::loop e {1 2 "three"} {
+                lappend l $e 
+        }
+        set l
+    } -result {1 2 three}
+
+    test loop-list-2.0 {loop list break} -setup { set l {} } -body {
+        tarray::loop e {1 2 3 4} {
+            if {$e > 2} { break }
+            lappend l $e
+        }
+        set l
+    } -result {1 2}
+    
+    test loop-list-2.1 {loop list continue} -setup { set l {} } -body {
+        tarray::loop e {1 2 3 4} {
+            if {$e & 1} {continue}
+            lappend l $e
+        }
+        set l
+    } -result {2 4}
+    
+    # loop with key over lists
+    test loop-list-key-1.0 {loop list keyvar} -setup {
+        set d {a 0 b 1}
+    } -body {
+        tarray::loop k e $d {
+            lset d $k [list $k $e]
+        }
+        set d
+    } -result {{0 a} {1 0} {2 b} {3 1}}
+
+    test loop-list-key-2.0 {loop dict keyvar break} -setup {
+        set d {0 10 20 30}
+    } -body {
+        tarray::loop k e $d {
+            if {$k == 2} { break }
+            lset d $k [expr {$e*10}]
+        }
+        set d
+    } -result {0 100 20 30}
+    
+    test loop-list-key-2.1 {loop dict keyvar continue} -setup {
+        set d {0 1 2 3 4 5}
+    } -body {
+        tarray::loop k e $d {
+            if {($e & 1) == 0} { continue }
+            lset d $k [expr {$e*10}]
+        }
+        set d
+    } -result {0 10 2 30 4 50}
+    
+    #
+    # loop over columns
+    test loop-column-1.0 {loop column} -setup {
+        set col [newcolumn int {1 2 3 4}]
+        set l {}
+    } -body {
+        tarray::loop e $col {
+            lappend l $e
+        }
+        set l
+    } -result {1 2 3 4}
+
+    test loop-column-2.0 {loop column break} -setup {
+        set l {}
+    } -body {
+        tarray::loop e [newcolumn int {1 2 3 4}] {
+            if {$e > 2} break
+            lappend l $e
+        }
+        set l
+    } -result {1 2}
+    
+    test loop-column-2.1 {loop column continue} -setup { set l {} } -body {
+        tarray::loop e [newcolumn int {1 2 3 4}] {
+            if {$e & 1} continue
+            lappend l $e
+        }
+        set l
+    } -result {2 4}
+    
+    # loop with key over columns
+    test loop-column-key-1.0 {loop column keyvar} -setup {
+        set col [tarray::column create string {a b c d}]
+        set l {}
+    } -body {
+        tarray::loop k e $col {
+            lappend l $e $k
+        }
+        set l
+    } -result {a 0 b 1 c 2 d 3}
+
+    test loop-column-key-2.0 {loop column keyvar break} -setup {
+        set col [tarray::column create string {a b c d}]
+        set l {}
+    } -body {
+        tarray::loop k e $col {
+            if {$e == "c"} { break }
+            lappend l $k $e
+        }
+        set l
+    } -result {0 a 1 b}
+    
+    test loop-column-key-2.1 {loop column keyvar continue} -setup {
+        set col [tarray::column create string {a b c d}]
+        set l {}
+    } -body {
+        tarray::loop k e $col {
+            if {$k & 1} { continue }
+            lappend l $k $e
+        }
+        set l
+    } -result {0 a 2 c}
+    
+    #
+    # loop table tests
+
+    test loop-table-1.0 {loop table} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::loop e $T {
+            lappend l $e
+        }
+        set l
+    } -result {{10 ten} {20 twenty} {30 thirty}}
+
+    test loop-table-2.0 {loop table break} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::loop e $T {
+            if {[lindex $e 0] > 25} break
+            lappend l $e
+        }
+        set l
+    } -result {{10 ten} {20 twenty}}
+    
+    test loop-table-2.1 {loop table continue} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::loop e $T {
+            if {[lindex $e 1] eq "twenty"} continue
+            lappend l $e
+        }
+        set l
+    } -result {{10 ten} {30 thirty}}
+    
+    # loop with key over tables
+    test loop-table-key-1.0 {loop table keyvar} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::loop k e $T {
+            lappend l $k $e
+        }
+        set l
+    } -result {0 {10 ten} 1 {20 twenty} 2 {30 thirty}}
+
+    test loop-table-key-2.0 {loop table keyvar break} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::loop k e $T {
+            lappend l $k $e
+            if {$k == 1} break
+        }
+        set l
+    } -result {0 {10 ten} 1 {20 twenty}}
+ 
+    test loop-table-key-2.1 {loop table keyvar continue} -setup {
+        set T [tarray::table create {i int s string} {
+            {10 "ten"} {20 "twenty"} {30 "thirty"}
+        }]
+        set l {}
+    } -body {
+        tarray::loop k e $T {
+            if {$k & 1} continue
+            lappend l $k [lindex $e 1]
+        }
+        set l
+    } -result {0 ten 2 thirty}
+
+    
+}
+
+::tcltest::cleanupTests
+
+# TBD syntax errors
+# TBD tests for modiying collection from within loop
+# TBD - tests that check if values of loop and index variables change
+# if loop operand is empty (in Tcl loop they do not)

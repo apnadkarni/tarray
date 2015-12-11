@@ -1046,7 +1046,12 @@ oo::class create xtal::Compiler {
     }
 
     method ForEachIndexedStatement {indexvar loopvar looptarget clause} {
+        # TBD - might the following be faster
+        # foreach {k v} [column/table range -dict 0 end] {
+        #    clause
+        # }
         # See comments for ForEachStatement
+
         append stmt "if {!\[info exists {$loopvar}\]} {set {$loopvar} {};unset {$loopvar}}\n"
         append stmt [my Indent]
         append stmt "if {!\[info exists {$indexvar}\]} {set {$indexvar} {};unset {$indexvar}}\n"
