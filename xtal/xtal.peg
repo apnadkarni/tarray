@@ -1,15 +1,3 @@
-# TBD -
-# [11:12]	evilotto	when walking the tree with pt::ast, the first element of any node is the name of the node.  So what I did to make that useful was to mensure that a particular named rule always matched a partuicular thing.  
-# [11:13]	evilotto	I was writing a grammar for a sql-like language, with "select bla bla " and "update bla bla"
-# [11:14]	evilotto	I wanted the "qtype" production to be the query type.  to do this while still keeping things pretty general, I made "qtype" capture the word that it was defined to capture.  that is:
-# [11:14]	evilotto	query <- update / select ;
-# [11:15]	evilotto	qtype <- <alpha>+; 
-# 		update <- & "update" qtype  ... update-speciifc-stuff  ;
-# 		select <- & "select" qtype ... select-specific stuff ;
-# [11:16]	evilotto	so the "qtype" node is either "update" or "select", even though they are different productions.
-# [11:16]	evilotto	I have no idea if this is typical for how anyone else uses it.
-# [11:17]	evilotto	ditto the way I keep the input around to get the values of the tokens, because the parser doesn't store it (kind of annoying, really)
-
 PEG XtalParser (Program)
     # A Program is a sequence of statements.
     # The Comment? is there because otherwise [tscript {# comment}] errors out
@@ -132,7 +120,10 @@ leaf:    BuiltInFunction <- 'delete'
 
     # Constructors
     
-    ColumnConstructor <- [@] ColumnType (WS Sequence / WS '(' WS Expression WS ')')? ;
+    ColumnConstructor <- [@] ColumnType (WS ColumnConstructorInit)? ;
+    ColumnConstructorInit <- Sequence
+                             / '(' WS Expression WS ')'
+			     / AddExpr WS ':' WS AddExpr (WS ':' AddExpr)? ;
 
     TableConstructor <- [@] 'table' WS '(' WSNL TableColumnDefs? WSNL ')' WS Sequence? ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
@@ -216,3 +207,16 @@ void: WS    <- (('\\' EOL) / (!EOL <space>))*;
 void: WSob  <- (('\\' EOL) / (!EOL <space>))+;
 void: WSNL <- <space>* ;
 END;
+
+# TBD -
+# [11:12]	evilotto	when walking the tree with pt::ast, the first element of any node is the name of the node.  So what I did to make that useful was to mensure that a particular named rule always matched a partuicular thing.  
+# [11:13]	evilotto	I was writing a grammar for a sql-like language, with "select bla bla " and "update bla bla"
+# [11:14]	evilotto	I wanted the "qtype" production to be the query type.  to do this while still keeping things pretty general, I made "qtype" capture the word that it was defined to capture.  that is:
+# [11:14]	evilotto	query <- update / select ;
+# [11:15]	evilotto	qtype <- <alpha>+; 
+# 		update <- & "update" qtype  ... update-speciifc-stuff  ;
+# 		select <- & "select" qtype ... select-specific stuff ;
+# [11:16]	evilotto	so the "qtype" node is either "update" or "select", even though they are different productions.
+# [11:16]	evilotto	I have no idea if this is typical for how anyone else uses it.
+# [11:17]	evilotto	ditto the way I keep the input around to get the values of the tokens, because the parser doesn't store it (kind of annoying, really)
+

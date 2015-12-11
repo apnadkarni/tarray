@@ -210,7 +210,7 @@ text {
     accurate.
     
     ((cmddef column_loop "column loop _VAR_ _VALUES_ _SCRIPT_"))
-    ((cmddef column_loop "column loop _INDEXVAR_ _VAR_ _VALUES_ _SCRIPT_"))
+    ((cmddef column_loop_indexed "column loop _INDEXVAR_ _VAR_ _VALUES_ _SCRIPT_"))
     See ((^ tarray_loop loop)).
     
     ((cmddef column_math "column math _OPERATION_ _OPERAND_ ?_OPERAND_...?"))
@@ -410,8 +410,8 @@ text {
     types `any` and `string`.
 
     ((cmddef column_series "column series _STOP_"))
-    ((cmddef column_series "column series _STOP_ _STEP_"))
-    ((cmddef column_series "column series _START_ _STOP_ _STEP_"))
+    ((cmddef column_series_2 "column series _STOP_ _STEP_"))
+    ((cmddef column_series_3 "column series _START_ _STOP_ _STEP_"))
     Returns a column with values between _START_ (included)
     and _STOP_ (excluded) incremented by _STEP_. _START_ and _STEP_
     default to 0 and 1 respectively if unspecified. If _STEP_ is less

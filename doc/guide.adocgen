@@ -599,6 +599,46 @@ text {
     Just as for searches, for more complex criteria, it is more
     convenient to use an ((^ chap_xtal_lang "Xtal")) query instead.
 }
+
+text {
+    == Formatting
+    
+    The Tcl `puts` command is not always suitable for printing
+    the value of a column or table for several reasons. The output
+    is not formatted and hence difficult to read. The `print` command
+    provides a alternative that outputs a more readable format.
+} shell {
+    print [table column $countries population] -head 1 -tail 1
+    print $countries
+} text {
+    By default the command only prints the first few and last few
+    elements although this can be controlled by various options.
+
+    The `prettify` command is another alternative which
+    returns the formatted string instead of printing it to a channel.
+}
+
+text {
+    == Introspection
+
+    .Column introspection
+    The type of a column can be retrieved with the `column type` command.
+} shell {
+    column type [table column $countries population]
+} text {
+    .Table introspection
+    The `table cnames` command returns a list containing the names
+    of the columns in a table.
+} shell {
+    table cnames $countries
+} text {
+    If the full table definition is desired, it can be retrieved with
+    `table definition`. The returned string is in a form that can be
+    used with `table create`.
+} shell {
+    table definition $countries
+}
+
 text {
     == Other commands
 
@@ -625,12 +665,6 @@ text {
     desired.
 } shell {
     lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
-} text {
-
-    The ((^ column_type "column type"))
-    command returns the type of elements in a column
-    while the table types command returns a list of the types of each
-    column in the table.
 } 
 
 text {
