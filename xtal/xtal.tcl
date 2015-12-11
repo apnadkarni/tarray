@@ -718,6 +718,14 @@ oo::class create xtal::Parser {
         return [list ColumnConstructor $coltype {*}$args]
     }
 
+    method ColumnConstructorInit {from to args} {
+        if {[llength $args] == 1} {
+            return [lindex $args 0]
+        } else {
+            return [list ColumnConstructorRange {*}$args]
+        }
+    }
+    
     method TableConstructor {from to args} {
         if {[llength $args] == 1} {
             # A single arg may be the column definition list or the initializer
@@ -1361,12 +1369,20 @@ oo::class create xtal::Compiler {
 
     method ColumnConstructor {coltype {inivalue {}}} {
         if {[llength $inivalue]} {
-            return "\[xtal::rt::column_create $coltype [my {*}$inivalue]\]"
+            if {[lindex $inivalue 0] eq "ColumnConstructorRange"} {
+                return "\[xtal::rt::column_series $coltype [my {*}$inivalue]\]"
+            } else {
+                return "\[xtal::rt::column_create $coltype [my {*}$inivalue]\]"
+            }
         } else {
             return "\[tarray::column create $coltype {}\]"
         }
     }
 
+    method ColumnConstructorRange {start stop {step {Number 1}}} {
+        return "\[list [my {*}$start] [my {*}$stop] [my {*}$step]\]"
+    }
+    
     method TableConstructor {coldefs inivalue} {
         if {[llength $inivalue]} {
             return "\[tarray::table::create {$coldefs} [my {*}$inivalue]\]"
@@ -1570,11 +1586,21 @@ namespace eval xtal::rt {
     }
 
     proc column_create {type inival} {
+        # TBD - why do we not generate code that directly calls
+        # column::create ? That will generate an error for tables anyways
         return [switch -exact -- [lindex [tarray::types $inival] 0] {
             table   { error "Cannot convert a table to a column" }
             ""      { tarray::column::create $type $inival }
             default { tarray::column::create $type $inival }
         }]
+    }
+    
+    proc column_series {type range} {
+        # TBD check whether it would be faster to verify types before
+        # calling cast and if same, not call it at all. Note
+        # the column::create does that check anyways but calling into
+        # C is so slow, it might be faster to check in script first
+        return [tarray::column::create $type [tarray::column::series {*}$range]]
     }
     
     proc tarray_assign_element {varname value index} {

@@ -1,5 +1,5 @@
 text {
-    ((= chap_build "Tk widgets"))
+    ((= chap_ui "Tk widgets"))
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))

@@ -1806,6 +1806,6 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
 #endif
 }
 
-package provide tarray 0.7
+package provide tarray 0.8
 
 critcl::load

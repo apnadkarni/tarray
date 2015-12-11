@@ -126,6 +126,10 @@ text {
     nested list with each sublist being a row whose element types are
     compatible with the corresponding column types in _DEFINITION_.
 
+    ((cmddef table_definition "table definition _TABLE_"))
+    Returns the definition of the specified table in a form that can
+    be passed to ((^ table_create "table create")).
+    
     ((cmddef table_delete "table delete _TABLE_ _INDEX_"))
 
     ((cmddef table_delete_1 "table delete _TABLE_ _INDEXLIST_"))
@@ -191,7 +195,7 @@ text {
     unspecified columns.
 
     ((cmddef table_loop "table loop _VAR_ _TABLE_ _SCRIPT_"))
-    ((cmddef table_loop "table loop _INDEXVAR_ _VAR_ _TABLE_ _SCRIPT_"))
+    ((cmddef table_loop_2 "table loop _INDEXVAR_ _VAR_ _TABLE_ _SCRIPT_"))
     See ((^ tarray_loop loop)).
 
     ((cmddef table_place "table place ?-columns _COLUMNS_? _TABLE_ _ROWVALUES_ _INDICES_"))

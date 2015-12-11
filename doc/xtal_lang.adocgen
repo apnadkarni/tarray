@@ -998,7 +998,7 @@ text {
 
     Columns are created using the built-in operators `@boolean`,
     `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`.
-    The syntax of the command can take two forms, the first of which is
+    The syntax of the command can take three forms, the first of which is
 } syntax {
     @__TYPE__ ?_INITLIST_?
 } text {
@@ -1009,7 +1009,19 @@ text {
 } xtal { A = @any {10, {1, 2, 3}, len} } text {
     creates a column of type `any` with 3 elements.
 
-    The second form is that of a function, which is
+    The second form is
+} syntax {
+    @__TYPE__ _START_ : _STOP_ ? : _STEP_ ?
+} text {
+    This creates a column of the specified type containing elements from
+    _START_ (inclusive) to _STOP_ (excluded) at intervals of _STEP_ which
+    default to 1 if unspecified.
+} xtal_shell {
+    @double 1.0:10.0
+    @int 5:-5:-2
+} text {
+
+    Finally, the third form is that of a function,
 } syntax {
     @__TYPE__ (?EXPR?)
 } text {
