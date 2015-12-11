@@ -12,7 +12,6 @@ namespace eval tarray {
 proc tarray::_parse_print_opts {nelems optargs} {
     set opts [dict merge {
         -full 0
-        -channel stdout
     } $optargs]
 
     if {[dict get $opts -full]} {
@@ -44,16 +43,12 @@ proc tarray::_parse_print_opts {nelems optargs} {
         set ntail 0
     }
 
-    return [list $nhead $ntail [dict get $opts -channel]]
+    return [list $nhead $ntail]
 }
 
 
 proc tarray::column::prettify {c args} {
-    # _parse_print_opts accepts -channel but this command does not
-    if {[dict exists $args -channel]} {
-        error "Invalid option '\"-channel\""
-    }
-    lassign [tarray::_parse_print_opts [size $c] $args] nhead ntail chan
+    lassign [tarray::_parse_print_opts [size $c] $args] nhead ntail
     if {[type $c] in {string any}} {
         set sep "\n"
         set sep2 "\n...\n"
@@ -78,17 +73,17 @@ proc tarray::column::prettify {c args} {
 }
 
 proc tarray::column::print {c args} {
-    lassign [tarray::_parse_print_opts [size $c] $args] nhead ntail chan
+    if {[llength $args] & 1} {
+        set args [lassign $args chan]
+    } else {
+        set chan stdout
+    }
+    lassign [tarray::_parse_print_opts [size $c] $args] nhead ntail
     puts $chan [tarray::column::prettify $c -head $nhead -tail $ntail]
     return
 }
 
 proc tarray::table::prettify {t args} {
-    # _parse_print_opts accepts -channel but this command does not
-    if {[dict exists $args -channel]} {
-        error "Invalid option '\"-channel\""
-    }
-    
     set ncols [width $t]
     set nrows [size $t]
     lassign [tarray::_parse_print_opts $nrows $args] nhead ntail
@@ -125,7 +120,12 @@ proc tarray::table::prettify {t args} {
 }
 
 proc tarray::table::print {t args} {
-    lassign [tarray::_parse_print_opts [size $t] $args] nhead ntail chan
+    if {[llength $args] & 1} {
+        set args [lassign $args chan]
+    } else {
+        set chan stdout
+    }
+    lassign [tarray::_parse_print_opts [size $t] $args] nhead ntail
     puts $chan [tarray::table::prettify $t -head $nhead -tail $ntail]
     return
 }
@@ -143,98 +143,15 @@ proc tarray::print {val args} {
     lassign [types $val] type
     return [switch -exact -- [lindex [types $val] 0] {
         ""      {
-            set opts [dict merge {-channel stdout} $args]
-            puts [dict get $opts -channel] $val
+            if {[llength $args] & 1} {
+                set args [lassign $args chan]
+            } else {
+                set chan stdout
+            }
+            puts $chan $val
         }
         table   {table print $val {*}$args}
         default {column print $val {*}$args}
     }]
 }
 
-#
-# The "report" commands make use of the report package
-# TBD - delete these unless they offer some advantage over use of
-# tabulate
-proc tarray::table::report {t args} {
-    variable _report_ctr
-
-    set ncols [width $t]
-    set nrows [size $t]
-    lassign [tarray::_parse_print_opts $nrows $args] nhead ntail chan
-    
-    set m [namespace current]::matrix[incr _report_ctr]
-    struct::matrix $m
-    set r [namespace current]::report$_report_ctr
-    report::report $r $ncols style ta_captionedtable 1
-    try {
-        $m add columns $ncols
-        $m add rows 1
-        $m set row 0 [cnames $t]
-        set rownum 0
-        if {$nhead} {
-            $m add rows $nhead
-            for {set i 0} {$i < $nhead} {incr i} {
-                $m set row [incr rownum] [index $t $i]
-            }
-            if {$ntail} {
-                $m add rows 1
-                $m set row [incr rownum] [lrepeat $ncols .]
-            }
-        }
-        if {$ntail} {
-            $m add rows $ntail
-            if {$nhead == 0} {
-                $m add rows 1
-                $m set row [incr rownum] [lrepeat $ncols .]
-            }
-            for {set i [expr {$ntail-1}]} {$i >= 0} {incr i -1} { 
-                $m set row [incr rownum] [index $t end-$i]
-            }
-        } 
-        $r printmatrix2channel $m $chan
-        return
-    } finally {
-        $r destroy
-        $m destroy
-    }
-}
-
-proc tarray::report {ta args} {
-    uplevel #0 {
-        package require report
-        package require struct::matrix
-    }
-    # Following check it to allow re-sourcing of file during development
-    if {"ta_simpletable" in [::report::styles]} {
-        ::report::rmstyle ta_simpletable
-        ::report::rmstyle ta_captionedtable
-    }
-    ::report::defstyle ta_simpletable {} {
-        data    set [split "[string repeat "| "   [columns]]|"]
-        top     set [split "[string repeat "+ - " [columns]]+"]
-        bottom  set [top get]
-        top     enable
-        bottom  enable
-    }
-
-    ::report::defstyle ta_captionedtable {{n 1}} {
-        ta_simpletable
-        topdata   set [data get]
-        topcapsep set [top get]
-        topcapsep enable
-        tcaption $n
-    }
-
-    proc [namespace current]::report {ta args} {
-        lassign [types $ta] type
-        return [switch -exact -- [lindex [types $ta] 0] {
-            ""      {
-                set opts [dict merge {-channel stdout} $args]
-                puts [dict get $opts -channel] $ta
-            }
-            table   {table report $ta {*}$args}
-            default {column print $ta {*}$args}
-        }]
-    }
-    tailcall report $ta {*}$args
-}

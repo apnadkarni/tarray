@@ -317,6 +317,7 @@ namespace eval tarray {
             insert insert
             intersect3 intersect3
             lookup lookup
+            loop ::tarray::loop
             math math
             minmax minmax
             place place
@@ -363,6 +364,7 @@ namespace eval tarray {
             inject inject
             insert insert
             join join
+            loop ::tarray::loop
             place place
             prettify prettify
             print print
@@ -383,6 +385,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column table tscript tsource prettify print
+    namespace export column loop prettify print table
 }
 

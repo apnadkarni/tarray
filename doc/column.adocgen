@@ -209,6 +209,10 @@ text {
     of the column. However, the return value of the command is always
     accurate.
     
+    ((cmddef column_loop "column loop _VAR_ _VALUES_ _SCRIPT_"))
+    ((cmddef column_loop "column loop _INDEXVAR_ _VAR_ _VALUES_ _SCRIPT_"))
+    See ((^ tarray_loop loop)).
+    
     ((cmddef column_math "column math _OPERATION_ _OPERAND_ ?_OPERAND_...?"))
 
     Performs the specified mathematical operation _OPERATION_ on the
@@ -317,6 +321,12 @@ text {
     the forms described in ((^ sect_column_indices)) and may extend the column if the
     conditions listed there are satisfied.
 
+    ((cmddef column_prettify "column prettify _COLUMN_ ?_options_?"))
+    See ((^ tarray_prettify prettify)).
+    
+    ((cmddef column_print "column print _COLUMN_ ?_CHAN_? ?_options_?"))
+    See ((^ tarray_print print)).
+    
     ((cmddef column_put "column put _COLUMN_ _VALUES_ ?_FIRST_?"))
 
     Returns a typed column with the elements starting at index _FIRST_
