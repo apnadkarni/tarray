@@ -91,7 +91,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
 	return TCL_ERROR;
     }
     
-    if ((status = Tcl_GetIndexFromObj(ip, objv[1], ta_fold_op_names, "operation", 0, &op)) != TCL_OK)
+    if ((status = ta_opt_from_obj(ip, objv[1], ta_fold_op_names, "operation", 0, &op)) != TCL_OK)
         return status;
     
     if ((status = tcol_convert(ip, objv[2])) != TCL_OK)

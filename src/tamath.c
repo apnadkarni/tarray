@@ -433,7 +433,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
 	return TCL_ERROR;
     }
     
-    if ((status = Tcl_GetIndexFromObj(ip, objv[1], ta_math_op_names, "operation", 0, &op)) != TCL_OK)
+    if ((status = ta_opt_from_obj(ip, objv[1], ta_math_op_names, "operation", 0, &op)) != TCL_OK)
         return status;
     
     noperands = objc - 2;    

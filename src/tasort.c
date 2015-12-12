@@ -376,7 +376,7 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
 
     /* Note objv[] is entire command line so last objv[] element is array */
     for (i = 1; i < objc-1; ++i) {
-	if (Tcl_GetIndexFromObj(ip, objv[i], switches, "option", 0, &opt)
+	if (ta_opt_from_obj(ip, objv[i], switches, "option", 0, &opt)
             != TCL_OK) {
             return TCL_ERROR;
 	}

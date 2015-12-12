@@ -2038,7 +2038,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
 
     omap = NULL;
     for (i = 1; i < objc-minargs; ++i) {
-        if ((status = Tcl_GetIndexFromObj(ip, objv[i], table_retrieve_options,
+        if ((status = ta_opt_from_obj(ip, objv[i], table_retrieve_options,
                                           "option", TCL_EXACT, &opt)) != TCL_OK)
             return TCL_ERROR;
         switch (opt) {

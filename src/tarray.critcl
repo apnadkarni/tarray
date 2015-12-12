@@ -76,7 +76,7 @@ if {$build_opts(unsupported)} {
     critcl::ccommand tarray::unsupported::dump ta_dump_cmd
 
 }
-critcl::tsources tabulate.tcl tarray.tcl taprint.tcl
+critcl::tsources tabulate.tcl tarray.tcl taprint.tcl taversion.tcl
 critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h
 
 critcl::ccode {
@@ -1806,6 +1806,6 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
 #endif
 }
 
-package provide tarray 0.8
+package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]
 
 critcl::load

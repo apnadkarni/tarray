@@ -51,7 +51,7 @@ static TCL_RESULT ta_loop_assign_vars(Tcl_Interp *ip,
                                       struct ta_loop_state *pstate)
 {
     int tindex;
-    Tcl_Obj *val, *varval, *indexval;
+    Tcl_Obj *val, *varval;
     
     tindex = pstate->next;
     if (tindex == pstate->count)
