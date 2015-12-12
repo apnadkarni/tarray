@@ -1,0 +1,90 @@
+text {
+    ((= chap_tarray_ref "Tarray commands"))
+    Version {taversion}
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+
+text {
+    == Introduction
+
+    The tarray extension implements typed arrays and associated
+    commands ((^ chap_column_ref column))
+    and ((^ chap_table_ref table)). This page only provides
+    reference documentation for commands. See
+    the link:index.html[main contents] for an introduction, programming guide
+    and other reference documentation.
+
+    === Installation and loading
+
+    include::download.ad[]
+    
+} shell {
+    package require tarray
+}
+
+text {
+    == Command reference
+
+    All commands are located in the `tarray` namespace.
+
+    === Commands
+
+    // Turn off section numbering for command definitions
+    :!sectnums:
+    
+    ((cmddef tarray_column "column _SUBCOMMAND_ ..."))
+    Operates on columns. See ((^ chap_column_ref)).
+    
+    ((cmddef tarray_loop "loop _VAR_ _VALUES_ _SCRIPT_"))
+    ((cmddef tarray_loop_indexed "loop _INDEXVAR_ _VAR_ _VALUES_ _SCRIPT_"))
+    In the first form, _SCRIPT_ is executed for each element
+    in _VALUES_ with _VAR_ taking on the value of each element or row in
+    _VALUES_ in turn. _VALUES_ may be a column, table or a Tcl list.
+
+    The second form is similar but in addition _INDEXVAR_ is assigned
+    the index of the element.
+    
+    ((cmddef tarray_prettify "prettify _VALUES_ ?_options_?"))
+    Returns _VALUES_ as a more readable string format. _VALUES_ is
+    expected to be a column or a table. If not, it is returned unchanged.
+
+    The command takes the following options
+    
+    ((.Table tab_prettify_opts "Prettify options"))
+    [cols="40,70", options="header"]
+    |===
+    |Option
+    |Description
+
+    |-full _BOOLEAN_
+    |If true, the full table or column is formatted and returned.
+    Otherwise, only the leading and trailing lines specified by
+    the `-head` and `-tail` options are returned.
+    For _VALUES_ that is not a column or table, the entire string
+    is returned irrespective of this option.
+
+    |-head _NELEMS_
+    |Specifies the number of leading elements that are included in
+    the returned string.
+    Ignored if _VALUES_ is not a column or table. 
+    
+    |-tail _NELEMS_
+    |Specifies the number of trailing elements that are included in
+    the returned string.
+    Ignored if _VALUES_ is not a column or table. 
+    
+    |===
+
+    ((cmddef tarray_print "print _VALUES_ ?_CHANNEL_? ?_options_?"))
+    Prints _VALUES_ to the specified channel in a readable string format.
+    _CHANNEL_ defaults to `stdout` if unspecified. _VALUES_ is
+    expected to be a column or a table. If not, it is output as
+    by the Tcl `puts` command.
+    See ((^ tab_prettify_opts)) for a list of valid options.
+    
+    ((cmddef tarray_table "table _SUBCOMMAND_ ..."))
+    Operates on tables. See ((^ chap_table_ref)).
+}

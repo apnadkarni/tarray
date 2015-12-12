@@ -1,5 +1,6 @@
 text {
     ((= chap_guide "Programmer's guide"))
+    Version {taversion}
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))

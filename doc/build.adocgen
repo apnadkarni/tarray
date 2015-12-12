@@ -1,5 +1,6 @@
 text {
     ((= chap_build "Installation and build"))
+    Version {taversion}
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))

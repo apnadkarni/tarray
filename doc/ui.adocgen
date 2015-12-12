@@ -1,5 +1,6 @@
 text {
     ((= chap_ui "Tk widgets"))
+    Version {taversion}
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))

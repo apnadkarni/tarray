@@ -2668,3 +2668,5 @@ namespace eval xtal::rt {
     }
 }
 
+# Pick up ancillary support functions
+source [file join [file dirname [info script]] shell.tcl]
