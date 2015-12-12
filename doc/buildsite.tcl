@@ -1,4 +1,6 @@
 # For articles : tclsh buildsite.tcl articles -byline 1
+set taversion [source ../src/taversion.tcl]
+set xtalversion $taversion
 
 set target output
 set adocgen_files {
@@ -14,7 +16,7 @@ file copy images [file join $target images]
 file copy -force -- index.ad header.ad download.ad links.ad types.ad indices.ad $target
 puts [exec [info nameofexecutable] c:/src/tcl-on-windows/tools/adocgen.tcl -outdir $target -maketoc toc.ad -unsafe -overwrite -author "Ashok P. Nadkarni" {*}$argv {*}[lmap fn $adocgen_files {append fn .adocgen}] 2>@1]
 cd $target
-puts [exec asciidoctor index.ad {*}[lmap fn $adocgen_files {append fn .ad}]]
+puts [exec asciidoctor -a taversion=$taversion -a xtalversion=$xtalversion index.ad {*}[lmap fn $adocgen_files {append fn .ad}]]
 
 if {0} {
     # Insert Google tags into output html files

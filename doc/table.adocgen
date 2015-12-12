@@ -1,5 +1,6 @@
 text {
     ((= chap_table_ref "Table commands"))
+    Version {taversion}
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
@@ -9,7 +10,7 @@ text {
     == Introduction
 
     The tarray extension implements typed arrays and associated commands
-    ((^ chap_column_ref `column`)) and `table`.
+    ((^ chap_column_ref column)) and `table`.
     This page provides reference documentation for
     commands related to typed tables. See ((^ chap_intro)) for an overview and
     ((^ chap_guide)) for a programming guide.

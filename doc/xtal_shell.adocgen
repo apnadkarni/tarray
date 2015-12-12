@@ -1,5 +1,6 @@
 text {
     ((= chap_xtal_shell "The Xtal shell"))
+    Version {xtalversion}
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))

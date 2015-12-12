@@ -4,22 +4,20 @@ package require platform
 package require critcl 3.1
 package require critcl::app
 
+set taversion [source ../src/taversion.tcl]
+
 proc usage {} {
-    puts "Usage:\n  [info script] parser VERSION\n  [info script] extension\n  [info script] tea\n"
+    puts "Usage:\n  [info script] parser\n  [info script] extension\n  [info script] tea\n"
     exit 1
 }
 
 set buildarea [file normalize [file join [pwd] .. build]]
 switch -exact -- [lindex $argv 0] {
     parser {
-        set ver [lindex $argv 1]
-        if {$ver eq ""} {
-            usage
-        }
-        set critcl_source [pt::pgen peg [fileutil::cat xtal.peg] critcl -class xtal::ParserBase -package xtal -name Xtal -version [lindex $argv 1]]
+        set critcl_source [pt::pgen peg [fileutil::cat xtal.peg] critcl -class xtal::ParserBase -package xtal -name Xtal -version $taversion]
         # We want the xtal.tcl file to be included in the package
         # so insert it into the generated critcl parser file
-        fileutil::writeFile xtal.critcl [regsub {return\s*$} $critcl_source "critcl::tsources xtal.tcl\n"]
+        fileutil::writeFile xtal.critcl [regsub {return\s*$} $critcl_source "critcl::tsources xtal.tcl shell.tcl\n"]
     }
     ext -
     extension {

@@ -1,5 +1,6 @@
 text {
     ((= chap_column_ref "Column commands"))
+    Version {taversion}
     include::header.ad[]
 
     ((author "Ashok P. Nadkarni"))
