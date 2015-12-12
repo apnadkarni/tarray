@@ -1,0 +1,47 @@
+# table definition tests
+
+source  testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test table_definition-1.0 {
+        Empty table definition
+    } -setup {set tab [tarray::table create {}]} -body {
+        set def [tarray::table definition $tab]
+        list $def [tarray::table create $def]
+    } -result [list {} {tarray_table {} {}}]
+
+    test table_definition-1.1 {
+        Table definition
+    } -setup {set tab [tarray::table create {ColA int}]} -body {
+        set def [tarray::table definition $tab]
+        list $def [tarray::table create $def]
+    } -result [list {ColA int} [tarray::table create {ColA int}]]
+
+    test table_definition-1.2 {
+        Table definition
+    } -setup {
+        set tab [tarray::table create {ColA double ColB string} {
+            {1.0 astring}
+            {2.0 bstring}
+        }]
+    } -body {
+        set def [tarray::table definition $tab]
+        list $def [tarray::table create $def]
+    } -result [list {ColA double ColB string} [tarray::table create {ColA double ColB string}]]
+
+    test table_definition-2.0 {
+        Table definition - error
+    } -setup {set col [newcolumn int]} -body {
+        tarray::table definition $col
+    } -result "Object is not a table." -returnCodes error 
+    
+    test table_definition-2.1 {
+        Table definition - error
+    } -body {
+        tarray::table definition {1 2 3}
+    } -result "Object is not a table." -returnCodes error 
+}
+
+::tcltest::cleanupTests
