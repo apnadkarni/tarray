@@ -265,6 +265,8 @@ int ta_utf8_compare(char *, char *, int ignorecase);
 int ta_utf8_equal(char *, char *, int ignorecase);
 int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
 int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase);
+int ta_opt_from_obj(Tcl_Interp *ip, Tcl_Obj *o, const char *const *ptable,
+                    const char *msg, int flags, int *popt);
 
 /*
  * Error and panic routines
@@ -676,7 +678,7 @@ TA_INLINE TCL_RESULT ta_parse_type(Tcl_Interp *ip, Tcl_Obj *o, int *ptype) {
     /* The first elem of type array corresponds to TA_NONE so left out */
     int tatype;
     TCL_RESULT status;
-    status = Tcl_GetIndexFromObj(ip, o, &g_type_tokens[1], "column", TCL_EXACT, &tatype);
+    status = ta_opt_from_obj(ip, o, &g_type_tokens[1], "column", TCL_EXACT, &tatype);
     if (status != TCL_OK)
         return status;
     *ptype = tatype+1; /* To compensate for the off-by-1 offset into array */

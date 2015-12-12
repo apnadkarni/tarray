@@ -1283,7 +1283,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     search.upper = count - 1;
     search.op = TA_SEARCH_OPT_EQ;
     for (i = 1; i < objc-2; ++i) {
-	status = Tcl_GetIndexFromObj(ip, objv[i], ta_search_switches_e, "option", 0, &opt);
+	status = ta_opt_from_obj(ip, objv[i], ta_search_switches_e, "option", 0, &opt);
         if (status != TCL_OK)
             goto vamoose;
 
@@ -1428,7 +1428,7 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     /*
      * Protect against shimmering deallocating thdr/span.
-     * IMPORTANT: only exit via vamoose beyond this point
+     * IMPORTANT: Remember to decr_ref thdr and span on all exits after this
      */
     thdr_incr_refs(thdr);
     if (span)
@@ -1497,7 +1497,6 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_SetObjResult(ip, Tcl_NewIntObj(pos));
     status = TCL_OK;
     
-vamoose:
     if (span)
         span_decr_refs(span);   /* Undo shimmering protection incr */
     if (thdr)

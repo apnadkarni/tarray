@@ -146,6 +146,19 @@ int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
     return 1;
 }
 
+/* Wrapper around Tcl_GetIndexFromObj to prevent unnecessary shimmering */
+int ta_opt_from_obj(Tcl_Interp *ip, Tcl_Obj *o, const char *const *ptable,
+                    const char *msg, int flags, int *popt)
+{
+    /* If already known to be a column or table, don't shimmer it */
+    if (tcol_affirm(o) || table_affirm(o)) {
+        /* Whole point was to not generate a string rep so error
+           message has to be generic */
+        return ta_invalid_opt_error(ip, NULL);
+    }
+    return Tcl_GetIndexFromObj(ip, o, ptable, msg, flags, popt);
+}
+
 const char *ta_type_string(int tatype)
 {
     if (tatype < (sizeof(g_type_tokens)/sizeof(g_type_tokens[0]) - 1))
@@ -4872,7 +4885,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
 
     if (objc == 2+minargs) {
         /* An option is specified */
-        if ((status = Tcl_GetIndexFromObj(ip, objv[1], tcol_get_options,
+        if ((status = ta_opt_from_obj(ip, objv[1], tcol_get_options,
                                           "option", TCL_EXACT, &opt)) != TCL_OK)
             return TCL_ERROR;
         switch (opt) {
@@ -4941,7 +4954,7 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     tcol_count = tcol_occupancy(tcol);
     range_count = tcol_count;
     for (i = 1; i < objc-1; ++i) {
-	status = Tcl_GetIndexFromObj(ip, objv[i], tcol_minmax_switches, "option", 0, &opt);
+	status = ta_opt_from_obj(ip, objv[i], tcol_minmax_switches, "option", 0, &opt);
         if (status != TCL_OK)
             return status;
 
