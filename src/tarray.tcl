@@ -68,7 +68,6 @@ proc tarray::table::columns {tab args} {
     return $columns
 }
 
-# TBD - document and test
 proc tarray::table::definition {tab {cnames {}}} {
     if {[llength $cnames] == 0} {
         set cnames [cnames $tab]
@@ -188,9 +187,9 @@ proc tarray::csv_read_file {path args} {
         }
         if {[dict exists $args -sniff]} {
             if {[dict get $args -sniff]} {
+                dict unset args -sniff
                 set opts [dict merge [tclcsv::sniff $fd] $args]
             }
-            dict unset args -sniff
         }
         if {![info exists opts]} {
             set opts $args
@@ -201,10 +200,15 @@ proc tarray::csv_read_file {path args} {
         foreach type $types title $header {
             if {$title eq ""} {
                 set title "Col_[incr colnum]"
+            } else {
+                regsub -all {[^[:alnum:]_]} $title _ title
             }
             lappend def $title [dict get {integer wide real double string string} $type]
         }
         set tab [table create $def]
+        if {[llength $header]} {
+            lappend opts -startline 1
+        } 
         set reader [tclcsv::reader new {*}$opts $fd]
         while {1} {
             set recs [$reader next 1000]
