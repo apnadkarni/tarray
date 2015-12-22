@@ -9,35 +9,266 @@ text {
 text {
     == Introduction
 
-    The `tarray_ui` package provides Tk widgets for displaying typed array
-    structures. Currently it includes a single widget,
-    `tableview`, which displays ((^ chap_table_ref "tables"))
-    with features like sorting and filtering. It is written
-    to minimize memory usage when displaying tables with a large
-    amount of data.
+    The `tarray_ui` package implements some Tk widgets that useful when
+    working with typed arrays.
 
-    === Installation and loading
+    The package currently implements two widgets,
+    ((^ ui_tableview tableview)) and ((^ ui_csvimport csvimport)).
+
+    The `tableview` widget displays data from a typed array
+    ((^ chap_table_ref table)). It is written with a view to conserve
+    memory when displaying tables with a large amount of data. At
+    the same time it provides several standard features without requiring
+    any additional programming on part of the developer.
+    
+    The `csvimport` widget reads CSV data from a file into a
+    table. It displays various options to the user to control
+    of settings related to CSV parsing and preview the results
+    before importing the data into a table.
+}
+
+text {
+    == Installation and loading
 
     include::download.ad[]
     
 } tbd {
     package require tarray_ui
+} script {
+    source ../widgets/widgets.tcl
+    namespace import tarray::table
 } text {
     In addition to Tk and `tarray` itself,
     this package has dependencies on the following additional packages:
 
     * `snit` available as part of
     http://core.tcl.tk/tcllib/doc/trunk/embedded/index.html[tcllib].
-    
-    * `treectrl`, available from http://tktreectrl.sf.net[SourceForge].
+
+    Individual widgets may have additional dependencies.
 }
 
-tbd { Filters }
+text {
+    == Widgets
+
+    === Widget reference
+}
+    
+text {
+    ((cmddef ui_tableview "tableview _WIDGET_ _TABLE_ ?_OPTIONS_?"))
+    
+    Creates a `tableview` widget that displays data from a
+    ((^ chap_table_ref table)). It is written with a view to conserve
+    memory when displaying tables with a large amount of data. At
+    the same time it provides several standard features without requiring
+    any additional programming on part of the developer.
+
+    _WIDGET_ should be the Tk window path for the widget. This is also
+    the return value of the command. _TABLE_ should be a tarray
+    table containing the data to be displayed. The supported options
+    for the command are shown in ((^ tab_ui_tableview_opts)).
+    
+    ((.Table tab_ui_tableview_opts "Tableview options"))
+    [options="header"]
+    [cols="20,80"]
+    |===
+    |Option
+    |Description
+
+    |`-colattrs _COLUMNATTRS_`
+    |Specifies various attributes for each column, such as title label. See
+    ((^ sect_ui_tableview_colattrs)).
+
+    |`-formatter _COMMANDPREFIX_`
+    |Specifies a command prefix to be invoked to format data for display.
+    See ((^ sect_ui_tableview_formatter)).
+
+    |`-showfilter _BOOLEAN_`
+    |If specified as `true`, the widget displays controls for filtering the
+    data. See ((^ sect_ui_tableview_filters)).
+
+    |`-visuals _VISUALSTATES_`
+    |Allows definition of states that control the visual aspects of
+    displayed data such as fonts and colors.
+    See ((^ sect_ui_tableview_visuals)).
+
+    |`-xscrolldelay _DELAYSPEC_`
+    |Controls rate of horizontal scrolling when the dragging the horizontal
+    scrollbar slider with the mouse button pressed. _DELAYSPEC_ is a list
+    of one or two integers in milliseconds. The first is the delay after
+    the initial scroll and the second, which defaults to the same value
+    as the first, is the delay for subsequent scrolls.
+    
+    |`-yscrolldelay _DELAYSPEC_`
+    |Similar to the `-xscrolldelay` option except that it applies to
+    vertical scrolling.
+    
+    |===
+} text {
+    ===== Features
+    The widget is based on Tim Baker's `treectrl` widget which is
+    available from http://tktreectrl.sf.net[SourceForge] and must
+    be downloaded separately.
+    The `treectrl` widget is very flexible in terms of its capabilities
+    but at some cost in programming complexity.
+    The `tableview` widget hides most of this complexity by limiting
+    the widget to displaying data in table form. It maintains most
+    of the useful `treectrl` features like drag and drop for resizing
+    and repositioning table columns and also adds the following
+    features.
+    
+    * Filtered views based on user-defined conditions
+
+    * Visual keying of rows or cells based on their values
+
+    * Sorting
+
+    * Selection and clipboard handling
+    
+    * Automatic scrollbars
+
+    * Tooltips
+    
+    Minimal programming is required to make use of these features.
+    For example, the following call is sufficient to display a
+    the contents of a variable `cities` containing a
+    ((^ chap_table_ref table)) of geographical data.
+} syntax {
+    tarray::ui::tableview .top $cities -showfilter 1
+    pack .cities -fill both -expand
+} text {
+    The corresponding table, sorted by name and filtered
+    to only list cities in the eastern hemispere having a population
+    of more than a million, is shown below.
+
+    .A tableview window
+    image::cities1.png[Tableview example]
+}
+
+text {
+    ((===== sect_ui_tableview_colattrs "Column attributes"))
+
+    Each display column in a `tableview` has attributes that are specified
+    with the `-colattrs` option when the widget is created. The value passed
+    with this option should be a dictionary keyed by the column name in the
+    table. The corresponding value in the dictionary is itself a dictionary
+    keyed by the attribute name. Defaults are used for missing column
+    and attribute keys.
+
+    Column attributes are shown in ((^ tab_ui_tableview_colattrs)).
+
+    ((.Table tab_ui_tableview_colattrs "Tableview column attributes"))
+    [options="header"]
+    [cols="20,30,50"]
+    |===
+    |Attribute
+    |Permitted values
+    |Description
+
+    |`Heading`
+    |Any string
+    |Specifies the column heading. If unspecified, defaults to the name
+    of the column in the table being displayed.
+
+    |`Justify`
+    |`left`, `right`
+    |Specifies whether the data in the column is left-justified or
+    right-justified. If unspecified, justification depends on the
+    data type of the table column. Numeric columns are right justified
+    and others are left justified.
+    
+    |`Sortable`
+    |Boolean
+    |If true (default), clicking on the column header will sort the column,
+    toggling between ascending and descending order. If false, clicking
+    on the column heading will have no effect.
+    
+    |===
+} tbd {
+    Column attribute example
+}
+
+text {
+    ((===== sect_ui_tableview_formatter "Formatting data and visuals"))
+
+    By default, the widget displays table data in its "`natural`"
+    form. In some cases the application may need to format it differently,
+    for example, displaying an integer in hexadecimal form. Moreover,
+    some values may need to be visually distinguished, negative values
+    displayed in red for instance.
+
+    Both these needs are met through the use of the `-formatter` and
+    `-visuals` options to the `tableview` widget.
+
+    .Visuals
+
+    A _visual_ defines a named visual state as a combination of font, foreground
+    and background colors. Upto 7 such states can be defined and used
+    to visually distinguish a table row or cell. These states and
+    the corresponding settings are defined through the `-visuals` option.
+    The value supplied for this option should be a dictionary keyed by
+    the name of the visual state. The value associated with each defined
+    state is itself a dictionary with the (optional) visual attribute
+    keys shown in ((^ tab_ui_tableview_visual_attrs)).
+
+    ((.Table tab_ui_tableview_visual_attrs "Tableview visual attributes"))
+    [options="header"]
+    [cols="20,80"]
+    |===
+    |Attribute
+    |Description
+
+    |`-bg _COLOR_`
+    |Alias for `-background`.
+    
+    |`-background _COLOR_`
+    |Specifies the background color to associate with the visual state.
+    _COLOR_ can be specified in any form accepted by Tk.
+    
+    |`-fg _COLOR_`
+    |Alias for `-foreground`.
+    
+    |`-font _FONT_`
+    |Specifies the Tk font.
+
+    |`-foreground _COLOR_`
+    |Specifies the foreground color to associate with the visual state.
+    _COLOR_ can be specified in any form accepted by Tk.
+    
+    |=== 
+
+    An application can control the display strings
+    for table values, for
+    example showing integers in hexadecimal form,
+    by specifying the `-formatter` option to `tableview`. The value
+    passed should be a command prefix which will be invoked with
+    two additional arguments. The first is the index of the row being
+    formatted in the table that was passed to the widget. The second
+    is a dictionary keyed by column names and containing the corresponding
+    table cell values.
+
+    The return value from the invocation should be the 
+}
+
+text {
+    ((===== sect_ui_tableview_visuals Visuals))
+}
+
+text {
+    ((===== sect_ui_tableview_filters Filters))
+}
+
+
+tbd { Selections }
 tbd {
     Mouse bindings
 }
 
 tbd {
     keybindings - Ctrl-Home, Ctrl-C etc.
+}
+
+tbd {
+    sorting using tarray because treectrl will sort using display text?
+    Also does not have all the values
 }
 
