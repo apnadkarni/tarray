@@ -698,8 +698,8 @@ snit::widget tarray::ui::dataview {
                 Sortable 1
                 Squeeze 0
             } $coldef]
-            if {![dict exists $def Label]} {
-                dict set def Label $colname
+            if {![dict exists $def Heading]} {
+                dict set def Heading $colname
             }
             if {![dict exists $def Justify]} {
                 if {[dict get $def Type] in {string any}} {
@@ -732,7 +732,7 @@ snit::widget tarray::ui::dataview {
             set minwidth [expr {$squeeze ? 80 : 40}]
 
             set col_id [$_treectrl column create \
-                            -text [dict get $coldef Label] \
+                            -text [dict get $coldef Heading] \
                             -arrow none \
                             -squeeze $squeeze \
                             -justify $justify \
@@ -1340,9 +1340,9 @@ oo::class create tarray::ui::Table {
 
     constructor {tab w args} {
         set options {}
-        if {[dict exists $args -coldefs]} {
-            set _coldefs [dict get $args -coldefs]
-            dict unset args -coldefs
+        if {[dict exists $args -colattrs]} {
+            set _coldefs [dict get $args -colattrs]
+            dict unset args -colattrs
         } else {
             set _coldefs [list]
             foreach cname [tarray::table::cnames $tab] col [tarray::table::columns $tab] {
@@ -1379,7 +1379,7 @@ oo::class create tarray::ui::Table {
         bind $w <<FilterChange>> [list [self] <<FilterChange>> %W %d]
         bind $w <<FilterCancel>> [list [self] <<FilterCancel>> %W]
         bind $w <<Copy>> [list [self] <<Copy>> %W]
-        my update_data 
+        my UpdateData 
     }
 
     destructor {
@@ -1414,7 +1414,7 @@ oo::class create tarray::ui::Table {
         set _sort_order $order
         
         my Sort
-        my update_data
+        my UpdateData
         return
     }
     export <<SortColumn>>
@@ -1496,7 +1496,7 @@ oo::class create tarray::ui::Table {
             dict set _filter_strings $cname $cond
             set _row_ids $ids
             # Note no need to resort since we started with sorted _row_ids
-            my update_data
+            my UpdateData
             return
         }
 
@@ -1545,14 +1545,14 @@ oo::class create tarray::ui::Table {
         set _filters $new_filters
         set _filter_strings $new_filter_strings
         my Sort;               # Need to resort after filtering
-        my update_data
+        my UpdateData
     }
 
     method CommitFilters {filters filter_strings rids} {
         set _filters $filters
         set _filter_strings $filter_strings
         set _row_ids $rids
-        my update_data
+        my UpdateData
         return
     }
     
@@ -1604,13 +1604,13 @@ oo::class create tarray::ui::Table {
             my update_column_filter $cname $cond
         } msg options]} {
             # Error - restore original data
-            my update_data
+            my UpdateData
             return -options $options $msg
         }
     }
     export <<FilterChange>>
     
-    method update_data {} {
+    method UpdateData {} {
         $_w setrows $_row_ids -sortcolumn $_sort_column -sortorder $_sort_order -filters $_filter_strings
     }
 
@@ -1622,6 +1622,7 @@ oo::class create tarray::ui::Table {
 proc tarray::ui::tableview {w data args} {
     # TBD - make note of -yscrolldelay option for scrolling large tables
     Table new $data $w {*}$args
+    return $w
 }
     
 #
@@ -1749,7 +1750,7 @@ proc formatter {row_id data} {
     return $data
 }
 
-proc test {args} {
+proc tarray::ui::test {args} {
     if {[llength $args] == 0} {
         set nrows 20
     } else {
@@ -1757,10 +1758,10 @@ proc test {args} {
     }
     set coldefs {
         ColA {
-            Label {Column A}
+            Heading {Column A}
         }
         ColB {
-            Label {Column B}
+            Heading {Column B}
             Type int
         }
         ColC {
@@ -1776,16 +1777,16 @@ proc test {args} {
         set now [clock clicks]
         tarray::table vinsert ::datatable [list Row[incr n] [expr {$n*10}] $now] end
     } $nrows
-    #tarray::ui::tableview .tv $::datatable -coldefs $coldefs {*}$args
+    #tarray::ui::tableview .tv $::datatable -colattrs $coldefs {*}$args
     tarray::ui::tableview .tv $::datatable  {*}$args
     pack .tv -fill both -expand 1
 }
 # test 20 -visuals {visual1 {-bg red -font Courier} visual2 {-fg green -bg blue}} -formatter formatter
 
-proc cities2 {} {
+proc tarray::ui::cities2 {} {
     uplevel #0 source ../tests/cities.tcl
     #package require tclcsv
-    tarray_cities2 ::cities ../tests/cities1000.txt
+    tarray_cities2 ::cities ../tests/cities15000.txt
     tarray::ui::tableview .cities $::cities -showfilter 1
     pack .cities -fill both -expand 1
 }
