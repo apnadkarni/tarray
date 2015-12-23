@@ -91,7 +91,7 @@ text {
     |`-visuals _VISUALSTATES_`
     |Allows definition of states that control the visual aspects of
     displayed data such as fonts and colors.
-    See ((^ sect_ui_tableview_visuals)).
+    See ((^ sect_ui_tableview_formatter)).
 
     |`-xscrolldelay _DELAYSPEC_`
     |Controls rate of horizontal scrolling when the dragging the horizontal
@@ -304,12 +304,12 @@ text {
         set visuals {}
         set latitude [dict get $row_values latitude]
         if {$latitude < 23.5 && $latitude > -23.5} {
-            dict set visuals "" visual2
+            dict set visuals "" visual2; # Set the visual for the entire row 
         } else {
             dict set visuals "" ""
         }
         if {[dict get $row_values population] > 100000} {
-            dict set visuals population visual1
+            dict set visuals population visual1; # Set the visual only for the population cell
         } else {
             dict set visuals population ""
         }
@@ -331,6 +331,79 @@ text {
 
 text {
     ((===== sect_ui_tableview_filters Filters))
+
+    Filters are a mechanism that let the end-user restrict displayed data
+    to table rows that match certain criteria. Filters are enabled
+    by configuring the widget's `-showfilter` option as `true`.
+
+    Enabling filters results in an additional header row being displayed under
+    the heading for each column. Clicking in the filter header for a column
+    will display an entry field where the user can type in an filter
+    expression. Only those rows for which the cell for that column matches
+    the expression will be displayed. When filters are defined for multiple
+    columns, all have to match for a row to be displayed.
+
+    The filter syntax is
+} syntax {
+    _CONDITION_ _VALUE_
+} text {
+    where _CONDITION_ is one of the conditions shown in
+    ((^ tab_ui_tableview_filter_cond)) and _VALUE_ is the value to
+    be compared against the column cell.
+
+    ((.Table tab_ui_tableview_filter_cond "Filter conditions"))
+    [options="header"]
+    [cols="20,80"]
+    |===
+    |Condition
+    |Description
+
+    |==
+    |equals VALUE
+    
+    |!=
+    |does not equal VALUE
+    
+    |>
+    |is greater than VALUE
+    
+    |>=
+    |is greater than or equal to VALUE
+    
+    |<
+    |is less than VALUE
+    
+    |<=
+    |is less than or equal to VALUE
+    
+    |*
+    |matches VALUE glob pattern (case-insensitive)
+    
+    |!*
+    |does not match VALUE glob pattern (case-insensitive)
+    
+    |~
+    |matches VALUE regexp (case-insensitive)
+    
+    |!~
+    |does not match VALUE regexp (case-insensitive)
+    
+    |~^
+    |matches VALUE regexp (case-sensitive)
+    
+    |!~^
+    |does not match VALUE regexp (case-sensitive)\n
+    
+    |===
+
+    If an operator is not specified, it defaults to `==` (equality).
+} text {
+    The standard entry editing keys are available when editing a filter entry.
+    Additionally,
+    [no-bullet]
+    * kbd:[Tab] or kbd:[Enter] will save the filter,
+    * kbd:[Escape] will revert the filter entry to its original value, and
+    * kbd:[F1] will show a help dialog summarizing filter syntax.
 }
 
 

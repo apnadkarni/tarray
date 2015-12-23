@@ -10,11 +10,12 @@ text {
 text {
     == Introduction
 
-    The ((^ chap_xtal_lang "Xtal language")) provides a more succint
-    syntax for working with ((^ chap_intro "typed arrays")).
+    The `xtal` Tcl extension implements the Xtal language which
+    provides a more succint syntax for working
+    with ((^ chap_intro "typed arrays")).
     
-    This document is the reference for commands related
-    to working with Xtal scripts from Tcl. It does not describe
+    This document is the reference for Tcl commands related
+    to working with Xtal scripts. It does not describe
     the language itself which is described in ((^ chap_xtal_lang)).
 
     See the link:index.html[main contents] for guides and other reference
