@@ -1580,7 +1580,7 @@ oo::class create tarray::ui::Table {
                     ~\tmatches VALUE regexp (case-insensitive)\n\
                     !~\tdoes not match VALUE regexp (case-insensitive)\n\
                     ~^\tmatches VALUE regexp (case-sensitive)\n\
-                    !~\tdoes not match VALUE regexp (case-sensitive)\n\n\
+                    !~^\tdoes not match VALUE regexp (case-sensitive)\n\n\
                     CONDITION defaults to == if unspecified.\n\
                     \n Examples:\n\
                     \tNew York (defaults to ==)\n\
