@@ -107,7 +107,9 @@ snit::widget tarray::ui::dataview {
 
     option -defaultsortorder -default "-increasing"
 
-    option -formatter -default ""
+    # TBD - no need to be readonly except that we have not written the
+    # code to update the display on the fly when the option is changed
+    option -formatter -default "" -readonly 1
     option -visuals -default "" -readonly 1
     
     component _treectrl
@@ -832,16 +834,16 @@ snit::widget tarray::ui::dataview {
     }
 
     method SetItemVisuals {item visuals} {
-        if {[dict exists $visuals "" Visual]} {
-            set visual [dict get $visuals "" Visual]
+        if {[dict exists $visuals ""]} {
+            set visual [dict get $visuals ""]
             $_treectrl item state set $item $_visuals_reset_phrase
             if {$visual ne ""} {
                 $_treectrl item state set $item $visual
             }
         }
         foreach cname $_column_order {
-            if {[dict exists $visuals $cname Visual]} {
-                set visual [dict get $visuals $cname Visual]
+            if {[dict exists $visuals $cname]} {
+                set visual [dict get $visuals $cname]
                 set cid [$self column_name_to_id $cname]
                 $_treectrl item state forcolumn $item $cid $_visuals_reset_phrase
                 if {$visual ne ""} {
@@ -849,7 +851,6 @@ snit::widget tarray::ui::dataview {
                 }
             }
         }
-                                 
     }
 
     method _NOT_IMPLEMENTED_YET_insert {row_ids {pos 0} {tags {}}} {
@@ -984,19 +985,20 @@ snit::widget tarray::ui::dataview {
                 lassign [$_treectrl item rnc $item] row_index col_index
                 set row_id [tarray::column index $_row_ids $row_index]
                 set row_data [$self GetData $row_id]
+                # TBD - does doing a llength shimmer the bytecode into a list?
                 if {[llength $options(-formatter)] == 0} {
                     $self InitRow $item $row_data 
                 } else {
                     set keyed_data {}
                     foreach cname $_column_order val $row_data {
-                        lappend keyed_data $cname [list Value $val]
+                        lappend keyed_data $cname $val
                     }
-                    set formatted_data [{*}$options(-formatter) $row_id $keyed_data]
+                    lassign [{*}$options(-formatter) $row_id $keyed_data] formatted_data visuals
                     set row_data [lmap cname $_column_order {
-                        dict get $formatted_data $cname Value
+                        dict get $formatted_data $cname
                     }]
                     $self InitRow $item $row_data 
-                    $self SetItemVisuals $item $formatted_data
+                    $self SetItemVisuals $item $visuals
                 }
             }
         }
@@ -1734,20 +1736,20 @@ proc tarray::ui::place_window {w target {side center}} {
     return
 }
 
-proc formatter {row_id data} {
-    if {[dict exists $data ColB Value]} {
-        set val [dict get $data ColB Value]
+proc tarray::ui::formatter {row_id data} {
+    if {[dict exists $data ColB]} {
+        set val [dict get $data ColB]
         if {(($val/10) % 4) == 0} {
-            dict set data ColB Value [format 0x%x $val]
-            dict set data ColB Visual visual1
-            dict set data "" Visual visual2
+            dict set data ColB [format 0x%x $val]
+            dict set visuals ColB visual1
+            dict set visuals "" visual2
         } else {
             # Have to rest highlights
-            dict set data ColB Visual ""
-            dict set data "" Visual ""
+            dict set visuals ColB ""
+            dict set visuals "" ""
         }
     }
-    return $data
+    return [list $data $visuals]
 }
 
 proc tarray::ui::test {args} {
@@ -1783,12 +1785,14 @@ proc tarray::ui::test {args} {
 }
 # test 20 -visuals {visual1 {-bg red -font Courier} visual2 {-fg green -bg blue}} -formatter formatter
 
-proc tarray::ui::cities2 {} {
+proc tarray::ui::cities2 {args} {
     uplevel #0 source ../tests/cities.tcl
     #package require tclcsv
     tarray_cities2 ::cities ../tests/cities15000.txt
-    tarray::ui::tableview .cities $::cities -showfilter 1
-    pack .cities -fill both -expand 1
+    toplevel .top
+    wm title .top Cities
+    tarray::ui::tableview .top.cities $::cities -showfilter 1 {*}$args
+    pack .top.cities -fill both -expand 1
 }
 
 package provide tarray_ui 0.8
