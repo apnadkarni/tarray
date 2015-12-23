@@ -37,6 +37,8 @@ text {
 } script {
     source ../widgets/widgets.tcl
     namespace import tarray::table
+    source ../tests/cities.tcl
+    tarray_cities2 cities ../tests/cities15000.txt
 } text {
     In addition to Tk and `tarray` itself,
     this package has dependencies on the following additional packages:
@@ -191,20 +193,23 @@ text {
     ((===== sect_ui_tableview_formatter "Formatting data and visuals"))
 
     By default, the widget displays table data in its "`natural`"
-    form. In some cases the application may need to format it differently,
-    for example, displaying an integer in hexadecimal form. Moreover,
-    some values may need to be visually distinguished, negative values
-    displayed in red for instance.
+    string representation. In some cases the application may need to
+    format it differently, for example, displaying an integer in
+    hexadecimal form. Moreover, some values may need to be visually
+    distinguished, negative values displayed in red for instance.
 
     Both these needs are met through the use of the `-formatter` and
     `-visuals` options to the `tableview` widget.
 
-    .Visuals
+    .Visual states
 
     A _visual_ defines a named visual state as a combination of font, foreground
-    and background colors. Upto 7 such states can be defined and used
-    to visually distinguish a table row or cell. These states and
-    the corresponding settings are defined through the `-visuals` option.
+    and background colors.
+    These states can be applied to table rows or cells to visually
+    distinguish them.
+
+    There are 7 such states, `visual1`..`visual7`,
+    and the settings for each can be defined through the `-visuals` option.
     The value supplied for this option should be a dictionary keyed by
     the name of the visual state. The value associated with each defined
     state is itself a dictionary with the (optional) visual attribute
@@ -236,22 +241,93 @@ text {
     
     |=== 
 
-    An application can control the display strings
-    for table values, for
-    example showing integers in hexadecimal form,
-    by specifying the `-formatter` option to `tableview`. The value
-    passed should be a command prefix which will be invoked with
+    The order in which visual states are passed in the `-visuals` option
+    is important. When multiple visual states are applied to a row
+    or cell, the visual states that appear earlier take priority over
+    those that appear later in the case where both states include the
+    same attribute.
+    
+    Once the visual states have been defined, they can be applied to any
+    row or individual cell through the formatter callback. This is
+    described next.
+}
+
+text {
+    .Formatting data
+
+    If the default string representation of data or its visual display
+    is not suitable, an application can provide a callback via the
+    `-formatter` configuration option that will be used to convert
+    the data into a suitable form for display.
+    The value passed for this option
+    should be a command prefix which will be invoked with
     two additional arguments. The first is the index of the row being
     formatted in the table that was passed to the widget. The second
     is a dictionary keyed by column names and containing the corresponding
     table cell values.
 
-    The return value from the invocation should be the 
+    The return value from the invocation should be a list of one or two
+    elements. The first element should be in the same form
+    as the second argument passed to the callback, i.e. a dictionary
+    indexed by column names. The dictionary values will be used
+    as the display strings for the corresponding columns.
+
+    The second element is optional and if present, specifies the visual
+    states to be assigned to the row or individual cell. This should be
+    a dictionary keyed by the column name. The corresponding value should
+    be a list of visual states to assign to the cell in that column and row.
+    If more than one state is specified, defined attributes in states appearing
+    later in the list override those attributed for states earlier in the list.
+    The dictionary may also contain the empty string as a special key whose
+    value is again a list of visual states. This will apply to all columns
+    in the entire row.
+
+    [NOTE]
+    The visual states associated with a cell is the union of the states
+    associated with the row containing the cell and the states directly
+    applied to the cell. When two states define the same attribute, the
+    one that takes effect depends on the order in which the visual states
+    were listed in the `-visuals` option as discussed earlier.
+
+    .Example
+
+    The small sample script below demonstrates the use of `-visuals` and
+    `-formatter`. The `format_city` callback formats the latitude and
+    longitude values to two decimal places. Additionally, it highlights
+    all tropical cities in red, and population values above a hundred
+    thousand are shown with white text on a red background.
+} norun 1 uiscript {
+    proc format_city {row_index row_values} {
+        foreach col {latitude longitude} {
+            dict set row_values $col [format %2.2f [dict get $row_values $col]]
+        }
+        set visuals {}
+        set latitude [dict get $row_values latitude]
+        if {$latitude < 23.5 && $latitude > -23.5} {
+            dict set visuals "" visual2
+        } else {
+            dict set visuals "" ""
+        }
+        if {[dict get $row_values population] > 100000} {
+            dict set visuals population visual1
+        } else {
+            dict set visuals population ""
+        }
+        return [list $row_values $visuals]
+    }
+
+    toplevel .cities
+    tarray::ui::tableview .cities.tbl $cities -formatter format_city -visuals {
+        visual1 {-bg red -fg white}
+        visual2 {-fg red}
+    }; # Note `visual1` which is applied to a column cell is listed before `visual2` so as to give it higher priority
+    pack .cities.tbl -fill both -expand 1
+} text {
+    A view generated from the above script is shown below.
+
+    image::cities_visual.png[Using visuals and formatting]
 }
 
-text {
-    ((===== sect_ui_tableview_visuals Visuals))
-}
 
 text {
     ((===== sect_ui_tableview_filters Filters))
