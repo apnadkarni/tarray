@@ -453,9 +453,9 @@ snit::widget tarray::ui::dataview {
          lassign [$_treectrl identify -array state $winx $winy] type item_id col_id
         if {$state(where) eq "item"} {
             event generate $win $event \
-                -data [list RowId [
+                -data [list Row [
                              $self ItemToRowId $state(item)
-                            ] ColId [
+                            ] Column [
                              $self column_id_to_name $state(column)
                             ]]
         }
