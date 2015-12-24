@@ -408,20 +408,18 @@ text {
 
 
 text {
-    ===== Selection and clipboard handling
+    ===== Selection and clipboard
     
-    The `tableview` widget implements mouse bindings for selecting rows that
+    The `tableview` widget implements bindings for selecting rows that
     follow the behaviour of the Tk `listbox` widget's extended select mode.
     See the documentation for `listbox` for details.
 
-    The widget generates a `<<ListboxSelect>>` event when there is any
-    change in the selection.
+    The widget generates a `+<<ListboxSelect>>+` event when there is any
+    change in the selection. The `%d` placeholder in any bound script
+    is replaced with a list of two elements. The first is a list of
+    row indices removed from the selection and the second
+    a list of row indices added to the selection.
 
-    When one or more rows are selected, the widget will copy the current
-    selection to the clipboard when the `<<Copy>>` virtual event is received
-    (for example, when kbd:[Ctrl-C] is pressed on Windows). The rows
-    are copied as text with tabs separating cells and newlines separating the
-    rows.
 }
 
 text {
@@ -432,19 +430,58 @@ text {
     applications to provide separate scrollbars.
 }
 
-tbd {
-    Mouse bindings
-}
+text {
+    ===== Keyboard bindings
 
-tbd {
+    The `tableview` widget has the following keyboard bindings by default.
+    
     [no-bullet]
-    * kbd:[Ctrl-Home] moves the display to the top of the table
-    * kbd:[Ctrl-C] copies the currently selected rows 
-    keybindings - Ctrl-Home, Ctrl-C etc.
+    * `+<<Copy>>+` copies the currently selected rows to the clipboard. The rows
+    are copied as text with tabs separating cells and newlines separating the
+    rows. Usually bound to kbd:[Ctrl+C].
+    * `+<<SelectAll>>+` selects all rows in the table.
+    Usually bound to kbd:[Ctrl+a] or kbd:[Ctrl+/].
+    * kbd:[Escape] clears the selection.
+    * kbd:[Up] and kbd:[Down] move the selection by one row.
+    If the kbd:[Shift] key
+    is pressed, the selection is extended instead.
+    * The kbd:[Next]/kbd:[PgDn] and kbd:[Prior]/kbd:[PgUp] move the display
+    by a page. The selection is not affected.
+    * The kbd:[Ctrl+Next]/kbd:[Ctrl+PgDn] and kbd:[Ctrl+Prior]/kbd:[Ctrl+PgUp]
+    right or left by the width of the window.
+    * kbd:[Home] and kbd:[End] keys scroll the table horizontally to
+    the first and last columns respectively.
+    * kbd:[Ctrl+Home] and kbd:[Ctrl+End] move the display to the top
+    and bottom of the table respectively, setting the selection in the process.
+    If the kbd:[Shift] key is simultaneously pressed, the selection is extended.
 }
 
-tbd {
-    sorting using tarray because treectrl will sort using display text?
-    Also does not have all the values
-}
+text {
+    ===== Mouse bindings
 
+    The `tableview` widget has the following mouse bindings by default.
+    
+    [no-bullet]
+    * `+<Button-1>+` will set the selection to the row under the mouse.
+    * If the kbd:[Ctrl] key is pressed in conjunction,
+    the row under the mouse is added
+    to the selection if not already present, or removed if it is.
+    * If the
+    kbd:[Shift] key is pressed in conjunction, the selection is extended
+    to include all rows between the selection anchor and the row under
+    the mouse.
+    * Dragging with `+<Button-1>+` pressed extends the selection. If the mouse
+    is moved out of the window, contents are scrolled if necessary.
+    * Double clicking `+<Button-1>+` results in the window generating
+    the `+<<ItemDoubleClick>>+` virtual event.
+    * Clicking `+<Button-3>+` results in the window generating
+    the `+<<ItemRightClick>>+` virtual event.
+
+    When the virtual events `+<<ItemDoubleClick>> and
+    `+<<ItemRightClick>>+` are generated,
+    the `%d` substitution placeholder in the script bound to these
+    events will be replaced with a dictionary with the keys
+    `Row` and `Column` containing the row index and column name
+    of the table cell. The dictionary may contain additional keys
+    which should be ignored for future compatibility.
+}
