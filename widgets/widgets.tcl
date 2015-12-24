@@ -1357,14 +1357,19 @@ oo::class create tarray::ui::Table {
 
     constructor {tab w args} {
         set options {}
-        if {[dict exists $args -colattrs]} {
-            set _coldefs [dict get $args -colattrs]
-            dict unset args -colattrs
-        } else {
-            set _coldefs [list]
-            foreach cname [tarray::table::cnames $tab] col [tarray::table::columns $tab] {
-                lappend _coldefs $cname [list Type [tarray::column::type $col]]
+
+        # Construct the column definitions based on table. Then
+        # add on specified column attributes if any
+        set _coldefs [dict create]
+        foreach cname [tarray::table::cnames $tab] col [tarray::table::columns $tab] {
+            set colattrs [dict create Type [tarray::column::type $col]]
+            if {[dict exists $args -colattrs $cname]} {
+                set colattrs [dict merge $colattrs [dict get $args -colattrs $cname]]
             }
+            lappend _coldefs $cname $colattrs
+        }
+        if {[dict exists $args -colattrs]} {
+            dict unset args -colattrs
         }
         if {1} {
             set options $args;  # For now pass all unknown options to widget

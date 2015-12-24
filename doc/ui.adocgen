@@ -52,6 +52,36 @@ text {
 text {
     == Widgets
 
+    === Widget overview
+
+    ==== The tableview widget
+
+    The `tableview` widget displays data from a `tarray`
+    ((^ chap_table_ref table)). 
+    Based on Tim Baker's `treectrl` widget,
+    it maintains `treectrl` features like drag and drop for resizing
+    and repositioning table columns and also adds additional features
+    like filtered views, visual keying of cells, tooltips
+    and automatic scrollbars.
+    
+    Minimal programming is required to make use of these features.
+    For example, the following call is sufficient to display a
+    the contents of a variable `cities` containing a
+    ((^ chap_table_ref table)) of geographical data.
+} syntax {
+    tarray::ui::tableview .top $cities -showfilter 1
+    pack .cities -fill both -expand
+} text {
+    The corresponding table, sorted by name and filtered
+    to only list cities in the eastern hemispere having a population
+    of more than a million, is shown below.
+
+    .A tableview window
+    image::cities1.png[Tableview example]
+    
+}
+
+text {
     === Widget reference
 }
     
@@ -63,6 +93,10 @@ text {
     memory when displaying tables with a large amount of data. At
     the same time it provides several standard features without requiring
     any additional programming on part of the developer.
+
+    The widget is based on Tim Baker's `treectrl` widget which is
+    available from http://tktreectrl.sf.net[SourceForge] and must
+    be downloaded separately.
 
     _WIDGET_ should be the Tk window path for the widget. This is also
     the return value of the command. _TABLE_ should be a tarray
@@ -105,45 +139,6 @@ text {
     vertical scrolling.
     
     |===
-} text {
-    ===== Features
-    The widget is based on Tim Baker's `treectrl` widget which is
-    available from http://tktreectrl.sf.net[SourceForge] and must
-    be downloaded separately.
-    The `treectrl` widget is very flexible in terms of its capabilities
-    but at some cost in programming complexity.
-    The `tableview` widget hides most of this complexity by limiting
-    the widget to displaying data in table form. It maintains most
-    of the useful `treectrl` features like drag and drop for resizing
-    and repositioning table columns and also adds the following
-    features.
-    
-    * Filtered views based on user-defined conditions
-
-    * Visual keying of rows or cells based on their values
-
-    * Sorting
-
-    * Selection and clipboard handling
-    
-    * Automatic scrollbars
-
-    * Tooltips
-    
-    Minimal programming is required to make use of these features.
-    For example, the following call is sufficient to display a
-    the contents of a variable `cities` containing a
-    ((^ chap_table_ref table)) of geographical data.
-} syntax {
-    tarray::ui::tableview .top $cities -showfilter 1
-    pack .cities -fill both -expand
-} text {
-    The corresponding table, sorted by name and filtered
-    to only list cities in the eastern hemispere having a population
-    of more than a million, is shown below.
-
-    .A tableview window
-    image::cities1.png[Tableview example]
 }
 
 text {
@@ -185,8 +180,23 @@ text {
     on the column heading will have no effect.
     
     |===
-} tbd {
-    Column attribute example
+} text {
+    An example is shown below.
+} uiscript {
+    toplevel .cities
+    tarray::ui::tableview .cities.tbl $cities -colattrs {
+        geonameid {Heading Id Justify left}
+        name      {Heading City}
+        country   {Heading {Country Code}}
+        latitude  {Heading Latitude}
+        longitude {Heading Longitude}
+        population {Heading Population}
+        elevation {Heading {Elevation (m)}}
+    }
+    pack .cities.tbl -fill both -expand 1
+} text {
+    Note that not every attribute has to be defined for every column
+    and not every column needs to be listed (though we have listed all above).
 }
 
 text {
@@ -296,7 +306,7 @@ text {
     longitude values to two decimal places. Additionally, it highlights
     all tropical cities in red, and population values above a hundred
     thousand are shown with white text on a red background.
-} norun 1 uiscript {
+} uiscript {
     proc format_city {row_index row_values} {
         foreach col {latitude longitude} {
             dict set row_values $col [format %2.2f [dict get $row_values $col]]
@@ -477,7 +487,7 @@ text {
     * Clicking `+<Button-3>+` results in the window generating
     the `+<<ItemRightClick>>+` virtual event.
 
-    When the virtual events `+<<ItemDoubleClick>> and
+    When the virtual events `+<<ItemDoubleClick>>+` and
     `+<<ItemRightClick>>+` are generated,
     the `%d` substitution placeholder in the script bound to these
     events will be replaced with a dictionary with the keys
