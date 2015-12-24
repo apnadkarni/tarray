@@ -407,12 +407,39 @@ text {
 }
 
 
-tbd { Selections }
+text {
+    ===== Selection and clipboard handling
+    
+    The `tableview` widget implements mouse bindings for selecting rows that
+    follow the behaviour of the Tk `listbox` widget's extended select mode.
+    See the documentation for `listbox` for details.
+
+    The widget generates a `<<ListboxSelect>>` event when there is any
+    change in the selection.
+
+    When one or more rows are selected, the widget will copy the current
+    selection to the clipboard when the `<<Copy>>` virtual event is received
+    (for example, when kbd:[Ctrl-C] is pressed on Windows). The rows
+    are copied as text with tabs separating cells and newlines separating the
+    rows.
+}
+
+text {
+    ===== Scrollbars
+
+    The `tableview` widget has built-in horizontal and vertical
+    scrollbars that appear as needed.  There is no need for
+    applications to provide separate scrollbars.
+}
+
 tbd {
     Mouse bindings
 }
 
 tbd {
+    [no-bullet]
+    * kbd:[Ctrl-Home] moves the display to the top of the table
+    * kbd:[Ctrl-C] copies the currently selected rows 
     keybindings - Ctrl-Home, Ctrl-C etc.
 }
 

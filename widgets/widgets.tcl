@@ -189,12 +189,12 @@ snit::widget tarray::ui::dataview {
         ttk::scrollbar $win.vscroll \
             -orient vertical \
             -command "$_treectrl yview" 
-	$_treectrl notify bind $win.vscroll <Scroll-y> [mymethod PositionScrollbar %W %l %u]
+	$_treectrl notify bind $win.vscroll <Scroll-y> [mymethod PositionVerticalScrollbar %W %l %u]
 	bind $win.vscroll <ButtonPress-1> "focus $_treectrl"
         ttk::scrollbar $win.hscroll \
             -orient horizontal \
             -command "$_treectrl xview" 
-	$_treectrl notify bind $win.hscroll <Scroll-x> [mymethod PositionScrollbar %W %l %u]
+	$_treectrl notify bind $win.hscroll <Scroll-x> [mymethod PositionHorizontalScrollbar %W %l %u]
 	bind $win.hscroll <ButtonPress-1> "focus $_treectrl"
          
         grid columnconfigure $win 0 -weight 1
@@ -362,11 +362,21 @@ snit::widget tarray::ui::dataview {
         return
     }
 
+    method PositionHorizontalScrollbar {sb first last} {
+        if {$first <= 0 && $last >= 1} {
+            grid remove $sb
+        } else {
+            grid $sb
+        }
+        $sb set $first $last
+        return
+    }
     
-    method PositionScrollbar {sb first last} {
+    method PositionVerticalScrollbar {sb first last} {
         if {0} {
-            Gets infinite loop due to infighting between horizontal and
-            vertical scrollbars even on Windows
+            We cannot use the PositionHorizontalScrollbar method because
+            gets infinite loop due to infighting between horizontal and
+            vertical scrollbars
             if {$first <= 0 && $last >= 1} {
                 grid remove $sb
             } else {
@@ -401,22 +411,27 @@ snit::widget tarray::ui::dataview {
         if {[tarray::column::size $_item_ids] == 0} {
             grid remove $sb
         } else {
+            # Bounding boxes are {left top right bottom}
             set bbox [$_treectrl bbox content]
-            set item_bbox [$_treectrl item bbox [tarray::column::index $_item_ids end]]
-            if {$sb eq "$win.hscroll"} {
-                set item_bound [lindex $item_bbox 2]
-                if {$item_bound ne ""} {
-                    set content_bound [lindex $bbox 2]
-                    set scroll_size [winfo width $win.vscroll]
-                }
-            } else {
-                set item_bound [lindex $item_bbox 3]
-                if {$item_bound ne ""} {
-                    set content_bound [lindex $bbox 3]
-                    set scroll_size [winfo height $win.hscroll]
-                }
-            }
-            if {$item_bound eq "" || ($item_bound+$scroll_size) > $content_bound} {
+            set content_top [lindex $bbox 1]
+            set content_bottom [lindex $bbox 3]
+            set first_bbox [$_treectrl item bbox [tarray::column::index $_item_ids 0]]
+            set first_top [lindex $first_bbox 1]
+            set last_bbox [$_treectrl item bbox [tarray::column::index $_item_ids end]]
+            set last_bottom [lindex $last_bbox 3]
+            # To prevent infinite shimmering between horizontal and vertical
+            # scrollbars, take into consideration height of the (potential)
+            # horizontal scrollbar. This means scrollbar will be present
+            # unnecessarily in some cases but no other workaround
+            set scroll_size [winfo height $win.hscroll]
+
+            # treectrl docs say bbox may be empty for some reason
+            # so to be safe check for that and show scrollbars in that
+            # case as well
+            if {$first_top eq "" ||
+                $last_bottom eq "" ||
+                $first_top < $content_top ||
+                ($last_bottom+$scroll_size) > $content_bottom} {
                 # Last item not visible or partially visible
                 grid $sb
             } else {
