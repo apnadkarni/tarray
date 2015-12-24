@@ -1,6 +1,5 @@
 package require Tk
 package require snit
-package require treectrl
 package require tarray
 source [file join [file dirname [info script]] color.tcl];# TBD
 namespace eval tarray::ui {
@@ -1643,8 +1642,12 @@ oo::class create tarray::ui::Table {
 
 proc tarray::ui::tableview {w data args} {
     # TBD - make note of -yscrolldelay option for scrolling large tables
-    Table new $data $w {*}$args
-    return $w
+    uplevel #0 [list package require treectrl]
+    proc [namespace current]::tableview {w data args} {
+        Table new $data $w {*}$args
+        return $w
+    }
+    uplevel 1 [list [namespace current]::tableview $w $data] $args
 }
     
 #
