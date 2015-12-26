@@ -433,6 +433,16 @@ text {
     * kbd:[Tab] or kbd:[Enter] will save the filter,
     * kbd:[Escape] will revert the filter entry to its original value, and
     * kbd:[F1] will show a help dialog summarizing filter syntax.
+} text {
+    ====== Clearing filters
+
+    The widget's `clearfilters` method clears all currently set filters.
+} syntax {
+    _WIDGET_ clearfilters
+} text {
+    An application can invoke this from a menu or toolbar control to
+    reset all configured filters. This is more convenient for the user
+    than having to manually clear all configured filters.
 }
 
 text {
