@@ -84,7 +84,7 @@ snit::widget tarray::ui::unmanaged {
     }
 
 }
-                
+
 snit::widget tarray::ui::dataview {
     hulltype ttk::frame
     
@@ -1393,7 +1393,7 @@ oo::class create tarray::ui::Table {
         set _filter_help_w ".tarrayfilterhelp"
 
         set _w $w
-        tarray::ui::dataview $w [self] $_coldefs {*}$options
+        tarray::ui::dataview $w [self] $_coldefs -class Tableview {*}$options
         bind $w <<SortColumn>> [list [self] <<SortColumn>> %d]
         bind $w <Destroy> [list [self] destroy]
         bind $w <<FilterHelp>> [list [self] <<FilterHelp>> %W %d]
