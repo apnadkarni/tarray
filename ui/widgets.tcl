@@ -1650,6 +1650,76 @@ proc tarray::ui::tableview {w data args} {
     uplevel 1 [list [namespace current]::tableview $w $data] $args
 }
     
+
+snit::widgetadaptor tarray::ui::csvreader {
+    delegate option * to hull
+    delegate method * to hull
+    constructor args {
+        uplevel #0 [list package require tclcsv]
+        set chan [lindex $args end]
+        set args [lrange $args 0 end-1]
+        if {[dict exists $args -columntypes]} {
+            # We want to specify this ourselves, caller must not
+            error "Invalid option -columntypes"
+        }
+        # Note - types string, integer and real are built into tclcsv
+        set columntypes {
+            string {display Text align left}
+            byte {display "8-bit unsigned integer" align right}
+            integer {display "32-bit integer" align right}
+            uint {display "32-bit unsigned integer" align right}
+            wide {display "64-bit integer" align right}
+            real {display "Floating point" align right}
+            boolean {display Boolean align right}
+        }
+            
+        installhull using tclcsv::dialectpicker {*}$args -columntypes $columntypes $chan
+    }
+
+    method read {} {
+        set chan [$hull channel]
+        set enc [chan configure $chan -encoding]
+        set pos [chan tell $chan]
+        try {
+            chan configure $chan -encoding [$hull encoding]
+            set dialect [$hull dialect]
+            set table_def {}
+            set headings {}
+            foreach column_setting [$hull columnsettings] {
+                dict with column_setting {}; # Init type and heading
+                set type [dict get {
+                    real double integer int string string
+                    byte byte uint uint boolean boolean wide wide
+                } $type]
+                regsub -all {[^[:alnum:]_]} $heading _ name
+                lappend table_def $name $type
+                lappend headings $name $heading
+            }
+            
+            set tab [tarray::table create $table_def]
+            set reader [tclcsv::reader new {*}$dialect $chan]
+            while {1} {
+                set recs [$reader next 1000]
+                tarray::table vput tab $recs
+                if {[llength $recs] < 1000} {
+                    if {[$reader eof]} {
+                        break
+                    }
+                }
+            }
+        } finally {
+            if {[info exists reader]} {
+                $reader destroy
+            }
+            if {$chan in [chan names]} {
+                chan seek $chan $pos
+                chan configure $chan -encoding $enc
+            }
+        }
+        return [list $tab $headings]
+    }
+}
+
 #
 # Places the given window at the center of the screen
 # The tk::PlaceWindow does not seem to work correctly for unmanaged windows
@@ -1759,54 +1829,6 @@ proc tarray::ui::place_window {w target {side center}} {
     return
 }
 
-proc tarray::ui::formatter {row_id data} {
-    if {[dict exists $data ColB]} {
-        set val [dict get $data ColB]
-        if {(($val/10) % 4) == 0} {
-            dict set data ColB [format 0x%x $val]
-            dict set visuals ColB visual1
-            dict set visuals "" visual2
-        } else {
-            # Have to rest highlights
-            dict set visuals ColB ""
-            dict set visuals "" ""
-        }
-    }
-    return [list $data $visuals]
-}
-
-proc tarray::ui::test {args} {
-    if {[llength $args] == 0} {
-        set nrows 20
-    } else {
-        set args [lassign $args nrows]
-    }
-    set coldefs {
-        ColA {
-            Heading {Column A}
-        }
-        ColB {
-            Heading {Column B}
-            Type int
-        }
-        ColC {
-            Justify right
-            Sortable 0
-        }
-    }
-    set ::datatable [tarray::table create {
-        ColA string ColB int ColC any
-    } {} $nrows]
-    set n -1
-    time {
-        set now [clock clicks]
-        tarray::table vinsert ::datatable [list Row[incr n] [expr {$n*10}] $now] end
-    } $nrows
-    #tarray::ui::tableview .tv $::datatable -colattrs $coldefs {*}$args
-    tarray::ui::tableview .tv $::datatable  {*}$args
-    pack .tv -fill both -expand 1
-}
-# test 20 -visuals {visual1 {-bg red -font Courier} visual2 {-fg green -bg blue}} -formatter formatter
 
 proc tarray::ui::cities2 {args} {
     uplevel #0 source ../tests/cities.tcl
