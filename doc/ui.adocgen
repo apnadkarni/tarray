@@ -64,8 +64,7 @@ text {
     like filtered views, visual keying of cells, tooltips
     and automatic scrollbars.
     
-    Minimal programming is required to make use of these features.
-    For example, the following call is sufficient to display a
+    The following call displays
     the contents of a variable `cities` containing a
     ((^ chap_table_ref table)) of geographical data.
 } syntax {
@@ -416,6 +415,12 @@ text {
     * kbd:[F1] will show a help dialog summarizing filter syntax.
 }
 
+text {
+    ===== Sorting
+
+    Clicking on a column header sorts the table based on the values in
+    that column.
+}
 
 text {
     ===== Selection and clipboard
@@ -494,4 +499,12 @@ text {
     `Row` and `Column` containing the row index and column name
     of the table cell. The dictionary may contain additional keys
     which should be ignored for future compatibility.
+}
+
+text {
+    ===== Tooltips
+
+    Data that is too long to fit within a column cell width is shown truncated
+    with ellipsis. Hovering over the cell will pop up a tooltip containing
+    the full data.
 }
