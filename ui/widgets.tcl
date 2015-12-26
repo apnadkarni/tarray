@@ -1227,6 +1227,9 @@ snit::widget tarray::ui::dataview {
     method SetShowFilter {opt val} {
         $_treectrl header configure H2 -visible $val
         set options($opt) $val
+        if {! $val} {
+            $self clearfilters
+        }
     }
 
     method GetFilterBbox {colname} {
@@ -1311,6 +1314,10 @@ snit::widget tarray::ui::dataview {
         return
     }
     
+    method clearfilters {} {
+        event generate $win <<FilterClearAll>>
+    }
+
     method UpdateColumnOutlines {item_ids} {
         if {[llength $item_ids] == 0} {
             return
@@ -1398,6 +1405,7 @@ oo::class create tarray::ui::Table {
         bind $w <Destroy> [list [self] destroy]
         bind $w <<FilterHelp>> [list [self] <<FilterHelp>> %W %d]
         bind $w <<FilterChange>> [list [self] <<FilterChange>> %W %d]
+        bind $w <<FilterClearAll>> [list [self] <<FilterClearAll>> %W]
         bind $w <<FilterCancel>> [list [self] <<FilterCancel>> %W]
         bind $w <<Copy>> [list [self] <<Copy>> %W]
         my UpdateData 
@@ -1489,7 +1497,8 @@ oo::class create tarray::ui::Table {
         return [list [dict get $map $oper] $arg $cond]
     }
         
-    method update_column_filter {cname cond} {
+    # Update the filter of a single column
+    method UpdateColumnFilter {cname cond} {
 
         # Parse the string into an "executable" form
         lassign [my ParseFilter $cname $cond] oper arg cond
@@ -1532,8 +1541,16 @@ oo::class create tarray::ui::Table {
             dict set new_filter_strings $cname $cond
         }
 
+        return [my UpdateFilters $new_filters $new_filter_strings]
+    }
+
+    method UpdateFilters {new_filters new_filter_strings} {
         if {[dict size $new_filters] == 0} {
             # No filters
+            if {[dict size $_filters] == 0} {
+                # No change
+                return
+            }
             set _row_ids [tarray::column::series [tarray::table::size $_data]]
         } else {
             # General case. Have to rerun all filters. In search for efficiency
@@ -1567,6 +1584,7 @@ oo::class create tarray::ui::Table {
         set _filter_strings $new_filter_strings
         my Sort;               # Need to resort after filtering
         my UpdateData
+        return
     }
 
     method CommitFilters {filters filter_strings rids} {
@@ -1618,11 +1636,17 @@ oo::class create tarray::ui::Table {
     }
     export <<FilterCancel>>
     
+    method <<FilterClearAll>> {w} {
+        destroy $_filter_help_w
+        return [my UpdateFilters {} {}]
+    }
+    export <<FilterClearAll>>
+                
     method <<FilterChange>> {w cname_and_cond} {
         destroy $_filter_help_w
         if {[catch {
             lassign $cname_and_cond cname cond
-            my update_column_filter $cname $cond
+            my UpdateColumnFilter $cname $cond
         } msg options]} {
             # Error - restore original data
             my UpdateData
