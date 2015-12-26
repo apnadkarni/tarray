@@ -1654,10 +1654,8 @@ proc tarray::ui::tableview {w data args} {
 snit::widgetadaptor tarray::ui::csvreader {
     delegate option * to hull
     delegate method * to hull
-    constructor args {
+    constructor {chan args} {
         uplevel #0 [list package require tclcsv]
-        set chan [lindex $args end]
-        set args [lrange $args 0 end-1]
         if {[dict exists $args -columntypes]} {
             # We want to specify this ourselves, caller must not
             error "Invalid option -columntypes"
