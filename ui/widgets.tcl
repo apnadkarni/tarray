@@ -1684,7 +1684,7 @@ snit::widgetadaptor tarray::ui::csvreader {
             chan configure $chan -encoding [$hull encoding]
             set dialect [$hull dialect]
             set table_def {}
-            set headings {}
+            set headings [dict create] 
             foreach column_setting [$hull columnsettings] {
                 dict with column_setting {}; # Init type and heading
                 set type [dict get {
@@ -1693,7 +1693,7 @@ snit::widgetadaptor tarray::ui::csvreader {
                 } $type]
                 regsub -all {[^[:alnum:]_]} $heading _ name
                 lappend table_def $name $type
-                lappend headings $name $heading
+                dict set headings $name Heading $heading
             }
             
             set tab [tarray::table create $table_def]
@@ -1829,8 +1829,9 @@ proc tarray::ui::place_window {w target {side center}} {
     return
 }
 
+namespace eval tarray::ui::test {}
 
-proc tarray::ui::cities2 {args} {
+proc tarray::ui::test::cities2 {args} {
     uplevel #0 source ../tests/cities.tcl
     #package require tclcsv
     tarray_cities2 ::cities ../tests/cities15000.txt
@@ -1840,4 +1841,18 @@ proc tarray::ui::cities2 {args} {
     pack .top.cities -fill both -expand 1
 }
 
-package provide tarray_ui 0.8
+proc tarray::ui::test::csv {args} {
+    package require widget::dialog
+    widget::dialog .dlg -type okcancel
+    tarray::ui::csvreader .dlg.csvr ../doc/qb.csv
+    .dlg setwidget .dlg.csvr
+    set response [.dlg display]
+    if {$response eq "ok"} {
+        lassign [.dlg.csvr read] tab colattrs
+        tarray::ui::tableview .tv $tab -colattrs $colattrs
+        pack .tv -fill both -expand y
+    }
+    destroy .dlg
+}
+
+package provide tarray_ui [source [file join [file dirname [info script]] uiversion.tcl]] 
