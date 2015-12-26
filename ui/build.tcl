@@ -11,7 +11,7 @@ set buildarea [file normalize [file join [pwd] .. build]]
 switch -exact -- [lindex $argv 0] {
     "" - package {
         set dir [file join $buildarea lib tarray_ui]
-        file delete -- $dir
+        file delete -force -- $dir
         file mkdir $dir
         file copy widgets.tcl color.tcl pkgIndex.tcl uiversion.tcl $dir
     }
