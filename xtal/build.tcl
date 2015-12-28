@@ -17,7 +17,7 @@ switch -exact -- [lindex $argv 0] {
         set critcl_source [pt::pgen peg [fileutil::cat xtal.peg] critcl -class xtal::ParserBase -package xtal -name Xtal -version $taversion]
         # We want the xtal.tcl file to be included in the package
         # so insert it into the generated critcl parser file
-        fileutil::writeFile xtal.critcl [regsub {return\s*$} $critcl_source "critcl::tsources xtal.tcl shell.tcl\n"]
+        fileutil::writeFile xtal.critcl [regsub {return\s*$} $critcl_source "critcl::tsources xtal.tcl ptast.tcl ptutil.tcl shell.tcl\n"]
     }
     ext -
     extension {
