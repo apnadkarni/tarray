@@ -1,3 +1,10 @@
+#
+# Copyright (c) 2015, Ashok P. Nadkarni
+# All rights reserved.
+#
+# See the file license.terms for license
+#
+
 namespace eval xtal {
     # In production code we use the critcl C-based parser. For development
     # build the parser on the fly using the oo based parser. To do this,
@@ -35,62 +42,25 @@ if {! $xtal::_use_oo_parser} {
     }
 }
 
-package require pt::ast
-package require pt::util
-
-# tcllib-1.17 (or the corresponding pt package) has a bug in Readables
-# with the use of the undefined variable details. Replace that routine
-# in case present. TBD - once fixed in pt releases, revisit this
-catch {
-    # Make sure pt::util::Readables is loaded (in case of lazy loading)
-    catch {pt::util::Readables}
-    if {[regexp {details} [info body pt::util::Readables]]} {
-        proc ::pt::util::Readables {msgs} {
-            set cl {}
-            set r {}
-            foreach pe $msgs {
-                switch -exact -- [lindex $pe 0] {
-                    t {
-                        # Fuse to multiple 't'-tags into a single 'cl'-tag.
-                        lappend cl [lindex $pe 1]
-                    }
-                    cl {
-                        # Fuse multiple 'cl'-tags into one.
-                        foreach c [split [lindex $pe 1]] { lappend cl $c }
-                    }
-                    default {
-                        lappend r [Readable $pe]
-                    }
-                }
-            }
-            if {[set n [llength $cl]]} {
-                if {$n > 1} {
-                    lappend r [Readable [list cl [join [lsort -dict $cl] {}]]]
-                } else {
-                    lappend r [Readable [list t [lindex $cl 0]]]
-                }
-            }
-            return [lsort -dict $r]
-        }
-    }
-}
-
 namespace eval xtal::ast {
     proc Print {s ast} {
-        set children [lassign $ast type start end]
-        set result   [list [list <$type> :: $start $end [string range $s $start $end]]]
+        proc [namespace current]::Print {s ast} {
+            set children [lassign $ast type start end]
+            set result   [list [list <$type> :: $start $end [string range $s $start $end]]]
 
-        # The arguments are already processed for printing
-        foreach c $children {
-            foreach line $c {
-                lappend result "    $line"
+            # The arguments are already processed for printing
+            foreach c $children {
+                foreach line $c {
+                    lappend result "    $line"
+                }
             }
+            return $result
         }
-        return $result
+        return [Print $s $ast]
     }
 
     proc print {s ast} {
-        puts [join [pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
+        puts [join [xtal::pt::ast::bottomup [list [namespace current]::Print $s] $ast] \n]    
     }
 }
 
@@ -277,12 +247,12 @@ oo::class create xtal::Parser {
         set Script $text
         if {[catch {my parset $text} ast eropts]} {
             if {[string match {pt::rde *} $ast]} {
-                error [pt::util::error2readable $ast $text]
+                error [xtal::error2readable $ast $text]
             } else {
                 return -options $eropts $ast
             }
         }
-        return [pt::ast bottomup [list [namespace which my] node] $ast]
+        return [xtal::pt::ast::bottomup [list [namespace which my] node] $ast]
     }
 
     method node {ast} {
@@ -2669,4 +2639,6 @@ namespace eval xtal::rt {
 }
 
 # Pick up ancillary support functions
+source [file join [file dirname [info script]] ptast.tcl]
+source [file join [file dirname [info script]] ptutil.tcl]
 source [file join [file dirname [info script]] shell.tcl]
