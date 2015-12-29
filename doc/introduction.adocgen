@@ -7,11 +7,28 @@ text {
 }
 
 text {
-    == Columns and tables
+    == Overview
+    
+    As is true for scripting languages in general, Tcl incurs significant
+    overhead in terms of memory as well as performance when operating on
+    large amounts of data. The set of packages described here provide
+    a more performant and convenient means of working with large data
+    sets. The three packages are
+
+    * `tarray` -- implements the core data types and operations
+    * `xtal` -- provides succint, convenient syntax for
+    working with data sets
+    * `tarray_ui` -- contains Tk widgets that are useful
+    for display and user interaction
+
+    The packages come with comprehensive documentation, an extensive test
+    suite and are covered by a liberal open source license.
+    
+    == The tarray package
     
     The `tarray` (_typed array_)
-    extension implements two new Tcl collection data types -
-    ((^ chap_column_ref columns)) and ((^ chap_table_ref tables)).
+    extension implements two new Tcl collection data
+    types -- ((^ chap_column_ref columns)) and ((^ chap_table_ref tables)).
     Typed arrays store elements of a specific data type in native format
     and in comparison to Tcl collection types like lists and dicts,
     offer performance benefits of
@@ -29,8 +46,10 @@ text {
 
     The column and table constructs are similar to _dataframes_ in
     languages like R.
+}
 
-    == The Xtal language
+text {
+    == The xtal package
 
     The related extension `xtal` implements ((^ chap_xtal_lang Xtal)),
     a language geared towards vector operations on lists, columns and tables.
@@ -50,20 +69,43 @@ text {
     You can also use Xtal in interactive mode, either at the `tclsh`
     prompt, the `wish` console or `tkcon`. See
     ((^ chap_xtal_shell)) for details.
+}
+
+text {
+    == The tarray_ui package
+
+    The `tarray_ui` package implements widgets that useful for displaying
+    and interacting with typed arrays. Currently this only includes
+    widgets for displaying table data with sorting/filtering capabilities
+    and for importing CSV files.
+}
     
+text {
     == Documentation guide
 
-    * See ((^ chap_build)) for download and installation.
-    * The ((^ chap_guide)) chapter is an introduction to programming
-    using the `tarray` extension
-    * ((^ chap_column_ref)) and ((^ chap_table_ref))
-    comprise reference documentation
-    for commands related to columns and tables respectively.
-    * The ((^ chap_xtal_ref)) chapter contains reference documentation
+    * ((^ chap_build)) documents download and installation procedures.
+    * ((^ chap_guide)) is an introduction to programming
+    using the `tarray` extension.
+    * ((^ chap_tarray_ref)) documents general commands
+    in the `tarray` package.
+    * ((^ chap_column_ref)) documents commands specific
+    to working with columns.
+    * ((^ chap_table_ref)) documents commands specific
+    to working with tables.
+    * ((^ chap_xtal_ref)) contains reference documentation
     for Tcl commands related to the Xtal language.
-    * The ((^ chap_xtal_lang)) chapter serves as both an introduction
+    * ((^ chap_xtal_lang)) serves as both an introduction
     to Xtal as well as a reference documentation for the language itself.
-    * The ((^ chap_xtal_shell)) chapter describes the use of
+    * ((^ chap_xtal_shell)) describes the use of
     the Xtal shell for interactive use.
+    * ((^ chap_ui)) documents the `tarray_ui` package.
+}
 
+text {
+    == License
+
+    The packages are primarily covered by the liberal open source BSD license.
+    See the file `license.terms` in the source directories for details.
+    Some third-party components used in the software may have their own
+    license.
 }

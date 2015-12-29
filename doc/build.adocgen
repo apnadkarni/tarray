@@ -9,13 +9,14 @@ text {
 text {
     == Download and installation
     
-    Distributions of the `tarray` and `xtal` packages
+    Distributions of the `tarray`, `tarray_ui` and `xtal` packages
     are available from the SourceForge download
     area at http://sourceforge.net/projects/tarray/files. 
 
     === Installing on Windows
 
-    Download `tarray-bin-VERSION.zip`, and
+    Download `tarray-bin-VERSION.zip`, and optionally
+    `tarray_ui-VERSION.zip` and
     optionally `xtal-bin-VERSION.zip`, from
     http://sourceforge.net/projects/tarray/files[SourceForge].
     These contain both 32- and 64-bit binaries for Windows.
@@ -24,7 +25,8 @@ text {
 
     === Installing on other platforms
 
-    For other (Unix-like) platforms, the packages are distributed as TEA-compatible
+    For other (Unix-like) platforms, the `tarray` and `xtal`
+    packages are distributed as TEA-compatible
     extensions `tarray-VERSION.tar.gz` and `xtal-VERSION.tar.gz`.
     To install an extension, extract into a directory and from the
     top level directory run the following commands in the shell.
@@ -40,6 +42,10 @@ text {
     The built extensions will support parallelized operations if
     the `libdispatch` library is installed on the system. See
     ((^ build_parallel)) for details.
+
+    The `tarray_ui` package, distributed as `tarray_ui-VERSION.tar.gz'
+    is a pure Tcl package and can be extracted into any directory that
+    is included in the Tcl `auto_path` variable.
     
     == Building from sources
     
