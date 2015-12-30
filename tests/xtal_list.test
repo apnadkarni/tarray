@@ -1098,6 +1098,8 @@ namespace eval tarray::test::xtal_list {
     } -body {
         xtal::xtal { l[@@ ~^ "str" || l ~ "z"] = {"a", "b", "c"}}
     } -result {a one two {3 three} b c}
+
+    # TBD - assign selector > < >= <= etc. tests
 }
 
 ::tcltest::cleanupTests
