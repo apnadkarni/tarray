@@ -115,6 +115,29 @@ proc xtal::_map_search_op_reverse {op} {
     }
 } 
 
+proc xtal::_math_op_reverse {op} {
+    # Converts OPERANDA OP OPERANDB to OPERANDB REVERSE_OP OPERANDA
+    # Note regexp and glob operators are missing here since
+    # for consistency, the pattern must only appear on the RHS side
+    # of the operator.
+    set map {
+        ==  ==
+        !=  !=
+        <   >
+        <=  >=
+        >   <
+        >=  <=
+        =^  =^
+        !^  !^
+    }
+    
+    if {[dict exists $map $op]} {
+        return [dict get $map $op]
+    } else {
+        return ""
+    }
+}
+
 proc xtal::_init_compiler {} {
     xtal::Compiler create compiler $::xtal::_use_oo_parser
     ::proc _init_compiler {args} {}
@@ -1237,11 +1260,12 @@ oo::class create xtal::Compiler {
             } elseif {[lindex $selector_expr 1 1] eq "SelectorContext" &&
                       [set searchop [xtal::_map_search_op $first_op]] ne ""} {
                 # Optimize C[@@ > 10]
-                set command "xtal::rt::search_@@ {$searchop} \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 2]]"
+                set command "xtal::rt::search_@@ {{$first_op} {$searchop}} \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 2]]"
             } elseif {[lindex $selector_expr 1 2] eq "SelectorContext" &&
                       [set searchop [xtal::_map_search_op_reverse $first_op]] ne ""} {
                 # Optimize C[10 > @@] etc.
-                set command "xtal::rt::search_@@ {$searchop} \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]]"
+                set reverse_op [xtal::_math_op_reverse $first_op]
+                set command "xtal::rt::search_@@ {{$reverse_op} {$searchop}} \[xtal::rt::selector_context\] [my {*}[lindex $selector_expr 1 1]]"
             }
 
             if {![info exists command]} {
@@ -2118,7 +2142,11 @@ namespace eval xtal::rt {
             if {$btype eq ""} {
                 if {[is_selector_context $b]} {
                     # a is scalar, b is not
-                    return [matching_list_indices $op $b $a]
+                    set reverse_op [xtal::_math_op_reverse $op]
+                    if {$reverse_op eq ""} {
+                        error "The right hand operand of operator $op cannot be a vector."
+                    }
+                    return [matching_list_indices $reverse_op $b $a]
                 } 
                 # Both scalars
                 return [tcl::mathop::$op $a $b]
@@ -2153,21 +2181,104 @@ namespace eval xtal::rt {
         }]
     }
 
+    proc matching_list_elems {op haystack needle} {
+        # haystack must be a list, not column
+        # NOTE: Although we could lump many operations together by using
+        # $op, that affects byte compilation so list them out separately.
+        # Also note that for == and != we do not use lsearch since
+        # its semantics are different from expr (e.g. 0x10 == 16)
+        return [switch -exact -- $op {
+            ==  {
+                lmap hay $haystack {
+                    if {$hay == $needle} {set hay} else continue
+                }
+            }
+            !=  {
+                lmap hay $haystack {
+                    if {$hay != $needle} {set hay} else continue
+                }
+            }
+            <  {
+                lmap hay $haystack {
+                    if {$hay < $needle} {set hay} else continue
+                }
+            }
+            <=  {
+                lmap hay $haystack {
+                    if {$hay <= $needle} {set hay} else continue
+                }
+            }
+            >  {
+                lmap hay $haystack {
+                    if {$hay > $needle} {set hay} else continue
+                }
+            }
+            >=  {
+                lmap hay $haystack {
+                    if {$hay >= $needle} {set hay} else continue
+                }
+            }
+            =^  {lsearch -inline -all -nocase -exact $haystack $needle}
+            !^  {lsearch -inline -all -nocase -not -exact $haystack $needle}
+            ~   {lsearch -inline -all -regexp $haystack $needle}
+            !~  {lsearch -inline -all -not -regexp $haystack $needle}
+            ~^  {lsearch -inline -all -nocase -regexp $haystack $needle}
+            !~^ {lsearch -inline -all -nocase -not -regexp $haystack $needle}
+        }]
+    }
+
     proc matching_list_indices {op haystack needle} {
         # haystack must be a list, not column
+        # NOTE: Although we could lump many operations together by using
+        # $op, that affects byte compilation so list them out separately.
+        # Also note that for == and != we do not use lsearch since
+        # its semantics are different from expr (e.g. 0x10 == 16)
+        set i -1
         set indices [switch -exact -- $op {
-            ==  {lsearch -all -exact $haystack $needle}
-            !=  {lsearch -all -not -exact $haystack $needle}
+            ==  {
+                lmap hay $haystack {
+                    incr i
+                    if {$hay == $needle} {set i} else continue
+                }
+            }
+            !=  {
+                lmap hay $haystack {
+                    incr i
+                    if {$hay != $needle} {set i} else continue
+                }
+            }
+            <  {
+                lmap hay $haystack {
+                    incr i
+                    if {$hay < $needle} {set i} else continue
+                }
+            }
+            <=  {
+                lmap hay $haystack {
+                    incr i
+                    if {$hay <= $needle} {set i} else continue
+                }
+            }
+            >  {
+                lmap hay $haystack {
+                    incr i
+                    if {$hay > $needle} {set i} else continue
+                }
+            }
+            >=  {
+                lmap hay $haystack {
+                    incr i
+                    if {$hay >= $needle} {set i} else continue
+                }
+            }
             =^  {lsearch -all -nocase -exact $haystack $needle}
             !^  {lsearch -all -nocase -not -exact $haystack $needle}
             ~   {lsearch -all -regexp $haystack $needle}
             !~  {lsearch -all -not -regexp $haystack $needle}
             ~^  {lsearch -all -nocase -regexp $haystack $needle}
             !~^ {lsearch -all -nocase -not -regexp $haystack $needle}
-            default {
-                error "Operator $op not supported on lists."
-            }
         }]
+                     
         return [::tarray::column create int $indices]
     }
 
@@ -2608,30 +2719,15 @@ namespace eval xtal::rt {
         }]
     }
 
-    proc search_@@ {search_op haystack needle} {
+    proc search_@@ {ops haystack needle} {
+        # $ops is a pair containing the math version and the equivalent
+        # column version of the comparison operator e.g {!= {-not -eq}}
+        lassign $ops math_op search_op
         return [switch -exact -- [lindex [tarray::types $haystack] 0] {
             table { error "Tables cannot be used as search operands" }
             ""    {
                 # Assume lists
-                switch -exact $search_op {
-                    -eq { lsearch -exact -all -inline $haystack $needle }
-                    "-not -eq" { lsearch -not -exact -all -inline $haystack $needle }
-                    "-nocase -eq" { lsearch -nocase -exact -all -inline $haystack $needle }
-                    "-nocase -not -eq" { lsearch -nocase -not -exact -all -inline $haystack $needle }
-                    
-                    -re { lsearch -regexp -all -inline $haystack $needle }
-                    "-not -re" { lsearch -not -regexp -all -inline $haystack $needle }
-                    "-nocase -re" { lsearch -nocase -regexp -all -inline $haystack $needle }
-                    "-nocase -not -re" { lsearch -nocase -not -regexp -all -inline $haystack $needle }
-
-                    -pat { lsearch -glob -all -inline $haystack $needle }
-                    "-not -pat" { lsearch -not -glob -all -inline $haystack $needle }
-                    "-nocase -pat" { lsearch -nocase -glob -all -inline $haystack $needle }
-                    "-nocase -not -pat" { lsearch -nocase -not -glob -all -inline $haystack $needle }
-                    default {
-                        error "The specified selector operator is invalid for lists."
-                    }
-                }
+                matching_list_elems $math_op $haystack $needle
             }
             default { tarray::column::search -inline -all {*}$search_op $haystack $needle }
         }]

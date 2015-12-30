@@ -6,6 +6,7 @@ namespace eval tarray::test::xtal_list {
     namespace path ::tarray::test
     set L {zero one two {3 three}}
     set LC {zero one two {3 three} string STRING}
+    set U {33 11 22 44 0x16}
     set I {33 -11 22 44 22}
     proc fn {arg} {return $arg}
 
@@ -254,6 +255,14 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {I[22 == I]}
     } -result {22 22}
     
+    test xtal-list-selector-1.0.2 {list selector ==} -body {
+        xtal::xtal {U[0x16 == U]}
+    } -result {22 0x16}
+    
+    test xtal-list-selector-1.0.3 {list selector ==} -body {
+        xtal::xtal {U[U == 0x16]}
+    } -result {22 0x16}
+    
     test xtal-list-selector-1.1 {list selector ==} -body {
         xtal::xtal {I[I == 23]}
     } -result {}
@@ -270,6 +279,10 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {I[22 != I]}
     } -result {33 -11 44}
     
+    test xtal-list-selector-1.2.2 {list selector !=} -body {
+        xtal::xtal {U[0x16 != U]}
+    } -result {33 11 44}
+     
     test xtal-list-selector-1.3 {list selector !=} -body {
         xtal::xtal {I[I != 23]}
     } -result $I
@@ -391,13 +404,79 @@ namespace eval tarray::test::xtal_list {
     } -result "The right hand operand of operator !~^ cannot be a vector." -returnCodes error
     
     set testnum -1
-    foreach op {> < >= <=} {
-        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[@@ $op 30\]"
-        } -result "The specified selector operator is invalid for lists." -returnCodes error
-        test xtal-list-selector-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[30 $op I\]"
-        } -result "The specified selector operator is invalid for lists." -returnCodes error
+    foreach op {> < >= <= > < >= <=} operand {22 44 11 33 50 10 50 10} res {{33 44} {33 11 22 0x16} {33 11 22 44 0x16} {33 11 22 0x16} {} {} {} {}} {
+        test xtal-list-selector-3.[incr testnum] "List $op" -setup {
+            set c $U
+        } -body {
+            xtal::xtal "c\[c $op $operand\]"
+        } -result $res
+        
+        test xtal-list-selector-3.[incr testnum] "List $op" -setup {
+            set c $U
+        } -body {
+            xtal::xtal "c\[@@ $op $operand\]"
+        } -result $res
+        
+        test xtal-list-selector-3.[incr testnum] "List $op" -setup {
+            set c $U
+        } -body {
+            xtal::xtal "c\[@@ $op [format 0x%x $operand]\]"
+        } -result $res
+    }
+    
+    set testnum -1
+    foreach op {> < >= <= > < >= <=} operand {22 22 33 22 10 50 10 50} res {{11} {33 44} {33 11 22 0x16} {33 22 44 0x16} {} {} {} {}} {
+        test xtal-list-selector-4.[incr testnum] "List $op" -setup {
+            set c $U
+        } -body {
+            xtal::xtal "c\[$operand $op c\]"
+        } -result $res
+        
+        test xtal-list-selector-4.[incr testnum] "List $op" -setup {
+            set c $U
+        } -body {
+            xtal::xtal "c\[[format 0x%x $operand] $op c\]"
+        } -result $res
+        
+        test xtal-list-selector-4.[incr testnum] "List $op" -setup {
+            set c $U
+        } -body {
+            xtal::xtal "c\[$operand $op @@ \]"
+        } -result $res
+    }
+
+    set testnum -1
+    foreach op {> < >= <=} res {{10 abc ABC} {1} {10 0x9 abc ABC} {1 0x9}} {
+        test xtal-list-selector-5.[incr testnum] "List $op" -setup {
+            set c [list 10 1 0x9 abc ABC]
+        } -body {
+            xtal::xtal "c\[c $op 9\]"
+        } -result $res
+    }
+
+    foreach op {> < >= <=} res {{1} {10 abc ABC} {1 0x9} {10 0x9 abc ABC}} {
+        test xtal-list-selector-5.[incr testnum] "List $op" -setup {
+            set c [list 10 1 0x9 abc ABC]
+        } -body {
+            xtal::xtal "c\[9 $op c\]"
+        } -result $res
+    }
+
+    set testnum -1
+    foreach op {> < >= <=} res {{abc x} {10 1 0x9 ABC} {abc x X} {10 1 0x9 X ABC}} {
+        test xtal-list-selector-6.[incr testnum] "List $op" -setup {
+            set c [list 10 1 0x9 abc x X ABC]
+        } -body {
+            xtal::xtal "c\[c $op 'X'\]"
+        } -result $res
+    }
+
+    foreach op {> < >= <=} res {{10 1 0x9 ABC} {abc x} {10 1 0x9 X ABC} {abc x X}} {
+        test xtal-list-selector-6.[incr testnum] "List $op" -setup {
+            set c [list 10 1 0x9 abc x X ABC]
+        } -body {
+            xtal::xtal "c\['X' $op c\]"
+        } -result $res
     }
 
     ################################################################
@@ -408,6 +487,14 @@ namespace eval tarray::test::xtal_list {
     
     test xtal-list-selector-and-range-1.0.1 {list selector ==} -body {
         xtal::xtal {I[3: && I == 22]}
+    } -result {22}
+    
+    test xtal-list-selector-and-range-1.0.2 {list selector ==} -body {
+        xtal::xtal {U[3: && U == 22]}
+    } -result {0x16}
+    
+    test xtal-list-selector-and-range-1.0.3 {list selector ==} -body {
+        xtal::xtal {I[I == 0x16 && 0:3]}
     } -result {22}
     
     test xtal-list-selector-and-range-1.1 {list selector ==} -body {
@@ -429,6 +516,10 @@ namespace eval tarray::test::xtal_list {
     test xtal-list-selector-and-range-1.2.2 {list selector !=} -body {
         xtal::xtal {I[1:0 && I != 22]}
     } -result {}
+    
+    test xtal-list-selector-and-range-1.2.3 {list selector !=} -body {
+        xtal::xtal {I[1:%I-1 && I != 0x16]}
+    } -result {-11 44}
     
     test xtal-list-selector-and-range-1.3 {list selector !=} -body {
         xtal::xtal {I[I != 23 && 0:2]}
@@ -490,20 +581,65 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {LC[LC ~^ "s.*" && %LC-2:%LC]}
     } -result {string STRING}
 
-    test xtal-list-selector-and-range-2.1.1 {list selector ~^} -body {
+    test xtal-list-selector-and-range-2.7 {list selector ~^} -body {
         xtal::xtal {LC["s.*" ~^ LC]}
     } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
     
     set testnum -1
-    foreach op {> < >= <=} {
-        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[0:3  && @@ $op 30\]"
-        } -result "Operator $op not supported on lists." -returnCodes error
+    foreach {op range val res} {
+        >   0:2 30 {33}
+        >   0:2 100 {}
+        <   0:3 30 {11 22}
+        <   0:3 0 {}
+        >=  0:3 0x16 {33 22 44}
+        >=  0:3 100 {}
+        <=  2:4 0x20 {22 0x16}
+        <=  2:4 0 {}
+    } {
+        test xtal-list-selector-and-range-3.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[$range && U $op $val\]"
+        } -result $res
 
-        test xtal-list-selector-and-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[@@ $op 30 && 0:2 \]"
-        } -result "Operator $op not supported on lists." -returnCodes error
+        test xtal-list-selector-and-range-3.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[U $op $val && $range\]"
+        } -result $res
+
+        test xtal-list-selector-and-range-3.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[$range && @@ $op $val\]"
+        } -result $res
+        
+        test xtal-list-selector-and-range-3.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[@@ $op $val && $range\]"
+        } -result $res
     }
+    
+    foreach {op range val res} {
+        >   0:2 30 {11 22}
+        >   0:2 0 {}
+        <   0:3 30 {33 44}
+        <   0:3 100 {}
+        >=  0:3 0x16 {11 22}
+        >=  0:3 0 {}
+        <=  2:4 0x16 {22 44 0x16}
+        <=  2:4 100 {}
+    } {
+        test xtal-list-selector-and-range-4.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[$range && $val $op U\]"
+        } -result $res
+
+        test xtal-list-selector-and-range-4.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[$val $op U && $range\]"
+        } -result $res
+
+        test xtal-list-selector-and-range-4.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[$range && $val $op @@\]"
+        } -result $res
+        
+        test xtal-list-selector-and-range-4.[incr testnum] "list selector $op" -body {
+            xtal::xtal "U\[$val $op @@ && $range\]"
+        } -result $res
+    }
+    
 
     ################################################################
     # selector || range
@@ -595,16 +731,7 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {LC["s.*" ~^ LC]}
     } -result "The right hand operand of operator ~^ cannot be a vector." -returnCodes error
     
-    set testnum -1
-    foreach op {> < >= <=} {
-        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[0:3  || @@ $op 30\]"
-        } -result "Operator $op not supported on lists." -returnCodes error
-
-        test xtal-list-selector-or-range-err-1.[incr testnum] "list selector $op" -body {
-            xtal::xtal "I\[@@ $op 30 || 0:2 \]"
-        } -result "Operator $op not supported on lists." -returnCodes error
-    }
+    # TBD - tests for > < >= <= patterned after selector-and-range
 
     ################################################################
     # Compound expressions
@@ -615,6 +742,14 @@ namespace eval tarray::test::xtal_list {
     test xtal-list-selector-compound-1.1 {list selector && selector} -body {
         xtal::xtal {LC[LC ~ "o" && @@ !~ "e"]}
     } -result {two}
+    
+    test xtal-list-selector-compound-1.1.1 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "z" && @@ !~ "e"]}
+    } -result {}
+    
+    test xtal-list-selector-compound-1.1.2 {list selector && selector} -body {
+        xtal::xtal {LC[LC ~ "zz" && @@ !~ "e"]}
+    } -result {}
     
     test xtal-list-selector-compound-1.2 {list selector && selector} -body {
         xtal::xtal {LC[LC ~ "o" && 1]}
@@ -632,6 +767,10 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {LC[@@ ~ "w" || @@ ~^ "t"]}
     } -result {two {3 three} string STRING}
     
+    test xtal-list-selector-compound-2.1.1 {list selector || selector} -body {
+        xtal::xtal {LC[@@ ~ "x" || @@ ~ "y"]}
+    } -result {}
+    
     test xtal-list-selector-compound-2.2 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "o" || 1]}
     } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
@@ -648,6 +787,23 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {LC[@@ ~ "r" || @@ ~ "n" && LC ~ "o"]}
     } -result {zero one {3 three} string}
     
+    test xtal-list-selector-compound-4.0 {list selector > && <} -body {
+        xtal::xtal {U[U < 40 && @@ > 22]}
+    } -result {33}
+
+    test xtal-list-selector-compound-4.1 {list selector >= && <=} -body {
+        xtal::xtal {U[U <= 0x16 && @@ >= 22]}
+    } -result {22 0x16}
+
+    test xtal-list-selector-compound-4.2 {list selector > || <} -body {
+        xtal::xtal {U[U < 0x16 || @@ > 22]}
+    } -result {33 11 44}
+    
+    test xtal-list-selector-compound-4.3 {list selector > || <} -body {
+        xtal::xtal {U[U < 0 || @@ > 50]}
+    } -result {}
+    
+    # TBD - need more compound selector tests
     
     ################################################################
     # Assignments
