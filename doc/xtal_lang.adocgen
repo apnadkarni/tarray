@@ -1582,15 +1582,18 @@ text {
 } text {
     .Selecting from lists
     
-    Although selectors may be used with lists as well, there
-    are currently some limitations. Only the operators
-    `==`, `!=`, `~` and `!~` can be used in list selectors.
-    Moreover, because Tcl cannot be distinguished from plain
-    strings, even these operators behave as selectors
+    Selectors may be used with lists as well.
+    However, because Tcl lists cannot be distinguished from plain
+    strings, the operators behave as selectors
     (as opposed to plain comparison operators) only when the
-    operand is the same identifier as list being indexed.
-    It is best to use the ((^ sect_xtal_current_context "@@ context")),
-    discussed later, when indexing lists.
+    operand is the list being indexed.
+    It is best to use the ((^ sect_xtal_current_context "@@")) context,
+    discussed later, when indexing lists. The example below clarifies
+    this point.
+} shell {
+    set L {0 0x10 16 20}
+    xtal::xtal {L[L == 16]}; # L == 16 results in {1 2} (selector operation)
+    xtal::xtal {L == 16};    # L == 16 results in 0 (string comparison)
 }
     
 
