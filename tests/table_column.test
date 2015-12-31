@@ -65,13 +65,13 @@ namespace eval tarray::test {
         Verify error when argument is not a table
     } -body {
         tarray::table column "" end
-    } -result "Object is not a table" -returnCodes error
+    } -result "Object is not a table." -returnCodes error
 
     test table-column-2.5 {
         Verify error when argument is not a column
     } -body {
         tarray::table column [samplecolumn int]  end
-    } -result "Object is not a table" -returnCodes error
+    } -result "Object is not a table." -returnCodes error
 
     #
     # Tests to set the value of a column
@@ -157,13 +157,13 @@ namespace eval tarray::test {
         Attempt to set non-table
     } -body {
         tarray::table column "" [newcolumn any {abc def hij}]
-    } -result "Object is not a table" -returnCodes error
+    } -result "Object is not a table." -returnCodes error
 
     test table-column-set-2.4 {
         Attempt to set column
     } -body {
         tarray::table column [newcolumn any {abc def hij}] [newcolumn any {abc def hij}]
-    } -result "Object is not a table" -returnCodes error
+    } -result "Object is not a table." -returnCodes error
 
     test table-column-set-2.5 {
         Attempt to set wrong type of column

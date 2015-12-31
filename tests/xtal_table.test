@@ -524,7 +524,7 @@ namespace eval tarray::test::xtal_table {
         set t [T]
     } -body {
         xtal::xtal {t.Int = {1000, 2000}}
-    } -returnCodes error -result "Object is not a column"
+    } -returnCodes error -result "Object is not a column."
 
     #
     # Table columns slice

@@ -151,7 +151,7 @@ namespace eval tarray::test {
             # Errors
             test [mathid]-$type-operand-err "Bad operand" -body {
                 tarray::column math $op [samplecolumn $type] badoperand
-            } -result "Invalid operand 'badoperand'." -returnCodes error
+            } -result "Invalid operand*" -returnCodes error -match glob
             if {$type ne "boolean"} {
                 test [mathid]-$type-operand-err "Bad operand" -body {
                     tarray::column math $op [samplecolumn $type] true
