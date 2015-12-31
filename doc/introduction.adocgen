@@ -24,6 +24,9 @@ text {
     The packages come with comprehensive documentation, an extensive test
     suite and are covered by a liberal open source license.
     
+    [NOTE]
+    The packages require Tcl version 8.6 or later.
+    
     == The tarray package
     
     The `tarray` (_typed array_)
