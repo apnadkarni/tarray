@@ -1679,7 +1679,13 @@ snit::widgetadaptor tarray::ui::csvreader {
     delegate option * to hull
     delegate method * to hull
     constructor {chan args} {
-        uplevel #0 [list package require tclcsv]
+        # Need at least 2.2 of tclcsv. Don't directly specify version in
+        # package require since that will prevent 3.0 as well as 2.1
+        set tclcsv_version [uplevel #0 [list package require tclcsv]]
+        if {![package vsatisfies $tclcsv_version 2.2.0-]} {
+            error "Need at least V2.2.0 of the tclcsv package. Have V$tclcsv_version"
+        }
+        
         if {[dict exists $args -columntypes]} {
             # We want to specify this ourselves, caller must not
             error "Invalid option -columntypes"
