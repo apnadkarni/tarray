@@ -1,0 +1,24 @@
+= Overview
+
+As is true for scripting languages in general, Tcl incurs significant
+overhead in terms of memory as well as performance when operating on
+large amounts of data. The set of packages described here provide
+a more performant and convenient means of working with large data
+sets. The three packages are
+
+* `tarray` -- implements the core column and table data types and
+parallelized operations on data sets
+* `xtal` -- provides succint, convenient syntax for working with data sets
+* `tarray_ui` -- contains Tk widgets that are useful for display
+and user interaction
+
+The packages come with comprehensive documentation, an extensive test
+suite and are covered by a liberal open source license.
+
+= Links
+
+* Documentation:   http://tarray.sf.net
+* Introduction:    http://tarray.sf.net/introduction.html
+* Downloads:       http://sourceforge.net/projects/tarray/files/
+* SF project page: http://sourceforge.net/projects/tarray
+

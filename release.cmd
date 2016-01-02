@@ -12,10 +12,19 @@ cmd /c "envset x64 && cd xtal && tclsh build.tcl extension -target win32-x86_64-
 cmd /c "cd xtal && tclsh build.tcl tea"
 cmd /c "cd ui && tclsh build.tcl package"
 
+copy doc\announce.txt build\lib\tarray\readme.txt
 cd build\lib && zip -r tarray.zip tarray && move tarray.zip ..\%TANAME%.zip  && cd ..\..
+
+copy doc\announce.txt build\lib\xtal\readme.txt
 cd build\lib && zip -r xtal.zip xtal && move xtal.zip ..\%XTALNAME%.zip && cd ..\..
+
+copy doc\announce.txt build\lib\tarray_ui\readme.txt
 cd build\lib && zip -r tarray_ui.zip tarray_ui && move tarray_ui.zip ..\%UINAME%.zip && cd ..\..
 
+copy doc\announce.txt build\tea\tarray\readme.txt
+dos2unix build/tea/tarray/readme.txt
 cd build\tea && tar cvf tarray.tar tarray && gzip tarray.tar && move tarray.tar.gz ..\%TANAME%.tar.gz && cd ..\..
+copy build\tea\tarray\readme.txt build\tea\xtal\readme.txt
 cd build\tea && tar cvf xtal.tar xtal && gzip xtal.tar && move xtal.tar.gz ..\%XTALNAME%.tar.gz && cd ..\..
+copy build\tea\tarray\readme.txt build\lib\tarray_ui\readme.txt
 cd build\lib && tar cvf tarray_ui.tar tarray_ui && gzip tarray_ui.tar && move tarray_ui.tar.gz ..\%UINAME%.tar.gz && cd ..\..
