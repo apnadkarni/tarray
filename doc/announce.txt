@@ -8,9 +8,10 @@ sets. The three packages are
 
 * `tarray` -- implements the core column and table data types and
 parallelized operations on data sets
-* `xtal` -- provides succint, convenient syntax for working with data sets
-* `tarray_ui` -- contains Tk widgets that are useful for display
-and user interaction
+* `xtal` -- provides succint, convenient syntax for working with
+tarray tables and columns as well as Tcl lists and dicts
+* `tarray_ui` -- Tk widgets that are useful when working with tables
+and columns
 
 The packages come with comprehensive documentation, an extensive test
 suite and are covered by a liberal open source license.
