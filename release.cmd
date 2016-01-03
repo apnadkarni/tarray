@@ -13,18 +13,25 @@ cmd /c "cd xtal && tclsh build.tcl tea"
 cmd /c "cd ui && tclsh build.tcl package"
 
 copy doc\announce.txt build\lib\tarray\readme.txt
-cd build\lib && zip -r tarray.zip tarray && move tarray.zip ..\%TANAME%.zip  && cd ..\..
+move build\lib\tarray build\lib\%TANAME%
+cd build\lib && zip -r ../%TANAME%.zip %TANAME% && cd ..\..
 
 copy doc\announce.txt build\lib\xtal\readme.txt
-cd build\lib && zip -r xtal.zip xtal && move xtal.zip ..\%XTALNAME%.zip && cd ..\..
+move build\lib\xtal build\lib\%XTALNAME%
+cd build\lib && zip -r ../%XTALNAME%.zip %XTALNAME% && cd ..\..
 
 copy doc\announce.txt build\lib\tarray_ui\readme.txt
-cd build\lib && zip -r tarray_ui.zip tarray_ui && move tarray_ui.zip ..\%UINAME%.zip && cd ..\..
+move build\lib\tarray_ui build\lib\%UINAME%
+cd build\lib && zip -r ../%UINAME%.zip %UINAME% && cd ..\..
 
 copy doc\announce.txt build\tea\tarray\readme.txt
 dos2unix build/tea/tarray/readme.txt
-cd build\tea && tar cvf tarray.tar tarray && gzip tarray.tar && move tarray.tar.gz ..\%TANAME%.tar.gz && cd ..\..
-copy build\tea\tarray\readme.txt build\tea\xtal\readme.txt
-cd build\tea && tar cvf xtal.tar xtal && gzip xtal.tar && move xtal.tar.gz ..\%XTALNAME%.tar.gz && cd ..\..
-copy build\tea\tarray\readme.txt build\lib\tarray_ui\readme.txt
-cd build\lib && tar cvf tarray_ui.tar tarray_ui && gzip tarray_ui.tar && move tarray_ui.tar.gz ..\%UINAME%.tar.gz && cd ..\..
+move build\tea\tarray build\tea\%TANAME%
+cd build\tea && tar cvf ../%TANAME%.tar %TANAME% && gzip ../%TANAME%.tar && cd ..\..
+
+copy build\tea\%TANAME%\readme.txt build\tea\xtal\readme.txt
+move build\tea\xtal build\tea\%XTALNAME%
+cd build\tea && tar cvf ../%XTALNAME%.tar %XTALNAME% && gzip ../%XTALNAME%.tar && cd ..\..
+
+dos2unix build/lib/%UINAME%/readme.txt
+cd build\lib && tar cvf ../%UINAME%.tar %UINAME% && gzip ../%UINAME%.tar && cd ..\..

@@ -6,6 +6,10 @@ text {
     ((author "Ashok P. Nadkarni"))
 }
 
+eval {
+    package require xtal
+}
+
 text {
     == Overview
     
@@ -66,6 +70,10 @@ text {
 } text {
     Xtal can be used with standard Tcl structures like lists and
     dictionaries as well.
+} shell {
+    set L [list 1.01 10.1 .101 101]
+    xtal::xtal { L[L > 1 && L < 100] }
+} text {
     See the ((^ sect_xtal_quick_tour "Xtal Quick Tour")) for a short
     overview of the language.
 
