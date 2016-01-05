@@ -153,6 +153,8 @@ proc xtal::translate {script} {
 }
 
 proc xtal::xtal {script} {
+    # TBD - should we replace with
+    # tailcall try $script
     uplevel 1 [translate $script]
 }
 

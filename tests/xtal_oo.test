@@ -1,0 +1,24 @@
+# xtal tests for tcloo integration
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    oo::class create xtal_test_class {variable v ; constructor {} {set v 100}}
+    
+    test method-1.0 {Define oo method} -body {
+        xtal::method xtal_test_class m1 {a b} {return a+v*b}
+        set o [xtal_test_class new]
+        $o m1 2 3
+    } -result 302
+    
+    test objmethod-1.0 {Define oo objmethod} -body {
+        xtal::method xtal_test_class m2 {a b} {return a-b}
+        set o1 [xtal_test_class new]
+        set o2 [xtal_test_class new]
+        xtal::objmethod $o2 m2 {a b} {return b-a}
+        list [$o1 m2 2 3] [$o2 m2 2 3]
+    } -result {-1 1}
+}
+# TBD - xtal oo tests based on xtal_function (parameter combinations etc.)
+
+::tcltest::cleanupTests
