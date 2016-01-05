@@ -1,0 +1,78 @@
+# xtal translate / source / compile tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc xtal_file_script {} {
+        return {
+            i = @int {10, 20, 30, 40, 50}
+            i[@@ < 30]
+            j = i[1:2]
+            function add (a,b) {
+                return a+b
+            }
+        }
+    }
+
+    test compile-1.0 { Compile a file } -setup {
+        unset -nocomplain i j
+        set path [tcltest::makeFile [xtal_file_script] translate_file_test.xtal]
+        set tcl_path [tcltest::makeFile "" compile_file_test.tcl]
+    } -body {
+        xtal::compile $path $tcl_path
+        source $tcl_path
+        xtal::xtal {j[1]}
+    } -result 30
+
+    test compile-1.1 { Compile a file } -setup {
+        unset -nocomplain i j
+        set path [tcltest::makeFile [xtal_file_script] translate_file_test.xtal]
+        set tcl_path [tcltest::makeFile "" compile_file_test.tcl]
+    } -body {
+        xtal::compile -encoding ascii $path $tcl_path
+        source $tcl_path
+        xtal::xtal {j[1]}
+    } -result 30
+
+    test translate-1.0 { Translate } -setup {
+        unset -nocomplain i j
+    } -body {
+        eval [xtal::translate [xtal_file_script]]
+        xtal::xtal {j[0]}
+    } -result 20
+
+    test translate_file-1.0 { Translate a file } -setup {
+        unset -nocomplain i j
+        set path [tcltest::makeFile [xtal_file_script] translate_file_test.xtal]
+    } -body {
+        eval [xtal::translate_file $path]
+        xtal::xtal {j[1]}
+    } -result 30
+
+    test translate_file-2.0 { Translate a file -encoding} -setup {
+        unset -nocomplain i j
+        set path [tcltest::makeFile [xtal_file_script] translate_file_test.xtal]
+    } -body {
+        eval [xtal::translate_file -encoding ascii $path]
+        xtal::xtal {add(i[3], i[4])}
+    } -result 90
+
+    test source-1.0 { Source a file } -setup {
+        unset -nocomplain i j
+        set path [tcltest::makeFile [xtal_file_script] translate_file_test.xtal]
+    } -body {
+        xtal::source $path
+        xtal::xtal {j[1]}
+    } -result 30
+
+    test source-2.0 { Source a file -encoding } -setup {
+        unset -nocomplain i j
+        set path [tcltest::makeFile [xtal_file_script] translate_file_test.xtal]
+    } -body {
+        xtal::source -encoding utf-8 $path
+        xtal::xtal {j[1]}
+    } -result 30
+
+}
+
+::tcltest::cleanupTests

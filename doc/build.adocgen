@@ -17,7 +17,7 @@ text {
 
     Download `tarray-bin-VERSION.zip`, and optionally
     `tarray_ui-VERSION.zip` and
-    optionally `xtal-bin-VERSION.zip`, from
+    `xtal-bin-VERSION.zip`, from
     http://sourceforge.net/projects/tarray/files[SourceForge].
     These contain both 32- and 64-bit binaries for Windows.
     Unpack the distributions into any directory present in the
