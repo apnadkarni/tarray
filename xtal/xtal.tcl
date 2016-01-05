@@ -183,12 +183,12 @@ proc xtal::objmethod {obj name arguments body} {
 proc xtal::translate_file {args} {
     set nargs [llength $args]
     if {$nargs != 1 && $nargs != 3} {
-        error "invalid syntax: should be \"tsource ?-encoding ENCODING? PATH\""
+        error "invalid syntax: should be \"translate_file ?-encoding ENCODING? PATH\""
     }
-    set path [lindex $arg end]
+    set path [lindex $args end]
     if {$nargs == 3} {
         if {[lindex $args 0] ne "-encoding"} {
-            error "invalid syntax: should be \"tsource ?-encoding ENCODING? PATH\""
+            error "invalid syntax: should be \"translate_file ?-encoding ENCODING? PATH\""
         }
         set encoding [lindex $args 1]
     }
@@ -207,11 +207,10 @@ proc xtal::translate_file {args} {
 }
 
 proc xtal::source {args} {
-    set script [translate_file {*}$args]
-    return [uplevel 1 [list [namespace current]::xtal $script]]
+    return [uplevel 1 [translate_file {*}$args]]
 }
 
-proc xtal::compile {from to args} {
+proc xtal::compile {args} {
     set nargs [llength $args]
     if {$nargs != 2 && $nargs != 4} {
         error "invalid syntax: should be \"tcompile ?-encoding ENCODING? XTALFILE TCLFILE\""
@@ -219,7 +218,7 @@ proc xtal::compile {from to args} {
     set from [lindex $args end-1]
     set to [lindex $args end]
     set args [lrange $args 0 end-2]
-    set script [translate_file $from {*}$args]
+    set script [translate_file {*}$args $from]
     set fd [open $to w]
     try {
         if {[dict exists $args -encoding]} {
@@ -232,7 +231,6 @@ proc xtal::compile {from to args} {
         close $fd
     }
 }
-
 
 oo::class create xtal::Parser {
     variable Script
