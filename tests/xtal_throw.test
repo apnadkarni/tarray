@@ -1,0 +1,23 @@
+# xtal throw tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    test xtal-throw-1.0 {throw one arg} -body {
+        list [catch {
+            xtal::xtal { throw "Error message" }
+        } msg opts] $msg [dict get $opts -errorcode]
+    } -result {1 {Error message} NONE}
+        
+    test xtal-throw-2.0 {throw multiple arg} -body {
+        list [catch {
+            xtal::xtal {
+                ecode = 42
+                throw 'MODULE NAME', ecode, "Error message"
+            }
+        } msg opts] $msg [dict get $opts -errorcode]
+    } -result {1 {Error message} {{MODULE NAME} 42 {Error message}}}
+        
+}
+
+::tcltest::cleanupTests
