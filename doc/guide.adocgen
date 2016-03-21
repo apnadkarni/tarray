@@ -657,7 +657,7 @@ text {
     set area_col [table column $countries area]
     set populous [column search -all -gt $pop_col 250000000]
     set large [column search -all -gt $area_col 5e6]
-    table get -list $countries [lindex [column intersect $populous $large] 0]
+    table get -list $countries [lindex [column intersect3 $populous $large] 0]
 } text {
 
     In most cases, the previous method using `column search -among` is
