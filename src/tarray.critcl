@@ -42,6 +42,9 @@ set build_opts(unsupported) 1
 # Standard critcl meta information
 
 package require critcl 3.1
+critcl::buildrequirement {
+    package require critcl::class
+}
 
 critcl::license "Ashok P. Nadkarni"
 critcl::summary "Tcl Typed Array Extension"
@@ -69,7 +72,7 @@ if {[win32_target]} {
 }
 
 critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c taloop.c \
-    tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c
+    tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c pcg_basic.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -77,7 +80,7 @@ if {$build_opts(unsupported)} {
 
 }
 critcl::tsources tabulate.tcl tarray.tcl taprint.tcl taversion.tcl
-critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h
+critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h
 
 critcl::ccode {
 #include "tarray.h"
@@ -1804,6 +1807,55 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
     Tcl_SetResult(interp, "Multithreading not enabled", TCL_STATIC);
     return TCL_ERROR;
 #endif
+}
+
+critcl::class::define ::rng {
+    include pcg_basic.h
+    constructor {
+        if (objc > 0) {
+	    Tcl_AppendResult (interp, "wrong # args: should be \"rng\"", NULL);
+            goto error;
+        }
+    }
+    method_introspection
+    insvariable pcg32_random_t rng1 { First RNG } {
+        pcg32_srandom_r(&instance->rng1, time(NULL) ^ (intptr_t)&instance->rng1, (intptr_t)instance);
+    }
+    insvariable pcg32_random_t rng2 { Second RNG - used for 64-bit generation} {
+        pcg32_srandom_r(&instance->rng2, time(NULL) ^ (intptr_t)&instance->rng2, (intptr_t)instance);
+    }
+    method gen proc {} Tcl_Obj*0 {
+        /* Tcl_Obj*0 -> ref count must be 0! */
+        return Tcl_NewWideIntObj(pcg32_random_r(&instance->rng1));
+    }
+
+    method int proc {int size int {low INT_MIN} int {high INT_MAX}} Tcl_Obj*0 {
+        int temp;
+        thdr_t *thdr;
+        if (low > high) {
+            temp = low;
+            low = high;
+            high = temp;
+        }
+        thdr = thdr_alloc(interp, TA_INT, size);
+        if (thdr == NULL)
+            return 0;
+        if (size > 0) {
+            int *pint = THDRELEMPTR(thdr, int, 0);
+            if (low == INT_MIN && high == INT_MAX) {
+                for (temp = 0; temp < size; ++temp, ++pint)
+                    *pint = pcg32_random_r(&instance->rng1); 
+            } else {
+                uint32_t bound = high-low;
+                for (temp = 0; temp < size; ++temp, ++pint) {
+                    uint32_t ui = pcg32_boundedrand_r(&instance->rng1, bound);
+                    *pint = ui + low;
+                }
+            }
+            thdr->used = size;
+        }
+        return tcol_new(thdr);
+    }
 }
 
 package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]

@@ -389,6 +389,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column loop prettify print table
+    namespace export column loop prettify print table rng
 }
 

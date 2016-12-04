@@ -19,6 +19,7 @@ temp
 build
 dist
 doc/output
+doc/tarray-docs-html
 TAGS
 \#*#
 *.vfs
