@@ -1809,7 +1809,7 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
 #endif
 }
 
-critcl::class::define ::rng {
+critcl::class::define ::tarray::rng {
     include pcg_basic.h
     constructor {
         if (objc > 0) {
@@ -1829,30 +1829,50 @@ critcl::class::define ::rng {
         return Tcl_NewWideIntObj(pcg32_random_r(&instance->rng1));
     }
 
-    method int proc {int size int {low INT_MIN} int {high INT_MAX}} Tcl_Obj*0 {
-        int temp;
+    method int proc {int count int {low INT_MIN} int {high INT_MAX}} Tcl_Obj*0 {
+        int i;
         thdr_t *thdr;
         if (low > high) {
-            temp = low;
+            i = low;
             low = high;
-            high = temp;
+            high = i;
         }
-        thdr = thdr_alloc(interp, TA_INT, size);
+        thdr = thdr_alloc(interp, TA_INT, count);
         if (thdr == NULL)
             return 0;
-        if (size > 0) {
+        if (count > 0) {
             int *pint = THDRELEMPTR(thdr, int, 0);
+            /* 
+             * Note there is a significant performance difference between
+             * pcg32_random_r and pcg32_boundedrand_r so don't combine
+             * the two cases below.
+             */
             if (low == INT_MIN && high == INT_MAX) {
-                for (temp = 0; temp < size; ++temp, ++pint)
+                for (i = 0; i < count; ++i, ++pint)
                     *pint = pcg32_random_r(&instance->rng1); 
             } else {
                 uint32_t bound = high-low;
-                for (temp = 0; temp < size; ++temp, ++pint) {
+                for (i = 0; i < count; ++i, ++pint) {
                     uint32_t ui = pcg32_boundedrand_r(&instance->rng1, bound);
                     *pint = ui + low;
                 }
             }
-            thdr->used = size;
+            thdr->used = count;
+        }
+        return tcol_new(thdr);
+    }
+    
+    method double proc {int count} Tcl_Obj*0 {
+        thdr_t *thdr;
+        thdr = thdr_alloc(interp, TA_DOUBLE, count);
+        if (thdr == NULL)
+            return 0;
+        if (count > 0) {
+            double *pdbl = THDRELEMPTR(thdr, double, 0);
+            int i;
+            for (i = 0; i < count; ++i, ++pdbl) 
+                *pdbl = ldexp(pcg32_random_r(&instance->rng1), -32);
+            thdr->used = count;
         }
         return tcol_new(thdr);
     }
