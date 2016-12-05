@@ -300,7 +300,7 @@ critcl::ccommand tarray::types {} {
 # Column commands
 critcl::ccommand tarray::column::create {} {
     int init_size;
-    int tatype;
+    unsigned char tatype;
     Tcl_Obj **elems;
     int nelems;
     thdr_t *thdrP;
@@ -432,7 +432,8 @@ critcl::cproc tarray::column::type {TColObjPtr tcol} "const char*" {
 }
 
 critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* COLTYPE} ok {
-    int tatype, count, first;
+    int count, first;
+    unsigned char tatype;
     thdr_t *thdr, *thdr2;
     Tcl_Obj *o;
     span_t *span;

@@ -1413,8 +1413,9 @@ TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *oran
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     Tcl_Obj **elems;
-    int nelems, tatype;
-    
+    int nelems;
+    unsigned char tatype;
+
     TA_ASSERT(! tcol_affirm(o));
     
     /* Avoid shimmering tables if passed a table by mistake */

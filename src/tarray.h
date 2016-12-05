@@ -686,14 +686,14 @@ void ta_mt_group_release(ta_mt_group_t grp);
 /*
  *  Inlined functions
  */
-TA_INLINE TCL_RESULT ta_parse_type(Tcl_Interp *ip, Tcl_Obj *o, int *ptype) {
+TA_INLINE TCL_RESULT ta_parse_type(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *ptype) {
     /* The first elem of type array corresponds to TA_NONE so left out */
     int tatype;
     TCL_RESULT status;
     status = ta_opt_from_obj(ip, o, &g_type_tokens[1], "column", TCL_EXACT, &tatype);
     if (status != TCL_OK)
         return status;
-    *ptype = tatype+1; /* To compensate for the off-by-1 offset into array */
+    *ptype = (unsigned char) (tatype+1); /* Compensate for off-by-1 offset into array */
     return TCL_OK;
 }
 TA_INLINE void thdr_incr_refs(thdr_t *thdr)  { thdr->nrefs++; }
