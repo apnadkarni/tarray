@@ -29,7 +29,11 @@ TA_INLINE uint64_t pcg32x2_random_r(pcg32_random_t rng[2])
 /* Returns floating point in range 0 to 1 */
 TA_INLINE double pcgdouble_random_r(pcg32_random_t rng[2])
 {
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+    return ldexp((double)(int64_t)pcg32x2_random_r(rng), -64);
+#else
     return ldexp((double)pcg32x2_random_r(rng), -64);
+#endif
 }
 
 TA_INLINE int pcgbool_random_r(pcg32_random_t *prng)
@@ -63,7 +67,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
                          int objc, Tcl_Obj *const objv[])
 {
     unsigned int count;
-    Tcl_Obj *tcol, *olbound, *oubound;
+    Tcl_Obj *olbound, *oubound;
     ta_value_t lbound, ubound;
     TCL_RESULT res;
     int tatype;
