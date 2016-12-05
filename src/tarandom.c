@@ -70,7 +70,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
     Tcl_Obj *olbound, *oubound;
     ta_value_t lbound, ubound;
     TCL_RESULT res;
-    int tatype;
+    unsigned char tatype;
     ta_rng_t *prng = (ta_rng_t *)cdata;
     thdr_t *thdr = NULL;
 
