@@ -72,7 +72,8 @@ if {[win32_target]} {
 }
 
 critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c taloop.c \
-    tamath.c tarray.c tasearch.c tasort.c tastring.c timsort.c timsort_r.c pcg_basic.c
+    tamath.c tarandom.c tarray.c tasearch.c tasort.c tastring.c \
+    timsort.c timsort_r.c pcg_basic.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -177,7 +178,7 @@ critcl::ccode {
      * with returning an object that might have been either allocated
      * or be an existing object passed in the objv[] array to a command.
      */
-    TA_INLINE TCL_RESULT ta_return_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ores)
+    TCL_RESULT ta_return_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ores)
     {
         Tcl_IncrRefCount(ores);
         if (status == TCL_OK)
@@ -216,6 +217,7 @@ critcl::ccode {
 # Initialization
 
 critcl::cinit {
+
     TA_ASSERT(ba_sanity_check() == 0);
     g_tcl_int_type_ptr = Tcl_GetObjType("int");
     g_tcl_double_type_ptr = Tcl_GetObjType("double");
@@ -226,6 +228,24 @@ critcl::cinit {
 
     Tcl_NRCreateCommand(interp, "::tarray::loop",
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
+    {
+        ta_rng_t *prng;
+        uint64_t seq;
+        prng = ckalloc(sizeof(ta_rng_t));
+        seq = (uint64_t)(intptr_t) &prng; /* Any value will do */
+        /* 
+         * The two 32-bit random generators are used to generate 64-bit
+         * random values. Therefore the
+         * sequence parameter that determines the random stream
+         * must not be the same even if the seed (second param) is different.
+         * Just use complement of first as the second.
+         * (See pcg32x3-demo.c in PCG distribution)
+         */
+        pcg32_srandom_r(&prng->rng[0], time(NULL) ^ (intptr_t)&prng->rng[0], seq);
+        pcg32_srandom_r(&prng->rng[1], time(NULL) ^ (intptr_t)&prng->rng[1], ~seq);
+        Tcl_CreateObjCommand(interp, "::tarray::column::random",
+                         tcol_random_cmd, prng, tcol_random_cmd_delete);
+    }
 } {
 }
 

@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
+#include <time.h>
 
 /* Visual C++ prior to Visual Studio 2010 do not have stdint */
 #if defined(_MSC_VER) && _MSC_VER < 1700
@@ -80,6 +81,8 @@
 #endif
 #include "bitarray.h"           /* Include AFTER assert definitions */
 #include "timsort.h"
+
+#include "pcg_basic.h"
 
 typedef int TCL_RESULT;
 
@@ -221,6 +224,12 @@ TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
 
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
 
+/*
+ * Random number generation using PCG
+ */
+typedef struct ta_rng_s {
+    pcg32_random_t rng[2];
+} ta_rng_t;
 
 /*
  * Inline functions to manipulate internal representation of Tarray columns
@@ -255,6 +264,7 @@ extern struct Tcl_ObjType ta_table_type;
 extern struct Tcl_ObjType ta_index_type;
 
 
+TCL_RESULT ta_return_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ores);
 int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 
 const char *ta_type_string(int tatype);
@@ -490,6 +500,8 @@ TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
 TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
+TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
+void tcol_random_cmd_delete(ClientData clientData);
 
 int table_check(Tcl_Interp *, Tcl_Obj *);
 Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns);

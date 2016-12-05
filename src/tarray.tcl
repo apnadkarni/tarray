@@ -328,6 +328,7 @@ namespace eval tarray {
             prettify prettify
             print print
             put put
+            random random
             range range
             reverse reverse
             size size
