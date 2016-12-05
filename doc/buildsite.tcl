@@ -4,7 +4,17 @@ set xtalversion $taversion
 
 set target output
 set adocgen_files {
-    introduction guide commands column table xtal xtal_lang xtal_shell ui build
+    introduction
+    guide
+    commands
+    column
+    table
+    xtal
+    xtal_lang
+    xtal_shell
+    ui
+    build
+    versionhistory
 }
 
 # file delete -force $target

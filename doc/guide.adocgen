@@ -110,18 +110,25 @@ text {
     will request a preallocation of a thousand elements with the first
     four being initialized.
 
-    Alternatively, columns containing equally spaced values can be created
+    Columns containing equally spaced values can be created
     with the `series` command.
 } shell {
     column series 10;           # 0 (default) to 10 with step 1 (default)
     column series 5 -5 -2;      # Decreasing from 5 to -5 with step -2
     column series 10.0;         # Series of doubles instead of integer
+} text {
+    Numeric and boolean columns containing random values can be created
+    with the `random` command.
+} shell {
+    column random boolean 10;   # Array of 10 randomly generated booleans
+    column random int 5 -10 10; # Array of 5 random integers in a range
 }
 
 text {
     
     Tables can be created and initialized in analogous
-    fashion, for example, to create a initialized table
+    fashion by passing arguments defining the table and optionally
+    row values. For example, to create a initialized table
 } shell {
     set tab [table create {
         country string population wide
