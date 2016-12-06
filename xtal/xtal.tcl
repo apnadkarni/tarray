@@ -1402,9 +1402,12 @@ oo::class create xtal::Compiler {
     
     method ColumnConstructorRandom {args} {
         if {[llength $args] == 0} {
-            return [list]
+            return ""
+        } elseif {[llength $args] == 1} {
+            return "[my {*}[lindex $args 0]]"
+        } else {
+            return "[my {*}[lindex $args 0]] [my {*}[lindex $args 1]]"
         }
-        return "[my {*}[lindex $args 0]] [my {*}[lindex $args 1]]"
     }
     
     method TableConstructor {coldefs inivalue} {
