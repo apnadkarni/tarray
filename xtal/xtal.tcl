@@ -473,7 +473,7 @@ oo::class create xtal::Parser {
             # RangeExpr EXPR
             return $first_child
         } elseif {[llength $args] == 1} {
-            # RangeExpr EXPR
+            # RangeExpr EXPR :
             return [list Range $first_child]
         } else {
             # RangeExpr EXPR : EXPR 
@@ -725,6 +725,18 @@ oo::class create xtal::Parser {
         } else {
             return [list ColumnConstructorRange {*}$args]
         }
+    }
+
+    method ColumnConstructorExpr {from to child} {
+        return $child
+    }
+    
+    method ColumnConstructorRandom {from to args} {
+        return [list ColumnConstructorRandom {*}$args]
+    }
+
+    method ColumnConstructorSeries {from to args} {
+        return [list ColumnConstructorSeries {*}$args]
     }
     
     method TableConstructor {from to args} {
@@ -1371,19 +1383,28 @@ oo::class create xtal::Compiler {
 
     method ColumnConstructor {coltype size {inivalue {}}} {
         if {[llength $inivalue]} {
-            if {[lindex $inivalue 0] eq "ColumnConstructorRange"} {
+            if {[lindex $inivalue 0] eq "ColumnConstructorSeries"} {
                 # Note size is ignored for column series
                 return "\[xtal::rt::column_series $coltype [my {*}$inivalue]\]"
+            } elseif {[lindex $inivalue 0] eq "ColumnConstructorRandom"} {
+                return "\[tarray::column::random $coltype [my {*}$size] [my {*}$inivalue]\]"
             } else {
                 return "\[xtal::rt::column_create $coltype [my {*}$inivalue] [my {*}$size]\]"
             }
         } else {
-            return "\[tarray::column create $coltype {} [my {*}$size] \]"
+            return "\[tarray::column::create $coltype {} [my {*}$size] \]"
         }
     }
 
-    method ColumnConstructorRange {start stop {step {Number 1}}} {
+    method ColumnConstructorSeries {start stop {step {Number 1}}} {
         return "\[list [my {*}$start] [my {*}$stop] [my {*}$step]\]"
+    }
+    
+    method ColumnConstructorRandom {args} {
+        if {[llength $args] == 0} {
+            return [list]
+        }
+        return "[my {*}[lindex $args 0]] [my {*}[lindex $args 1]]"
     }
     
     method TableConstructor {coldefs inivalue} {
