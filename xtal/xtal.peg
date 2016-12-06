@@ -120,7 +120,8 @@ leaf:    BuiltInFunction <- 'delete'
 
     # Constructors
     
-    ColumnConstructor <- [@] ColumnType (WS ColumnConstructorInit)? ;
+    ColumnConstructor <- [@] ColumnType (WS ColumnConstructorSize)? (WS ColumnConstructorInit)? ;
+    ColumnConstructorSize <- '[' WS Expression WS ']' ;
     ColumnConstructorInit <- Sequence
                              / '(' WS Expression WS ')'
 			     / AddExpr WS ':' WS AddExpr (WS ':' AddExpr)? ;
