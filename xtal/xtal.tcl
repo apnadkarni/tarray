@@ -708,7 +708,15 @@ oo::class create xtal::Parser {
     }
 
     method ColumnConstructor {from to coltype args} {
-        return [list ColumnConstructor $coltype {*}$args]
+        if {[lindex $args 0 0] ne "ColumnConstructorSize"} {
+            return [list ColumnConstructor $coltype {Number 0} {*}$args]
+        } else {
+            return [list ColumnConstructor $coltype [lindex $args 0 1] {*}[lrange $args 1 end]]
+        }
+    }
+
+    method ColumnConstructorSize {from to size} {
+        return [list ColumnConstructorSize $size]
     }
 
     method ColumnConstructorInit {from to args} {
@@ -1361,15 +1369,16 @@ oo::class create xtal::Compiler {
         return "\[xtal::rt::selector_context\]"
     }
 
-    method ColumnConstructor {coltype {inivalue {}}} {
+    method ColumnConstructor {coltype size {inivalue {}}} {
         if {[llength $inivalue]} {
             if {[lindex $inivalue 0] eq "ColumnConstructorRange"} {
+                # Note size is ignored for column series
                 return "\[xtal::rt::column_series $coltype [my {*}$inivalue]\]"
             } else {
-                return "\[xtal::rt::column_create $coltype [my {*}$inivalue]\]"
+                return "\[xtal::rt::column_create $coltype [my {*}$inivalue] [my {*}$size]\]"
             }
         } else {
-            return "\[tarray::column create $coltype {}\]"
+            return "\[tarray::column create $coltype {} [my {*}$size] \]"
         }
     }
 
@@ -1579,13 +1588,13 @@ namespace eval xtal::rt {
         return $r
     }
 
-    proc column_create {type inival} {
+    proc column_create {type inival size} {
         # TBD - why do we not generate code that directly calls
         # column::create ? That will generate an error for tables anyways
         return [switch -exact -- [lindex [tarray::types $inival] 0] {
             table   { error "Cannot convert a table to a column" }
-            ""      { tarray::column::create $type $inival }
-            default { tarray::column::create $type $inival }
+            ""      { tarray::column::create $type $inival $size }
+            default { tarray::column::create $type $inival $size}
         }]
     }
     
