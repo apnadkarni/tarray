@@ -124,7 +124,11 @@ leaf:    BuiltInFunction <- 'delete'
     ColumnConstructorSize <- '[' WS Expression WS ']' ;
     ColumnConstructorInit <- Sequence
                              / '(' WS Expression WS ')'
-			     / AddExpr WS ':' WS AddExpr (WS ':' AddExpr)? ;
+			     / ColumnConstructorExpr ;
+    ColumnConstructorExpr <- ColumnConstructorRandom / ColumnConstructorSeries ;
+    ColumnConstructorSeries <- AddExpr WS ':' WS AddExpr (WS ':' WS AddExpr)? ;
+    ColumnConstructorRandom <- '*'
+                             / AddExpr (WS ':' WS AddExpr)? WS ':' WS '*' ;
 
     TableConstructor <- [@] 'table' WS '(' WSNL TableColumnDefs? WSNL ')' WS Sequence? ;
     TableColumnDefs  <- TableColumnDef (WSNL ',' WSNL TableColumnDef)* ;
