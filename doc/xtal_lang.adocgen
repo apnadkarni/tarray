@@ -997,20 +997,45 @@ text {
 } text {
     === Creating columns
 
-    Columns are created using the built-in operators `@boolean`,
-    `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`.
-    The syntax of the command can take three forms, the first of which is
+    Columns are created using the built-in constructors `@boolean`,
+    `@byte`, `@int`, `@uint`, `@wide`, `@double`, `@string` and `@any`
+    corresponding to the different column types.
+    The syntax of the constructor is
 } syntax {
-    @__TYPE__ ?_INITLIST_?
+    @__TYPE__ ?[__SIZE__]? ?_INITIALIZER_?
 } text {
-    Here `_TYPE_` is one of the tarray column types and `_INITLIST_` is
-    an optional initializer list. For example,
-} xtal { A = @int } text {
-    creates an empty column of type `int` and assigns it to `A` and
-} xtal { A = @any {10, {1, 2, 3}, len} } text {
-    creates a column of type `any` with 3 elements.
+    Here `_TYPE_` is one of the tarray column types, `_SIZE_` provides
+    a hint of initial sizing of the column and `_INITIALIZER_` is
+    an optional initializer.
 
-    The second form is
+    In the simplest case,
+} xtal_shell { A = @int } text {
+    creates an empty column of type `int` and assigns it to `A`.
+} text {
+    We can optionally specify a sizing hint for the initial allocation.
+} xtal_shell { A = @wide[1000] } text {
+    Except in the case of random initializers discussed below,
+    this is only used as a hint as to how large the column is expected
+    to grow. Notice that the column is still empty. Intervening whitespace
+    is allowed.
+} xtal_shell { A = @string [ 10 ] } text {
+    If `_INITIALIZER_` is specified, it is used to initialize the elements
+    of the created column. It may take several forms.
+
+    The first of these is a list literal. The statement
+} xtal_shell { A = @any {10, {1, 2, 3}, len} } text {
+    creates a column of type `any` with 3 elements. An optional size
+    specifier may be present.
+} xtal_shell { A = @byte[10] {1,2,4,8} } text {
+    This will create a column with four elements, expected to grow
+    to 10. Again, the size specifiers is only a hint to the Xtal storage
+    allocator. It does *not* impact any language semantics. The number
+    of items in the column can exceed the size specified, even at
+    initialization time. For example,
+} xtal_shell { A = @byte[1] {1,2,4,8} } text {
+
+    The second form of an initializer specifies a series. The command
+    then look like
 } syntax {
     @__TYPE__ _START_ : _STOP_ ? : _STEP_ ?
 } text {
@@ -1021,17 +1046,54 @@ text {
     @double 1.0:10.0
     @int 5:-5:-2
 } text {
+    The _SIZE_ specifier may be included here as well.
 
-    Finally, the third form is that of a function,
+    The third initializer form is an expression surrounded by parenthesis,
+    again with an optional size specifier.
 } syntax {
-    @__TYPE__ (?EXPR?)
+    @__TYPE__ ?[__SIZE__]? (?_EXPR_?)
 } text {
     Again, here `_TYPE_` is one of the tarray column types. `_EXPR_`,
     if specified, is an expression that will be used to initialize the column.
     Thus this form can also be used to ''cast'' a column to a column of
-    a different type.
+    a different type. For example, we can create an `int` column from
+    a `double` column.
 } prompt {} xtal_shell {
     @int(Rainfall)
+    @int (Rainfall)
+    @int [100] ( Rainfall )
+} text {
+    Notice the size specifier and whitespace are both optional.
+
+    The final form initializes the created column with random values
+    of the appropriate type.
+    *Random initializers cannot be used for columns of type `string` and `any`.*
+
+    Here the size specifier is more than
+    a storage hint. It is the actual number of elements, each of
+    which is initialized with a random value.
+} syntax {
+    @__TYPE__ ? _LOWERBOUND_ : ? _UPPERBOUND_ ? : *
+} text {
+    Note the similarity with the series initializer syntax earlier.
+    
+    The optional `_LOWERBOUND_` (inclusive) and `_UPPERBOUND_` (exclusive)
+    arguments specify the range of values within which the random values must
+    lie. By default, all values for the specific column type are allowed.
+} xtal_shell {
+    @boolean [10] *
+    @int [5] *
+    @int [5] -10:10:*
+} text {
+    Whitespace is optional and if the upper bound is not specified it
+    defaults to the highest value for that type.
+} xtal_shell {
+    @byte [10] 250 : *
+} text {
+    Note that constructors are expressions and can be used as such.
+} xtal_shell {
+    @int {100, 200, 300} [1] * 3; # Multiply the second element of constructed column by 3
+    @byte[10] * + 5;              # Add 5 to each element of the constructed column
 }
 
 text {

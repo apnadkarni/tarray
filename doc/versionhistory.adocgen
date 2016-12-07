@@ -1,0 +1,17 @@
+text {
+    ((= chap_version_history "Version history"))
+    Version {taversion}
+    include::header.ad[]
+
+    ((author "Ashok P. Nadkarni"))
+}
+
+text {
+    == Changes since V0.8
+
+    * Added `column random` command
+
+    * Added random initializer for column constructors (Xtal)
+
+    * Added size specifiers for column constructors (Xtal)
+}
