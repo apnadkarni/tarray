@@ -46,7 +46,7 @@ static uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
 {
     uint64_t threshold = -bound % bound;
     for (;;) {
-        uint64_t r = pcg32_random_r(rng);
+        uint64_t r = pcg32x2_random_r(rng);
         if (r >= threshold)
             return r % bound;
     }
