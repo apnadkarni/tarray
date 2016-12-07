@@ -197,7 +197,16 @@ if {![info exists tarray::test::known]} {
         ################################################################
         # Utility functions
 
-
+        # Just to test function calls that return a count
+        proc ten {} {
+            return 10
+        }
+        
+        # Allocates space
+        proc allocated_size col {
+            return [dict get [tarray::unsupported::dump $col] thdr.usable]
+        }
+        
         # lsort option corresponding to a tarray type
         proc lsort_cmp {type} {
             switch -exact -- $type {
@@ -821,6 +830,44 @@ if {![info exists tarray::test::known]} {
         return 1
     }
 
+    # Checks that a random col is appropriate size and type.
+    # optional args may be mid, lowerbound and upperbound of permitted values
+    # mid is not really middle but some value that must have at least
+    # one value below and one above. If mid is "" it is ignored
+    proc check_random {col type size args} {
+        if {[tarray::column type $col] ne $type} {return "Type mismatch"}
+        if {[tarray::column size $col] != $size} {return "Col size mismatch"}
+        if {[llength $args]} {
+            # Note: $mid can be "" meaning do not check for middle element
+            set args [lassign $args mid]
+            if {[llength $args]} {
+                set args [lassign $args lbound]
+                if {[llength $args]} {
+                    lassign $args ubound
+                }
+            }
+            set under 0; set over 0
+            foreach val [tarray::column range -list $col 0 end] {
+                if {[info exist lbound] && $val < $lbound} {
+                    return "$val < lower bound $lbound"
+                }
+                if {[info exist ubound] && $val >= $ubound} {
+                    return "$val >= upper bound $ubound"
+                }
+                if {$mid ne ""} {
+                    if {$val < $mid} {set under 1}
+                    if {$val > $mid} {set over 1}
+                    if {$under && $over} break
+                }
+            }
+            if {$mid ne ""} {
+                if {! $under} {return "No element under $mid"}
+                if {! $over} {return "No element over $mid"}
+            }
+        }
+        return ""
+    }
+    
     package require tarray
     package require xtal
 }
