@@ -318,6 +318,17 @@ namespace eval tarray::test {
             filltest $type $sample($type) $l2 [indexcolumn [lsort -increasing -integer $indices]]
         } -result 0
 
+        test column_fill-indices-$type-3.0.1 {
+            Test filling of intermediate (shared tclobj, ordered, boolean index column)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            filltest $type $sample($type) $l2 [boolindexcolumn $indices]
+        } -result 0
+
         test column_fill-indices-$type-3.1 {
             Test filling of intermediate (shared tclobj, reverse ordered)
         } -body {
@@ -342,6 +353,20 @@ namespace eval tarray::test {
             cequal [tarray::column fill [newcolumn $type $sample($type)] $fills($type) [indexcolumn $indices]] [crep $type $l2]
         } -result 1
 
+        if {$type ne "boolean"} {
+            test column_fill-indices-$type-3.2.1 {
+                Test filling of intermediate (unshared tclobj, random order, non-int index column)
+            } -body {
+                # Note duplicate
+                set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+                set l2 $sample($type)
+                foreach i $indices {
+                    set l2 [lreplace $l2 $i $i $fills($type)]
+                }
+                cequal [tarray::column fill [newcolumn $type $sample($type)] $fills($type) [newcolumn $type $indices]] [crep $type $l2]
+            } -result 1
+        }
+        
         test column_fill-indices-$type-3.3 {
             Test filling of all (unshared tclobj, random order)
         } -body {
@@ -349,10 +374,32 @@ namespace eval tarray::test {
             cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) [indexcolumn $indices]] [crep $type [listrepeat 10 $fills($type)]]
         } -result 1
 
+        test column_fill-indices-$type-3.3.1 {
+            Test filling of all (unshared tclobj, random order, boolean index col)
+        } -body {
+            set indices {0 9 3 8 6 4 2 5 7 1}
+            cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) [boolindexcolumn $indices]] [crep $type [listrepeat 10 $fills($type)]]
+        } -result 1
+
+        if {$type ne "boolean"} {
+            test column_fill-indices-$type-3.3 {
+                Test filling of all (unshared tclobj, random order)
+            } -body {
+                set indices {0 9 3 8 6 4 2 5 7 1}
+                cequal [tarray::column fill [newcolumn $type [lrange $sample($type) 0 9]] $fills($type) [newcolumn $type $indices]] [crep $type [listrepeat 10 $fills($type)]]
+            } -result 1
+        }
+        
         test column_fill-indices-$type-4.0 {
             Test filling out-of-range (unshared, increasing indices)
         } -body {
             tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) [tarray::column sort -increasing [indexcolumn {63 64 65 254 260}]]
+        } -result "*260*out of bounds." -match glob -returnCodes error
+        
+        test column_fill-indices-$type-4.0.1 {
+            Test filling out-of-range (unshared, increasing indices, boolean index column)
+        } -body {
+            tarray::column fill [newcolumn $type [lrange $sample($type) 0 255]] $fills($type) [boolindexcolumn {63 64 65 254 260}]
         } -result "*260*out of bounds." -match glob -returnCodes error
 
         test column_fill-indices-$type-4.1 {
@@ -367,6 +414,7 @@ namespace eval tarray::test {
             set ta [newcolumn $type [lrange $sample($type) 0 255]]
             tarray::column fill $ta $fills($type) [indexcolumn {255 260 254 256 258}]
         } -result "*260*out of bounds." -match glob -returnCodes error
+
     }
 
 
@@ -776,6 +824,12 @@ namespace eval tarray::test {
             spanfilltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] [indexcolumn 0 1 2]
         } -result 0 
 
+        test column_fill-span-indices-$type-2.0.1 {
+            Test filling of leading elements (shared tclobj, boolean index col)
+        } -body {
+            spanfilltest $type $sample($type) [lreplace $sample($type) 0 2 $fills($type) $fills($type) $fills($type)] [boolindexspancolumn {0 1 2}]
+        } -result 0 
+
         test column_fill-span-indices-$type-2.1 {
             Test filling of leading elements out of order (shared tclobj)
         } -body {
@@ -821,6 +875,17 @@ namespace eval tarray::test {
             spanfilltest $type $sample($type) $l2 [indexcolumn [lsort -increasing -integer $indices]]
         } -result 0
 
+        test column_fill-span-indices-$type-3.0.1 {
+            Test filling of intermediate (shared tclobj, ordered, bool index col)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254}
+            set l2 $sample($type)
+            foreach i $indices {
+                set l2 [lreplace $l2 $i $i $fills($type)]
+            }
+            spanfilltest $type $sample($type) $l2 [boolindexspancolumn $indices]
+        } -result 0
+
         test column_fill-span-indices-$type-3.1 {
             Test filling of intermediate (shared tclobj, reverse ordered)
         } -body {
@@ -833,6 +898,20 @@ namespace eval tarray::test {
             spanfilltest $type $sample($type) $l2 [tarray::column sort -decreasing [indexcolumn $indices]]
         } -result 0
 
+        if {$type ne "boolean"} {
+            test column_fill-span-indices-$type-3.1.1 {
+                Test filling of intermediate (shared tclobj, reverse ordered, non-int index col)
+            } -body {
+                # Note duplicate
+                set indices {1 7 8 9 31 32 33 33 63 64 65 254}
+                set l2 $sample($type)
+                foreach i $indices {
+                    set l2 [lreplace $l2 $i $i $fills($type)]
+                }
+                spanfilltest $type $sample($type) $l2 [tarray::column sort -decreasing [newspancolumn $type $indices]]
+            } -result 0
+        }
+        
         test column_fill-span-indices-$type-3.2 {
             Test filling of intermediate (unshared tclobj, random order)
         } -body {

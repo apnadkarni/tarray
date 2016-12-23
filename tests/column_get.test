@@ -46,14 +46,22 @@ namespace eval tarray::test {
     }
 
     # Test values passed as tarray and returned as a column
-    proc test_get_indices_ascol {type indexlist} {
+    proc test_get_indices_ascol {type indexlist {indextype int}} {
         variable cols_for_get
-        return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) [indexcolumn $indexlist]]]
+        if {$indextype ne "boolean"} {
+            return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) [newcolumn $indextype $indexlist]]]
+        } else {
+            return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $cols_for_get($type) [boolindexcolumn $indexlist]]]
+        }
     }
 
-    proc test_getspan_indices_ascol {type indexlist} {
+    proc test_getspan_indices_ascol {type indexlist {indextype int}} {
         variable spancols_for_get
-        return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $spancols_for_get($type) [indexcolumn $indexlist]]]
+        if {$indextype ne "boolean"} {
+            return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $spancols_for_get($type) [newspancolumn $indextype $indexlist]]]
+        } else {
+            return [cmp_get_indexlist_ascol $type $indexlist [tarray::column get $spancols_for_get($type) [boolindexspancolumn $indexlist]]]
+        }
     }
 
     proc cmp_get_indexlist_aslist {type indexlist result} {
@@ -82,13 +90,21 @@ namespace eval tarray::test {
     }
 
     # Tests values passed as tarray returned as a list
-    proc test_get_indices_aslist {type indexlist} {
+    proc test_get_indices_aslist {type indexlist {indextype int}} {
         variable cols_for_get
-        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) [indexcolumn $indexlist]]]
+        if {$indextype ne "boolean"} {
+            return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) [newcolumn $indextype $indexlist]]]
+        } else {
+            return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $cols_for_get($type) [boolindexcolumn $indexlist]]]
+        }
     }
-    proc test_getspan_indices_aslist {type indexlist} {
+    proc test_getspan_indices_aslist {type indexlist {indextype int}} {
         variable spancols_for_get
-        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $spancols_for_get($type) [indexcolumn $indexlist]]]
+        if {$indextype ne "boolean"} {
+        return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $spancols_for_get($type) [newspancolumn $indextype $indexlist]]]
+        } else {
+            return [cmp_get_indexlist_aslist $type $indexlist [tarray::column get -list $spancols_for_get($type) [boolindexspancolumn $indexlist]]]
+        }
     }
 
     proc cmp_get_indexlist_asdict {type indexlist result} {
@@ -132,14 +148,22 @@ namespace eval tarray::test {
     }
 
     # Tests values passed as list returned as a list
-    proc test_get_indices_asdict {type indexlist} {
+    proc test_get_indices_asdict {type indexlist {indextype int}} {
         variable cols_for_get
-        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $cols_for_get($type) [indexcolumn $indexlist]]]
+        if {$indextype ne "boolean"} {
+        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $cols_for_get($type) [newcolumn $indextype $indexlist]]]
+        } else {
+            return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $cols_for_get($type) [boolindexcolumn $indexlist]]]
+        }
     }
 
-    proc test_getspan_indices_asdict {type indexlist} {
+    proc test_getspan_indices_asdict {type indexlist {indextype int}} {
         variable spancols_for_get
-        return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $spancols_for_get($type) [indexcolumn $indexlist]]]
+        if {$indextype ne "boolean"} {
+            return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $spancols_for_get($type) [newspancolumn $indextype $indexlist]]]
+        } else {
+            return [cmp_get_indexlist_asdict $type $indexlist [tarray::column get -dict $spancols_for_get($type) [boolindexspancolumn $indexlist]]]
+        }
     }
 
     ################################################################
@@ -391,6 +415,12 @@ namespace eval tarray::test {
             Get indexlist with duplicates
         } -body { test_get_indices_ascol $type {10 0 77 65 82 77 10} }
 
+        if {$type ne "boolean"} {
+            test column_get-indices-ascol-$type-2.6.1 {
+                Get indexlist with duplicates non-int index col
+            } -body { test_get_indices_ascol $type {10 0 77 65 82 77 10} $type}
+        }
+        
         test column_get-indices-ascol-$type-3.0 {
             Get the end element
         } -body {
@@ -421,14 +451,16 @@ namespace eval tarray::test {
         test column_get-indices-aslist-$type-1.0 {
             Get an empty index list from empty array
         } -body {
-            tarray::column get -list [newcolumn $type {}] [indexcolumn]
+            tarray::column get -list [newcolumn $type {}] [newcolumn $type]
         } -result {}
 
-        test column_get-indices-aslist-$type-1.1 {
-            Get the first element in empty array
-        } -body {
-            tarray::column get [newcolumn $type {}] [indexcolumn 0]
-        } -returnCodes error -result "*index 0 out of bounds." -match glob
+        if {$type ne "boolean"} {
+            test column_get-indices-aslist-$type-1.1 {
+                Get the first element in empty array
+            } -body {
+                tarray::column get [newcolumn $type {}] [newcolumn $type 0]
+            } -returnCodes error -result "*index 0 out of bounds." -match glob
+        }
 
         test column_get-indices-aslist-$type-2.0 {
             Get the first element
@@ -446,9 +478,23 @@ namespace eval tarray::test {
             test_get_indices_aslist $type [list 0 $n]
         }
 
+        if {$type ni "byte boolean"} {
+            test column_get-indices-aslist-$type-2.2.1 {
+                Get first and last (non-int index col)
+            } -body {
+                set n [llength $sample($type)]
+                incr n -1
+                test_get_indices_aslist $type [list 0 $n] $type
+            }
+        }
+        
         test column_get-indices-aslist-$type-2.3 {
             Get ordered indexlist
         } -body { test_get_indices_aslist $type {3 4 50 150} }
+
+        test column_get-indices-aslist-$type-2.3.1 {
+            Get ordered indexlist (boolean index col)
+        } -body { test_get_indices_aslist $type {3 4 50 150} boolean }
 
         test column_get-indices-aslist-$type-2.4 {
             Get reverse ordered indexlist
@@ -523,10 +569,17 @@ namespace eval tarray::test {
             Get random ordered indexlist
         } -body { test_get_indices_asdict $type {10 0 77 65 82} }
 
+        test column_get-indices-asdict-$type-2.5.1 {
+            Get random ordered indexlist
+        } -body { test_get_indices_asdict $type {10 0 77 65 82} boolean}
+
         test column_get-indices-asdict-$type-2.6 {
             Get indexlist with duplicates
         } -body { test_get_indices_asdict $type {10 0 77 65 82 77 10} }
 
+        test column_get-indices-asdict-$type-2.6.1 {
+            Get indexlist with duplicates (non-int index col)
+        } -body { test_get_indices_asdict $type {10 0 77 65 82 77 10} $type }
 
         test column_get-indices-asdict-$type-3.0 {
             Get the end element
@@ -784,9 +837,21 @@ namespace eval tarray::test {
             Get ordered indexlist
         } -body { test_getspan_indices_ascol $type {3 4 50 150} }
 
+        test column_get-span-indices-ascol-$type-2.3.1 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_ascol $type {3 4 50 150} $type }
+
+        test column_get-span-indices-ascol-$type-2.3.2 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_ascol $type {3 4 50 150} boolean }
+
         test column_get-span-indices-ascol-$type-2.4 {
             Get reverse ordered indexlist
         } -body { test_getspan_indices_ascol $type {100 65 30} }
+
+        test column_get-span-indices-ascol-$type-2.4.1 {
+            Get reverse ordered indexlist (on-int index col)
+        } -body { test_getspan_indices_ascol $type {100 65 30} $type }
 
         test column_get-span-indices-ascol-$type-2.5 {
             Get random ordered indexlist
@@ -855,6 +920,14 @@ namespace eval tarray::test {
             Get ordered indexlist
         } -body { test_getspan_indices_aslist $type {3 4 50 150} }
 
+        test column_get-span-indices-aslist-$type-2.3.1 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_aslist $type {3 4 50 150} $type }
+
+        test column_get-span-indices-aslist-$type-2.3.2 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_aslist $type {3 4 50 150} boolean }
+
         test column_get-span-indices-aslist-$type-2.4 {
             Get reverse ordered indexlist
         } -body { test_getspan_indices_aslist $type {100 65 30} }
@@ -919,6 +992,14 @@ namespace eval tarray::test {
         test column_get-span-indices-asdict-$type-2.3 {
             Get ordered indexlist
         } -body { test_getspan_indices_asdict $type {3 4 50 150} }
+
+        test column_get-span-indices-asdict-$type-2.3.1 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_asdict $type {3 4 50 150} $type }
+
+        test column_get-span-indices-asdict-$type-2.3.2 {
+            Get ordered indexlist
+        } -body { test_getspan_indices_asdict $type {3 4 50 150} boolean }
 
         test column_get-span-indices-asdict-$type-2.4 {
             Get reverse ordered indexlist

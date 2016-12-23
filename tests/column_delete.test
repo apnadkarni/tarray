@@ -488,6 +488,18 @@ namespace eval tarray::test {
             col_change_and_verify $type [largelist $type] $l2 delete $indices
         } -result 0
 
+        test column_delete-indices-$type-3.0.1 {
+            Test deletion of intermediate (shared tclobj, ordered, boolean)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254 1023 1024 1025 32535 32536}
+            set l2 [largelist $type]
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            col_change_and_verify $type [largelist $type] $l2 delete [boolindexcolumn $indices]
+        } -result 0
+
         test column_delete-indices-$type-3.1 {
             Test deletion of intermediate (unshared tclobj, reverse order)
         } -body {
@@ -500,7 +512,22 @@ namespace eval tarray::test {
             set indices [tarray::column sort -decreasing [indexcolumn $indices]]
             cequal [tarray::column delete [samplecolumn $type] $indices] [crep $type $l2]
         } -result 1
-
+        
+        if {$type ne "boolean"} {
+            test column_delete-indices-$type-3.1.1 {
+                Test deletion of intermediate (unshared tclobj, reverse order, non-int index column)
+            } -body {
+                set indices {1 7 8 9 31 32 33 63 64 65 254}
+                set l2 $sample($type)
+                # Deletion must take place back to front
+                foreach i [lsort -integer -decreasing $indices] {
+                    set l2 [lreplace $l2 $i $i]
+                }
+                set indices [tarray::column sort -decreasing [newcolumn $type $indices]]
+                cequal [tarray::column delete [samplecolumn $type] $indices] [crep $type $l2]
+            } -result 1
+        }
+        
         test column_delete-indices-$type-3.2 {
             Test deletion of intermediate (shared tclobj, random order)
         } -body {
@@ -514,6 +541,21 @@ namespace eval tarray::test {
             col_change_and_verify $type $sample($type) $l2 delete [indexcolumn $indices]
         } -result 0
 
+        if {$type ne "boolean"} {
+            test column_delete-indices-$type-3.2.2 {
+                Test deletion of intermediate (shared tclobj, random order, non-integer index column)
+            } -body {
+                # Note duplicate
+                set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+                set l2 $sample($type)
+                # Deletion must take place back to front. -unique to remove dups
+                foreach i [lsort -integer -decreasing -unique $indices] {
+                    set l2 [lreplace $l2 $i $i]
+                }
+                col_change_and_verify $type $sample($type) $l2 delete [newcolumn $type $indices]
+            } -result 0
+        }
+        
         test column_delete-indices-$type-4.0 {
             Test deletion of out-of-range (unshared, increasing indices)
         } -body {
@@ -1363,6 +1405,18 @@ namespace eval tarray::test {
             spancol_change_and_verify $type [largelist $type] $l2 delete $indices
         } -result 0
 
+        test column_delete-span-indices-$type-3.0.1 {
+            Test deletion of intermediate (shared tclobj, ordered, boolean index column)
+        } -body {
+            set indices {1 7 8 9 31 32 33 63 64 65 254 1023 1024 1025 32535 32536}
+            set l2 [largelist $type]
+            # Deletion must take place back to front
+            foreach i [lsort -integer -decreasing $indices] {
+                set l2 [lreplace $l2 $i $i]
+            }
+            spancol_change_and_verify $type [largelist $type] $l2 delete [boolindexspancolumn $indices]
+        } -result 0
+
         test column_delete-span-indices-$type-3.1 {
             Test deletion of intermediate (unshared tclobj, reverse order)
         } -body {
@@ -1376,6 +1430,21 @@ namespace eval tarray::test {
             cequal [tarray::column delete [samplespancolumn $type] $indices] [crep $type $l2]
         } -result 1
 
+        if {$type ne "boolean"} {
+            test column_delete-span-indices-$type-3.1.1 {
+                Test deletion of intermediate (unshared tclobj, reverse order, non-int index column)
+            } -body {
+                set indices {1 7 8 9 31 32 33 63 64 65 254}
+                set l2 $sample($type)
+                # Deletion must take place back to front
+                foreach i [lsort -integer -decreasing $indices] {
+                    set l2 [lreplace $l2 $i $i]
+                }
+                set indices [tarray::column sort -decreasing [newspancolumn $type $indices]]
+                cequal [tarray::column delete [samplespancolumn $type] $indices] [crep $type $l2]
+            } -result 1
+        }
+        
         test column_delete-span-indices-$type-3.2 {
             Test deletion of intermediate (shared tclobj, random order)
         } -body {
@@ -1389,6 +1458,21 @@ namespace eval tarray::test {
             spancol_change_and_verify $type $sample($type) $l2 delete [indexcolumn $indices]
         } -result 0
 
+        if {$type ne "boolean"} {
+            test column_delete-span-indices-$type-3.2.1 {
+                Test deletion of intermediate (shared tclobj, random order, non-in index column)
+            } -body {
+                # Note duplicate
+                set indices {1 254 64 33 7 65 8 33 9 31 32 63}
+                set l2 $sample($type)
+                # Deletion must take place back to front. -unique to remove dups
+                foreach i [lsort -integer -decreasing -unique $indices] {
+                    set l2 [lreplace $l2 $i $i]
+                }
+                spancol_change_and_verify $type $sample($type) $l2 delete [newspancolumn $type $indices]
+            } -result 0
+        }
+        
         test column_delete-span-indices-$type-4.0 {
             Test deletion of out-of-range (unshared, increasing indices)
         } -body {
