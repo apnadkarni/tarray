@@ -340,10 +340,10 @@ text {
     ((cmddef column_random "column random _TYPE_ _COUNT_ ?_LOWERBOUND_? ?_UPPERBOUND_?"))
     Returns a new column of ((^ sect_column_types type)) _TYPE_ with
     _COUNT_ elements containing randomly generated values from a
-    uniform distribution. For types `boolean`, `byte`, `int`, `uint`, `wide`
-    and `double` the range of generated values corresponds to the entire
+    uniform distribution. For types `boolean`, `byte`, `int`, `uint`
+    and `wide` the range of generated values corresponds to the entire
     domain range by default. For type `double` the values are generated
-    in the range {startsb}0,1{rbrace} by default. The optional
+    in the range {startsb}0,1{endsb} by default. The optional
     _LOWERBOUND_ and _UPPERBOUND_ arguments may be supplied to modify
     the range from which values are sampled. These are ignored for
     if _TYPE_ is `boolean`.

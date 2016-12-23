@@ -6,8 +6,17 @@ Simple arithmetic adding of offsets to `end` is supported, for example
 
 Many commands also allow multiple indices to be specified. These may take one of
 two forms - a _range_ which includes all indices between a lower and an upper
-bound (inclusive), and an _index list_ which may be a list of integers, or a
-column of type `int`. This latter allows the indices returned
+bound (inclusive), and an _index list_ which may be one of the following:
+
+* a list of integers
+
+* a column of any type other than `boolean`. The value of each
+element of the column is converted to an integer that is treated as an index.
+
+* a column of type `boolean`. Here the *index* of each bit in the boolean
+column that is set to `1` is treated as an index.
+
+Index clumns allow the indices returned
 by commands such as column search to be efficiently passed to other commands.
 When indices are specified as a list cause an array to be extended, the index
 list must include all indices beyond the current array size in any order but

@@ -14,4 +14,7 @@ text {
     * Added random initializer for column constructors (Xtal)
 
     * Added size specifiers for column constructors (Xtal)
+
+    * Allow any column type to be treated as an index column with
+    special treatment for boolean columns
 }

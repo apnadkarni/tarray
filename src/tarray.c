@@ -3461,6 +3461,65 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
     return;
 }
 
+/*
+ * Converts a thdr to an integer type thdr used for indexing. 
+ * The main difference with a normal cast to an integer column
+ * is that bit arrays are converted to a sequence of integers corresponding
+ * to the bits that are set, not as 0/1 of the same length as the
+ * source column.
+ * Returned column is ref incremented already since for integer
+ * columns, the same one is returned.
+ */
+thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
+{
+    thdr_t *to;
+    int count, start;
+
+    if (span) {
+        start = span->first;
+        count = span->count;
+    } else {
+        /*
+         * If column is integer, and no span specified, we can just
+         * return the same column
+         */
+        if (thdr->type == TA_INT) {
+            thdr_incr_refs(thdr);
+            return thdr;
+        }
+        start = 0;
+        count = thdr->used;
+    }
+            
+    if (thdr->type != TA_BOOLEAN) {
+        to = thdr_alloc(ip, TA_INT, count);
+        if (to == NULL)
+            return to;
+        if (thdr_copy_cast(ip, to, 0, thdr, start, count, 0) != TCL_OK) {
+            thdr_decr_refs(to);
+            return NULL;
+        }
+    } else {
+        ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
+        int *p;
+        int i, ones;
+
+        /* TBD - optimize at least for case where start == 0 */
+        ones = ba_count_ones(baP, start, start+count);
+        to = thdr_alloc(ip, TA_INT, ones);
+        p = THDRELEMPTR(to, int, 0);
+        for (i = 0; i < count; ++i) {
+            if (ba_get(baP, start+i))
+                *p++ = i;
+        }
+        TA_ASSERT((p-THDRELEMPTR(to, int, 0)) == ones);
+        to->used = ones;
+        to->sort_order = THDR_SORTED_ASCENDING;
+    }
+    thdr_incr_refs(to);
+    return to;
+}
+
 /* Note: nrefs of cloned array is 0 */
 thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
 {
@@ -4057,6 +4116,7 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
  *
  * If pindex is NULL, always returns as TA_INDEX_TYPE_THDR.
  *
+ * IMPORTANT:
  * This facility to return a single int or a index list should only
  * be used by commands where it does not matter whether {1} is treated
  * as a list or an int, for example the fill command, and the distinction
@@ -4121,24 +4181,23 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     }
 
     if (tcol_affirm(o)) {
-        span_t *span;
-        if (tcol_type(o) != TA_INT) {
-            /* TBD - write conversion from other type tarrays taking into account span */
+        thdr = thdr_to_indexcolumn(ip, OBJTHDR(o), OBJTHDRSPAN(o));
+        /* NOTE thdr is ref incremented and needs a decrref at some point! */
+        
+        if (thdr == NULL) {
             ta_indices_error(ip, o);
             return TA_INDEX_TYPE_ERROR;
         }
-        thdr = OBJTHDR(o);
-        span = OBJTHDRSPAN(o);
-        if (span || (want_sorted && thdr->sort_order == THDR_UNSORTED)) {
-            thdr = thdr_clone(ip, thdr, thdr->used, span);
+        if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
+            thdr_t *thdr2 = thdr_clone(ip, thdr, thdr->used, NULL);
+            thdr_decr_refs(thdr);
+            thdr = thdr2;
             if (thdr == NULL)
                 return TA_INDEX_TYPE_ERROR;
-            if (want_sorted && thdr->sort_order == THDR_UNSORTED) {
-                qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
-                thdr->sort_order = THDR_SORTED_ASCENDING;
-            }
+            qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
+            thdr->sort_order = THDR_SORTED_ASCENDING;
+            thdr_incr_refs(thdr);
         }
-        thdr->nrefs++;
         *thdrP = thdr;
         return TA_INDEX_TYPE_THDR;
     }
@@ -5006,3 +5065,8 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
+/*
+  Local Variables:
+  compile-command: "envset x64 && tclsh build.tcl extension -config tarray.cfg -keep -target win32-dev64"
+  End:
+*/

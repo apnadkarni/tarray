@@ -559,6 +559,21 @@ if {![info exists tarray::test::known]} {
             return [newspancolumn int [concat {*}$args]]
         }
 
+        proc boolindexcolumn {indices} {
+            set largest [lindex [lsort -integer $indices] end]
+            set col [newcolumn boolean]
+            tarray::column vfill col 0 0 $largest
+            foreach i $indices {
+                tarray::column vfill col 1 $i
+            }
+            return $col
+        }
+
+        proc boolindexspancolumn {indices} {
+            set col [boolindexcolumn $indices]
+            return [newspancolumn boolean [tarray::column range -list $col 0 end]]
+        }
+        
         proc samplerange {type args} {
             variable sample
             if {[llength $args] == 0} {
