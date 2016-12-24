@@ -79,7 +79,7 @@ namespace eval tarray::test::xtal_column {
         } -body "xtal::xtal {@$type 0:10:2}" -result [newcolumn $type {0 2 4 6 8}]
         test xtal-column-create-series-$type-1.0.1 {
             Create column from series (size spec ignored)
-        } -body "xtal::xtal {col = @$type \[1000\] 0:10:2} ; list \$col \[allocated_size \$col\]" -result [list [newcolumn $type {0 2 4 6 8}] 5]
+        } -body "xtal::xtal {col = @$type \[1000\] 0:10:2}" -result [newcolumn $type {0 2 4 6 8}]
         if {$type ni {byte uint}} {
             test xtal-column-create-series-$type-1.1 {
                 Create column from series - default step
@@ -341,7 +341,7 @@ namespace eval tarray::test::xtal_column {
 
         test xtal-column-$type-indexcolumn-3.2 {
             Literal column scalar indexcolumn non-integer
-        } -body " xtal::xtal { i = @double {0, 1} ; c = @$type {0, 0, 0, 0}; c\[i\] } " -result "Invalid index list*" -match glob -returnCodes error
+        } -body " xtal::xtal { i = @double {0, 1} ; c = @$type {1, 0, 0, 1}; c\[i\] } " -result [newcolumn $type {1 0}]
 
     }
 
