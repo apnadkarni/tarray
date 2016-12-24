@@ -230,21 +230,13 @@ critcl::cinit {
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
     {
         ta_rng_t *prng;
-        uint64_t seq;
+	Tcl_Command cmd_tok;
         prng = ckalloc(sizeof(ta_rng_t));
-        seq = (uint64_t)(intptr_t) &prng; /* Any value will do */
-        /* 
-         * The two 32-bit random generators are used to generate 64-bit
-         * random values. Therefore the
-         * sequence parameter that determines the random stream
-         * must not be the same even if the seed (second param) is different.
-         * Just use complement of first as the second.
-         * (See pcg32x3-demo.c in PCG distribution)
-         */
-        pcg32_srandom_r(&prng->rng[0], time(NULL) ^ (intptr_t)&prng->rng[0], seq);
-        pcg32_srandom_r(&prng->rng[1], time(NULL) ^ (intptr_t)&prng->rng[1], ~seq);
-        Tcl_CreateObjCommand(interp, "::tarray::column::random",
+        tcol_random_init(prng);
+        cmd_tok = Tcl_CreateObjCommand(interp, "::tarray::column::random",
                          tcol_random_cmd, prng, tcol_random_cmd_delete);
+        Tcl_CreateObjCommand(interp, "::tarray::column::randseed",
+                             tcol_randseed_cmd, cmd_tok, NULL);
     }
 } {
 }

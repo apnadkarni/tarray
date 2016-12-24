@@ -501,7 +501,9 @@ TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
 TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
+void tcol_random_init(ta_rng_t *prng);
 TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
+TCL_RESULT tcol_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 void tcol_random_cmd_delete(ClientData clientData);
 
 int table_check(Tcl_Interp *, Tcl_Obj *);

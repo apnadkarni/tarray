@@ -58,6 +58,29 @@ TA_INLINE double pcgdouble_boundedrand_r(pcg32_random_t rng[2], double bound)
     return bound * pcgdouble_random_r(rng);
 }
 
+void tcol_random_init(ta_rng_t *prng)
+{
+    uint64_t seed, seq;
+#ifdef _WIN32
+    LARGE_INTEGER pfc;
+    QueryPerformanceCounter(&pfc); /* Never fails on XP and later */
+    seed = pfc.QuadPart;
+#else
+    seed = time();
+#endif
+    seq = (uint64_t)(intptr_t) &prng; /* Any value will do */
+    /* 
+     * The two 32-bit random generators are used to generate 64-bit
+     * random values. Therefore the
+     * sequence parameter that determines the random stream
+     * must not be the same even if the seed (second param) is different.
+     * Just use complement of first as the second.
+     * (See pcg32x3-demo.c in PCG distribution)
+     */
+    pcg32_srandom_r(&prng->rng[0], seed ^ (uint64_t)&prng->rng[0], seq);
+    pcg32_srandom_r(&prng->rng[1], seed ^ (uint64_t)&prng->rng[1], ~seq);
+}
+
 void tcol_random_cmd_delete(ClientData cdata)
 {
     ckfree(cdata);
@@ -244,3 +267,52 @@ vamoose: /* If res != TCL_OK, ip must already hold error */
     }
 }
 
+TCL_RESULT tcol_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
+                         int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Command cmd_tok = (Tcl_Command) cdata;
+    Tcl_CmdInfo ci;
+    TCL_RESULT res;
+    ta_rng_t *prng;
+    Tcl_WideInt seed1, seed2;
+
+    if (objc != 1 && objc != 3) {
+        Tcl_WrongNumArgs(ip, 1, objv, "?SEED1 SEED2?");
+        return TCL_ERROR;
+    }
+
+#if 0
+    if ((! Tcl_GetCommandInfo(ip, "::tarray::column::random", &ci)) ||
+        (! ci.isNativeObjectProc) ||
+        (ci.objProc != tcol_random_cmd)) {
+        Tcl_SetResult(ip, "Command ::tarray::column::random not found", TCL_STATIC);
+        return TCL_ERROR;
+    }
+#else
+    /* TBD - Is this safe to do if the command has been deleted ? */
+    if ((! Tcl_GetCommandInfoFromToken(cmd_tok, &ci)) ||
+        (! ci.isNativeObjectProc) ||
+        ci.objProc != tcol_random_cmd ||
+        ci.objClientData == NULL) {
+        Tcl_SetResult(ip, "Command ::tarray::column::random not found", TCL_STATIC);
+        return TCL_ERROR;
+    }
+#endif
+    prng = ci.objClientData;
+    if (objc == 1) {
+        /* Reinit to random value */
+        tcol_random_init(prng);
+    } else {
+        /* This is a *deterministic* rng (oxymoron). Useful for
+         * reproducible tests. We allow caller to specify seeds
+         * and use constant (arbitrary) sequence values
+         */
+        if ((res = Tcl_GetWideIntFromObj(ip, objv[1], &seed1)) != TCL_OK ||
+            (res = Tcl_GetWideIntFromObj(ip, objv[2], &seed2)) != TCL_OK)
+            return res;
+        pcg32_srandom_r(&prng->rng[0], seed1, 0xf0f0f0f0);
+        pcg32_srandom_r(&prng->rng[1], seed2, 0x0f0f0f0f);
+    }
+
+    return TCL_OK;
+}
