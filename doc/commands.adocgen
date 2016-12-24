@@ -84,6 +84,21 @@ text {
     expected to be a column or a table. If not, it is output as
     by the Tcl `puts` command.
     See ((^ tab_prettify_opts)) for a list of valid options.
+
+    ((cmddef tarray_randseed "randseed ?_SEED1_ _SEED2_?"))
+    Sets the initial seed values for the random number generator (RNG).
+    The optional `_SEED1_` and `_SEED2_` should be any 64-bit numbers.
+    For normal use, this command need not be invoked as the
+    RNG is automatically initialized internally using runtime
+    data. 
+    For use cases such as testing where you want reproducible
+    "`random`" values to be produced, you can call the command
+    with the same seed arguments before every run.
+
+    When no arguments are specified, the RNG is reinitialized in
+    the same manner as startup. This is generally useful to
+    undo the effects of a previous call to `randseed` with
+    specific seed values.
     
     ((cmddef tarray_table "table _SUBCOMMAND_ ..."))
     Operates on tables. See ((^ chap_table_ref)).

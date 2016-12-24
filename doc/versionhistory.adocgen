@@ -7,14 +7,14 @@ text {
 }
 
 text {
-    == Changes since V0.8
+    == Changes since V0.8.1
 
-    * Added `column random` command
+    * Added `randseed` and `column random` command.
 
-    * Added random initializer for column constructors (Xtal)
+    * Added random initializer for column constructors (Xtal).
 
-    * Added size specifiers for column constructors (Xtal)
+    * Added size specifiers for column constructors (Xtal).
 
     * Allow any column type to be treated as an index column with
-    special treatment for boolean columns
+    special treatment for boolean columns for indexing.
 }

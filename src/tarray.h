@@ -229,6 +229,7 @@ TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
  */
 typedef struct ta_rng_s {
     pcg32_random_t rng[2];
+    int nrefs;
 } ta_rng_t;
 
 /*
@@ -503,8 +504,8 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               int highest_index);
 void tcol_random_init(ta_rng_t *prng);
 TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
-TCL_RESULT tcol_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
-void tcol_random_cmd_delete(ClientData clientData);
+TCL_RESULT ta_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
+void ta_random_rng_delete(ClientData cdata);
 
 int table_check(Tcl_Interp *, Tcl_Obj *);
 Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns);

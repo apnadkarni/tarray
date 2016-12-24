@@ -111,17 +111,30 @@ text {
     four being initialized.
 
     Columns containing equally spaced values can be created
-    with the `series` command.
+    with the `column series` command.
 } shell {
     column series 10;           # 0 (default) to 10 with step 1 (default)
     column series 5 -5 -2;      # Decreasing from 5 to -5 with step -2
     column series 10.0;         # Series of doubles instead of integer
 } text {
     Numeric and boolean columns containing random values can be created
-    with the `random` command.
+    with `column random`.
 } shell {
     column random boolean 10;   # Array of 10 randomly generated booleans
     column random int 5 -10 10; # Array of 5 random integers in a range
+} text {
+    For some uses, such as testing, it is useful to be able to generate
+    the same sequence of random numbers on every run. The `randseed`
+    command can be used to set or reset the initial seeds used for
+    random number generation.
+} shell1 {
+    randseed 100 200;           # Set the initial seeds for random number generation
+    column random byte 10
+    column random byte 10
+    randseed 100 200;           # Set the *same* seeds again
+    column random byte 10;      # Notice same values generated
+    randseed;                   # Reset to use random initial seeds
+    column random byte 10;      # Now again non-deterministic values are generated
 }
 
 text {
