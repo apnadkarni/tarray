@@ -81,9 +81,14 @@ void tcol_random_init(ta_rng_t *prng)
     pcg32_srandom_r(&prng->rng[1], seed ^ (uint64_t)&prng->rng[1], ~seq);
 }
 
-void tcol_random_cmd_delete(ClientData cdata)
+/* Command deletion callback for tcol_random_cmd and tcol_randseed_cmd */
+void ta_random_rng_delete(ClientData cdata)
 {
-    ckfree(cdata);
+    ta_rng_t *prng = (ta_rng_t *)cdata;
+    if (prng->nrefs == 1)
+        ckfree(cdata);
+    else
+        prng->nrefs--;
 }
 
 TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
@@ -267,13 +272,11 @@ vamoose: /* If res != TCL_OK, ip must already hold error */
     }
 }
 
-TCL_RESULT tcol_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
+TCL_RESULT ta_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
                          int objc, Tcl_Obj *const objv[])
 {
-    Tcl_Command cmd_tok = (Tcl_Command) cdata;
-    Tcl_CmdInfo ci;
     TCL_RESULT res;
-    ta_rng_t *prng;
+    ta_rng_t *prng = (ta_rng_t *)cdata;
     Tcl_WideInt seed1, seed2;
 
     if (objc != 1 && objc != 3) {
@@ -281,24 +284,6 @@ TCL_RESULT tcol_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
         return TCL_ERROR;
     }
 
-#if 0
-    if ((! Tcl_GetCommandInfo(ip, "::tarray::column::random", &ci)) ||
-        (! ci.isNativeObjectProc) ||
-        (ci.objProc != tcol_random_cmd)) {
-        Tcl_SetResult(ip, "Command ::tarray::column::random not found", TCL_STATIC);
-        return TCL_ERROR;
-    }
-#else
-    /* TBD - Is this safe to do if the command has been deleted ? */
-    if ((! Tcl_GetCommandInfoFromToken(cmd_tok, &ci)) ||
-        (! ci.isNativeObjectProc) ||
-        ci.objProc != tcol_random_cmd ||
-        ci.objClientData == NULL) {
-        Tcl_SetResult(ip, "Command ::tarray::column::random not found", TCL_STATIC);
-        return TCL_ERROR;
-    }
-#endif
-    prng = ci.objClientData;
     if (objc == 1) {
         /* Reinit to random value */
         tcol_random_init(prng);

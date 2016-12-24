@@ -233,10 +233,11 @@ critcl::cinit {
 	Tcl_Command cmd_tok;
         prng = ckalloc(sizeof(ta_rng_t));
         tcol_random_init(prng);
-        cmd_tok = Tcl_CreateObjCommand(interp, "::tarray::column::random",
-                         tcol_random_cmd, prng, tcol_random_cmd_delete);
-        Tcl_CreateObjCommand(interp, "::tarray::column::randseed",
-                             tcol_randseed_cmd, cmd_tok, NULL);
+        prng->nrefs = 2;        /* For each command reference below */
+        Tcl_CreateObjCommand(interp, "::tarray::column::random",
+                             tcol_random_cmd, prng, ta_random_rng_delete);
+        Tcl_CreateObjCommand(interp, "::tarray::randseed",
+                             ta_randseed_cmd, prng, ta_random_rng_delete);
     }
 } {
 }
