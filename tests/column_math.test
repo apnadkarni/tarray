@@ -59,7 +59,6 @@ namespace eval tarray::test {
         return $operands($type,$size)
     }
 
-    #NOTE : only call this for booleans if args are 0/1, not any numeric
     proc verify_expr {args} {
         if {[lindex $args 0] eq "math"} {
             set op [lindex $args 1]
@@ -81,7 +80,14 @@ namespace eval tarray::test {
                     return "$cresult != [lindex $params 0]"
                 }
             } else {
-                if {[cequal $cresult [lindex $params 0]]} {
+                # For math operations, boolean columns are converted
+                # to ints even when single column. So special case that.
+                set param [lindex $params 0]
+                lassign [tarray::types $param] param_type
+                if {$param_type eq "boolean" && $op ni {| & ^}} {
+                    set param [tarray::column create int [lindex $params 0]]
+                }
+                if {[cequal $cresult $param]} {
                     return ""
                 } else {
                     return "Columns are not equal"
@@ -122,8 +128,7 @@ namespace eval tarray::test {
         test [mathid]-arg0 "$op with no args" -body [list tarray::column math $op] -result "wrong # args: *" -match glob -returnCodes error
         
         foreach type {boolean byte int uint wide double} {
-            if {($op in {& | ^} && $type eq "double") ||
-                ($op ni {& | ^} && $type eq "boolean")} {
+            if {($op in {& | ^} && $type eq "double")} {
                 test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type." -returnCodes error
                 test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type." -returnCodes error
                 continue
@@ -152,14 +157,12 @@ namespace eval tarray::test {
             test [mathid]-$type-operand-err "Bad operand" -body {
                 tarray::column math $op [samplecolumn $type] badoperand
             } -result "Invalid operand*" -returnCodes error -match glob
-            if {$type ne "boolean"} {
-                test [mathid]-$type-operand-err "Bad operand" -body {
-                    tarray::column math $op [samplecolumn $type] true
-                } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
-                test [mathid]-$type-operand-err "Bad operand" -body {
-                    tarray::column math $op false [samplecolumn $type]
-                } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
-            }
+            test [mathid]-$type-operand-err "Bad operand" -body {
+                tarray::column math $op [samplecolumn $type] true
+            } -result "Operation is invalid for type boolean." -returnCodes error
+            test [mathid]-$type-operand-err "Bad operand" -body {
+                tarray::column math $op false [samplecolumn $type]
+            } -result "Operation is invalid for type boolean." -returnCodes error
             test [mathid]-$type-badlen-err "Differing length columns $op, $type" -body {
                 tarray::column math $op [samplecolumn $type] [largecolumn $type]
             } -result "Columns have differing lengths." -returnCodes error
@@ -179,11 +182,10 @@ namespace eval tarray::test {
 
         # Test promotion to wide
         test [mathid]-wide-multiarg "wide $op multi arg" -body {
-            set col [tarray::column $op [newcolumn int {1 2 3}] [newcolumn uint {1 7 11}] 0x100000000]
-        } -result [newcolumn wide [list [$op 1 1 0x100000000] [$op 2 7 0x100000000] [$op 3 11 0x100000000]]] -match column
+            set col [tarray::column $op [newcolumn boolean {1 0 1}] [newcolumn int {1 2 3}] [newcolumn uint {1 7 11}] 0x100000000]
+        } -result [newcolumn wide [list [$op 1 1 1 0x100000000] [$op 0 2 7 0x100000000] [$op 1 3 11 0x100000000]]] -match column
          
-        foreach type {boolean string any} {
-            if {$type eq "boolean" && $op in {& | ^}} continue
+        foreach type {string any} {
             test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type." -returnCodes error
             test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type." -returnCodes error
         }
@@ -224,35 +226,8 @@ namespace eval tarray::test {
     test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
     test [mathid]-div0 "Column double / 0 column" -body {verify_expr / [largecolumn double] [col_with_0 double]}
 
-    # Test special cases for booleans
-    foreach type {byte int uint wide double} {
-        test [mathid]-boolean-err "boolean column non-boolean column" -body {
-            tarray::column math $op [samplecolumn boolean] [samplecolumn $type]
-        } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
-        test [mathid]-boolean-err "boolean column non-boolean column" -body {
-            tarray::column $op [samplecolumn $type] [samplecolumn boolean]
-        } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
-
-        test [mathid]-boolean-$op-$type "boolean column $op $type scalar" -body {
-            verify_expr $op [samplecolumn boolean] 1
-        }
-
-        # Multiple boolean and scalar args
-    }
-        
     foreach op {& | ^} {
         # Test special cases for booleans
-        # Verify errors if column types do not match
-        foreach type {byte int uint wide double} {
-             test [mathid]-boolean-err "boolean column non-boolean column" -body {
-                tarray::column math $op [samplecolumn boolean] [samplecolumn $type]
-            } -result "tarray types $type and boolean are not compatible for attempted operation." -returnCodes error
-             test [mathid]-boolean-err "boolean column non-boolean column" -body {
-                tarray::column $op [samplecolumn $type] [samplecolumn boolean]
-             } -result "tarray types boolean and $type are not compatible for attempted operation." -returnCodes error
-
-
-        }
 
         # Test with scalars
         test [mathid]-boolean-$op "boolean column $op" -body {
@@ -279,17 +254,12 @@ namespace eval tarray::test {
         # Non-boolean scalars
         test [mathid]-boolean-$op "boolean column $op" -body {
             tarray::column math $op [samplecolumn boolean] 10.0
-        } -match column -result [tarray::column math $op [samplecolumn boolean] 1]
-        test [mathid]-boolean-$op "boolean column $op" -body {
-            tarray::column math $op [samplecolumn boolean] 0.0
-        } -match column -result [tarray::column math $op [samplecolumn boolean] 0]
+        } -returnCodes error -result "Operation is invalid for type double."
+        
         test [mathid]-boolean-$op "boolean column $op" -body {
             tarray::column math $op [samplecolumn boolean] true
-        } -match column -result [tarray::column math $op [samplecolumn boolean] 1]
-        test [mathid]-boolean-$op "boolean column $op" -body {
-            tarray::column math $op false [samplecolumn boolean]
-        } -match column -result [tarray::column math $op [samplecolumn boolean] false]
-
+        } -returnCodes error -result "Operation is invalid for type boolean."
+        
         for {set i 1} {$i < 128} {incr i} {
             test [mathid]-boolean-$op-range "boolean column range $op" -body {
                 verify_expr $op [tarray::column range [samplecolumn boolean] $i [expr {499+$i}]] [samplecolumn boolean 0 499]
