@@ -1,0 +1,56 @@
+# tarray column create
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test randseed-1.0 {
+        Ensure randseed sets seeds
+    } -body {
+        tarray::randseed 100 101
+        set a [tarray::column random int 5]
+        set b [tarray::column random int 5]
+        tarray::randseed 100 101
+        set c [tarray::column random int 5]
+        list [expr {$a eq $b}] [expr {$a eq $c}]
+    } -result {0 1}
+
+    test randseed-1.1 {
+        Ensure randseed resets seeds
+    } -body {
+        tarray::randseed 100 101
+        set a [tarray::column random int 5]
+        set b [tarray::column random int 5]
+        tarray::randseed 100 101
+        set c [tarray::column random int 5]
+        tarray::randseed
+        set d [tarray::column random int 5]
+        list [expr {$a eq $b}] [expr {$a eq $c}] [expr {$a eq $d}] [expr {$b eq $d}]
+    } -result {0 1 0 0}
+
+    test randseed-1.2 {
+        Ensure randseed resets seeds
+    } -body {
+        tarray::randseed
+        set a [tarray::column random int 5]
+        set b [tarray::column random int 5]
+        tarray::randseed
+        set c [tarray::column random int 5]
+        list [expr {$a eq $b}] [expr {$a eq $c}] [expr {$b eq $c}]
+    } -result {0 0 0}
+
+    test randseed-2.0 {
+        Invalid # args
+    } -body {
+        tarray::randseed 1 2 3
+    } -returnCodes error -result "wrong # args: should be \"tarray::randseed ?SEED1 SEED2?\""
+
+    test randseed-2.1 {
+        Invalid # args
+    } -body {
+        tarray::randseed 1
+    } -returnCodes error -result "wrong # args: should be \"tarray::randseed ?SEED1 SEED2?\""
+    
+}
+::tcltest::cleanupTests
