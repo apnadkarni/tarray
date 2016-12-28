@@ -321,7 +321,7 @@ static void thdr_math_mt_worker(void *pv)
 */
 static TCL_RESULT ta_math_boolean_bit_op(
     Tcl_Interp *ip, int op,
-    struct ta_math_operand *poperands,
+    struct ta_math_operand *poperands, /* Must have at least one column */
     int noperands,
     int size /* Every col in poperands expected to be of this size */
 )
@@ -329,6 +329,7 @@ static TCL_RESULT ta_math_boolean_bit_op(
     thdr_t *thdr;
     ba_t *baP;
     int opindex;
+    int need_complement;
 
     TA_ASSERT(noperands > 0);
     
@@ -338,81 +339,89 @@ static TCL_RESULT ta_math_boolean_bit_op(
     thdr = thdr_alloc(ip, TA_BOOLEAN, size);
     if (thdr == NULL)
         return TCL_ERROR;
+    baP = THDRELEMPTR(thdr, ba_t, 0);
     
-    if (size == 0) {
-        Tcl_SetObjResult(ip, tcol_new(thdr));
-        return TCL_OK;
+    if (size == 0)
+        goto done;
+
+    /*
+     * Each operand is expected to be a boolean column or a TA_WIDE
+     * scalar value converted from a boolean 0/1/true/false etc.
+     * Optimize by going through all scalar operands first. So
+     * For | if any scalar is 1, just return a columns of 1's etc.
+     * For & if any scalar is 0, just return a column of 0's etc.
+     * For ^, if computed value is 1, complement at the end.
+     * We may save unnecessary computations.
+     */
+    need_complement = 0;
+    for (opindex = 0; opindex < noperands; ++opindex) {
+        if (poperands[opindex].thdr_operand == NULL) {
+            /* Scalar operand */
+            struct ta_math_operand *poper = &poperands[opindex];
+            int ival;
+            TA_ASSERT(poper->scalar_operand.type == TA_WIDE);
+            ival = (poper->scalar_operand.wval & 1);
+            if (ival == 0) {
+                if (op == TAM_OP_BITAND) {
+                    ba_fill(baP, 0, size, 0);
+                    goto done;
+                }
+            } else {
+                if (op == TAM_OP_BITOR) {
+                    ba_fill(baP, 0, size, 1);
+                    goto done;
+                }
+                if (op == TAM_OP_BITXOR) {
+                    need_complement ^= 1; /* Complement result */
+                }
+            }
+        }
     }
 
     /* TBD - optimize for case where all operands are columns and
        use ba_conjunct etc.
     */
+    /* TBD - optimize for case of a single column. Just return the
+       same column unless need to complement */
     
-    /* Each operand is expected to be a boolean column or a TA_WIDE
-     * scalar value converted from a boolean 0/1/true/false etc.
-     */
 
-    /* Initialize the result vector */
-    if (poperands[0].thdr_operand == NULL) {
-        /* First operand is a scalar. Initialize with corresponding value */
-        ta_value_t tav;
-        TA_ASSERT(poperands[0].scalar_operand.type == TA_WIDE);
-        tav.bval = poperands[0].scalar_operand.wval & 1;
-        tav.type = TA_BOOLEAN;
-        thdr_fill_range(ip, thdr, &tav, 0, size, 0);
-    } else {
-        /* First operand is a column */
-        TA_ASSERT(poperands[0].thdr_operand->type == TA_BOOLEAN);
-        thdr_copy(thdr, 0, poperands[0].thdr_operand, 
-                  poperands[0].span_start, size, 0);
+    /* Initialize the result vector based on the first column */
+    for (opindex = 0; opindex < noperands; ++opindex) {
+        if (poperands[opindex].thdr_operand)
+            break;              /* Found a column */
     }
+    TA_ASSERT(opindex < noperands); /* Must be at least one column */
+    TA_ASSERT(poperands[opindex].thdr_operand->type == TA_BOOLEAN);
+    thdr_copy(thdr, 0, poperands[opindex].thdr_operand, 
+              poperands[opindex].span_start, size, 0);
+    if (need_complement)
+        ba_complement(baP, 0, size);
         
-    baP = THDRELEMPTR(thdr, ba_t, 0);
-    for (opindex = 1; opindex < noperands; ++opindex) {
+    /* Now handle remaining operands, skipping scalars */ 
+    /* TBD - optimize by combining two columns at a time recursively */
+    for (opindex += 1; opindex < noperands; ++opindex) {
         struct ta_math_operand *poper = &poperands[opindex];
-        int ival = 0;
-        if (poper->thdr_operand == NULL) {
-            /* Scalar operand */
-            TA_ASSERT(poper->scalar_operand.type == TA_WIDE);
-            ival = (poper->scalar_operand.wval & 1);
-            if (op == TAM_OP_BITAND) {
-                if (ival == 0) {
-                    ba_fill(baP, 0, size, 0);
-                    break;      /* No need to look at further operands */
-                } else {
-                    /* & with 1 is basically a no-op */
-                }
-            } else if (op == TAM_OP_BITOR) {
-                if (ival) {
-                    ba_fill(baP, 0, size, 1);
-                    break;      /* No need to look at further operands */
-                } else {
-                    /* | with 0 is basically a no-op */
-                }
-            } else {
-                TA_ASSERT(op == TAM_OP_BITXOR);
-                if (ival)
-                    ba_complement(baP, 0, size);
-                else {
-                    /* ^ with 0 is basically a no-op */
-                }
-            }
-        } else {
-            /* Column operand */
-            ba_t *ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
-            TA_ASSERT(poper->thdr_operand->type == TA_BOOLEAN);
-            TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
-            if (op == TAM_OP_BITAND) 
-                ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
-            else if (op == TAM_OP_BITOR) 
-                ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
-            else {
-                TA_ASSERT(op == TAM_OP_BITXOR);
-                ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
-            }
+        ba_t *ba_oper;
+        if (poper->thdr_operand == NULL)
+            continue;           /* Skip scalar */
+        /* Column operand */
+        ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
+        TA_ASSERT(poper->thdr_operand->type == TA_BOOLEAN);
+        TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
+        switch (op) {
+        case TAM_OP_BITAND:
+            ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
+            break;
+        case TAM_OP_BITOR:
+            ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
+            break;
+        case TAM_OP_BITXOR:
+            ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
+            break;
         }
     }
-
+    
+done:
     Tcl_SetObjResult(ip, tcol_new(thdr));
     return TCL_OK;
 }
