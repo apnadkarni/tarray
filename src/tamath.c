@@ -135,6 +135,14 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
     case TAM_OP_MINUS: return accumulator - operand;
     case TAM_OP_MUL: return accumulator * operand;
     case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
+    case TAM_OP_AND: return accumulator && operand;
+    case TAM_OP_OR: return accumulator || operand;
+    case TAM_OP_XOR:
+        if ((accumulator && operand) ||
+            (accumulator == 0 && operand == 0))
+            return 0;
+        else 
+            return 1;
     case TAM_OP_BITAND: /* Keep gcc happy */
     case TAM_OP_BITOR:  /* ditto */
     case TAM_OP_BITXOR: /* ditto */
@@ -161,6 +169,14 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accu
             result -= 1;
         }
         return result;
+    case TAM_OP_AND: return accumulator && operand;
+    case TAM_OP_OR: return accumulator || operand;
+    case TAM_OP_XOR:
+        if ((accumulator && operand) ||
+            (accumulator == 0 && operand == 0))
+            return 0;
+        else 
+            return 1;
     case TAM_OP_BITOR: return accumulator | operand;
     case TAM_OP_BITAND: return accumulator & operand;
     case TAM_OP_BITXOR: return accumulator ^ operand;
@@ -319,7 +335,7 @@ static void thdr_math_mt_worker(void *pv)
    should be anything other than boolean. Scalars must be TA_WIDE
    and are treated as booleans using the low bit.
 */
-static TCL_RESULT ta_math_boolean_bit_op(
+static TCL_RESULT ta_math_boolean_result(
     Tcl_Interp *ip, int op,
     struct ta_math_operand *poperands, /* Must have at least one column */
     int noperands,
@@ -330,10 +346,11 @@ static TCL_RESULT ta_math_boolean_bit_op(
     ba_t *baP;
     int opindex;
     int need_complement;
+    thdr_t *thdr2 = NULL;
 
     TA_ASSERT(noperands > 0);
     
-    if (! is_bit_op(op))
+    if (! (is_bit_op(op) || is_logical_op(op)))
         return ta_invalid_op_for_type(ip, TA_BOOLEAN);
 
     thdr = thdr_alloc(ip, TA_BOOLEAN, size);
@@ -362,16 +379,18 @@ static TCL_RESULT ta_math_boolean_bit_op(
             TA_ASSERT(poper->scalar_operand.type == TA_WIDE);
             ival = (poper->scalar_operand.wval & 1);
             if (ival == 0) {
-                if (op == TAM_OP_BITAND) {
+                if (op == TAM_OP_BITAND || op == TAM_OP_AND) {
                     ba_fill(baP, 0, size, 0);
+                    thdr->used = size;
                     goto done;
                 }
             } else {
-                if (op == TAM_OP_BITOR) {
+                if (op == TAM_OP_BITOR || op == TAM_OP_OR) {
                     ba_fill(baP, 0, size, 1);
+                    thdr->used = size;
                     goto done;
                 }
-                if (op == TAM_OP_BITXOR) {
+                if (op == TAM_OP_BITXOR || op == TAM_OP_XOR) {
                     need_complement ^= 1; /* Complement result */
                 }
             }
@@ -385,43 +404,107 @@ static TCL_RESULT ta_math_boolean_bit_op(
        same column unless need to complement */
     
 
-    /* Initialize the result vector based on the first column */
-    for (opindex = 0; opindex < noperands; ++opindex) {
-        if (poperands[opindex].thdr_operand)
-            break;              /* Found a column */
-    }
-    TA_ASSERT(opindex < noperands); /* Must be at least one column */
-    TA_ASSERT(poperands[opindex].thdr_operand->type == TA_BOOLEAN);
-    thdr_copy(thdr, 0, poperands[opindex].thdr_operand, 
-              poperands[opindex].span_start, size, 0);
-    if (need_complement)
-        ba_complement(baP, 0, size);
-        
-    /* Now handle remaining operands, skipping scalars */ 
-    /* TBD - optimize by combining two columns at a time recursively */
-    for (opindex += 1; opindex < noperands; ++opindex) {
-        struct ta_math_operand *poper = &poperands[opindex];
-        ba_t *ba_oper;
-        if (poper->thdr_operand == NULL)
-            continue;           /* Skip scalar */
-        /* Column operand */
-        ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
-        TA_ASSERT(poper->thdr_operand->type == TA_BOOLEAN);
-        TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
-        switch (op) {
-        case TAM_OP_BITAND:
-            ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
-            break;
-        case TAM_OP_BITOR:
-            ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
-            break;
-        case TAM_OP_BITXOR:
-            ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
-            break;
+    /* Initialize the result vector based on the first column operand */
+    if (is_bit_op(op)) {
+        /* Bitwise operations. Columns must be boolean */
+        for (opindex = 0; opindex < noperands; ++opindex) {
+            if (poperands[opindex].thdr_operand)
+                break;              /* Found a column */
         }
+        TA_ASSERT(opindex < noperands); /* Must be at least one column */
+        TA_ASSERT(poperands[opindex].thdr_operand->type == TA_BOOLEAN);
+        thdr_copy(thdr, 0, poperands[opindex].thdr_operand, 
+                  poperands[opindex].span_start, size, 0);
+        if (need_complement)
+            ba_complement(baP, 0, size);
+        opindex += 1;           /* Since we have taken this col into account */
+    } else {
+        /*
+         * Logical operations. Columns need not be boolean. Just initialize
+         * to identity values. Not worth optimizing for each column type.
+         */
+        if (op == TAM_OP_AND) 
+            ba_fill(baP, 0, size, 1);
+        else
+            ba_fill(baP, 0, size, 0); /* OR and XOR */
+        thdr->used = size;
     }
     
+    /* Now handle remaining operands, skipping scalars */ 
+    /* TBD - optimize by combining two columns at a time recursively */
+    
+    /* Loop for bitwise operations */
+    if (is_bit_op(op)) {
+        for ( ; opindex < noperands; ++opindex) {
+            struct ta_math_operand *poper = &poperands[opindex];
+            ba_t *ba_oper;
+            if (poper->thdr_operand == NULL)
+                continue;           /* Skip scalar */
+            /* Column operand */
+            TA_ASSERT(poper->thdr_operand->type == TA_BOOLEAN);
+            TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
+            ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
+            switch (op) {
+            case TAM_OP_BITAND: 
+                ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
+                break;
+            case TAM_OP_BITOR: 
+                ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
+                break;
+            case TAM_OP_BITXOR:
+                ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
+                break;
+            }
+        }
+    } else {
+        /* Loop for logical operations. We convert each non-boolean column
+         * to boolean and then do the operation. That is faster than
+         * individually converting values at the expense of memory
+         */
+        for ( ; opindex < noperands; ++opindex) {
+            struct ta_math_operand *poper = &poperands[opindex];
+            ba_t *ba_oper;
+            int start;
+            if (poper->thdr_operand == NULL)
+                continue;           /* Skip scalar */
+            /* Column operand */
+            TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
+            if (poper->thdr_operand->type == TA_BOOLEAN) {
+                ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
+                start = poper->span_start;
+            } else {
+                /* Not a boolean column. Convert first. */
+                if (thdr2 == NULL)
+                    thdr2 = thdr_alloc(ip, TA_BOOLEAN, size);
+                if (thdr2 == NULL) {
+                    thdr_decr_refs(thdr);
+                    return TCL_ERROR;
+                }
+                if (thdr_copy_cast(ip, thdr2, 0, thdr, poper->span_start, size, 0) != TCL_OK) {
+                    thdr_decr_refs(thdr2);
+                    thdr_decr_refs(thdr);
+                    return TCL_ERROR;
+                }
+                ba_oper = THDRELEMPTR(thdr2, ba_t, 0);
+                start = 0;
+            }
+            switch (op) {
+            case TAM_OP_BITAND: 
+                ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
+                break;
+            case TAM_OP_BITOR: 
+                ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
+                break;
+            case TAM_OP_BITXOR:
+                ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
+                break;
+            }
+        }
+    }
+        
 done:
+    if (thdr2)
+        thdr_decr_refs(thdr2);
     Tcl_SetObjResult(ip, tcol_new(thdr));
     return TCL_OK;
 }
@@ -613,7 +696,10 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE );
                 dresult = ta_math_double_operation(op, dresult, &poperands[j].scalar_operand);
             }
-            Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
+            if (is_logical_op(op)) 
+                Tcl_SetObjResult(ip, Tcl_NewIntObj(dresult ? 1 : 0));
+            else
+                Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
         } else {
             Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
             for (j = 1 ; j < noperands; ++j) {
@@ -632,14 +718,20 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         goto vamoose;           /* yea yea gotos are bad */
     }
 
+    /* Irrespective of type promotion, column types for logical operations
+     * is always TA_BOOLEAN
+     */
+    if (is_logical_op(op))
+        result_type = TA_BOOLEAN;
+
     /* Boolean types need special treatment. If the operator is an
      * arithmetic operator, the result type needs to be changed to
-     * integer. Otherwise, call the boolean type-specific bitwise
-     * operator as opposed to the general purpose code below.
+     * integer. Otherwise, call the boolean type-specific code
+     * as opposed to the general purpose code below.
      */
     if (result_type == TA_BOOLEAN) {
-        if (is_bit_op(op)) {
-            status = ta_math_boolean_bit_op(ip, op, poperands, noperands, thdr_size);
+        if (is_bit_op(op) || is_logical_op(op)) {
+            status = ta_math_boolean_result(ip, op, poperands, noperands, thdr_size);
             goto vamoose;
         } else
             result_type = TA_INT;
@@ -770,10 +862,6 @@ vamoose:
     }
 
     return status;
-
-mismatched_types_error:
-    status = ta_mismatched_types_error(ip, coltype, result_type);
-    goto vamoose;
 }
 
 /* Parses a Tcl_Obj as an int, wide or double. Error otherwise */
