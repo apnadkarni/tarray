@@ -3112,6 +3112,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
     } while (0)
     
 /* Note NUM2BOOL, unlike others only copies the middle bits (whole ba_t's) */
+/* Variable ba must have been initialized before this macro is invoked */
 #define NUM2BOOL(type_)                                                 \
     do {                                                                \
         type_ *src = THDRELEMPTR(psrc, type_, src_first);               \
