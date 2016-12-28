@@ -196,24 +196,26 @@ static void thdr_math_mt_worker(void *pv)
 #define DOUBLELOOP(op_)                                               \
     do {                                                                \
         int i, j;                                                       \
+        double *p = THDRELEMPTR(pctx->thdr, double, 0); \
         for (i = start; i < end; ++i) {                                 \
             double accum = ta_math_double_from_operand(&poperands[0], i); \
             for (j = 1; j < noperands; ++j) {                           \
                 accum op_ ta_math_double_from_operand(&poperands[j], i); \
             }                                                           \
-            *THDRELEMPTR(pctx->thdr, double, i) = accum;                \
+            p[i] = accum;                \
         }                                                               \
     } while (0)
 
 #define INTEGERLOOP(op_, type_)                                       \
     do {                                                                \
         int i, j;                                                       \
+        type_ *p = THDRELEMPTR(pctx->thdr, type_, 0);                   \
         for (i = start; i < end; ++i) {                                 \
             Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
             for (j = 1; j < noperands; ++j) {                           \
                 accum op_ ta_math_wide_from_operand(&poperands[j], i); \
             }                                                           \
-            *THDRELEMPTR(pctx->thdr, type_, i) = (type_) accum;         \
+            p[i] = (type_) accum;         \
         }                                                               \
     } while (0)
     
@@ -221,6 +223,7 @@ static void thdr_math_mt_worker(void *pv)
 #define DIVLOOP(type_)                                                  \
     do {                                                                \
         int i, j;                                                       \
+        type_ *p = THDRELEMPTR(pctx->thdr, type_, 0);                   \
         for (i = start; i < end; ++i) {                                 \
             Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
             for (j = 1; j < noperands; ++j) {                           \
@@ -240,7 +243,7 @@ static void thdr_math_mt_worker(void *pv)
                 }                                                       \
                 accum = wresult;                                        \
             }                                                           \
-            *THDRELEMPTR(pctx->thdr, type_, i) = (type_) accum;         \
+            p[i] = (type_) accum;         \
         }                                                               \
     } while (0)
 
@@ -316,7 +319,7 @@ static void thdr_math_mt_worker(void *pv)
    should be anything other than boolean. Scalars must be TA_WIDE
    and are treated as booleans using the low bit.
 */
-static TCL_RESULT ta_math_boolean_op(
+static TCL_RESULT ta_math_boolean_bit_op(
     Tcl_Interp *ip, int op,
     struct ta_math_operand *poperands,
     int noperands,
@@ -341,6 +344,10 @@ static TCL_RESULT ta_math_boolean_op(
         return TCL_OK;
     }
 
+    /* TBD - optimize for case where all operands are columns and
+       use ba_conjunct etc.
+    */
+    
     /* Each operand is expected to be a boolean column or a TA_WIDE
      * scalar value converted from a boolean 0/1/true/false etc.
      */
@@ -623,7 +630,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
      */
     if (result_type == TA_BOOLEAN) {
         if (is_bit_op(op)) {
-            status = ta_math_boolean_op(ip, op, poperands, noperands, thdr_size);
+            status = ta_math_boolean_bit_op(ip, op, poperands, noperands, thdr_size);
             goto vamoose;
         } else
             result_type = TA_INT;
