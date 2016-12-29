@@ -379,7 +379,7 @@ static TCL_RESULT ta_math_boolean_result(
     thdr_t *thdr2 = NULL;
 
     TA_ASSERT(noperands > 0);
-    TA_ASSERT(! (is_bit_op(op) || is_logical_op(op)));
+    TA_ASSERT(is_bit_op(op) || is_logical_op(op));
 
     thdr = thdr_alloc(ip, TA_BOOLEAN, size);
     if (thdr == NULL)
