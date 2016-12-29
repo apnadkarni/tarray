@@ -376,9 +376,18 @@ static TCL_RESULT ta_math_boolean_result(
             /* Scalar operand */
             struct ta_math_operand *poper = &poperands[opindex];
             int ival;
-            TA_ASSERT(poper->scalar_operand.type == TA_WIDE);
-            if (is_bit_op(op))
+            if (is_bit_op(op)) {
+                /* 
+                 * Note bitwise operations involving scalars only come into
+                 * this function when the scalar is a string boolean (true)
+                 * and all columns are booleans. The scalar is passed then
+                 * as a wide (as all integer values are).
+                 * Else they would go into the mainstream worker code which
+                 * handles wider types.
+                 */
+                TA_ASSERT(poper->scalar_operand.type == TA_WIDE);
                 ival = (poper->scalar_operand.wval & 1);
+            }
             else
                 ival = (poper->scalar_operand.wval != 0);
             if (ival == 0) {
@@ -427,7 +436,7 @@ static TCL_RESULT ta_math_boolean_result(
          * to identity values. Not worth optimizing for each column type.
          */
         opindex = 0;
-        if (op == TAM_OP_AND) 
+        if (op == TAM_OP_AND || need_complement) 
             ba_fill(baP, 0, size, 1);
         else
             ba_fill(baP, 0, size, 0); /* OR and XOR */
