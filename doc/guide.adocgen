@@ -557,7 +557,7 @@ text {
 }
 
 text {
-    == Arithmetic and operations
+    == Arithmetic and logical operations
 
     The ((^ column_math "column math")) command can be used
     to perform arithmetic operations on columns on a per-element basic.
@@ -572,9 +572,11 @@ text {
 } shell {
     column + $I $J 1000
 } text {
-    See the description of `column math` for all the available arithmetic
-    and logical operators.
-    
+    See the description of `column math` for all the available arithmetic,
+    logical and comparison operators.
+} tbd {
+    Need example of logical and comparison operators.
+} text {
     In contrast to arithmetic commands that operate on a per-element basis,
     some commands operate on the entire column.
 
