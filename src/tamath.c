@@ -377,7 +377,10 @@ static TCL_RESULT ta_math_boolean_result(
             struct ta_math_operand *poper = &poperands[opindex];
             int ival;
             TA_ASSERT(poper->scalar_operand.type == TA_WIDE);
-            ival = (poper->scalar_operand.wval & 1);
+            if (is_bit_op(op))
+                ival = (poper->scalar_operand.wval & 1);
+            else
+                ival = (poper->scalar_operand.wval != 0);
             if (ival == 0) {
                 if (op == TAM_OP_BITAND || op == TAM_OP_AND) {
                     ba_fill(baP, 0, size, 0);
