@@ -3161,11 +3161,11 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
                 ba = 0;
 
             switch (psrc->type) {
-            case TA_BYTE: NUM2BOOL(unsigned char);
-            case TA_INT:  NUM2BOOL(int);
-            case TA_UINT: NUM2BOOL(unsigned int);
-            case TA_WIDE: NUM2BOOL(Tcl_WideInt);
-            case TA_DOUBLE: NUM2BOOL(double);
+            case TA_BYTE: NUM2BOOL(unsigned char); break;
+            case TA_INT:  NUM2BOOL(int); break;
+            case TA_UINT: NUM2BOOL(unsigned int); break;
+            case TA_WIDE: NUM2BOOL(Tcl_WideInt); break;
+            case TA_DOUBLE: NUM2BOOL(double); break;
             }
 
             if (ba_mask != BITPOSMASK(0)) {

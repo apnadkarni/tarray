@@ -44,11 +44,11 @@ namespace eval tarray::test {
     #
     # Tests for creating from other columns
     proc column_cast_expected_value {srctype dsttype} {
-        if {$srctype eq "boolean"} {return {1 0 1}}
+        if {$srctype eq "boolean"} {return [lrepeat 1000 1 0 1]}
         if {$srctype eq "double" && $dsttype in {any string}} {
-            return {1.0 0.0 3.0}
+            return [lrepeat 1000 1.0 0.0 3.0]
         }
-        return {1 0 3}
+        return [lrepeat 1000 1 0 3]
     }
             
     foreach type {any string boolean byte double int uint wide} {
@@ -56,7 +56,7 @@ namespace eval tarray::test {
             test column-create-$type2-to-$type-1.0 {
                 Test creation from column
             } -setup {
-                set srccol [tarray::column create $type2 {1 0 3}]
+                set srccol [tarray::column create $type2 [lrepeat 1000 1 0 3]]
             } -body {
                 tarray::column create $type $srccol
             } -result [newcolumn $type [column_cast_expected_value $type2 $type]]
