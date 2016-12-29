@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Ashok P. Nadkarni
+ * Copyright (c) 2015-2016, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -16,20 +16,38 @@ int ta_math_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 static const char *ta_math_op_names[] = {
-    "+", "-", "*", "/", "&&", "||", "^^", "&", "|", "^", NULL
+    "+", "-", "*", "/",
+    "&&", "||", "^^",
+    "&", "|", "^",
+    "==", "!=", "<", "<=", ">", ">=",
+    NULL
 };
 enum ta_math_op_e {
-    TAM_OP_PLUS,TAM_OP_MINUS,TAM_OP_MUL,TAM_OP_DIV,
-    TAM_OP_AND,TAM_OP_OR, TAM_OP_XOR,
-    TAM_OP_BITAND,TAM_OP_BITOR, TAM_OP_BITXOR,
+    TAM_OP_PLUS, TAM_OP_MINUS, TAM_OP_MUL, TAM_OP_DIV,
+    TAM_OP_AND, TAM_OP_OR, TAM_OP_XOR,
+    TAM_OP_BITAND, TAM_OP_BITOR, TAM_OP_BITXOR,
+    TAM_OP_EQ, TAM_OP_NE, TAM_OP_LT, TAM_OP_LE, TAM_OP_GT, TAM_OP_GE,
 };
 
-TA_INLINE is_logical_op(enum ta_math_op_e op) {
+static int is_logical_op(enum ta_math_op_e op)
+{
     return (op == TAM_OP_AND || op == TAM_OP_OR || op == TAM_OP_XOR);
 }
 
-TA_INLINE is_bit_op(enum ta_math_op_e op) {
+static int is_bit_op(enum ta_math_op_e op)
+{
     return (op == TAM_OP_BITAND || op == TAM_OP_BITOR || op == TAM_OP_BITXOR);
+}
+
+static int is_compare_op(enum ta_math_op_e op)
+{
+    switch (op) {
+    case TAM_OP_EQ: case TAM_OP_NE: case TAM_OP_LT:
+    case TAM_OP_LE: case TAM_OP_GT: case TAM_OP_GE:
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 struct ta_math_operand {
@@ -118,7 +136,7 @@ static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
     }
 }
 
-static double ta_math_double_operation(enum ta_math_op_e op, double accumulator, ta_value_t *poperand)
+static double ta_math_double_operation(enum ta_math_op_e op, double dbl, ta_value_t *poperand)
 {
     double operand;
 
@@ -131,18 +149,24 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
         operand = (double) poperand->wval; /* TBD - overflow check? */
 
     switch (op) {
-    case TAM_OP_PLUS: return accumulator + operand;
-    case TAM_OP_MINUS: return accumulator - operand;
-    case TAM_OP_MUL: return accumulator * operand;
-    case TAM_OP_DIV: return accumulator / operand; /* Check for div-by-0 ? */
-    case TAM_OP_AND: return accumulator && operand;
-    case TAM_OP_OR: return accumulator || operand;
+    case TAM_OP_PLUS: return dbl + operand;
+    case TAM_OP_MINUS: return dbl - operand;
+    case TAM_OP_MUL: return dbl * operand;
+    case TAM_OP_DIV: return dbl / operand; /* Check for div-by-0 ? */
+    case TAM_OP_AND: return dbl && operand;
+    case TAM_OP_OR: return dbl || operand;
     case TAM_OP_XOR:
-        if ((accumulator && operand) ||
-            (accumulator == 0 && operand == 0))
+        if ((dbl && operand) ||
+            (dbl == 0 && operand == 0))
             return 0;
         else 
             return 1;
+    case TAM_OP_EQ: return dbl == operand;
+    case TAM_OP_NE: return dbl != operand;
+    case TAM_OP_LT: return dbl < operand;
+    case TAM_OP_LE: return dbl <= operand;
+    case TAM_OP_GT: return dbl > operand;
+    case TAM_OP_GE: return dbl >= operand;
     case TAM_OP_BITAND: /* Keep gcc happy */
     case TAM_OP_BITOR:  /* ditto */
     case TAM_OP_BITXOR: /* ditto */
@@ -151,35 +175,41 @@ static double ta_math_double_operation(enum ta_math_op_e op, double accumulator,
     return 0.0;                 /* To keep compiler happy */
 }    
 
-static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt accumulator, Tcl_WideInt operand)
+static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt wide, Tcl_WideInt operand)
 {
     Tcl_WideInt result;
     switch (op) {
-    case TAM_OP_PLUS: return accumulator + operand;
-    case TAM_OP_MINUS: return accumulator - operand;
-    case TAM_OP_MUL: return accumulator * operand;
+    case TAM_OP_PLUS: return wide + operand;
+    case TAM_OP_MINUS: return wide - operand;
+    case TAM_OP_MUL: return wide * operand;
     case TAM_OP_DIV:
         TA_ASSERT(operand != 0); /* Caller should have ensured */
         /* See INST_DIV in tclExecute.c in Tcl sources */
-        result = accumulator / operand;
+        result = wide / operand;
         if (((result < 0) || ((result == 0) &&
-                              ((accumulator < 0 && operand > 0) ||
-                               (accumulator > 0 && operand < 0)))) &&
-            ((result * operand) != accumulator)) {
+                              ((wide < 0 && operand > 0) ||
+                               (wide > 0 && operand < 0)))) &&
+            ((result * operand) != wide)) {
             result -= 1;
         }
         return result;
-    case TAM_OP_AND: return accumulator && operand;
-    case TAM_OP_OR: return accumulator || operand;
+    case TAM_OP_AND: return wide && operand;
+    case TAM_OP_OR: return wide || operand;
     case TAM_OP_XOR:
-        if ((accumulator && operand) ||
-            (accumulator == 0 && operand == 0))
+        if ((wide && operand) ||
+            (wide == 0 && operand == 0))
             return 0;
         else 
             return 1;
-    case TAM_OP_BITOR: return accumulator | operand;
-    case TAM_OP_BITAND: return accumulator & operand;
-    case TAM_OP_BITXOR: return accumulator ^ operand;
+    case TAM_OP_EQ: return wide == operand;
+    case TAM_OP_NE: return wide != operand;
+    case TAM_OP_LT: return wide < operand;
+    case TAM_OP_LE: return wide <= operand;
+    case TAM_OP_GT: return wide > operand;
+    case TAM_OP_GE: return wide >= operand;
+    case TAM_OP_BITOR: return wide | operand;
+    case TAM_OP_BITAND: return wide & operand;
+    case TAM_OP_BITXOR: return wide ^ operand;
     }
     return 0;                   /* To keep compiler happy */
 }
@@ -525,6 +555,103 @@ done:
     return TCL_OK;
 }
 
+TCL_RESULT ta_math_scalar_operation(
+    Tcl_Interp *ip, int op, int promoted_type,
+    struct ta_math_operand *poperands, /* Must be all scalars */
+    int noperands)
+{
+    int j;
+    TCL_RESULT status = TCL_OK;
+
+    if (is_compare_op(op)) {
+        int result = 1;
+
+        /* Note: For 0/1 operands, we return 1 just like Tcl */
+        if (noperands > 1) {
+            if (promoted_type == TA_DOUBLE) {
+                for (j = 0; j < (noperands-1); ++j) {
+                    double dbl1, dbl2;
+                    TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE);
+                    TA_ASSERT(poperands[j+1].scalar_operand.type == TA_DOUBLE || poperands[j+1].scalar_operand.type == TA_WIDE);
+                    if (poperands[j].scalar_operand.type == TA_DOUBLE)
+                        dbl1 = poperands[j].scalar_operand.dval;
+                    else
+                        dbl1 = (double) poperands[j].scalar_operand.wval;
+                    if (poperands[j+1].scalar_operand.type == TA_DOUBLE)
+                        dbl2 = poperands[j+1].scalar_operand.dval;
+                    else
+                        dbl2 = (double) poperands[j+1].scalar_operand.wval;
+                    switch (op) {
+                    case TAM_OP_EQ: result = (dbl1 == dbl2); break;
+                    case TAM_OP_NE: result = (dbl1 != dbl2); break;
+                    case TAM_OP_LT: result = (dbl1 < dbl2); break;
+                    case TAM_OP_LE: result = (dbl1 <= dbl2); break;
+                    case TAM_OP_GT: result = (dbl1 > dbl2); break;
+                    case TAM_OP_GE: result = (dbl1 >= dbl2); break;
+                    }
+                    if (result == 0)
+                        break;
+                }
+            } else {
+                for (j = 0; j < (noperands-1); ++j) {
+                    Tcl_WideInt wide1, wide2;
+                    TA_ASSERT(poperands[j].scalar_operand.type == TA_WIDE);
+                    TA_ASSERT(poperands[j+1].scalar_operand.type == TA_WIDE);
+                    wide1 = poperands[j].scalar_operand.wval;
+                    wide2 = poperands[j+1].scalar_operand.wval;
+                    switch (op) {
+                    case TAM_OP_EQ: result = (wide1 == wide2); break;
+                    case TAM_OP_NE: result = (wide1 != wide2); break;
+                    case TAM_OP_LT: result = (wide1 < wide2); break;
+                    case TAM_OP_LE: result = (wide1 <= wide2); break;
+                    case TAM_OP_GT: result = (wide1 > wide2); break;
+                    case TAM_OP_GE: result = (wide1 >= wide2); break;
+                    }
+                    if (result == 0)
+                        break;
+                }
+            }
+        }
+        Tcl_SetObjResult(ip, Tcl_NewIntObj(result));
+        
+    } else if (promoted_type == TA_DOUBLE) {
+        /* Operations on doubles other than logical operations */
+
+        double dresult;
+        if (poperands[0].scalar_operand.type == TA_DOUBLE)
+            dresult = poperands[0].scalar_operand.dval;
+        else
+            dresult = (double) poperands[0].scalar_operand.wval;
+            
+        for (j = 1 ; j < noperands; ++j) {
+            TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE );
+            dresult = ta_math_double_operation(op, dresult, &poperands[j].scalar_operand);
+        }
+        if (is_logical_op(op)) 
+            Tcl_SetObjResult(ip, Tcl_NewIntObj(dresult ? 1 : 0));
+        else
+            Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
+    } else {
+        /* Operations on non-doubles other than logical operations */
+
+        Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
+        for (j = 1 ; j < noperands; ++j) {
+            TA_ASSERT(poperands[j].scalar_operand.type == TA_WIDE);
+            if (op == TAM_OP_DIV &&
+                poperands[j].scalar_operand.wval == 0) {
+                Tcl_SetResult(ip, "divide by zero", TCL_STATIC);
+                status = TCL_ERROR;
+                goto vamoose;
+            }
+            wresult = ta_math_wide_operation(op, wresult, poperands[j].scalar_operand.wval);
+        }
+        Tcl_SetObjResult(ip, Tcl_NewWideIntObj(wresult));
+    }
+
+vamoose:
+    return status;
+}
+
 TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                               int objc, Tcl_Obj *const objv[])
 {
@@ -700,40 +827,15 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     /* If we are only passed scalars, compute and return the result */
     if (only_scalars) {
-        if (result_type == TA_DOUBLE) {
-            double dresult;
-            
-            if (poperands[0].scalar_operand.type == TA_DOUBLE)
-                dresult = poperands[0].scalar_operand.dval;
-            else
-                dresult = (double) poperands[0].scalar_operand.wval;
-            
-            for (j = 1 ; j < noperands; ++j) {
-                TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE );
-                dresult = ta_math_double_operation(op, dresult, &poperands[j].scalar_operand);
-            }
-            if (is_logical_op(op)) 
-                Tcl_SetObjResult(ip, Tcl_NewIntObj(dresult ? 1 : 0));
-            else
-                Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
-        } else {
-            Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
-            for (j = 1 ; j < noperands; ++j) {
-                TA_ASSERT(poperands[j].scalar_operand.type == TA_WIDE);
-                if (op == TAM_OP_DIV &&
-                    poperands[j].scalar_operand.wval == 0) {
-                    Tcl_SetResult(ip, "divide by zero", TCL_STATIC);
-                    status = TCL_ERROR;
-                    goto vamoose;
-                }
-                wresult = ta_math_wide_operation(op, wresult, poperands[j].scalar_operand.wval);
-            }
-            Tcl_SetObjResult(ip, Tcl_NewWideIntObj(wresult));
-        }
-        status = TCL_OK;
+        status = ta_math_scalar_operation(ip, op, result_type, poperands, noperands);
         goto vamoose;           /* yea yea gotos are bad */
     }
 
+    if (is_compare_op(op)) {
+        status = ta_math_compare_operation(ip, op, result_type, poperands, noperands);
+        goto vamoose;
+    }
+        
     /* Irrespective of type promotion, column types for logical operations
      * is always TA_BOOLEAN
      */
