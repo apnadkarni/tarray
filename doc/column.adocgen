@@ -79,6 +79,9 @@ text {
     ((cmddef column_bitand "column & _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math &"))`.
 
+    ((cmddef column_and "column && _OPERAND_ ?_OPERAND_...?"))
+    Alias for `((^ column_math "column math &&"))`.
+
     ((cmddef column_mul "column * _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math *"))`.
 
@@ -94,8 +97,14 @@ text {
     ((cmddef column_bitor "column | _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \|"))`.
 
+    ((cmddef column_or "column || _OPERAND_ ?_OPERAND_...?"))
+    Alias for `((^ column_math "column math \|\|"))`.
+
     ((cmddef column_bitxor "column ^ _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \^"))`.
+
+    ((cmddef column_xor "column ^^ _OPERAND_ ?_OPERAND_...?"))
+    Alias for `((^ column_math "column math \^\^"))`.
 
     ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
     _DEPRECATED_. Returns a new column of type _COLTYPE_ containing elements
@@ -237,7 +246,8 @@ text {
     numerical value computed in similar (but not identical) fashion to
     the Tcl `expr` command.
 
-    If at least one operand is a column, the return value is
+    Except for logical operation,
+    if at least one operand is a column, the return value is
     a column whose type depends on the type of the ''widest''
     operand. For example, if _any_ column or scalar is a double, the
     resulting column will be of type `double`. For this purpose,
@@ -250,6 +260,9 @@ text {
     For arithmetic operations, elements of `boolean` columns are
     treated as having integer values `0` and `1`.
     
+    For logical operations like `&&`, the returned column is always
+    boolean.
+
     ((.Table tab_column_math_ops "Column math operators"))
     [cols="10,60,30", options="header"]
     |===
@@ -281,13 +294,25 @@ text {
     |Performs a bitwise-and operation on all the operands.
     |`boolean`, `byte`, `int`, `uint`, `wide`
 
+    |`&&`
+    |Performs a logical-and operation on all the operands.
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+
     |`\|`
     |Performs a bitwise-or operation on all the operands.
     |`boolean`, `byte`, `int`, `uint`, `wide`
 
+    |`\|\|`
+    |Performs a logical-or operation on all the operands.
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+
     |`^`
     |Performs a bitwise-xor operation on all the operands.
     |`boolean`, `byte`, `int`, `uint`, `wide`
+
+    |`^^`
+    |Performs a logical-xor operation on all the operands.
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
 
     |===
 
