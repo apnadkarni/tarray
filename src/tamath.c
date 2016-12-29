@@ -423,6 +423,7 @@ static TCL_RESULT ta_math_boolean_result(
          * Logical operations. Columns need not be boolean. Just initialize
          * to identity values. Not worth optimizing for each column type.
          */
+        opindex = 0;
         if (op == TAM_OP_AND) 
             ba_fill(baP, 0, size, 1);
         else
@@ -480,7 +481,7 @@ static TCL_RESULT ta_math_boolean_result(
                     thdr_decr_refs(thdr);
                     return TCL_ERROR;
                 }
-                if (thdr_copy_cast(ip, thdr2, 0, thdr, poper->span_start, size, 0) != TCL_OK) {
+                if (thdr_copy_cast(ip, thdr2, 0, poper->thdr_operand, poper->span_start, size, 0) != TCL_OK) {
                     thdr_decr_refs(thdr2);
                     thdr_decr_refs(thdr);
                     return TCL_ERROR;
@@ -489,14 +490,17 @@ static TCL_RESULT ta_math_boolean_result(
                 start = 0;
             }
             switch (op) {
+            case TAM_OP_AND: 
             case TAM_OP_BITAND: 
-                ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
+                ba_conjunct(baP, 0, ba_oper, start, size);
                 break;
+            case TAM_OP_OR: 
             case TAM_OP_BITOR: 
-                ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
+                ba_disjunct(baP, 0, ba_oper, start, size);
                 break;
+            case TAM_OP_XOR:
             case TAM_OP_BITXOR:
-                ba_xdisjunct(baP, 0, ba_oper, poper->span_start, size);
+                ba_xdisjunct(baP, 0, ba_oper, start, size);
                 break;
             }
         }

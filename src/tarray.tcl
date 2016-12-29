@@ -298,6 +298,9 @@ interp alias {} tarray::column::+ {} tarray::column::math +
 interp alias {} tarray::column::- {} tarray::column::math -
 interp alias {} tarray::column::* {} tarray::column::math *
 interp alias {} tarray::column::/ {} tarray::column::math /
+interp alias {} tarray::column::&& {} tarray::column::math &&
+interp alias {} tarray::column::|| {} tarray::column::math ||
+interp alias {} tarray::column::^^ {} tarray::column::math ^^
 interp alias {} tarray::column::& {} tarray::column::math &
 interp alias {} tarray::column::| {} tarray::column::math |
 interp alias {} tarray::column::^ {} tarray::column::math ^
@@ -349,6 +352,9 @@ namespace eval tarray {
             - -
             * *
             / /
+            && &&
+            || ||
+            ^^ ^^
             & &
             | |
             ^ ^
