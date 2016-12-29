@@ -379,9 +379,7 @@ static TCL_RESULT ta_math_boolean_result(
     thdr_t *thdr2 = NULL;
 
     TA_ASSERT(noperands > 0);
-    
-    if (! (is_bit_op(op) || is_logical_op(op)))
-        return ta_invalid_op_for_type(ip, TA_BOOLEAN);
+    TA_ASSERT(! (is_bit_op(op) || is_logical_op(op)));
 
     thdr = thdr_alloc(ip, TA_BOOLEAN, size);
     if (thdr == NULL)
@@ -551,6 +549,79 @@ static TCL_RESULT ta_math_boolean_result(
 done:
     if (thdr2)
         thdr_decr_refs(thdr2);
+    Tcl_SetObjResult(ip, tcol_new(thdr));
+    return TCL_OK;
+}
+
+TCL_RESULT ta_math_compare_operation(
+    Tcl_Interp *ip, int op, int promoted_type,
+    struct ta_math_operand *poperands, /* At least one column */
+    int noperands,
+    int size)
+{
+    int i, j;
+    thdr_t *thdr;
+    ba_t *baP;
+    TCL_RESULT status = TCL_OK;
+
+    TA_ASSERT(is_compare_op(op));
+    thdr = thdr_alloc(ip, TA_BOOLEAN, size);
+    if (thdr == NULL)
+        return TCL_ERROR;
+    baP = THDRELEMPTR(thdr, ba_t, 0);
+    
+    if (size == 0)
+        goto done;
+    
+    if (noperands <= 1) {
+        ba_fill(baP, 0, size, 1);
+        goto done;
+    }
+
+    if (promoted_type == TA_DOUBLE) {
+        for (i = 0; i < size; ++i) {
+            int result = 1;
+            for (j = 0; j < (noperands-1); ++j) {
+                double dbl1, dbl2;
+                dbl1 = ta_math_double_from_operand(&poperands[j], i);
+                dbl2 = ta_math_double_from_operand(&poperands[j+1], i);
+                switch (op) {
+                case TAM_OP_EQ: result = (dbl1 == dbl2); break;
+                case TAM_OP_NE: result = (dbl1 != dbl2); break;
+                case TAM_OP_LT: result = (dbl1 < dbl2); break;
+                case TAM_OP_LE: result = (dbl1 <= dbl2); break;
+                case TAM_OP_GT: result = (dbl1 > dbl2); break;
+                case TAM_OP_GE: result = (dbl1 >= dbl2); break;
+                }
+                if (result == 0)
+                    break;
+            }
+            ba_put(baP, i, result);
+        }
+    } else {
+        for (i = 0; i < size; ++i) {
+            int result = 1;
+            for (j = 0; j < (noperands-1); ++j) {
+                Tcl_WideInt wide1, wide2;
+                wide1 = ta_math_wide_from_operand(&poperands[j], i);
+                wide2 = ta_math_wide_from_operand(&poperands[j+1], i);
+                switch (op) {
+                case TAM_OP_EQ: result = (wide1 == wide2); break;
+                case TAM_OP_NE: result = (wide1 != wide2); break;
+                case TAM_OP_LT: result = (wide1 < wide2); break;
+                case TAM_OP_LE: result = (wide1 <= wide2); break;
+                case TAM_OP_GT: result = (wide1 > wide2); break;
+                case TAM_OP_GE: result = (wide1 >= wide2); break;
+                }
+                if (result == 0)
+                    break;
+            }
+            ba_put(baP, i, result);
+        }
+    }
+
+done:
+    thdr->used = size;
     Tcl_SetObjResult(ip, tcol_new(thdr));
     return TCL_OK;
 }
@@ -832,7 +903,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     }
 
     if (is_compare_op(op)) {
-        status = ta_math_compare_operation(ip, op, result_type, poperands, noperands);
+        status = ta_math_compare_operation(ip, op, result_type, poperands, noperands, thdr_size);
         goto vamoose;
     }
         
