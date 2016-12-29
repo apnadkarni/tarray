@@ -17,4 +17,6 @@ text {
 
     * Allow any column type to be treated as an index column with
     special treatment for boolean columns for indexing.
+
+    * Added logical operations `&&`, `||` and `^^` for columns.
 }
