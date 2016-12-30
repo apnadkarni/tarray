@@ -13,12 +13,6 @@
 #include "tarray.h"
 #include "pcg_basic.h"
 
-static TCL_RESULT ta_invalid_bounds(Tcl_Interp *ip) {
-    Tcl_SetErrorCode(ip, "TARRAY", "RANDOM", "BOUNDS", NULL);
-    Tcl_SetResult(ip, "Invalid random number range bounds.", TCL_STATIC);
-    return TCL_ERROR;
-}
-
 /* Based on PCG basic c distribution pcg32x2-demo.c */
 TA_INLINE uint64_t pcg32x2_random_r(pcg32_random_t rng[2])
 {
@@ -56,6 +50,42 @@ static uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
 TA_INLINE double pcgdouble_boundedrand_r(pcg32_random_t rng[2], double bound)
 {
     return bound * pcgdouble_random_r(rng);
+}
+
+TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *ip, ta_value_t *low, ta_value_t *high, int init_high)
+{
+    TA_ASSERT(low && high);
+    TA_ASSERT(init_high || low->type == high->type);
+
+    if (init_high)
+        ta_value_init_max(low->type, high);
+    
+    /*
+     * Swap values if low > high.
+     * If values are equal, error since PCG will infinite loop. Upper
+     * bound is exclusive. 
+     */
+#define FIXUP(fld_)                                     \
+    do {                                                \
+        ta_value_t temp;                                \
+        if (low->fld_ < high->fld_) return TCL_OK;      \
+        if (low->fld_ > high->fld_) {                   \
+            temp = *low;                                \
+            low->fld_ = high->fld_;                     \
+            high->fld_ = temp.fld_;                     \
+            return TCL_OK;                              \
+        }                                               \
+    } while (0)
+        
+    switch (low->type) {
+    case TA_BOOLEAN: FIXUP(bval); break;
+    case TA_BYTE: FIXUP(ucval); break;
+    case TA_INT: FIXUP(ival); break;
+    case TA_UINT: FIXUP(uival); break;
+    case TA_WIDE: FIXUP(wval); break;
+    case TA_DOUBLE: FIXUP(dval); break;
+    }
+    return ta_invalid_rng_bounds(ip, low, high);
 }
 
 void tcol_random_init(ta_rng_t *prng)
@@ -123,20 +153,31 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
     case TA_BOOLEAN:
         /* For booleans, bounds are ignored */
         break;
+    case TA_BYTE:
+        if (olbound == NULL) {
+            lbound.type = ubound.type = TA_BYTE;
+            lbound.ucval = 0;
+            ubound.ucval = 255;
+            break;
+        }
+        /* FALLTHRU */
     case TA_UINT:
     case TA_INT:
     case TA_WIDE:
     case TA_DOUBLE:
-    case TA_BYTE:
         if (olbound) {
             res = ta_value_from_obj(ip, olbound, tatype, &lbound);
             if (res != TCL_OK)
                 return res;
             if (oubound) {
                 res = ta_value_from_obj(ip, oubound, tatype, &ubound);
-                if (res != TCL_OK)
-                    return res;
+                if (res == TCL_OK)
+                    res = ta_rng_fixup_bounds(ip, &lbound, &ubound, 0);
+            } else {
+                res = ta_rng_fixup_bounds(ip, &lbound, &ubound, 1);
             }
+            if (res != TCL_OK)
+                return res;
         }
         break;
     default:
@@ -157,6 +198,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
          * Note there is a significant performance difference between
          * pcg32_random_r and pcg32_boundedrand_r so we special case
          * these.
+         * Note TA_BYTE has implicit bounds.
          */
         if (tatype == TA_INT || tatype == TA_UINT) {
             unsigned int *p = THDRELEMPTR(thdr, unsigned int, 0);
@@ -187,15 +229,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
         type_ *end = p + count;                                         \
         basetype_ bound;                                                \
         /* Note pcg crash if lbound==ubound since ubound is open interval */ \
-        if (lbound. fld_ == ubound. fld_) {                             \
-            res = ta_invalid_bounds(ip);                                \
-            break;                                                      \
-        }                                                               \
-        if (lbound. fld_ > ubound. fld_) {                              \
-            type_ temp = lbound. fld_;                                  \
-            lbound. fld_ = ubound. fld_;                                \
-            ubound. fld_ = temp;                                        \
-        }                                                               \
+        TA_ASSERT(lbound.fld_ < ubound.fld_); \
         bound = ubound. fld_ - lbound. fld_;                            \
         while (p < end) {                                               \
             basetype_ temp = fn_(prng_, bound);                    \
@@ -206,20 +240,14 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
     switch (tatype) {
     case TA_UINT:
         TA_ASSERT(olbound);
-        if (oubound == NULL)
-            ubound.uival = UINT32_MAX;
         RFILL_(unsigned int, uival, uint32_t, pcg32_boundedrand_r, &prng->rng[0]);
         break;
     case TA_INT:
         TA_ASSERT(olbound);
-        if (oubound == NULL)
-            ubound.ival = INT32_MAX;
         RFILL_(int, ival, uint32_t, pcg32_boundedrand_r, &prng->rng[0]);
         break;
     case TA_WIDE:
         TA_ASSERT(olbound);
-        if (oubound == NULL)
-            ubound.wval = INT64_MAX;
         /* Note for wides we pass rng, not rng[0]. C will actually
            treat both the same but conceptually different as the 32x2 expects
            an array of two rngs */
@@ -229,17 +257,10 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
     case TA_DOUBLE:
         TA_ASSERT(olbound);
         /* TBD - how about over/underflows if bounds specified? */
-        if (oubound == NULL)
-            ubound.dval = DBL_MAX; 
         RFILL_(double, dval, double, pcgdouble_boundedrand_r, prng->rng);
         break;
 
     case TA_BYTE:
-        if (oubound == NULL) {
-            ubound.ucval = UINT8_MAX;
-            if (olbound == NULL)
-                lbound.ucval = 0;
-        }
         RFILL_(unsigned char, ucval, uint32_t, pcg32_boundedrand_r, &prng->rng[0]);
         break;
 

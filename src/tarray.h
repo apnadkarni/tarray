@@ -314,6 +314,8 @@ TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o);
+TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *, ta_value_t *);
+
 
 TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type);
 
@@ -432,7 +434,10 @@ TCL_RESULT ta_value_from_obj(Tcl_Interp *, Tcl_Obj *o,
 Tcl_Obj *ta_value_to_obj(ta_value_t *ptav);
 int ta_value_compare(ta_value_t *pa, ta_value_t *pb, int ignore_case);
 void ta_value_clear(ta_value_t *);
-void ta_value_init(ta_value_t *);
+TA_INLINE void ta_value_init(ta_value_t *ptav) {
+    ptav->type = TA_NONE;
+}
+void ta_value_init_max(unsigned char tatype, ta_value_t *ptav);
 
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
                      const ta_value_t *ptav, int pos, int count, int insert);

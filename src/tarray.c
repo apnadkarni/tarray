@@ -1508,16 +1508,27 @@ Tcl_Obj *ta_value_to_obj(ta_value_t *ptav)
     return NULL;
 }
 
-/* TBD - make inline */
-void ta_value_init(ta_value_t *ptav)
+void ta_value_init_max(unsigned char tatype, ta_value_t *ptav)
 {
-    ptav->type = TA_INT;
-    ptav->ival = 0;
+    TA_ASSERT(tatype != TA_ANY && tatype != TA_STRING);
+    
+    switch (tatype) {
+    case TA_BOOLEAN: ptav->bval = 1; break;
+    case TA_BYTE: ptav->ucval = UINT8_MAX; break;
+    case TA_INT: ptav->ival = INT32_MAX; break;
+    case TA_UINT: ptav->uival = UINT32_MAX; break;
+    case TA_WIDE: ptav->wval = INT64_MAX; break;
+    case TA_DOUBLE: ptav->wval = DBL_MAX; break;
+    }
+    ptav->type = tatype;
 }
 
 /* TBD - make inline */
 void ta_value_clear(ta_value_t *ptav)
 {
+    /* NOTE: For TA_ANY, Tcl_DecrRefCount is NOT called. See comments
+       in ta_value_from_obj
+    */
     if (ptav->type == TA_STRING)
         tas_unref(ptav->ptas);
 }
