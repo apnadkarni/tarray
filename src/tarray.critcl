@@ -85,6 +85,7 @@ critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h
 
 critcl::ccode {
 #include "tarray.h"
+#include "pcg_basic.h"
 }
 
 if {$build_opts(mt_enable)} {
@@ -1853,48 +1854,121 @@ critcl::class::define ::tarray::rng {
             goto error;
         }
         tcol_random_init(&instance->rng);
-        if (objc > 1) {
+        /* Note TA_BOOLEAN do not obey bounds */
+        if (objc > 1 && instance->rtype != TA_BOOLEAN) {
             instance->bounded = 1;
             if (ta_value_from_obj(interp, objv[1], instance->rtype, &instance->lbound) != TCL_OK)
                 goto error;
             if (objc > 2) {
                 if (ta_value_from_obj(interp, objv[2], instance->rtype, &instance->ubound) != TCL_OK)
                     goto error;
-            } else {
-                instance->ubound.type = instance->rtype;
-                switch (instance->rtype) {
-                case TA_BOOLEAN: instance->ubound.bval = 1; break;
-                case TA_BYTE: instance->ubound.ucval = UINT8_MAX; break;
-                case TA_INT: instance->ubound.ival = INT32_MAX; break;
-                case TA_UINT: instance->ubound.uival = UINT32_MAX; break;
-                case TA_WIDE: instance->ubound.wval = INT64_MAX; break;
-                case TA_DOUBLE: instance->ubound.dval = DBL_MAX; break;
-                }
             }
+            if (ta_rng_fixup_bounds(interp,
+                                    &instance->lbound, &instance->ubound,
+                                    objc <= 2) != TCL_OK)
+                goto error;
+        } else if (instance->rtype == TA_BYTE) {
+            instance->bounded = 1;
+            instance->lbound.type = instance->ubound.type = TA_BYTE;
+            instance->lbound.ucval = 0;
+            instance->ubound.ucval = 255;
         }
     }
     method_introspection
 
-    method seed proc {Tcl_Obj* o1 Tcl_Obj* o2} ok {
+    method seed proc {Tcl_Obj* SEED1 Tcl_Obj* SEED2} ok {
         Tcl_WideInt seed1;
         Tcl_WideInt seed2;
         TCL_RESULT res;
-        if ((res = Tcl_GetWideIntFromObj(interp, o1, &seed1)) != TCL_OK ||
-            (res = Tcl_GetWideIntFromObj(interp, o2, &seed2)) != TCL_OK)
+        if ((res = Tcl_GetWideIntFromObj(interp, SEED1, &seed1)) != TCL_OK ||
+            (res = Tcl_GetWideIntFromObj(interp, SEED2, &seed2)) != TCL_OK)
             return res;
         pcg32_srandom_r(&instance->rng.rng[0], seed1, 0xf0f0f0f0);
         pcg32_srandom_r(&instance->rng.rng[1], seed2, 0x0f0f0f0f);
         return TCL_OK;
     }                                            
 
-    method gen proc {int {count 1}} ok {
-        return TCL_OK; 
+    method get proc {int {count 1}} ok {
+        int i;
+        Tcl_Obj *ores;
         
-    }
+        if (count == 0)
+            return TCL_OK;
+        if (count > 1)
+            ores = Tcl_NewListObj(count, NULL);
+        if (instance->bounded) {
+            for (i = 0; i < count; ++i) {
+                uint32_t ui32;
+                uint64_t ui64;
+                double dbl;
+                Tcl_Obj *o;
 
-    method gen1 proc {} Tcl_Obj*0 {
-        /* Tcl_Obj*0 -> ref count must be 0! */
-        return Tcl_NewWideIntObj(pcg32_random_r(&instance->rng.rng[0]));
+                TA_ASSERT(instance->rtype != TA_BOOLEAN);
+                switch (instance->rtype) {
+                case TA_BYTE:
+                    ui32 = pcg32_boundedrand_r(&instance->rng.rng[0],                                           instance->ubound.ucval - instance->lbound.ucval);
+                    o = Tcl_NewIntObj(ui32 + instance->lbound.ucval);
+                    break;
+                case TA_INT:
+                    ui32 = pcg32_boundedrand_r(&instance->rng.rng[0],                                           instance->ubound.ival - instance->lbound.ival);
+                    o = Tcl_NewIntObj(ui32 + instance->lbound.ival);
+                    break;
+                case TA_UINT:
+                    ui32 = pcg32_boundedrand_r(&instance->rng.rng[0],                                           instance->ubound.uival - instance->lbound.uival);
+                    /* Note WideInt to get sign right */
+                    o = Tcl_NewWideIntObj(ui32 + instance->lbound.uival);
+                    break;
+                case TA_WIDE:
+                    ui64 = pcg32x2_boundedrand_r(instance->rng.rng,
+                                                 instance->ubound.wval - instance->lbound.wval);
+                    o = Tcl_NewWideIntObj(ui64 + instance->lbound.wval);
+                    break;
+                case TA_DOUBLE:
+                    dbl = pcgdouble_boundedrand_r(instance->rng.rng,
+                                                  instance->ubound.dval - instance->lbound.dval);
+                    o = Tcl_NewDoubleObj(dbl + instance->lbound.dval);
+                default:
+                    ta_type_panic(instance->rtype);
+                }
+                if (count == 1) {
+                    ores = o;
+                    break;
+                }
+                Tcl_ListObjAppendElement(interp, ores, o);
+            }
+        } else {
+            /* Unbounded */
+            TA_ASSERT(instance->rtype != TA_BYTE);
+            for (i = 0; i < count; ++i) {
+                Tcl_Obj *o;
+                switch (instance->rtype) {
+                case TA_BOOLEAN:
+                    o = Tcl_NewIntObj(pcgbool_random_r(&instance->rng.rng[0]));
+                    break;
+                case TA_INT:
+                    o = Tcl_NewIntObj(pcg32_random_r(&instance->rng.rng[0]));
+                    break;
+                case TA_UINT:
+                    o = Tcl_NewWideIntObj(pcg32_random_r(&instance->rng.rng[0]));
+                    break;
+                case TA_WIDE:
+                    o = Tcl_NewWideIntObj(pcg32x2_random_r(instance->rng.rng));
+                    break;
+                case TA_DOUBLE:
+                    o = Tcl_NewDoubleObj(pcgdouble_random_r(instance->rng.rng));
+                    break;
+                default:
+                    ta_type_panic(instance->rtype);
+                }
+                if (count == 1) {
+                    ores = o;
+                    break;
+                }
+                Tcl_ListObjAppendElement(interp, ores, o);
+            }
+        }
+        Tcl_SetObjResult(interp, ores);
+        return TCL_OK;
     }
 }
 

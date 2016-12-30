@@ -13,45 +13,6 @@
 #include "tarray.h"
 #include "pcg_basic.h"
 
-/* Based on PCG basic c distribution pcg32x2-demo.c */
-TA_INLINE uint64_t pcg32x2_random_r(pcg32_random_t rng[2])
-{
-    return ((uint64_t)(pcg32_random_r(&rng[0])) << 32)
-            | pcg32_random_r(&rng[1]);
-}
-
-/* Returns floating point in range 0 to 1 */
-TA_INLINE double pcgdouble_random_r(pcg32_random_t rng[2])
-{
-#if defined(_MSC_VER) && _MSC_VER <= 1200
-    return ldexp((double)(int64_t)pcg32x2_random_r(rng), -64);
-#else
-    return ldexp((double)pcg32x2_random_r(rng), -64);
-#endif
-}
-
-TA_INLINE int pcgbool_random_r(pcg32_random_t *prng)
-{
-    return pcg32_random_r(prng) & 1;
-}
-
-/* From PCG basic c distribution pcg32x2-demo.c */
-static uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
-{
-    uint64_t threshold = -bound % bound;
-    for (;;) {
-        uint64_t r = pcg32x2_random_r(rng);
-        if (r >= threshold)
-            return r % bound;
-    }
-}
-
-/* bound must be positive! */
-TA_INLINE double pcgdouble_boundedrand_r(pcg32_random_t rng[2], double bound)
-{
-    return bound * pcgdouble_random_r(rng);
-}
-
 TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *ip, ta_value_t *low, ta_value_t *high, int init_high)
 {
     TA_ASSERT(low && high);
@@ -221,7 +182,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
         }
     }
 
-    /* We have to deal with bounds or type is not 32-bit integer */
+    /* We have to deal with bounds */
 
 #define RFILL_(type_, fld_, basetype_, fn_, prng_)                            \
     do {                                                                \
