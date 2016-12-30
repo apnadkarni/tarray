@@ -1518,7 +1518,7 @@ void ta_value_init_max(unsigned char tatype, ta_value_t *ptav)
     case TA_INT: ptav->ival = INT32_MAX; break;
     case TA_UINT: ptav->uival = UINT32_MAX; break;
     case TA_WIDE: ptav->wval = INT64_MAX; break;
-    case TA_DOUBLE: ptav->wval = DBL_MAX; break;
+    case TA_DOUBLE: ptav->dval = DBL_MAX; break;
     }
     ptav->type = tatype;
 }
