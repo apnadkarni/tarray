@@ -1,0 +1,81 @@
+# tarray rng
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+    # Tests for creating empty and large tarrays
+    foreach type {boolean byte double int uint wide} {
+        test rng-$type-new-1.0 {rng new} -body {
+            set r [tarray::rng new $type]
+            set val [$r get]
+            $r destroy
+            check_random [tarray::column create $type [list $val]] $type 1
+        } -result ""
+        
+        test rng-$type-create-1.0 {rng create} -body {
+            tarray::rng create r $type
+            set val [r get]
+            r destroy
+            check_random [tarray::column create $type [list $val]] $type 1
+        } -result ""
+        
+        test rng-$type-new-1.1 {rng new} -body {
+            set r [tarray::rng new $type]
+            set val [$r get 10]
+            $r destroy
+            check_random [tarray::column create $type $val] $type 10
+        } -result ""
+        
+        test rng-$type-create-1.1 {rng create} -body {
+            tarray::rng create r $type
+            set val [r get 10]
+            r destroy
+            check_random [tarray::column create $type $val] $type 10
+        } -result ""
+
+        if {$type ne "boolean"} {
+            test rng-$type-new-bounded-1.0 {rng new bounded} -body {
+                set r [tarray::rng new $type 150 200]
+                set val [$r get 100]
+                $r destroy
+                check_random [tarray::column create $type $val] $type 100 175 150 200
+            } -result ""
+
+            test rng-$type-new-bounded-1.1 {rng new bounded} -body {
+                set r [tarray::rng new $type 150]
+                set val [$r get 100]
+                $r destroy
+                check_random [tarray::column create $type $val] $type 100 "" 150
+            } -result ""
+
+            test rng-$type-create-bounded-1.0 {rng create bounded} -body {
+                tarray::rng create r $type 150 200
+                set val [r get 100]
+                r destroy
+                check_random [tarray::column create $type $val] $type 100 175 150 200
+            } -result ""
+
+            test rng-$type-create-bounded-1.1 {rng create bounded} -body {
+                tarray::rng create r byte 150
+                set val [r get 100]
+                r destroy
+                check_random [tarray::column create $type $val] $type 100 "" 150
+            } -result ""
+
+            test rng-$type-seed-1.0 {rng seed} -body {
+                tarray::rng create r $type
+                r seed 100 200
+                set l [r get 100]
+                r seed 100 200
+                set l2 [r get 100]
+                r destroy
+                string equal $l $l2
+            } -result 1
+        }
+    }
+
+
+}
+
+::tcltest::cleanupTests
