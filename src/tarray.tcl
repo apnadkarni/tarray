@@ -408,6 +408,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column loop prettify print table rng
+    namespace export column loop prettify print randseed rng table
 }
 

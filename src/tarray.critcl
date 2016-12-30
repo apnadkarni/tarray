@@ -1927,8 +1927,10 @@ critcl::class::define ::tarray::rng {
                     dbl = pcgdouble_boundedrand_r(instance->rng.rng,
                                                   instance->ubound.dval - instance->lbound.dval);
                     o = Tcl_NewDoubleObj(dbl + instance->lbound.dval);
+                    break;
                 default:
                     ta_type_panic(instance->rtype);
+                    break;
                 }
                 if (count == 1) {
                     ores = o;
@@ -1959,6 +1961,7 @@ critcl::class::define ::tarray::rng {
                     break;
                 default:
                     ta_type_panic(instance->rtype);
+                    break;
                 }
                 if (count == 1) {
                     ores = o;

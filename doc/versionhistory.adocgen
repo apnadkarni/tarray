@@ -9,7 +9,7 @@ text {
 text {
     == Changes since V0.8.1
 
-    * Added `randseed` and `column random` command.
+    * Added `rng`, `randseed` and `column random` commands.
 
     * Added random initializer for column constructors (Xtal).
 

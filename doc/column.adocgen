@@ -412,7 +412,7 @@ text {
     in the range {startsb}0,1{endsb} by default. The optional
     _LOWERBOUND_ and _UPPERBOUND_ arguments may be supplied to modify
     the range from which values are sampled. These are ignored for
-    if _TYPE_ is `boolean`.
+    _TYPE_ `boolean`.
 
     For use cases such as testing where you want the same reproducible
     "`random`" values to be produced, you can use the
