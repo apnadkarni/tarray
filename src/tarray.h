@@ -511,6 +511,7 @@ void tcol_random_init(ta_rng_t *prng);
 TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 TCL_RESULT ta_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 void ta_random_rng_delete(ClientData cdata);
+TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *, ta_value_t *, ta_value_t *, int);
 
 int table_check(Tcl_Interp *, Tcl_Obj *);
 Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns);
@@ -1000,5 +1001,45 @@ TA_INLINE int ta_finite_double(double dbl)
     */
     return (dbl <= DBL_MAX && dbl >= -DBL_MAX);    
 }
+
+/* Random number generation inlines */
+/* Based on PCG basic c distribution pcg32x2-demo.c */
+TA_INLINE uint64_t pcg32x2_random_r(pcg32_random_t rng[2])
+{
+    return ((uint64_t)(pcg32_random_r(&rng[0])) << 32)
+            | pcg32_random_r(&rng[1]);
+}
+
+/* Returns floating point in range 0 to 1 */
+TA_INLINE double pcgdouble_random_r(pcg32_random_t rng[2])
+{
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+    return ldexp((double)(int64_t)pcg32x2_random_r(rng), -64);
+#else
+    return ldexp((double)pcg32x2_random_r(rng), -64);
+#endif
+}
+
+/* bound must be positive! */
+TA_INLINE double pcgdouble_boundedrand_r(pcg32_random_t rng[2], double bound)
+{
+    return bound * pcgdouble_random_r(rng);
+}
+
+TA_INLINE int pcgbool_random_r(pcg32_random_t *prng)
+{
+    return pcg32_random_r(prng) & 1;
+}
+
+TA_INLINE uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
+{
+    uint64_t threshold = -bound % bound;
+    for (;;) {
+        uint64_t r = pcg32x2_random_r(rng);
+        if (r >= threshold)
+            return r % bound;
+    }
+}
+
 
 #endif
