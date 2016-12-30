@@ -316,3 +316,20 @@ TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o)
     Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
     return error_from_obj(ip, "Invalid operand(s)", o);
 }
+
+TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *plow, ta_value_t *phigh)
+{
+    Tcl_Obj *olow, *ohigh;
+    if (ip) {
+        olow = ta_value_to_obj(plow);
+        ohigh = ta_value_to_obj(phigh);
+    
+        Tcl_SetErrorCode(ip, "TARRAY", "RANDOM", "BOUNDS", NULL);
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Invalid random number range bounds %s-%s.",
+                                       Tcl_GetString(olow), Tcl_GetString(ohigh)));
+        Tcl_DecrRefCount(olow);
+        Tcl_DecrRefCount(ohigh);
+    }
+    return TCL_ERROR;
+}

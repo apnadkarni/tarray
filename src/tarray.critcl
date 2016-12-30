@@ -1823,72 +1823,78 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
 #endif
 }
 
+critcl::ccommand xxx {} {
+    Tcl_SetObjResult(interp, objv[0]);
+    return TCL_OK;
+}
+
 critcl::class::define ::tarray::rng {
     include pcg_basic.h
+    insvariable ta_rng_t rng {} {
+        instance->rng.nrefs = 1; /* Does not really matter */
+    }
+    insvariable {unsigned char} rtype
+    insvariable {unsigned char} bounded {} { instance->bounded = 0; }
+    insvariable ta_value_t lbound
+    insvariable ta_value_t ubound
     constructor {
-        if (objc > 0) {
-	    Tcl_AppendResult (interp, "wrong # args: should be \"rng\"", NULL);
+        if (objc < 1 || objc > 3) {
+	    Tcl_AppendResult (interp, "wrong # args: should be \"rng\" new|create TYPE ?LOWBOUND ?HIGHBOUND??", NULL);
             goto error;
+        }
+        if (ta_parse_type(interp, objv[0], &instance->rtype) != TCL_OK)
+            goto error;
+        switch (instance->rtype) {
+        case TA_BOOLEAN: case TA_BYTE: case TA_INT:
+        case TA_UINT: case TA_WIDE: case TA_DOUBLE:
+            break;
+        default:
+            ta_invalid_op_for_type(interp, instance->rtype);
+            goto error;
+        }
+        tcol_random_init(&instance->rng);
+        if (objc > 1) {
+            instance->bounded = 1;
+            if (ta_value_from_obj(interp, objv[1], instance->rtype, &instance->lbound) != TCL_OK)
+                goto error;
+            if (objc > 2) {
+                if (ta_value_from_obj(interp, objv[2], instance->rtype, &instance->ubound) != TCL_OK)
+                    goto error;
+            } else {
+                instance->ubound.type = instance->rtype;
+                switch (instance->rtype) {
+                case TA_BOOLEAN: instance->ubound.bval = 1; break;
+                case TA_BYTE: instance->ubound.ucval = UINT8_MAX; break;
+                case TA_INT: instance->ubound.ival = INT32_MAX; break;
+                case TA_UINT: instance->ubound.uival = UINT32_MAX; break;
+                case TA_WIDE: instance->ubound.wval = INT64_MAX; break;
+                case TA_DOUBLE: instance->ubound.dval = DBL_MAX; break;
+                }
+            }
         }
     }
     method_introspection
-    insvariable pcg32_random_t rng1 { First RNG } {
-        pcg32_srandom_r(&instance->rng1, time(NULL) ^ (intptr_t)&instance->rng1, (intptr_t)instance);
-    }
-    insvariable pcg32_random_t rng2 { Second RNG - used for 64-bit generation} {
-        pcg32_srandom_r(&instance->rng2, time(NULL) ^ (intptr_t)&instance->rng2, (intptr_t)instance);
-    }
-    method gen proc {} Tcl_Obj*0 {
-        /* Tcl_Obj*0 -> ref count must be 0! */
-        return Tcl_NewWideIntObj(pcg32_random_r(&instance->rng1));
+
+    method seed proc {Tcl_Obj* o1 Tcl_Obj* o2} ok {
+        Tcl_WideInt seed1;
+        Tcl_WideInt seed2;
+        TCL_RESULT res;
+        if ((res = Tcl_GetWideIntFromObj(interp, o1, &seed1)) != TCL_OK ||
+            (res = Tcl_GetWideIntFromObj(interp, o2, &seed2)) != TCL_OK)
+            return res;
+        pcg32_srandom_r(&instance->rng.rng[0], seed1, 0xf0f0f0f0);
+        pcg32_srandom_r(&instance->rng.rng[1], seed2, 0x0f0f0f0f);
+        return TCL_OK;
+    }                                            
+
+    method gen proc {int {count 1}} ok {
+        return TCL_OK; 
+        
     }
 
-    method int proc {int count int {low INT_MIN} int {high INT_MAX}} Tcl_Obj*0 {
-        int i;
-        thdr_t *thdr;
-        if (low > high) {
-            i = low;
-            low = high;
-            high = i;
-        }
-        thdr = thdr_alloc(interp, TA_INT, count);
-        if (thdr == NULL)
-            return 0;
-        if (count > 0) {
-            int *pint = THDRELEMPTR(thdr, int, 0);
-            /* 
-             * Note there is a significant performance difference between
-             * pcg32_random_r and pcg32_boundedrand_r so don't combine
-             * the two cases below.
-             */
-            if (low == INT_MIN && high == INT_MAX) {
-                for (i = 0; i < count; ++i, ++pint)
-                    *pint = pcg32_random_r(&instance->rng1); 
-            } else {
-                uint32_t bound = high-low;
-                for (i = 0; i < count; ++i, ++pint) {
-                    uint32_t ui = pcg32_boundedrand_r(&instance->rng1, bound);
-                    *pint = ui + low;
-                }
-            }
-            thdr->used = count;
-        }
-        return tcol_new(thdr);
-    }
-    
-    method double proc {int count} Tcl_Obj*0 {
-        thdr_t *thdr;
-        thdr = thdr_alloc(interp, TA_DOUBLE, count);
-        if (thdr == NULL)
-            return 0;
-        if (count > 0) {
-            double *pdbl = THDRELEMPTR(thdr, double, 0);
-            int i;
-            for (i = 0; i < count; ++i, ++pdbl) 
-                *pdbl = ldexp(pcg32_random_r(&instance->rng1), -32);
-            thdr->used = count;
-        }
-        return tcol_new(thdr);
+    method gen1 proc {} Tcl_Obj*0 {
+        /* Tcl_Obj*0 -> ref count must be 0! */
+        return Tcl_NewWideIntObj(pcg32_random_r(&instance->rng.rng[0]));
     }
 }
 
