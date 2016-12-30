@@ -100,6 +100,46 @@ text {
     undo the effects of a previous call to `randseed` with
     specific seed values.
     
+    ((cmddef tarray_rng_create "rng create _CMDNAME_ _TYPE_ ?_LOWERBOUND_? ?_HIGHERBOUND_?"))
+    Returns a new random number generator (RNG) command object named
+    `_CMDNAME_` that can be used to produce uniformly distributed
+    random numbers of the specified type.
+    For types `boolean`, `byte`, `int`, `uint`
+    and `wide` the range of generated values corresponds to the entire
+    domain range by default. For type `double` the values are generated
+    in the range {startsb}0,1{endsb} by default. The optional
+    _LOWERBOUND_ and _UPPERBOUND_ arguments may be supplied to modify
+    the range from which values are sampled. These are ignored for
+    _TYPE_ `boolean`.
+
+    The returned RNG command object can be used to generate random numbers
+    by calling its ((^` tarray_RNG_get get)) subcommand and its seed values
+    set with the ((^` tarray_RNG_seed seed)) subcommand.
+
+    ((cmddef tarray_rng_new "rng new _TYPE_ ?_LOWERBOUND_? ?_HIGHERBOUND_?"))
+    Returns a new random number generator (RNG) command object that
+    can be used to produce random numbers of the specified type.
+    See ((^ tarray_rng_create)) for details. This command differs only
+    in that the name of the returned command object is automatically
+    generated.
+
+    ((cmddef tarray_RNG_get "_RNG_ get ?_COUNT_?"))
+    Returns `_COUNT_` random numbers. `_RNG_` is a random number generator
+    created by the ((^` tarray_rng_create "rng create"))
+    or ((^` tarray_rng_new "rng new")) commands. `_COUNT_` defaults
+    to `1`.
+
+    ((cmddef tarray_RNG_seed "_RNG_ seed _SEED1_ _SEED2_"))
+    Sets the seed of the random number generator command object `_RNG_`
+    created by the ((^` tarray_rng_create "rng create"))
+    or ((^` tarray_rng_new "rng new")) commands.
+    The `_SEED1_` and `_SEED2_` should be any 64-bit numbers.
+    For normal use, this command need not be invoked as the
+    RNG is automatically initialized internally using runtime
+    data. For use cases such as testing where you want reproducible
+    "`random`" values to be produced, you can set 
+    the same seed arguments before every run.
+    
     ((cmddef tarray_table "table _SUBCOMMAND_ ..."))
     Operates on tables. See ((^ chap_table_ref)).
 }

@@ -60,7 +60,7 @@ text {
 
 } shell {
     package require tarray
-    namespace import tarray::column tarray::table tarray::print
+    namespace import tarray::column tarray::table tarray::print tarray::randseed tarray::rng
 } text {
     If in addition you want to use the Xtal language, you need to
     load its package as well.
@@ -689,7 +689,42 @@ text {
     desired.
 } shell {
     lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
-} 
+} text {
+    == Random number generation
+
+    We saw earlier the construction of columns containing randomly generated
+    values. Random numbers can also be directly generated using the
+    `tarray::rng` command. This returns a command object which can then
+    be invoked to generate values of the appropriate type.
+} shell {
+    rng create myrng int;       # Create a random number generator for integers
+    myrng get;                  # Gets a random integer
+    myrng get 5;                    # Get 5 random integers
+    myrng destroy;              # Release resources when no longer needed
+} text {
+    The `rng new` command behaves similarly except a command name need
+    not be specified. Moreover, both forms take an optional argument
+    to generate random numbers within a specified range.
+} shell {
+    set r [rng new double 1.0 2.0]; # Generate real numbers between 1.0 and 2.0
+    $r get 3
+    $r destroy
+} text {
+    For testing purposes, the generator can be initialized with a specific
+    seed to reproduce the same sequence everytime.
+} shell {
+    rng create myrng byte 10 20
+    myrng seed 1000 2000;         # Any 64-bit seed values
+    myrng get 5
+    myrng get 5
+    myrng seed 1000 2000;         # Reset seeds
+    myrng get 5
+    myrng get 5
+    myrng destroy
+} text {
+    As seen, the same sequence is reproduced by initializing the seed
+    with specific values.
+}
 
 text {
     == Usage Hints
