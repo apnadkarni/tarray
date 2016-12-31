@@ -16,7 +16,7 @@ element of the column is converted to an integer that is treated as an index.
 * a column of type `boolean`. Here the *index* of each bit in the boolean
 column that is set to `1` is treated as an index.
 
-Index clumns allow the indices returned
+Index columns allow the indices returned
 by commands such as column search to be efficiently passed to other commands.
 When indices are specified as a list cause an array to be extended, the index
 list must include all indices beyond the current array size in any order but
