@@ -825,6 +825,11 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                the expected result type.
              */
             ta_value_t *ptav = &poperands[i].scalar_operand;
+            /* Avoid shimmering tables. */
+            if (table_affirm(objv[j])) {
+                status = ta_invalid_op_for_table(ip);
+                goto vamoose;
+            }
             if (Tcl_GetWideIntFromObj(NULL, objv[j], &ptav->wval) == TCL_OK) {
                 /* Note integers are also stored as wides during computation */
                 ptav->type = TA_WIDE;
