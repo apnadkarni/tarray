@@ -234,6 +234,16 @@ TCL_RESULT ta_invalid_op_for_type(Tcl_Interp *ip, int typea)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_invalid_op_for_table(Tcl_Interp *ip)
+{
+    if (ip) {
+        Tcl_SetResult(ip, "Operation is invalid for tables.", TCL_STATIC);
+        Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "OPERATION", NULL);
+    }
+
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
 {
     if (ip) {
