@@ -245,19 +245,21 @@ proc tarray::unsupported::build_info {} {
 proc tarray::unsupported::crandom {varname type count} {
     # Do not use lrandom because that will affect memory usage in benchmarks
     upvar 1 $varname col
-    set col [tarray::column create $type {} $count]
     # TBD - return entire range of floats
     # TBD - larger numbers are more likely. Change to return equal
     # number from each range 0-9, 10-99, 100-999 etc.
     switch $type {
-        boolean { time {tarray::column vput col [expr {rand() > 0.5}]} $count }
-        uint { time {tarray::column vput col [expr {wide(0xffffffff*rand())}]} $count }
-        int { time {tarray::column vput col [expr {wide(0x7fffffff*(rand()-0.5))}]} $count }
-        wide { time {tarray::column vput col [expr {wide(0x7fffffffffffffff*rand())}]} $count }
-        byte { time {tarray::column vput col [expr {round(255*rand())}]} $count }
-        double {time {tarray::column vput col [tcl::mathfunc::rand]} $count}
+        boolean -
+        byte -
+        int -
+        uint -
+        wide -
+        double {
+            set col [tarray::column random $type $count]
+        }
         string -
         any {
+            set col [tarray::column create $type {} $count]
             time {
                 set n [expr {round(100*rand())}]
                 tarray::column vput col [string repeat $n $n]$type
@@ -276,12 +278,16 @@ proc tarray::unsupported::lrandom {varname type count} {
     # TBD - larger numbers are more likely. Change to return equal
     # number from each range 0-9, 10-99, 100-999 etc.
     switch $type {
-        boolean { time {lappend l [expr {rand() > 0.5}]} $count }
-        uint { time {lappend l [expr {wide(0xffffffff*rand())}]} $count }
-        int { time {lappend l [expr {wide(0x7fffffff*(rand()-0.5))}]} $count }
-        wide { time {lappend l [expr {wide(0x7fffffffffffffff*rand())}]} $count }
-        byte { time {lappend l [expr {round(255*rand())}]} $count }
-        double {time {lappend l [tcl::mathfunc::rand]} $count}
+        boolean -
+        byte -
+        int -
+        uint -
+        wide -
+        double {
+            set r [tarray::rng new $type]
+            set l [$r get $count]
+            $r destroy
+        }
         string -
         any {
             time {
