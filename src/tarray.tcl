@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015, Ashok P. Nadkarni
+# Copyright (c) 2015-2016, Ashok P. Nadkarni
 # All rights reserved.
 #
 # See the file LICENSE for license
@@ -14,6 +14,12 @@ namespace eval tarray {
 }
 
 interp alias {} tarray::column::count {} tarray::column::search -count
+
+# TBD - document
+proc tarray::column::zeroes {count {type boolean}} {
+    return [fill [create $type {} $count] 0 0 [incr count -1]]
+}
+
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}
     set cols {}
@@ -360,6 +366,7 @@ namespace eval tarray {
             vput vput
             vreverse vreverse
             vsort vsort
+            zeroes zeroes
             + +
             - -
             * *
