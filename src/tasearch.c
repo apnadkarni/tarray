@@ -19,10 +19,10 @@ int ta_search_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
  * Options for 'tarray search'
  */
 static const char *ta_search_switches_e[] = {
-    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-among", "-count", NULL
+    "-all", "-inline", "-not", "-range", "-eq", "-gt", "-lt", "-pat", "-re", "-nocase", "-among", "-count", "-bitmap", NULL
 };
 enum ta_search_switches_e {
-    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_AMONG, TA_SEARCH_OPT_COUNT
+    TA_SEARCH_OPT_ALL, TA_SEARCH_OPT_INLINE, TA_SEARCH_OPT_INVERT, TA_SEARCH_OPT_RANGE, TA_SEARCH_OPT_EQ, TA_SEARCH_OPT_GT, TA_SEARCH_OPT_LT, TA_SEARCH_OPT_PAT, TA_SEARCH_OPT_RE, TA_SEARCH_OPT_NOCASE, TA_SEARCH_OPT_AMONG, TA_SEARCH_OPT_COUNT, TA_SEARCH_OPT_BITMAP
 };
 /* Search flags */
 #define TA_SEARCH_INLINE 1  /* Return values, not indices */
@@ -30,12 +30,13 @@ enum ta_search_switches_e {
 #define TA_SEARCH_ALL    4  /* Return all matches */
 #define TA_SEARCH_NOCASE 8  /* Ignore case */
 #define TA_SEARCH_COUNT  16 /* Only count matches */
+#define TA_SEARCH_BITMAP 32 /* Return result as boolean index column. */
 
 /* Contains search criteria */
 typedef struct ta_search_s {
     thdr_t *indices;            /* List of indices to examine, may be NULL */
-    int lower;                  /* Start of range to search */
-    int upper;                  /* End of range to search */
+    int lower;                  /* Starting index of search range */
+    int upper;                  /* Ending index (inclusive) of search range */
     int flags;                  /* Search attributes */
     int cur;                    /* Cur position to check. If indices is NULL,
                                    this is the index into the haystack. If
@@ -45,22 +46,6 @@ typedef struct ta_search_s {
     enum ta_search_switches_e op;    /* Search operation */
 } ta_search_t;
 
-#ifdef OBSOLETE
-TCL_RESULT ta_search_op_error(Tcl_Interp *ip, int op)
-{
-    if (ip) {
-        const char *ops = NULL;
-        if (op < (sizeof(ta_search_switches_e)/sizeof(ta_search_switches_e[0])))
-            ops = ta_search_switches_e[op];
-        if (ops == NULL)
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Unknown or invalid search operator (%d).", op));
-        else
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Unknown or invalid search operator (%s).", ops));
-        Tcl_SetErrorCode(ip, "TARRAY", "SEARCH", "OPER", NULL);
-    }
-    return TCL_ERROR;
-}
-#endif
 
 TCL_RESULT ta_search_bad_options(Tcl_Interp *ip)
 {
@@ -70,16 +55,23 @@ TCL_RESULT ta_search_bad_options(Tcl_Interp *ip)
 
 
 /* Returns the appropriate result type when there are no matches found */
-TCL_RESULT ta_search_nomatches(Tcl_Interp *ip, thdr_t *haystackP, ta_search_t *psearch)
+TCL_RESULT ta_search_nomatches(Tcl_Interp *ip, thdr_t *haystackP, span_t *span, ta_search_t *psearch)
 {
     Tcl_Obj *o;
+    thdr_t *thdr;
     if (psearch->flags & TA_SEARCH_ALL) {
-        thdr_t *thdr;
-        thdr = thdr_alloc(ip, 
-                          psearch->flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
-                          0);
-        if (thdr == NULL)
-            return TCL_ERROR;
+        if (psearch->flags & TA_SEARCH_BITMAP) {
+            int size = span ? span->count : haystackP->used;
+            thdr = thdr_alloc_bitmap(ip, size);
+            if (thdr == NULL)
+                return TCL_ERROR;
+        } else {
+            thdr = thdr_alloc(ip, 
+                              psearch->flags & TA_SEARCH_INLINE ? haystackP->type : TA_INT,
+                              0);
+            if (thdr == NULL)
+                return TCL_ERROR;
+        }
         o = tcol_new(thdr);
     } else if (psearch->flags & TA_SEARCH_COUNT) {
         o = Tcl_NewIntObj(0);
@@ -129,7 +121,7 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
     thdr_t *thdr;
     thdr_t *newP;
     int haystack_lower, haystack_upper;
-    int span_base;
+    int span_base, span_size;
 
     TA_ASSERT(haystackP->type == TA_BOOLEAN);
 
@@ -143,50 +135,91 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
         bval = !bval;
 
     /* Translate column range to positions in the haystackP thdr */
+    haystack_lower = psearch->lower;
+    haystack_upper = psearch->upper;
+    span_size = haystackP->used;
+    span_base = 0;
     if (span) {
+        span_size = span->count;
         span_base = span->first;
-        haystack_lower = psearch->lower + span_base;
-        haystack_upper = psearch->upper + span_base;
-    } else {
-        span_base = 0;
-        haystack_lower = psearch->lower;
-        haystack_upper = psearch->upper;
+        haystack_lower += span_base;
+        haystack_upper += span_base;
     }
-        
+    TA_ASSERT(haystack_upper <= haystackP->used);
+
+    /* 
+     * Note haystack_lower and haystack_upper are now indexes into
+     * the entire haystack irrespective of span. When converting to
+     * indices in the column, the span_base value will have to be
+     * subtracted out.
+     */
+    
     baP = THDRELEMPTR(haystackP, ba_t, 0);
 
     if (psearch->indices == NULL) {
         /* Search a range */
         if (psearch->upper < psearch->lower)
-            return ta_search_nomatches(ip, haystackP, psearch);
+            return ta_search_nomatches(ip, haystackP, span, psearch);
 
         if (psearch->flags & TA_SEARCH_ALL) {
-            thdr = thdr_alloc(ip, 
-                              psearch->flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
-                              10);                /* TBD Assume 10 hits */
-            if (thdr == NULL)
-                return TCL_ERROR;
-            pos = haystack_lower;
-            while ((pos = ba_find(baP, bval, pos, haystack_upper+1)) != -1) {
-                /* Ensure enough space in target array */
-                if (thdr->used >= thdr->usable) {
-                    newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
-                    if (newP)
-                        thdr = newP;
-                    else {
-                        thdr_decr_refs(thdr);
+            if (psearch->flags & TA_SEARCH_BITMAP) {
+                if (psearch->lower == 0 && psearch->upper == (span_size-1)) {
+                    /* No search range was specified. */
+                    if (bval && span == NULL) {
+                        /* Searching for 1's in entire haystack column
+                           which is not a span. Can return it as is.  */
+                        thdr = haystackP;
+                    } else {
+                        thdr = thdr_clone(ip, haystackP, span_size, span);
+                        if (thdr == NULL)
+                            return TCL_ERROR;
+                        if (!bval) 
+                            thdr_complement(thdr); /* Looking for 0's */
+                    }
+                } else {
+                    /* Range is specified. */
+                    int nbits;
+                    thdr = thdr_alloc_bitmap(ip, span_size);
+                    if (thdr == NULL)
                         return TCL_ERROR;
+                    nbits = haystack_upper - haystack_lower + 1;
+                    TA_ASSERT((psearch->upper - psearch->lower + 1) == nbits);
+                    thdr_copy(thdr, psearch->lower, haystackP, haystack_lower,
+                              nbits, 0);
+                    if (!bval) {
+                        /* Looking for 0, so need to complement bits */
+                        ba_complement(THDRELEMPTR(thdr, ba_t, 0), psearch->lower, nbits);
                     }
                 }
-                if (psearch->flags & TA_SEARCH_INLINE)
-                    ba_put(THDRELEMPTR(thdr, ba_t, 0), thdr->used, bval);
-                else
-                    *THDRELEMPTR(thdr, int, thdr->used) = pos - span_base;
-                thdr->used++;
-                ++pos;
+            } else {
+                thdr = thdr_alloc(ip, 
+                                  psearch->flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
+                                  10);                /* TBD Assume 10 hits */
+                if (thdr == NULL)
+                    return TCL_ERROR;
+                pos = haystack_lower;
+                while ((pos = ba_find(baP, bval, pos, haystack_upper+1)) != -1) {
+                    /* Ensure enough space in target array */
+                    if (thdr->used >= thdr->usable) {
+                        /* TBD - double instead of TA_EXTRA? */
+                        newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
+                        if (newP)
+                            thdr = newP;
+                        else {
+                            thdr_decr_refs(thdr);
+                            return TCL_ERROR;
+                        }
+                    }
+                    if (psearch->flags & TA_SEARCH_INLINE)
+                        ba_put(THDRELEMPTR(thdr, ba_t, 0), thdr->used, bval);
+                    else
+                        *THDRELEMPTR(thdr, int, thdr->used) = pos - span_base;
+                    thdr->used++;
+                    ++pos;
+                }
+                if ((psearch->flags & TA_SEARCH_INLINE) == 0)
+                    thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
             }
-            if ((psearch->flags & TA_SEARCH_INLINE) == 0)
-                thdr->sort_order = THDR_SORTED_ASCENDING; /* indices are naturally sorted */
             oresult = tcol_new(thdr);
         } else if (psearch->flags & TA_SEARCH_COUNT) {
             int nmatches;
@@ -209,9 +242,12 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
         /* We have to look only in specific position given by indices */
 
         if (psearch->flags & TA_SEARCH_ALL) {
-            thdr = thdr_alloc(ip, 
-                              psearch->flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
-                              10);                /* Assume 10 hits */
+            if (psearch->flags & TA_SEARCH_BITMAP)
+                thdr = thdr_alloc_bitmap(ip, span_size); /* 0-initialized */
+            else
+                thdr = thdr_alloc(ip, 
+                                  psearch->flags & TA_SEARCH_INLINE ? TA_BOOLEAN : TA_INT,
+                                  10);                /* Assume 10 hits */
             if (thdr == NULL)
                 return TCL_ERROR;
 
@@ -222,21 +258,25 @@ static TCL_RESULT thdr_search_boolean(Tcl_Interp *ip, thdr_t * haystackP,
 
                 TA_ASSERT((span_base+pos) < haystackP->used);
                 if (ba_get(baP, span_base+pos) == bval) {
-                    /* Ensure enough space in target array */
-                    if (thdr->used >= thdr->usable) {
-                        newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
-                        if (newP)
-                            thdr = newP;
-                        else {
-                            thdr_decr_refs(thdr);
-                            return TCL_ERROR;
+                    if (psearch->flags & TA_SEARCH_BITMAP) {
+                        ba_put(THDRELEMPTR(thdr, ba_t, 0), pos, 1);
+                    } else {
+                        /* Ensure enough space in target array */
+                        if (thdr->used >= thdr->usable) {
+                            newP = thdr_realloc(ip, thdr, thdr->used + TA_EXTRA(thdr->used));
+                            if (newP)
+                                thdr = newP;
+                            else {
+                                thdr_decr_refs(thdr);
+                                return TCL_ERROR;
+                            }
                         }
+                        if (psearch->flags & TA_SEARCH_INLINE)
+                            ba_put(THDRELEMPTR(thdr, ba_t, 0), thdr->used, bval);
+                        else
+                            *THDRELEMPTR(thdr, int, thdr->used) = pos;
+                        thdr->used++;
                     }
-                    if (psearch->flags & TA_SEARCH_INLINE)
-                        ba_put(THDRELEMPTR(thdr, ba_t, 0), thdr->used, bval);
-                    else
-                        *THDRELEMPTR(thdr, int, thdr->used) = pos;
-                    thdr->used++;
                 }
                 psearch->cur += 1;  /* Next index to check */
             }
@@ -687,7 +727,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
         haystack_upper = psearch->upper;
     }
     if (haystack_upper < haystack_lower)
-        return ta_search_nomatches(ip, haystackP, psearch);
+        return ta_search_nomatches(ip, haystackP, span, psearch);
     count = haystack_upper - haystack_lower + 1;
 
 #if !defined(TA_MT_ENABLE)
@@ -814,36 +854,55 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                     ++matching_contexts;
                 }
             }
-            
-            if (matching_contexts == 0) {
-                /* No matches. Just pass back the first (empty) thdr */
-                result_thdr = mt_context[0].thdr;
-                thdr_incr_refs(result_thdr); /* See below */
-            } else if (matching_contexts == 1) {
-                /* Exactly one context found matches. Just return its thdr */
-                result_thdr = mt_context[first_matching_context].thdr;
-                thdr_incr_refs(result_thdr); /* See below */
-            } else {
-                /*
-                 * Multiple matches in multiple contexts. Gather them up
-                 * into the first matching context.
-                 */
-                result_thdr = thdr_realloc(ip, mt_context[first_matching_context].thdr, total);
+
+            if (psearch->flags & TA_SEARCH_BITMAP) {
+                int col_size = span ? span->count : haystackP->used;
+                result_thdr = thdr_alloc_bitmap(ip, col_size);
                 if (result_thdr) {
-                    mt_context[first_matching_context].thdr = result_thdr;
-                    thdr_incr_refs(result_thdr);/* See refcounting note below */
-                    for (i = first_matching_context+1; i < ncontexts; ++i) {
-                        thdr_copy(result_thdr, result_thdr->used,
-                                  mt_context[i].thdr, 0,
-                                  mt_context[i].thdr->used, 0);
+                    int i;
+                    ba_t *baP = THDRELEMPTR(result_thdr, ba_t, 0);
+                    for (i = 0; i < matching_contexts; ++i) {
+                        thdr_t *src_thdr = mt_context[i].thdr;
+                        int *pindex = THDRELEMPTR(src_thdr, int, 0);
+                        int j, src_count;
+                        for (j = 0, src_count=src_thdr->used; j < src_count; ++j, ++pindex) {
+                            TA_ASSERT(*pindex < col_size);
+                            ba_put(baP, *pindex, 1);
+                        }
+                    }
+                }
+            } else {
+                if (matching_contexts == 0) {
+                    /* No matches. Just pass back the first (empty) thdr */
+                    result_thdr = mt_context[0].thdr;
+                    thdr_incr_refs(result_thdr); /* See NOTE below */
+                } else if (matching_contexts == 1) {
+                    /* Exactly one context found matches. Just return its thdr */
+                    result_thdr = mt_context[first_matching_context].thdr;
+                    thdr_incr_refs(result_thdr); /* See NOTE below */
+                } else {
+                    /*
+                     * Multiple matches in multiple contexts. Gather them up
+                     * into the first matching context.
+                     */
+                    result_thdr = thdr_realloc(ip, mt_context[first_matching_context].thdr, total);
+                    if (result_thdr) {
+                        mt_context[first_matching_context].thdr = result_thdr;
+                        thdr_incr_refs(result_thdr);/* See ref counting note below */
+                        for (i = first_matching_context+1; i < ncontexts; ++i) {
+                            thdr_copy(result_thdr, result_thdr->used,
+                                      mt_context[i].thdr, 0,
+                                      mt_context[i].thdr->used, 0);
+                        }
                     }
                 }
             }
+            
             /* At this point result_thdr is NULL iff error */
             if (result_thdr)
                 Tcl_SetObjResult(ip, tcol_new(result_thdr));
 
-            /*
+            /* NOTE:
              * A note on reference counting. The thdr's in the contexts
              * are allocated with a reference count of 0. We deallocate
              * them here. However, a special case must be considered -
@@ -853,8 +912,8 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
              * the thdr_decr_refs will drop it back to 0 and free it.
              * To take care of this case, when setting result_thdr
              * to one of the allocated thdr's above, we thdr_incr_refs it
-             * so it's ref count will be 2 at this point and not get
-             * freed after the decrement.
+             * (see above) so it's ref count will be 2 at this point and not
+             * get freed after the decrement.
              */
             for (i = 0; i < ncontexts; ++i)
                 thdr_decr_refs(mt_context[i].thdr);
@@ -895,7 +954,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
              */
             Tcl_SetObjResult(ip, resultObj);
         }
-    } else {
+    } else /* res != TCL_OK */ {
         /* Free up thdrs (only allocated with TA_SEARCH_ALL) */
         if (psearch->flags & TA_SEARCH_ALL) {
             for (i = 0; i < ncontexts; ++i) {
@@ -926,8 +985,8 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
     int haystack_lower;
     
     TA_ASSERT(psearch->indices);
-    TA_ASSERT(psearch->upper <= haystackP->used);
-    TA_ASSERT(span==NULL || psearch->upper <= span->count);
+    TA_ASSERT(psearch->upper < haystackP->used);
+    TA_ASSERT(span==NULL || psearch->upper < span->count);
 
     if (ta_value_from_obj(ip, needleObj, type, &needle_tav) != TCL_OK)
         return TCL_ERROR;
@@ -1227,9 +1286,17 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         ta_type_panic(type);
     }
 
-    if (flags & TA_SEARCH_ALL)
+    if (flags & TA_SEARCH_ALL) {
+        if (flags & TA_SEARCH_BITMAP) {
+            thdr_t *thdr_bitmap;
+            thdr_bitmap = thdr_indices_to_bitmap(thdr, span ? span->count : haystackP->used);
+            thdr_decr_refs(thdr);
+            thdr = thdr_bitmap;
+            if (thdr == NULL)
+                return TCL_ERROR;
+        }
         o = tcol_new(thdr);
-    else if (flags & TA_SEARCH_COUNT)
+    } else if (flags & TA_SEARCH_COUNT)
         o = Tcl_NewIntObj(nmatches);
     else {
         if (flags & TA_SEARCH_INLINE)
@@ -1289,7 +1356,8 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
 
         switch ((enum ta_search_switches_e) opt) {
         case TA_SEARCH_OPT_ALL: search.flags |= TA_SEARCH_ALL; break;
-        case TA_SEARCH_OPT_COUNT: search.flags |= TA_SEARCH_COUNT; break;
+        case TA_SEARCH_OPT_BITMAP: search.flags |= TA_SEARCH_ALL|TA_SEARCH_BITMAP; break;
+        case TA_SEARCH_OPT_COUNT:  search.flags |= TA_SEARCH_COUNT; break;
         case TA_SEARCH_OPT_INLINE: search.flags |= TA_SEARCH_INLINE; break;
         case TA_SEARCH_OPT_INVERT: search.flags |= TA_SEARCH_INVERT; break;
         case TA_SEARCH_OPT_NOCASE: search.flags |= TA_SEARCH_NOCASE; break;
@@ -1369,6 +1437,11 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
             status = ta_search_bad_options(ip);
             goto vamoose;
         }
+    }
+    if ((search.flags & (TA_SEARCH_BITMAP|TA_SEARCH_INLINE)) ==
+        (TA_SEARCH_BITMAP|TA_SEARCH_INLINE)) {
+        status = ta_search_bad_options(ip);
+        goto vamoose;
     }
 
     if (search.lower < 0)
