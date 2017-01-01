@@ -220,6 +220,7 @@ void thdr_free(thdr_t *thdr);
 thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, int tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
+thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count);
 TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
 
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
@@ -719,6 +720,14 @@ TA_INLINE span_t *span_alloc(int first, int count) {
     span->first = first;
     span->count = count;
     return span;
+}
+
+TA_INLINE void thdr_complement(thdr_t *thdr) {
+    TA_ASSERT(thdr->type == TA_BOOLEAN);
+    TA_ASSERT(! thdr_shared(thdr));
+    if (thdr->used) {
+        ba_complement(THDRELEMPTR(thdr, ba_t, 0), 0, thdr->used);
+    }
 }
 
 TA_INLINE void span_free(span_t *span) { TA_FREEMEM(span); }

@@ -2615,6 +2615,52 @@ thdr_t * thdr_alloc_and_init(Tcl_Interp *ip, int tatype,
     return thdr;               /* May be NULL on error */
 }
 
+/* Returns 0-initialized boolean column */
+thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count)
+{
+    thdr_t *thdr;
+    
+    thdr = thdr_alloc(ip, TA_BOOLEAN, count);
+    if (thdr == NULL)
+        return TCL_ERROR;
+    ba_fill(THDRELEMPTR(thdr, ba_t, 0), 0, count, 0);
+    thdr->used = count;
+    return thdr;
+}
+
+/* Convert a integer index column to a bitmap index. */
+thdr_t *thdr_indices_to_bitmap(
+    Tcl_Interp *ip,
+    int size, /* Size of bitmap. Errors if any index is higher */
+    thdr_t *src, span_t *span)
+{
+    thdr_t *thdr;
+    int *pindex, *end;
+    int count, pos;
+    ba_t *baP;
+
+    TA_ASSERT(src->type == TA_INT);
+    pindex = THDRELEMPTR(src, int, 0);
+    count = src->used;
+    if (span) {
+        count = span->count;
+        pindex += span->first;
+    }
+    thdr = thdr_alloc_bitmap(ip, size);
+    if (thdr == NULL)
+        return TCL_ERROR;
+    baP = THDRELEMPTR(thdr, ba_t, 0);
+    for (pos = 0; pos < count; ++pos, ++pindex) {
+        if (*pindex >= size) {
+            thdr_decr_refs(thdr);
+            ta_index_range_error(ip, *pindex);
+            return NULL;
+        }
+        ba_put(baP, pos, 1);
+    }
+    return thdr;
+}
+
 /* Grow the internal rep to a minimum size */
 TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size)
 {
