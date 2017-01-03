@@ -249,17 +249,9 @@ text {
 
     The operands may be any combination of scalar numerical values
     and columns of appropriate types shown in the table.
-    If multiple columns are specified, they may be of differing types except
-    that `boolean` columns may only be combined with scalar values and
-    other `boolean` columns and not with columns of other types.
-
+    If multiple columns are specified, they may be of differing types.
     All columns must have the same number of elements.
     
-    If any operand is a double or a column of type `double`, all computation
-    is done by converting each operand (or element of an operand) to
-    a double. Otherwise all computation is done using 64-bit integers
-    and converted back to the result type.
-
     If every operand is a scalar, the return value is also a scalar
     numerical value computed in similar (but not identical) fashion to
     the Tcl `expr` command.
@@ -277,9 +269,20 @@ text {
     and size all of whose elements are equal to that scalar value.
     For arithmetic operations, elements of `boolean` columns are
     treated as having integer values `0` and `1`.
-    
+    If the result type is double, all computation is done by
+    is done by converting each operand (or element of an operand) to
+    a double. Otherwise all computation is done using 64-bit integers
+    and converted back to the result type. Columns of type `any`
+    and `string` are not allowed for arithmetic operations.
+
     For logical operations like `&&` and comparisons like `==`,
-    the returned column is always boolean.
+    the returned column is always boolean. Columns of type `any`
+    and `string` are not allowed.
+
+    For relational operations, columns of any type are allowed and
+    are type promoted for comparisons as for arithmetic operations
+    with the difference that any non-numeric operand will result
+    in string based comparisons.
 
     ((.Table tab_column_math_ops "Column math operators"))
     [cols="10,60,30", options="header"]
@@ -334,27 +337,27 @@ text {
 
     |`==`
     |Compares each operand against the next for equality.
-    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`!=`
     |Compares each operand against the next for inequality.
-    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`<`
     |Compares whether each operand is less than the next.
-    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`<=`
     |Compares whether each operand is less than or equal to the next.
-    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`>`
     |Compares whether each operand is greater than the next.
-    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`>=`
     |Compares whether each operand is greater than or equal to the next.
-    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`
+    |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |===
 
