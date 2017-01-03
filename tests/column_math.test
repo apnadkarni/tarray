@@ -255,12 +255,82 @@ namespace eval tarray::test {
         }
         
         if {$op ni {== != < <= > >=}} {
+            # Unsupported operations for string, any
             foreach type {string any} {
                 test [mathid]-err "Unsupported $op, $type" -body [list tarray::column math $op [samplecolumn $type]] -result "Operation is invalid for type $type." -returnCodes error
                 test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type." -returnCodes error
             }
         }                                                    
     }
+    
+    # Test promotion to any
+    test [mathid]-any-promotion "Promotion to any ==" -body {
+        tarray::column == [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {1 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any ==" -body {
+        tarray::column == [newcolumn any {10 20 abc +++}] [newcolumn int {10 20 30 40}] [newcolumn string {10 30 abc +++}]
+    } -result [newcolumn boolean {1 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any ==" -body {
+        tarray::column ==  abc [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {0 0 1 0}]
+    test [mathid]-any-promotion "Promotion to any ==" -body {
+        tarray::column ==  abc [newcolumn any {10 3 abc +++}] def
+    } -result [newcolumn boolean {0 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any !=" -body {
+        tarray::column != [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {0 1 1 1}]
+    test [mathid]-any-promotion "Promotion to any !=" -body {
+        tarray::column !=  abc [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {1 1 0 1}]
+    test [mathid]-any-promotion "Promotion to any <" -body {
+        tarray::column < [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {0 1 1 0}]
+    test [mathid]-any-promotion "Promotion to any <" -body {
+        tarray::column < [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}] [newcolumn string {20 4 def abc}]
+    } -result [newcolumn boolean {0 1 1 0}]
+    test [mathid]-any-promotion "Promotion to any <" -body {
+        tarray::column <  abc [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {0 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any <" -body {
+        tarray::column <  1abc [newcolumn any {10 3 abc +++}] def
+    } -result [newcolumn boolean {0 1 1 0}]
+    test [mathid]-any-promotion "Promotion to any <=" -body {
+        tarray::column <= [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {1 1 1 0}]
+    test [mathid]-any-promotion "Promotion to any <=" -body {
+        tarray::column <= [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}] [newcolumn string {20 4 def abc}]
+    } -result [newcolumn boolean {1 1 1 0}]
+    test [mathid]-any-promotion "Promotion to any <=" -body {
+        tarray::column <=  abc [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {0 0 1 0}]
+    test [mathid]-any-promotion "Promotion to any <=" -body {
+        tarray::column <=  1abc [newcolumn any {10 3 1abc +++}] def
+    } -result [newcolumn boolean {0 1 1 0}]
+    test [mathid]-any-promotion "Promotion to any >" -body {
+        tarray::column > [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {0 0 0 1}]
+    test [mathid]-any-promotion "Promotion to any >" -body {
+        tarray::column > [newcolumn int {19 20 30 40}] [newcolumn any {15 3 abc +++}] [newcolumn string {10 4 def abc}]
+    } -result [newcolumn boolean {1 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any >" -body {
+        tarray::column >  abc [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {1 1 0 1}]
+    test [mathid]-any-promotion "Promotion to any >" -body {
+        tarray::column >  1abc [newcolumn any {10 3 abc +++}] 1
+    } -result [newcolumn boolean {1 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any >=" -body {
+        tarray::column >= [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {1 0 0 1}]
+    test [mathid]-any-promotion "Promotion to any >=" -body {
+        tarray::column >= [newcolumn int {10 20 30 40}] [newcolumn any {10 3 abc +++}] [newcolumn string {10 4 def abc}]
+    } -result [newcolumn boolean {1 0 0 0}]
+    test [mathid]-any-promotion "Promotion to any >=" -body {
+        tarray::column >=  abc [newcolumn any {10 3 abc +++}]
+    } -result [newcolumn boolean {1 1 1 1}]
+    test [mathid]-any-promotion "Promotion to any >=" -body {
+        tarray::column >=  1abc [newcolumn any {10 3 abc +++}] 1
+    } -result [newcolumn boolean {1 0 0 0}]
+    
         
     # Integer division tests, e.g. -5/10 should be -1, not 0,
     # for consistency with expr. Unsigned types (byte, uint) not affected
