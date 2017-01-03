@@ -126,7 +126,7 @@ if {![info exists tarray::test::known]} {
             # doubles
             set i 0.5
             set l [list 0.0]
-            time {lappend l $i; lappend anyl $i; set i [expr {$i * -1.0001}]} $count
+            time {lappend l $i; lappend anyl $i x$i; set i [expr {$i * -1.0001}]} $count
             lappend good(double) $l
             
             # Note integers are started from arbitrary offsets so that they
