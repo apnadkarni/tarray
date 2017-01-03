@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 Ashok P. Nadkarni
+ * Copyright (c) 2012-2017 Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file LICENSE for license
@@ -589,9 +589,9 @@ static void ta_indexobj_update_string(Tcl_Obj *o)
     if (o->internalRep.longValue == 0)
         strcpy(buffer, "end");
     else if (o->internalRep.longValue > 0)
-        _snprintf(buffer, sizeof(buffer), "end+%ld", o->internalRep.longValue);
+        snprintf(buffer, sizeof(buffer), "end+%ld", o->internalRep.longValue);
     else
-        _snprintf(buffer, sizeof(buffer), "end%ld", o->internalRep.longValue);
+        snprintf(buffer, sizeof(buffer), "end%ld", o->internalRep.longValue);
 
     len = strlen(buffer);
     o->bytes = ckalloc(len+1);
@@ -4031,7 +4031,7 @@ static void thdr_minmax_mt_worker (void *pv)
             pctx->max_value.ptas = maxval;
         }
         break;
-    case TA_BOOLEAN:
+    default:
         /* Not handled here */
         ta_type_panic(pctx->type);
         break;
@@ -4274,8 +4274,10 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         return TA_INDEX_TYPE_ERROR;
 }
 
-/* Returns a newly allocated thdr_t (with ref count 0) containing the
-   values from the specified indices */
+/* 
+ * Returns a newly allocated thdr_t (with ref count 0) containing the
+ * values from the specified indices
+ */
 Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 {
     thdr_t *psrc;
@@ -4696,7 +4698,6 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
     return TCL_OK;
 }
 
-/* Note - na, nb are in BYTES, not in UTF8 CHARS */
 int ta_utf8_compare(char *a, char *b, int ignorecase)
 {
     int comparison;
@@ -5125,6 +5126,6 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
 
 /*
   Local Variables:
-  compile-command: "envset x64 && tclsh build.tcl extension -config tarray.cfg -keep -target win32-dev64"
+  compile-command: "envset x64 && tclsh build.tcl extension -config ../src/tarray.cfg -keep -target win32-dev64"
   End:
 */
