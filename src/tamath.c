@@ -51,9 +51,12 @@ static int is_compare_op(enum ta_math_op_e op)
 }
 
 struct ta_math_operand {
-    int     span_start; /* Where in thdr_operand the logical column starts */
     thdr_t *thdr_operand;
     ta_value_t scalar_operand; /* Only valid if thdr_operand is NULL */
+    Tcl_Obj *obj;              /* Original Tcl_Obj for operand. Only
+                                  valid if thdr_operand is NULL */
+    int     span_start; /* Where in thdr_operand the logical column starts.
+                           Only valid if thdr_operand is not NULL */
 };
 
 struct thdr_math_mt_context {
@@ -134,6 +137,53 @@ static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
         TA_ASSERT(poperand->scalar_operand.type == TA_WIDE);
         return poperand->scalar_operand.wval;
     }
+}
+
+static char *ta_math_string_from_operand(struct ta_math_operand *poperand,
+                                         int thdr_index, char buf[40])
+{
+    thdr_t *thdr = poperand->thdr_operand;
+    if (thdr) {
+        thdr_index += poperand->span_start;
+        TA_ASSERT(thdr->used > thdr_index);
+        switch (thdr->type) {
+        case TA_BOOLEAN:
+            buf[0] = ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index) ? '1' : '0';
+            buf[1] = 0;
+            break;
+        case TA_BYTE:
+            snprintf(buf, sizeof(buf), "%d",
+                     *THDRELEMPTR(thdr, unsigned char, thdr_index));
+            break;
+        case TA_INT:
+            snprintf(buf, sizeof(buf), "%d",
+                     *THDRELEMPTR(thdr, int, thdr_index));
+            break;
+        case TA_UINT:
+            snprintf(buf, sizeof(buf), "%u",
+                     *THDRELEMPTR(thdr, unsigned int, thdr_index));
+            break;
+        case TA_WIDE:
+            snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d",
+                     *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index));
+            break;
+        case TA_DOUBLE:
+            TA_ASSERT(sizeof(buf) >= TCL_DOUBLE_SPACE);
+            Tcl_PrintDouble(NULL, *THDRELEMPTR(thdr, double, thdr_index), buf);
+            break;
+        case TA_ANY:
+            return Tcl_GetString(*THDRELEMPTR(thdr, Tcl_Obj *, thdr_index));
+        case TA_STRING: 
+            return (*THDRELEMPTR(thdr, tas_t *, thdr_index))->s;
+        default:
+            ta_type_panic(poperand->thdr_operand->type);
+            return 0;           /* To keep compiler happy */
+        }
+    } else {
+        TA_ASSERT(poperand->obj != NULL);
+        return Tcl_GetString(poperand->obj);
+    }
+    return buf;
 }
 
 static double ta_math_double_operation(enum ta_math_op_e op, double dbl, ta_value_t *poperand)
@@ -578,7 +628,30 @@ TCL_RESULT ta_math_compare_operation(
         goto done;
     }
 
-    if (promoted_type == TA_DOUBLE) {
+    if (promoted_type == TA_ANY) {
+        for (i = 0; i < size; ++i) {
+            int result = 1;
+            for (j = 0 ; j < (noperands-1); ++j) {
+                char *s1, *s2;
+                char buf1[40], buf2[40];
+                int comparison;
+                s1 = ta_math_string_from_operand(&poperands[j], i, buf1);
+                s2 = ta_math_string_from_operand(&poperands[j+1], i, buf2);
+                comparison = ta_utf8_compare(s1, s2, 0);
+                switch (op) {
+                case TAM_OP_EQ: result = (comparison == 0); break;
+                case TAM_OP_NE: result = (comparison != 0); break;
+                case TAM_OP_LT: result = (comparison < 0); break;
+                case TAM_OP_LE: result = (comparison <= 0); break;
+                case TAM_OP_GT: result = (comparison > 0); break;
+                case TAM_OP_GE: result = (comparison >= 0); break;
+                }
+                if (result == 0)
+                    break;
+            }
+            ba_put(baP, i, result);
+        }
+    } else if (promoted_type == TA_DOUBLE) {
         for (i = 0; i < size; ++i) {
             int result = 1;
             for (j = 0; j < (noperands-1); ++j) {
@@ -634,12 +707,43 @@ TCL_RESULT ta_math_scalar_operation(
     int j;
     TCL_RESULT status = TCL_OK;
 
+    TA_ASSERT(promoted_type != TA_STRING);
     if (is_compare_op(op)) {
         int result = 1;
 
         /* Note: For 0/1 operands, we return 1 just like Tcl */
         if (noperands > 1) {
-            if (promoted_type == TA_DOUBLE) {
+            if (promoted_type == TA_ANY) {
+                for (j = 0; j < (noperands-1); ++j) {
+                    Tcl_Obj *obj1 = poperands[j].obj;
+                    Tcl_Obj *obj2 = poperands[j+1].obj;
+                    int nocase = 0; /* TBD - support case-insensitivity later */
+                    TA_ASSERT(obj1 != NULL);
+                    TA_ASSERT(obj2 != NULL);
+                    switch (op) {
+                    case TAM_OP_EQ:
+                        result = ta_obj_equal(obj1, obj2, nocase);
+                        break;
+                    case TAM_OP_NE:
+                        result = !ta_obj_equal(obj1, obj2, nocase);
+                        break;
+                    case TAM_OP_LT:
+                        result = ta_obj_compare(obj1, obj2, nocase) < 0;
+                        break;
+                    case TAM_OP_LE:
+                        result = ta_obj_compare(obj1, obj2, nocase) <= 0;
+                        break;
+                    case TAM_OP_GT:
+                        result = ta_obj_compare(obj1, obj2, nocase) > 0;
+                        break;
+                    case TAM_OP_GE:
+                        result = ta_obj_compare(obj1, obj2, nocase) >= 0;
+                        break;
+                    }
+                    if (result == 0)
+                        break;
+                }
+            } else if (promoted_type == TA_DOUBLE) {
                 for (j = 0; j < (noperands-1); ++j) {
                     double dbl1, dbl2;
                     TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE);
@@ -702,7 +806,7 @@ TCL_RESULT ta_math_scalar_operation(
             Tcl_SetObjResult(ip, Tcl_NewIntObj(dresult ? 1 : 0));
         else
             Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
-    } else {
+    } else if (promoted_type != TA_ANY) {
         /* Operations on non-doubles other than logical operations */
 
         Tcl_WideInt wresult = poperands[0].scalar_operand.wval;
@@ -717,6 +821,8 @@ TCL_RESULT ta_math_scalar_operation(
             wresult = ta_math_wide_operation(op, wresult, poperands[j].scalar_operand.wval);
         }
         Tcl_SetObjResult(ip, Tcl_NewWideIntObj(wresult));
+    } else {
+        ta_invalid_op_for_type(ip, TA_ANY);
     }
 
 vamoose:
@@ -766,7 +872,6 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     
     /*
      * The loop does three related things:
-     *
      * - ensure compatibility of each operand
      * - figure out type promotion
      * - collect the operands
@@ -801,24 +906,37 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                     result_type = TA_INT;
                 break;
             case TA_UINT:
-                if (result_type != TA_DOUBLE && result_type != TA_WIDE)
+                if (result_type != TA_DOUBLE && result_type != TA_WIDE && result_type != TA_ANY)
                     result_type = TA_UINT;
                 break;
             case TA_WIDE:
-                if (result_type != TA_DOUBLE)
+                if (result_type != TA_DOUBLE && result_type != TA_ANY)
                     result_type = TA_WIDE;
                 break;
             case TA_DOUBLE:
-                result_type = TA_DOUBLE;
+                if (result_type != TA_ANY)
+                    result_type = TA_DOUBLE;
+                break;
+            case TA_STRING: /* FALLTHRU */
+            case TA_ANY:
+                if (! is_compare_op(op)) {
+                    status = ta_invalid_op_for_type(ip, coltype);
+                    goto vamoose;
+                }
+                result_type = TA_ANY;
                 break;
             default:
-                status = ta_invalid_op_for_type(ip, coltype);
-                goto vamoose;
+                ta_type_panic(coltype);
             }
             poperands[i].thdr_operand = tcol_thdr(tcol);
             span = tcol_span(tcol);
-            poperands[i].span_start = span ? span->first : 0;
+            if (span) {
+                poperands[i].span_start = span->first;
+            } else {
+                poperands[i].span_start = 0;
+            }
             only_scalars = 0;
+            poperands[i].obj = NULL; /* Only used for scalars */
         } else {
             /* Scalar operand. Check if an integer, wide or double.
                If we have already seen a boolean column, do NOT change
@@ -835,7 +953,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 ptav->type = TA_WIDE;
 
                 if (result_type != TA_DOUBLE 
-                    && result_type != TA_WIDE) {
+                    && result_type != TA_WIDE && result_type != TA_ANY) {
                     /* If value fits in a byte, it fits in any type so
                        no need to change. Else figure out whether result
                        type needs promotion */
@@ -863,10 +981,12 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                     }
                 }
             } else {
+                /* Not a integer */
                 status = Tcl_GetDoubleFromObj(NULL, objv[j], &ptav->dval);
                 if (status == TCL_OK) {
                     ptav->type = TA_DOUBLE;
-                    result_type = TA_DOUBLE;
+                    if (result_type != TA_ANY)
+                        result_type = TA_DOUBLE;
                 } else {
                     /* Scalar is not a numeric. See if it might be a boolean
                        (true or false). These are NOT treated as numeric
@@ -874,27 +994,29 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                     */
                     int ival;
                     status = Tcl_GetBooleanFromObj(NULL, objv[j], &ival);
-                    if (status != TCL_OK) {
-                        ta_invalid_operand_error(ip, objv[j]);
-                        goto vamoose;
+                    if (status == TCL_OK && is_logical_op(op)) {
+                        if (result_type == TA_NONE)
+                            result_type = TA_BOOLEAN;
+                        /* All non-doubles are stored as wides */
+                        ptav->type = TA_WIDE;
+                        ptav->wval = ival;
+                    } else {
+                        if (!is_compare_op(op)) {
+                            status = ta_invalid_op_for_type(ip, coltype);
+                            goto vamoose;
+                        }
+                        result_type = TA_ANY;
+                        ptav->type = TA_ANY;
+                        ptav->oval = objv[j];
                     }
-                    /* "true" etc. can only be used in logical operations */
-                    if (! is_logical_op(op)) {
-                        status = ta_invalid_op_for_type(ip, TA_BOOLEAN);
-                        goto vamoose;
-                    }
-                    if (result_type == TA_NONE)
-                        result_type = TA_BOOLEAN;
-                    /* All non-doubles are stored as wides */
-                    ptav->type = TA_WIDE;
-                    ptav->wval = ival;
                 }
             }
             poperands[i].thdr_operand = NULL; /* Indicate scalar_operand is valid */
+            poperands[i].obj = objv[j];
         }
     }
     
-    TA_ASSERT(result_type != TA_NONE && result_type != TA_STRING && result_type != TA_ANY);
+    TA_ASSERT(result_type != TA_NONE && result_type != TA_STRING);
     
     if (result_type == TA_DOUBLE && is_bit_op(op)) {
         status = ta_invalid_op_for_type(ip, TA_DOUBLE);
@@ -911,6 +1033,8 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         status = ta_math_compare_operation(ip, op, result_type, poperands, noperands, thdr_size);
         goto vamoose;
     }
+
+    TA_ASSERT(result_type != TA_ANY && result_type != TA_STRING);
         
     /* Irrespective of type promotion, column types for logical operations
      * is always TA_BOOLEAN
