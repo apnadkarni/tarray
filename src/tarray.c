@@ -2622,7 +2622,7 @@ thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count)
     
     thdr = thdr_alloc(ip, TA_BOOLEAN, count);
     if (thdr == NULL)
-        return TCL_ERROR;
+        return NULL;
     ba_fill(THDRELEMPTR(thdr, ba_t, 0), 0, count, 0);
     thdr->used = count;
     return thdr;
@@ -2635,7 +2635,7 @@ thdr_t *thdr_indices_to_bitmap(
     thdr_t *src, span_t *span)
 {
     thdr_t *thdr;
-    int *pindex, *end;
+    int *pindex;
     int count, pos;
     ba_t *baP;
 
@@ -2648,7 +2648,7 @@ thdr_t *thdr_indices_to_bitmap(
     }
     thdr = thdr_alloc_bitmap(ip, size);
     if (thdr == NULL)
-        return TCL_ERROR;
+        return NULL;
     baP = THDRELEMPTR(thdr, ba_t, 0);
     for (pos = 0; pos < count; ++pos, ++pindex) {
         if (*pindex >= size) {

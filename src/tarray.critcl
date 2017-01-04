@@ -231,7 +231,6 @@ critcl::cinit {
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
     {
         ta_rng_t *prng;
-	Tcl_Command cmd_tok;
         prng = ckalloc(sizeof(ta_rng_t));
         tcol_random_init(prng);
         prng->nrefs = 2;        /* For each command reference below */
