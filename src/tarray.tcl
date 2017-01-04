@@ -87,6 +87,9 @@ proc tarray::table::definition {tab {cnames {}}} {
 
 # TBD - document and test
 proc tarray::table::sort {args} {
+    if {[llength $arg] < 2} {
+        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? table column"
+    }
     set sort_opts {}
     set format_opts {}
     set want_indices 0
