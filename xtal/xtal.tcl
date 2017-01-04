@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015, Ashok P. Nadkarni
+# Copyright (c) 2015-2017, Ashok P. Nadkarni
 # All rights reserved.
 #
 # See the file license.terms for license
@@ -1657,7 +1657,7 @@ namespace eval xtal::rt {
         lassign [tarray::types $var $value] vartype valuetype
         
         if {$high eq "end"} {
-            set high [size $var]
+            set high [operand_size $var]
             incr high -1
         }
 
@@ -1757,17 +1757,19 @@ namespace eval xtal::rt {
         
         lassign [tarray::types $var $value $index] vartype valuetype indextype
 
-        if {$indextype eq ""} {
+        if {$indextype eq "boolean"} {
+            set index_len [tarray::column::count $index 1]
+        } elseif {$indextype eq "int"} {
+            set index_len [tarray::column::size $index]
+        } elseif {$indextype eq ""} {
             set index_len [llength $index]
             # Special case - if a single index, treat as assignment of
             # a single value
             if {$index_len == 1} {
                 set value [list $value]
             }
-        } elseif {$indextype eq "int"} {
-            set index_len [tarray::column::size $index]
         } else {
-            error "Index must be a integer, an integer list, or an integer column."
+            error "Index must be a integer, an integer list, or an index column."
         }
         if {$valuetype eq ""} {
             set value_len [llength $value]
@@ -1789,7 +1791,9 @@ namespace eval xtal::rt {
 
         if {$vartype eq ""} {
             # Assume var is a list
-            if {$indextype eq "int"} {
+            if {$indextype eq "boolean"} {
+                set index [tarray::column::range -list [tarray::column::search -eq -all $index 1] 0 end]
+            } elseif {$indextype eq "int"} {
                 set index [tarray::column::range -list $index 0 end]
             } else {
                 if {$index_len == 1} {
@@ -2160,57 +2164,105 @@ namespace eval xtal::rt {
         return [list $atype $btype]
     }
 
+    # TBD - rewrite in C. Is this actually used anywhere?
+    # Returns a boolean column corresponding to an index column
+    proc _indices_to_boolcol {indices} {
+        # indices must be a sorted integer column
+        if {[::tarray::column size $indices] == 0} {
+            return [tarray::column::create boolean]
+        } else {
+            set n [::tarray::column::index $indices end]
+            return [tarray::column::fill \
+                        [tarray::column::zeroes [expr {$n+1}]] \
+                        1 $indices]
+        }
+    }
+
     proc relop {op a b} {
+        # Relational operators behave as follows depending on whether
+        # operands are columns, are lists that are the current selector
+        # context or scalars.
+        #
+        # When at least one operand is a column:
+        # 1 If both are columns, they are compared element by element
+        #   returning a boolean column.
+        # 2 If one is a column, other is selector context, the latter
+        #   is converted to a column of that type and compared as above
+        # 3 If one is a column, other is a (non-selector context) scalar,
+        #   returns a boolean column based on comparison of each element
+        #   with the scalar value
+        #
+        # When neither operand is a column:
+        # 4 If neither is a list selector context, returns a scalar
+        #   as computed by expr
+        # 5 If only one is the selector context, returns a boolean
+        #   column with element comparisons
+        # 6 If both are selector contexts, they refer to the same
+        #   object so return a boolean column of all ones depending
+        #   on the operation.
         lassign [_relop_check $a $b] atype btype
-        if {$atype eq ""} {
-            if {[is_selector_context $a]} {
-                # $a is the selector context and so treat as a list
-                if {$btype ne "" || [is_selector_context $b]} {
-                    error "Operator $op not supported between columns or columns and lists."
-                }
-                # Return an int column containing matching indices
-                return [matching_list_indices $op $a $b]
+
+        if {$atype ne ""} {
+            # Cases 1,2,3
+            if {$btype eq "" && [is_selector_context $b]} {
+                # Case 2 - convert list to column of that type
+                set b [tarray::column create $atype $b]
             }
-            # $a is a scalar
-            if {$btype eq ""} {
+            return [tarray::column::math $op $a $b]
+        } else {
+            # Cases 4,5,6
+            if {[is_selector_context $a]} {
                 if {[is_selector_context $b]} {
-                    # a is scalar, b is not
+                    # Case 6 - both are same operand
+                    set n [llength $a]
+                    set result [tarray::column::create boolean {} $n]
+                    incr n -1
+                    if {$op in {== <= >=}} {
+                        tarray::column::vfill result 1 0 $n
+                    } elseif {$op in {!= < >}} {
+                        tarray::column::vfill result 0 0 $n
+                    } else {
+                        error "Operation $op not supported between lists."
+                    }
+                    return $result
+                } else {
+                    # Case 5
+                    return [matching_list_indices $op $a $b]
+                }
+            } else {
+                # a is pure scalar
+                if {[is_selector_context $b]} {
+                    # Case 5
                     set reverse_op [xtal::_math_op_reverse $op]
                     if {$reverse_op eq ""} {
                         error "The right hand operand of operator $op cannot be a vector."
                     }
                     return [matching_list_indices $reverse_op $b $a]
-                } 
-                # Both scalars
-                return [tcl::mathop::$op $a $b]
-            } else {
-                return [tarray::column::search -all {*}[xtal::_map_search_op_reverse $op] $b $a]
-            }
-        } else {
-            # $a is a column
-            if {$btype ne "" || [is_selector_context $b]} {
-                error "Operator $op not supported between columns or columns and lists"
-            }
-            # $b is a scalar
-            return [tarray::column::search -all {*}[xtal::_map_search_op $op] $a $b]
-        }
+                } else {
+                    # Case 4 - both scalars. Note we do not use
+                    # tcl::mathop::* here because those commands can be
+                    # redefined while the expr operators cannot
+                    return [expr "{$a} $op {$b}"]
+                }
+            } 
+        }            
     }
 
     # TBD - is matching_column_indices actually used anywhere?
     proc matching_column_indices {op haystack needle} {
         return [switch -exact -- $op {
-            ==  { tarray::column::search -all -eq $haystack $needle }
-            !=  { tarray::column::search -all -not -eq $haystack $needle }
-            <   { tarray::column::search -all -lt $haystack $needle }
-            <=  { tarray::column::search -all -not -gt $haystack $needle }
-            >   { tarray::column::search -all -gt $haystack $needle }
-            >=  { tarray::column::search -all -not -lt $haystack $needle }
-            =^  { tarray::column::search -all -nocase -eq $haystack $needle }
-            !^  { tarray::column::search -all -nocase -not -eq $haystack $needle }
-            ~  { tarray::column::search -all -re $haystack $needle }
-            !~  { tarray::column::search -all -not -re $haystack $needle }
-            ~^ { tarray::column::search -all -nocase -re $haystack $needle }
-            !~^ { tarray::column::search -all -nocase -not -re $haystack $needle }
+            ==  { tarray::column::search -bitmap -eq $haystack $needle }
+            !=  { tarray::column::search -bitmap -not -eq $haystack $needle }
+            <   { tarray::column::search -bitmap -lt $haystack $needle }
+            <=  { tarray::column::search -bitmap -not -gt $haystack $needle }
+            >   { tarray::column::search -bitmap -gt $haystack $needle }
+            >=  { tarray::column::search -bitmap -not -lt $haystack $needle }
+            =^  { tarray::column::search -bitmap -nocase -eq $haystack $needle }
+            !^  { tarray::column::search -bitmap -nocase -not -eq $haystack $needle }
+            ~  { tarray::column::search -bitmap -re $haystack $needle }
+            !~  { tarray::column::search -bitmap -not -re $haystack $needle }
+            ~^ { tarray::column::search -bitmap -nocase -re $haystack $needle }
+            !~^ { tarray::column::search -bitmap -nocase -not -re $haystack $needle }
         }]
     }
 
@@ -2311,10 +2363,13 @@ namespace eval xtal::rt {
             ~^  {lsearch -all -nocase -regexp $haystack $needle}
             !~^ {lsearch -all -nocase -not -regexp $haystack $needle}
         }]
-                     
-        return [::tarray::column create int $indices]
+
+        return [tarray::column::fill \
+                    [tarray::column::zeroes [llength $haystack]] \
+                    1 $indices]
     }
 
+    # Called for string operators like ~, ^= etc. Not for ==, !=
     proc strop {op a b} {
         lassign [_relop_check $a $b] atype btype
         if {$atype eq ""} {
@@ -2347,8 +2402,8 @@ namespace eval xtal::rt {
             } else {
                 # a is scalar, b is column. Only permit equality/inequality
                 return [switch -exact -- $op {
-                    =^ { tarray::column::search -all -nocase -eq $b $a }
-                    !^ { tarray::column::search -all -nocase -not -eq $b $a }
+                    =^ { tarray::column::search -bitmap -nocase -eq $b $a }
+                    !^ { tarray::column::search -bitmap -nocase -not -eq $b $a }
                     default {error "The right hand operand of operator $op cannot be a vector."}
                 }]
             }
@@ -2359,12 +2414,12 @@ namespace eval xtal::rt {
             }
             # a column, b scalar
             return [switch -exact -- $op {
-                =^  { tarray::column::search -all -nocase -eq $b $a }
-                !^  { tarray::column::search -all -nocase -not -eq $b $a }
-                ~  { tarray::column::search -all -re $a $b }
-                !~  { tarray::column::search -all -not -re $a $b }
-                ~^ { tarray::column::search -all -nocase -re $a $b }
-                !~^ { tarray::column::search -all -nocase -not -re $a $b }
+                =^  { tarray::column::search -bitmap -nocase -eq $b $a }
+                !^  { tarray::column::search -bitmap -nocase -not -eq $b $a }
+                ~  { tarray::column::search -bitmap -re $a $b }
+                !~  { tarray::column::search -bitmap -not -re $a $b }
+                ~^ { tarray::column::search -bitmap -nocase -re $a $b }
+                !~^ { tarray::column::search -bitmap -nocase -not -re $a $b }
             }]
         }
     }
@@ -2435,39 +2490,8 @@ namespace eval xtal::rt {
             error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$atype ne "" && $btype ne ""} {
-            # Both are columns. Treat as intersection operator.
-            # TBD - optimize if a or b are empty or does intersect3 already do that
-            # TBD - are the elements in increasing order after intersect?
-            return [lindex [tarray::column::intersect3 $a $b] 0]
-        }
-
-        # TBD - for consistency with the || case (see the _or2 routine)
-        # we disallow this until we figure out what to do there.
-        error "Invalid logical and operation on a column and a scalar."
-        
-        Rest of this code to be enabled in the future.
-        # At most one of a and b are scalars
-        if {$atype eq ""} {
-            # b is a column. Only permit if a is a boolean
-            if {[string is boolean $b]} {
-                if {$b} {
-                    return $a
-                } else {
-                    return [::tarray::column create $atype]
-                }
-            }
-        } else {
-            if {[string is boolean $a]} {
-                if {$a} {
-                    return $b
-                } else {
-                    return [::tarray::column create $btype]
-                }
-            }
-        }
-
-        error "Columns can only be logically and'ed with boolean scalars"
+        # At least one is a column
+        return [tarray::column::math && $a $b]
     }
 
     proc or {args} {
@@ -2490,22 +2514,8 @@ namespace eval xtal::rt {
             error "Tables cannot be used as operands of a logical operator."
         }
 
-        if {$atype ne "" && $btype ne ""} {
-            # Both are tarrays. Treat as intersection operator
-            # Can't use tarray::intersect3+tarray::sort because of 
-            # uniqueness requirement
-            # TBD - are the elements in increasing order after union?
-            # TBD - implement union in C
-            return [tarray::column::create int \
-                        [lsort -integer -unique \
-                             [concat [tarray::column::range -list $a 0 end] \
-                                  [tarray::column::range -list $b 0 end]]]]
-        }
-        
-        # TBD  - we would like C[I || 1] to mean entire column C
-        # At this point we only have a = I and b = 1 and don't know
-        # how to convey "all" elements of C. So for now disallow.
-        error "Invalid logical or operation on a column and a scalar."
+        # At least one is a column
+        return [tarray::column::math || $a $b]
     }
 
     proc selector {a selexpr} {
@@ -2531,42 +2541,57 @@ namespace eval xtal::rt {
             "" {
                 # Operand is a list
                 set n [llength $a]
-                if {$seltype ne ""} {
-                    # If indices are not a list, convert them to one
-                    # TBD - would it be faster to iterate retrieving one
-                    # element from the index column at a time? Probably
-                    # replace with tarray::iterate once implemented
-                    set selexpr [tarray::column::range -list $selexpr 0 end]
-                }
-                lmap pos $selexpr {
-                    if {$pos < 0 || $pos >= $n} {
-                        error "list index out of range"
+                set l {}
+                if {$seltype eq ""} {
+                    set l [lmap pos $selexpr {
+                        if {$pos < 0 || $pos >= $n} {
+                            error "list index out of range"
+                        }
+                        lindex $a $pos
+                    }]
+                } elseif {$seltype eq "boolean"} {
+                    ::tarray::loop i b $selexpr {
+                        if {$i >= $n} {
+                            error "list index out of range"
+                        }
+                        if {$b} {lappend l [lindex $a $i]}
                     }
-                    lindex $a $pos
+                } else {
+                    if {$seltype ni {byte int uint wide}} {
+                        error "Invalid index expression"
+                    }
+                    ::tarray::loop pos $selexpr {
+                        if {$pos < 0 || $pos >= $n} {
+                            error "list index out of range"
+                        }
+                        lappend l [lindex $a $pos]
+                    }
                 }
+                set l
             }
             table   { tarray::table::get $a $selexpr }
             default { tarray::column::get $a $selexpr }
         }]
     }
 
+    # Returns a boolean index column
     proc selector_range {range} {
         lassign $range low high
         if {$low < 0} {
             set low 0
         }
-        set max [expr {[size [selector_context]] - 1}]
-        if {$high eq "end"} {
-            set high $max
-        } else {
-            if {$high > $max} {
-                set high $max
+        set n [operand_size [selector_context]]
+        set col [::tarray::column::zeroes $n]
+        # $high may be integer or "end"
+        if {[string is integer -strict $high]} {
+            if {$high > [incr n -1]} {
+                set high $n
             }
         }
-        return [tarray::column::series $low [incr high] 1]
+        return [::tarray::column::vfill col 1 $low $high]
     }
 
-    proc size {val} {
+    proc operand_size {val} {
         return [switch -exact -- [lindex [tarray::types $val] 0] {
             "" { llength $val }
             table { tarray::table::size $val }
@@ -2762,7 +2787,7 @@ namespace eval xtal::rt {
                 # Assume lists
                 matching_list_elems $math_op $haystack $needle
             }
-            default { tarray::column::search -inline -all {*}$search_op $haystack $needle }
+            default { tarray::column::search -inline {*}$search_op $haystack $needle }
         }]
     }
 }
