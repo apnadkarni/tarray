@@ -831,11 +831,12 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags)
 {
-    int *pindex, *pend, n, status;
-    thdr_t *pindices, *ptarget;
+    int *pindex, *pend, ntarget, status, index_type, free_pindices;
+    thdr_t *pindices = NULL, *ptarget;
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;
     span_t *span_indices, *span_target;
+    TCL_RESULT res;
 
     TA_ASSERT(! Tcl_IsShared(oindices));
 
@@ -843,36 +844,54 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         (status = tcol_convert(ip, otarget)) != TCL_OK)
         return status;
 
-    pindices = OBJTHDR(oindices);
-    if (pindices->type != TA_INT)
-        return ta_bad_type_error(ip, pindices);
-    span_indices = OBJTHDRSPAN(oindices);
+    ntarget = tcol_occupancy(otarget);
+
+    /* 
+     * We try to avoid unnecessary cloning if we can reuse the indices column.
+     * free_pindices keeps track of whether we need to do a thdr_decr_refs
+     * on pindices because WE incremented it along the way.
+     */
+    pindices = tcol_thdr(oindices);
+    if (pindices->type == TA_INT && tcol_span(oindices) == 0)
+        free_pindices = 0;
+    else {
+        index_type = ta_obj_to_indices(ip, oindices, 0, ntarget-1,
+                                       &pindices, NULL);
+        if (index_type == TA_INDEX_TYPE_ERROR)
+            return TCL_ERROR;
+        free_pindices = 1; /* Since ta_obj_to_indices returns with nrefs > 0 */
+        TA_ASSERT(index_type == TA_INDEX_TYPE_THDR);
+    }
 
     /* Validate indices for bounds */
-    n = tcol_occupancy(otarget);
-    if (span_indices) {
-        pindex = THDRELEMPTR(pindices, int, span_indices->first);
-        pend = pindex + span_indices->count;
-    } else {
-        pindex = THDRELEMPTR(pindices, int, 0);
-        pend = pindex + pindices->used;
-    }
+    pindex = THDRELEMPTR(pindices, int, 0);
+    pend = pindex + pindices->used;
     while (pindex < pend) {
-        if (*pindex >= n || *pindex < 0)
-            return ta_index_range_error(ip, *pindex);
+        if (*pindex >= ntarget || *pindex < 0) {
+            res = ta_index_range_error(ip, *pindex);
+            goto vamoose;
+        }
         ++pindex;
     }
     
-    if (span_indices || thdr_shared(pindices)) {
+    if (thdr_shared(pindices)) {
         /* Cannot modify in place. Need to dup it */
-        pindices = thdr_clone(ip, pindices, 0, span_indices);
-        if (pindices == NULL)
-            return TCL_ERROR;
-        tcol_replace_intrep(oindices, pindices, NULL);
+        thdr_t *temp = thdr_clone(ip, pindices, 0, NULL);
+        if (temp == NULL) {
+            res = TCL_ERROR;
+            goto vamoose;
+        }
+        if (free_pindices)
+            thdr_decr_refs(pindices);
+        pindices = temp;
+        thdr_incr_refs(pindices);
+        free_pindices = 1;
     } else {
         Tcl_InvalidateStringRep(oindices);
     }
-
+    TA_ASSERT(! Tcl_IsShared(oindices));
+    TA_ASSERT(pindices->nrefs == 1);
+    
     ptarget = OBJTHDR(otarget);
     span_target = OBJTHDRSPAN(otarget);
 
@@ -884,8 +903,10 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
            column spans so if a span is provided, "unspan" it */
         if (span_target) {
             ptarget2 = thdr_clone(ip, ptarget, 0, span_target);
-            if (ptarget2 == NULL)
-                return TCL_ERROR;
+            if (ptarget2 == NULL) {
+                res = TCL_ERROR;
+                goto vamoose;
+            }
             thdr_incr_refs(ptarget2);
         } else
             ptarget2 = ptarget;
@@ -900,5 +921,11 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     }
 
     /* Note list of indices is NOT sorted, do not mark it as such ! */
-    return TCL_OK;
+    tcol_replace_intrep(oindices, pindices, NULL);
+    res = TCL_OK;
+
+vamoose:
+    if (free_pindices && pindices)
+        thdr_decr_refs(pindices);
+    return res;
 }
