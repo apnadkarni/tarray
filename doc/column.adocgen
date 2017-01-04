@@ -340,7 +340,8 @@ text {
     |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`!=`
-    |Compares each operand against the next for inequality.
+    |Compares each operand against the next for inequality. Unlike the
+    other operators, this requires exactly two arguments.
     |`boolean`, `byte`, `int`, `uint`, `wide`, `double`, `any`, `string`
     
     |`<`
