@@ -789,13 +789,6 @@ namespace eval tarray::test {
             tarray::column sort -nocase -indirect $indices
         } -result "Missing argument to -indirect option." -returnCodes error
 
-        test column_sort-$type-indirect-2.1 {
-            Sort -indirect wrong index type
-        } -body {
-            set tcol [tarray::column create $type {a A b B}]
-            tarray::column sort -indirect $tcol -nocase [tarray::column create byte {0 1 2 3}]
-        } -result "tarray is of the wrong type (byte)" -returnCodes error
-
         test column_sort-$type-indirect-2.2 {
             Sort -indirect $type bad index
         } -body {
@@ -1403,13 +1396,6 @@ namespace eval tarray::test {
             set indices [tarray::column sort -indices $tcol]
             tarray::column sort -nocase -indirect $indices
         } -result "Missing argument to -indirect option." -returnCodes error
-
-        test column_sort-span-$type-indirect-2.1 {
-            Sort -indirect wrong index type
-        } -body {
-            set tcol [tarray::column create $type {a A b B}]
-            tarray::column sort -indirect $tcol -nocase [tarray::column create byte {0 1 2 3}]
-        } -result "tarray is of the wrong type (byte)" -returnCodes error
 
         test column_sort-span-$type-indirect-2.2 {
             Sort -indirect $type bad index

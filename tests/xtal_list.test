@@ -186,6 +186,18 @@ namespace eval tarray::test::xtal_list {
         xtal::xtal {i = @int {3,2,1,0} ; L[i]}
     } -result {{3 three} two one zero}
     
+    test xtal-list-indexcolumn-2.1.1 {list variable indexcolumn} -body {
+        xtal::xtal {i = @byte {3,2,1,0} ; L[i]}
+    } -result {{3 three} two one zero}
+    
+    test xtal-list-indexcolumn-2.1.2 {list variable indexcolumn} -body {
+        xtal::xtal {i = @uint {3,2,1,0} ; L[i]}
+    } -result {{3 three} two one zero}
+    
+    test xtal-list-indexcolumn-2.1.3 {list variable indexcolumn} -body {
+        xtal::xtal {i = @wide {3,2,1,0} ; L[i]}
+    } -result {{3 three} two one zero}
+    
     test xtal-list-indexcolumn-2.2 {list variable indexcolumn} -body {
         xtal::xtal {i = @int {} ; L[i]}
     } -result {}
@@ -200,7 +212,7 @@ namespace eval tarray::test::xtal_list {
 
     test xtal-list-indexcolumn-3.2 {list non-integer indexcolumn} -body {
         xtal::xtal {i = @double {0, 1}; L[i]}
-    } -result "bad index \"0.0\":*" -returnCodes error -match glob
+    } -result "Invalid index expression." -returnCodes error
 
     ################################################################
     # range tests
@@ -753,11 +765,11 @@ namespace eval tarray::test::xtal_list {
     
     test xtal-list-selector-compound-1.2 {list selector && selector} -body {
         xtal::xtal {LC[LC ~ "o" && 1]}
-    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
+    } -result {zero one two}
     
     test xtal-list-selector-compound-1.3 {list selector && selector} -body {
         xtal::xtal {LC[LC ~ "o" && 0]}
-    } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
+    } -result ""
     
     test xtal-list-selector-compound-2.0 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "w" || LC ~ "t"]}
@@ -773,11 +785,11 @@ namespace eval tarray::test::xtal_list {
     
     test xtal-list-selector-compound-2.2 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "o" || 1]}
-    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+    } -result $LC
     
     test xtal-list-selector-compound-2.3 {list selector || selector} -body {
         xtal::xtal {LC[LC ~ "o" || 0]}
-    } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+    } -result {zero one two}
 
     test xtal-list-selector-compound-3.0 {list selector && || selector} -body {
         xtal::xtal {LC[(@@ ~ "r" || @@ ~ "n") && LC ~ "o"]}

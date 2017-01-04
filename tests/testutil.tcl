@@ -250,6 +250,7 @@ if {![info exists tarray::test::known]} {
 
         # Test two lists for equality based on type
         proc lequal {type avals bvals} {
+            #puts type:$type
             #puts a:$avals
             #puts b:$bvals
             if {[llength $avals] != [llength $bvals]} {
@@ -292,8 +293,13 @@ if {![info exists tarray::test::known]} {
         tcltest::customMatch list [list tarray::test::lequal any]
 
         proc llequal {types ll1 ll2} {
-            foreach type $types l1 $ll1 l2 $ll2 {
+            if {[llength $ll1] != [llength $ll2]} { return 0 }
+            set i 0
+            foreach type $types {
+                set l1 [lmap row $ll1 {lindex $row $i}]
+                set l2 [lmap row $ll2 {lindex $row $i}]
                 if {![lequal $type $l1 $l2]} {return 0}
+                incr i
             }
             return 1
         }
