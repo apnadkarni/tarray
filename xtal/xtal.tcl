@@ -2209,6 +2209,13 @@ namespace eval xtal::rt {
                 set b [tarray::column create $atype $b]
             }
             return [tarray::column::math $op $a $b]
+        } elseif {$btype ne ""} {
+            # Cases 2,3
+            if {[is_selector_context $a]} {
+                # Case 2 - convert list to column of that type
+                set a [tarray::column create $btype $a]
+            }
+            return [tarray::column::math $op $a $b]
         } else {
             # Cases 4,5,6
             if {[is_selector_context $a]} {
@@ -2787,7 +2794,7 @@ namespace eval xtal::rt {
                 # Assume lists
                 matching_list_elems $math_op $haystack $needle
             }
-            default { tarray::column::search -inline {*}$search_op $haystack $needle }
+            default { tarray::column::search -inline -all {*}$search_op $haystack $needle }
         }]
     }
 }
@@ -2796,3 +2803,7 @@ namespace eval xtal::rt {
 source [file join [file dirname [info script]] ptast.tcl]
 source [file join [file dirname [info script]] ptutil.tcl]
 source [file join [file dirname [info script]] shell.tcl]
+
+# Local Variables:
+# compile-command: "envset x64 && tclsh build.tcl extension -config ../src/tarray.cfg -keep -target win32-dev64"
+# End:
