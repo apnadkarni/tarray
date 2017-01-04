@@ -1948,7 +1948,7 @@ namespace eval xtal::rt {
             if {$index_len == 1} {
                 set value [list $value]
             }
-        } elseif {$indextype eq "int"} {
+        } elseif {$indextype ne "table"} {
             set index_len [tarray::column::size $index]
         } else {
             error "Index must be a integer, an integer list, or an integer column."
@@ -1961,11 +1961,16 @@ namespace eval xtal::rt {
             set value_len [tarray::column::size $value]
         }
 
-        # The vplace commands do not mind if source len is greater than
-        # target length but current xtal semantics do not allow this so
-        # explicitly check.
-        if {$index_len != $value_len} {
-            error "Number of indices ($index_len) not same as number of values ($value_len)."
+        if {0} {
+            This check is disabled because if the index column is a boolean
+            the size of the column will not be same as number of values.
+            TBD - for now leave out until we decide whether to allow
+            # The vplace commands do not mind if source len is greater than
+            # target length but current xtal semantics do not allow this so
+            # explicitly check.
+            if {$index_len != $value_len} {
+                error "Number of indices ($index_len) not same as number of values ($value_len)."
+            }
         }
         if {$index_len == 0} {
             return $var
@@ -2565,7 +2570,7 @@ namespace eval xtal::rt {
                     }
                 } else {
                     if {$seltype ni {byte int uint wide}} {
-                        error "Invalid index expression"
+                        error "Invalid index expression."
                     }
                     ::tarray::loop pos $selexpr {
                         if {$pos < 0 || $pos >= $n} {
