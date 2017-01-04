@@ -323,8 +323,18 @@ TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type)
 
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
+    if (ip)
+        Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", NULL);
     return error_from_obj(ip, "Invalid operand(s)", o);
+}
+
+TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip)
+{
+    if (ip) {
+        Tcl_SetErrorCode(ip, "TARRAY", "ARGCOUNT", NULL);
+        Tcl_SetResult(ip, "Invalid number of arguments.", TCL_STATIC);
+    }
+    return TCL_ERROR;
 }
 
 TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *plow, ta_value_t *phigh)

@@ -78,6 +78,7 @@ static double ta_math_double_from_operand(struct ta_math_operand *poperand,
                                           int thdr_index)
 {
     thdr_t *thdr = poperand->thdr_operand;
+    double dbl;
     if (thdr) {
         thdr_index += poperand->span_start;
         TA_ASSERT(thdr->used > thdr_index);
@@ -168,7 +169,6 @@ static char *ta_math_string_from_operand(struct ta_math_operand *poperand,
                      *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index));
             break;
         case TA_DOUBLE:
-            TA_ASSERT(sizeof(buf) >= TCL_DOUBLE_SPACE);
             Tcl_PrintDouble(NULL, *THDRELEMPTR(thdr, double, thdr_index), buf);
             break;
         case TA_ANY:
@@ -856,10 +856,11 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     
     noperands = objc - 2;    
 
-    /*
-     * Common case of two operands, save on allocation.
-     * Note noperands is the *maximum* number of entries that will be needed.
-     */
+    if (noperands != 2 && op == TAM_OP_NE) {
+        return ta_invalid_argcount(ip);
+    }
+
+    /* Common case, save on allocation. */
     if (noperands > ARRAYSIZE(operands))
         poperands = TA_ALLOCMEM(noperands * sizeof(*poperands));
     else
@@ -1002,7 +1003,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                         ptav->wval = ival;
                     } else {
                         if (!is_compare_op(op)) {
-                            status = ta_invalid_op_for_type(ip, coltype);
+                            status = ta_invalid_op_for_type(ip, TA_ANY);
                             goto vamoose;
                         }
                         result_type = TA_ANY;
