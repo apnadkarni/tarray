@@ -12,11 +12,11 @@ int ta_sort_mt_enable_any = 0; /* TBD, change to 1 once sufficient testing */
 
 
 /* Comparison functions for sorting */
+/* Note for (*a-*b) won't do for reasons of overflow */
 #define RETCMP(a_, b_, t_)                      \
     return ((*(t_ *)(a_)) > (*(t_ *)(b_)) ? 1 : ( (*(t_ *)(a_)) == (*(t_ *)(b_)) ? 0 : -1))
-int intcmp(const void *a, const void *b) { return *(int*)a-*(int*)b; }
-int intcmprev(const void *a, const void *b) { return *(int*)b-*(int*)a; }
-/* Note for doubles, wides, unsigned int etc, (*a-*b) won't do */
+int intcmp(const void *a, const void *b) { RETCMP(a, b, int); }
+int intcmprev(const void *a, const void *b) { RETCMP(b, a, int); }
 int bytecmp(const void *a, const void *b) { RETCMP(a, b, unsigned char); }
 int bytecmprev(const void *a, const void *b) { RETCMP(b, a, unsigned char); }
 int uintcmp(const void *a, const void *b) { RETCMP(a, b, unsigned int); }
