@@ -220,6 +220,7 @@ thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
 thdr_t *thdr_alloc(Tcl_Interp *, int tatype, int count);
 thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
 thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count);
+thdr_t *thdr_indices_to_bitmap(Tcl_Interp *,int size,thdr_t *src,span_t *span);
 TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
 
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))

@@ -78,7 +78,6 @@ static double ta_math_double_from_operand(struct ta_math_operand *poperand,
                                           int thdr_index)
 {
     thdr_t *thdr = poperand->thdr_operand;
-    double dbl;
     if (thdr) {
         thdr_index += poperand->span_start;
         TA_ASSERT(thdr->used > thdr_index);
