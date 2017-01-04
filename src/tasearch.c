@@ -1289,7 +1289,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
     if (flags & TA_SEARCH_ALL) {
         if (flags & TA_SEARCH_BITMAP) {
             thdr_t *thdr_bitmap;
-            thdr_bitmap = thdr_indices_to_bitmap(thdr, span ? span->count : haystackP->used);
+            thdr_bitmap = thdr_indices_to_bitmap(ip, span ? span->count : haystackP->used, thdr, NULL);
             thdr_decr_refs(thdr);
             thdr = thdr_bitmap;
             if (thdr == NULL)
@@ -1350,7 +1350,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     search.upper = count - 1;
     search.op = TA_SEARCH_OPT_EQ;
     for (i = 1; i < objc-2; ++i) {
-	status = ta_opt_from_obj(ip, objv[i], ta_search_switches_e, "option", 0, &opt);
+        status = ta_opt_from_obj(ip, objv[i], ta_search_switches_e, "option", 0, &opt);
         if (status != TCL_OK)
             goto vamoose;
 

@@ -2656,7 +2656,7 @@ thdr_t *thdr_indices_to_bitmap(
             ta_index_range_error(ip, *pindex);
             return NULL;
         }
-        ba_put(baP, pos, 1);
+        ba_put(baP, *pindex, 1);
     }
     return thdr;
 }
