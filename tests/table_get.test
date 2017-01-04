@@ -213,6 +213,10 @@ namespace eval tarray::test {
         Get indexlist with duplicates
     } -body { test_table_get_indexlist_aslist {10 0 77 65 82 77 10} }
 
+    test table_get-indexlist-aslist-2.6.1 {
+        Get indexlist with duplicates
+    } -body { test_table_get_indexlist_aslist {0 1 77} }
+
     test table_get-indexlist-aslist-3.0 {
         Get the end element
     } -body {

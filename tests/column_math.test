@@ -192,11 +192,16 @@ namespace eval tarray::test {
                 test [mathid]-err "Unsupported $op, $type with scalar" -body [list tarray::column math $op [samplecolumn $type] 1] -result "Operation is invalid for type $type." -returnCodes error
                 continue
             }
+
             # Single arg tests
-            test [mathid]-$type-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
-            test [mathid]-$type-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
-            test [mathid]-$type-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
-            test [mathid]-$type-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
+            if {$op ne "!="} {
+                test [mathid]-$type-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
+                test [mathid]-$type-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
+                test [mathid]-$type-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
+                test [mathid]-$type-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
+            } else {
+                test [mathid]-$type-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]} -returnCodes error -result "Invalid number of arguments."
+            }
 
             # Two arg tests
             # Division is separated out because div by 0 is tested separately
@@ -398,7 +403,7 @@ namespace eval tarray::test {
         
         test [mathid]-boolean-$op "boolean column $op" -body {
             tarray::column math $op [samplecolumn boolean] true
-        } -returnCodes error -result "Operation is invalid for type boolean."
+        } -returnCodes error -result "Operation is invalid for type any."
         
         for {set i 1} {$i < 128} {incr i} {
             test [mathid]-boolean-$op-range "boolean column range $op" -body {
