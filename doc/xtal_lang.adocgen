@@ -1236,10 +1236,6 @@ text {
     they have different semantics that provide very convenient search
     and indexing functionality.
 
-    * ((^ sect_xtal_set_ops "Set operators"))
-    are applicable only to columns and implement operations like
-    union and intersection.
-    
     * ((^ sect_xtal_lookup_op "The lookup operator")) that performs
     associative lookup on dictionaries and columns.
 
@@ -1370,25 +1366,25 @@ text {
     
     * If either operand is a table, an error will be generated.
 
-    * If both operands are columns, an error will be generated.
-
     * If neither operand is a column, the result will be a boolean
     value based on standard Tcl operators or the operators shown
     in ((^ tab_xtal_match_ops)).
 
-    * If (exactly) one of the operands is a column, each element
-    of the column is individually compared with the other operand.
-    The result
-    is an integer column containing the indices of those elements
-    for which the specified comparison operation returns true.
+    * If (exactly) one of the operands is a column, each element of
+    the column is individually compared with the other operand.  The
+    result is an `boolean` column whose elements contain the results
+    of the comparison.
 
-    This last rule is illustrated by the example below which prints
-    the indices for all months where the rainfall is less than 100mm.
+    * If both operands are columns, corresponding elements of the two
+    columns are compared and the result is an `boolean` column whose
+    elements contain the results of the comparison.
+
+    The `boolean` columns returned in the last two cases can be used
+    as index column. For example,
 } xtal {
-    print(Rainfall < 100)
+    print(Rainfall[Rainfall < 100])
 } text {
-    The real usefulness of this will become apparent when we discuss
-    ((^ sect_xtal_indexing_ops "indexing operators")).
+    We will discuss this in ((^ sect_xtal_indexing_ops)).
     
     [NOTE]
     ====
@@ -1416,27 +1412,15 @@ text {
     * If neither operand is a column, the result will be a boolean
     value based on standard Tcl operators.
 
-    * If both operands are columns, the operation is treated
-    as a set operation and described in ((^ sect_xtal_set_ops)).
-
-    * If one operand is a column and the other is not, an error is
-    raised.
-}
-
-text {
-    ((=== sect_xtal_set_ops "Set operators"))
-
-    The operators `&&` and `||` behave as set operators when both
-    operands are columns. In this case, both operands must be of
-    the same type.
-
-    The `&&` operator returns a column of the same type as the operands
-    and containing elements that are common to both.
+    * If one operand is a column and the other is not, the result is
+    a `boolean` column formed by doing the logical operation between
+    each element of the column and the other operand.
     
-    The `||` operator returns a column of the same type as the operands
-    and containing elements that are present in either operand.
-} tbd {
-    Update docs with respect to uniqueness
+    * If both operands are columns, the result is a `boolean` column
+    formed by doing the operation between the corresponding elements of
+    the two columns.
+
+    If any column operand is of type `any` or `string`, an error is raised.
 }
 
 text {
