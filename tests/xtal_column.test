@@ -1069,14 +1069,27 @@ namespace eval tarray::test::xtal_column {
             set c [newcolumn $type $L]
         } -body {
             xtal::xtal { c[c < 33 && 0] }
-        } -result "Invalid logical and operation on a column and a scalar." -returnCodes error
+        } -result [newcolumn $type {}]
+
+        test xtal-column-$type-selector-compound-2.0.1 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+        } -body {
+            xtal::xtal {c[0 && c < 33] }
+        } -result [newcolumn $type {}]
 
         test xtal-column-$type-selector-compound-2.1 "column $type compound selector" -setup {
             set c [newcolumn $type $L]
             set i 1
         } -body {
             xtal::xtal { c[c < 33 || i] }
-        } -result "Invalid logical or operation on a column and a scalar." -returnCodes error
+        } -result [newcolumn $type $L]
+        
+        test xtal-column-$type-selector-compound-2.1.1 "column $type compound selector" -setup {
+            set c [newcolumn $type $L]
+            set i 1
+        } -body {
+            xtal::xtal {c[i || c < 33] }
+        } -result [newcolumn $type $L]
     }
 
     
