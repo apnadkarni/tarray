@@ -513,6 +513,7 @@ TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
 void tcol_random_init(ta_rng_t *prng);
 TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 TCL_RESULT ta_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
+TCL_RESULT tcol_shuffle_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 void ta_random_rng_delete(ClientData cdata);
 TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *, ta_value_t *, ta_value_t *, int);
 
