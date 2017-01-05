@@ -1830,6 +1830,48 @@ critcl::ccommand xxx {} {
 
 critcl::class::define ::tarray::rng {
     include pcg_basic.h
+    support {
+        ta_value_t get_bounded_random(ta_rng_t *rng, ta_value_t *lbound, ta_value_t *ubound)
+        {
+            ta_value_t tav;
+                
+            TA_ASSERT(lbound->type == ubound->type);
+            TA_ASSERT(lbound->type != TA_BOOLEAN); /* Does not support bounds */
+            switch (lbound->type) {
+            case TA_BYTE:
+                tav.ucval = pcg32_boundedrand_r(&rng->rng[0],   
+                                                ubound->ucval - lbound->ucval);
+                tav.ucval += lbound->ucval;
+                break;
+            case TA_INT:
+                tav.ival = pcg32_boundedrand_r(&rng->rng[0], 
+                                               ubound->ival - lbound->ival);
+                tav.ival += lbound->ival;
+                break;
+            case TA_UINT:
+                tav.uival = pcg32_boundedrand_r(&rng->rng[0], 
+                                                ubound->uival - lbound->uival);
+                tav.uival += lbound->uival;
+                break;
+            case TA_WIDE:
+                tav.wval = pcg32x2_boundedrand_r(rng->rng,
+                                                 ubound->wval - lbound->wval);
+                tav.wval += lbound->wval;
+                break;
+            case TA_DOUBLE:
+                tav.dval = pcgdouble_boundedrand_r(rng->rng,
+                                                   ubound->dval - lbound->dval);
+                tav.dval += lbound->dval;
+                break;
+            default:
+                ta_type_panic(lbound->type);
+                break;
+            }
+            tav.type = lbound->type;
+            return tav;
+        }
+    }
+        
     insvariable ta_rng_t rng {} {
         instance->rng.nrefs = 1; /* Does not really matter */
     }
@@ -1897,45 +1939,13 @@ critcl::class::define ::tarray::rng {
             ores = Tcl_NewListObj(count, NULL);
         if (instance->bounded) {
             for (i = 0; i < count; ++i) {
-                uint32_t ui32;
-                uint64_t ui64;
-                double dbl;
-                Tcl_Obj *o;
-
-                TA_ASSERT(instance->rtype != TA_BOOLEAN);
-                switch (instance->rtype) {
-                case TA_BYTE:
-                    ui32 = pcg32_boundedrand_r(&instance->rng.rng[0],                                           instance->ubound.ucval - instance->lbound.ucval);
-                    o = Tcl_NewIntObj(ui32 + instance->lbound.ucval);
-                    break;
-                case TA_INT:
-                    ui32 = pcg32_boundedrand_r(&instance->rng.rng[0],                                           instance->ubound.ival - instance->lbound.ival);
-                    o = Tcl_NewIntObj(ui32 + instance->lbound.ival);
-                    break;
-                case TA_UINT:
-                    ui32 = pcg32_boundedrand_r(&instance->rng.rng[0],                                           instance->ubound.uival - instance->lbound.uival);
-                    /* Note WideInt to get sign right */
-                    o = Tcl_NewWideIntObj(ui32 + instance->lbound.uival);
-                    break;
-                case TA_WIDE:
-                    ui64 = pcg32x2_boundedrand_r(instance->rng.rng,
-                                                 instance->ubound.wval - instance->lbound.wval);
-                    o = Tcl_NewWideIntObj(ui64 + instance->lbound.wval);
-                    break;
-                case TA_DOUBLE:
-                    dbl = pcgdouble_boundedrand_r(instance->rng.rng,
-                                                  instance->ubound.dval - instance->lbound.dval);
-                    o = Tcl_NewDoubleObj(dbl + instance->lbound.dval);
-                    break;
-                default:
-                    ta_type_panic(instance->rtype);
-                    break;
-                }
+                ta_value_t tav;
+                tav = get_bounded_random(&instance->rng, &instance->lbound, &instance->ubound);
                 if (count == 1) {
-                    ores = o;
+                    ores = ta_value_to_obj(&tav);
                     break;
                 }
-                Tcl_ListObjAppendElement(interp, ores, o);
+                Tcl_ListObjAppendElement(interp, ores, ta_value_to_obj(&tav));
             }
         } else {
             /* Unbounded */
@@ -1970,6 +1980,24 @@ critcl::class::define ::tarray::rng {
             }
         }
         Tcl_SetObjResult(interp, ores);
+        return TCL_OK;
+    }
+
+    method bounded proc {Tcl_Obj* olower Tcl_Obj* oupper} ok {
+        ta_value_t lbound, ubound;
+        ta_value_t tav;
+        if (instance->rtype == TA_BOOLEAN) {
+            /* Booleans do not support bounds */
+            return ta_invalid_op_for_type(interp, instance->rtype);
+        }
+        if (ta_value_from_obj(interp, olower,
+                              instance->rtype,&lbound) != TCL_OK ||
+            ta_value_from_obj(interp, oupper,
+                              instance->rtype,&ubound) != TCL_OK ||
+            ta_rng_fixup_bounds(interp, &lbound, &ubound, 0) != TCL_OK)
+            return TCL_ERROR;
+        tav = get_bounded_random(&instance->rng, &lbound, &ubound);
+        Tcl_SetObjResult(interp, ta_value_to_obj(&tav));
         return TCL_OK;
     }
 }
