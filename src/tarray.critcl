@@ -233,11 +233,15 @@ critcl::cinit {
         ta_rng_t *prng;
         prng = ckalloc(sizeof(ta_rng_t));
         tcol_random_init(prng);
-        prng->nrefs = 2;        /* For each command reference below */
-        Tcl_CreateObjCommand(interp, "::tarray::column::random",
+        prng->nrefs = 3;        /* For each command reference below */
+	/* Note all three commands have the same ta_random_rng_delete
+	as last parameter. That's not a typo */
+	Tcl_CreateObjCommand(interp, "::tarray::column::random",
                              tcol_random_cmd, prng, ta_random_rng_delete);
         Tcl_CreateObjCommand(interp, "::tarray::randseed",
                              ta_randseed_cmd, prng, ta_random_rng_delete);
+        Tcl_CreateObjCommand(interp, "::tarray::column::shuffle",
+                             tcol_shuffle_cmd, prng, ta_random_rng_delete);
     }
 } {
 }
@@ -1821,11 +1825,6 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
     Tcl_SetResult(interp, "Multithreading not enabled", TCL_STATIC);
     return TCL_ERROR;
 #endif
-}
-
-critcl::ccommand xxx {} {
-    Tcl_SetObjResult(interp, objv[0]);
-    return TCL_OK;
 }
 
 critcl::class::define ::tarray::rng {

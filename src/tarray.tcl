@@ -16,8 +16,11 @@ namespace eval tarray {
 interp alias {} tarray::column::count {} tarray::column::search -count
 
 # TBD - document
-proc tarray::column::zeroes {count {type boolean}} {
-    return [fill [create $type {} $count] 0 0 [incr count -1]]
+proc tarray::column::bitmap0 {count {init {}}} {
+    return [fill [fill [create boolean {} $count] 0 0 [incr count -1]] 1 $init]
+}
+proc tarray::column::bitmap1 {count {init {}}} {
+    return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 
 proc tarray::table::create {def {init {}} {size 0}} {
@@ -250,7 +253,6 @@ proc tarray::unsupported::build_info {} {
 }
 
 
-# Replace with C
 proc tarray::unsupported::crandom {varname type count} {
     # Do not use lrandom because that will affect memory usage in benchmarks
     upvar 1 $varname col
@@ -332,6 +334,8 @@ namespace eval tarray {
     
     namespace eval column {
         namespace ensemble create -map {
+            bitmap0 bitmap0
+            bitmap1 bitmap1
             cast cast
             count count
             create create
@@ -358,6 +362,7 @@ namespace eval tarray {
             size size
             search search
             series series
+            shuffle shuffle
             sort sort
             sum sum
             type type
@@ -369,7 +374,6 @@ namespace eval tarray {
             vput vput
             vreverse vreverse
             vsort vsort
-            zeroes zeroes
             + +
             - -
             * *
@@ -424,6 +428,6 @@ namespace eval tarray {
         }
     }
 
-    namespace export column loop prettify print randseed rng table
+    namespace export bitmap0 bitmap1 column loop prettify print randseed rng table
 }
 

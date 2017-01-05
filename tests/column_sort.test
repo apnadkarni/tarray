@@ -373,12 +373,63 @@ namespace eval tarray::test {
             } -result [crep $type {31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0}] -match column
         }
 
-
+        ################################################################
+        
         # Need a better way to test -indirect to verify sort order
         # is maintained. For strings and any, we can do this better
         # using -nocase in later tests. For other tests, we just
-        # do the following simplistic test for now. - TBD
-        test column_sort-indirect-$type-1.0 {
+        # do the following simplistic tests for now. - TBD
+        if {$type ne "boolean"} {
+            test column_sort-indirect-$type-1.0 {
+                Verify basic indirect sort
+            } -setup {
+                set n 250; # < 256 so indices will fit in byte
+                set col [samplecolumn $type 0 [expr $n-1]]
+                set indices [tarray::column sort -indices $col]
+                # Reorder the indices
+                set reordered_indices [tarray::column sort $indices]
+                # Make sure test is not flawed
+                set diffs [tarray::column == $indices $reordered_indices]
+                if {[tarray::column count -eq $diffs 0] == 0} {
+                    error "Bad test. Reordered indices same as original indices."
+                }
+                if {$type in {byte uint wide double}} {
+                    set reordered_indices [tarray::column create $type $reordered_indices]
+                } elseif {$type ne "int"} {
+                    # For string and any, try boolean bitmap
+                    set reordered_indices [tarray::column::bitmap1 $n]
+                }
+            } -body {            
+                set indirect_indices [tarray::column sort -indirect $col $reordered_indices]
+                cequal $indices $indirect_indices
+            } -result 1
+            
+            test column_sort-indirect-$type-1.1 {
+                Verify indirect sort with only subset of indices
+            } -setup {
+                set n 250; # < 256 so indices will fit in byte
+                set col [samplecolumn $type 0 [expr $n-1]]
+                set indices [tarray::column range [tarray::column sort -indices $col] 0 100]
+                # Reorder the indices
+                set reordered_indices [tarray::column sort $indices]
+                # Make sure test is not flawed
+                set diffs [tarray::column == $indices $reordered_indices]
+                if {[tarray::column count -eq $diffs 0] == 0} {
+                    error "Bad test. Reordered indices same as original indices."
+                }
+                if {$type in {byte uint wide double}} {
+                    set reordered_indices [tarray::column create $type $reordered_indices]
+                } elseif {$type ne "int"} {
+                    # For string and any, try boolean bitmap
+                    set reordered_indices [tarray::column::bitmap0 $n $reordered_indices]
+                }
+            } -body {            
+                set indirect_indices [tarray::column sort -indirect $col $reordered_indices]
+                cequal $indices $indirect_indices
+            } -result 1
+        }
+
+        test column_sort-indirect-$type-2.0 {
             Verify basic indirect sort
         } -setup {
             set n 100000

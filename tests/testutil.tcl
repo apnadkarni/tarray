@@ -141,13 +141,13 @@ if {![info exists tarray::test::known]} {
             # uints
             set i 1001
             set l {}
-            time {lappend l [incr i]} $count
+            time {lappend l [incr i 3] [incr i -1]} $count
             lappend good(uint) $l
 
             # Byte
             set i 11
             set l {}
-            time {lappend l [expr {[incr i] & 0xff}]} $count
+            time {lappend l [expr {[incr i 3] & 0xff}] [expr {[incr i -1] & 0xff}]} $count
             lappend good(byte) $l
             
             # wides

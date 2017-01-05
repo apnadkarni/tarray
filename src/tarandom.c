@@ -283,3 +283,99 @@ TCL_RESULT ta_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
 
     return TCL_OK;
 }
+
+TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
+                            int objc, Tcl_Obj *const objv[])
+{
+    ta_rng_t *prng = (ta_rng_t *)cdata;
+    thdr_t *thdr;
+    Tcl_Obj *objP;
+    span_t *span;
+    int n;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
+    }
+
+    if (tcol_convert(ip, objv[1]) != TCL_OK)
+        return TCL_ERROR;;
+
+    thdr = OBJTHDR(objv[1]);
+    if (thdr->type == TA_BOOLEAN)
+        return ta_invalid_op_for_type(ip, TA_BOOLEAN);
+    span = OBJTHDRSPAN(objv[1]);
+    
+    if (Tcl_IsShared(objv[1]) || thdr_shared(thdr) || span) {
+        /* Construct shuffle into a new column. 
+         * "Inside-out" version of Fisher-Yates shuffle 
+         */
+#define SHUFFLECOPY(type_)                                              \
+        do {                                                            \
+            int i, j;                                                   \
+            type_ *from = THDRELEMPTR(thdr, type_, start);              \
+            type_ *to = THDRELEMPTR(thdr2, type_, 0);                   \
+            for (i = 0; i < n; ++i) {                                   \
+                j = pcg32_boundedrand_r(&prng->rng[0], i+1); /* j in 0:i */ \
+                to[i] = to[j];                                          \
+                to[j] = from[i];                                        \
+            }                                                           \
+        } while (0)
+
+        thdr_t *thdr2;
+        int start;
+        if (span) {
+            start = span->first;
+            n = span->count;
+        } else {
+            start = 0;
+            n = thdr->used;
+        }
+        thdr2 = thdr_alloc(ip, thdr->type, n);
+        switch (thdr->type) {
+        case TA_BYTE: SHUFFLECOPY(unsigned char); break;
+        case TA_INT: /* FALLTHRU */
+        case TA_UINT: SHUFFLECOPY(int); break;
+        case TA_WIDE: SHUFFLECOPY(Tcl_WideInt); break;
+        case TA_DOUBLE: SHUFFLECOPY(double); break;
+        case TA_ANY: /* FALLTHRU */
+        case TA_STRING: SHUFFLECOPY(Tcl_Obj *); break;
+        default:
+            ta_type_panic(thdr->type);
+            break;
+        }
+        thdr2->used = n;
+        objP = tcol_new(thdr2);
+    } else {
+        /* Shuffle in place - Fisher-Yates shuffle */
+#define SHUFFLE(type_)                                                  \
+        do {                                                            \
+            int i, j;                                                   \
+            type_ temp;                                                 \
+            type_ *p = THDRELEMPTR(thdr, type_, 0);                     \
+            for (i = n; i > 1; --i) {                                   \
+                j = pcg32_boundedrand_r(&prng->rng[0], i); /* j in 0:(i-1) */ \
+                temp = p[j];                                            \
+                p[j] = p[i-1];                                          \
+                p[i-1] = temp;                                          \
+            }                                                           \
+        } while (0)
+        objP = objv[1];
+        n = thdr->used;
+        switch (thdr->type) {
+        case TA_BYTE: SHUFFLE(unsigned char); break;
+        case TA_INT: /* FALLTHRU */
+        case TA_UINT: SHUFFLE(int); break;
+        case TA_WIDE: SHUFFLE(Tcl_WideInt); break;
+        case TA_DOUBLE: SHUFFLE(double); break;
+        case TA_ANY: /* FALLTHRU */
+        case TA_STRING: SHUFFLE(Tcl_Obj *); break;
+        default:
+            ta_type_panic(thdr->type);
+            break;
+        }
+    }
+
+    Tcl_SetObjResult(ip, objP);
+    return TCL_OK;
+}
