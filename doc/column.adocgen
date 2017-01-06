@@ -509,6 +509,10 @@ text {
     result in a column of type `double` whereas a _STEP_ of 1 would
     return a `int` or `wide` depending on the range of operands.
     
+    ((cmddef column_shuffle "column shuffle _COLUMN_"))
+    Returns a new column containing the elements of `_COLUMN_` in
+    a new random order. Columns of type `boolean` are not supported.
+
     ((cmddef column_size "column size _COLUMN_"))
 
     Returns the number of elements in the typed column.

@@ -1,0 +1,37 @@
+# tarray column random
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    foreach type {byte int uint wide double any string} {
+        test column_shuffle-$type-1.0 {Basic shuffle empty} -setup {
+            set c [newcolumn $type]
+        } -body {
+            tarray::column shuffle $c
+        } -result [newcolumn $type]
+        
+        test column_shuffle-$type-1.1 {Basic shuffle} -setup {
+            set c [samplecolumn $type]
+        } -body {
+            set c2 [tarray::column shuffle $c]
+            set c3 [tarray::column shuffle $c]
+            list [string equal $c $c2] [string equal $c $c3] [string equal $c2 $c3]
+        } -result {0 0 0}
+
+        test column_shuffle-$type-1.2 {Basic shuffle in place} -body {
+            set c [tarray::column shuffle [samplecolumn $type]]
+            string equal $c [samplecolumn $type]
+        } -result 0
+    }
+    
+    test column_shuffle-boolean-1.0 {Basic shuffle empty} -setup {
+        set c [samplecolumn boolean]
+    } -body {
+        tarray::column shuffle $c
+    } -result "Operation is invalid for type boolean." -returnCodes error
+        
+}
+
+::tcltest::cleanupTests

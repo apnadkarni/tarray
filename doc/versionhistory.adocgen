@@ -11,6 +11,8 @@ text {
 
     * Added `rng`, `randseed` and `column random` commands.
 
+    * Added `column shuffle` command.
+    
     * Added random initializer for column constructors (Xtal).
 
     * Added size specifiers for column constructors (Xtal).

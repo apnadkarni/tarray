@@ -332,19 +332,25 @@ TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
             n = thdr->used;
         }
         thdr2 = thdr_alloc(ip, thdr->type, n);
+        thdr2->used = n; /* Init BEFORE thdr_incr_*_refs called below */
         switch (thdr->type) {
         case TA_BYTE: SHUFFLECOPY(unsigned char); break;
         case TA_INT: /* FALLTHRU */
         case TA_UINT: SHUFFLECOPY(int); break;
         case TA_WIDE: SHUFFLECOPY(Tcl_WideInt); break;
         case TA_DOUBLE: SHUFFLECOPY(double); break;
-        case TA_ANY: /* FALLTHRU */
-        case TA_STRING: SHUFFLECOPY(Tcl_Obj *); break;
+        case TA_ANY: 
+            SHUFFLECOPY(Tcl_Obj *);
+            thdr_incr_obj_refs(thdr2, 0, n);
+            break;
+        case TA_STRING:
+            SHUFFLECOPY(Tcl_Obj *);
+            thdr_incr_tas_refs(thdr2, 0, n);
+            break;
         default:
             ta_type_panic(thdr->type);
             break;
         }
-        thdr2->used = n;
         objP = tcol_new(thdr2);
     } else {
         /* Shuffle in place - Fisher-Yates shuffle */
