@@ -9,10 +9,15 @@ text {
 text {
     == Changes since V0.8.1
 
-    * Added `rng`, `randseed` and `column random` commands.
+    * Added ((^` tarray_rng_create rng)),
+    ((^` tarray_randseed randseed)) and
+    ((^` column_random "column random")) commands.
 
-    * Added `column shuffle` and `column vshuffle` commands.
+    * Added ((^` column_shuffle "column shuffle"))
+    and ((^` column_vshuffle "column vshuffle")) commands.
     
+    * Added ((^` column_width "column width")) command.
+
     * Added random initializer for column constructors (Xtal).
 
     * Added size specifiers for column constructors (Xtal).

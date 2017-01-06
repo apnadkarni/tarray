@@ -259,7 +259,7 @@ critcl::cproc tarray::_same_tclobj {Tcl_Obj* o1 Tcl_Obj* o2} int {
     return o1 == o2;
 }
 
-# TBD - tests for the types command
+# TBD - tests and docs for the types command
 critcl::ccommand tarray::types {} {
     int i;
     Tcl_Obj *o;
@@ -429,8 +429,8 @@ critcl::cproc tarray::column::size {TColObjPtr tcol} int {
     return tcol_occupancy(tcol);
 }
 
-critcl::cproc tarray::column::type {TColObjPtr tcol} "const char*" {
-    return ta_type_string(tcol_type(tcol));
+critcl::cproc tarray::column::type {TColObjPtr tcol} Tcl_Obj*0 {
+    return Tcl_NewStringObj(ta_type_string(tcol_type(tcol)), -1);
 }
 
 critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLUMN Tcl_Obj* COLTYPE} ok {
