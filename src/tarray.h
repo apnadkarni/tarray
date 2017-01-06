@@ -267,6 +267,7 @@ extern struct Tcl_ObjType ta_index_type;
 
 
 TCL_RESULT ta_return_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ores);
+TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue);
 int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 
 const char *ta_type_string(int tatype);
@@ -514,6 +515,7 @@ void tcol_random_init(ta_rng_t *prng);
 TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 TCL_RESULT ta_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 TCL_RESULT tcol_shuffle_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
+TCL_RESULT tcol_vshuffle_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 void ta_random_rng_delete(ClientData cdata);
 TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *, ta_value_t *, ta_value_t *, int);
 
