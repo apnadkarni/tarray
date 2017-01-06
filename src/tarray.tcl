@@ -373,6 +373,7 @@ namespace eval tarray {
             vplace vplace
             vput vput
             vreverse vreverse
+            vshuffle vshuffle
             vsort vsort
             + +
             - -

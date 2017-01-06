@@ -1,0 +1,40 @@
+# tarray column vshuffle
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    foreach type {byte int uint wide double any string} {
+        test column_vshuffle-$type-1.0 {Basic vshuffle empty} -setup {
+            set c [newcolumn $type]
+        } -body {
+            tarray::column vshuffle c
+        } -result [newcolumn $type]
+        
+        test column_vshuffle-$type-1.0.1 {Basic vshuffle empty} -setup {
+            set c [newcolumn $type]
+        } -body {
+            tarray::column vshuffle c
+            set c
+        } -result [newcolumn $type]
+        
+        test column_vshuffle-$type-1.1 {Basic vshuffle} -setup {
+            set c [samplecolumn $type]
+        } -body {
+            set c2 $c
+            set c3 [tarray::column vshuffle c]
+            list [string equal $c $c2] [string equal $c $c3]
+        } -result {0 1}
+
+    }
+    
+    test column_vshuffle-boolean-1.0 {Basic vshuffle empty} -setup {
+        set c [samplecolumn boolean]
+    } -body {
+        tarray::column vshuffle c
+    } -result "Operation is invalid for type boolean." -returnCodes error
+        
+}
+
+::tcltest::cleanupTests

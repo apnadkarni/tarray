@@ -284,29 +284,23 @@ TCL_RESULT ta_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
-                            int objc, Tcl_Obj *const objv[])
+TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
 {
-    ta_rng_t *prng = (ta_rng_t *)cdata;
     thdr_t *thdr;
-    Tcl_Obj *objP;
     span_t *span;
     int n;
 
-    if (objc != 2) {
-        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
-        return TCL_ERROR;
-    }
-
-    if (tcol_convert(ip, objv[1]) != TCL_OK)
+    TA_ASSERT(! Tcl_IsShared(tcol));
+    
+    if (tcol_convert(ip, tcol) != TCL_OK)
         return TCL_ERROR;;
 
-    thdr = OBJTHDR(objv[1]);
+    thdr = OBJTHDR(tcol);
     if (thdr->type == TA_BOOLEAN)
         return ta_invalid_op_for_type(ip, TA_BOOLEAN);
-    span = OBJTHDRSPAN(objv[1]);
+    span = OBJTHDRSPAN(tcol);
     
-    if (Tcl_IsShared(objv[1]) || thdr_shared(thdr) || span) {
+    if (thdr_shared(thdr) || span) {
         /* Construct shuffle into a new column. 
          * "Inside-out" version of Fisher-Yates shuffle 
          */
@@ -351,7 +345,7 @@ TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
             ta_type_panic(thdr->type);
             break;
         }
-        objP = tcol_new(thdr2);
+        tcol_replace_intrep(tcol, thdr2, NULL);
     } else {
         /* Shuffle in place - Fisher-Yates shuffle */
 #define SHUFFLE(type_)                                                  \
@@ -366,7 +360,6 @@ TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
                 p[i-1] = temp;                                          \
             }                                                           \
         } while (0)
-        objP = objv[1];
         n = thdr->used;
         switch (thdr->type) {
         case TA_BYTE: SHUFFLE(unsigned char); break;
@@ -380,8 +373,48 @@ TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
             ta_type_panic(thdr->type);
             break;
         }
+        Tcl_InvalidateStringRep(tcol);
     }
 
-    Tcl_SetObjResult(ip, objP);
     return TCL_OK;
+}
+
+TCL_RESULT tcol_shuffle_cmd(ClientData cdata, Tcl_Interp *ip,
+                            int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *tcol;
+    TCL_RESULT res;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
+    }
+
+    tcol = objv[1];
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
+    res = tcol_shuffle(ip, (ta_rng_t *)cdata, tcol);
+    return ta_return_result(ip, res, tcol);
+}
+
+TCL_RESULT tcol_vshuffle_cmd(ClientData cdata, Tcl_Interp *ip,
+                            int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *tcol, *ovar;
+    TCL_RESULT res;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
+    }
+
+    ovar = objv[1];
+    tcol = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (tcol == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(tcol))
+        tcol = Tcl_DuplicateObj(tcol);
+    res = tcol_shuffle(ip, (ta_rng_t *)cdata, tcol);
+    TA_ASSERT(res != TCL_OK || tcol_check(ip, tcol));
+    return ta_set_var_result(ip, res, ovar, tcol);
 }

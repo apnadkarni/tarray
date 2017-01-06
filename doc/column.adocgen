@@ -622,6 +622,13 @@ text {
     value of the variable (which may differ because of traces) is returned
     as the result of the command.
 
+    ((cmddef column_vshuffle "column vshuffle _COLUMNVAR_"))
+    
+    Shuffles the order of elements in the typed column in variable
+    _COLUMNVAR_. The new value is assigned back to the variable. The resulting
+    value of the variable (which may differ because of traces) is returned
+    as the result of the command.
+
     ((cmddef column_vsort "column vsort ?-increasing? ?-decreasing? ?-nocase? ?-indirect _TARGETCOLUMN_? _COLUMNVAR_"))
 
     Sorts a typed column stored in variable. _COLUMNVAR_ is variable
