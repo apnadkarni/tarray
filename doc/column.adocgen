@@ -635,6 +635,14 @@ text {
     containing the typed column to be sorted. The sorted column is also
     returned as the command result. See the column sort command for a
     description of the options.
+
+    ((cmddef column_width "column width _COLUMN_ ?_FORMAT_?"))
+
+    Returns the maximum width of the specified column in terms
+    of the number of characters required to print in the given format.
+    If `_FORMAT_` is not specified, it defaults to `%s`. If the column
+    is empty, the command returns `0` irrespective of `_FORMAT_`.
+    
 } text {
     // Turn section numbering on again
     :sectnums:

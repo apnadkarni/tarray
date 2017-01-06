@@ -1,0 +1,34 @@
+# column width tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc maxwidth {l {fmt %s}} {
+        set len 0
+        foreach e $l {
+            set n [string length [format $fmt $e]]
+            if {$n > $len} {set len $n}
+        }
+        return $len
+    }
+    foreach type {boolean byte int uint wide double any string} {
+        test column_width-$type-1.0 {Width of empty column} -body {
+            tarray::column width [tarray::column create $type {}]
+        } -result 0
+
+        test column_width-$type-1.1 {Width of empty column} -body {
+            tarray::column width [tarray::column create $type {}] "abc%s"
+        } -result 0
+
+        test column_width-$type-2.0 {Width of non-empty column} -body {
+            tarray::column width [samplecolumn $type]
+        } -result [maxwidth [samplerange $type]]
+            
+        test column_width-$type-2.1 {Width of non-empty column} -body {
+            tarray::column width [samplecolumn $type] "xxx%10.10syyy"
+        } -result [maxwidth [samplerange $type] "xxx%10.10syyy"]
+    }
+}
+
+::tcltest::cleanupTests

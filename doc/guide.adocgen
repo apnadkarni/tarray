@@ -640,6 +640,15 @@ text {
 
     The `prettify` command is another alternative which
     returns the formatted string instead of printing it to a channel.
+} text {
+    Another command that helps with formatting data is the
+    ((^` column_width "column width")) command. This returns the
+    maximum number of characters required to display elements
+    of the column in a given format.
+} shell {
+    set col [column create int {-1000 10 100}]
+    column width $col;          # Use default format string
+    column width $col "hex representation is %x"; # Specify the format string
 }
 
 text {
@@ -690,7 +699,7 @@ text {
 } shell {
     lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
 } text {
-    == Random number generation
+    == Random numbers
 
     We saw earlier the construction of columns containing randomly generated
     values. Random numbers can also be directly generated using the
@@ -724,6 +733,16 @@ text {
 } text {
     As seen, the same sequence is reproduced by initializing the seed
     with specific values.
+} text {
+    A related command ((^` column_shuffle "column shuffle")) rearranges
+    the elements of a column in random order.
+} shell {
+    set col [column create int {1 2 3 4 5}]
+    column shuffle $col
+    column shuffle $col
+} text {
+    A variation of the command, ((^` column_vshuffle "column vshuffle"))
+    operates on a variable.
 }
 
 text {

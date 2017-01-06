@@ -240,6 +240,41 @@ proc tarray::csv_read_file {path args} {
     return $tab
 }
 
+proc tarray::column::width {col {format %s}} {
+    if {[size $col] == 0} {
+        return 0
+    }
+    switch -exact -- [type $col] {
+        boolean { set len [string length [format $format 0]] }
+        byte -
+        int -
+        uint -
+        wide -
+        double {
+            # Note length of min can be greater (consider negative numbers)
+            lassign [minmax $col] min max
+            set minlen [string length [format $format $min]]
+            set maxlen [string length [format $format $max]]
+            if {$minlen > $maxlen} {
+                set len $minlen
+            } else {
+                set len $maxlen
+            }
+        }
+        string -
+        any {
+            set len 0
+            tarray::loop val $col {
+                set n [string length [format $format $val]]
+                if {$n > $len} {
+                    set len $n
+                }
+            }                
+        }
+    }
+    return $len
+}
+
 proc tarray::unsupported::build_info {} {
     set result ""
     catch {append result [encoding convertfrom utf-8 [critcl_info]]}
@@ -351,6 +386,7 @@ namespace eval tarray {
             lookup lookup
             loop ::tarray::loop
             math math
+            width width
             minmax minmax
             place place
             prettify prettify
