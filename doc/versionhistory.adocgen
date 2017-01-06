@@ -28,4 +28,7 @@ text {
     * Added logical operations `&&`, `||` and `^^` for columns.
 
     * Added comparison operators `==`, `!=`, `<`, `<=`, `>`, `>=` for columns.
+
+    * Added the `-bitmap` option to the ((^` column_search "column search"))
+    command.
 }

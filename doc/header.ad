@@ -1,5 +1,5 @@
 ifndef::bookbuild[]
-:toc: left
+:toc:
 :toclevels: 5
 :toc-title: Page Content
 :icons:

@@ -408,26 +408,43 @@ text {
     == Searching and filtering
 
     The column search command works similarly to Tcl's `lsearch`. It
-    returns the indices (by default) or the values (with the -inline
-    option) of matching elements in a column. Like `lsearch`, `column
-    search` stops on the first match and returns the matching index or
-    value but the `-all` option can be used to return all matches. The
-    command supports several matching operators. See the
-    ((^ column_search "`column search`")) command reference for a full list.
+    returns the indices or the values
+    of matching elements in a column. Like `lsearch`, by default
+    `column search` stops on the first match and returns the matching index.
 } shell {
+    set col [column create int {-10 10 0 20 0 -5 5}]
     column search $col 0
 } text {
-    returns the index of the first element that is 0 using the default matching
-    operator that tests for equality (assumes is a numeric column).
+    The above command returns the index of
+    the first element that is 0 using the default matching
+    operator that tests for equality. On the other hand, if the `-inline`
+    option is specified,
 } shell {
     column search -inline -gt $col 0
 } text {
-    returns the value of the first positive element.
+    the command returns the value of the first positive element instead
+    of its index (using the `-gt` "greater than" operator).
+
+    The `-all` option requests all matching elements to be returned
+    instead of the just the first. Thus
 } shell {
     column search -all -gt $col 0
 } text {
-    returns the indices of all positive elements. The return value is an `int`
-    column.
+    returns an `int` column containging the indices of all positive elements.
+    Alternatively, the `-bitmap` option may be specified to
+    have the matches returned as a boolean column with bits at the matching
+    indices set to 1. This is useful when the results are further used
+    in logical operation.
+} shell {
+    set large [column search -bitmap -gt $col 5]
+    set small [column search -bitmap -lt $col -5]
+    column get $col [column || $large $small]
+} text {
+    Notice the boolean combination above.
+
+    You can of course use `-inline` with `-all` to retrieve the
+    values instead of indices. Using the `-pat` pattern matching operator
+    as an example,
 } shell {
     set exes [column create string {tclsh.exe tclsh.man wish.exe}]
     column search -all -inline -nocase -pat $exes *.exe
@@ -438,15 +455,19 @@ text {
     The search can be restricted to only look at specific elements using a
     combination of `-range` and `-among` options.
 } shell {
-    column search -range {0 9} $col 0
+    column search -range {3 5} $col 0
 } text {
-    limits the search to the first ten elements.
+    limits the search to position between 3 and 5.
 } shell {
-    column search -among {1 5 3} $col 0
+    column search -among {4 1 2} $col 0
 } text {
-    only examines the elements at positions `1`, `5`, and `3` _in that
+    only examines the elements at positions `4`, `1`, and `2` _in that
     order_. The option `-among` is particularly useful in combining
     searches as in the table example below.
+
+    The command supports several matching operators like `-lt`, `-gt` etc.
+    See the
+    ((^ column_search "`column search`")) command reference for a full list.
 
     To search tables, use the search on individual columns. For example,
 } shell {
@@ -737,7 +758,7 @@ text {
     A related command ((^` column_shuffle "column shuffle")) rearranges
     the elements of a column in random order.
 } shell {
-    set col [column create int {1 2 3 4 5}]
+    set col [column create double {1 2 3 4 5}]
     column shuffle $col
     column shuffle $col
 } text {
