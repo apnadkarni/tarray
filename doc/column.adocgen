@@ -432,7 +432,7 @@ text {
 
     Returns the typed column with order of elements reversed.
 
-    ((cmddef column_search "column search ?-range _RANGE_? ?-among _INDICES_? ?-all? ?-inline? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
+    ((cmddef column_search "column search ?-range _RANGE_? ?-among _INDICES_? ?-all? ?-bitmap? ?-inline? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 
     Searches the specified typed column for a matching value. By default,
     the search starts at index 0 and returns the index of the first match,
@@ -456,14 +456,17 @@ text {
 
     The command normally returns the index of the first succeeding
     match.  Note this is not necessarily the lowest matching index
-    since `-among` may specify indices in any order. If `-all` is
+    since `-among` may specify indices in any order. If the option
+    `-all` is
     specified, the search does not stop at the first match but instead
-    returns a list containing the indices of all matched
-    elements. This may be an empty list if no elements matched.
+    searches for all matching elements and
+    returns a integer column containing the indices of all matched
+    elements. The option `-bitmap` implies `-all`, but in this case the command
+    returns a boolean column with the bits corresponding to
+    each matching index set to 1. 
 
     If the `-inline` option is specified, the command returns the
     matched value(s) instead of their indices.
-
 
     _OPER_ specifies the comparison operator and must be one of those
     shown in ((^ tab_column_search_ops)).
