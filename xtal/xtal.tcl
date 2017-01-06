@@ -2177,9 +2177,7 @@ namespace eval xtal::rt {
             return [tarray::column::create boolean]
         } else {
             set n [::tarray::column::index $indices end]
-            return [tarray::column::fill \
-                        [tarray::column::zeroes [expr {$n+1}]] \
-                        1 $indices]
+            return [tarray::column::bitmap0 [expr {$n+1}] $indices]
         }
     }
 
@@ -2376,9 +2374,7 @@ namespace eval xtal::rt {
             !~^ {lsearch -all -nocase -not -regexp $haystack $needle}
         }]
 
-        return [tarray::column::fill \
-                    [tarray::column::zeroes [llength $haystack]] \
-                    1 $indices]
+        return [tarray::column::bitmap0 [llength $haystack] $indices]
     }
 
     # Called for string operators like ~, ^= etc. Not for ==, !=
@@ -2593,14 +2589,13 @@ namespace eval xtal::rt {
             set low 0
         }
         set n [operand_size [selector_context]]
-        set col [::tarray::column::zeroes $n]
         # $high may be integer or "end"
         if {[string is integer -strict $high]} {
-            if {$high > [incr n -1]} {
-                set high $n
+            if {$high >= $n} {
+                set high [expr {$n-1}]
             }
         }
-        return [::tarray::column::vfill col 1 $low $high]
+        return [::tarray::column::fill [::tarray::column::bitmap0 $n] 1 $low $high]
     }
 
     proc operand_size {val} {
