@@ -72,7 +72,7 @@ if {[win32_target]} {
 }
 
 critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c taloop.c \
-    tamath.c tarandom.c tarray.c tasearch.c tasort.c tastring.c \
+    tamath.c tarandom.c tarbc.c tarray.c tasearch.c tasort.c tastring.c \
     timsort.c timsort_r.c pcg_basic.c
 
 if {$build_opts(unsupported)} {
@@ -139,6 +139,7 @@ critcl::ccommand tarray::unsupported::config {} {
     return TCL_OK;
 }
 
+critcl::clibraries [file join $rbcdir rbcstub01.lib]
 
 if {$build_opts(use_libdispatch)} {
     critcl::clibraries -ldispatch
@@ -2005,6 +2006,8 @@ critcl::class::define ::tarray::rng {
         return TCL_OK;
     }
 }
+
+critcl::ccommand tarray::rbc::init ta_rbc_init_cmd 
 
 package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]
 
