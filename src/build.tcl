@@ -21,7 +21,7 @@ set buildarea [file normalize [file join [pwd] .. build]]
 
 # Note argv will override -target, -pkg and -libdir options if specified
 
-set rbcdir d:/tcl/868rc-debug/lib/rbc0.1
+set rbcdir d:/tcl/868-debug/x64/lib/rbc0.1
 switch -exact -- [lindex $argv 0] {
     ext -
     extension {
