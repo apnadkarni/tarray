@@ -80,7 +80,7 @@ if {$build_opts(unsupported)} {
     critcl::ccommand tarray::unsupported::dump ta_dump_cmd
 
 }
-critcl::tsources tabulate.tcl tarray.tcl taprint.tcl taversion.tcl
+critcl::tsources tabulate.tcl tarray.tcl taprint.tcl tarbc.tcl taversion.tcl
 critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h
 
 critcl::ccode {
@@ -2007,7 +2007,7 @@ critcl::class::define ::tarray::rng {
     }
 }
 
-critcl::ccommand tarray::rbc::init ta_rbc_init_cmd 
+critcl::ccommand tarray::rbc::init_stubs ta_rbc_init_stubs_cmd 
 
 package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]
 

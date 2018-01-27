@@ -9,7 +9,7 @@
 #define USE_RBC_STUBS 1
 #include "rbcDecls.h"
 
-static TCL_RESULT ta_rbc_vector_get_cmd(
+static TCL_RESULT ta_rbc_fromvector_cmd(
     void *cdata,
     Tcl_Interp *ip,
     int objc,
@@ -68,7 +68,7 @@ static TCL_RESULT ta_rbc_vector_get_cmd(
     return TCL_OK;
 }
 
-static TCL_RESULT ta_rbc_vector_set_cmd(
+static TCL_RESULT ta_rbc_tovector_cmd(
     void *cdata,
     Tcl_Interp *ip,
     int objc,
@@ -133,7 +133,7 @@ static TCL_RESULT ta_rbc_vector_set_cmd(
 }
 
 
-TCL_RESULT ta_rbc_init_cmd(ClientData clientdata, Tcl_Interp *ip,
+TCL_RESULT ta_rbc_init_stubs_cmd(ClientData clientdata, Tcl_Interp *ip,
                            int objc, Tcl_Obj *const objv[])
 {
     if (objc != 1) {
@@ -146,8 +146,8 @@ TCL_RESULT ta_rbc_init_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_ERROR;
     }
 
-    Tcl_CreateObjCommand(ip, "tarray::rbc::vector_get", ta_rbc_vector_get_cmd, NULL, NULL);
-    Tcl_CreateObjCommand(ip, "tarray::rbc::vector_set", ta_rbc_vector_set_cmd, NULL, NULL);
+    Tcl_CreateObjCommand(ip, "tarray::rbc::fromvector", ta_rbc_fromvector_cmd, NULL, NULL);
+    Tcl_CreateObjCommand(ip, "tarray::rbc::tovector", ta_rbc_tovector_cmd, NULL, NULL);
 
     return TCL_OK;
 }
