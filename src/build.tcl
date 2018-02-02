@@ -21,11 +21,10 @@ set buildarea [file normalize [file join [pwd] .. build]]
 
 # Note argv will override -target, -pkg and -libdir options if specified
 
-set rbcdir d:/tcl/868-debug/x64/lib/rbc0.1
 switch -exact -- [lindex $argv 0] {
     ext -
     extension {
-        critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -I $rbcdir -cache [file join $buildarea cache] -clean {*}[lrange $argv 1 end] tarray tarray.critcl]
+        critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] -clean {*}[lrange $argv 1 end] tarray tarray.critcl]
     }
     tea {
         critcl::app::main [list -tea -libdir [file join $buildarea tea] {*}[lrange $argv 1 end] tarray tarray.critcl]

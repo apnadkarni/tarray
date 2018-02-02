@@ -15,8 +15,11 @@ proc win32_target {} {
 
 ################################################################
 # Set up configuration options for the package
-
 array set build_opts {}
+
+# Enable compiling of unsupported functions
+set build_opts(unsupported) 1
+
 # Figure out whether parallelized operations are to be enabled.
 # On Windows, parallelized operations are enabled via native Win32 calls.
 # Other platforms depend on the presence of libdispatch.
@@ -35,8 +38,6 @@ if {[win32_target]} {
     }
 }
 
-# Enable compiling of unsupported functions
-set build_opts(unsupported) 1
 
 ################################################################
 # Standard critcl meta information
@@ -73,7 +74,8 @@ if {[win32_target]} {
 
 critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c taloop.c \
     tamath.c tarandom.c tarbc.c tarray.c tasearch.c tasort.c tastring.c \
-    timsort.c timsort_r.c pcg_basic.c
+    timsort.c timsort_r.c pcg_basic.c \
+    rbcStubLib.c
 
 if {$build_opts(unsupported)} {
     critcl::csources unsupported.c
@@ -81,7 +83,7 @@ if {$build_opts(unsupported)} {
 
 }
 critcl::tsources tabulate.tcl tarray.tcl taprint.tcl tarbc.tcl taversion.tcl
-critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h
+critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h rbcDecls.h
 
 critcl::ccode {
 #include "tarray.h"
@@ -138,8 +140,6 @@ critcl::ccommand tarray::unsupported::config {} {
     Tcl_SetObjResult(interp, Tcl_NewIntObj(*pval));
     return TCL_OK;
 }
-
-critcl::clibraries [file join $rbcdir rbcstub01.lib]
 
 if {$build_opts(use_libdispatch)} {
     critcl::clibraries -ldispatch

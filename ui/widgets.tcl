@@ -1,3 +1,7 @@
+# (c) 2018 Ashok P. Nadkarni
+# All rights reserved.
+# See the file license.terms for license
+
 package require Tk
 package require snit
 package require tarray

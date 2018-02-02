@@ -24,7 +24,7 @@ file copy images [file join $target images]
 #file delete -force [file join $target scripts]
 #file copy scripts [file join $target scripts]
 file copy -force -- index.ad header.ad download.ad links.ad types.ad indices.ad $target
-puts [exec [info nameofexecutable] c:/src/tcl-on-windows/tools/adocgen.tcl -outdir $target -maketoc toc.ad -unsafe -overwrite -author "Ashok P. Nadkarni" {*}$argv {*}[lmap fn $adocgen_files {append fn .adocgen}] 2>@1]
+puts [exec [info nameofexecutable] ../tools/adocgen.tcl -outdir $target -maketoc toc.ad -unsafe -overwrite -author "Ashok P. Nadkarni" {*}$argv {*}[lmap fn $adocgen_files {append fn .adocgen}] 2>@1]
 cd $target
 puts [exec asciidoctor -a taversion=$taversion -a xtalversion=$xtalversion index.ad {*}[lmap fn $adocgen_files {append fn .ad}]]
 
