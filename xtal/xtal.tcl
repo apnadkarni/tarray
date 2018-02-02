@@ -2800,9 +2800,10 @@ namespace eval xtal::rt {
 }
 
 # Pick up ancillary support functions
-source [file join [file dirname [info script]] ptast.tcl]
-source [file join [file dirname [info script]] ptutil.tcl]
-source [file join [file dirname [info script]] shell.tcl]
+# Commented out because critcl now renames and sources them itself
+# source [file join [file dirname [info script]] ptast.tcl]
+# source [file join [file dirname [info script]] ptutil.tcl]
+# source [file join [file dirname [info script]] shell.tcl]
 
 # Local Variables:
 # compile-command: "envset x64 && tclsh build.tcl extension -config ../src/tarray.cfg -keep -target win32-dev64"
