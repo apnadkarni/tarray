@@ -106,22 +106,22 @@ text {
     ((cmddef column_xor "column ^^ _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \^\^"))`.
 
-    ((cmddef column_mul "column == _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_equal "column == _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math =="))`.
 
-    ((cmddef column_mul "column != _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_notequal "column != _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math !="))`.
 
-    ((cmddef column_mul "column < _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_lt "column < _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math <"))`.
 
-    ((cmddef column_mul "column <= _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_le "column <= _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math <="))`.
 
-    ((cmddef column_mul "column > _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_gt "column > _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math >"))`.
 
-    ((cmddef column_mul "column >= _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_ge "column >= _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math >="))`.
 
     ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
