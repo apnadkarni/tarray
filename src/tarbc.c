@@ -75,8 +75,7 @@ static TCL_RESULT ta_rbc_tovector_cmd(
     Tcl_Obj *const objv[]
 ) {
     Rbc_Vector *rbcV;
-    double *fromP;
-    int count;
+    int count, first;
     TCL_RESULT res;
     thdr_t *thdrP;
     span_t *spanP;
@@ -88,23 +87,20 @@ static TCL_RESULT ta_rbc_tovector_cmd(
         return TCL_ERROR;
     }
 
-    /* Note: extract tcol last in case shared object with objv[1] etc.
-       to avoid shimmering issues
-    */
     res = tcol_convert(ip, objv[2]);
     if (res != TCL_OK)
         return res;
 
     thdrP = OBJTHDR(objv[2]);
-    if (thdrP->type != TA_DOUBLE)
+    if (thdrP->type == TA_DOUBLE || thdrP->type == TA_STRING)
         return ta_bad_type_error(ip, thdrP);
 
     spanP = tcol_span(objv[2]);
     if (spanP) {
-        fromP = THDRELEMPTR(thdrP, double, spanP->first);
+        first = spanP->first;
         count = spanP->count;
     } else {
-        fromP = THDRELEMPTR(thdrP, double, 0);
+        first = 0;
         count = thdrP->used;
     }
 
@@ -121,7 +117,37 @@ static TCL_RESULT ta_rbc_tovector_cmd(
     if (res != TCL_OK)
         return TCL_ERROR;
 
-    res = Rbc_ResetVector(rbcV, fromP, count, count, TCL_VOLATILE);
+    if (thdrP->type == TA_DOUBLE) {
+        double *fromP = THDRELEMPTR(thdrP, double, first);
+        res = Rbc_ResetVector(rbcV, fromP, count, count, TCL_VOLATILE);
+    } else {
+        double *bufP = ckalloc(count*sizeof(double));
+        int i;
+#define COPYNUMS(type_) \
+        do {                                                       \
+            type_ *fromP = THDRELEMPTR(thdrP, type_, first);    \
+            for (i = 0; i < count; ++i)                         \
+                bufP[i] = fromP[i];                             \
+            break;                                              \
+        } while (0)
+        switch (thdrP->type) {
+        case TA_BOOLEAN:
+            do {
+                ba_t *baP = THDRELEMPTR(thdrP, ba_t, 0);
+                for (i = 0; i < count; ++i)
+                    bufP[i] = ba_get(baP, first+i);
+            } while (0);
+            break;
+        case TA_BYTE: COPYNUMS(unsigned char); break;
+        case TA_INT:  COPYNUMS(int); break;
+        case TA_UINT: COPYNUMS(unsigned int); break;
+        case TA_WIDE: COPYNUMS(Tcl_WideInt); break;
+        }
+        res = Rbc_ResetVector(rbcV, bufP, count, count, TCL_DYNAMIC);
+        if (res != TCL_OK)
+            ckfree(bufP);
+    }
+
     if (res != TCL_OK) {
         if (free_on_error)
             Rbc_FreeVector(rbcV);
