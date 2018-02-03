@@ -92,7 +92,7 @@ static TCL_RESULT ta_rbc_tovector_cmd(
         return res;
 
     thdrP = OBJTHDR(objv[2]);
-    if (thdrP->type == TA_DOUBLE || thdrP->type == TA_STRING)
+    if (thdrP->type == TA_ANY || thdrP->type == TA_STRING)
         return ta_bad_type_error(ip, thdrP);
 
     spanP = tcol_span(objv[2]);
