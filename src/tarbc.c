@@ -75,35 +75,49 @@ static TCL_RESULT ta_rbc_tovector_cmd(
     Tcl_Obj *const objv[]
 ) {
     Rbc_Vector *rbcV;
-    int count, first;
+    int count, from_count, first;
     TCL_RESULT res;
-    thdr_t *thdrP;
+    thdr_t *thdrP, *indicesP;
     span_t *spanP;
     char *vname;
     int free_on_error;
 
-    if (objc != 3) {
-        Tcl_WrongNumArgs(ip, 1, objv, "RBCVECTOR TARRAY");
+    if (objc != 3 && objc != 4) {
+        Tcl_WrongNumArgs(ip, 1, objv, "RBCVECTOR TARRAY ?INDICES?");
         return TCL_ERROR;
     }
 
     res = tcol_convert(ip, objv[2]);
     if (res != TCL_OK)
         return res;
-
     thdrP = OBJTHDR(objv[2]);
     if (thdrP->type == TA_ANY || thdrP->type == TA_STRING)
         return ta_bad_type_error(ip, thdrP);
 
+    if (objc == 3)
+        indicesP = NULL;
+    else {
+        if (ta_obj_to_indices(ip, objv[3], 0, 0, &indicesP, NULL) != TA_INDEX_TYPE_THDR)
+            return TCL_ERROR;
+        /* NOTE: indicesP has to be freed at some point */
+    }
+
     spanP = tcol_span(objv[2]);
     if (spanP) {
         first = spanP->first;
-        count = spanP->count;
+        from_count = spanP->count;
     } else {
         first = 0;
-        count = thdrP->used;
+        from_count = thdrP->used;
     }
 
+    /* If we have been given indices, number of elements to copy is
+       numer of indices */
+    if (indicesP)
+        count = indicesP->used;
+    else
+        count = from_count;
+    
     vname = Tcl_GetString(objv[1]);
     if (Rbc_VectorExists2(ip, vname)) {
         res = Rbc_GetVector(ip, vname, &rbcV);
@@ -117,45 +131,70 @@ static TCL_RESULT ta_rbc_tovector_cmd(
     if (res != TCL_OK)
         return TCL_ERROR;
 
-    if (thdrP->type == TA_DOUBLE) {
+    if (thdrP->type == TA_DOUBLE && indicesP == NULL) {
+        /* Special case this fast path */
         double *fromP = THDRELEMPTR(thdrP, double, first);
         res = Rbc_ResetVector(rbcV, fromP, count, count, TCL_VOLATILE);
     } else {
         double *bufP = ckalloc(count*sizeof(double));
         int i;
-#define COPYNUMS(type_) \
-        do {                                                       \
+#define COPYNUMS(type_)                                         \
+        do {                                                    \
             type_ *fromP = THDRELEMPTR(thdrP, type_, first);    \
-            for (i = 0; i < count; ++i)                         \
-                bufP[i] = fromP[i];                             \
-            break;                                              \
+            if (indicesP == NULL) {                             \
+                for (i = 0; i < count; ++i)                     \
+                    bufP[i] = fromP[i];                         \
+            } else {                                            \
+                int *indexP = THDRELEMPTR(indicesP, int, 0);    \
+                for (i = 0; i < count; ++i, ++indexP) {         \
+                    if (*indexP >= from_count) {                \
+                        res = ta_index_range_error(ip, *indexP);        \
+                        goto vamoose;                           \
+                    }                                           \
+                    bufP[i] = *indexP;                          \
+                }                                               \
+            }                                                   \
         } while (0)
         switch (thdrP->type) {
         case TA_BOOLEAN:
-            do {
+            if (indicesP == NULL) {
                 ba_t *baP = THDRELEMPTR(thdrP, ba_t, 0);
                 for (i = 0; i < count; ++i)
                     bufP[i] = ba_get(baP, first+i);
-            } while (0);
+            } else {
+                ba_t *baP = THDRELEMPTR(thdrP, ba_t, 0);
+                int *indexP = THDRELEMPTR(indicesP, int, 0);
+                for (i = 0; i < count; ++i, ++indexP) {
+                    if (*indexP >= from_count) {
+                        res = ta_index_range_error(ip, *indexP);
+                        goto vamoose;
+                    }
+                    bufP[i] = ba_get(baP, first + *indexP);
+                }
+            }
             break;
         case TA_BYTE: COPYNUMS(unsigned char); break;
         case TA_INT:  COPYNUMS(int); break;
         case TA_UINT: COPYNUMS(unsigned int); break;
         case TA_WIDE: COPYNUMS(Tcl_WideInt); break;
+        case TA_DOUBLE: COPYNUMS(double); break;
         }
         res = Rbc_ResetVector(rbcV, bufP, count, count, TCL_DYNAMIC);
         if (res != TCL_OK)
             ckfree(bufP);
     }
 
+    if (res == TCL_OK)
+        Tcl_SetObjResult(ip, objv[1]);
+
+vamoose:
+    if (indicesP)
+        thdr_decr_refs(indicesP);
     if (res != TCL_OK) {
         if (free_on_error)
             Rbc_FreeVector(rbcV);
-        return res;
     }
-
-    Tcl_SetObjResult(ip, objv[1]);
-    return TCL_OK;
+    return res;
 }
 
 

@@ -3526,7 +3526,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
  * to the bits that are set, not as 0/1 of the same length as the
  * source column.
  * Returned column is ref incremented already since for integer
- * columns, the same one is returned.
+ * columns, the same one is returned if there is no span.
  */
 thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
 {
