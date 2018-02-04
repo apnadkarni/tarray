@@ -77,6 +77,11 @@ proc tarray::table::columns {tab args} {
     return $columns
 }
 
+# TBD - test and document
+proc tarray::table::coltype {tab cname} {
+    return [tarray::column type [tarray::table::column $tab $cname]
+}
+
 proc tarray::table::definition {tab {cnames {}}} {
     if {[llength $cnames] == 0} {
         set cnames [cnames $tab]
