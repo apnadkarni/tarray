@@ -2,6 +2,8 @@
 # All rights reserved.
 # See the file license.terms for license
 
+lappend auto_path d:/tcl/lib [pwd]
+package require snit
 ::snit::widgetadaptor tarray::ui::graph {
     # Specifies the 
     option -legend -configuremethod _set_legend_option
@@ -36,6 +38,12 @@
         set _constructed 1
     }
 
+    destructor {
+        foreach {- v} [array get _vectors] {
+            rbc::vector destroy $v
+        }
+    }
+
     method element {oper cname args} {
         # If it is creation of one of our columns, handle it specially.
         if {$cname in [tarray::table cnames $_table]} {
@@ -47,36 +55,62 @@
                 }
             }
             if {$oper eq "create"} {
-                if {![info exists _plots($cname)]} {
-                    $self _vectorify $cname
-                }
+                $self _vectorify $cname
                 lappend args -xdata $_vectors($options(-xcolumn)) -ydata $_vectors($cname) 
             }
         }
         $hull element $oper $cname {*}$args
     }
 
-    method _set_xcolumn_option {optname optval} {
-        if {$optval ni [tarray::table cnames $_table]} {
-            error "Table does not contain column named $optval"
+    method _set_xcolumn_option {optname cname} {
+        if {$cname ni [tarray::table cnames $_table]} {
+            error "Table does not contain column named $cname"
         }
-        set options(-xcolumn) $optval
-        $self _vectorify $options(-xcolumn)
+        set ctype [tarray::column type [tarray::table column $_table $cname]]
+        if {$ctype in {any string}} {
+            # Create a index vector that maps to the non-numeric values
+            set _vectors($cname) [rbc::vector create #auto]
+            $_vectors($cname) seq 0 [expr {[tarray::table size $_table]-1}]
+            # Add the callback to map index to value
+            $win axis configure x -subdivisions 1 -command [list $self _map_xvalue]
+        } else {
+            $self _vectorify $cname
+            # Remove any callback that mapped indexes to string values
+            $win axis configure x -subdivisions 2 -command {}
+        }
+        set options(-xcolumn) $cname
+    }
+
+    method _map_xvalue {w val} {
+        set ival [tcl::mathfunc::int $val]
+        if {$ival != $val} {
+            # Not an major tick, should not be labeled
+            return ""
+        }
+        return [tarray::column index [tarray::table::column $_table $options(-xcolumn)] $ival]
     }
 
     method _vectorify {cname} {
         if {[info exists _vectors($cname)]} return
         set _vectors($cname) [::rbc::vector create #auto]
-        tarray::rbc::tovector $_vectors($cname) [tarray::table::column $_table $cname]
+        if {[catch {
+            tarray::rbc::tovector $_vectors($cname) [tarray::table::column $_table $cname]
+        } result ropts]} {
+            rbc::vector destroy $_vectors($cname)
+            unset _vectors($cname)
+            return -options $ropts $result
+        }
     }
 
     delegate method * to hull
 }
 
-
+package require rbc
+package require tarray
 set tab [tarray::table create {
-    code double population double
+    name string code double population double
 } {
-    {100 1350000000}
-    {200 850}
+    {China 100 1350000000}
+    {Vatican 200 850}
 }]
+destroy .win
