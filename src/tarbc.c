@@ -151,7 +151,7 @@ static TCL_RESULT ta_rbc_tovector_cmd(
                         res = ta_index_range_error(ip, *indexP);        \
                         goto vamoose;                           \
                     }                                           \
-                    bufP[i] = *indexP;                          \
+                    bufP[i] = fromP[*indexP];                   \
                 }                                               \
             }                                                   \
         } while (0)
