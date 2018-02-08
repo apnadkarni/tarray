@@ -266,18 +266,13 @@ critcl::ccommand tarray::types {} {
     Tcl_Obj *o;
     Tcl_Obj *res;
 
-    if (objc < 2) {
-	Tcl_WrongNumArgs(interp, 1, objv, "?VALUE...?");
-	return TCL_ERROR;
-    }
-
     res = Tcl_NewListObj(objc-1, NULL);
     for (i = 1; i < objc; ++i) {
         o = objv[i];
 
-	    /* Try to convert to a tarray type but only if the type pointer is
-	     * a list, string or NULL. We don't want to disturb other types
-             */
+        /* Try to convert to a tarray type but only if the type pointer is
+         * a list, string or NULL. We don't want to disturb other types
+         */
         if (o->typePtr == NULL ||
             o->typePtr == g_tcl_string_type_ptr ||
             o->typePtr == g_tcl_list_type_ptr) {
