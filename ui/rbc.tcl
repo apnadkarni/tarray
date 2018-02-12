@@ -4,21 +4,11 @@
 
 lappend auto_path d:/tcl/lib [pwd]
 package require snit
-::snit::widgetadaptor tarray::ui::graph {
+::snit::widgetadaptor tarray::ui::plot {
 
     ################################################################
     # Variables
     
-    # The _plots array keeps track of the different plotted columns. It is
-    # indexed by the column name and each value is a nested dictionary
-    # with the following elements:
-    #   Type   - type of plot - graph, scatter or bar
-    #   Column - name of the column
-    #   Xaxis - name of the X-axis used for the plot
-    #   Yaxis - name of the Y-axis used for the plot
-    #   Vector - the RBC vector containing the data values
-    variable _plots
-
     # When plotting graphs, we sort the data values based on the
     # X value. The _sorted_indices array, indexed by column name,
     # keeps track of these sorted tarray index columns.
@@ -73,7 +63,7 @@ package require snit
         }
     }
 
-    method {element create} {cname args} {
+    method _create {plot_type cname args} {
         
         if {$cname in [tarray::table cnames $_table]} {
             if {[dict exists $args -xdata]} {
@@ -100,9 +90,20 @@ package require snit
                 lappend args -xdata $xvec -ydata $yvec
             }
         }
-        $hull element create $cname {*}$args
+        $hull $plot_type create $cname {*}$args
+    }
+    method {element create} {args} {
+        $self _create element {*}$args
+    }
+    method {line create} {args} {
+        $self _create line {*}$args
+    }
+    method {bar create} {args} {
+        $self _create bar {*}$args
     }
     delegate method {element *} to hull using "%c element %m"
+    delegate method {line *} to hull using "%c line %m"
+    delegate method {bar *} to hull using "%c bar %m"
 
     method _set_xcolumn_option {optname cname} {
         if {$cname ni [tarray::table cnames $_table]} {
