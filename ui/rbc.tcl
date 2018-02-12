@@ -4,10 +4,18 @@
 
 lappend auto_path d:/tcl/lib [pwd]
 package require snit
-::snit::widgetadaptor tarray::ui::plot {
+::snit::widgetadaptor tarray::ui::chart {
 
     ################################################################
     # Variables
+    
+    # Keeps track of the various plots in the chart. Dictionary indexed by
+    # the RBC plot name and each element being a nested inner dictionary
+    # with the following keys
+    #  Type - either "bar" or "line"
+    #  Column - name of the corresponding column. Only exists if the
+    #      the plot data came from a table column.
+    variable _plots
     
     # When plotting graphs, we sort the data values based on the
     # X value. The _sorted_indices array, indexed by column name,
@@ -63,9 +71,31 @@ package require snit
         }
     }
 
-    method _create {plot_type cname args} {
-        
-        if {$cname in [tarray::table cnames $_table]} {
+    method _create {plot_type name args} {
+        if {$plot_type ni {bar line element}} {
+            throw {TARRAY RBC INVARGS} "Unknown plot type \"$plot_type\"."
+        }
+
+        if {$name in [$win element names]} {
+            throw {TARRAY RBC EXISTS} "Plot \"$name\" already exists in chart \"$win\."
+        }
+        if {[dict exists $args -ycolumn]} {
+            set cname [dict get $args -ycolumn]
+            if {$cname ni [tarray::table cnames $_table]} {
+                throw {TARRAY RBC INVCOLUMN} "Unknown column '$cname'"
+            }
+            dict unset args -ycolumn
+        } elseif {$name in [tarray::table cnames $_table]} {
+            set cname $name
+        }
+
+        dict set _plots $name Type $plot_type
+
+        # cname set -> plotting a table column of that name
+        # else -> raw data passed directly to RBC widget.
+        if {[info exists cname]} {
+            # We are plotting table column data
+            dict set _plots $name Column $cname
             if {[dict exists $args -xdata]} {
                 if {[dict exists $args -xcolumn]} {
                     throw {TARRAY RBC INVARGS} "Options -xdata and -xcolumn must not be specified together."
@@ -90,7 +120,8 @@ package require snit
                 lappend args -xdata $xvec -ydata $yvec
             }
         }
-        $hull $plot_type create $cname {*}$args
+
+        $hull $plot_type create $name {*}$args
     }
     method {element create} {args} {
         $self _create element {*}$args
