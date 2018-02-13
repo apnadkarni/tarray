@@ -13,8 +13,11 @@ package require snit
     # the RBC plot name and each element being a nested inner dictionary
     # with the following keys
     #  Type - either "bar" or "line"
-    #  Column - name of the corresponding column. Only exists if the
+    #  XColumn - name of the corresponding X column. Only exists if the
     #      the plot data came from a table column.
+    #  YColumn - name of the corresponding Y column. Only exists if the
+    #      the plot data came from a table column.
+
     variable _plots
     
     # When plotting graphs, we sort the data values based on the
@@ -52,6 +55,7 @@ package require snit
 
     delegate option * to hull
 
+
     ################################################################
     # Methods
     constructor {tab args} {
@@ -69,6 +73,14 @@ package require snit
         foreach v [array names _vectors] {
             rbc::vector destroy $v
         }
+    }
+
+    method table {} {
+        return $_table
+    }
+
+    method column {cname} {
+        return [tarray::table column $_table $cname]
     }
 
     method _create {plot_type name args} {
@@ -95,7 +107,7 @@ package require snit
         # else -> raw data passed directly to RBC widget.
         if {[info exists cname]} {
             # We are plotting table column data
-            dict set _plots $name Column $cname
+            dict set _plots $name YColumn $cname
             if {[dict exists $args -xdata]} {
                 if {[dict exists $args -xcolumn]} {
                     throw {TARRAY RBC INVARGS} "Options -xdata and -xcolumn must not be specified together."
@@ -111,6 +123,8 @@ package require snit
                     # If neither -xdata or -xcolumn specified use default
                     set xcolname ""
                 }
+                set xcolname [_get_xcolumn $xcolname]
+                dict set _plots $name XColumn $xcolname
                 # Create an sorted x-vector and y vector in the order
                 # of the x-vector values
                 lassign [$self _xyvector $xcolname $cname] xvec yvec
@@ -132,15 +146,49 @@ package require snit
     method {bar create} {args} {
         $self _create bar {*}$args
     }
+    method _configure {plot_type name args} {
+        if {[llength $args] == 1} {
+            # TBD - should really pass even RBC options to tcl::prefix
+            set optname [tcl::prefix match -error {} {
+                -xcolumn
+                -ycolumn
+            } [lindex $args 0]]
+            switch -exact -- [lindex $args 0] {
+                -ycolumn {
+                    if {[dict exists $_plots $name YColumn]} {
+                        set optval [dict get $_plots $name YColumn]
+                    } else {
+                        set optval ""
+                    }
+                    return [list -ycolumn yColumn YColumn {} $optval]
+                }
+                -xcolumn {
+                    if {[dict exists $_plots $name XColumn]} {
+                        set optval [dict get $_plots $name XColumn]
+                    } else {
+                        set optval ""
+                    }
+                    return [list -xcolumn xColumn XColumn {} $optval]
+                }
+            }
+        }
+    }
+    method {element configure} {args} {
+        $self _configure element {*}$args
+    }
+    method {line configure} {args} {
+        $self _configure line {*}$args
+    }
+    method {bar configure} {args} {
+        $self _configure bar {*}$args
+    }
+    
     delegate method {element *} to hull using "%c element %m"
     delegate method {line *} to hull using "%c line %m"
     delegate method {bar *} to hull using "%c bar %m"
 
     method _set_xcolumn_option {optname cname} {
-        if {$cname ni [tarray::table cnames $_table]} {
-            error "Table does not contain column named $cname"
-        }
-        set options(-xcolumn) $cname
+        set options(-xcolumn) [$self _get_xcolumn $cname]
     }
 
     method _setup_sorted_column {cname} {
@@ -195,13 +243,6 @@ package require snit
     # column whose elements are ordered based on the ascending sort
     # order of the xname table column.
     method _xyvector {xname yname} {
-        if {$xname eq ""} {
-            set xname $options(-xcolumn)
-        }
-        if {$xname eq ""} {
-            set xname [lindex [tarray::table cnames $_table] 0]
-        }
-
         set ycol [tarray::table column $_table $yname]
         if {[tarray::column type $ycol] in {string any}} {
             error "Column $yname is not numeric and cannot be used for the Y-component of a graph."
@@ -245,6 +286,21 @@ package require snit
 
         # Return the sorted RBC vector pair
         return [list $xvec $yvec]
+    }
+
+    method _get_xcolumn {{xname ""}} {
+        if {$xname eq ""} {
+            set xname $options(-xcolumn)
+        }
+        set cnames [tarray::table cnames $_table]
+        if {$xname ne ""} {
+            if {$xname in $cnames} {
+                return $xname
+            } else {
+                throw {TARRAY TABLE NOTFOUND} "Column $xname not found in table."
+            }
+        }
+        return [lindex $cnames 0]
     }
 
     delegate method * to hull
