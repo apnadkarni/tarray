@@ -4,7 +4,13 @@
 
 lappend auto_path d:/tcl/lib [pwd]
 package require snit
-::snit::widgetadaptor tarray::ui::chart {
+
+::snit::widgetadaptor tarray::ui::rbc::chart {
+    ################################################################
+    # Type variables
+
+    # Rbc element option names. Array indexed by element type.
+    typevariable _rbc_element_option_names
 
     ################################################################
     # Variables
@@ -12,13 +18,12 @@ package require snit
     # Keeps track of the various plots in the chart. Dictionary indexed by
     # the RBC plot name and each element being a nested inner dictionary
     # with the following keys
-    #  Type - either "bar" or "line"
+    #  RbcType - "element", "bar" or "line"
     #  XColumn - name of the corresponding X column. Only exists if the
     #      the plot data came from a table column.
     #  YColumn - name of the corresponding Y column. Only exists if the
     #      the plot data came from a table column.
-
-    variable _plots
+    variable _plots {}
     
     # When plotting graphs, we sort the data values based on the
     # X value. The _sorted_indices array, indexed by column name,
@@ -37,7 +42,7 @@ package require snit
     # [dict get $_vectors(C) ""] is the RBC vector with elements in
     # same order as C. [dict get $_vectors(C) X] is the RBC vector
     # with C's elements but sorted corresponding to X's ascending order.
-    variable _vectors
+    variable _vectors {}
     
     # _table holds the data table being displayed
     variable _table
@@ -60,7 +65,6 @@ package require snit
     # Methods
     constructor {tab args} {
         set _table $tab
-        set _vectors {}
 
         installhull using rbc::graph
         $self configurelist $args
@@ -101,7 +105,7 @@ package require snit
             set cname $name
         }
 
-        dict set _plots $name Type $plot_type
+        dict set _plots $name RbcType $plot_type
 
         # cname set -> plotting a table column of that name
         # else -> raw data passed directly to RBC widget.
@@ -123,7 +127,7 @@ package require snit
                     # If neither -xdata or -xcolumn specified use default
                     set xcolname ""
                 }
-                set xcolname [_get_xcolumn $xcolname]
+                set xcolname [$self _get_xcolumn $xcolname]
                 dict set _plots $name XColumn $xcolname
                 # Create an sorted x-vector and y vector in the order
                 # of the x-vector values
@@ -146,14 +150,12 @@ package require snit
     method {bar create} {args} {
         $self _create bar {*}$args
     }
-    method _configure {plot_type name args} {
+    method _configure {name args} {
         if {[llength $args] == 1} {
-            # TBD - should really pass even RBC options to tcl::prefix
-            set optname [tcl::prefix match -error {} {
-                -xcolumn
-                -ycolumn
-            } [lindex $args 0]]
-            switch -exact -- [lindex $args 0] {
+            set optname [$self _element_option_match $name [lindex $args 0] {
+                -xcolumn -ycolumn
+            }]
+            switch -exact -- $optname {
                 -ycolumn {
                     if {[dict exists $_plots $name YColumn]} {
                         set optval [dict get $_plots $name YColumn]
@@ -170,17 +172,20 @@ package require snit
                     }
                     return [list -xcolumn xColumn XColumn {} $optval]
                 }
+                default {
+                    return [$hull [dict get $_plots $name RbcType] configure $name {*}$args]
+                }
             }
         }
     }
-    method {element configure} {args} {
-        $self _configure element {*}$args
+    method {element configure} {name args} {
+        $self _configure $name {*}$args
     }
-    method {line configure} {args} {
-        $self _configure line {*}$args
+    method {line configure} {name args} {
+        $self _configure $name {*}$args
     }
-    method {bar configure} {args} {
-        $self _configure bar {*}$args
+    method {bar configure} {name args} {
+        $self _configure $name {*}$args
     }
     
     delegate method {element *} to hull using "%c element %m"
@@ -301,6 +306,36 @@ package require snit
             }
         }
         return [lindex $cnames 0]
+    }
+
+    # Returns the full option name of an element configure option
+    # taking into account the core RBC element options as well as
+    # additional options passed in as $args
+    method _element_option_match {elem_name optname {extra_opts {}}} {
+        return [tcl::prefix match \
+                    [concat \
+                         [$self _rbc_element_options $elem_name] \
+                         $extra_opts \
+                        ] \
+                    $optname]
+    }
+
+    # Returns RBC option names for the chart element identified by $elem_name
+    method _rbc_element_options {elem_name} {
+        set rbc_elem_type [dict get $_plots $elem_name RbcType]
+        if {! [info exists _rbc_element_option_names($rbc_elem_type)]} {
+            set _rbc_element_option_names($rbc_elem_type) \
+                [lmap optrec [$hull $rbc_elem_type configure $elem_name] {
+                    lindex $optrec 0
+                }]
+        }
+        return $_rbc_element_option_names($rbc_elem_type)
+    }
+
+    # Returns 1 if the specified optname is a valid RBC option for
+    # the specified element
+    method _is_rbc_element_option {elem_name optname} {
+        return [expr {$optname in [$self _rbc_element_options $elem_name]}]
     }
 
     delegate method * to hull
