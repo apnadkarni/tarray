@@ -10,7 +10,7 @@ package require snit
     # Type variables
 
     # Rbc element option names. Array indexed by element type.
-    typevariable _rbc_element_option_names
+    typevariable _rbc_plot_option_names
 
     ################################################################
     # Variables
@@ -74,8 +74,10 @@ package require snit
     }
 
     destructor {
-        foreach v [array names _vectors] {
-            rbc::vector destroy $v
+        dict for {ycol xcols} $_vectors {
+            dict for {xcol v} $xcols {
+                rbc::vector destroy $v
+            }
         }
     }
 
@@ -150,42 +152,121 @@ package require snit
     method {bar create} {args} {
         $self _create bar {*}$args
     }
-    method _configure {name args} {
-        if {[llength $args] == 1} {
-            set optname [$self _element_option_match $name [lindex $args 0] {
-                -xcolumn -ycolumn
-            }]
-            switch -exact -- $optname {
-                -ycolumn {
-                    if {[dict exists $_plots $name YColumn]} {
-                        set optval [dict get $_plots $name YColumn]
-                    } else {
-                        set optval ""
-                    }
-                    return [list -ycolumn yColumn YColumn {} $optval]
+    method _cget_plot_option {plot_name optname} {
+        set optname [$self _plot_option_match $plot_name $optname {
+            -xcolumn -ycolumn
+        }]
+        switch -exact -- $optname {
+            -xcolumn {
+                if {[dict exists $_plots $plot_name XColumn]} {
+                    return [dict get $_plots $plot_name XColumn]
+                } else {
+                    return ""
                 }
-                -xcolumn {
-                    if {[dict exists $_plots $name XColumn]} {
-                        set optval [dict get $_plots $name XColumn]
-                    } else {
-                        set optval ""
-                    }
-                    return [list -xcolumn xColumn XColumn {} $optval]
+            }
+            -ycolumn {
+                if {[dict exists $_plots $plot_name YColumn]} {
+                    return [dict get $_plots $plot_name YColumn]
+                } else {
+                    return ""
                 }
-                default {
-                    return [$hull [dict get $_plots $name RbcType] configure $name {*}$args]
-                }
+            }
+            default {
+                return [$hull [dict get $_plots $plot_name RbcType] cget $plot_name $optname]
             }
         }
     }
-    method {element configure} {name args} {
-        $self _configure $name {*}$args
+    method {element cget} {plot_name optname} {
+        $self _cget_plot_option $plot_name $optname
     }
-    method {line configure} {name args} {
-        $self _configure $name {*}$args
+    method {line cget} {plot_name optname} {
+        $self _cget_plot_option $plot_name $optname
     }
-    method {bar configure} {name args} {
-        $self _configure $name {*}$args
+    method {bar cget} {plot_name optname} {
+        $self _cget_plot_option $plot_name $optname
+    }
+
+    method _configure_plot_option {plot_name optname args} {
+        set optname [$self _plot_option_match $plot_name $optname {
+            -xcolumn -ycolumn
+        }]
+
+        if {[llength $args] == 0} {
+            # Return the corresponding option record
+            switch -exact -- $optname {
+                -xcolumn -
+                -ycolumn {
+                    return [list $optname {} {} {} \
+                                [$self _cget_plot_option $plot_name $optname]]
+                }
+                default {
+                    return [$hull [dict get $_plots $plot_name RbcType] configure $plot_name $optname]
+                }
+            }
+        }
+
+        set optval [lindex $args 0]
+        switch -exact -- $optname {
+            -xcolumn -
+            -ycolumn {
+                error "The $optname option for a plot cannot be modified once set."
+            }
+            default {
+                return [$hull [dict get $_plots $plot_name RbcType] configure $plot_name $optname] $optval
+            }
+        }
+    }
+
+    method _configure_plot {plot_name args} {
+
+        set rbctype [dict get $_plots $plot_name RbcType]
+
+        # If no args, return list of all options, the base RBC ones
+        # as well as our added ones
+        if {[llength $args] == 0} {
+            set retval [$hull $rbctype configure $plot_name]
+            lappend retval [$self _configure_plot_option $plot_name -xcolumn] \
+                [$self _configure_plot_option $plot_name -ycolumn]
+            return $retval
+        }
+
+        # Single option -> return its option record
+        if {[llength $args] == 1} {
+            return [$self _get_plot_option $plot_name [lindex $args 0]]
+        }
+
+        if {[llength $args] & 1} {
+            error "Missing value for option [lindex $args end]."
+        }
+
+        set rbcopts {}
+        foreach {optname optval} $args {
+            set optname [$self _plot_option_match $plot_name $optname {
+                -xcolumn -ycolumn
+            }]
+            switch -exact -- $optname {
+                -xcolumn -
+                -ycolumn {
+                    $self _configure_plot_option $plot_name $optname $optval
+                }
+                default {
+                    lappend rbcopts $optname $optval
+                }
+            }
+        }
+
+        $hull $rbctype configure $plot_name {*}$rbcopts
+        return
+    }
+
+    method {element configure} {plot_name args} {
+        $self _configure_plot $plot_name {*}$args
+    }
+    method {line configure} {plot_name args} {
+        $self _configure_plot $plot_name {*}$args
+    }
+    method {bar configure} {plot_name args} {
+        $self _configure_plot $plot_name {*}$args
     }
     
     delegate method {element *} to hull using "%c element %m"
@@ -206,21 +287,6 @@ package require snit
             set _sorted_indices($cname) [tarray::column sort -indices $tcol]
         }
         return
-    }
-
-    method TBD-xaxis {} {
-        if {$ctype in {any string}} {
-            # Create a index vector that maps to the non-numeric values
-            set _vectors($cname) [rbc::vector create #auto]
-            set n [tarray::column size $tcol]
-            set _indices [tarray::column series $n]
-            $_vectors($cname) seq 0 [expr {$n-1}]
-            # Add the callback to map index to value
-            $win axis configure x -subdivisions 1 -command [mymethod _map_xvalue]
-        } else {
-            # Remove any callback that mapped indexes to string values
-            $win axis configure x -subdivisions 2 -command {}
-        }
     }
 
     # Return an RBC vector whose elements are in the same order as
@@ -311,31 +377,31 @@ package require snit
     # Returns the full option name of an element configure option
     # taking into account the core RBC element options as well as
     # additional options passed in as $args
-    method _element_option_match {elem_name optname {extra_opts {}}} {
+    method _plot_option_match {plot_name optname {extra_opts {}}} {
         return [tcl::prefix match \
                     [concat \
-                         [$self _rbc_element_options $elem_name] \
+                         [$self _rbc_plot_options $plot_name] \
                          $extra_opts \
                         ] \
                     $optname]
     }
 
-    # Returns RBC option names for the chart element identified by $elem_name
-    method _rbc_element_options {elem_name} {
-        set rbc_elem_type [dict get $_plots $elem_name RbcType]
-        if {! [info exists _rbc_element_option_names($rbc_elem_type)]} {
-            set _rbc_element_option_names($rbc_elem_type) \
-                [lmap optrec [$hull $rbc_elem_type configure $elem_name] {
+    # Returns RBC option names for the chart plot identified by $plot_name
+    method _rbc_plot_options {plot_name} {
+        set rbc_elem_type [dict get $_plots $plot_name RbcType]
+        if {! [info exists _rbc_plot_option_names($rbc_elem_type)]} {
+            set _rbc_plot_option_names($rbc_elem_type) \
+                [lmap optrec [$hull $rbc_elem_type configure $plot_name] {
                     lindex $optrec 0
                 }]
         }
-        return $_rbc_element_option_names($rbc_elem_type)
+        return $_rbc_plot_option_names($rbc_elem_type)
     }
 
     # Returns 1 if the specified optname is a valid RBC option for
-    # the specified element
-    method _is_rbc_element_option {elem_name optname} {
-        return [expr {$optname in [$self _rbc_element_options $elem_name]}]
+    # the specified plot
+    method _is_rbc_plot_option {plot_name optname} {
+        return [expr {$optname in [$self _rbc_plot_options $plot_name]}]
     }
 
     delegate method * to hull
