@@ -1,0 +1,142 @@
+# table sort tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc sort_test_coldefs {} {
+        return {colA string colB int colC double}
+    }
+                             
+    proc sort_test_table {} {
+        set tab [tarray::table create [sort_test_coldefs] {
+            {abc 20 3.0}
+            {XYZ 30 1.0}
+            {mno 10 2.0}
+        }]
+        proc sort_test_table {} [list return $tab]
+        return [sort_test_table]
+    }
+
+    test table_sort-1.0 {
+        Sort empty table
+    } -setup {
+        set tab [tarray::table create {c1 int c2 string} {}]
+    } -body {
+        tarray::table sort $tab c1
+    } -result [tarray::table create {c1 int c2 string} {}]
+
+    test table_sort-2.0 {
+        Sort using column name
+    } -body {
+        tarray::table sort [sort_test_table] colA
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {XYZ 30 1.0}
+        {abc 20 3.0}
+        {mno 10 2.0}
+    }]
+
+    test table_sort-2.1 {
+        Sort using column position
+    } -body {
+        tarray::table sort [sort_test_table] 1
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {mno 10 2.0}
+        {abc 20 3.0}
+        {XYZ 30 1.0}
+    }]
+
+    test table_sort-3.0 {
+        Sort -increasing
+    } -body {
+        tarray::table sort -increasing [sort_test_table] colC
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {XYZ 30 1.0}
+        {mno 10 2.0}
+        {abc 20 3.0}
+    }]
+
+    test table_sort-3.1 {
+        Sort -decreasing
+    } -body {
+        tarray::table sort -decreasing [sort_test_table] colC
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {abc 20 3.0}
+        {mno 10 2.0}
+        {XYZ 30 1.0}
+    }]
+
+    test table_sort-4.0 {
+        Sort -nocase
+    } -body {
+        tarray::table sort -nocase [sort_test_table] colA
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {abc 20 3.0}
+        {mno 10 2.0}
+        {XYZ 30 1.0}
+    }]
+
+    test table_sort-4.1 {
+        Sort -nocase -decreasing
+    } -body {
+        tarray::table sort -nocase -decreasing [sort_test_table] colA
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {XYZ 30 1.0}
+        {mno 10 2.0}
+        {abc 20 3.0}
+    }]
+
+    test table_sort-5.0 {
+        Sort -columns
+    } -body {
+        tarray::table sort -columns {colA colB} [sort_test_table] colC
+    } -match table -result [tarray::table create \
+                                [lrange [sort_test_coldefs] 0 3] {
+                                    {XYZ 30}
+                                    {mno 10}
+                                    {abc 20}
+                                }]
+
+    test table_sort-6.0 {
+        Sort using -table
+    } -body {
+        tarray::table sort -table [sort_test_table] colA
+    } -match table -result [tarray::table create [sort_test_coldefs] {
+        {XYZ 30 1.0}
+        {abc 20 3.0}
+        {mno 10 2.0}
+    }]
+
+    test table_sort-6.1 {
+        Sort using -list
+    } -body {
+        tarray::table sort -list [sort_test_table] colA
+    } -result {{XYZ 30 1.0} {abc 20 3.0} {mno 10 2.0}}
+    
+    test table_sort-6.2 {
+        Sort using -dict
+    } -body {
+        tarray::table sort -dict [sort_test_table] colA
+    } -result {1 {XYZ 30 1.0} 0 {abc 20 3.0} 2 {mno 10 2.0}}
+    
+    test table_sort-7.0 {
+        Invalid table
+    } -body {
+        tarray::table sort foo colA
+    } -returnCodes error -result "Object is not a table."
+    
+    test table_sort-7.1 {
+        Invalid column name
+    } -body {
+        tarray::table sort [sort_test_table] foo
+    } -returnCodes error -result "No column with specified name 'foo'."
+    
+    test table_sort-7.2 {
+        Invalid option
+    } -body {
+        tarray::table sort -foo [sort_test_table] colA
+    } -returnCodes error -result "Invalid option '-foo'."
+    
+}
+
+::tcltest::cleanupTests

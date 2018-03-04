@@ -9,9 +9,11 @@ text {
 text {
     == Changes since V0.8.1
 
-    * Added ((^` table_create2 "column_create2")) command.
+    * Added ((^` table_sort "table sort")) command.
 
-    * Added ((^` table_ctype "column_ctype")) command.
+    * Added ((^` table_create2 "table create2")) command.
+
+    * Added ((^` table_ctype "column ctype")) command.
     
     * Added ((^` column_bitmap0 "column bitmap0")) and
     ((^` column_bitmap1 "column bitmap1")) commands.

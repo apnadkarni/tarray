@@ -262,6 +262,23 @@ text {
     must not be included more than once. The returned table contains columns
     in the same order as _COLUMNLIST_.
 
+    ((cmddef table_sort "table sort ?options? _TABLE_ _COLSPEC_"))
+
+    Sorts the specified table based on the values of the column specified
+    by _COLSPEC_. The options `-increasing`, `-decreasing` and `-nocase`
+    control the sort order as described for the
+    ((^ column_sort "column sort")) command.
+
+    If the `-indices` option is specified, the command returns the
+    a integer column containing the indices of the table corresponding
+    to the sorted elements.
+    
+    If `-indices` is not specified, the return value of the command is
+    the sorted table. The format and content of the returned table is
+    controlled by the `-columns`, `-table`, `-dict` and `-list`
+    options as described in ((^ tab_table_stdopts)).
+    
+
     ((cmddef table_vcolumn "table vcolumn _TABLEVAR_ _COLSPEC_ ?_NEWCOL_?"))
 
     Returns or sets a specified column in the table contained

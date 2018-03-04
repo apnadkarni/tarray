@@ -38,7 +38,6 @@ proc tarray::table::create {def {init {}} {size 0}} {
     return [inject [list tarray_table $colnames $cols] $init end]
 }
 
-# TBD - document and test
 proc tarray::table::create2 {colnames columns} {
     if {[llength $colnames] != [llength $columns]} {
         error "Column names differ in number from specified columns."
@@ -94,25 +93,33 @@ proc tarray::table::definition {tab {cnames {}}} {
     return $def
 }
 
-# TBD - document and test
 proc tarray::table::sort {args} {
-    if {[llength $arg] < 2} {
+    if {[llength $args] < 2} {
         error "wrong # args: should be \"[lindex [info level 0] 0] ?options? table column"
     }
     set sort_opts {}
     set format_opts {}
     set want_indices 0
-    foreach arg [lrange $args 0 end-2] {
+    set opts [lrange $args 0 end-2]
+    set n [llength $opts]
+    for {set i 0} {$i < $n} {incr i} {
+        set arg [lindex $opts $i]
         switch -exact -- $arg {
             -indices {set want_indices 1}
             -increasing -
             -decreasing -
             -nocase { lappend sort_opts $arg}
+            -columns {
+                if {[incr i] == $n} {
+                    error "No value supplied for option -columns"
+                }
+                lappend format_opts $arg [lindex $opts $i]
+            }
             -dict -
             -list -
             -table { lappend format_opts $arg }
             default {
-                error "Invalid option '$arg'"
+                error "Invalid option '$arg'."
             }
         }
     }
@@ -461,6 +468,7 @@ namespace eval tarray {
             reverse reverse
             size size
             slice slice
+            sort sort
             vcolumn vcolumn
             vdelete vdelete
             vfill vfill
