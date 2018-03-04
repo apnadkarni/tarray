@@ -41,10 +41,13 @@ proc tarray::table::create {def {init {}} {size 0}} {
 # TBD - document and test
 proc tarray::table::create2 {colnames columns} {
     if {[llength $colnames] != [llength $columns]} {
-        error "Column names differ in number from specified columns"
+        error "Column names differ in number from specified columns."
     }
     if {[llength $columns] != 0} {
         foreach colname $colnames {
+            if {![regexp {^[_[:alpha:]][-_[:alnum:]]*$} $colname]} {
+                error "Invalid column name syntax '$colname'."
+            }
             if {[info exists seen($colname)]} {
                 error "Duplicate column name '$colname'."
             }
@@ -54,7 +57,7 @@ proc tarray::table::create2 {colnames columns} {
         set len [tarray::column::size [lindex $columns 0]]
         foreach col [lrange $columns 1 end] {
             if {[tarray::column::size $col] != $len} {
-                error "Columns differ in length"
+                throw [list TARRAY TABLE LENGTH] "Columns in table have differing lengths."
             }
         }
     }
@@ -439,6 +442,7 @@ namespace eval tarray {
             columns columns
             cnames cnames
             create create
+            create2 create2
             ctype ctype
             definition definition
             delete delete

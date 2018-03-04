@@ -553,7 +553,8 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
         int match = Tcl_RegExpMatchObj(ip, colnames[i], re);
         if (match <= 0) {
             if (match == 0 && ip)
-                Tcl_SetResult(ip, "Invalid column name syntax.", TCL_STATIC);
+                Tcl_AppendResult(ip, "Invalid column name syntax '",
+                                 Tcl_GetString(colnames[i]), "'.", NULL);
             Tcl_DecrRefCount(re);
             Tcl_DecrRefCount(colnames_map);
             thdr_decr_refs(thdr);

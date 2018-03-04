@@ -83,26 +83,26 @@ namespace eval tarray::test {
         Test creation with invalid column name
     } -body {
         tarray::table::create [list 0col any intcol int] {{somestring 0}}
-    } -result "Invalid column name syntax." -returnCodes error
+    } -result "Invalid column name syntax '0col'." -returnCodes error
 
     test table_create-3.2.1 {
         Test creation with invalid column name with empty init data
     } -body {
         # This used to result in an assert failure
         tarray::table::create [list 0col any intcol int]
-    } -result "Invalid column name syntax." -returnCodes error
+    } -result "Invalid column name syntax '0col'." -returnCodes error
 
     test table_create-3.3 {
         Test creation with invalid column name
     } -body {
         tarray::table::create [list "col umn" any intcol int] {{somestring 0}}
-    } -result "Invalid column name syntax." -returnCodes error
+    } -result "Invalid column name syntax 'col umn'." -returnCodes error
 
     test table_create-3.4 {
         Test creation with invalid column name
     } -body {
         tarray::table::create [list anycol any "" int] {{somestring 0}}
-    } -result "Invalid column name syntax." -returnCodes error
+    } -result "Invalid column name syntax ''." -returnCodes error
 
     test table_create-3.5 {
         Test creation with missing type

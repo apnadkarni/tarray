@@ -131,6 +131,12 @@ text {
     nested list with each sublist being a row whose element types are
     compatible with the corresponding column types in _DEFINITION_.
 
+    ((cmddef table_create2 "table create2 _COLNAMES_ _COLUMNS_"))
+
+    Returns a typed table whose column names are specified by _COLNAMES_ and
+    contents are given by `_COLUMNS_` which must be a list of tarray
+    columns.
+
     ((cmddef table_definition "table definition _TABLE_"))
     Returns the definition of the specified table in a form that can
     be passed to ((^ table_create "table create")).
