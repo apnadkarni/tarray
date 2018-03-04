@@ -1,4 +1,4 @@
-# column size tests
+# column sort tests
 
 source testutil.tcl
 
