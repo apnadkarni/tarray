@@ -1,0 +1,32 @@
+# tarray column type
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test table-ctype-1.0 {
+        Get the type of a column
+    } -body {
+        tarray::table ctype [sampletable] col0
+    } -result "any"
+    
+    test table-ctype-1.1 {
+        Get the type of a column by position
+    } -body {
+        tarray::table ctype [sampletable] 1
+    } -result "string"
+    
+    test table-ctype-2.0 {
+        Get the type of a unknown column name
+    } -body {
+        tarray::table ctype [sampletable] foo
+    } -result "No column with specified name 'foo'." -returnCodes error 
+
+    test table-ctype-2.1 {
+        Get the type of a column by out of bounds position
+    } -body {
+        tarray::table ctype [sampletable] 100
+    } -result "Column index '100' out of bounds." -returnCodes error
+}
+::tcltest::cleanupTests

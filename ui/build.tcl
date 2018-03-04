@@ -13,7 +13,7 @@ switch -exact -- [lindex $argv 0] {
         set dir [file join $buildarea lib tarray_ui]
         file delete -force -- $dir
         file mkdir $dir
-        file copy widgets.tcl tarbc.tcl color.tcl pkgIndex.tcl uiversion.tcl $dir
+        file copy widgets.tcl rbc.tcl color.tcl pkgIndex.tcl uiversion.tcl $dir
     }
     default {
         usage

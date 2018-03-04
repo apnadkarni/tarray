@@ -76,9 +76,8 @@ proc tarray::table::columns {tab args} {
     return $columns
 }
 
-# TBD - test and document
-proc tarray::table::coltype {tab cname} {
-    return [tarray::column type [tarray::table::column $tab $cname]
+proc tarray::table::ctype {tab cname} {
+    return [tarray::column type [tarray::table::column $tab $cname]]
 }
 
 proc tarray::table::definition {tab {cnames {}}} {
@@ -440,6 +439,7 @@ namespace eval tarray {
             columns columns
             cnames cnames
             create create
+            ctype ctype
             definition definition
             delete delete
             fill fill
