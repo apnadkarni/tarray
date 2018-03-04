@@ -101,5 +101,178 @@ namespace eval tarray::test {
         }
     }
 
+
+    # bitmap0/1 tests
+    
+    test column_bitmap0-1.0 {
+        Create empty bitmap
+    } -body {
+        tarray::column bitmap0
+    } -result {tarray_column boolean {}}
+
+    test column_bitmap0-1.1 {
+        Create empty bitmap
+    } -body {
+        tarray::column bitmap0 0
+    } -result {tarray_column boolean {}}
+
+    test column_bitmap0-1.2 {
+        Create bitmap size 1
+    } -body {
+        tarray::column bitmap0 1
+    } -result {tarray_column boolean {0}}
+    
+    test column_bitmap0-1.3 {
+        Create bitmap
+    } -body {
+        tarray::column bitmap0 9
+    } -result {tarray_column boolean {0 0 0 0 0 0 0 0 0}}
+
+    test column_bitmap0-1.4 {
+        Create bitmap error
+    } -body {
+        tarray::column bitmap0 foo
+    } -result {expected integer but got "foo"} -returnCodes error
+
+    test column_bitmap0-2.0 {
+        Create bitmap with init list
+    } -body {
+        tarray::column bitmap0 9 {0 8}
+    } -result {tarray_column boolean {1 0 0 0 0 0 0 0 1}}
+
+    test column_bitmap0-2.0.1 {
+        Create bitmap with init list that grows column
+    } -body {
+        tarray::column bitmap0 8 {0 9 8}
+    } -result {tarray_column boolean {1 0 0 0 0 0 0 0 1 1}}
+
+    test column_bitmap0-2.0.2 {
+        Create bitmap with init list with error on growing column
+    } -body {
+        tarray::column bitmap0 8 {0 9}
+    } -result "tarray index 9 out of bounds." -returnCodes error
+    
+    test column_bitmap0-2.1 {
+        Create bitmap with init index column
+    } -body {
+        tarray::column bitmap0 8 [tarray::column create int {3 4}]
+    } -result {tarray_column boolean {0 0 0 1 1 0 0 0}}
+
+    test column_bitmap0-2.1.1 {
+        Create bitmap with init index column that grows column
+    } -body {
+        tarray::column bitmap0 8 [tarray::column create int {9 10 8}]
+    } -result {tarray_column boolean {0 0 0 0 0 0 0 0 1 1 1}}
+
+    test column_bitmap0-2.1.2 {
+        Create bitmap with init index column error growing column
+    } -body {
+        tarray::column bitmap0 8 [tarray::column create int {10 8}]
+    } -result "tarray index 10 out of bounds." -returnCodes error
+
+    test column_bitmap0-2.2 {
+        Create bitmap with init boolean column
+    } -body {
+        tarray::column bitmap0 5 [tarray::column bitmap0 4 {1 3}]
+    } -result {tarray_column boolean {0 1 0 1 0}}
+
+    test column_bitmap0-2.2.1 {
+        Create bitmap with init boolean column that grows
+    } -body {
+        tarray::column bitmap0 5 [tarray::column bitmap0 32 {6 4 3}]
+    } -result "tarray index 6 out of bounds." -returnCodes error
+
+    test column_bitmap0-2.2.2 {
+        Create bitmap with init boolean column error growing
+    } -body {
+        tarray::column bitmap0 4 [tarray::column bitmap0 7 {6 4 3}]
+    } -result "tarray index 6 out of bounds." -returnCodes error
+
+
+    test column_bitmap1-1.0 {
+        Create empty bitmap
+    } -body {
+        tarray::column bitmap1
+    } -result {tarray_column boolean {}}
+
+    test column_bitmap1-1.1 {
+        Create empty bitmap
+    } -body {
+        tarray::column bitmap1 0
+    } -result {tarray_column boolean {}}
+
+    test column_bitmap1-1.2 {
+        Create bitmap size 1
+    } -body {
+        tarray::column bitmap1 1
+    } -result {tarray_column boolean {1}}
+    
+    test column_bitmap1-1.3 {
+        Create bitmap
+    } -body {
+        tarray::column bitmap1 9
+    } -result {tarray_column boolean {1 1 1 1 1 1 1 1 1}}
+
+    test column_bitmap1-1.4 {
+        Create bitmap error
+    } -body {
+        tarray::column bitmap1 foo
+    } -result {expected integer but got "foo"} -returnCodes error
+
+    test column_bitmap1-2.0 {
+        Create bitmap with init list
+    } -body {
+        tarray::column bitmap1 9 {1 2 3 4 5 6 7}
+    } -result {tarray_column boolean {1 0 0 0 0 0 0 0 1}}
+
+    test column_bitmap1-2.0.1 {
+        Create bitmap with init list that grows column
+    } -body {
+        tarray::column bitmap1 8 {0 9 8}
+    } -result {tarray_column boolean {0 1 1 1 1 1 1 1 0 0}}
+
+    test column_bitmap1-2.0.2 {
+        Create bitmap with init list with error on growing column
+    } -body {
+        tarray::column bitmap1 8 {0 9}
+    } -result "tarray index 9 out of bounds." -returnCodes error
+    
+    test column_bitmap1-2.1 {
+        Create bitmap with init index column
+    } -body {
+        tarray::column bitmap1 8 [tarray::column create int {3 4}]
+    } -result {tarray_column boolean {1 1 1 0 0 1 1 1}}
+
+    test column_bitmap1-2.1.1 {
+        Create bitmap with init index column that grows column
+    } -body {
+        tarray::column bitmap1 8 [tarray::column create int {9 10 8}]
+    } -result {tarray_column boolean {1 1 1 1 1 1 1 1 0 0 0}}
+
+    test column_bitmap1-2.1.2 {
+        Create bitmap with init index column error growing column
+    } -body {
+        tarray::column bitmap1 8 [tarray::column create int {10 8}]
+    } -result "tarray index 10 out of bounds." -returnCodes error
+
+    test column_bitmap1-2.2 {
+        Create bitmap with init boolean column
+    } -body {
+        tarray::column bitmap1 5 [tarray::column bitmap0 4 {1 3}]
+    } -result {tarray_column boolean {1 0 1 0 1}}
+
+    test column_bitmap1-2.2.1 {
+        Create bitmap with init boolean column that grows
+    } -body {
+        tarray::column bitmap1 5 [tarray::column bitmap0 32 {6 4 3}]
+    } -result "tarray index 6 out of bounds." -returnCodes error
+
+    test column_bitmap1-2.2.2 {
+        Create bitmap with init boolean column error growing
+    } -body {
+        tarray::column bitmap1 4 [tarray::column bitmap0 7 {6 4 3}]
+    } -result "tarray index 6 out of bounds." -returnCodes error
+
+
 }
 ::tcltest::cleanupTests

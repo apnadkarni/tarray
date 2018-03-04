@@ -15,11 +15,10 @@ namespace eval tarray {
 
 interp alias {} tarray::column::count {} tarray::column::search -count
 
-# TBD - document
-proc tarray::column::bitmap0 {count {init {}}} {
+proc tarray::column::bitmap0 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 0 0 [incr count -1]] 1 $init]
 }
-proc tarray::column::bitmap1 {count {init {}}} {
+proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 

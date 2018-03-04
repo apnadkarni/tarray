@@ -124,6 +124,16 @@ text {
     ((cmddef column_ge "column >= _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math >="))`.
 
+    ((cmddef column_bitmap0 "column bitmap0 _COUNT_ ?_INDICES_?"))
+    Returns a new boolean column of size `_COUNT_` with all elements set to
+    `0`. If argument `_INDICES_` is specified, the elements at those
+    position are set to `1`. 
+
+    ((cmddef column_bitmap1 "column bitmap1 _COUNT_ ?_INDICES_?"))
+    Returns a new boolean column of size `_COUNT_` with all elements set to
+    `1`. If argument `_INDICES_` is specified, the elements at those
+    position are set to `0`. 
+    
     ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
     _DEPRECATED_. Returns a new column of type _COLTYPE_ containing elements
     of _COLUMN_ cast to _COLTYPE_. This command is deprecated. Use
