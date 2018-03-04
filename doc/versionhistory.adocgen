@@ -9,6 +9,9 @@ text {
 text {
     == Changes since V0.8.1
 
+    * Added ((^` column_bitmap0 "column bitmap0")) and
+    ((^` column_bitmap1 "column bitmap1")) commands.
+    
     * Added ((^` tarray_rng_create rng)),
     ((^` tarray_randseed randseed)) and
     ((^` column_random "column random")) commands.
