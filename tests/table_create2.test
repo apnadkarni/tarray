@@ -1,0 +1,70 @@
+# tarray table create2
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    test table_create2-1.0 {
+        Test creation of null columns
+    } -body {
+        tarray::table create2 {} {}
+    } -result [list tarray_table {} {}]
+
+    test table_create2-2.0 {
+        Test table creation
+    } -setup {
+        set cnames {colA colB}
+        set cols [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]
+    } -body {
+        tarray::table create2 $cnames $cols
+    } -result [list tarray_table [list colA colB] [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]]
+    
+    test table_create2-3.0 {
+        Test creation with duplicate column names
+    } -setup {
+        set cnames {colA colA}
+        set cols [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]
+    } -body {
+        tarray::table create2 $cnames $cols
+    } -result "Duplicate column name 'colA'." -returnCodes error
+
+    test table_create2-3.1 {
+        Test creation with column count mismatch
+    } -setup {
+        set cnames {colA colB colC}
+        set cols [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]
+    } -body {
+        tarray::table create2 $cnames $cols
+    } -result "Column names differ in number from specified columns." -returnCodes error
+
+    test table_create2-3.2 {
+        Test creation with column count mismatch
+    } -setup {
+        set cnames {colA}
+        set cols [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]
+    } -body {
+        tarray::table create2 $cnames $cols
+    } -result "Column names differ in number from specified columns." -returnCodes error
+
+    test table_create2-3.3 {
+        Test creation with invalid column name
+    } -setup {
+        set cnames {colA 0col}
+        set cols [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]
+    } -body {
+        tarray::table create2 $cnames $cols
+    } -result "Invalid column name syntax '0col'." -returnCodes error
+    
+    test table_create2-3.4 {
+        Test creation with invalid column name
+    } -setup {
+        set cnames {{} colB}
+        set cols [list [newcolumn int {1 2 3}] [newcolumn string {a b c}]]
+    } -body {
+        tarray::table create2 $cnames $cols
+    } -result "Invalid column name syntax ''." -returnCodes error
+
+}
+
+::tcltest::cleanupTests
