@@ -96,6 +96,10 @@ text {
     // Turn off section numbering
     :!sectnums:
 
+    ((cmddef table_ctype "table ctype _TABLE_ _COLSPEC_"))
+
+    Returns the type of a column in a table.
+
     ((cmddef table_cnames "table cnames _TABLE_"))
 
     Returns the list of column names for the table.
