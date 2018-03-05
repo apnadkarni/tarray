@@ -157,9 +157,9 @@ proc tarray::table::join {args} {
     set t1suffix "_t1"
     for {set i 0} {$i < $nargs} {incr i} {
         set opt [tcl::prefix match {
-            -nocase -on -t0cols -t1cols
+            -nocase -on -t0cols -t1cols -t1suffix
         } [lindex $args $i]]
-        switch -exact -- [lindex $args $i] {
+        switch -exact -- $opt {
             -on {
                 if {[incr i] == $nargs} {
                     error "Missing value for option -on."
@@ -179,19 +179,19 @@ proc tarray::table::join {args} {
             }
             -nocase   { set nocase 1 }
             -t0cols {
-                if {[incr $i] == $nargs} {
+                if {[incr i] == $nargs} {
                     error "Missing argument for option -t0cols."
                 }
                 set tab0inc [lindex $args $i]
             }
             -t1cols {
-                if {[incr $i] == $nargs} {
+                if {[incr i] == $nargs} {
                     error "Missing argument for option -t1cols."
                 }
                 set tab1inc [lindex $args $i]
             }
             -t1suffix { 
-                if {[incr $i] == $nargs} {
+                if {[incr i] == $nargs} {
                     error "Missing argument for option -t1suffix."
                 }
                 set t1suffix [lindex $args $i]
@@ -513,9 +513,15 @@ proc tarray::samples::init {} {
         {6 C++}
         {7 Python}
     }]
-                  
+
+    proc init {args} {}
 }
 
+proc tarray::samples::get {tabname} {
+    variable $tabname
+    init
+    return [set $tabname]
+}
 
 interp alias {} tarray::column::+ {} tarray::column::math +
 interp alias {} tarray::column::- {} tarray::column::math -
