@@ -116,7 +116,7 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
                 ++a; /* aval < bval */                                  \
             else {                                                      \
                 /* Values aval and bval (from A[a] and B[b]) match.     \
-                 * Outer loop iterates through elements which have the  \
+                 * Outer loop below iterates through elements which have the  \
                  * same value. For each such element, the inner loop    \
                  * iterates through the elements of B starting at position \
                  * b that match aval.                                   \
