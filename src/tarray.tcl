@@ -133,75 +133,146 @@ proc tarray::table::sort {args} {
     }
 }
 
-# TBD - doc and test
-proc tarray::table::join {atab acolname btab bcolname args} {
-    set nocase 0
-    set acolumns [cnames $atab]
-    set bcolumns [cnames $btab]
+proc tarray::table::join {args} {
     set nargs [llength $args]
+    if {[llength $args] < 2} {
+        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? TABLEA TABLEB"
+    }
+
+    # Variable index:
+    # tab0, tab1 - input data tables
+    # cnames0, cnames1 - column names of above
+    # tab0col, tab1col - names of columns to be compared
+    # tab0inc, tab1inc - output columns
+
+    set tab0 [lindex $args end-1]
+    set tab1 [lindex $args end]
+    incr nargs -2
+
+    set nocase 0
+    set cnames0 [cnames $tab0]
+    set tab0inc $cnames0;       # By default include all columns
+    set cnames1 [cnames $tab1]
+    set tab1inc $cnames1
+    set t1suffix "_t1"
     for {set i 0} {$i < $nargs} {incr i} {
+        set opt [tcl::prefix match {
+            -nocase -on -t0cols -t1cols
+        } [lindex $args $i]]
         switch -exact -- [lindex $args $i] {
-            -nocase   { set nocase 1 }
-            -acolumns {
-                incr i
-                if {$i == $nargs} {
-                    error "Missing argument for option -acolumns"
+            -on {
+                if {[incr i] == $nargs} {
+                    error "Missing value for option -on."
                 }
-                set acolumns [lindex $args $i]
+                set on_cols [lindex $args $i]
+                switch -exact -- [llength $on_cols] {
+                    0 {}
+                    1 {
+                        set tab0col [lindex $on_cols 0]
+                        set tab1col $tab0col
+                    }
+                    2 { lassign $on_cols tab0col tab1col }
+                    default {
+                        error "At most two column names may be specified for the -on option."
+                    }
+                }
             }
-            -bcolumns {
-                incr i
-                if {$i == $nargs} {
-                    error "Missing argument for option -bcolumns"
+            -nocase   { set nocase 1 }
+            -t0cols {
+                if {[incr $i] == $nargs} {
+                    error "Missing argument for option -t0cols."
                 }
-                set bcolumns [lindex $args $i]
+                set tab0inc [lindex $args $i]
+            }
+            -t1cols {
+                if {[incr $i] == $nargs} {
+                    error "Missing argument for option -t1cols."
+                }
+                set tab1inc [lindex $args $i]
+            }
+            -t1suffix { 
+                if {[incr $i] == $nargs} {
+                    error "Missing argument for option -t1suffix."
+                }
+                set t1suffix [lindex $args $i]
             }
             default {
-                error "Invalid option '$arg'"
+                error "Invalid option '$arg'."
             }
         }
     }
-    set acol [column $atab $acolname]
-    set asorted [tarray::column sort -indices $acol]
-    set bcol [column $btab $bcolname]
-    set bsorted [tarray::column sort -indices $bcol]
-    lassign [tarray::column::_sortmerge_helper $asorted $acol $bsorted $bcol $nocase] aindices bindices
 
-    set acolnames {}
-    set anewcolnames {}
-    foreach pair $acolumns {
-        lassign $pair colname newcolname
-        if {$newcolname eq ""} {
-            set newcolname $colname
+    # If the comparison columns have not been specified, find
+    # a column name common to both columns.
+    if {![info exists tab0col]} {
+        # Loop to find the first common name.
+        foreach c0 $cnames0 {
+            foreach c1 $cnames1 {
+                if {$c0 eq $c1} {
+                    set tab0col $c0
+                    break
+                }
+            }
         }
-        lappend acolnames $colname
-        lappend anewcolnames $newcolname
+        if {![info exists tab0col]} {
+            error "Unable to find matching column names for join."
+        }
+        set tab1col $tab0col
     }
-    set bcolnames {}
-    set bnewcolnames {}
-    foreach pair $bcolumns {
-        lassign $pair colname newcolname
-        if {$newcolname eq ""} {
-            set newcolname $colname
-        }
-        lappend bcolnames $colname
-        lappend bnewcolnames $newcolname
+    if {$tab0col ni $cnames0} {
+        error "Column $tab0col not in table."
+    }
+    if {$tab1col ni $cnames1} {
+        error "Column $tab1col not in table."
     }
 
-    if {[llength $acolnames]} {
-        set aslice [columns [get -columns $acolnames $atab $aindices]]
+    set col0 [column $tab0 $tab0col]
+    set col0indices [tarray::column sort -indices $col0]
+    set col1 [column $tab1 $tab1col]
+    set col1indices [tarray::column sort -indices $col1]
+    lassign [tarray::column::_sortmerge_helper \
+                 $col0indices $col0 \
+                 $col1indices $col1 \
+                 $nocase] tab0indices tab1indices
+
+    # Move on to the output side. Collect the names of the columns to
+    # be included in the output. Moreover, rename columns in case of
+    # clashes or if caller requested it.
+    # cnames{0,1} contain column names of input tables
+    # tab{0,1}inc are names of input columns to be included in result
+    # tab1out are names of output columns for tab1 (potentially renamed)
+    # (Note currently there is no tab0out as tab0 columns are not renamed.)
+
+    if {[llength $tab0inc] == 0} {
+        # No columns from tab0 to be included in output so no need
+        # to rename tab1 columns
+        set tab1out $tab1inc
     } else {
-        set aslice {}
+        # Rename every tab1 column that is clashing with tab0
+        set tab1out [lmap c1 $tab1inc {
+            if {$c1 in $tab0inc} {
+                append c1 $t1suffix
+            }
+            set c1
+        }]
     }
-    if {[llength $bcolnames]} {
-        set bslice [columns [get -columns $bcolnames $btab $bindices]]
+
+    # Now retrieve the actual data
+    if {[llength $tab0inc]} {
+        set out0 [columns [get -columns $tab0inc $tab0 $tab0indices]]
     } else {
-        set bslice {}
+        set out0 {}
     }
-    
-    return [create2 [concat $anewcolnames $bnewcolnames] [concat $aslice $bslice]]
+    if {[llength $tab1inc]} {
+        set out1 [columns [get -columns $tab1inc $tab1 $tab1indices]]
+    } else {
+        set out1 {}
+    }
+
+    return [create2 [concat $tab0inc $tab1out] [concat $out0 $out1]]
 }
     
+# TBD - is this documented?
 proc tarray::csv_read_file {path args} {
     set fd [open $path r]
     fconfigure $fd -buffersize 100000
@@ -358,6 +429,93 @@ proc tarray::unsupported::lrandom {varname type count} {
     }
     return
 }
+
+namespace eval tarray::samples {}
+proc tarray::samples::init {} {
+    variable city_rainfall
+
+    # Annual rainfall by city in inches
+    set city_rainfall [tarray::table create {
+        Days int City string Rainfall double
+    } {
+        {114 	Jacksonville 	52.4}
+        {91 	{Kansas City} 	39.1}
+        {27 	{Las Vegas} 	4.2}
+        {36 	{Los Angeles} 	12.8}
+        {123 	Louisville 	44.9}
+        {108 	Memphis 	53.7}
+        {135 	Miami 		61.9}
+        {127 	Milwaukee 	34.8}
+        {117 	Minneapolis 	30.6}
+        {119 	Nashville 	47.3}
+        {115 	{New Orleans} 	62.7}
+        {122 	{New York} 	49.9}
+        {84 	{Oklahoma City}	36.5}
+        {117 	Orlando 	50.7}
+        {118 	Philadelphia 	41.5}
+        {30 	Phoenix 	8.2}
+        {151 	Pittsburgh 	38.2}
+        {164 	Portland 	43.5}
+        {125 	Providence 	47.2}
+        {100 	Raleigh 	46.0}
+        {114 	Richmond 	43.6}
+        {30 	Riverside 	10.3}
+        {167 	Rochester 	34.3}
+        {60 	Sacramento 	18.5}
+        {96 	{Salt Lake City} 16.1}
+        {83 	{San Antonio} 	32.3}
+        {42 	{San Diego} 	10.3}
+        {68 	{San Francisco} 20.7}
+        {62 	{San Jose} 	15.8}
+        {149 	Seattle 	37.7}
+        {113 	{St. Louis} 	41.0}
+        {105 	Tampa 	46.3}
+        {117 	{Virginia Beach} 46.5}
+        {114 	Washington 	39.7}
+    }]
+
+    variable freelancers
+    set freelancers [tarray::table create {
+        Id int Name string Rate int Experience int City string
+    } {
+        {1 Peter   100 15 Boston}
+        {2 John    85  10 {New York}}
+        {3 Joan    90  10 {New York}}
+        {4 Marcos  110 20 Chicago}
+        {5 Kim     95  8  {San Francisco}}
+        {6 Mani    105 12 Boston}
+        {7 Idaman  70  5  Miami}
+    }]
+
+    variable freelancer_skills
+    set freelancer_skills [tarray::table create {
+        Id int Language string
+    } {
+        {1 C}
+        {1 C++}
+        {1 Java}
+        {1 Tcl}
+        {2 Java}
+        {2 Javascript}
+        {3 Objective-C}
+        {3 Swift}
+        {4 Assembler}
+        {4 C}
+        {4 C++}
+        {4 Tcl}
+        {4 {Visual Basic}}
+        {4 SQL}
+        {5 Javascript}
+        {5 PHP}
+        {5 Ruby}
+        {6 Fortran}
+        {6 R}
+        {6 C++}
+        {7 Python}
+    }]
+                  
+}
+
 
 interp alias {} tarray::column::+ {} tarray::column::math +
 interp alias {} tarray::column::- {} tarray::column::math -

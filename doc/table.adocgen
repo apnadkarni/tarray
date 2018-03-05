@@ -205,6 +205,43 @@ text {
     in the table as the command would not know what values to use for the
     unspecified columns.
 
+    ((cmddef table_join "table join ?options? _TABLE0_ _TABLE1_"))
+
+    Returns a new table containing a subset of rows from the cross product
+    of _TABLE0_ and _TABLE1_ that satisfy a condition that the value
+    of a specified column in _TABLE0_ matches that of a specified
+    column in _TABLE1_.
+
+    The `-on` option controls the columns of the two tables that are
+    matched.  The option value must be a list of one or two elements.
+    If the list has a single element, it must be
+    a column name that is present in both tables.
+    If two elements are present, they must be the name of a column in _TABLE0_
+    and a column in _TABLE1_ respectively.
+    If the `-on` option
+    is not specified, the value defaults to column name that is common
+    to both tables. If there are multiple such column names, the one
+    with the lowest index position in _TABLE0_ is used.
+
+    The columns being compared must be of the same type which must not
+    be `boolean`.
+
+    If the `-nocase` option is specified, the column elements are
+    compared in case-insensitive fashion. Otherwise, the comparison is
+    case-sensitive. The option is ignored for numeric columns.
+
+    By default, the returned table will include all columns from both
+    tables. If this is not required, the `-t0cols` and `-t1cols`
+    options may be used to specify the columns to include. The option
+    values are a list of column names from `_TABLE0_` and `_TABLE1_`
+    respectively. 
+
+    In case the two tables have column names in common, the returned
+    table will add the suffix `_t1` to the corresponding
+    columns from _TABLE1_ respectively. The caller can
+    choose a different prefix to be used by specifying the `-t1suffix`.
+
+    
     ((cmddef table_loop "table loop _VAR_ _TABLE_ _SCRIPT_"))
     ((cmddef table_loop_2 "table loop _INDEXVAR_ _VAR_ _TABLE_ _SCRIPT_"))
     See ((^ tarray_loop loop)).
