@@ -1,0 +1,93 @@
+# table join tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    proc rainfall {} {return [tarray::samples::get city_rainfall] }
+    proc freelancers {} { return [tarray::samples::get freelancers] }
+    proc skills {} { return [tarray::samples::get freelancer_skills] }
+
+    test table_join-1.0 {
+        Empty tables error
+    } -body {
+        set t [tarray::table::create2 {} {}]
+        tarray::table join $t $t
+    } -returnCodes error -result "Unable to find matching column names for join."
+    test table_join-1.1 {
+        No matching columns error
+    } -body {
+        tarray::table join [skills] [rainfall]
+    } -returnCodes error -result "Unable to find matching column names for join."
+    test table_join-2.0 {
+        Basic join
+    } -body {
+        tarray::table join [freelancers] [skills]
+    } -result {tarray_table {Id Name Rate Experience City Id_t1 Language} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column int {100 100 100 100 85 85 90 90 110 110 110 110 110 110 95 95 95 105 105 105 70}} {tarray_column int {15 15 15 15 10 10 10 10 20 20 20 20 20 20 8 8 8 12 12 12 5}} {tarray_column string {Boston Boston Boston Boston {New York} {New York} {New York} {New York} Chicago Chicago Chicago Chicago Chicago Chicago {San Francisco} {San Francisco} {San Francisco} Boston Boston Boston Miami}} {tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}}}}
+    
+    test table_join-3.0 {
+        Join and slice
+    } -body {
+        tarray::table join -t0cols {Id Name} -t1cols {Language} [freelancers] [skills]
+    } -result {tarray_table {Id Name Language} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}}}} 
+
+    test table_join-4.0 {
+        Basic join -t1suffix
+    } -body {
+        tarray::table join -t1suffix _TABLE [freelancers] [skills]
+    } -result {tarray_table {Id Name Rate Experience City Id_TABLE Language} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column int {100 100 100 100 85 85 90 90 110 110 110 110 110 110 95 95 95 105 105 105 70}} {tarray_column int {15 15 15 15 10 10 10 10 20 20 20 20 20 20 8 8 8 12 12 12 5}} {tarray_column string {Boston Boston Boston Boston {New York} {New York} {New York} {New York} Chicago Chicago Chicago Chicago Chicago Chicago {San Francisco} {San Francisco} {San Francisco} Boston Boston Boston Miami}} {tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}}}}
+
+    test table_join-5.0 {
+        Basic join -on {X Y}
+    } -setup {
+        # Make sure matched columns are not first in order
+        set skills [skills]
+        set idcol [tarray::table column $skills Id]
+        set langcol [tarray::table column $skills Language]
+        set skills [tarray::table create2 {Language Id} [list $langcol $idcol]]
+    } -body {
+        tarray::table join -on Id [freelancers] $skills
+    } -result {tarray_table {Id Name Rate Experience City Language Id_t1} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column int {100 100 100 100 85 85 90 90 110 110 110 110 110 110 95 95 95 105 105 105 70}} {tarray_column int {15 15 15 15 10 10 10 10 20 20 20 20 20 20 8 8 8 12 12 12 5}} {tarray_column string {Boston Boston Boston Boston {New York} {New York} {New York} {New York} Chicago Chicago Chicago Chicago Chicago Chicago {San Francisco} {San Francisco} {San Francisco} Boston Boston Boston Miami}} {tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}} {tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}}}}
+        
+    test table_join-5.1 {
+        Basic join -on {X Y}
+    } -setup {
+        set skills [skills]
+        set colnames [tarray::table cnames $skills]
+        set cols [tarray::table columns $skills]
+        set colnames [string map {Id SkillsId} $colnames]
+        set skills [tarray::table create2 $colnames $cols]
+    } -body {
+        tarray::table join -on {Id SkillsId} [freelancers] $skills
+    } -result {tarray_table {Id Name Rate Experience City SkillsId Language} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column int {100 100 100 100 85 85 90 90 110 110 110 110 110 110 95 95 95 105 105 105 70}} {tarray_column int {15 15 15 15 10 10 10 10 20 20 20 20 20 20 8 8 8 12 12 12 5}} {tarray_column string {Boston Boston Boston Boston {New York} {New York} {New York} {New York} Chicago Chicago Chicago Chicago Chicago Chicago {San Francisco} {San Francisco} {San Francisco} Boston Boston Boston Miami}} {tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}}}}
+
+    test table_join-6.0 {
+        Join -nocase (default)
+    } -setup {
+        set t0 [tarray::table create {
+            Name string Age int
+        } { {john 10} {peTer 15} }]
+        set t1 [tarray::table create {
+            Name string Grade int
+        } { {JOHN 4} {PETER 9} }]
+    } -body {
+        tarray::table join $t0 $t1
+    } -result {tarray_table {Name Age Name_t1 Grade} {{tarray_column string {}} {tarray_column int {}} {tarray_column string {}} {tarray_column int {}}}}
+    
+    test table_join-6.1 {
+        Join -nocase (default)
+    } -setup {
+        set t0 [tarray::table create {
+            Name string Age int
+        } { {john 10} {peTer 15} }]
+        set t1 [tarray::table create {
+            Name string Grade int
+        } { {JOHN 4} {peTer 9} }]
+    } -body {
+        tarray::table join -nocase $t0 $t1
+    } -result {tarray_table {Name Age Name_t1 Grade} {{tarray_column string {john peTer}} {tarray_column int {10 15}} {tarray_column string {JOHN peTer}} {tarray_column int {4 9}}}}
+
+    
+}
+
+::tcltest::cleanupTests

@@ -9,6 +9,8 @@ text {
 text {
     == Changes since V0.8.1
 
+    * Added ((^` table_join "table join")) command.
+
     * Added ((^` table_sort "table sort")) command.
 
     * Added ((^` table_create2 "table create2")) command.
