@@ -272,43 +272,69 @@ proc tarray::table::join {args} {
     return [create2 [concat $tab0inc $tab1out] [concat $out0 $out1]]
 }
     
-# TBD - is this documented?
-proc tarray::csv_read_file {path args} {
+proc tarray::table::csvimport {args} {
+    variable tclcsv_loaded
+    if {![info exists tclcsv_loaded]} {
+        uplevel #0 package require tclcsv
+        set tclcsv_loaded 1
+    }
+
+    if {[llength $args] == 0} {
+        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? PATH"
+    }
+    set path [lindex $args end]
+    set args [lrange $args 0 end-1]
+    
     set fd [open $path r]
-    fconfigure $fd -buffersize 100000
+
     try {
         if {[dict exists $args -encoding]} {
             chan configure $fd -encoding [dict get $args -encoding]
             dict unset args -encoding
         }
         if {[dict exists $args -sniff]} {
-            if {[dict get $args -sniff]} {
-                dict unset args -sniff
+            set sniff [dict get $args -sniff]
+            dict unset args -sniff
+            if {$sniff} {
                 set opts [dict merge [tclcsv::sniff $fd] $args]
             }
         }
         if {![info exists opts]} {
             set opts $args
         }
-        # Get header if present
-        lassign [tclcsv::sniff_header {*}$opts $fd] types header
-        set def {}
-        foreach type $types title $header {
-            if {$title eq ""} {
-                set title "Col_[incr colnum]"
-            } else {
-                regsub -all {[^[:alnum:]_]} $title _ title
+        # Get header if present. Otherwise we will just do it later based
+        # on data content.
+        if {! [catch {
+            lassign [tclcsv::sniff_header {*}$opts $fd] types header
+            set def {}
+            foreach type $types title $header {
+                if {$title eq ""} {
+                    set title "Col_[incr colnum]"
+                } else {
+                    regsub -all {[^[:alnum:]_]} $title _ title
+                }
+                lappend def $title [dict get {integer wide real double string string} $type]
             }
-            lappend def $title [dict get {integer wide real double string string} $type]
+        }]} {
+            set tab [create $def]
+            if {[llength $header]} {
+                lappend opts -startline 1
+            }
         }
-        set tab [table create $def]
-        if {[llength $header]} {
-            lappend opts -startline 1
-        } 
         set reader [tclcsv::reader new {*}$opts $fd]
         while {1} {
             set recs [$reader next 1000]
-            table vput tab $recs
+            if {![info exists tab]} {
+                # We were not able to tell table format above. Do it here
+                # based on content.
+                set colnum -1
+                set def {}
+                foreach field [lindex $recs 0] {
+                    lappend def ColX_[incr colnum] any
+                }
+                set tab [create $def]
+            }
+            vput tab $recs
             if {[llength $recs] < 1000} {
                 if {[$reader eof]} {
                     break
@@ -614,6 +640,7 @@ namespace eval tarray {
             cnames cnames
             create create
             create2 create2
+            csvimport csvimport
             ctype ctype
             definition definition
             delete delete
