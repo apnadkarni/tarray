@@ -1,0 +1,71 @@
+# table csv related commands
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    test table_csvimport-1.0 {
+        Import empty file
+    } -body {
+        tarray::table csvimport [tcltest::makeFile "" [pid].tmp]
+    } -result {tarray_table {} {}}
+
+    test table_csvimport-1.1 {
+        Default import
+    } -body {
+        tarray::table csvimport [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]
+    } -result {tarray_table {Col_1 Col_2 Col_3} {{tarray_column wide {0 3}} {tarray_column wide {1 4}} {tarray_column wide {2 5}}}}
+    
+    test table_csvimport-2.0 {
+        Import with -encoding
+    } -body {
+        # TBD - fix this test to use UTF-8 chars that do not map to system enc
+        tarray::table csvimport -encoding utf-8 [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]
+    } -result {tarray_table {Col_1 Col_2 Col_3} {{tarray_column wide {0 3}} {tarray_column wide {1 4}} {tarray_column wide {2 5}}}}
+    
+    test table_csvimport-3.0 {
+        Import with -sniff default
+    } -body {
+        tarray::table csvimport [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
+    } -result [list \
+                   tarray_table \
+                   {Col_1 Col_2} \
+                   [list \
+                        {tarray_column wide {0 4}} \
+                        [list tarray_column string [list "1\t2\t3" "5\t6\t7"]]]]
+
+    test table_csvimport-3.1 {
+        Import with -sniff 0
+    } -body {
+        tarray::table csvimport -sniff 0 [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
+    } -result [list \
+                   tarray_table \
+                   {Col_1 Col_2} \
+                   [list \
+                        {tarray_column wide {0 4}} \
+                        [list tarray_column string [list "1\t2\t3" "5\t6\t7"]]]]
+
+    test table_csvimport-3.2 {
+        Import with -sniff 1
+    } -body {
+        tarray::table csvimport -sniff 1 [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
+    } -result "tarray_table {Col_1 Col_2 Col_3} {{tarray_column string {0,1 4,5}} {tarray_column wide {2 6}} {tarray_column wide {3 7}}}"
+    
+    test table_csvimport-4.0 {
+        Import with -delimiter
+    } -body {
+        tarray::table csvimport -delimiter \t [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
+    } -result "tarray_table {Col_1 Col_2 Col_3} {{tarray_column string {0,1 4,5}} {tarray_column wide {2 6}} {tarray_column wide {3 7}}}"
+    
+    test table_csvimport-4.1 {
+        Import with -delimiter overrides -sniff
+    } -body {
+        tarray::table csvimport -sniff 1 -delimiter , [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
+    } -result [list \
+                   tarray_table \
+                   {Col_1 Col_2} \
+                   [list \
+                        {tarray_column wide {0 4}} \
+                        [list tarray_column string [list "1\t2\t3" "5\t6\t7"]]]]
+}
+
+::tcltest::cleanupTests

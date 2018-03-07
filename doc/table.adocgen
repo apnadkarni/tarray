@@ -122,7 +122,7 @@ text {
 
     ((cmddef table_create "table create _DEFINITION_ _ROWVALUES_"))
 
-    Returns a typed table containing a sequence of columns. _DEFINITION_ is a
+    Returns a table containing a sequence of columns. _DEFINITION_ is a
     list of alternating column names and column types. A column name is an
     identifier for a column that can be used in lieu of a column index. The
     type for a column must be one of the valid types described in ((^ sect_table_types)).
@@ -133,10 +133,32 @@ text {
 
     ((cmddef table_create2 "table create2 _COLNAMES_ _COLUMNS_"))
 
-    Returns a typed table whose column names are specified by _COLNAMES_ and
+    Returns a table whose column names are specified by _COLNAMES_ and
     contents are given by `_COLUMNS_` which must be a list of tarray
     columns.
 
+    ((cmddef table_csvimport "table csvimport ?options? _PATH_"))
+
+    Returns a table containing the data from a CSV file. The CSV file
+    is read using the `tclcsv` package. If the CSV file includes a header,
+    it is used to form the column names for the table with characters
+    that are illegal in column names replaced by underscores. If the
+    file does not have a header, column names of the form `COL_N` are
+    generated.
+    
+    The character encoding of the file can be specified with the
+    `-encoding _ENCODING_` option. This has the same effect as for the Tcl
+    `fconfigure` command.
+
+    If the `-sniff` option is specified with an value of `true`,
+    the `tclcsv::sniff` command is used to guess the format of the CSV
+    file.
+
+    Any additional options are passed on to the `tclcsv::reader`
+    command. See the documentation for that command for details.
+    Any options specified thus will override the values discovered
+    via the `-sniff` option. 
+    
     ((cmddef table_definition "table definition _TABLE_"))
     Returns the definition of the specified table in a form that can
     be passed to ((^ table_create "table create")).
