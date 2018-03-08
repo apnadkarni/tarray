@@ -288,9 +288,11 @@ proc tarray::table::csvimport {args} {
     set fd [open $path r]
 
     try {
-        if {[dict exists $args -encoding]} {
-            chan configure $fd -encoding [dict get $args -encoding]
-            dict unset args -encoding
+        foreach opt {-encoding -translation} {
+            if {[dict exists $args $opt]} {
+                chan configure $fd -encoding [dict get $args $opt]
+                dict unset args $opt
+            }
         }
         if {[dict exists $args -sniff]} {
             set sniff [dict get $args -sniff]
@@ -348,6 +350,60 @@ proc tarray::table::csvimport {args} {
         close $fd
     }
     return $tab
+}
+
+proc tarray::table::csvexport {args} {
+    variable tclcsv_loaded
+    if {![info exists tclcsv_loaded]} {
+        uplevel #0 package require tclcsv
+        set tclcsv_loaded 1
+    }
+    
+    if {[llength $args] < 2} {
+        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? PATH TABLE"
+    }
+    set path [lindex $args end]
+    set tab  [lindex $args end-1]
+    set args [lrange $args 0 end-2]
+
+    set append 0
+    if {[dict exists $args -append]} {
+        set append [dict get $args -append]
+        dict unset args -append
+    }
+    if {[file exists $path] && ! $append} {
+        if {![dict exists $args -force] ||
+            [dict get $args -force] != 1} {
+            error "File $path exists. Use -force 1 to overwrite."
+        }
+    }
+    dict unset args -force
+    if {$append} {
+        set fd [open $path a]
+    } else {
+        set fd [open $path w]
+    }
+    try {
+        foreach opt {-encoding -translation} {
+            if {[dict exists $args $opt]} {
+                chan configure $fd -encoding [dict get $args $opt]
+                dict unset args $opt
+            }
+        }
+        if {[dict exists $args -header]} {
+            set header [dict get $args -header]
+            tclcsv::csv_write {*}$args $fd [list $header]
+        }
+        # To reduce memory usage, write out a 1000 rows at a time
+        set nrows [size $tab]
+        set n 0
+        while {$n < $nrows} {
+            # Note: it's ok if we pass index beyond size to table::range
+            ::tclcsv::csv_write {*}$args $fd [range -list $tab $n [incr n 1000]]
+        }
+    } finally {
+        close $fd
+    }
 }
 
 proc tarray::column::width {col {format %s}} {

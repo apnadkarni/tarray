@@ -137,6 +137,30 @@ text {
     contents are given by `_COLUMNS_` which must be a list of tarray
     columns.
 
+    ((cmddef table_csvexport "table csvexport ?options? _PATH_ _TABLE_"))
+
+    Writes out the contents of _TABLE_ in CSV format to the file
+    specified by _PATH_. If the file already exists, an error is
+    raised unless either `-force _BOOLEAN_` or `-append _BOOLEAN_`
+    options are specified with `_BOOLEAN_` being a boolean true value.
+    In the former case, the file is
+    overwritten while in the latter case the CSV data is appended to
+    the end of the existing file content.
+    
+    The `-header` option may be used to write out a header row to the
+    file. The option value should generally be a list of the same
+    length as the number of columns in the table although that is not
+    mandated.
+
+    The command accepts the options `-encoding` and `-translation` with
+    the same semantics as for the Tcl `fconfigure` command.
+
+    Any additional options are passed on to the `tclcsv::csv_write`
+    command and control the CSV dialect to be used.
+    Refer to the
+    https://tclcsv.magicsplat.com/index.html#tclcsv_csv_write[documentation]
+    for that command for available options.
+
     ((cmddef table_csvimport "table csvimport ?options? _PATH_"))
 
     Returns a table containing the data from a CSV file. The CSV file
@@ -146,8 +170,8 @@ text {
     file does not have a header, column names of the form `COL_N` are
     generated.
     
-    The character encoding of the file can be specified with the
-    `-encoding _ENCODING_` option. This has the same effect as for the Tcl
+    The command accepts the options `-encoding` and `-translation` with
+    the same semantics as for the Tcl
     `fconfigure` command.
 
     If the `-sniff` option is specified with an value of `true`,
@@ -155,7 +179,10 @@ text {
     file.
 
     Any additional options are passed on to the `tclcsv::reader`
-    command. See the documentation for that command for details.
+    command.
+    Refer to the
+    https://tclcsv.magicsplat.com/index.html#tclcsv_csv_write[documentation]
+    for that command for available options.
     Any options specified thus will override the values discovered
     via the `-sniff` option. 
     
