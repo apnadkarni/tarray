@@ -15,7 +15,8 @@ text {
 
     * Added ((^` table_create2 "table create2")) command.
 
-    * Added ((^ table_csvimport "table csvimport")) command.
+    * Added ((^ table_csvimport "table csvimport")) and
+      ((^ table_csvexport "table csvexport")) commands.
     
     * Added ((^` table_ctype "column ctype")) command.
     
