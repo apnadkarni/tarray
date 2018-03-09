@@ -362,8 +362,8 @@ proc tarray::table::csvexport {args} {
     if {[llength $args] < 2} {
         error "wrong # args: should be \"[lindex [info level 0] 0] ?options? PATH TABLE"
     }
-    set path [lindex $args end]
-    set tab  [lindex $args end-1]
+    set tab  [lindex $args end]
+    set path [lindex $args end-1]
     set args [lrange $args 0 end-2]
 
     set append 0
@@ -386,12 +386,13 @@ proc tarray::table::csvexport {args} {
     try {
         foreach opt {-encoding -translation} {
             if {[dict exists $args $opt]} {
-                chan configure $fd -encoding [dict get $args $opt]
+                chan configure $fd $opt [dict get $args $opt]
                 dict unset args $opt
             }
         }
         if {[dict exists $args -header]} {
             set header [dict get $args -header]
+            dict unset args -header
             tclcsv::csv_write {*}$args $fd [list $header]
         }
         # To reduce memory usage, write out a 1000 rows at a time
@@ -696,6 +697,7 @@ namespace eval tarray {
             cnames cnames
             create create
             create2 create2
+            csvexport csvexport
             csvimport csvimport
             ctype ctype
             definition definition

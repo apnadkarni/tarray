@@ -3,6 +3,31 @@
 source testutil.tcl
 
 namespace eval tarray::test {
+    # We don't use tcltest::viewFile because it trims trailing \n which is
+    # really bogus if you want to test that all lines are properly
+    # terminated.
+    proc catfile {path args} {
+        set fd [open $path r]
+        if {[llength $args]} {
+            fconfigure $fd {*}$args
+        }
+        set content [read $fd]
+        close $fd
+        return $content
+    }
+
+    proc sample_table {} {
+        return [tarray::table range [tarray::samples::get city_rainfall] 0 2]
+    }
+
+    proc sample_table_csv {args} {
+        # Simplistic CSV assumes no special chars and default options
+        set csv ""
+        tarray::loop row [sample_table] {
+            append csv [join $row ,] \n
+        }
+    }
+
     test table_csvimport-1.0 {
         Import empty file
     } -body {
@@ -66,6 +91,199 @@ namespace eval tarray::test {
                    [list \
                         {tarray_column wide {0 4}} \
                         [list tarray_column string [list "1\t2\t3" "5\t6\t7"]]]]
+
+    ################################################################
+    
+    test table_csvexport-1.0 {
+        Export empty table
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport $csvpath [tarray::table create {}]
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result ""
+
+   test table_csvexport-1.1 {
+        Export empty table with headers
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        set t [tarray::table create {{ColA} int ColB string}]
+        tarray::table csvexport -header [tarray::table cnames $t] $csvpath $t
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result "ColA,ColB\n"
+
+    test table_csvexport-2.0 {
+        Export table (default)
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport $csvpath [sample_table]
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result [sample_table_csv]
+
+    test table_csvexport-2.1 {
+        Export table -header
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        set tab [sample_table]
+        tarray::table csvexport -header [tarray::table cnames $tab] $csvpath $tab
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result "[join [tarray::table cnames [sample_table]] ,]\n[sample_table_csv]"
+    
+    test table_csvexport-3.0 {
+        Export table existing file (fail)
+    } -setup {
+        set csvpath [tcltest::makeFile "Old content" csvtest.csv]
+    } -body {
+        tarray::table csvexport $csvpath [sample_table]
+    } -cleanup {
+        file delete $csvpath
+    } -result "File * exists. Use -force 1 to overwrite." -match glob -returnCodes error
+
+    test table_csvexport-3.1 {
+        Export table existing file -force 0
+    } -setup {
+        set csvpath [tcltest::makeFile "Old content" csvtest.csv]
+    } -body {
+        tarray::table csvexport -force 0 $csvpath [sample_table]
+    } -cleanup {
+        file delete $csvpath
+    } -result "File * exists. Use -force 1 to overwrite." -match glob -returnCodes error
+
+    test table_csvexport-3.2 {
+        Export table existing file -force 1
+    } -setup {
+        set csvpath [tcltest::makeFile "Old content" csvtest.csv]
+    } -body {
+        tarray::table csvexport -force 1 $csvpath [sample_table]
+        catfile $csvpath
+    } -result "[sample_table_csv]"
+
+    test table_csvexport-4.0 {
+        Export table existing file -append 0 (fail)
+    } -setup {
+        set csvpath [tcltest::makeFile "Old content" csvtest.csv]
+    } -body {
+        tarray::table csvexport -append 0 $csvpath [sample_table]
+    } -cleanup {
+        file delete $csvpath
+    } -result "File * exists. Use -force 1 to overwrite." -match glob -returnCodes error
+
+    test table_csvexport-4.1 {
+        Export table non-existing file -append 1
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport -append 1 $csvpath [sample_table]
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result [sample_table_csv]
+
+    test table_csvexport-4.2 {
+        Export table existing file -append 1
+    } -setup {
+        set csvpath [tcltest::makeFile "Old content" csvtest.csv]
+    } -body {
+        tarray::table csvexport -append 1 $csvpath [sample_table]
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result "Old content\n[sample_table_csv]"
+
+    test table_csvexport-5.0 {
+        Export table -translation lf
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport -translation lf $csvpath [sample_table]
+        catfile $csvpath -translation binary
+    } -cleanup {
+        file delete $csvpath
+    } -result [sample_table_csv]
+
+    test table_csvexport-5.1 {
+        Export table -translation crlf
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport -translation crlf $csvpath [sample_table]
+        catfile $csvpath -translation binary
+    } -cleanup {
+        file delete $csvpath
+    } -result [string map {\n \r\n} [sample_table_csv]]
+
+    test table_csvexport-6.0 {
+        Export table -encoding
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+        set tab [tarray::table create \
+                     [list Column0 string Column1 int] \
+                     [list [list "\xe2\xe8\u016b\u889f" 100]]]
+    } -body {
+        tarray::table csvexport -encoding utf-8 $csvpath $tab
+        catfile $csvpath -encoding utf-8
+    } -cleanup {
+        file delete $csvpath
+    } -result "\xe2\xe8\u016b\u889f,100\n"
+
+    test table_csvexport-7.0 {
+        Export table -delimiter (pass option to tclcsv)
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport -delimiter | $csvpath [sample_table]
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result [string map {, |} [sample_table_csv]]
+
+    test table_csvexport-7.1 {
+        Export table unknown option passed to tclcsv
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        tarray::table csvexport -badopt foo $csvpath [sample_table]
+    } -cleanup {
+        file delete $csvpath
+    } -result "bad option \"-badopt\"*" -match glob -returnCodes error
+
+    test table_csvexport-8.0 {
+        Export table using a dialect
+    } -setup {
+        set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
+        file delete $csvpath;   # In case it exists
+    } -body {
+        package require tclcsv
+        tarray::table csvexport {*}[tclcsv::dialect excel write] $csvpath [sample_table]
+        catfile $csvpath
+    } -cleanup {
+        file delete $csvpath
+    } -result [sample_table_csv]
+
 }
+
+
+
 
 ::tcltest::cleanupTests
