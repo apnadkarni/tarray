@@ -1,6 +1,7 @@
 # For articles : tclsh buildsite.tcl articles -byline 1
 set taversion [source ../src/taversion.tcl]
 set xtalversion $taversion
+lappend env(TCLLIBPATH) ../build/lib
 
 set target output
 set adocgen_files {
