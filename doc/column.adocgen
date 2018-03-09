@@ -107,22 +107,22 @@ text {
     Alias for `((^ column_math "column math \^\^"))`.
 
     ((cmddef column_equal "column == _OPERAND_ ?_OPERAND_...?"))
-    Alias for `((^ column_math "column math =="))`.
+    Alias for `((^ column_math "column math =\\="))`.
 
     ((cmddef column_notequal "column != _OPERAND_ ?_OPERAND_...?"))
-    Alias for `((^ column_math "column math !="))`.
+    Alias for `((^ column_math "column math !\\="))`.
 
     ((cmddef column_lt "column < _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math <"))`.
 
-    ((cmddef column_le "column <= _OPERAND_ ?_OPERAND_...?"))
-    Alias for `((^ column_math "column math <="))`.
+    ((cmddef column_le "column \\<= _OPERAND_ ?_OPERAND_...?"))
+    Alias for `((^ column_math "column math \\<\\="))`.
 
     ((cmddef column_gt "column > _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math >"))`.
 
     ((cmddef column_ge "column >= _OPERAND_ ?_OPERAND_...?"))
-    Alias for `((^ column_math "column math >="))`.
+    Alias for `((^ column_math "column math >\\="))`.
 
     ((cmddef column_bitmap0 "column bitmap0 _COUNT_ ?_INDICES_?"))
     Returns a new boolean column of size _COUNT_ with all elements set to
