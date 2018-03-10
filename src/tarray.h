@@ -453,6 +453,9 @@ void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                        const ta_value_t *ptav, thdr_t *pindices, int highest_index);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP);
+char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[40]);
+double thdr_index_double(thdr_t *thdr, int thdr_index);
+Tcl_WideInt thdr_index_wide(thdr_t *thdr, int thdr_index);
 
 Tcl_Obj * tcol_new(thdr_t *thdr);
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
@@ -511,6 +514,8 @@ TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
 TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
                               int highest_index);
+int tcol_equality_test(Tcl_Interp *, Tcl_Obj *cola, Tcl_Obj *colb, int strict);
+    
 void tcol_random_init(ta_rng_t *prng);
 TCL_RESULT tcol_random_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
 TCL_RESULT ta_randseed_cmd(ClientData,Tcl_Interp *,int,Tcl_Obj *const objv[]);
@@ -897,6 +902,20 @@ TA_INLINE int tcol_occupancy(Tcl_Obj *o) {
     }
     else
         return thdr->used;
+}
+
+/*
+ * Return the starting index and store count of elements in *countP
+ */
+TA_INLINE int thdr_start_and_count(thdr_t *thdr, span_t *span, int *countP)
+{
+    if (span) {
+        *countP = span->count;
+        return span->first;
+    } else {
+        *countP = thdr->used;
+        return 0;
+    }
 }
 
 /*

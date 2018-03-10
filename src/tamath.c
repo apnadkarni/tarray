@@ -74,30 +74,14 @@ struct thdr_math_mt_context {
     enum ta_math_op_e op;                /* Operation */
 };    
 
+/* NOTE: will panic for non-numeric values */
 static double ta_math_double_from_operand(struct ta_math_operand *poperand,
                                           int thdr_index)
 {
     thdr_t *thdr = poperand->thdr_operand;
-    if (thdr) {
-        thdr_index += poperand->span_start;
-        TA_ASSERT(thdr->used > thdr_index);
-        switch (thdr->type) {
-        case TA_BOOLEAN:
-            return ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index);
-        case TA_BYTE:
-            return *THDRELEMPTR(thdr, unsigned char, thdr_index);
-        case TA_INT:
-            return *THDRELEMPTR(thdr, int, thdr_index);
-        case TA_UINT:
-            return *THDRELEMPTR(thdr, unsigned int, thdr_index);
-        case TA_WIDE:
-            return (double) *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index);
-        case TA_DOUBLE:
-            return *THDRELEMPTR(thdr, double, thdr_index);
-        default:
-            ta_type_panic(poperand->thdr_operand->type);
-            return 0;           /* To keep compiler happy */
-        }
+    if (poperand->thdr_operand) {
+        return thdr_index_double(poperand->thdr_operand,
+                                 thdr_index + poperand->span_start);
     } else {
         TA_ASSERT(poperand->scalar_operand.type == TA_DOUBLE || poperand->scalar_operand.type == TA_WIDE);
         if (poperand->scalar_operand.type == TA_DOUBLE)
@@ -107,31 +91,13 @@ static double ta_math_double_from_operand(struct ta_math_operand *poperand,
     }
 }
 
+/* NOTE: will panic for non-numeric values */
 static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
                                           int thdr_index)
 {
-    thdr_t *thdr = poperand->thdr_operand;
-    if (thdr) {
-        thdr_index += poperand->span_start;
-        TA_ASSERT(thdr->used > thdr_index);
-        switch (thdr->type) {
-        case TA_BOOLEAN:
-            return ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index);
-        case TA_BYTE:
-            return *THDRELEMPTR(thdr, unsigned char, thdr_index);
-        case TA_INT:
-            return *THDRELEMPTR(thdr, int, thdr_index);
-        case TA_UINT:
-            return *THDRELEMPTR(thdr, unsigned int, thdr_index);
-        case TA_WIDE:
-            return *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index);
-        case TA_DOUBLE:
-            /* Any double operands would have forced result type to be
-               TA_DOUBLE, not TA_WIDE, so fallthru to panic */
-        default:
-            ta_type_panic(poperand->thdr_operand->type);
-            return 0;           /* To keep compiler happy */
-        }
+    if (poperand->thdr_operand) {
+        return thdr_index_wide(poperand->thdr_operand, 
+                               thdr_index + poperand->span_start);
     } else {
         /* All scalar non-double operands must have been promoted to wide */
         TA_ASSERT(poperand->scalar_operand.type == TA_WIDE);
@@ -142,47 +108,14 @@ static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
 static char *ta_math_string_from_operand(struct ta_math_operand *poperand,
                                          int thdr_index, char buf[40])
 {
-    thdr_t *thdr = poperand->thdr_operand;
-    if (thdr) {
-        thdr_index += poperand->span_start;
-        TA_ASSERT(thdr->used > thdr_index);
-        switch (thdr->type) {
-        case TA_BOOLEAN:
-            buf[0] = ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index) ? '1' : '0';
-            buf[1] = 0;
-            break;
-        case TA_BYTE:
-            snprintf(buf, sizeof(buf), "%d",
-                     *THDRELEMPTR(thdr, unsigned char, thdr_index));
-            break;
-        case TA_INT:
-            snprintf(buf, sizeof(buf), "%d",
-                     *THDRELEMPTR(thdr, int, thdr_index));
-            break;
-        case TA_UINT:
-            snprintf(buf, sizeof(buf), "%u",
-                     *THDRELEMPTR(thdr, unsigned int, thdr_index));
-            break;
-        case TA_WIDE:
-            snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d",
-                     *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index));
-            break;
-        case TA_DOUBLE:
-            Tcl_PrintDouble(NULL, *THDRELEMPTR(thdr, double, thdr_index), buf);
-            break;
-        case TA_ANY:
-            return Tcl_GetString(*THDRELEMPTR(thdr, Tcl_Obj *, thdr_index));
-        case TA_STRING: 
-            return (*THDRELEMPTR(thdr, tas_t *, thdr_index))->s;
-        default:
-            ta_type_panic(poperand->thdr_operand->type);
-            return 0;           /* To keep compiler happy */
-        }
+    if (poperand->thdr_operand) {
+        return thdr_index_string(poperand->thdr_operand, 
+                                 thdr_index + poperand->span_start,
+                                 buf);
     } else {
         TA_ASSERT(poperand->obj != NULL);
         return Tcl_GetString(poperand->obj);
     }
-    return buf;
 }
 
 static double ta_math_double_operation(enum ta_math_op_e op, double dbl, ta_value_t *poperand)
@@ -1505,4 +1438,139 @@ TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_OK;
     } else
         return TCL_ERROR;
+}
+
+/*
+ * Compares two columns for equality. They are equal if every element value is
+ * equal. If strict is true, column types must also be the same, else
+ * comparison does conversion if required.
+ * Returns 1 if equal, 0 if unequal.
+ * Caller should have verified cola and colb are columns.
+ */
+int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
+{
+    thdr_t *thdra, *thdrb;
+    span_t *spana, *spanb;
+    int counta, countb, starta, startb;
+
+    if (cola == colb)
+        return 1;
+
+    TA_NOFAIL(tcol_convert(ip, cola), 1);
+    TA_NOFAIL(tcol_convert(ip, colb), 1);
+
+    thdra = OBJTHDR(cola);
+    spana = OBJTHDRSPAN(cola);
+    starta = thdr_start_and_count(thdra, spana, &counta);
+
+    thdrb = OBJTHDR(colb);
+    spanb = OBJTHDRSPAN(colb);
+    startb = thdr_start_and_count(thdrb, spanb, &countb);
+
+    if (counta != countb)
+        return 0;
+
+    /* Check if thdrs are same AND spans also point to same area */
+    if (thdra == thdrb && starta == startb) {
+        return 1;
+    }
+
+#define CMPLOOP_(type_)                         \
+    do {                                        \
+        type_ *a, *b;                           \
+        int i;                                  \
+        a = THDRELEMPTR(thdra, type_, starta);  \
+        b = THDRELEMPTR(thdrb, type_, startb);  \
+        for (i = 0; i < counta; ++i) {          \
+            if (a[i] != b[i])                   \
+                return 0;                       \
+        }                                       \
+        return 1;                               \
+    } while (0)
+
+    if (thdra->type == thdrb->type) {
+        if (counta == 0)
+            return 1;           /* Both empty columns of same type */
+        switch (thdra->type) {
+        case TA_BOOLEAN:
+            return ba_equal(THDRELEMPTR(thdra, ba_t, 0), starta,
+                            THDRELEMPTR(thdrb, ba_t, 0), startb,
+                            counta);
+        case TA_BYTE: CMPLOOP_(unsigned char);
+        case TA_INT: CMPLOOP_(int);
+        case TA_UINT: CMPLOOP_(unsigned int);
+        case TA_WIDE: CMPLOOP_(Tcl_WideInt);
+        case TA_DOUBLE: CMPLOOP_(double);
+        case TA_STRING:
+            {
+                int i;
+                tas_t **a, **b;
+                a = THDRELEMPTR(thdra, tas_t *, starta);
+                b = THDRELEMPTR(thdrb, tas_t *, startb);
+                for (i = 0; i < counta; ++i) {
+                    if (! tas_equal(a[i], b[i], 0))
+                        return 0;
+                }
+                return 1;
+            }
+
+        case TA_ANY:
+            {
+                int i;
+                Tcl_Obj **a, **b;
+                a = THDRELEMPTR(thdra, Tcl_Obj *, starta);
+                b = THDRELEMPTR(thdrb, Tcl_Obj *, startb);
+                for (i = 0; i < counta; ++i) {
+                    if (! ta_obj_equal(a[i], b[i], 0))
+                        return 0;
+                }
+                return 1;
+            }
+        }
+    }
+
+    if (strict)
+        return 0;               /* Different types */
+
+    if (counta == 0)
+        return 1;           /* Both empty columns */
+
+    /* 
+     * Types diff so we will have to promote to a common type.
+     */
+    if (thdra->type == TA_ANY || thdra->type == TA_STRING ||
+        thdrb->type == TA_ANY || thdrb->type == TA_STRING) {
+        char bufa[40], bufb[40]; /* Enough to hold string rep of wides */
+        char *sa, *sb;
+        int i;
+        
+        for (i = 0; i < counta; ++i) {
+            sa = thdr_index_string(thdra, starta+i, bufa);
+            sb = thdr_index_string(thdrb, startb+i, bufb);
+            if (! ta_utf8_equal(sa, sb, 0))
+                return 0;
+        }
+    } 
+    else if (thdra->type == TA_DOUBLE || thdrb->type == TA_DOUBLE) {
+        double a, b;
+        int i;
+        for (i = 0; i < counta; ++i) {
+            a = thdr_index_double(thdra, starta+i);
+            b = thdr_index_double(thdrb, startb+i);
+            if (a != b)
+                return 0;
+        }
+    }
+    else {
+        Tcl_WideInt a, b;
+        int i;
+        for (i = 0; i < counta; ++i) {
+            a = thdr_index_wide(thdra, starta+i);
+            b = thdr_index_wide(thdrb, startb+i);
+            if (a != b)
+                return 0;
+        }
+    }    
+
+    return 1;
 }
