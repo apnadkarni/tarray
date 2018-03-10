@@ -20,6 +20,11 @@ text {
     
     * Added ((^` table_ctype "column ctype")) command.
     
+    * Added ((^` column_equal "column equal")),
+    ((^` column_identical "column identical")),
+    ((^` table_equal "table equal")) and
+    ((^` table_identical "table identical")) commands.
+    
     * Added ((^` column_bitmap0 "column bitmap0")) and
     ((^` column_bitmap1 "column bitmap1")) commands.
     

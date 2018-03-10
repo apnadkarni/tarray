@@ -431,8 +431,6 @@ proc tarray::table::equal {ta tb} {
     return 1;
 }
 
-
-
 proc tarray::column::width {col {format %s}} {
     if {[size $col] == 0} {
         return 0
