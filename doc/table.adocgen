@@ -199,6 +199,19 @@ text {
     Returns a typed table with all specified rows deleted. The row indices
     are specified in any of the forms described in ((^ sect_table_indices)).
 
+    ((cmddef table_equal "table equal _TABA_ _TABB_"))
+
+    Returns 1 if the specified tables have the same number of columns
+    and the ((^ column_equal "column equal"))
+    command returns true for every corresponding
+    pair of columns in the two tables. Note that the column types need
+    not be the same. See the description of that command for details.
+
+    The command will raise an error if either argument is not a table.
+    
+    Also see the related command ((^ table_identical "table identical"))
+    which applies a stricter definition of equality.
+
     ((cmddef table_fill "table fill ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _INDEX_"))
 
     ((cmddef table_fill_1 "table fill ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _INDEXLIST_"))
@@ -224,6 +237,19 @@ text {
     a ((^ sect_table_indices "index list")).
     Any of the ((^ tab_table_stdopts "standard options"))
     may be specified with this command.
+
+    ((cmddef table_identical "table identical _TABA_ _TABB_"))
+
+    Returns 1 if the specified tables have the same column names
+    and the ((^ column_identical "column identical"))
+    command returns true for every corresponding
+    pair of columns in the two tables. Note that the column types have
+    to be the same. See the description of that command for details.
+
+    The command will raise an error if either argument is not a table.
+    
+    Also see the related command ((^ table_equal "table equal"))
+    which applies a looser definition of equality.
 
     ((cmddef table_index "table index _TABLE_ _INDEX_"))
 

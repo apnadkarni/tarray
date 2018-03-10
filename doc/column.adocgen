@@ -106,7 +106,7 @@ text {
     ((cmddef column_xor "column ^^ _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math \^\^"))`.
 
-    ((cmddef column_equal "column == _OPERAND_ ?_OPERAND_...?"))
+    ((cmddef column_equalequal "column == _OPERAND_ ?_OPERAND_...?"))
     Alias for `((^ column_math "column math =\\="))`.
 
     ((cmddef column_notequal "column != _OPERAND_ ?_OPERAND_...?"))
@@ -168,6 +168,22 @@ text {
     specified in any of the forms described in ((^ sect_column_indices)) and may contain
     duplicates. Out-of-range indices are ignored.
 
+    ((cmddef column_equal "column equal _COLA_ _COLB_"))
+
+    Returns 1 if the specified columns have the same number of elements
+    and corresponding elements of the two columns are equal. If the column
+    types are not the same, comparison is done by converting numeric
+    elements to strings if either column is non-numeric, conversion to
+    doubles if either column is of type `double`, and conversion to
+    wide integers otherwise. Note that this means, for example, that
+    when comparing a column of type `int` to one of type `any` or `string`,
+    the value `16` will not equate to the string `0x10`.
+
+    The command will raise an error if either argument is not a column.
+    
+    Also see the related command ((^ column_identical "column identical"))
+    which applies a stricter definition of equality.
+
     ((cmddef column_fill "column fill _COLUMN_ _VALUE_ _INDEX_"))
 
     ((cmddef column_fill_1 "column fill _COLUMN_ _VALUE_ _INDEXLIST_"))
@@ -187,6 +203,17 @@ text {
     ((^ sect_column_indices "index list")). Any of the
     ((^ tab_column_stdopts)) may be specified with this
     command.
+
+    ((cmddef column_identical "column identical _COLA_ _COLB_"))
+
+    Returns 1 if both columns are of the same type, have the
+    same number of elements
+    and corresponding elements of the two columns are equal.
+
+    The command will raise an error if either argument is not a column.
+    
+    Also see the related command ((^ column_equal "column equal"))
+    which applies a looser definition of equality.
 
     ((cmddef column_index "column index _COLUMN_ _INDEX_"))
 
