@@ -407,6 +407,32 @@ proc tarray::table::csvexport {args} {
     }
 }
 
+proc tarray::table::identical {ta tb} {
+    if {[cnames $ta] ne [cnames $tb]} {
+        return 0;
+    }
+    foreach ca [columns $ta] cb [columns $tb] {
+        if {![tarray::column identical $ca $cb]} {
+            return 0
+        }
+    }
+    return 1;
+}
+
+proc tarray::table::equal {ta tb} {
+    if {[width $ta] != [width $tb]} {
+        return 0;
+    }
+    foreach ca [columns $ta] cb [columns $tb] {
+        if {![tarray::column equal $ca $cb]} {
+            return 0
+        }
+    }
+    return 1;
+}
+
+
+
 proc tarray::column::width {col {format %s}} {
     if {[size $col] == 0} {
         return 0
@@ -636,9 +662,11 @@ namespace eval tarray {
             create create
             delete delete
             dump dump
+            equal equal
             fill fill
             fold fold
             get get
+            identical identical
             index index
             inject inject
             insert insert
@@ -702,8 +730,10 @@ namespace eval tarray {
             ctype ctype
             definition definition
             delete delete
+            equal equal
             fill fill
             get get
+            identical identical
             index index
             inject inject
             insert insert
