@@ -1456,8 +1456,8 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
     if (cola == colb)
         return 1;
 
-    TA_NOFAIL(tcol_convert(ip, cola), 1);
-    TA_NOFAIL(tcol_convert(ip, colb), 1);
+    TA_NOFAIL(tcol_convert(ip, cola), 0);
+    TA_NOFAIL(tcol_convert(ip, colb), 0);
 
     thdra = OBJTHDR(cola);
     spana = OBJTHDRSPAN(cola);
