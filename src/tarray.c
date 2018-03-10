@@ -3945,6 +3945,7 @@ char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[40])
         ta_type_panic(thdr->type);
         return 0;           /* To keep compiler happy */
     }
+    return buf;
 }
 
 /*

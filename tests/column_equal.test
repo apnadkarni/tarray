@@ -1,0 +1,96 @@
+# column count tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+
+    # First some tests when columns are of the same type
+    foreach type {boolean byte int uint wide double string any} {
+        foreach compare {equal identical} {
+            test column_${compare}-[incr $compare] \
+                "column $compare columns of type $type when same object" \
+                -body {
+                    set c [samplecolumn $type 0 10]
+                    tarray::column $compare $c $c
+                } -result 1
+
+            test column_${compare}-[incr $compare] \
+                "column $compare columns of type $type when identical object" \
+                -body {
+                    tarray::column $compare [samplecolumn $type 0 10] [samplecolumn $type 0 10]
+                } -result 1
+            
+            test column_${compare}-[incr $compare] \
+                "column $compare span columns of type $type" \
+                -body {
+                    tarray::column $compare [samplecolumn $type 0 10] [samplespancolumn $type 0 10]
+                } -result 1
+            
+            test column_${compare}-[incr $compare] \
+                "column $compare columns of type $type - different" \
+                -body {
+                    tarray::column $compare [samplecolumn $type 0 10] [samplespancolumn $type 1 11]
+                } -result 0
+            
+            test column_${compare}-[incr $compare] \
+                "column $compare columns of type $type - differing lengths" \
+                -body {
+                    tarray::column $compare [samplecolumn $type 0 10] [samplespancolumn $type 0 11]
+                } -result 0
+
+            test column_${compare}-[incr $compare] \
+                "column $compare columns of type $type - empty" \
+                -body {
+                    tarray::column $compare [newcolumn $type] [newcolumn $type]
+                } -result 1
+            
+            test column_${compare}-[incr $compare] \
+                "column $compare columns of type $type - empty" \
+                -body {
+                    tarray::column $compare [samplecolumn $type 0 0] [newcolumn $type]
+                } -result 0
+        }
+    }
+
+    # Now tests where columns are different types
+    set C [newcolumn int {0 1}]
+    set D [newcolumn any {0.0 1.0}]
+    set S [newcolumn any {0 0x1}]
+    foreach type {boolean byte int uint wide double string any} {
+        foreach type2 {boolean byte int uint wide double} {
+            if {$type eq $type2} continue; # Already tested above
+
+            test column_identical-$type-$type2-[incr identical] \
+                "column identical $type $type2" \
+                -body {
+                    if {$type in {string any} && $type2 eq "double"} {
+                        set c $D
+                    } else {
+                        set c $C
+                    }
+                    tarray::column identical [newcolumn $type $c] [newcolumn $type2 $c]
+                } -result 0
+
+            test column_equal-$type-$type2-[incr equal] \
+                "column equal $type $type2" \
+                -body {
+                    if {$type in {string any} && $type2 eq "double"} {
+                        set c $D
+                    } else {
+                        set c $C
+                    }
+                    tarray::column equal [newcolumn $type $c] [newcolumn $type2 $c]
+                } -result 1
+
+            if {$type in {string any}} {
+                test xcolumn_equal-$type-$type2-[incr equal] \
+                    "column equal $type $type2 - ensure non-numeric compare" \
+                    -body {
+                        tarray::column equal [newcolumn $type $S] [newcolumn $type2 $S]
+                    } -result 0
+            }
+        }
+    }
+}
+
+::tcltest::cleanupTests
