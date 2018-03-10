@@ -3892,6 +3892,9 @@ void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP)
     case TA_BYTE:
         tavP->ucval = *THDRELEMPTR(thdr, unsigned char, index); break;
     case TA_ANY:
+        /* Note failure to increment ref count is intentional as 
+           ta_value_clear does not release it. See comments to
+           ta_value_from_obj */
         tavP->oval = *THDRELEMPTR(thdr, Tcl_Obj *, index); break;
     case TA_STRING:
         /* NOTE CALLER has to unref! */
@@ -3900,6 +3903,102 @@ void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP)
         ta_type_panic(thdr->type);
     }
 }
+
+/*
+ * Returns a string representation of the element at the specified
+ * thdr index. In the case of TA_ANY or TA_STRING this points to the
+ * element's stored string. For numeric types, the string is stored
+ * in the buffer pointed to by BufP which must be at least 40 bytes
+ */
+char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[40])
+{
+    TA_ASSERT(thdr->used > thdr_index);
+    switch (thdr->type) {
+    case TA_BOOLEAN:
+        buf[0] = ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index) ? '1' : '0';
+        buf[1] = 0;
+        break;
+    case TA_BYTE:
+        snprintf(buf, sizeof(buf), "%d",
+                 *THDRELEMPTR(thdr, unsigned char, thdr_index));
+        break;
+    case TA_INT:
+        snprintf(buf, sizeof(buf), "%d",
+                 *THDRELEMPTR(thdr, int, thdr_index));
+        break;
+    case TA_UINT:
+        snprintf(buf, sizeof(buf), "%u",
+                 *THDRELEMPTR(thdr, unsigned int, thdr_index));
+        break;
+    case TA_WIDE:
+        snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d",
+                 *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index));
+        break;
+    case TA_DOUBLE:
+        Tcl_PrintDouble(NULL, *THDRELEMPTR(thdr, double, thdr_index), buf);
+        break;
+    case TA_ANY:
+        return Tcl_GetString(*THDRELEMPTR(thdr, Tcl_Obj *, thdr_index));
+    case TA_STRING: 
+        return (*THDRELEMPTR(thdr, tas_t *, thdr_index))->s;
+    default:
+        ta_type_panic(thdr->type);
+        return 0;           /* To keep compiler happy */
+    }
+}
+
+/*
+ * Returns a double corresponding to a numeric thdr element
+ * Will panic on non-numeric
+ */
+double thdr_index_double(thdr_t *thdr, int thdr_index)
+{
+    TA_ASSERT(thdr->used > thdr_index);
+    switch (thdr->type) {
+    case TA_BOOLEAN:
+        return ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index);
+    case TA_BYTE:
+        return *THDRELEMPTR(thdr, unsigned char, thdr_index);
+    case TA_INT:
+        return *THDRELEMPTR(thdr, int, thdr_index);
+    case TA_UINT:
+        return *THDRELEMPTR(thdr, unsigned int, thdr_index);
+    case TA_WIDE:
+        return (double) *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index);
+    case TA_DOUBLE:
+        return *THDRELEMPTR(thdr, double, thdr_index);
+    default:
+        ta_type_panic(thdr->type);
+        return 0;           /* To keep compiler happy */
+    }
+}
+
+Tcl_WideInt thdr_index_wide(thdr_t *thdr, int thdr_index)
+{
+    TA_ASSERT(thdr->used > thdr_index);
+    switch (thdr->type) {
+    case TA_BOOLEAN:
+        return ba_get(THDRELEMPTR(thdr, ba_t, 0), thdr_index);
+    case TA_BYTE:
+        return *THDRELEMPTR(thdr, unsigned char, thdr_index);
+    case TA_INT:
+        return *THDRELEMPTR(thdr, int, thdr_index);
+    case TA_UINT:
+        return *THDRELEMPTR(thdr, unsigned int, thdr_index);
+    case TA_WIDE:
+        return *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index);
+    case TA_DOUBLE:
+        return (Tcl_WideInt) *THDRELEMPTR(thdr, double, thdr_index);
+    default:
+        ta_type_panic(thdr->type);
+        return 0;           /* To keep compiler happy */
+    }
+}
+
+/*
+ * Returns a double corresponding to a numeric thdr element
+ * Will panic on non-numeric
+ */
 
 struct thdr_minmax_mt_context {
     /* min_value, max_value -

@@ -534,6 +534,30 @@ void ba_xdisjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
                 nbits);
 }
 
+/* Return 1 if two bitarrays are equal, else 0 */
+int ba_equal (ba_t *a, int offa, ba_t *b, int offb, int count)
+{
+    int i, nunits, nbits, bitsoff;
+
+    nunits = count / BA_UNIT_SIZE;
+    nbits = count - (nunits * BA_UNIT_SIZE);
+    
+    /* TBD - optimize for various aligned cases */
+    
+    /* Slow brute force path. Compare whole units first */
+    for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE) {
+        if (ba_get_unit(a, offa+bitsoff) != ba_get_unit(b, offb+bitsoff))
+            return 0;
+    }
+
+    /* Bits match so far. Check leftover bits */
+    if (nbits) {
+        if (ba_getn(a, offa+bitsoff, nbits) != ba_getn(b, offb+bitsoff, nbits))
+            return 0;
+    }
+
+    return 1;
+}
 #ifdef NOTUSED
 /* Note - src and dst areas must not overlap */
 void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
