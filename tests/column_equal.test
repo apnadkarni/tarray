@@ -1,4 +1,4 @@
-# column count tests
+# column equal/identical tests
 
 source testutil.tcl
 

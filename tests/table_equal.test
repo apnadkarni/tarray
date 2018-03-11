@@ -1,0 +1,86 @@
+# table equal/identical tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    foreach compare {equal identical} {
+        test table_${compare}-[incr $compare] \
+            "table $compare empty tables" \
+            -setup {
+                set ta [tarray::table create {} {}]
+                set tb [tarray::table create {} {}]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result 1
+
+        test table_${compare}-[incr $compare] \
+            "table $compare tables with 0 rows" \
+            -setup {
+                set ta [sampletable "" 0 -1]
+                set tb [sampletable "" 0 -1]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result 1
+
+        test table_${compare}-[incr $compare] \
+            "table $compare tables with 0 rows to non-empty" \
+            -setup {
+                set ta [sampletable "" 0 -1]
+                set tb [sampletable "" 0 0]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result 0
+
+        test table_${compare}-[incr $compare] \
+            "table $compare tables" \
+            -setup {
+                set ta [sampletable "" 0 5]
+                set tb [sampletable "" 0 5]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result 1
+        
+        test table_${compare}-[incr $compare] \
+            "table $compare same size tables with different rows" \
+            -setup {
+                set ta [sampletable "" 0 5]
+                set tb [sampletable "" 1 6]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result 0
+
+        test table_${compare}-[incr $compare] \
+            "table $compare tables with different number of columns" \
+            -setup {
+                set ta [sampletable "int int"]
+                set tb [sampletable "int int int"]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result 0
+
+        test table_${compare}-[incr $compare] \
+            "table $compare tables with different column names" \
+            -setup {
+                set c [newcolumn int { 1 2 3 }]
+                set ta [tarray::table create2 {A B} [list $c $c]]
+                set tb [tarray::table create2 {A C} [list $c $c]]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result [expr {$compare eq "equal" ? 1 : 0}]
+        
+        test table_${compare}-[incr $compare] \
+            "table $compare tables with different column types" \
+            -setup {
+                set c [newcolumn int { 1 2 3 }]
+                set ta [tarray::table create2 {A B} [list $c $c]]
+                set tb [tarray::table create2 {A C} [list $c [newcolumn double $c]]]
+            } -body {
+                tarray::table $compare $ta $tb
+            } -result [expr {$compare eq "equal" ? 1 : 0}]
+    }
+
+
+    
+}
+
+::tcltest::cleanupTests
