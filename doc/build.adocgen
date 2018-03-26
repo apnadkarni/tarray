@@ -43,7 +43,7 @@ text {
     the `libdispatch` library is installed on the system. See
     ((^ build_parallel)) for details.
 
-    The `tarray_ui` package, distributed as `tarray_ui-VERSION.tar.gz'
+    The `tarray_ui` package, distributed as `tarray_ui-VERSION.tar.gz`
     is a pure Tcl package and can be extracted into any directory that
     is included in the Tcl `auto_path` variable.
     
@@ -67,15 +67,22 @@ text {
 } syntax {
     tclsh build.tcl extension ?-target _TARGETNAME_?
 } text {
-    . Change to the `xtal` directory and again run the same command as above
-    to build that extension.
+    This will build the `tarray` extension.
+
+    To build the `xtal` extension,
+    change to the `xtal` directory and again run the same command as above.
 
     If specified, _TARGETNAME_ should be one of the supported
     `critcl` build targets. Naturally, the build environment should
     reflect the chosen target. If unspecified, it defaults to whatever
     `critcl` guesses to be the host platform.
 
-    This will create the `tarray` and `xtal` packages
+    Finally, to build the `tarray_ui` pure Tcl package, change to the `ui`
+    directory and run the command
+} syntax {
+    tclsh build.tcl package
+} text {
+    This will create the `tarray`, `tarray_ui` and `xtal` packages
     under the `build` directory in your source tree.
 
     You can of course create your own build scripts with different
