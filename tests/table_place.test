@@ -222,13 +222,14 @@ namespace eval tarray::test {
     } -body {
         set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] {{anyvalue anyvalue 1 256 0 0 0 0}} {0}
-    } -result {Value '256' not valid for type byte.} -returnCodes error -match glob
+    } -result {Invalid value '256' for type byte in row 0 column 3 of source data.} -returnCodes error
+    
     test table_place-list-indexlist-3.4 {
         Test invalid values (row of different widths)
     } -body {
         set type {string double int uint wide}
         tarray::table place [sampletable $type 0 10] {{anyvalue 1.0 0 0}} {0}
-    } -result {*width 4 does not match**} -returnCodes error -match glob
+    } -result {Width 4 of source row 0 does not match expected destination width 5.} -returnCodes error
 
     #
     # table place valuelist indices
@@ -356,13 +357,14 @@ namespace eval tarray::test {
     } -body {
         set type {any string boolean byte double int uint wide}
         tarray::table place [sampletable $type 0 10] {{anyvalue stringvalue 1 256 0 0 0 0}} [indexcolumn {0}]
-    } -result {Value '256' not valid for type byte.} -returnCodes error -match glob
+    } -result {Invalid value '256' for type byte in row 0 column 3 of source data.} -returnCodes error
+    
     test table_place-list-indexlist-3.4 {
         Test invalid values (row of different widths)
     } -body {
         set type {any double int uint wide}
         tarray::table place [sampletable $type 0 10] {{anyvalue 1.0 0 0}} [indexcolumn 0]
-    } -result {*width 4 does not match**} -returnCodes error -match glob
+    } -result {Width 4 of source row 0 does not match expected destination width 5.} -returnCodes error
 
     #
     # table place COLUMN indexlist
@@ -817,7 +819,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table place -columns {col0 col1 col2 col3} $tab {{0 0 0}} 0
-    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
+    } -result "Width 3 of source row 0 does not match expected destination width 4." -returnCodes error
 
     test table_place-columnsopt-3.6 {
         Verify insufficient data width
