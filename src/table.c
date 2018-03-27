@@ -747,7 +747,7 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
 {
     int r, t;
     ta_value_t v;
-    
+
     /*
      * We could either iterate vertically or horizontally
      *   for (per thdr)
@@ -772,48 +772,30 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
         Tcl_Obj **fields;
         int nfields;
         
-        if (Tcl_ListObjGetElements(ip, rows[r], &nfields, &fields)
-            != TCL_OK)
+        if (Tcl_ListObjGetElements(NULL, rows[r], &nfields, &fields) != TCL_OK) {
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid list syntax in row %d of source data.", r));
             return TCL_ERROR;
+        }
 
-        /* Must have sufficient fields, more is ok */
         if (nfields != ntcols)
-            return ta_row_width_error(ip, nfields, ntcols);
+            return ta_invalid_source_row_width(ip, r, nfields, ntcols);
 
         for (t = 0; t < ntcols; ++t) {
+            int res;
             int tatype = tcol_thdr(tcols[t])->type;
             switch (tatype) {
-            case TA_BOOLEAN:
-                if (Tcl_GetBooleanFromObj(ip, fields[t], &v.ival) != TCL_OK)
-                    return TCL_ERROR;
-                break;
-            case TA_UINT:
-                if (ta_get_uint_from_obj(ip, fields[t], &v.uival) != TCL_OK)
-                    return TCL_ERROR;
-                break;
-            case TA_INT:
-                if (Tcl_GetIntFromObj(ip, fields[t], &v.ival) != TCL_OK)
-                    return TCL_ERROR;
-                break;
-            case TA_WIDE:
-                if (Tcl_GetWideIntFromObj(ip, fields[t], &v.wval) != TCL_OK)
-                    return TCL_ERROR;
-                break;
-            case TA_DOUBLE:
-                if (Tcl_GetDoubleFromObj(ip, fields[t], &v.dval) != TCL_OK)
-                    return TCL_ERROR;
-                break;
-            case TA_BYTE:
-                if (ta_get_byte_from_obj(ip, fields[t], &v.ucval) != TCL_OK)
-                    return TCL_ERROR;
-                break;
-            case TA_ANY:
-                break;      /* No validation */
-            case TA_STRING:
-                break;      /* No validation */
-            default:
-                ta_type_panic(tatype);
+            case TA_BOOLEAN: res = Tcl_GetBooleanFromObj(NULL, fields[t], &v.ival); break;
+            case TA_UINT:    res = ta_get_uint_from_obj(NULL, fields[t], &v.uival); break;
+            case TA_INT:     res = Tcl_GetIntFromObj(NULL, fields[t], &v.ival); break;
+            case TA_WIDE:    res = Tcl_GetWideIntFromObj(NULL, fields[t], &v.wval); break;
+            case TA_DOUBLE:  res = Tcl_GetDoubleFromObj(NULL, fields[t], &v.dval); break;
+            case TA_BYTE:    res = ta_get_byte_from_obj(NULL, fields[t], &v.ucval); break;
+            case TA_ANY:     res = TCL_OK; break;      /* No validation */
+            case TA_STRING:  res = TCL_OK; break;      /* No validation */
+            default:         ta_type_panic(tatype);
             }
+            if (res != TCL_OK)
+                return ta_invalid_source_column_value(ip, r, t, tatype, fields[t]);
         }
     }
 

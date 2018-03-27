@@ -189,14 +189,14 @@ namespace eval tarray::test {
     } -body {
         set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] {{anyvalue stringvalue 0 0 0 0 1.0 0}} 0
-    } -result {*expected*but got*} -returnCodes error -match glob
+    } -result {Invalid value '1.0' for type uint in row 0 column 6 of source data.} -returnCodes error
 
     test table_put-list-3.3 {
         Test invalid values (wrong table width)
     } -body {
         set type {any string boolean byte double int uint wide}
         tarray::table put [sampletable $type 0 10] {{anyvalue 0 0 0 0 0}} 0
-    } -result {*width 6 does not match*} -returnCodes error -match glob
+    } -result {Width 6 of source row 0 does not match expected destination width 8.} -returnCodes error
 
     #
     # table put valuecolumn pos
@@ -469,7 +469,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table put -columns {col0 col1 col2 col3} $tab {{0 0 0}} 1
-    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
+    } -result "Width 3 of source row 0 does not match expected destination width 4." -returnCodes error
 
     test table_put-columnsopt-3.6 {
         Verify insufficient data width

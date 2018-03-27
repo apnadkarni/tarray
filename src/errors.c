@@ -353,3 +353,29 @@ TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *plow, ta_value_t *p
     }
     return TCL_ERROR;
 }
+
+TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, int row, int col, int tatype, Tcl_Obj *val)
+{
+    if (ip != NULL) {
+        Tcl_Obj *e;
+
+        /* Take care not to generate string rep if one does not exist */
+        if (val && val->bytes)
+            e = Tcl_ObjPrintf("Invalid value '%.40s' for type %s in row %d column %d of source data.", val->bytes, ta_type_string(tatype), row, col);
+        else
+            e = Tcl_ObjPrintf("Invalid value for type %s in row %d column %d of source data.", row, col, ta_type_string(tatype));
+        
+        Tcl_SetObjResult(ip, e);
+    }
+
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_invalid_source_row_width(Tcl_Interp *ip, int row, int nfields, int ncols)
+{
+    if (ip)
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Width %d of source row %d does not match expected destination width %d.",
+                                       nfields, row, ncols));
+    return TCL_ERROR;
+}

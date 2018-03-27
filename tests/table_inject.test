@@ -350,7 +350,7 @@ namespace eval tarray::test {
         set tab [tarray::table create $def $init]
     } -body {
         tarray::table inject -columns {col0 col1 col2 col3} $tab {{0 0 0}} 0
-    } -result "Row or table width 3 does not match destination width 4." -returnCodes error
+    } -result "Width 3 of source row 0 does not match expected destination width 4." -returnCodes error
     
     test table_inject-columnsopt-3.6 {
         Verify empty column list
