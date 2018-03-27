@@ -1947,18 +1947,49 @@ critcl::class::define ::tarray::rng {
         return TCL_OK;
     }                                            
 
-    method get proc {int {count 1}} ok {
-        int i;
+    method get command {?COUNT? ?LOWER UPPER?} {
+        int count;
+        int i, bounded;
         Tcl_Obj *ores;
+        ta_value_t lbound, ubound;
         
+        count = 1;
+        bounded = instance->bounded;
+        if (bounded) {
+            lbound = instance->lbound;
+            ubound = instance->ubound;
+        }
+        if (objc > 2) {
+            if (Tcl_GetIntFromObj(interp, objv[2], &count) != TCL_OK)
+                return TCL_ERROR;
+            if (count < 0)
+                return ta_negative_count_error(interp, count);
+            if (objc > 3) {
+                if (objc != 5)
+                    return ta_invalid_argcount(interp);
+                if (instance->rtype == TA_BOOLEAN) {
+                    /* Booleans do not support bounds */
+                    return ta_invalid_op_for_type(interp, instance->rtype);
+                }
+                if (ta_value_from_obj(interp, objv[3],
+                                      instance->rtype, &lbound) != TCL_OK ||
+                    ta_value_from_obj(interp, objv[4],
+                                      instance->rtype, &ubound) != TCL_OK ||
+                    ta_rng_fixup_bounds(interp, &lbound, &ubound, 0) != TCL_OK)
+                    return TCL_ERROR;
+                bounded = 1;
+            }
+        }
+
         if (count == 0)
             return TCL_OK;
+
         if (count > 1)
             ores = Tcl_NewListObj(count, NULL);
-        if (instance->bounded) {
+        if (bounded) {
             for (i = 0; i < count; ++i) {
                 ta_value_t tav;
-                tav = get_bounded_random(&instance->rng, &instance->lbound, &instance->ubound);
+                tav = get_bounded_random(&instance->rng, &lbound, &ubound);
                 if (count == 1) {
                     ores = ta_value_to_obj(&tav);
                     break;
