@@ -123,16 +123,15 @@ text {
     in that the name of the returned command object is automatically
     generated.
 
-    ((cmddef tarray_RNG_bounded "_RNG_ get _LOWERBOUND_ _UPPERBOUND_?"))
-    Returns a random number between `_LOWERBOUND_` and `_UPPERBOUND_`
-    irrespective of the bounds specified when `_RNG_` was constructed.
-    
-    ((cmddef tarray_RNG_get "_RNG_ get ?_COUNT_?"))
-    Returns `_COUNT_` random numbers. `_RNG_` is a random number generator
+    ((cmddef tarray_RNG_get "_RNG_ get ?_COUNT_ ?_LOWERBOUND_ _UPPERBOUND_??"))
+    Returns `_COUNT_` (defaults to `1` if unspecified) random numbers.
+    `_RNG_` is a random number generator
     created by the ((^` tarray_rng_create "rng create"))
-    or ((^` tarray_rng_new "rng new")) commands. `_COUNT_` defaults
-    to `1`.
-
+    or ((^` tarray_rng_new "rng new")) commands.
+    The random numbers are within the bounds specified for `_RNG_` at the time
+    it was created unless overridden by the additional arguments
+    `_LOWERBOUND_` and `_UPPERBOUND_`.
+    
     ((cmddef tarray_RNG_seed "_RNG_ seed _SEED1_ _SEED2_"))
     Sets the seed of the random number generator command object `_RNG_`
     created by the ((^` tarray_rng_create "rng create"))

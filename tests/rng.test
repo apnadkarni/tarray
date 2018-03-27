@@ -35,12 +35,12 @@ namespace eval tarray::test {
         } -result ""
 
         if {$type eq "boolean"} {
-            test rng-$type-generate-1.0 {rng generate} -setup {
+            test rng-$type-bounded-1.0 {rng bounded} -setup {
                 tarray::rng create r $type
             } -cleanup {
                 r destroy
             } -body {
-                r generate 10 20
+                r get 1 10 20
             } -result "Operation is invalid for type boolean." -returnCodes error
         } else {
             # Not boolean type
@@ -82,23 +82,32 @@ namespace eval tarray::test {
                 string equal $l $l2
             } -result 1
 
-            test rng-$type-generate-1.0 {rng generate} -setup {
+            test rng-$type-get-bounded-1.0 {rng get-bounded} -setup {
                 tarray::rng create r $type 150 200
             } -cleanup {
                 r destroy
             } -body {
                 set val {}
-                time {lappend val [r generate 10 20]} 1000
+                time {lappend val [r get 1 10 20]} 1000
+                check_random [tarray::column create $type $val] $type 1000 15 10 20
+            } -result ""
+            
+            test rng-$type-get-bounded-1.0.1 {rng get-bounded} -setup {
+                tarray::rng create r $type 150 200
+            } -cleanup {
+                r destroy
+            } -body {
+                set val [r get 1000 10 20]
                 check_random [tarray::column create $type $val] $type 1000 15 10 20
             } -result ""
 
-            test rng-$type-generate-1.1 {rng generate} -setup {
+
+            test rng-$type-get-bounded-1.1 {rng get-bounded} -setup {
                 tarray::rng create r $type 150 200
             } -cleanup {
                 r destroy
             } -body {
-                set val {}
-                time {lappend val [r generate 210 220]} 1000
+                set val [r get 1000 210 220]
                 check_random [tarray::column create $type $val] $type 1000 215 210 220
             } -result ""
         }

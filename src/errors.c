@@ -337,6 +337,15 @@ TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip)
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_negative_count_error(Tcl_Interp *ip)
+{
+    if (ip) {
+        Tcl_SetErrorCode(ip, "TARRAY", "COUNT", NULL);
+        Tcl_SetResult(ip, "Count is negative.", TCL_STATIC);
+    }
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *plow, ta_value_t *phigh)
 {
     Tcl_Obj *olow, *ohigh;
