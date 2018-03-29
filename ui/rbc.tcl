@@ -25,6 +25,11 @@ package require snit
     #      the plot data came from a table column.
     variable _plots {}
     
+    # Keeps track of X- and Y- axes. Keyed by column name with following
+    # nested dictionary elements.
+    #   Location - "xaxis", "x2axis", "yaxis" or "y2axes"
+    variable _axes {}
+
     # When plotting graphs, we sort the data values based on the
     # X value. The _sorted_indices array, indexed by column name,
     # keeps track of these sorted tarray index columns.
@@ -56,7 +61,7 @@ package require snit
     # The column that provides the X-axis values can be specified
     # as an option to the plot method. If unspecifed there, the
     # default is the column specified by the -xcolumn option.
-    option -xcolumn
+    option -xcolumn ""
 
     delegate option * to hull
 
@@ -68,6 +73,12 @@ package require snit
 
         installhull using rbc::graph
         $self configurelist $args
+
+        # Do not show the default axis. We will show them explicitly by defining
+        # axis per column
+        foreach axis {xaxis x2axis yaxis y2axis} {
+            $hull $axis use {}
+        }
 
         # Widget is constructed
         set _constructed 1
@@ -114,6 +125,14 @@ package require snit
         if {[info exists cname]} {
             # We are plotting table column data
             dict set _plots $name YColumn $cname
+            if {[dict exists $args -yaxis]} {
+                set yaxis_name [dict get $args -yaxis]
+                dict unset args -yaxis
+            } else {
+                $self _init_axis $cname yaxis
+                set yaxis_name $cname
+            }
+            lappend args -mapy $yaxis_name
             if {[dict exists $args -xdata]} {
                 if {[dict exists $args -xcolumn]} {
                     throw {TARRAY RBC INVARGS} "Options -xdata and -xcolumn must not be specified together."
@@ -131,13 +150,22 @@ package require snit
                 }
                 set xcolname [$self _get_xcolumn $xcolname]
                 dict set _plots $name XColumn $xcolname
+
+                if {[dict exists $args -xaxis]} {
+                    set xaxis_name [dict get $args -xaxis]
+                    dict unset args -xaxis
+                } else {
+                    $self _init_axis $xcolname xaxis
+                    set xaxis_name $xcolname
+                }
+
                 # Create an sorted x-vector and y vector in the order
                 # of the x-vector values
                 lassign [$self _xyvector $xcolname $cname] xvec yvec
                 dict unset args -xdata
                 dict unset args -ydata
                 dict unset args -xcolumn
-                lappend args -xdata $xvec -ydata $yvec
+                lappend args -xdata $xvec -ydata $yvec -mapx $xaxis_name
             }
         }
 
@@ -209,7 +237,7 @@ package require snit
         switch -exact -- $optname {
             -xcolumn -
             -ycolumn {
-                error "The $optname option for a plot cannot be modified once set."
+                error "The $optname option for a plot can only be set at plot creation time."
             }
             default {
                 return [$hull [dict get $_plots $plot_name RbcType] configure $plot_name $optname] $optval
@@ -274,10 +302,6 @@ package require snit
     delegate method {element *} to hull using "%c element %m"
     delegate method {line *} to hull using "%c line %m"
     delegate method {bar *} to hull using "%c bar %m"
-
-    method _set_xcolumn_option {optname cname} {
-        set options(-xcolumn) [$self _get_xcolumn $cname]
-    }
 
     method _setup_sorted_column {cname} {
         set tcol [tarray::table column $_table $cname]
@@ -404,6 +428,41 @@ package require snit
     # the specified plot
     method _is_rbc_plot_option {plot_name optname} {
         return [expr {$optname in [$self _rbc_plot_options $plot_name]}]
+    }
+
+    # Sets up an axis corresponding to the column $cname.
+    # $location should be one of xaxis, x2axis, yaxis or y2axis.
+    method _init_axis {cname location} {
+        variable _axes
+        variable _table
+
+        if {[dict exists $_axes $cname]} {
+            if {[dict get $_axes $cname Location] eq $location} {
+                return;         # Already set up
+            }
+            # Moving to a different physical location. Remove existing ones
+            $self $location use [lsearch -all -not -inline -exact [$self $location use] $cname]
+            dict unset _axes $cname
+        } else {
+            $self axis create $cname
+            if {[tarray::table ctype $_table $cname] in {string any}} {
+                # For non-numeric columns, set up callback to 
+                $self axis configure $cname -command [mymethod _tick_label $cname] -stepsize 1 -minorticks 1.0
+            }
+        }
+
+        # Insert this axis at the end of all axes at this location
+        $self $location use [linsert [$self $location use] end $cname]
+        dict set _axes $cname Location $location
+    }
+                        
+    method _tick_label {cname w tick} {
+        variable _table
+        set col [tarray::table column $_table $cname]
+        if {[string is integer -strict $tick] && $tick >= 0 && $tick < [tarray::column size $col]} {
+            return [tarray::column index $col $tick]
+        }
+        return $tick
     }
 
     delegate method * to hull
