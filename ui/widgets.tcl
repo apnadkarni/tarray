@@ -5,8 +5,9 @@
 package require Tk
 package require snit
 package require tarray
-source [file join [file dirname [info script]] color.tcl];# TBD
+
 namespace eval tarray::ui {
+    variable script_dir [file normalize [file dirname [info script]]]
     proc setup_nspath {} {
         uplevel 1 {namespace path [linsert [namespace path] end [namespace parent [namespace parent]]]}
     }
@@ -1861,6 +1862,10 @@ proc tarray::ui::place_window {w target {side center}} {
     return
 }
 
+
+source [file join $tarray::ui::script_dir color.tcl]
+source [file join $tarray::ui::script_dir rbc.tcl]
+
 namespace eval tarray::ui::test {}
 
 proc tarray::ui::test::cities2 {args} {
@@ -1886,5 +1891,7 @@ proc tarray::ui::test::csv {args} {
     }
     destroy .dlg
 }
+
+
 
 package provide tarray_ui [source [file join [file dirname [info script]] uiversion.tcl]] 

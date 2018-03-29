@@ -10,21 +10,17 @@ text {
     == Introduction
 
     The `tarray_ui` package implements some Tk widgets that useful when
-    working with typed arrays.
+    working with `tarray` tables.
 
-    The package currently implements two widgets,
-    ((^ ui_tableview tableview)) and ((^ ui_csvreader csvreader)).
-
-    The `tableview` widget displays data from a typed array
+    * The ((^ ui_tableview tarray::ui::tableview)) widget displays data from a `tarray`
     ((^ chap_table_ref table)). It is written with a view to conserve
-    memory when displaying tables with a large amount of data. At
-    the same time it provides several standard features without requiring
-    any additional programming on part of the developer.
-    
-    The `csvimport` widget reads CSV data from a file into a
-    table. It displays various options to the user to control
-    of settings related to CSV parsing and preview the results
-    before importing the data into a table.
+    memory when displaying tables with a large amount of data. 
+
+    * The ((^ ui_rbc_chart tarray::ui::rbc::chart)) widget plots table data
+    as types of graphs using the RBC Tk extension.
+
+    * The ((^ ui_csvreader tarray::ui::csvreader)) widget reads CSV
+    data from a file into a table.
 }
 
 text {
@@ -39,7 +35,7 @@ text {
     namespace import tarray::table
 } eval {
     source ../tests/cities.tcl
-    tarray_cities2 cities ../tests/cities15000.txt
+    tarray_cities2 cities ../data/cities15000.txt
 } text {
     In addition to Tk and `tarray` itself,
     this package has dependencies on the following additional packages:
@@ -47,7 +43,9 @@ text {
     * `snit` available as part of
     http://core.tcl.tk/tcllib/doc/trunk/embedded/index.html[tcllib].
 
-    Individual widgets may have additional dependencies.
+    Individual widgets may have additional dependencies which are
+    loaded on demand. These are noted in the documentation for the
+    specific widget.
 }
 
 text {
@@ -59,7 +57,7 @@ text {
 text {
     ==== The tableview widget
 
-    The `tableview` widget displays data from a `tarray`
+    The ((^ ui_tableview tableview)) widget displays data from a `tarray`
     ((^ chap_table_ref table)). 
     Based on Tim Baker's `treectrl` widget,
     it maintains `treectrl` features like drag and drop for resizing
@@ -83,12 +81,25 @@ text {
 }
 
 text {
+    ==== The chart widget
+
+    The ((^ ui_rbc_chart chart)) widget wraps the
+    RBC Tk extension which implements a graphing widget capable of
+    plotting several different types of graphs.
+    The chart widget simplifies plotting of table
+    columns while maintaining the full capabilities and customization
+    of the underlying RBC widgets. A sample screenshot is shown below.
+
+    image::rain.png[RBC chart example]
+}
+
+text {
     ==== The csvreader widget
 
-    The `csvreader` widget provides a means of reading CSV data from
+    The ((^ ui_csvreader csvreader)) widget provides a means of reading CSV data from
     a file or channel into a ((^ chap_table_ref table)). It provides
-    for interactive selection of CSV format options and table
-    headings. An sample screenshot is shown below.
+    for interactive selection of CSV format options, table
+    headings and column types. An sample screenshot is shown below.
 
     image::csvreader.png[Csvreader example]
 } text {
