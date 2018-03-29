@@ -476,3 +476,15 @@ package require snit
     delegate method * to hull
 }
 
+return
+
+#Test snippet
+package require Tk
+lappend auto_path [pwd] d:/tcl/lib ; package require tarray_ui
+set rain [tarray::samples::get rainfall]
+tarray::ui::rbc::chart .chart $rain -title "Rainfall and Temperature by Month"
+.chart line create Temperature -pixels .02i
+.chart axis configure Temperature -loose 1 -title "Temp (\u00b0C)"
+.chart bar create Rainfall -fg green -yaxisloc y2axis
+.chart axis configure Rainfall -title "Rainfall (mm)"
+pack .chart
