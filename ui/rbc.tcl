@@ -255,7 +255,9 @@ package require snit
             }
         }
 
-        $hull $rbctype configure $plot_name {*}$rbcopts
+        if {[llength $rbcopts]} {
+            $hull $rbctype configure $plot_name {*}$rbcopts
+        }
         return
     }
 
@@ -407,13 +409,3 @@ package require snit
     delegate method * to hull
 }
 
-package require rbc
-package require tarray
-set tab [tarray::table create {
-    code double name string population double
-} {
-    {100 China 1350000000}
-    {300 India 1200000000}
-    {200 Vatican 850}
-}]
-destroy .win
