@@ -539,48 +539,25 @@ proc tarray::unsupported::lrandom {varname type count} {
 
 namespace eval tarray::samples {}
 proc tarray::samples::init {} {
-    variable city_rainfall
+    variable rainfall
 
-    # Annual rainfall by city in inches
-    set city_rainfall [tarray::table create {
-        Days int City string Rainfall double
+    set rainfall [tarray::table::create {
+        Month string Rainfall double Temperature double
     } {
-        {114 	Jacksonville 	52.4}
-        {91 	{Kansas City} 	39.1}
-        {27 	{Las Vegas} 	4.2}
-        {36 	{Los Angeles} 	12.8}
-        {123 	Louisville 	44.9}
-        {108 	Memphis 	53.7}
-        {135 	Miami 		61.9}
-        {127 	Milwaukee 	34.8}
-        {117 	Minneapolis 	30.6}
-        {119 	Nashville 	47.3}
-        {115 	{New Orleans} 	62.7}
-        {122 	{New York} 	49.9}
-        {84 	{Oklahoma City}	36.5}
-        {117 	Orlando 	50.7}
-        {118 	Philadelphia 	41.5}
-        {30 	Phoenix 	8.2}
-        {151 	Pittsburgh 	38.2}
-        {164 	Portland 	43.5}
-        {125 	Providence 	47.2}
-        {100 	Raleigh 	46.0}
-        {114 	Richmond 	43.6}
-        {30 	Riverside 	10.3}
-        {167 	Rochester 	34.3}
-        {60 	Sacramento 	18.5}
-        {96 	{Salt Lake City} 16.1}
-        {83 	{San Antonio} 	32.3}
-        {42 	{San Diego} 	10.3}
-        {68 	{San Francisco} 20.7}
-        {62 	{San Jose} 	15.8}
-        {149 	Seattle 	37.7}
-        {113 	{St. Louis} 	41.0}
-        {105 	Tampa 	46.3}
-        {117 	{Virginia Beach} 46.5}
-        {114 	Washington 	39.7}
+        {Jan 48.7     22.12}
+        {Feb 78.7     24.03}
+        {Mar 100.3    26.38}
+        {Apr 439.1    27.84}
+        {May 1118.9 27.11}
+        {Jun 797.4  24.92}
+        {Jul 1096.8   23.99}
+        {Aug 1388.1 24.13}
+        {Sep 1858.9 24.35}
+        {Oct 1616.6   24.1}
+        {Nov 592.4  22.88}
+        {Dec 172  21.76}
     }]
-
+    
     variable freelancers
     set freelancers [tarray::table create {
         Id int Name string Rate int Experience int City string
