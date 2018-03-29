@@ -6,6 +6,7 @@ lappend auto_path d:/tcl/lib [pwd]
 package require snit
 
 ::snit::widgetadaptor tarray::ui::rbc::chart {
+    
     ################################################################
     # Type variables
 
@@ -25,11 +26,6 @@ package require snit
     #      the plot data came from a table column.
     variable _plots {}
     
-    # Keeps track of X- and Y- axes. Keyed by column name with following
-    # nested dictionary elements.
-    #   Location - "xaxis", "x2axis", "yaxis" or "y2axes"
-    variable _axes {}
-
     # When plotting graphs, we sort the data values based on the
     # X value. The _sorted_indices array, indexed by column name,
     # keeps track of these sorted tarray index columns.
@@ -69,6 +65,9 @@ package require snit
     ################################################################
     # Methods
     constructor {tab args} {
+
+        uplevel #0 package require rbc
+        
         set _table $tab
 
         installhull using rbc::graph
@@ -125,13 +124,15 @@ package require snit
         if {[info exists cname]} {
             # We are plotting table column data
             dict set _plots $name YColumn $cname
+
+            set yaxis_loc [from args -yaxisloc yaxis]
             if {[dict exists $args -yaxis]} {
-                set yaxis_name [dict get $args -yaxis]
-                dict unset args -yaxis
+                set yaxis_name [from args -yaxis]
             } else {
-                $self _init_axis $cname yaxis
+                $self _init_axis $cname $yaxis_loc
                 set yaxis_name $cname
             }
+
             lappend args -mapy $yaxis_name
             if {[dict exists $args -xdata]} {
                 if {[dict exists $args -xcolumn]} {
@@ -142,20 +143,15 @@ package require snit
                 # to the -xdata values.
                 lappend args -ydata [$self _vector $cname]
             } else {
-                if {[dict exists $args -xcolumn]} {
-                    set xcolname [dict get $args -xcolumn]
-                } else {
-                    # If neither -xdata or -xcolumn specified use default
-                    set xcolname ""
-                }
+                set xcolname [from args -xcolumn ""]
                 set xcolname [$self _get_xcolumn $xcolname]
                 dict set _plots $name XColumn $xcolname
 
+                set xaxis_loc [from args -xaxisloc xaxis]
                 if {[dict exists $args -xaxis]} {
-                    set xaxis_name [dict get $args -xaxis]
-                    dict unset args -xaxis
+                    set xaxis_name [from args -xaxis]
                 } else {
-                    $self _init_axis $xcolname xaxis
+                    $self _init_axis $xcolname $xaxis_loc
                     set xaxis_name $xcolname
                 }
 
@@ -433,29 +429,41 @@ package require snit
     # Sets up an axis corresponding to the column $cname.
     # $location should be one of xaxis, x2axis, yaxis or y2axis.
     method _init_axis {cname location} {
-        variable _axes
         variable _table
 
-        if {[dict exists $_axes $cname]} {
-            if {[dict get $_axes $cname Location] eq $location} {
+        set current_location [$self _find_axis $cname]
+        if {$current_location ne ""} {
+            if {$current_location eq $location} {
                 return;         # Already set up
             }
             # Moving to a different physical location. Remove existing ones
             $self $location use [lsearch -all -not -inline -exact [$self $location use] $cname]
-            dict unset _axes $cname
         } else {
-            $self axis create $cname
-            if {[tarray::table ctype $_table $cname] in {string any}} {
-                # For non-numeric columns, set up callback to 
-                $self axis configure $cname -command [mymethod _tick_label $cname] -stepsize 1 -minorticks 1.0
+            # Not currently at any physical axis location but the axis might
+            # still exist. Create it only if it does not.
+            if {$location ni [$self axis names]} {
+                $self axis create $cname
+                if {[tarray::table ctype $_table $cname] in {string any}} {
+                    # For non-numeric columns, set up callback to 
+                    $self axis configure $cname -command [mymethod _tick_label $cname] -stepsize 1 -minorticks 1.0
+                }
             }
         }
 
         # Insert this axis at the end of all axes at this location
         $self $location use [linsert [$self $location use] end $cname]
-        dict set _axes $cname Location $location
     }
                         
+    # Gets the axis location for a column or empty string if none exists
+    method _find_axis {cname} {
+        foreach location {xaxis x2axis yaxis y2axis} {
+            if {$cname in [$hull $location use]} {
+                return $location
+            }
+        }
+        return ""
+    }
+
     method _tick_label {cname w tick} {
         variable _table
         set col [tarray::table column $_table $cname]
