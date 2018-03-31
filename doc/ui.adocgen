@@ -111,7 +111,89 @@ text {
 text {
     === Widget reference
 }
+
+text {
+    ((cmddef ui_csvreader "csvreader _WIDGET_ _DATASOURCE_ ?_OPTIONS_?"))
+
+    The `csvreader` widget provides a user interface for parsing CSV format
+    data into a tarray table. It is based on the `dialectpicker` widget
+    from the link:http://tclcsv.sf.net[tclcsv] package and requires
+    that package to be installed.
+
+    _WIDGET_ should be the Tk window path for the widget. This is also
+    the return value of the command.
     
+    _DATASOURCE_ should be either the path to a file or
+    the name of the channel from which the CSV
+    data is to be read. In the case of a channel,
+    the configuration, including the seek position and encoding,
+    of the channel is restored to its original when the widget
+    is destroyed.
+    
+    An example invocation is shown below.
+
+    .The `dialectpicker` widget
+    image::csvreader.png[CSV reader]
+
+    The top section of the widget contains the various settings related
+    to parsing of CSV data. The middle section shows column metadata
+    specifying whether the column should be included in the created
+    table, the heading for the column and it type.
+    The bottom section displays a preview table which is
+    updated as these settings are modified by the user.
+
+    The CSV settings and column metadata are initialized based on
+    heuristics applied to the CSV data and can then be modified
+    by the user.
+
+    ===== _WIDGET_ read method
+
+    The widget's `read` method parses the CSV data into a table using
+    the current settings in the dialog. The return value from the method
+    is a list of two elements. The first is a table containing the data.
+    The second is a dictionary keyed by column name and is in a form
+    that can be passed to the ((^ ui_tableview tableview)) widget via
+    the `-colattrs` option to configure its headings. The value associated
+    with each column name is a dictionary with one key `heading` whose
+    value is the corresponding column heading from the widget.
+
+    The names of the column in the returned table are generated from
+    the corresponding column headings entered into the widget with
+    non-alphanumeric columns replaced by the `_` character. If any
+    columns headings are empty, a name is generated for it.
+
+    [WARNING]
+    The widget does not validate that the actual data in the CSV file
+    is the specific type selected for a column by the user. In case of
+    a type mismatch, the `read` method will fail with a suitable error
+    and the user can be asked to modify the widget settings.
+} text {
+    .Example
+
+    The following code uses the `widget::dialog` dialog widget from
+    the http://tcl.activestate.com/software/tklib/[tklib] package
+    to read CSV data into a table.
+} uiscript {
+    package require widget::dialog
+    widget::dialog .dlg -type okcancel
+    tarray::ui::csvreader .dlg.csv qb.csv
+    .dlg setwidget .dlg.csv
+    set response [.dlg display]; # User response will "ok" or "cancel"
+    if {$response eq "ok"} {
+        .dlg withdraw;          # Hide the dialog 
+        lassign [.dlg.csv read] tab colattrs ; # Read the CSV data into the table
+        tarray::ui::tableview .dlg.tab $tab -colattrs $colattrs; # Create a tableview display
+        .dlg configure -type ok
+        .dlg setwidget .dlg.tab ; # Show the table in the dialog
+        .dlg display
+    }
+    destroy .dlg
+}
+    
+text {
+    ((cmddef ui_rbc_chart "rbc_chart _WIDGET_ _DATASOURCE_ ?_OPTIONS_?"))
+}
+
 text {
     ((cmddef ui_tableview "tableview _WIDGET_ _TABLE_ ?_OPTIONS_?"))
     
@@ -550,80 +632,3 @@ text {
     the full data.
 }
 
-text {
-    ((cmddef ui_csvreader "csvreader _WIDGET_ _DATASOURCE_ ?_OPTIONS_?"))
-
-    The `csvreader` widget provides a user interface for parsing CSV format
-    data into a tarray table. It is based on the `dialectpicker` widget
-    from the link:http://tclcsv.sf.net[tclcsv] package and requires
-    that package to be installed.
-
-    _WIDGET_ should be the Tk window path for the widget. This is also
-    the return value of the command.
-    
-    _DATASOURCE_ should be either the path to a file or
-    the name of the channel from which the CSV
-    data is to be read. In the case of a channel,
-    the configuration, including the seek position and encoding,
-    of the channel is restored to its original when the widget
-    is destroyed.
-    
-    An example invocation is shown below.
-
-    .The `dialectpicker` widget
-    image::csvreader.png[CSV reader]
-
-    The top section of the widget contains the various settings related
-    to parsing of CSV data. The middle section shows column metadata
-    specifying whether the column should be included in the created
-    table, the heading for the column and it type.
-    The bottom section displays a preview table which is
-    updated as these settings are modified by the user.
-
-    The CSV settings and column metadata are initialized based on
-    heuristics applied to the CSV data and can then be modified
-    by the user.
-
-    ===== _WIDGET_ read method
-
-    The widget's `read` method parses the CSV data into a table using
-    the current settings in the dialog. The return value from the method
-    is a list of two elements. The first is a table containing the data.
-    The second is a dictionary keyed by column name and is in a form
-    that can be passed to the ((^ ui_tableview tableview)) widget via
-    the `-colattrs` option to configure its headings. The value associated
-    with each column name is a dictionary with one key `heading` whose
-    value is the corresponding column heading from the widget.
-
-    The names of the column in the returned table are generated from
-    the corresponding column headings entered into the widget with
-    non-alphanumeric columns replaced by the `_` character. If any
-    columns headings are empty, a name is generated for it.
-
-    [WARNING]
-    The widget does not validate that the actual data in the CSV file
-    is the specific type selected for a column by the user. In case of
-    a type mismatch, the `read` method will fail with a suitable error
-    and the user can be asked to modify the widget settings.
-} text {
-    .Example
-
-    The following code uses the `widget::dialog` dialog widget from
-    the http://tcl.activestate.com/software/tklib/[tklib] package
-    to read CSV data into a table.
-} uiscript {
-    package require widget::dialog
-    widget::dialog .dlg -type okcancel
-    tarray::ui::csvreader .dlg.csv qb.csv
-    .dlg setwidget .dlg.csv
-    set response [.dlg display]; # User response will "ok" or "cancel"
-    if {$response eq "ok"} {
-        .dlg withdraw;          # Hide the dialog 
-        lassign [.dlg.csv read] tab colattrs ; # Read the CSV data into the table
-        tarray::ui::tableview .dlg.tab $tab -colattrs $colattrs; # Create a tableview display
-        .dlg configure -type ok
-        .dlg setwidget .dlg.tab ; # Show the table in the dialog
-        .dlg display
-    }
-    destroy .dlg
-}
