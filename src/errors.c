@@ -337,11 +337,27 @@ TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_negative_count_error(Tcl_Interp *ip)
+TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideInt val)
+{
+    if (ip) {
+        Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", "OVERFLOW", NULL);
+        if (val) {
+            /* ObjPrintf does not handle wide ints so we have to use buffer */
+            char buf[200];
+            snprintf(buf, sizeof(buf), "Value %" TCL_LL_MODIFIER "d cannot be assigned to a %s.", val, precision);
+            Tcl_SetResult(ip, buf, TCL_VOLATILE);
+        } else {
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("%s overflow.", precision));
+        }
+    }
+    return TCL_ERROR;
+}
+
+TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int count)
 {
     if (ip) {
         Tcl_SetErrorCode(ip, "TARRAY", "COUNT", NULL);
-        Tcl_SetResult(ip, "Count is negative.", TCL_STATIC);
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Negative value %d specified as count.", count));
     }
     return TCL_ERROR;
 }

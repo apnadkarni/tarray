@@ -107,7 +107,6 @@ OVF_MULU_FN(uint8)
         return *presult < a;                                              \
     }
 
-OVF_ADD_FN(int8, INT8_MIN, INT8_MAX)
 OVF_ADDU_FN(uint8)
 OVF_ADD_FN(int32, INT32_MIN, INT32_MAX)
 OVF_ADDU_FN(uint32)
