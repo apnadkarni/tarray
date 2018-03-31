@@ -165,8 +165,10 @@ OVF_MUL_FN(int32, INT32_MIN, INT32_MAX)
 OVF_MULU_FN(uint32, UINT32_MAX)
 
 int ovf_mul_int64_impl(int64_t a, int64_t b, int64_t *presult);
-#if defined(_MSC_VER) && defined(_M_AMD64)
 
+
+#if 0 && defined(_MSC_VER) && defined(_M_AMD64)
+/* DISABLED because no way to tell if _mul128 overflowed */
 #include <intrin.h>
 #pragma intrinsic(_mul128)
 
