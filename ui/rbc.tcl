@@ -5,7 +5,7 @@
 lappend auto_path d:/tcl/lib [pwd]
 package require snit
 
-::snit::widgetadaptor tarray::ui::rbc::chart {
+::snit::widgetadaptor tarray::ui::rbc_chart {
     
     ################################################################
     # Type variables
@@ -482,7 +482,7 @@ return
 package require Tk
 lappend auto_path [pwd] d:/tcl/lib ; package require tarray_ui
 set rain [tarray::samples::get rainfall]
-tarray::ui::rbc::chart .chart $rain -title "Rainfall and Temperature by Month"
+tarray::ui::rbc_chart .chart $rain -title "Rainfall and Temperature by Month"
 .chart line create Temperature -pixels .02i
 .chart axis configure Temperature -loose 1 -title "Temp (\u00b0C)"
 .chart bar create Rainfall -fg green -yaxisloc y2axis
