@@ -320,7 +320,8 @@ TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip);
-TCL_RESULT ta_negative_count_error(Tcl_Interp *ip);
+TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideInt val);
+TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int);
 TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *, ta_value_t *);
 TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, int row, int col, int tatype, Tcl_Obj *val);
 TCL_RESULT ta_invalid_source_row_width(Tcl_Interp *ip, int row, int nfields, int ncols);
@@ -420,7 +421,8 @@ int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas);
 
 void thdr_lookup_build(thdr_t *thdr, span_t *span);
 
-TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
+TCL_RESULT ta_get_int8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int8_t *pb);
+#define ta_get_byte_from_obj ta_get_int8_from_obj
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
 TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);

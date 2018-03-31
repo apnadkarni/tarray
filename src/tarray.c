@@ -766,7 +766,7 @@ TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
     if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
     if (wide < 0 || wide > 0xFFFFFFFF)
-        return ta_value_type_error(ip, o, TA_UINT);
+        return ta_integer_overflow_error(ip, "unsigned 32-bit integer", wide);
     *pui = (unsigned int) wide;
     return TCL_OK;
 }
@@ -780,7 +780,7 @@ TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
     if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
     if (wide < INT_MIN || wide > INT_MAX)
-        return ta_value_type_error(ip, o, TA_INT);
+        return ta_integer_overflow_error(ip, "32-bit integer", wide);
     *pi = (int) wide;
     return TCL_OK;
 }
@@ -797,14 +797,25 @@ TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
     return TCL_OK;
 }
 
-TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
+TCL_RESULT ta_get_uint8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, uint8_t *pb)
 {
     Tcl_WideInt wide;
     if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
         return TCL_ERROR;
-    if (wide < 0 || wide > 255)
-        return ta_value_type_error(ip, o, TA_BYTE);
+    if (wide < 0 || wide > UINT8_MAX)
+        return ta_integer_overflow_error(ip, "unsigned 8-bit integer", wide);
     *pb = (unsigned char) wide;
+    return TCL_OK;
+}
+
+TCL_RESULT ta_get_int8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int8_t *pb)
+{
+    Tcl_WideInt wide;
+    if (ta_get_wide_from_obj(ip, o, &wide) != TCL_OK)
+        return TCL_ERROR;
+    if (wide < INT8_MIN || wide > INT8_MAX)
+        return ta_integer_overflow_error(ip, "8-bit integer", wide);
+    *pb = (int8_t) wide;
     return TCL_OK;
 }
 
