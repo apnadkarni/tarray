@@ -785,6 +785,18 @@ TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
     return TCL_OK;
 }
 
+/* Get a 31-bit positive integer value - for arguments that represent counts */
+TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
+{
+    int val;
+    if (Tcl_GetIntFromObj(ip, o, &val) != TCL_OK)
+        return TCL_ERROR;
+    if (val < 0)
+        return ta_bad_count_error(ip, val);
+    *pi = val;
+    return TCL_OK;
+}
+
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb)
 {
     Tcl_WideInt wide;
@@ -5223,6 +5235,87 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
     return TCL_OK;
 }
+
+#if 0
+TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
+                           int objc, Tcl_Obj *const objv[])
+{
+    thdr_t *thdr;
+    int opt, nbins, start, count;
+    TCL_RESULT res;
+    ta_value_t start, step;
+    span_t *span;
+    static const char *cmds[] = {
+        "count", "sum", "collect", NULL
+    };
+    enum flags_e {
+        TA_COUNT_CMD, TA_SUM_CMD, TA_COLLECT_CMD
+    };
+    
+    if (objc != 6) {
+	Tcl_WrongNumArgs(ip, 1, objv, "count|sum|collect COL NBINS START STEP");
+	return TCL_ERROR;
+    }
+
+    /* Type of binning */
+    CHECK_OK( ta_opt_from_obj(ip, objv[1], cmds, "command", 0, &opt) );
+
+    /* Number of bins */
+    CHECK_OK( ta_get_ui31_from_obj(ip, objv[3], &nbins) );
+
+    CHECK_OK( tcol_convert(ip, objv[2]) );
+    span = OBJTHDRSPAN(objv[2]);
+    thdr = tcol_thdr(objv[2]);
+    if (thdr->type == TA_ANY || thdr->type == TA_STRING)
+        return ta_invalid_op_for_type(ip, thdr->type);
+    start = thdr_start_and_count(thdr, span, &count);
+
+    OK( ta_value_from_obj(ip, objv[4], &start) );
+    OK( ta_value_from_obj(ip, objv[5], &step) );
+    
+
+    switch ((flags_e) opt) {
+    case TA_COUNT_CMD:
+        bin = thdr_alloc(ip, TA_INT, nbin);
+        break;
+    case TA_SUM_CMD:
+        bin = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbin);
+        break;
+    case TA_COLLECT_CMD:
+        TBD;
+    }
+
+    switch (thdr->type) {
+    case TA_BOOLEAN:
+        TBD;
+        break;
+    case TA_BYTE:
+        unsigned char *pdata = THDRELEMPTR(thdr, unsigned char, start);
+        if (step.ucval == 0) {
+            TBD - error; Also if < 0 for signed numbers
+        }
+        if (opt == TA_COUNT_CMD) {
+            int *pbin = THDRELEMPTR(bin, int, 0);
+            int i, bin_index;
+            for (i = 0; i < count; ++i) {
+                if (pdata[i] < start) continue;
+                bin_index = (pdata[i] - start
+            }
+        } else if (opt == TA_SUM_CMD) {
+        } else {
+        }
+        
+        
+        TBD;
+        break;
+    case TA_INT:
+    case TA_UINT:
+    case TA_WIDE:
+    case TA_DOUBLE:
+    }
+}
+
+#endif
 
 /*
   Local Variables:

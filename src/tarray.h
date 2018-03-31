@@ -84,6 +84,7 @@
 #include "pcg_basic.h"
 
 typedef int TCL_RESULT;
+#define CHECK_OK(x) do { TCL_RESULT res = x; if (res != TCL_OK) return res; } while (0)
 
 /* Various portability defines */
 #ifdef _MSC_VER
@@ -421,6 +422,7 @@ void thdr_lookup_build(thdr_t *thdr, span_t *span);
 TCL_RESULT ta_get_byte_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned char *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
+TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
 
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi);
 TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi);
