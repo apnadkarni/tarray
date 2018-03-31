@@ -80,6 +80,7 @@
 #endif
 #include "bitarray.h"           /* Include AFTER assert definitions */
 #include "timsort.h"
+#include "tamath.h"
 
 #include "pcg_basic.h"
 

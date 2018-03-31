@@ -1574,3 +1574,31 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
 
     return 1;
 }
+
+int ovf_mul_int64_impl(int64_t a, int64_t b, int64_t *presult)
+{
+    /* Based on https://wiki.sei.cmu.edu/confluence/display/c/INT32-C.+Ensure+that+operations+on+signed+integers+do+not+result+in+overflow */
+
+    *presult = a * b;
+
+    if (a > 0) {  /* a is positive */
+        if (b > 0) {  /* a and b are positive */
+            if (a > (INT64_MAX / b))
+                return 1;
+        } else { /* a positive, b nonpositive */
+            if (b < (INT64_MIN / a))
+                return 1;
+        } /* a positive, b nonpositive */
+    } else { /* a is nonpositive */
+        if (b > 0) { /* a is nonpositive, b is positive */
+            if (a < (INT64_MIN / b))
+                return 1;
+        } else { /* a and b are nonpositive */
+            if ( (a != 0) && (b < (INT64_MAX / a)))
+                return 1;
+        } /* End if a and b are nonpositive */
+    } /* End if a is nonpositive */
+
+    /* No overflow */
+    return 0;
+}
