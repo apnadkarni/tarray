@@ -713,7 +713,7 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
     while ((c = *p) != '\0' && isascii(c) && isspace(c))
         ++p;
     if (wide > 0 && *p == '-' || wide < 0 && *p != '-') {
-        return ta_value_type_error(ip, o, TA_WIDE);
+        return ta_integer_overflow_obj_error(ip, "64-bit integer", o);
     }
     if (pwide)
         *pwide = wide;

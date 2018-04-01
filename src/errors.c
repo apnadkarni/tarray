@@ -344,7 +344,7 @@ TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideIn
         if (val) {
             /* ObjPrintf does not handle wide ints so we have to use buffer */
             char buf[200];
-            snprintf(buf, sizeof(buf), "Value %" TCL_LL_MODIFIER "d cannot be assigned to a %s.", val, precision);
+            snprintf(buf, sizeof(buf), "Value %" TCL_LL_MODIFIER "d does not fit in a %s.", val, precision);
             Tcl_SetResult(ip, buf, TCL_VOLATILE);
         } else {
             Tcl_SetObjResult(ip, Tcl_ObjPrintf("%s overflow.", precision));
@@ -352,6 +352,23 @@ TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideIn
     }
     return TCL_ERROR;
 }
+
+TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, char *precision, Tcl_Obj *o)
+{
+    Tcl_Obj *err;
+    if (ip) {
+        Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", "OVERFLOW", NULL);
+        if (o) {
+            err = Tcl_ObjPrintf("Value %s does not fit in a %s.", 
+                                Tcl_GetString(o), precision);
+        } else {
+            err = Tcl_ObjPrintf("%s overflow.", precision);
+        }
+        Tcl_SetObjResult(ip, err);
+    }
+    return TCL_ERROR;
+}
+
 
 TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int count)
 {
