@@ -423,7 +423,8 @@ int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas);
 void thdr_lookup_build(thdr_t *thdr, span_t *span);
 
 TCL_RESULT ta_get_int8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int8_t *pb);
-#define ta_get_byte_from_obj ta_get_int8_from_obj
+TCL_RESULT ta_get_uint8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, uint8_t *pb);
+#define ta_get_byte_from_obj ta_get_uint8_from_obj
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
 TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
