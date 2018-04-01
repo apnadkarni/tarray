@@ -708,12 +708,24 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
         return TCL_OK;
     }
 
-    /* Check for overflow */
+    /* 
+     * Check for overflow to prevent assignment of unsigned 64-bit 
+     * values that do not fit in 64 bit signed integers. However, we
+     * want hexadecimal, octal and binary values that do not have
+     * an explicit sign to be treated as a pure bit pattern that can
+     * be directly assigned without checking for overflow. Thus
+     * 0x8000000000000000 is allowed but 9223372036854775808 is treated
+     * as an overflow.
+     */
     p = o->bytes;
     while ((c = *p) != '\0' && isascii(c) && isspace(c))
         ++p;
-    if (wide > 0 && *p == '-' || wide < 0 && *p != '-') {
-        return ta_integer_overflow_obj_error(ip, "64-bit integer", o);
+    if (*p == '0') {
+        /* Octal, hex, binary all begin with 0. Always permit them */
+    } else {
+        if (wide > 0 && *p == '-' || wide < 0 && *p != '-') {
+            return ta_integer_overflow_obj_error(ip, "64-bit integer", o);
+        }
     }
     if (pwide)
         *pwide = wide;

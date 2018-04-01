@@ -88,12 +88,10 @@ namespace eval tarray::test {
             
     #
     # Tests for invalid types
-    # NOTE: tests for wide are expected to fail because Tcl_GetWideIntFromObj
-    # does not fail on wideint overflow (3.3 and 3.4)
     foreach {type values} [array get bad] {
         set num -1
         foreach value $values {
-            test column-create-$type-3.[incr num] {
+            test column-create-$type-invalid-1.[incr num] {
                 Test invalid values raise error in tarray creation
             } -body {
                 tarray::column create $type [list $value]
@@ -101,6 +99,20 @@ namespace eval tarray::test {
         }
     }
 
+    # Special test for wide -> 0x8000000000000000 allowed but not
+    # [expr 0x8000000000000000] (i.e. decimal format)
+    test column-create-wide-overflow-1.0 {
+        Verify 0x8000000000000000 accepted as wide
+    } -body {
+        tarray::column create wide 0x8000000000000000
+    } -result "tarray_column wide {-9223372036854775808}"
+
+    test column-create-wide-overflow-1.1 {
+        Verify 9223372036854775808 not accepted as wide
+    } -body {
+        tarray::column create wide 9223372036854775808
+    } -result "Value 9223372036854775808 does not fit in a 64-bit integer." -returnCodes error
+    
 
     # bitmap0/1 tests
     
