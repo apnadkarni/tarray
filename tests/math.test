@@ -1,0 +1,135 @@
+# column math tests
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcl::mathop::*
+
+    proc t {id op a b args} {
+        switch -glob -- $op {
+            add* {set oper +}
+            sub* {set oper -}
+            mul* {set oper *}
+        }
+        set result [tcl::mathop::$oper $a $b]
+        test $op-$id "$op $a $b" -body "tarray::$op $a $b" -result $result {*}$args
+    }
+    
+    proc e {id op a b result args} {
+        test $op-$id "$op $a $b" -body "tarray::$op $a $b" -result $result -returnCodes error {*}$args
+    }
+
+    t 1 addu8 1 2 
+    t 2 addu8 128 127
+    t 3 addu8 255 0
+    e e1 addu8 256 0 "Value 256 does not fit in a unsigned 8-bit integer."
+    e e2 addu8 10 -1 "Value -1 does not fit in a unsigned 8-bit integer."
+    e e3 addu8 128 128 "unsigned 8-bit integer overflow."
+    e e4 addu8 255 1 "unsigned 8-bit integer overflow."
+    
+    t 1 addu32 0x7fffffff 0x7fffffff
+    t 2 addu32 0xfffffffe 1
+    t 3 addu32 0xffffffff 0
+    e e1 addu32 0x100000000 0 "Value 4294967296 does not fit in a unsigned 32-bit integer."
+    e e2 addu32 10 -1 "Value -1 does not fit in a unsigned 32-bit integer."
+    e e3 addu32 0x80000000 0x80000000 "unsigned 32-bit integer overflow."
+    e e4 addu32 0xffffffff 1 "unsigned 32-bit integer overflow." 
+
+    t 1 add32 0x3fffffff 0x40000000
+    t 2 add32 0x7ffffffe 1
+    t 3 add32 0x7fffffff 0
+    t 4 add32 -2147483648 0
+    t 5 add32 -2147483647 -1
+    e e1 add32 2147483648 0 "Value 2147483648 does not fit in a 32-bit integer."
+    e e2 add32 0 -2147483649 "Value -2147483649 does not fit in a 32-bit integer."
+    e e3 add32 -2147483648 -1 "32-bit integer overflow."
+    e e4 add32 0x7fffffff 1 "32-bit integer overflow." 
+
+    t 1 add64 0x3fffffffffffffff 0x4000000000000000
+    t 2 add64 0x7ffffffffffffffe 1
+    t 3 add64 0x7fffffffffffffff 0
+    t 4 add64 -9223372036854775808 1
+    t 5 add64 -9223372036854775807 -1
+    e e1 add64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
+    e e2 add64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    e e3 add64 -9223372036854775808 -1 "64-bit integer overflow."
+    e e4 add64 0x7fffffffffffffff 1 "64-bit integer overflow." 
+
+    ### Subtraction
+    
+    t 1 subu8 2 1 
+    t 2 subu8 128 127
+    t 3 subu8 255 0
+    e e1 subu8 256 0 "Value 256 does not fit in a unsigned 8-bit integer."
+    e e2 subu8 10 -1 "Value -1 does not fit in a unsigned 8-bit integer."
+    e e3 subu8 -128 0 "Value -128 does not fit in a unsigned 8-bit integer."
+    e e4 subu8 1 2 "unsigned 8-bit integer overflow."
+
+    t 1 subu32 0xffffffff 0xffffffff
+    t 2 subu32 0 0
+    t 3 subu32 65536 1
+    e e1 subu32 0x100000000 0 "Value 4294967296 does not fit in a unsigned 32-bit integer."
+    e e2 subu32 10 -1 "Value -1 does not fit in a unsigned 32-bit integer."
+    e e3 subu32 -1 0 "Value -1 does not fit in a unsigned 32-bit integer."
+    e e4 subu32 1 2 "unsigned 32-bit integer overflow." 
+
+    t 1 sub32 2 1
+    t 2 sub32 0x7fffffff 1
+    t 3 sub32 0x7fffffff 0x7fffffff
+    t 4 sub32 -2147483648 0
+    t 5 sub32 -2147483648 -1
+    e e1 sub32 2147483648 0 "Value 2147483648 does not fit in a 32-bit integer."
+    e e2 sub32 0 -2147483649 "Value -2147483649 does not fit in a 32-bit integer."
+    e e3 sub32 -2147483648 1 "32-bit integer overflow."
+    e e4 sub32 0x7fffffff -1 "32-bit integer overflow." 
+
+    t 1 sub64 0x4000000000000000 0x3fffffffffffffff 
+    t 2 sub64 0x7fffffffffffffff 1
+    t 3 sub64 0x7fffffffffffffff 0x7fffffffffffffff  
+    t 4 sub64 -9223372036854775808 0
+    t 5 sub64 -9223372036854775808 -1
+    e e1 sub64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
+    e e2 sub64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    e e3 sub64 -9223372036854775808 1 "64-bit integer overflow."
+    e e4 sub64 0x7fffffffffffffff -1 "64-bit integer overflow." 
+
+    ### Multiplication
+
+    t 1 mulu8 2 3
+    t 2 mulu8 127 2
+    t 3 mulu8 255 0
+    e e1 mulu8 256 0 "Value 256 does not fit in a unsigned 8-bit integer."
+    e e2 mulu8 10 -1 "Value -1 does not fit in a unsigned 8-bit integer."
+    e e3 mulu8 128 2 "unsigned 8-bit integer overflow."
+    e e4 mulu8 16 16 "unsigned 8-bit integer overflow."
+    
+    t 1 mulu32 0xffff 0xffff
+    t 2 mulu32 0x7fffffff 2
+    t 3 mulu32 0xffffffff 0
+    e e1 mulu32 0x100000000 0 "Value 4294967296 does not fit in a unsigned 32-bit integer."
+    e e2 mulu32 10 -1 "Value -1 does not fit in a unsigned 32-bit integer."
+    e e3 mulu32 0x80000 0x80000 "unsigned 32-bit integer overflow."
+    e e4 mulu32 0x80000000 2 "unsigned 32-bit integer overflow." 
+
+    t 1 mul32 0xb504 0xb504
+    t 2 mul32 0x7fffffff 1
+    t 3 mul32 0 0x7fffffff
+    t 4 mul32 -2147483648 0
+    t 5 mul32 -2147483648 1
+    e e1 mul32 2147483648 0 "Value 2147483648 does not fit in a 32-bit integer."
+    e e2 mul32 0 -2147483649 "Value -2147483649 does not fit in a 32-bit integer."
+    e e3 mul32 -2147483648 -1 "32-bit integer overflow."
+    e e4 mul32 0xb505 0xb505 "32-bit integer overflow."
+
+    t 1 mul64 0xb504f333 0xb504f333 
+    t 2 mul64 0x7fffffffffffffff 1
+    t 3 mul64 0x7fffffffffffffff 0
+    t 4 mul64 -9223372036854775808 1
+    t 5 mul64 -9223372036854775807 -1
+    e e1 mul64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
+    e e2 mul64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    e e3 mul64 -9223372036854775808 -1 "64-bit integer overflow."
+    e e4 mul64 0xb504f334 0xb504f334 "64-bit integer overflow." 
+
+}
+    
+tcltest::cleanupTests
