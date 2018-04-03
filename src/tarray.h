@@ -427,7 +427,8 @@ TCL_RESULT ta_get_uint8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, uint8_t *pb);
 #define ta_get_byte_from_obj ta_get_uint8_from_obj
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
-TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
+TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pi);
+TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, int *pi);
 
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi);
 TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi);
@@ -646,6 +647,7 @@ Tcl_ObjCmdProc tcol_minmax_cmd;
 Tcl_ObjCmdProc tcol_lookup_cmd;
 Tcl_ObjCmdProc tcol_math_cmd;
 Tcl_ObjCmdProc tcol_fold_cmd;
+Tcl_ObjCmdProc tcol_bin_cmd;
 Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
 Tcl_ObjCmdProc ta_loop_cmd;
 Tcl_ObjCmdProc ta_loop_nr_cmd;
@@ -740,6 +742,16 @@ TA_INLINE span_t *span_alloc(int first, int count) {
     span->count = count;
     return span;
 }
+
+TA_INLINE void thdr_clear(thdr_t *thdr) {
+    void *p = THDRELEMPTR(thdr, unsigned char, 0);
+    if (thdr->type == TA_BOOLEAN)
+        ba_fill(p, 0, thdr->used, 0);
+    else
+        memset(p, 0, (thdr->elem_bits/CHAR_BIT) * thdr->used);
+}
+
+
 
 TA_INLINE void thdr_complement(thdr_t *thdr) {
     TA_ASSERT(thdr->type == TA_BOOLEAN);
@@ -1084,5 +1096,10 @@ TA_INLINE uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
     }
 }
 
+/*
+  Local Variables:
+  compile-command: "envset x64 && tclsh build.tcl extension -config ../src/tarray.cfg -keep -target win32-dev64"
+  End:
+*/
 
 #endif

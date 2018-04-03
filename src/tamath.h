@@ -1,6 +1,19 @@
 #ifndef TAMATH_H
 #define TAMATH_H
 
+/* Following clones tclInt.h portability definitions of nan and inf */
+#ifdef _MSC_VER
+#    define TA_ISINFINITE(d)	(!(_finite((d))))
+#    define TA_ISNAN(d)		(_isnan((d)))
+#else
+#    define TA_ISINFINITE(d)	((d) > DBL_MAX || (d) < -DBL_MAX)
+#    ifdef NO_ISNAN
+#	 define TA_ISNAN(d)	((d) != (d))
+#    else
+#	 define TA_ISNAN(d)	(isnan(d))
+#    endif
+#endif
+
 /* 
  * Functions for overflow detection in integer operations.
  * Only operations used in tarray are defined.

@@ -637,6 +637,8 @@ critcl::ccommand tarray::column::math tcol_math_cmd
 
 critcl::ccommand tarray::column::fold tcol_fold_cmd
 
+critcl::ccommand tarray::column::bin tcol_bin_cmd
+
 critcl::ccommand tarray::column::_sortmerge_helper tcol_sortmerge_helper_cmd
 
 critcl::ccommand tarray::column::insert {} {
@@ -2105,3 +2107,8 @@ critcl::ccommand tarray::rbc::init_stubs ta_rbc_init_stubs_cmd
 package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]
 
 critcl::load
+
+#
+# Local Variables:
+#  compile-command: "envset x64 && tclsh build.tcl extension -config ../src/tarray.cfg -keep -target win32-dev64"
+# End:

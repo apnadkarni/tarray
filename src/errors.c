@@ -121,7 +121,7 @@ TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Invalid count %d", count));
+                         Tcl_ObjPrintf("Invalid count %d specified.", count));
         Tcl_SetErrorCode(ip, "TARRAY", "COUNT", "RANGE", NULL);
     }
     return TCL_ERROR;

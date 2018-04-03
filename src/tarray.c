@@ -798,12 +798,12 @@ TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 }
 
 /* Get a 31-bit positive integer value - for arguments that represent counts */
-TCL_RESULT ta_get_ui31_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
+TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, int *pi)
 {
     int val;
     if (Tcl_GetIntFromObj(ip, o, &val) != TCL_OK)
         return TCL_ERROR;
-    if (val < 0)
+    if (val < 0 || (val == 0 && ! zero_allowed))
         return ta_bad_count_error(ip, val);
     *pi = val;
     return TCL_OK;
@@ -2095,6 +2095,8 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
 void thdr_free(thdr_t *thdr)
 {
+    if (thdr == NULL)
+        return;
     switch (thdr->type) {
     case TA_ANY:
         thdr_decr_obj_refs(thdr, 0, thdr->used);
@@ -5259,86 +5261,183 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
-#if 0
 TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
                            int objc, Tcl_Obj *const objv[])
 {
-    thdr_t *thdr;
-    int opt, nbins, start, count;
+    thdr_t *thdr = NULL, *bins_thdr = NULL, *lows_thdr = NULL;
+    int opt, nbins, first, count;
     TCL_RESULT res;
-    ta_value_t start, step;
+    ta_value_t start, step, last;
     span_t *span;
     static const char *cmds[] = {
-        "count", "sum", "collect", NULL
+        "count", "sum", "values", "indices", NULL
     };
     enum flags_e {
-        TA_COUNT_CMD, TA_SUM_CMD, TA_COLLECT_CMD
+        TA_COUNT_CMD, TA_SUM_CMD, TA_VALUES_CMD, TA_INDICES_CMD
     };
-    
+    Tcl_Obj *objs[2];
+
     if (objc != 6) {
-	Tcl_WrongNumArgs(ip, 1, objv, "count|sum|collect COL NBINS START STEP");
+	Tcl_WrongNumArgs(ip, 1, objv, "count|sum|values|indices COL NBINS START STEP");
 	return TCL_ERROR;
     }
+
+    thdr           = NULL;
+    bins_thdr      = NULL;
+    lows_thdr = NULL;
 
     /* Type of binning */
     CHECK_OK( ta_opt_from_obj(ip, objv[1], cmds, "command", 0, &opt) );
 
-    /* Number of bins */
-    CHECK_OK( ta_get_ui31_from_obj(ip, objv[3], &nbins) );
+    /* Number of bins - this ensures nbins >= 0 */
+    CHECK_OK( ta_get_count_from_obj(ip, objv[3], 0, &nbins) );
 
     CHECK_OK( tcol_convert(ip, objv[2]) );
     span = OBJTHDRSPAN(objv[2]);
     thdr = tcol_thdr(objv[2]);
-    if (thdr->type == TA_ANY || thdr->type == TA_STRING)
-        return ta_invalid_op_for_type(ip, thdr->type);
-    start = thdr_start_and_count(thdr, span, &count);
 
-    OK( ta_value_from_obj(ip, objv[4], &start) );
-    OK( ta_value_from_obj(ip, objv[5], &step) );
-    
-
-    switch ((flags_e) opt) {
-    case TA_COUNT_CMD:
-        bin = thdr_alloc(ip, TA_INT, nbin);
-        break;
-    case TA_SUM_CMD:
-        bin = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbin);
-        break;
-    case TA_COLLECT_CMD:
-        TBD;
-    }
+    /*
+     * Get the step and start values and ensure the covered
+     * range does not overflow the type range.
+     * The lower limit of the highest bin is
+     * last = start + (nbins-1)*step. We have to ensure that
+     * this does not overflow. Note it is ok for 
+     * this last bin to overflow (in which case it will be
+     * less than "step" units wide)
+     */
 
     switch (thdr->type) {
-    case TA_BOOLEAN:
-        TBD;
+    case TA_DOUBLE:
+        CHECK_OK( ta_value_from_obj(ip, objv[4], TA_DOUBLE, &start) );
+        CHECK_OK( ta_value_from_obj(ip, objv[5], TA_DOUBLE, &step) );
+        if (step.dval <= 0)
+            goto invalid_step;
+        TA_ASSERT(nbins > 0);
+        last.dval = start.dval + (nbins-1)*step.dval;
+        if (TA_ISINFINITE(last.dval))
+            goto invalid_bin_interval;
         break;
-    case TA_BYTE:
-        unsigned char *pdata = THDRELEMPTR(thdr, unsigned char, start);
-        if (step.ucval == 0) {
-            TBD - error; Also if < 0 for signed numbers
+    case TA_BOOLEAN: /* BOOLEAN is actually handled at script level */
+    case TA_ANY:
+    case TA_STRING:
+        return ta_invalid_op_for_type(ip, thdr->type);
+    default:
+        CHECK_OK( ta_value_from_obj(ip, objv[4], TA_WIDE, &start) );
+        CHECK_OK( ta_value_from_obj(ip, objv[5], TA_WIDE, &step) );
+        if (step.wval <= 0)
+            goto invalid_step;
+        if (ovf_mul_int64(step.wval, (nbins-1), &last.wval) ||
+            ovf_add_int64(last.wval, start.wval, &last.wval))
+            goto invalid_bin_interval;
+
+        switch (thdr->type) {
+        case TA_BYTE:
+            if (start.wval < 0 || last.wval > UINT8_MAX)
+                goto invalid_bin_interval;
+            start.ucval = (unsigned char) start.wval;
+            step.ucval  = (unsigned char) step.wval;
+            last.ucval  = (unsigned char) last.wval;
+            break;
+        case TA_INT:
+            if (start.wval < INT32_MIN || last.wval > INT32_MAX)
+                goto invalid_bin_interval;
+            start.ival = (unsigned char) start.wval;
+            step.ival  = (unsigned char) step.wval;
+            last.ival  = (unsigned char) last.wval;
+            break;
+        case TA_UINT:
+            if (start.wval < 0 || last.wval > UINT32_MAX)
+                goto invalid_bin_interval;
+            start.uival = (unsigned char) start.wval;
+            step.uival  = (unsigned char) step.wval;
+            last.uival  = (unsigned char) last.wval;
+            break;
+        case TA_WIDE:
+            /* No further range checks needed for wides */
+            break;
         }
+        break;
+    }
+
+    first = thdr_start_and_count(thdr, span, &count);
+    
+    /*
+     * lows_thdr holds lower limits of intervals
+     * bins_thdr holds corresponding bin contents
+     */
+    lows_thdr = thdr_alloc(ip, thdr->type, nbins);
+    if (lows_thdr == NULL)
+        goto error_return;
+    switch ((enum flags_e) opt) {
+    case TA_COUNT_CMD:
+        bins_thdr = thdr_alloc(ip, TA_INT, nbins);
+        bins_thdr->used = nbins;
+        thdr_clear(bins_thdr);
+        break;
+    case TA_SUM_CMD:
+        bins_thdr = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbins);
+        break;
+    case TA_VALUES_CMD:
+        break;
+    case TA_INDICES_CMD:
+        break;
+    }
+    if (bins_thdr == NULL)
+        goto error_return;
+
+    switch (thdr->type) {
+    case TA_BYTE:
+    {
+        unsigned char *p;
+        int i, bin_index;
+        p = THDRELEMPTR(lows_thdr, unsigned char, 0);
+        for (i = 0; i < nbins; ++i)
+            p[i] = start.ucval + i*step.ucval;
+        lows_thdr->used = nbins;
+
+        p = THDRELEMPTR(thdr, unsigned char, first);
         if (opt == TA_COUNT_CMD) {
-            int *pbin = THDRELEMPTR(bin, int, 0);
-            int i, bin_index;
+            int *pbin = THDRELEMPTR(bins_thdr, int, 0);
             for (i = 0; i < count; ++i) {
-                if (pdata[i] < start) continue;
-                bin_index = (pdata[i] - start
+                if (p[i] < start.wval || p[i] > last.wval) 
+                    continue;
+                bin_index = (p[i] - start.wval) / step.wval;
+                TA_ASSERT(bin_index < nbins);
+                pbin[bin_index] += 1;
             }
         } else if (opt == TA_SUM_CMD) {
         } else {
         }
-        
-        
-        TBD;
+    }
         break;
     case TA_INT:
     case TA_UINT:
     case TA_WIDE:
     case TA_DOUBLE:
+        break;
     }
-}
 
-#endif
+    objs[0] = tcol_new(lows_thdr);
+    objs[1] = tcol_new(bins_thdr);
+    
+    Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
+    return TCL_OK;
+
+
+invalid_step:
+    Tcl_SetResult(ip, "The step value must be positive.", TCL_STATIC);
+    goto error_return;
+
+invalid_bin_interval:
+    Tcl_SetResult(ip, "The binning parameters are invalid for the column type.", TCL_STATIC);
+    goto error_return;
+
+error_return:
+    thdr_free(thdr);
+    thdr_free(bins_thdr);
+    thdr_free(lows_thdr);
+    return TCL_ERROR;
+}
 
 /*
   Local Variables:
