@@ -1855,6 +1855,8 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     thdr->used = new_used;
 }
 
+
+
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
                                 int nelems, Tcl_Obj * const elems[])
 {
@@ -5416,14 +5418,77 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         }                                                               \
     } while (0)
 
+#define FILL_INDICES(type_, field_)                                     \
+    do {                                                                \
+        int i, bin_index, initial_size;                                 \
+        type_ *pdata;                                                   \
+        Tcl_Obj **pbin;                                                 \
+        bins_thdr = thdr_alloc(ip, TA_ANY, nbins);                      \
+        if (bins_thdr == NULL) goto error_return;                       \
+        pbin = THDRELEMPTR(bins_thdr, Tcl_Obj *, 0);                    \
+        for (i = 0, initial_size=count/nbins; i < nbins; ++i) {         \
+            pbin[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size));   \
+            if (pbin[i] == NULL)                                        \
+                goto error_return;                                      \
+            bins_thdr->used += 1;                                      \
+        }                                                               \
+        pdata = THDRELEMPTR(thdr, type_, first);                        \
+        for (i = 0; i < count; ++i) {                                   \
+            thdr_t *inner_thdr;                                         \
+            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+                continue;                                               \
+            bin_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bin_index < nbins);                               \
+            inner_thdr = OBJTHDR(pbin[bin_index]);                      \
+            if (tcol_make_modifiable(ip, pbin[bin_index], 1+inner_thdr->used, 0) \
+                != TCL_OK)                                              \
+                goto error_return;                                      \
+            inner_thdr = OBJTHDR(pbin[bin_index]); /* Reload, might have changed */ \
+            *THDRELEMPTR(inner_thdr, int, inner_thdr->used) = i;        \
+            inner_thdr->used += 1;                                      \
+        }                                                               \
+    } while (0)
+
+#define FILL_VALUES(type_, field_)                                     \
+    do {                                                                \
+        int i, bin_index, initial_size;                                 \
+        type_ *pdata;                                                   \
+        Tcl_Obj **pbin;                                                 \
+        bins_thdr = thdr_alloc(ip, TA_ANY, nbins);                      \
+        if (bins_thdr == NULL) goto error_return;                       \
+        pbin = THDRELEMPTR(bins_thdr, Tcl_Obj *, 0);                    \
+        for (i = 0, initial_size=count/nbins; i < nbins; ++i) {         \
+            pbin[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size));   \
+            if (pbin[i] == NULL)                                        \
+                goto error_return;                                      \
+            bins_thdr->used += 1;                                      \
+        }                                                               \
+        pdata = THDRELEMPTR(thdr, type_, first);                        \
+        for (i = 0; i < count; ++i) {                                   \
+            thdr_t *inner_thdr;                                         \
+            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+                continue;                                               \
+            bin_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bin_index < nbins);                               \
+            inner_thdr = OBJTHDR(pbin[bin_index]);                      \
+            if (tcol_make_modifiable(ip, pbin[bin_index], 1+inner_thdr->used, 0) \
+                != TCL_OK)                                              \
+                goto error_return;                                      \
+            inner_thdr = OBJTHDR(pbin[bin_index]); /* Reload, might have changed */ \
+            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = i;        \
+            inner_thdr->used += 1;                                      \
+        }                                                               \
+    } while (0)
+
+
     switch (thdr->type) {
     case TA_BYTE:
         FILL_LOWS(unsigned char, ucval);
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(unsigned char, ucval); break;
         case TA_SUM_CMD: FILL_SUMS(unsigned char, ucval, Tcl_WideInt); break;
-        case TA_VALUES_CMD: goto not_implemented;
-        case TA_INDICES_CMD: goto not_implemented;
+        case TA_VALUES_CMD: FILL_VALUES(unsigned char, ucval); break;
+        case TA_INDICES_CMD: FILL_INDICES(unsigned char, ucval); break;
         }
         break;
     case TA_INT:
@@ -5431,8 +5496,8 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(int, ival); break;
         case TA_SUM_CMD: FILL_SUMS(int, ival, Tcl_WideInt); break;
-        case TA_VALUES_CMD: goto not_implemented;
-        case TA_INDICES_CMD: goto not_implemented;
+        case TA_VALUES_CMD: FILL_VALUES(int, ival); break;
+        case TA_INDICES_CMD: FILL_INDICES(int, ival); break;
         }
         break;
     case TA_UINT:
@@ -5440,8 +5505,8 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(unsigned int, uival); break;
         case TA_SUM_CMD: FILL_SUMS(unsigned int, uival, Tcl_WideInt); break;
-        case TA_VALUES_CMD: goto not_implemented;
-        case TA_INDICES_CMD: goto not_implemented;
+        case TA_VALUES_CMD: FILL_VALUES(unsigned int, uival); break;
+        case TA_INDICES_CMD: FILL_INDICES(unsigned int, uival); break;
         }
         break;
     case TA_WIDE:
@@ -5449,8 +5514,8 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval); break;
         case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt); break;
-        case TA_VALUES_CMD: goto not_implemented;
-        case TA_INDICES_CMD: goto not_implemented;
+        case TA_VALUES_CMD: FILL_VALUES(Tcl_WideInt, wval); break;
+        case TA_INDICES_CMD: FILL_INDICES(Tcl_WideInt, wval); break;
         }
         break;
     case TA_DOUBLE:
@@ -5458,8 +5523,8 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(double, dval); break;
         case TA_SUM_CMD: FILL_SUMS(double, dval, double); break;
-        case TA_VALUES_CMD: goto not_implemented;
-        case TA_INDICES_CMD: goto not_implemented;
+        case TA_VALUES_CMD: FILL_VALUES(double, dval); break;
+        case TA_INDICES_CMD: FILL_INDICES(double, dval); break;
         }
         break;
     }
