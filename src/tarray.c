@@ -5361,59 +5361,106 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     first = thdr_start_and_count(thdr, span, &count);
     
-    /*
-     * lows_thdr holds lower limits of intervals
-     * bins_thdr holds corresponding bin contents
-     */
+    /* lows_thdr holds lower limits of intervals */
     lows_thdr = thdr_alloc(ip, thdr->type, nbins);
     if (lows_thdr == NULL)
         goto error_return;
-    switch ((enum flags_e) opt) {
-    case TA_COUNT_CMD:
-        bins_thdr = thdr_alloc(ip, TA_INT, nbins);
-        bins_thdr->used = nbins;
-        thdr_clear(bins_thdr);
-        break;
-    case TA_SUM_CMD:
-        bins_thdr = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbins);
-        break;
-    case TA_VALUES_CMD:
-        break;
-    case TA_INDICES_CMD:
-        break;
-    }
-    if (bins_thdr == NULL)
-        goto error_return;
+
+#define FILL_LOWS(type_, field_)                        \
+    do {                                                \
+        type_ *plows;                                   \
+        int i;                                          \
+        plows = THDRELEMPTR(lows_thdr, type_, 0);       \
+        for (i = 0; i < nbins; ++i)                     \
+            plows[i] = start.field_ + i*step.field_;    \
+        lows_thdr->used = nbins;                        \
+    } while (0)
+
+#define FILL_COUNTS(type_, field_)                                      \
+    do {                                                                \
+        int i, bin_index;                                               \
+        type_ *pdata;                                                   \
+        int *pbin;                                                      \
+        bins_thdr = thdr_alloc(ip, TA_INT, nbins);                      \
+        if (bins_thdr == NULL) goto error_return;                       \
+        bins_thdr->used = nbins;                                        \
+        thdr_clear(bins_thdr);                                          \
+        pbin = THDRELEMPTR(bins_thdr, int, 0);                          \
+        pdata = THDRELEMPTR(thdr, type_, first);                        \
+        for (i = 0; i < count; ++i) {                                   \
+            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+                continue;                                               \
+            bin_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bin_index < nbins);                               \
+            pbin[bin_index] += 1;                                       \
+        }                                                               \
+    } while (0)
+
+#define FILL_SUMS(type_, field_, sum_type_)                 \
+    do {                                                                \
+        int i, bin_index;                                               \
+        type_ *pdata;                                                   \
+        sum_type_ *pbin;                                                \
+        bins_thdr = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbins); \
+        if (bins_thdr == NULL) goto error_return;                       \
+        bins_thdr->used = nbins;                                        \
+        thdr_clear(bins_thdr);                                          \
+        pbin = THDRELEMPTR(bins_thdr, sum_type_, 0);                    \
+        pdata = THDRELEMPTR(thdr, type_, first);                        \
+        for (i = 0; i < count; ++i) {                                   \
+            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+                continue;                                               \
+            bin_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bin_index < nbins);                               \
+            pbin[bin_index] += pdata[i];                                \
+        }                                                               \
+    } while (0)
 
     switch (thdr->type) {
     case TA_BYTE:
-    {
-        unsigned char *p;
-        int i, bin_index;
-        p = THDRELEMPTR(lows_thdr, unsigned char, 0);
-        for (i = 0; i < nbins; ++i)
-            p[i] = start.ucval + i*step.ucval;
-        lows_thdr->used = nbins;
-
-        p = THDRELEMPTR(thdr, unsigned char, first);
-        if (opt == TA_COUNT_CMD) {
-            int *pbin = THDRELEMPTR(bins_thdr, int, 0);
-            for (i = 0; i < count; ++i) {
-                if (p[i] < start.wval || p[i] > last.wval) 
-                    continue;
-                bin_index = (p[i] - start.wval) / step.wval;
-                TA_ASSERT(bin_index < nbins);
-                pbin[bin_index] += 1;
-            }
-        } else if (opt == TA_SUM_CMD) {
-        } else {
+        FILL_LOWS(unsigned char, ucval);
+        switch ((enum flags_e)opt) {
+        case TA_COUNT_CMD: FILL_COUNTS(unsigned char, ucval); break;
+        case TA_SUM_CMD: FILL_SUMS(unsigned char, ucval, Tcl_WideInt); break;
+        case TA_VALUES_CMD: goto not_implemented;
+        case TA_INDICES_CMD: goto not_implemented;
         }
-    }
         break;
     case TA_INT:
+        FILL_LOWS(int, ival);
+        switch ((enum flags_e)opt) {
+        case TA_COUNT_CMD: FILL_COUNTS(int, ival); break;
+        case TA_SUM_CMD: FILL_SUMS(int, ival, Tcl_WideInt); break;
+        case TA_VALUES_CMD: goto not_implemented;
+        case TA_INDICES_CMD: goto not_implemented;
+        }
+        break;
     case TA_UINT:
+        FILL_LOWS(unsigned int, uival);
+        switch ((enum flags_e)opt) {
+        case TA_COUNT_CMD: FILL_COUNTS(unsigned int, uival); break;
+        case TA_SUM_CMD: FILL_SUMS(unsigned int, uival, Tcl_WideInt); break;
+        case TA_VALUES_CMD: goto not_implemented;
+        case TA_INDICES_CMD: goto not_implemented;
+        }
+        break;
     case TA_WIDE:
+        FILL_LOWS(Tcl_WideInt, wval);
+        switch ((enum flags_e)opt) {
+        case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval); break;
+        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt); break;
+        case TA_VALUES_CMD: goto not_implemented;
+        case TA_INDICES_CMD: goto not_implemented;
+        }
+        break;
     case TA_DOUBLE:
+        FILL_LOWS(double, dval);
+        switch ((enum flags_e)opt) {
+        case TA_COUNT_CMD: FILL_COUNTS(double, dval); break;
+        case TA_SUM_CMD: FILL_SUMS(double, dval, double); break;
+        case TA_VALUES_CMD: goto not_implemented;
+        case TA_INDICES_CMD: goto not_implemented;
+        }
         break;
     }
 
@@ -5432,6 +5479,9 @@ invalid_bin_interval:
     Tcl_SetResult(ip, "The binning parameters are invalid for the column type.", TCL_STATIC);
     goto error_return;
 
+not_implemented:
+    Tcl_SetResult(ip, "Not implemented", TCL_STATIC);
+    
 error_return:
     thdr_free(thdr);
     thdr_free(bins_thdr);
