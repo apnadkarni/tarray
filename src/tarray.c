@@ -5263,11 +5263,11 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
+TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
                            int objc, Tcl_Obj *const objv[])
 {
-    thdr_t *thdr = NULL, *bins_thdr = NULL, *lows_thdr = NULL;
-    int opt, nbins, first, count;
+    thdr_t *thdr = NULL, *buckets = NULL, *lows_thdr = NULL;
+    int opt, nbuckets, first, count;
     TCL_RESULT res;
     ta_value_t start, step, last;
     span_t *span;
@@ -5280,19 +5280,19 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_Obj *objs[2];
 
     if (objc != 6) {
-	Tcl_WrongNumArgs(ip, 1, objv, "count|sum|values|indices COL NBINS START STEP");
+	Tcl_WrongNumArgs(ip, 1, objv, "count|sum|values|indices COL NBUCKETS START STEP");
 	return TCL_ERROR;
     }
 
     thdr           = NULL;
-    bins_thdr      = NULL;
+    buckets      = NULL;
     lows_thdr = NULL;
 
-    /* Type of binning */
+    /* How to bucketize */
     CHECK_OK( ta_opt_from_obj(ip, objv[1], cmds, "command", 0, &opt) );
 
-    /* Number of bins - this ensures nbins >= 0 */
-    CHECK_OK( ta_get_count_from_obj(ip, objv[3], 0, &nbins) );
+    /* Number of buckets - this ensures nbuckets >= 0 */
+    CHECK_OK( ta_get_count_from_obj(ip, objv[3], 0, &nbuckets) );
 
     CHECK_OK( tcol_convert(ip, objv[2]) );
     span = OBJTHDRSPAN(objv[2]);
@@ -5301,10 +5301,10 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
     /*
      * Get the step and start values and ensure the covered
      * range does not overflow the type range.
-     * The lower limit of the highest bin is
-     * last = start + (nbins-1)*step. We have to ensure that
+     * The lower limit of the highest bucket is
+     * last = start + (nbuckets-1)*step. We have to ensure that
      * this does not overflow. Note it is ok for 
-     * this last bin to overflow (in which case it will be
+     * this last bucket to overflow (in which case it will be
      * less than "step" units wide)
      */
 
@@ -5314,10 +5314,10 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         CHECK_OK( ta_value_from_obj(ip, objv[5], TA_DOUBLE, &step) );
         if (step.dval <= 0)
             goto invalid_step;
-        TA_ASSERT(nbins > 0);
-        last.dval = start.dval + (nbins-1)*step.dval;
+        TA_ASSERT(nbuckets > 0);
+        last.dval = start.dval + (nbuckets-1)*step.dval;
         if (TA_ISINFINITE(last.dval))
-            goto invalid_bin_interval;
+            goto invalid_bucket_interval;
         break;
     case TA_BOOLEAN: /* BOOLEAN is actually handled at script level */
     case TA_ANY:
@@ -5328,28 +5328,28 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         CHECK_OK( ta_value_from_obj(ip, objv[5], TA_WIDE, &step) );
         if (step.wval <= 0)
             goto invalid_step;
-        if (ovf_mul_int64(step.wval, (nbins-1), &last.wval) ||
+        if (ovf_mul_int64(step.wval, (nbuckets-1), &last.wval) ||
             ovf_add_int64(last.wval, start.wval, &last.wval))
-            goto invalid_bin_interval;
+            goto invalid_bucket_interval;
 
         switch (thdr->type) {
         case TA_BYTE:
             if (start.wval < 0 || last.wval > UINT8_MAX)
-                goto invalid_bin_interval;
+                goto invalid_bucket_interval;
             start.ucval = (unsigned char) start.wval;
             step.ucval  = (unsigned char) step.wval;
             last.ucval  = (unsigned char) last.wval;
             break;
         case TA_INT:
             if (start.wval < INT32_MIN || last.wval > INT32_MAX)
-                goto invalid_bin_interval;
+                goto invalid_bucket_interval;
             start.ival = (unsigned char) start.wval;
             step.ival  = (unsigned char) step.wval;
             last.ival  = (unsigned char) last.wval;
             break;
         case TA_UINT:
             if (start.wval < 0 || last.wval > UINT32_MAX)
-                goto invalid_bin_interval;
+                goto invalid_bucket_interval;
             start.uival = (unsigned char) start.wval;
             step.uival  = (unsigned char) step.wval;
             last.uival  = (unsigned char) last.wval;
@@ -5364,7 +5364,7 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
     first = thdr_start_and_count(thdr, span, &count);
     
     /* lows_thdr holds lower limits of intervals */
-    lows_thdr = thdr_alloc(ip, thdr->type, nbins);
+    lows_thdr = thdr_alloc(ip, thdr->type, nbuckets);
     if (lows_thdr == NULL)
         goto error_return;
 
@@ -5373,77 +5373,77 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
         type_ *plows;                                   \
         int i;                                          \
         plows = THDRELEMPTR(lows_thdr, type_, 0);       \
-        for (i = 0; i < nbins; ++i)                     \
+        for (i = 0; i < nbuckets; ++i)                     \
             plows[i] = start.field_ + i*step.field_;    \
-        lows_thdr->used = nbins;                        \
+        lows_thdr->used = nbuckets;                        \
     } while (0)
 
 #define FILL_COUNTS(type_, field_)                                      \
     do {                                                                \
-        int i, bin_index;                                               \
+        int i, bucket_index;                                               \
         type_ *pdata;                                                   \
-        int *pbin;                                                      \
-        bins_thdr = thdr_alloc(ip, TA_INT, nbins);                      \
-        if (bins_thdr == NULL) goto error_return;                       \
-        bins_thdr->used = nbins;                                        \
-        thdr_clear(bins_thdr);                                          \
-        pbin = THDRELEMPTR(bins_thdr, int, 0);                          \
+        int *pbucket;                                                      \
+        buckets = thdr_alloc(ip, TA_INT, nbuckets);                      \
+        if (buckets == NULL) goto error_return;                       \
+        buckets->used = nbuckets;                                        \
+        thdr_clear(buckets);                                          \
+        pbucket = THDRELEMPTR(buckets, int, 0);                          \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bin_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bin_index < nbins);                               \
-            pbin[bin_index] += 1;                                       \
+            bucket_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bucket_index < nbuckets);                               \
+            pbucket[bucket_index] += 1;                                       \
         }                                                               \
     } while (0)
 
 #define FILL_SUMS(type_, field_, sum_type_)                 \
     do {                                                                \
-        int i, bin_index;                                               \
+        int i, bucket_index;                                               \
         type_ *pdata;                                                   \
-        sum_type_ *pbin;                                                \
-        bins_thdr = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbins); \
-        if (bins_thdr == NULL) goto error_return;                       \
-        bins_thdr->used = nbins;                                        \
-        thdr_clear(bins_thdr);                                          \
-        pbin = THDRELEMPTR(bins_thdr, sum_type_, 0);                    \
+        sum_type_ *pbucket;                                                \
+        buckets = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbuckets); \
+        if (buckets == NULL) goto error_return;                       \
+        buckets->used = nbuckets;                                        \
+        thdr_clear(buckets);                                          \
+        pbucket = THDRELEMPTR(buckets, sum_type_, 0);                    \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bin_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bin_index < nbins);                               \
-            pbin[bin_index] += pdata[i];                                \
+            bucket_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bucket_index < nbuckets);                               \
+            pbucket[bucket_index] += pdata[i];                                \
         }                                                               \
     } while (0)
 
 #define FILL_INDICES(type_, field_)                                     \
     do {                                                                \
-        int i, bin_index, initial_size;                                 \
+        int i, bucket_index, initial_size;                                 \
         type_ *pdata;                                                   \
-        Tcl_Obj **pbin;                                                 \
-        bins_thdr = thdr_alloc(ip, TA_ANY, nbins);                      \
-        if (bins_thdr == NULL) goto error_return;                       \
-        pbin = THDRELEMPTR(bins_thdr, Tcl_Obj *, 0);                    \
-        for (i = 0, initial_size=count/nbins; i < nbins; ++i) {         \
-            pbin[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size));   \
-            if (pbin[i] == NULL)                                        \
+        Tcl_Obj **pbucket;                                                 \
+        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                      \
+        if (buckets == NULL) goto error_return;                       \
+        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                    \
+        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {         \
+            pbucket[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size));   \
+            if (pbucket[i] == NULL)                                        \
                 goto error_return;                                      \
-            bins_thdr->used += 1;                                      \
+            buckets->used += 1;                                      \
         }                                                               \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bin_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bin_index < nbins);                               \
-            inner_thdr = OBJTHDR(pbin[bin_index]);                      \
-            if (tcol_make_modifiable(ip, pbin[bin_index], 1+inner_thdr->used, 0) \
+            bucket_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bucket_index < nbuckets);                               \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]);                      \
+            if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
                 goto error_return;                                      \
-            inner_thdr = OBJTHDR(pbin[bin_index]); /* Reload, might have changed */ \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]); /* Reload, might have changed */ \
             *THDRELEMPTR(inner_thdr, int, inner_thdr->used) = i;        \
             inner_thdr->used += 1;                                      \
         }                                                               \
@@ -5451,31 +5451,31 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
 
 #define FILL_VALUES(type_, field_)                                     \
     do {                                                                \
-        int i, bin_index, initial_size;                                 \
+        int i, bucket_index, initial_size;                                 \
         type_ *pdata;                                                   \
-        Tcl_Obj **pbin;                                                 \
-        bins_thdr = thdr_alloc(ip, TA_ANY, nbins);                      \
-        if (bins_thdr == NULL) goto error_return;                       \
-        pbin = THDRELEMPTR(bins_thdr, Tcl_Obj *, 0);                    \
-        for (i = 0, initial_size=count/nbins; i < nbins; ++i) {         \
-            pbin[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size));   \
-            if (pbin[i] == NULL)                                        \
+        Tcl_Obj **pbucket;                                                 \
+        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                      \
+        if (buckets == NULL) goto error_return;                       \
+        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                    \
+        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {         \
+            pbucket[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size));   \
+            if (pbucket[i] == NULL)                                        \
                 goto error_return;                                      \
-            bins_thdr->used += 1;                                      \
+            buckets->used += 1;                                      \
         }                                                               \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bin_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bin_index < nbins);                               \
-            inner_thdr = OBJTHDR(pbin[bin_index]);                      \
-            if (tcol_make_modifiable(ip, pbin[bin_index], 1+inner_thdr->used, 0) \
+            bucket_index = (pdata[i] - start.field_) / step.field_;        \
+            TA_ASSERT(bucket_index < nbuckets);                               \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]);                      \
+            if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
                 goto error_return;                                      \
-            inner_thdr = OBJTHDR(pbin[bin_index]); /* Reload, might have changed */ \
-            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = i;        \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]); /* Reload, might have changed */ \
+            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = pdata[i];        \
             inner_thdr->used += 1;                                      \
         }                                                               \
     } while (0)
@@ -5530,7 +5530,7 @@ TCL_RESULT tcol_bin_cmd(ClientData clientdata, Tcl_Interp *ip,
     }
 
     objs[0] = tcol_new(lows_thdr);
-    objs[1] = tcol_new(bins_thdr);
+    objs[1] = tcol_new(buckets);
     
     Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
     return TCL_OK;
@@ -5540,8 +5540,8 @@ invalid_step:
     Tcl_SetResult(ip, "The step value must be positive.", TCL_STATIC);
     goto error_return;
 
-invalid_bin_interval:
-    Tcl_SetResult(ip, "The binning parameters are invalid for the column type.", TCL_STATIC);
+invalid_bucket_interval:
+    Tcl_SetResult(ip, "The bucket parameters are invalid for the column type.", TCL_STATIC);
     goto error_return;
 
 not_implemented:
@@ -5549,7 +5549,7 @@ not_implemented:
     
 error_return:
     thdr_free(thdr);
-    thdr_free(bins_thdr);
+    thdr_free(buckets);
     thdr_free(lows_thdr);
     return TCL_ERROR;
 }
