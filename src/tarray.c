@@ -5319,11 +5319,10 @@ TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
         if (TA_ISINFINITE(last.dval))
             goto invalid_bucket_interval;
         break;
-    case TA_BOOLEAN: /* BOOLEAN is actually handled at script level */
-    case TA_ANY:
-    case TA_STRING:
-        return ta_invalid_op_for_type(ip, thdr->type);
-    default:
+    case TA_BYTE:
+    case TA_INT:
+    case TA_UINT:
+    case TA_WIDE:
         CHECK_OK( ta_value_from_obj(ip, objv[4], TA_WIDE, &start) );
         CHECK_OK( ta_value_from_obj(ip, objv[5], TA_WIDE, &step) );
         if (step.wval <= 0)
@@ -5359,6 +5358,12 @@ TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
             break;
         }
         break;
+    case TA_BOOLEAN:
+    case TA_ANY:
+    case TA_STRING:
+    default:
+        return ta_invalid_op_for_type(ip, thdr->type);
+
     }
 
     first = thdr_start_and_count(thdr, span, &count);
@@ -5373,73 +5378,74 @@ TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
         type_ *plows;                                   \
         int i;                                          \
         plows = THDRELEMPTR(lows_thdr, type_, 0);       \
-        for (i = 0; i < nbuckets; ++i)                     \
+        for (i = 0; i < nbuckets; ++i)                  \
             plows[i] = start.field_ + i*step.field_;    \
-        lows_thdr->used = nbuckets;                        \
+        lows_thdr->used = nbuckets;                     \
     } while (0)
 
 #define FILL_COUNTS(type_, field_)                                      \
     do {                                                                \
-        int i, bucket_index;                                               \
+        int i, bucket_index;                                            \
         type_ *pdata;                                                   \
-        int *pbucket;                                                      \
-        buckets = thdr_alloc(ip, TA_INT, nbuckets);                      \
-        if (buckets == NULL) goto error_return;                       \
-        buckets->used = nbuckets;                                        \
-        thdr_clear(buckets);                                          \
-        pbucket = THDRELEMPTR(buckets, int, 0);                          \
+        int *pbucket;                                                   \
+        buckets = thdr_alloc(ip, TA_INT, nbuckets);                     \
+        if (buckets == NULL) goto error_return;                         \
+        buckets->used = nbuckets;                                       \
+        thdr_clear(buckets);                                            \
+        pbucket = THDRELEMPTR(buckets, int, 0);                         \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bucket_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bucket_index < nbuckets);                               \
-            pbucket[bucket_index] += 1;                                       \
+            bucket_index = (pdata[i] - start.field_) / step.field_;     \
+            TA_ASSERT(bucket_index < nbuckets);                         \
+            pbucket[bucket_index] += 1;                                 \
         }                                                               \
     } while (0)
 
-#define FILL_SUMS(type_, field_, sum_type_)                 \
+#define FILL_SUMS(type_, field_, sum_type_)                             \
     do {                                                                \
-        int i, bucket_index;                                               \
+        int i, bucket_index;                                            \
         type_ *pdata;                                                   \
-        sum_type_ *pbucket;                                                \
+        sum_type_ *pbucket;                                             \
         buckets = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbuckets); \
-        if (buckets == NULL) goto error_return;                       \
-        buckets->used = nbuckets;                                        \
-        thdr_clear(buckets);                                          \
-        pbucket = THDRELEMPTR(buckets, sum_type_, 0);                    \
+        if (buckets == NULL) goto error_return;                         \
+        buckets->used = nbuckets;                                       \
+        thdr_clear(buckets);                                            \
+        pbucket = THDRELEMPTR(buckets, sum_type_, 0);                   \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bucket_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bucket_index < nbuckets);                               \
-            pbucket[bucket_index] += pdata[i];                                \
+            bucket_index = (pdata[i] - start.field_) / step.field_;     \
+            TA_ASSERT(bucket_index < nbuckets);                         \
+            /* TBD - overflow checks? */                                \
+            pbucket[bucket_index] += pdata[i];                          \
         }                                                               \
     } while (0)
 
 #define FILL_INDICES(type_, field_)                                     \
     do {                                                                \
-        int i, bucket_index, initial_size;                                 \
+        int i, bucket_index, initial_size;                              \
         type_ *pdata;                                                   \
-        Tcl_Obj **pbucket;                                                 \
-        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                      \
-        if (buckets == NULL) goto error_return;                       \
-        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                    \
-        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {         \
-            pbucket[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size));   \
-            if (pbucket[i] == NULL)                                        \
+        Tcl_Obj **pbucket;                                              \
+        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                     \
+        if (buckets == NULL) goto error_return;                         \
+        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                   \
+        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {   \
+            pbucket[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size)); \
+            if (pbucket[i] == NULL)                                     \
                 goto error_return;                                      \
-            buckets->used += 1;                                      \
+            buckets->used += 1;                                         \
         }                                                               \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bucket_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bucket_index < nbuckets);                               \
-            inner_thdr = OBJTHDR(pbucket[bucket_index]);                      \
+            bucket_index = (pdata[i] - start.field_) / step.field_;     \
+            TA_ASSERT(bucket_index < nbuckets);                         \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
                 goto error_return;                                      \
@@ -5449,33 +5455,33 @@ TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
         }                                                               \
     } while (0)
 
-#define FILL_VALUES(type_, field_)                                     \
+#define FILL_VALUES(type_, field_)                                      \
     do {                                                                \
-        int i, bucket_index, initial_size;                                 \
+        int i, bucket_index, initial_size;                              \
         type_ *pdata;                                                   \
-        Tcl_Obj **pbucket;                                                 \
-        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                      \
-        if (buckets == NULL) goto error_return;                       \
-        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                    \
-        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {         \
-            pbucket[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size));   \
-            if (pbucket[i] == NULL)                                        \
+        Tcl_Obj **pbucket;                                              \
+        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                     \
+        if (buckets == NULL) goto error_return;                         \
+        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                   \
+        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {   \
+            pbucket[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size)); \
+            if (pbucket[i] == NULL)                                     \
                 goto error_return;                                      \
-            buckets->used += 1;                                      \
+            buckets->used += 1;                                         \
         }                                                               \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
             if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
                 continue;                                               \
-            bucket_index = (pdata[i] - start.field_) / step.field_;        \
-            TA_ASSERT(bucket_index < nbuckets);                               \
-            inner_thdr = OBJTHDR(pbucket[bucket_index]);                      \
+            bucket_index = (pdata[i] - start.field_) / step.field_;     \
+            TA_ASSERT(bucket_index < nbuckets);                         \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
                 goto error_return;                                      \
             inner_thdr = OBJTHDR(pbucket[bucket_index]); /* Reload, might have changed */ \
-            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = pdata[i];        \
+            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = pdata[i]; \
             inner_thdr->used += 1;                                      \
         }                                                               \
     } while (0)
