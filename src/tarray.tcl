@@ -22,6 +22,41 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 
+proc tarray::column::bucketize {cmd col nbuckets args} {
+    if {[dict exists $args -min]} {
+        set min [dict get $args -min]
+    }
+    if {[dict exists $args -max]} {
+        set max [dict get $args -max]
+    }
+    if {![info exists min] || ![info exists max]} {
+        lassign [minmax $col] smallest largest
+        if {![info exists min]} {
+            set min $smallest
+        }
+        if {![info exists max]} {
+            set max $largest
+        }
+    }
+
+    if {$min > $max} {
+        error "Invalid bucket range $min-$max"
+    }
+    if {$nbuckets <= 0} {
+        error "Number of buckets must be greater than zero."
+    }
+
+    if {[type $col] eq "double"} {
+        # Take care to compute as doubles in case values passed in
+        # as integers
+        set step [expr {((double($max) - $min) / $nbuckets) + 1}]
+    } else {
+        set step [expr {(($max - $min) / $nbuckets) + 1}]
+    }
+    
+    return [_bucketize $cmd $col $nbuckets $min $step]
+}
+
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}
     set cols {}
@@ -632,6 +667,7 @@ namespace eval tarray {
         namespace ensemble create -map {
             bitmap0 bitmap0
             bitmap1 bitmap1
+            bucketize bucketize
             cast cast
             count count
             create create

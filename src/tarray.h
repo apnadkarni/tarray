@@ -647,7 +647,7 @@ Tcl_ObjCmdProc tcol_minmax_cmd;
 Tcl_ObjCmdProc tcol_lookup_cmd;
 Tcl_ObjCmdProc tcol_math_cmd;
 Tcl_ObjCmdProc tcol_fold_cmd;
-Tcl_ObjCmdProc tcol_bin_cmd;
+Tcl_ObjCmdProc tcol_bucketize_cmd;
 Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
 Tcl_ObjCmdProc ta_loop_cmd;
 Tcl_ObjCmdProc ta_loop_nr_cmd;
