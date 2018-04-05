@@ -22,7 +22,7 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 
-proc tarray::column::bucketize {cmd col nbuckets args} {
+proc tarray::column::_group_by_interval {col grouping nbuckets args} {
     if {[dict exists $args -min]} {
         set min [dict get $args -min]
     }
@@ -54,8 +54,73 @@ proc tarray::column::bucketize {cmd col nbuckets args} {
         set step [expr {(($max - $min) / $nbuckets) + 1}]
     }
     
-    return [_bucketize $cmd $col $nbuckets $min $step]
+    return [_intervalize $col $grouping $nbuckets $min $step]
 }
+
+proc tarray::column::group {col grouping how args} {
+
+    if {[tcl::prefix match {intervals using} $how] eq "intervals"} {
+        return [_group_by_interval $col $grouping {*}$args]
+    }
+
+    # $args is the command prefix to call
+    set buckets {}
+    tarray::loop i e $col {
+        switch -exact -- [catch { {*}$args $col $i $e } bucket ropts] {
+            0 {}
+            3 { break }
+            4 { continue }
+            default {
+                dict incr ropts -level
+                return -options $ropts $bucket
+            }
+        }
+        switch -exact -- $grouping {
+            count   { dict incr buckets $bucket }
+            indices { dict lappend buckets $bucket $i }
+            values  { dict lappend buckets $bucket $e }
+            sum     { 
+                if {![dict exists $buckets $bucket]} {
+                    dict set buckets $bucket 0
+                }
+                dict set buckets $bucket [expr {$buckets($bucket) + $e}]
+            }
+        }
+    }
+    
+    switch -exact -- $grouping {
+        count {
+            # Note [dict values] returns elements in same order as [dict keys]
+            set groups [create int [dict values $buckets]]
+        }
+        sum {
+            if {[column type $col] eq "double"} {
+                set groups [create double [dict values $buckets]]
+            } else {
+                set groups [create wide [dict values $buckets]]
+            }
+        }
+        indices {
+            set indices {}
+            foreach bucket [dict keys $buckets] {
+                lappend indices [create int [dict get $buckets $bucket]]
+            }
+            set groups [create any $indices]
+        }
+        values {
+            set values {}
+            foreach bucket [dict keys $buckets] {
+                lappend values [create any [dict get $buckets $bucket]]
+            }
+            set groups [create any $values]
+        }
+    }
+
+    return [list [create any [dict keys $buckets]] $groups]
+
+}
+
+
 
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}

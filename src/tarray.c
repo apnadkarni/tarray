@@ -5263,8 +5263,8 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
-                           int objc, Tcl_Obj *const objv[])
+TCL_RESULT tcol_intervalize_cmd(ClientData clientdata, Tcl_Interp *ip,
+                                int objc, Tcl_Obj *const objv[])
 {
     thdr_t *thdr = NULL, *buckets = NULL, *lows_thdr = NULL;
     int opt, nbuckets, first, count;
@@ -5277,26 +5277,28 @@ TCL_RESULT tcol_bucketize_cmd(ClientData clientdata, Tcl_Interp *ip,
     enum flags_e {
         TA_COUNT_CMD, TA_SUM_CMD, TA_VALUES_CMD, TA_INDICES_CMD
     };
+    Tcl_Obj *tcol;
     Tcl_Obj *objs[2];
 
     if (objc != 6) {
-	Tcl_WrongNumArgs(ip, 1, objv, "count|sum|values|indices COL NBUCKETS START STEP");
+	Tcl_WrongNumArgs(ip, 1, objv, "COL count|sum|values|indices NBUCKETS START STEP");
 	return TCL_ERROR;
     }
 
-    thdr           = NULL;
-    buckets      = NULL;
+    thdr      = NULL;
+    buckets   = NULL;
     lows_thdr = NULL;
 
     /* How to bucketize */
-    CHECK_OK( ta_opt_from_obj(ip, objv[1], cmds, "command", 0, &opt) );
+    CHECK_OK( ta_opt_from_obj(ip, objv[2], cmds, "command", 0, &opt) );
 
     /* Number of buckets - this ensures nbuckets >= 0 */
     CHECK_OK( ta_get_count_from_obj(ip, objv[3], 0, &nbuckets) );
 
-    CHECK_OK( tcol_convert(ip, objv[2]) );
-    span = OBJTHDRSPAN(objv[2]);
-    thdr = tcol_thdr(objv[2]);
+    tcol = objv[1];
+    CHECK_OK( tcol_convert(ip, tcol) );
+    span = OBJTHDRSPAN(tcol);
+    thdr = tcol_thdr(tcol);
 
     /*
      * Get the step and start values and ensure the covered
