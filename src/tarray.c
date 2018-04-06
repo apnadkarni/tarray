@@ -5263,7 +5263,7 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT tcol_intervalize_cmd(ClientData clientdata, Tcl_Interp *ip,
+TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                                 int objc, Tcl_Obj *const objv[])
 {
     thdr_t *thdr = NULL, *buckets = NULL, *lows_thdr = NULL;
