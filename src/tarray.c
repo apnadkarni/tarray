@@ -5383,6 +5383,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         for (i = 0; i < nbuckets; ++i)                  \
             plows[i] = start.field_ + i*step.field_;    \
         lows_thdr->used = nbuckets;                     \
+        lows_thdr->sort_order = THDR_SORTED_ASCENDING;  \
     } while (0)
 
 #define FILL_COUNTS(type_, field_)                                      \
