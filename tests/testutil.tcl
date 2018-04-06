@@ -832,6 +832,18 @@ if {![info exists tarray::test::known]} {
             }
             return $list
         }
+        
+        proc equal_bitmap_intcol {bitmap icol bitmap_size} {
+            if {[tarray::column size $bitmap] != $bitmap_size} {
+                return 0
+            }
+            #return [cequal [tarray::column search -all -eq $bitmap 1] $icol]
+            return [cequal \
+                        $bitmap \
+                        [tarray::column fill \
+                             [tarray::column bitmap0 $bitmap_size] \
+                             1 $icol]]
+        }
     }
 
     # Compare two sets (bags - dup elements are treated as different)
@@ -851,6 +863,7 @@ if {![info exists tarray::test::known]} {
         return 1
     }
 
+    
     # Checks that a random col is appropriate size and type.
     # optional args may be mid, lowerbound and upperbound of permitted values
     # mid is not really middle but some value that must have at least
