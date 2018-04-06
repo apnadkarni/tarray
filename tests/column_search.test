@@ -2354,7 +2354,7 @@ namespace eval tarray::test {
         tarray::column search -lt [newcolumn byte {
             28 180 75 75 128 30 128
         }] 256
-    } -returnCodes error -result "Value '256' not valid for type byte*" -match glob
+    } -returnCodes error -result "Value 256 does not fit in a unsigned 8-bit integer." -match glob
 
     test column_search-uint-lt-7.0 {
         Match UINT_MAX (verifying comparisons are unsigned)
@@ -2376,7 +2376,7 @@ namespace eval tarray::test {
         tarray::column search -lt [newcolumn uint {
             28 180 75 75 128 30 128 
         }] 0x100000000
-    } -returnCodes error -result "*'0x100000000' not valid for type uint*" -match glob
+    } -returnCodes error -result "Value 4294967296 does not fit in a unsigned 32-bit integer."
 
     test column_search-int-lt-7.0 {
         Match verifying comparisons are signed
@@ -2394,7 +2394,7 @@ namespace eval tarray::test {
         Match out of range value
     } -body {
         tarray::column search -lt -inline -all [newcolumn int {0 -1 2 -2147483648}] -549755813888
-    } -returnCodes error -result "Value '-549755813888' not valid for type int*" -match glob
+    } -returnCodes error -result "Value -549755813888 does not fit in a 32-bit integer." -match glob
 
     test column_search-wide-lt-7.0 {
         Match verifying comparisons are signed
@@ -2432,7 +2432,7 @@ namespace eval tarray::test {
         tarray::column search -gt [newcolumn byte {
             28 180 75 75 128 30 128
         }] 256
-    } -returnCodes error -result "Value '256' not valid for type byte*" -match glob
+    } -returnCodes error -result "Value 256 does not fit in a unsigned 8-bit integer." -match glob
 
     test column_search-uint-gt-7.0 {
         Match UINT_MAX (verifying comparisons are unsigned)
@@ -2454,7 +2454,7 @@ namespace eval tarray::test {
         tarray::column search -gt [newcolumn uint {
             28 180 75 75 128 30 128 
         }] 0x100000000
-    } -returnCodes error -result "*'0x100000000' not valid for type uint*" -match glob
+    } -returnCodes error -result "Value 4294967296 does not fit in a unsigned 32-bit integer." -match glob
 
     test column_search-int-gt-7.0 {
         Match verifying comparisons are signed
@@ -2472,7 +2472,7 @@ namespace eval tarray::test {
         Match out of range value
     } -body {
         tarray::column search -gt -inline -all [newcolumn int {0 -1 2 -2147483648}] -549755813888
-    } -returnCodes error -result "Value '-549755813888' not valid for type int*" -match glob
+    } -returnCodes error -result "Value -549755813888 does not fit in a 32-bit integer." -match glob
 
     test column_search-wide-gt-7.0 {
         Match verifying comparisons are signed
@@ -11666,7 +11666,7 @@ namespace eval tarray::test {
         tarray::column search -lt [newspancolumn byte {
             28 180 75 75 128 30 128
         }] 256
-    } -returnCodes error -result "Value '256' not valid for type byte*" -match glob
+    } -returnCodes error -result "Value 256 does not fit in a unsigned 8-bit integer." -match glob
 
     test column_search-span-uint-lt-7.0 {
         Match UINT_MAX (verifying comparisons are unsigned)
@@ -11688,7 +11688,7 @@ namespace eval tarray::test {
         tarray::column search -lt [newspancolumn uint {
             28 180 75 75 128 30 128 
         }] 0x100000000
-    } -returnCodes error -result "*'0x100000000' not valid for type uint*" -match glob
+    } -returnCodes error -result "Value 4294967296 does not fit in a unsigned 32-bit integer." -match glob
 
     test column_search-span-int-lt-7.0 {
         Match verifying comparisons are signed
@@ -11706,7 +11706,7 @@ namespace eval tarray::test {
         Match out of range value
     } -body {
         tarray::column search -lt -inline -all [newspancolumn int {0 -1 2 -2147483648}] -549755813888
-    } -returnCodes error -result "Value '-549755813888' not valid for type int*" -match glob
+    } -returnCodes error -result "Value -549755813888 does not fit in a 32-bit integer." -match glob
 
     test column_search-span-wide-lt-7.0 {
         Match verifying comparisons are signed
@@ -11744,7 +11744,7 @@ namespace eval tarray::test {
         tarray::column search -gt [newspancolumn byte {
             28 180 75 75 128 30 128
         }] 256
-    } -returnCodes error -result "Value '256' not valid for type byte*" -match glob
+    } -returnCodes error -result "Value 256 does not fit in a unsigned 8-bit integer." -match glob
 
     test column_search-span-uint-gt-7.0 {
         Match UINT_MAX (verifying comparisons are unsigned)
@@ -11766,7 +11766,7 @@ namespace eval tarray::test {
         tarray::column search -gt [newspancolumn uint {
             28 180 75 75 128 30 128 
         }] 0x100000000
-    } -returnCodes error -result "*'0x100000000' not valid for type uint*" -match glob
+    } -returnCodes error -result "Value 4294967296 does not fit in a unsigned 32-bit integer." -match glob
 
     test column_search-span-int-gt-7.0 {
         Match verifying comparisons are signed
@@ -11784,7 +11784,7 @@ namespace eval tarray::test {
         Match out of range value
     } -body {
         tarray::column search -gt -inline -all [newspancolumn int {0 -1 2 -2147483648}] -549755813888
-    } -returnCodes error -result "Value '-549755813888' not valid for type int*" -match glob
+    } -returnCodes error -result "Value -549755813888 does not fit in a 32-bit integer." -match glob
 
     test column_search-span-wide-gt-7.0 {
         Match verifying comparisons are signed
