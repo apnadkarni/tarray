@@ -20,7 +20,7 @@ text {
     
     * Added ((^` table_ctype "table ctype")) command.
     
-    * Added ((^` column_bucketize "column bucketize")) command.
+    * Added ((^` column_groupby "column groupby")) command.
     
     * Added ((^` column_equal "column equal")),
     ((^` column_identical "column identical")),
