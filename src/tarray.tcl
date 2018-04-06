@@ -22,7 +22,7 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 
-proc tarray::column::_group_by_interval {col grouping nbuckets args} {
+proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
     if {[dict exists $args -min]} {
         set min [dict get $args -min]
     }
@@ -42,31 +42,34 @@ proc tarray::column::_group_by_interval {col grouping nbuckets args} {
     if {$min > $max} {
         error "Invalid bucket range $min-$max"
     }
-    if {$nbuckets <= 0} {
+    if {$nintervals <= 0} {
         error "Number of buckets must be greater than zero."
     }
 
     if {[type $col] eq "double"} {
         # Take care to compute as doubles in case values passed in
         # as integers
-        set step [expr {((double($max) - $min) / $nbuckets) + 1}]
+        set step [expr {((double($max) - $min) / $nintervals) + 1}]
     } else {
-        set step [expr {(($max - $min) / $nbuckets) + 1}]
+        set step [expr {(($max - $min) / $nintervals) + 1}]
     }
     
-    return [_intervalize $col $grouping $nbuckets $min $step]
+    return [_equalintervals $col $compute $nintervals $min $step]
 }
 
-proc tarray::column::group {col grouping how args} {
+proc tarray::column::groupby {method compute col args} {
 
-    if {[tcl::prefix match {intervals using} $how] eq "intervals"} {
-        return [_group_by_interval $col $grouping {*}$args]
+    if {[tcl::prefix match {equalintervals command} $method] eq "equalintervals"} {
+        return [_group_by_equal_intervals $col $compute {*}$args]
     }
 
-    # $args is the command prefix to call
+    if {[llength $args] != 1} {
+        error "Wrong #args: should be \"column groupby command COMPUTE COLUMN CMDPREFIX.\""
+    }
+
     set buckets {}
     tarray::loop i e $col {
-        switch -exact -- [catch { {*}$args $col $i $e } bucket ropts] {
+        switch -exact -- [catch { {*}[lindex $args 0] $i $e } bucket ropts] {
             0 {}
             3 { break }
             4 { continue }
@@ -75,7 +78,7 @@ proc tarray::column::group {col grouping how args} {
                 return -options $ropts $bucket
             }
         }
-        switch -exact -- $grouping {
+        switch -exact -- $compute {
             count   { dict incr buckets $bucket }
             indices { dict lappend buckets $bucket $i }
             values  { dict lappend buckets $bucket $e }
@@ -88,13 +91,13 @@ proc tarray::column::group {col grouping how args} {
         }
     }
     
-    switch -exact -- $grouping {
+    switch -exact -- $compute {
         count {
             # Note [dict values] returns elements in same order as [dict keys]
             set groups [create int [dict values $buckets]]
         }
         sum {
-            if {[column type $col] eq "double"} {
+            if {[column type $col] in {double string any}} {
                 set groups [create double [dict values $buckets]]
             } else {
                 set groups [create wide [dict values $buckets]]
