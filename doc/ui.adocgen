@@ -16,7 +16,7 @@ text {
     ((^ chap_table_ref table)). It is written with a view to conserve
     memory when displaying tables with a large amount of data. 
 
-    * The ((^ ui_rbc_chart tarray::ui::rbc::chart)) widget plots table data
+    * The ((^ ui_rbcchart tarray::ui::rbcchart)) widget plots table data
     as types of graphs using the RBC Tk extension.
 
     * The ((^ ui_csvreader tarray::ui::csvreader)) widget reads CSV
@@ -65,32 +65,18 @@ text {
     like filtered views, visual keying of cells, tooltips
     and automatic scrollbars.
     
-    The following call displays
-    the contents of a variable `cities` containing a
-    ((^ chap_table_ref table)) of geographical data.
-} syntax {
-    tarray::ui::tableview .top $cities -showfilter 1
-    pack .cities -fill both -expand
-} text {
-    The corresponding table, sorted by name and filtered
-    to only list cities in the eastern hemisphere having a population
-    of more than a million, is shown below.
-
-    .A tableview window
-    image::cities1.png[Tableview example]
 }
 
 text {
-    ==== The chart widget
+    ==== The rbcchart widget
 
-    The ((^ ui_rbc_chart chart)) widget wraps the
+    The ((^ ui_rbcchart rbcchart)) widget wraps the
     RBC Tk extension which implements a graphing widget capable of
     plotting several different types of graphs.
     The chart widget simplifies plotting of table
     columns while maintaining the full capabilities and customization
-    of the underlying RBC widgets. A sample screenshot is shown below.
+    of the underlying RBC widgets.
 
-    image::rain.png[RBC chart example]
 }
 
 text {
@@ -99,10 +85,7 @@ text {
     The ((^ ui_csvreader csvreader)) widget provides a means of reading CSV data from
     a file or channel into a ((^ chap_table_ref table)). It provides
     for interactive selection of CSV format options, table
-    headings and column types. An sample screenshot is shown below.
-
-    image::csvreader.png[Csvreader example]
-} text {
+    headings and column types.
     An application can use the `read` method of the widget to read the
     CSV data into a table.
 }
@@ -191,7 +174,123 @@ text {
 }
     
 text {
-    ((cmddef ui_rbc_chart "rbc_chart _WIDGET_ _DATASOURCE_ ?_OPTIONS_?"))
+    ((cmddef ui_rbcchart "rbcchart _WIDGET_ _TABLE_ ?_OPTIONS_?"))
+
+    The `rbcchart` widget is a wrapper around the `barchart`
+    and `graph` widgets from the RBC package that simplifies the
+    plotting of data in tables.
+
+    [IMPORTANT]
+    At the time of writing (May 2018), the
+    https://sourceforge.net/projects/rbctoolkit/[original] RBC
+    package suffers from some crashes on 64-bit Windows. It is
+    recommended that you use
+    https://github.com/apnadkarni/rbctoolkit[this fork] which fixes
+    these crashes. It also exposes C interfaces that greatly speed up
+    plotting of tables.
+    
+    This document describes the basic operations of the widget and
+    specifics related to display of table data. For details about the
+    myriad options related to the RBC widget itself, refer to the RBC
+    documentation.
+
+    The RBC `barchart` and `graph` widgets are very similar to each
+    other in that they both plot two-dimensional (X,Y) data with the
+    only difference being the `barchart` widget displays the data as
+    bar chart (no surprise!) whereas the `graph` widget draws line
+    plots. Both support display of multiple plots and the same set of
+    options and features like colors, legends, zooming and
+    so forth. In fact, either widget can display the other type of
+    plot and the `tarray_ui::rbcchart` makes use of this to provide
+    a common wrapper that can plot bar charts and graphs within the
+    same widget.
+
+    The widget is created by passing it the table whose column(s) are
+    to be plotted in the widget.
+    The example below creates a widget used for plotting temperature
+    and rainfall over a year.
+} script {
+    set rain [tarray::samples::get rainfall]
+    tarray::ui::rbcchart .chart $rain -title "Rainfall and Temperature by Month"
+} text {
+    With the exception of the option `-xcolumn`, all options,
+    including the `-title` option used above, are
+    passed through to the RBC chart widgets and are not described here.
+    Refer to the RBC documentation for details.
+
+    The `-xcolumn` option specifies the default table column name
+    to be used for the X-axis if one is not specified in the widget's
+    `line` and `barchart` commands that are used for plotting.
+    If this option is not specified, the first column of the table
+    will be used as the default. In our example above, the first
+    column is `Month` and will be used for the X-axis.
+
+    Once the widget is created, plots may be added to it using either
+    the `line` widget method for plotting line plots or `bar` for bar
+    charts.
+} syntax {
+    _WIDGET_ line create _PLOTNAME_ ?_OPTIONS_?
+    _WIDGET_ bar create _PLOTNAME_ ?_OPTIONS_?
+} text {
+    The command below creates a line plot named `Temperature`.
+} script {
+    .chart line create Temperature -pixels .02i
+} text {
+    All options, like `-pixels` above, are passed through to RBC with
+    the exception of the options `-xcolumn` and `-ycolumn`.
+
+    The `-xcolumn` option specifies the column whose data is to be used
+    as the X-values for the plot. If unspecified, the `-xcolumn`
+    option specified at widget creation time, or the first column if
+    that was not specified either, is used.
+
+    The `-ycolumn` option specifies the column to be used for the
+    Y-values of the plot. If unspecified, the Y-values are taken from
+    the column with the same name as the plot name, `Temperature` in
+    the example above.
+
+    Note that the columns need not be sorted beforehand. The widget
+    will sort in order of X-values appropriately.
+
+    **One point to be noted is the widget keeps the full functionality
+    of the underlying RBC widget.** In particular, you can use the RBC
+    `-xdata` and `-ydata` options instead of `-xcolumn` and
+    `-ycolumn`. In that case, the corresponding values for the created
+    plot are taken from the option values and not from the table. Thus
+    data from the table and data stored elsewhere can be displayed on
+    the same plot.
+
+    To define a Y-axis for the data, which is desired in most cases,
+    the `axis` widget method is used.
+} syntax {
+    _WIDGET_ axis configure _AXISNAME_ ?_OPTIONS_?
+} text {
+    Again, only an example is shown below, with details being punted
+    to the RBC documentation.
+} script {
+    .chart axis configure Temperature -loose 1 -title "Temp (\u00b0C)"
+} text {
+    The `bar` method works in identical fashion as illustrated
+    below with the difference being the choice of color and axis
+    location.
+} uiscript {
+    .chart bar create Rainfall -fg green -yaxisloc y2axis
+    .chart axis configure Rainfall -title "Rainfall (mm)"
+    pack .chart
+} text {
+    The created chart is shown below.
+
+    .RBC chart example
+    image::rain.png[RBC chart example]
+} text {
+
+    In summary, the `rbcchart` widget exposes the full functionality
+    of the RBC widgets which do all the heavy lifting. The value it
+    adds is simplification of chart construction by automating loading
+    of data stored in tables, defaulting of axis configuration,
+    sorting of data and some conveniences like non-numeric axis (like
+    the `Month` X-axis above) that you would otherwise have to program
+    yourself.
 }
 
 text {
@@ -536,6 +635,22 @@ text {
     An application can invoke this from a menu or toolbar control to
     reset all configured filters. This is more convenient for the user
     than having to manually clear all configured filters.
+}
+
+text {
+    The following call displays
+    the contents of a variable `cities` containing a
+    ((^ chap_table_ref table)) of geographical data.
+} syntax {
+    tarray::ui::tableview .cities $cities -showfilter 1
+    pack .cities -fill both -expand
+} text {
+    The corresponding table, sorted by name and filtered
+    to only list cities in the eastern hemisphere having a population
+    of more than a million, is shown below.
+
+    .A tableview window
+    image::cities1.png[Tableview example]
 }
 
 text {
