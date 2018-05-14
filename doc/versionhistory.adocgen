@@ -7,8 +7,17 @@ text {
 }
 
 text {
+    [discrete]
     == Changes since V0.8.1
 
+    [discrete]
+    === tarray_ui package
+
+    * Added ((^` ui_rbcchart "rbcchart")) widget.
+
+    [discrete]
+    === tarray package
+    
     * Added ((^` table_join "table join")) command.
 
     * Added ((^` table_sort "table sort")) command.
@@ -52,4 +61,5 @@ text {
 
     * Added the `-bitmap` option to the ((^` column_search "column search"))
     command.
+
 }
