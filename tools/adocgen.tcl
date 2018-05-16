@@ -1247,7 +1247,18 @@ proc docgen::expander_init {} {
                     append adoc "\[\[$id, $text\]\]\n$level $text$indexterms"
                 }
             }
-            return $adoc
+
+            if {[regexp {={2,}} $level] &&
+                [string match -nocase *html* [backend]]} {
+                switch -exact -- $level {
+                    == {set css_class ta_toplink_h2}
+                    === {set css_class ta_toplink_h3}
+                    default { set css_class ta_toplink }
+                }
+                return "pass:\[<a class='$css_class' href='#top'>Top&nbsp;&uarr;</a>\]\n$adoc"
+            } else {
+                return $adoc
+            }
         }
 
         interp alias {} . {} header .

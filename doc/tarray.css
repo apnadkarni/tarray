@@ -23,6 +23,26 @@ a {
     color: inherit;
 }
 
+/* 
+ * CSS for the Top of Page links to the right of section headers
+ * Different heading levels need different padding for alignment
+*/
+.ta_toplink_h2 {
+    float: right;
+    font-size: small;
+    padding-top: 5em;
+}
+.ta_toplink_h3 {
+    float: right;
+    font-size: small;
+    padding-top: 1em;
+}
+.ta_toplink {
+    float: right;
+    font-size: small;
+    padding-top: 0.5em;
+}
+
 .ui, .menuseq, .menu {font-family:sans-serif}
 .literalblock pre,.listingblock pre:not(.highlight),.listingblock pre[class="highlight"],.listingblock pre[class^="highlight "],.listingblock pre.CodeRay,.listingblock pre.prettyprint{font-size:small;line-height:1.3}
 
