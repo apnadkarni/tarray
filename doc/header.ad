@@ -10,6 +10,7 @@ endif::bookbuild[]
 :imagesdir: ./images
 :experimental:
 :linkcss:
+:stylesheet: tarray.css
 
 ++++
 <style type="text/css" media="all">
