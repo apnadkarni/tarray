@@ -11,10 +11,10 @@
 # # ## ### ##### ######## ############# #####################
 ## Requirements
 
-package require Tcl 8.4
+package require Tcl 8.6
 package require critcl
 # @sak notprovided xtal
-package provide    xtal 0.8.1
+package provide    xtal 0.9.0
 
 # Note: The implementation of the PARAM virtual machine
 #       underlying the C/PARAM code used below is inlined
