@@ -433,6 +433,7 @@ text {
 } shell {
     set col [column create int {-10 10 0 20 0 -5 5}]
     column search $col 0
+    column search $col 21;      # Not found
 } text {
     The above command returns the index of
     the first element that is 0 using the default matching
@@ -450,23 +451,27 @@ text {
     column search -all -gt $col 0
 } text {
     returns an `int` column containging the indices of all positive elements.
-    Alternatively, the `-bitmap` option may be specified to
-    have the matches returned as a boolean column with bits at the matching
-    indices set to 1. This is useful when the results are further used
-    in logical operation.
+    This is often useful to extract corresponding elements from
+    another column.
 } shell {
-    set large [column search -bitmap -gt $col 5]
-    set small [column search -bitmap -lt $col -5]
-    column get $col [column || $large $small]
+    column get $months [column search -all -gt $rainfall 100]
 } text {
-    Notice the boolean combination above.
-
+    
+    When results are further used in logical operations, it is
+    useful to specify the `-bitmap` option. This causes the results to
+    be returned as a boolean vector where the matching indices are set
+    to 1.
+} shell {
+    set not_wet [column search -bitmap -lt $rainfall 150]; # The `-bitmap` option implies `-all`
+    set not_dry [column search -bitmap -gt $rainfall 50]
+    set moderate_months [column get $months [column && $not_wet $not_dry]]
+} text {
     [TIP]
     ====
     Queries like this are easier to do using ((^ chap_xtal_lang Xtal))
     expressions.
 } shell {
-    xtal::xtal { col[col < -5 || col > 5] }
+    xtal::xtal { months[rainfall > 50 && rainfall < 150] }
 } text {
     ====
 
@@ -481,16 +486,16 @@ text {
     matching as in Tcl's `string match -nocase`.
 
     The search can be restricted to only look at specific elements using a
-    combination of `-range` and `-among` options.
+    combination of `-range` and `-among` options. For example, find
+    all summer months with limited rainfall.
 } shell {
-    column search -range {3 5} $col 0
+    column get $months [column search -all -range {4 7} -lt $rainfall 150]
 } text {
-    limits the search to position between 3 and 5.
+    Similarly, using the `-among` option, only search the specified elements.
 } shell {
-    column search -among {4 1 2} $col 0
+    column get $months [column search -all -among {4 5 6 7} -lt $rainfall 150]
 } text {
-    only examines the elements at positions `4`, `1`, and `2` _in that
-    order_. The option `-among` is particularly useful in combining
+    The option `-among` is particularly useful in combining
     multiple searches where it can be used to constrain each search to
     the results of the prior search. We will see an example of this later.
 
@@ -500,39 +505,57 @@ text {
 
     [TIP]
     The ((^` column_intersect3 "column intersect3"))
-    command offers another way to search across
+    command offers another way to combine searches across
     multiple columns as described ((^ sect_guide_other later)).
 }
 
 text {
     ((=== * "Ordering elements"))
 
+    Several commands offer rearranging of the elements in a column.
+
     ((==== * "Sorting"))
 
-    Columns can be sorted using the column sort command or its
-    variable targeting analogue column vsort. The commands take the
+    The most common rearrangement operation is sorting. Columns are sorted
+    using ((^` column_sort "column sort")) command or its
+    variable targeting analogue
+    ((^` column_vsort "column vsort")). The commands take the
     `-increasing` and `-decreasing` options to determine the sort order.
 } shell {
-    column sort $col;   # Default order is `-increasing`
-    column sort -decreasing $col
+    column sort $rainfall;   # Default order is `-increasing`
+    column sort -decreasing $rainfall
 } text {
+    The `-indices` option will return indices instead of the sorted
+    values themselves. So to print months in order of increasing rainfall
+} shell {
+    column get -list $months [column sort -indices $rainfall]
+} text {
+    
     The command also supports the option `-indirect` where the operand
     is a column whose values are indices into the column whose values
-    are to be sorted. The use of this option is illustrated later
+    are to be sorted. 
+} shell {
+    set rain_indices [column series 12]
+    column sort -indirect $rainfall $rain_indices
+} text {
+    Notice the `rain_indices` column is sorted in order of
+    the corresponding values in the `rainfall` column. In this
+    illustrative example, the indices are ordered before sorting but
+    that does not have to be the case.
+
+    One example of how this option is useful is illustrated later
     when we discuss ((^ sect_guide_sort_stability "sort stability")).
 }
-
-
 
 text { 
     ((==== * "Reversing"))
 
-    Another form of reordering data is reversing the order of elements.
-    Both columns and tables support `reverse` and `vreverse` commands which
-    reverse the order of elements, an operation that is useful in many
-    algorithms.
+    A simple reordering transform is reversing the order of elements.
+    The ((^` column_reverse "column reverse")) and
+    ((^` column_vreverse "column vreverse")) commands can be used for
+    this purpose.
 } shell {
-    column reverse $col
+    column reverse $months
 }
 
 text {
@@ -541,12 +564,20 @@ text {
     The ((^` column_shuffle "column shuffle")) command returns the elements of a column
     in random order.
 } shell {
-    column shuffle $col
-    column shuffle $col
+    set I [column series 9]
+    column shuffle $I
+    column shuffle $I
 }
 
 text {
     ((=== * "Arithmetic and logical operations"))
+
+    Arithmetic and logical operations fall into two categories:
+
+    * Operations **between** columns, including potentially with
+    scalars
+
+    * Operations on all elements of a single column
 
     ((==== * "Operations between columns"))
 
@@ -598,73 +629,40 @@ text {
     and will work for other types as well.
 
     You can use the `-indices` option to get the indices of the minimum and
-    maximum values instead of the values themselves. An example where
-    this is useful is to retrieve rows of a table.
+    maximum values instead of the values themselves.
 } shell {
-
-    set indices [column minmax -indices $J]
-    column get -list $J $indices
+    column minmax -indices $J
 }
 
 text {
     ((=== * "Counting elements"))
 
-    The ((^` column_size "column size")) and
-    The ((^` table_size "table size"))
-    commands return the number of elements in a
-    column or table.
-} tbd {
-    table size $populations
+    The ((^` column_size "column size")) returns the number of
+    elements in a column.
+} shell {
+    column size $rainfall
 } text {
     If you are only interested in the count for elements that match
     specific criteria, you can use the 
     ((^` column_count "column count")) command instead. Thus
-} tbd {
-    column count -gt [table column $populations population] 1000000000
+} shell {
+    column count -gt $rainfall 150
 } text {
-    returns the number of countries with more than a billion people. 
+    returns the number of months with heavy rainfall.
 
     [TIP]
     Just as for searches, for more complex criteria, it is more
     convenient to use an ((^ chap_xtal_lang "Xtal")) query instead.
 }
 
-text {
-    ((=== * "Formatting"))
-    
-    The Tcl `puts` command is not always suitable for printing
-    the value of a column or table for several reasons. The output
-    is not formatted and hence difficult to read. The `print` command
-    provides a alternative that outputs a more readable format.
-} tbd {
-    print [table column $countries population] -head 1 -tail 1
-    print $countries
-} text {
-    By default the command only prints the first few and last few
-    elements although this can be controlled by various options.
-
-    The `prettify` command is another alternative which
-    returns the formatted string instead of printing it to a channel.
-} text {
-    Another command that helps with formatting data is the
-    ((^` column_width "column width")) command. This returns the
-    maximum number of characters required to display elements
-    of the column in a given format.
-} shell {
-    set col [column create int {-1000 10 100}]
-    column width $col;          # Use default format string
-    column width $col "hex representation is %x"; # Specify the format string
-} tbd {
-    column width
-}
 
 text {
-    ((=== * "Introspection"))
+    ((=== * "Introspecting columns"))
 
-    .Column introspection
     The type of a column can be retrieved with the `column type` command.
-} tbd {
-    column type [table column $countries population]
+} shell {
+    column type $months
+    column type $rainfall
 }
 
 text {
@@ -693,52 +691,8 @@ text {
     desired.
 } tbd {
     lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
-} text {
-    ((=== * "Random numbers"))
-
-    We saw earlier the construction of columns containing randomly generated
-    values. Random numbers can also be directly generated using the
-    `tarray::rng` command. This returns a command object which can then
-    be invoked to generate values of the appropriate type.
-} shell {
-    rng create myrng int;       # Create a random number generator for integers
-    myrng get;                  # Gets a random integer
-    myrng get 5;                    # Get 5 random integers
-    myrng destroy;              # Release resources when no longer needed
-} text {
-    The `rng new` command behaves similarly except a command name need
-    not be specified. Moreover, both forms take an optional argument
-    to generate random numbers within a specified range.
-} shell {
-    set r [rng new double 1.0 2.0]; # Generate real numbers between 1.0 and 2.0
-    $r get 3
-    $r destroy
-} text {
-    For testing purposes, the generator can be initialized with a specific
-    seed to reproduce the same sequence everytime.
-} shell {
-    rng create myrng byte 10 20
-    myrng seed 1000 2000;         # Any 64-bit seed values
-    myrng get 5
-    myrng get 5
-    myrng seed 1000 2000;         # Reset seeds
-    myrng get 5
-    myrng get 5
-    myrng destroy
-} text {
-    As seen, the same sequence is reproduced by initializing the seed
-    with specific values.
-} text {
-    A related command ((^` column_shuffle "column shuffle")) rearranges
-    the elements of a column in random order.
-} shell {
-    set col [column create double {1 2 3 4 5}]
-    column shuffle $col
-    column shuffle $col
-} text {
-    A variation of the command, ((^` column_vshuffle "column vshuffle"))
-    operates on a variable.
 }
+
 
 text {
     ((== sect_guide_tab_opers "Operating on tables"))
@@ -831,7 +785,7 @@ text {
     ((^` table_inject "table inject")) and
     ((^` table_vinject "table vinject")), insert
     multiple values or rows (passed as a list or a typed array).
-} shell {
+} tbd {
     column insert $col 3.0 2 10
     column inject $col {1.0 2.0 3.0} 2
     column inject $col $col 2
@@ -863,7 +817,7 @@ text {
     ((^` table_inject "table inject")) and
     ((^` table_vinject "table vinject")), insert
     multiple values or rows (passed as a list or a typed array).
-} shell {
+} tbd {
     column insert $col 3.0 2 10
     column inject $col {1.0 2.0 3.0} 2
     column inject $col $col 2
@@ -1043,6 +997,10 @@ tbd {
     print [column reverse [table column $tab name]]
 }
 
+tbd {
+    table size
+}
+
 text {
     ((=== * "Introspection"))
 
@@ -1056,6 +1014,72 @@ text {
     used with `table create`.
 } shell {
     table definition $countries
+}
+
+tbd {
+    ((== * "Formatting output"))
+    
+    The Tcl `puts` command is not always suitable for printing
+    the values for several reasons. The output
+    is not formatted and hence difficult to read. The `print` command
+    provides a alternative that outputs a more readable format.
+} tbd {
+    print [table column $countries population] -head 1 -tail 1
+    print $countries
+} text {
+    By default the command only prints the first few and last few
+    elements although this can be controlled by various options.
+
+    The `prettify` command is another alternative which
+    returns the formatted string instead of printing it to a channel.
+} text {
+    Another command that helps with formatting data is the
+    ((^` column_width "column width")) command. This returns the
+    maximum number of characters required to display elements
+    of the column in a given format.
+} shell {
+    set col [column create int {-1000 10 100}]
+    column width $col;          # Use default format string
+    column width $col "hex representation is %x"; # Specify the format string
+} tbd {
+    column width
+}
+
+text {
+    ((== * "Random numbers"))
+
+    We saw earlier the construction of columns containing randomly generated
+    values. Random numbers can also be directly generated using the
+    `tarray::rng` command. This returns a command object which can then
+    be invoked to generate values of the appropriate type.
+} shell {
+    rng create myrng int;       # Create a random number generator for integers
+    myrng get;                  # Gets a random integer
+    myrng get 5;                    # Get 5 random integers
+    myrng destroy;              # Release resources when no longer needed
+} text {
+    The `rng new` command behaves similarly except a command name need
+    not be specified. Moreover, both forms take an optional argument
+    to generate random numbers within a specified range.
+} shell {
+    set r [rng new double 1.0 2.0]; # Generate real numbers between 1.0 and 2.0
+    $r get 3
+    $r destroy
+} text {
+    For testing purposes, the generator can be initialized with a specific
+    seed to reproduce the same sequence everytime.
+} shell {
+    rng create myrng byte 10 20
+    myrng seed 1000 2000;         # Any 64-bit seed values
+    myrng get 5
+    myrng get 5
+    myrng seed 1000 2000;         # Reset seeds
+    myrng get 5
+    myrng get 5
+    myrng destroy
+} text {
+    As seen, the same sequence is reproduced by initializing the seed
+    with specific values.
 }
 
 text {
@@ -1080,11 +1104,11 @@ text {
     result in a copy being made, which can be expensive if the
     array is large.  So, to modify a variable that contains a
     typed array, the command
-} shell {
+} tbd {
     column vput col [list 1.0 2.0]
 } text {
     is far more efficient than
-} shell {
+} tbd {
     set col [column put $col [list 1.0 2.0]]
 } text {
     assuming the value in is not itself shared. This is similar to use of Tcl's
