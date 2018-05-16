@@ -1,4 +1,4 @@
-All elements in a typed column must be of the type specified when the column is
+All elements in a column must be of the type specified when the column is
 created. The following element types are available:
 
 .Table Column types

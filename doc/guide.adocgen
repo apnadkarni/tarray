@@ -9,44 +9,38 @@ text {
 text {
 
     This document is a programmer's guide for installing and using the `tarray`
-    extension from Tcl. It does not list or detail every command implemented
-    by the extension. See the command reference pages accessible from the
-    link:index.html[Main Table of Contents] for that information.
+    extension which implements two data types -- ((^ chap_column_ref _columns_))
+    and ((^ chap_table_ref _tables_)). It does not list or detail
+    every option or command implemented by the extension. See the command
+    reference pages accessible from the 
+    link:index.html[Main Table of Contents] for that information. Also see
+    link:introduction.html[Introduction] for an overview of all the
+    package components and documentation.
 
     [IMPORTANT]
-    Typed array can also be manipulated using Xtal, a language embeddable
-    in Tcl that is geared towards typed arrays and vector operations.
-    However, Xtal is for the most part not described in this guide.
-    See ((^ chap_xtal_lang)) for details on its use.
+    Typed arrays can also be manipulated using Xtal, a language embeddable
+    in Tcl that is geared towards operating on typed arrays with a more
+    succint syntax. However, Xtal is for the most part not described
+    in this guide. See ((^ chap_xtal_lang)) for details on its use.
 }
 
 text {
-    == Introduction
     
-    The extension implements two data types - ((^ chap_column_ref _columns_))
-    and ((^ chap_table_ref _tables_)). The general term _typed array_ is used
-    to refer to either of these. A typed column is an array containing elements
-    of a single ((^ sect_guide_types _type_))
-    that is specified when the column is created. The command
-    ((^ chap_column_ref tarray::column))
-    can be used to create and manipulate typed columns.
+    == Motivation
 
-    A typed table is an ordered sequence of named columns of equal
-    size. It can be also be viewed as an array of records where the
-    record fields happen to use column-wise storage. The corresponding
-    ((^ chap_table_ref tarray::table)) command operates on typed
-    tables. Columns in a table can be referenced using either their
-    name or their position in the ordered sequence.
+    Although Tcl provides for collections in the form of lists
+    these have limitations when dealing with large
+    amounts of data. These limitations, both in memory usage as well
+    as performance, are a result of how values are internally stored in 
+    Tcl. The `tarray` extension implements collections as native data
+    types with parallelized operations resulting in orders of
+    magnitude improvement in these performance 
+    metrics when operating on numeric data (although with only marginal
+    benefits for strings).
 
-    The extension places its commands in the `tarray` namespace.
-    The primary commands implemented by the extension
-    are ((^ chap_column_ref column)) and
-    ((^ chap_table_ref table)), each being
-    an ensemble of subcommands that operate on columns and
-    table respectively.
-
-    Other commands provide functionality like iteration and formatting
-    that are independent of the data type.
+    In addition to performance, the extension also offers more
+    convenience in terms of more flexible indexing as well as a wider and
+    more powerful set of operations on collections.
 }
 
 text {
@@ -54,14 +48,26 @@ text {
 
     include::download.ad[]
     
-    The examples in this guide assume the commands have
-    been imported into the calling namespace, as shown below,
-    or are in its namespace path.
-
 } shell {
     package require tarray
-    namespace import tarray::column tarray::table tarray::print tarray::randseed tarray::rng
 } text {
+    The extension places its commands in the `tarray` namespace.
+    The primary commands implemented by the extension
+    are ((^` chap_column_ref column)) and
+    ((^` chap_table_ref table)), each being
+    an ensemble of subcommands that operate on columns and
+    table respectively.
+
+    Other commands provide functionality like iteration and formatting
+    that are independent of the data type.
+
+    The examples in this guide assume the commands have
+    been imported into the calling namespace
+    or are included in its namespace path as shown below.
+} shell {
+    namespace path tarray
+} text {    
+    
     If in addition you want to use the Xtal language, you need to
     load its package as well.
 } shell {
@@ -70,101 +76,40 @@ text {
 }
 
 text {
-    ((== sect_guide_types Types))
+    ((== sect_guide_concepts Concepts))
+
+    === Columns
+
+    A _column_ is an ordered sequence of values of a single
+    ((^ sect_guide_types _type_))
+    that is specified when the column is created. The command
+    ((^` chap_column_ref tarray::column))
+    can be used to create and manipulate typed columns.
+
+    === Tables
+    
+    A _table_ is an ordered sequence of named columns of equal
+    size. It can be also be viewed as an array of records where the
+    record fields happen to use column-wise storage. The corresponding
+    ((^` chap_table_ref tarray::table)) command operates on
+    tables. Columns in a table can be referenced using either their
+    name or their position in the ordered sequence.
+
+}
+
+text {
+    ((=== sect_guide_types Types))
 
     include::types.ad[]
+}
 
-    ((== sect_guide_indices Indices))
+text {
+    ((=== sect_guide_indices Indices))
 
     include::indices.ad[]
 
-}
-
-text {
-    == Creating columns and tables
-
-    The `create` subcommand creates columns and tables.
-} shell {
-    column create int
-} text {
-    will create a typed column that can hold element of the int type. 
-    Note that the command returns a _value_ that would normally be assigned
-    to a variable.
-
-    The column can be initialized at creation time.
-} shell {
-    column create int {0 1 2 3}
-} text {
-    creates a column and initializes the first four elements.
-
-    [WARNING]
-    Applications should not depend on the string representation of a column
-    or table as that is liable to change. Use only the `tarray` package
-    commands to create and manipulated typed arrays.
-
-    The array will be grown as needed but as an optimization, preallocation
-    may be requested.
-} shell {
-    column create int {0 1 2 3} 1000
-} text {
-    will request a preallocation of a thousand elements with the first
-    four being initialized.
-
-    Columns containing equally spaced values can be created
-    with the `column series` command.
-} shell {
-    column series 10;           # 0 (default) to 10 with step 1 (default)
-    column series 5 -5 -2;      # Decreasing from 5 to -5 with step -2
-    column series 10.0;         # Series of doubles instead of integer
-} text {
-    Numeric and boolean columns containing random values can be created
-    with `column random`.
-} shell {
-    column random boolean 10;   # Array of 10 randomly generated booleans
-    column random int 5 -10 10; # Array of 5 random integers in a range
-} text {
-    For some uses, such as testing, it is useful to be able to generate
-    the same sequence of random numbers on every run. The `randseed`
-    command can be used to set or reset the initial seeds used for
-    random number generation.
-} shell1 {
-    randseed 100 200;           # Set the initial seeds for random number generation
-    column random byte 10
-    column random byte 10
-    randseed 100 200;           # Set the *same* seeds again
-    column random byte 10;      # Notice same values generated
-    randseed;                   # Reset to use random initial seeds
-    column random byte 10;      # Now again non-deterministic values are generated
-}
-
-text {
-    
-    Tables can be created and initialized in analogous
-    fashion by passing arguments defining the table and optionally
-    row values. For example, to create a initialized table
-} shell {
-    set tab [table create {
-        country string population wide
-    } {
-        {China 1350000000}
-        {Vatican 850}
-    }]
-}
-
-text {
-    == Specifying indices
-
-    Most commands require specification of the array locations to be targeted.
-    This specification can be
-
-    * a single index,
-
-    * a contiguous range of indices, or
-
-    * a list of indexes in arbitrary order specified as a list of integers or a
-    column of type integer.
-
-    The various possibilities are illustrated below.
+    The various forms for indexing are illustrated below using the
+    `fill` command which stores a value at all specified locations.
 } shell {
     set col [column create double {}];  # Creates a new column
     set col [column fill $col 1.0 0 9]; # Indices specified as range 0 to 9
@@ -178,24 +123,21 @@ text {
     replace all elements greater than `2.0` with `0.0`.
 } shell {
     set col [column fill $col 0.0 [column search -all -gt $col 2.0]]
-} text {
-    Although the above example used columns, table indices are specified in
-    identical fashion.
 }
 
 text {
-    == Values and variables
+    ((=== * "Values and variables"))
 
-    Commands that modify typed arrays come in two flavors:
+    Many commands that modify columns and tables come in two flavors:
 
     * Commands that operate on column and table values and return the modified
     column or table as a result (for example `fill`), and
 
-    * Commands that modify a Tcl _variable_ containing the column or table
+    * Commands that modify a Tcl *variable* containing the column or table
     (for example `vfill`).
 
     The difference is similar to how different Tcl list commands behave, e.g.
-    linsert and lreplace versus lset and lappend.
+    `linsert` and lreplace versus lset and lappend.
 
     The examples above used the value-oriented form of the commands
     where the `fill` modifies a copy of the contents of the and returns
@@ -212,203 +154,280 @@ text {
     Here the `vfill` command is directly modifying the variable and assuming the
     content is not shared, no copy needs to be made.
 
-    Almost every command that modifies a typed array has this dual equivalent.
+    **This guide does not necessarily illustrate both forms of every command.**
+}
+text {
+    ((== sect_guide_col_opers "Operating on columns"))
+    
+    The `column` command is used to operate on columns.
+    
+    ((=== sect_guide_col_create "Creating columns"))
+
+    The ((^` column_create "column create")) command creates columns
+    of a specified type.
+} shell {
+    column create int
+} text {
+    The above creates a column that can hold elements of the `int` type. 
+    Note that the command returns a _value_ that would normally be assigned
+    to a variable.
+
+    ((==== * "Creating initialized columns"))
+    A column can be initialized at creation time. Let us create two
+    columns we will use as examples throughout this guide that
+    tracks rainfall through the year.
+} shell {
+    set months [column create string {
+        Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+    }]
+    set rainfall [column create double {
+        11.0 23.3 18.4 14.7 70.3 180.5 210.2 205.8 126.4 64.9 33.1 19.2
+    }]
+} text {
+
+    [WARNING]
+    ====
+    Applications should not depend on the exact string representation of a column
+    or table as that is liable to change. Use only the `tarray` package
+    commands to create and manipulated columns and tables. So do not create
+    the columns above as either of the following
+} syntax  {
+    set rainfall {tarray_column double {11.0 23.3 ...}}
+    set rainfall [list tarray_column double [list 11.0 23.3 ...]]
+}  text {
+    ====
+
+    Columns are resized as needed but as an optimization, preallocation
+    may be requested.
+} shell {
+    column create int {0 1 2 3} 1000
+} text {
+    This preallocates space for a thousand elements with the first
+    four being initialized.
+
 }
 
 text {
-    == Storing data
+    ((==== * "Creating numeric series"))
+    Columns containing equally spaced values can be created
+    with the ((^` column_series "column series")) command.
+} shell {
+    column series 10;           # 0 (default) to 10 with step 1 (default)
+    column series 5 -5 -2;      # Decreasing from 5 to -5 with step -2
+    column series 10.0;         # Series of doubles instead of integer
+}
 
-    Modifying a typed array may involve either storing a _single_
+text {
+
+    ((==== * "Creating columns with random values"))
+
+    The ((^` column_random "column random")) command creates and
+    initializes column with random values.
+} shell {
+    column random boolean 16;   # Array of 16 randomly generated booleans
+    column random int 5 -100 100; # Array of 5 random integers in a range
+} text {
+    For some uses, such as testing, it is useful to be able to generate
+    the same sequence of random numbers on every run. The `randseed`
+    command can be used to set or reset the initial seeds used for
+    random number generation.
+} shell1 {
+    randseed 100 200;           # Set the initial seeds for random number generation
+    column random byte 10
+    column random byte 10
+    randseed 100 200;           # Set the *same* seeds again
+    column random byte 10;      # Notice same values generated
+    randseed;                   # Reset to use random initial seeds
+    column random byte 10;      # Now again non-deterministic values are generated
+}
+
+text {
+    ((==== * "Creating bit maps"))
+
+    As a convenience, boolean columns which have all bits set to `0`
+    or to `1` can be created with ((^` column_bitmap0 "column bitmap0"))
+    and ((^` column_bitmap1 "column bitmap1")) respectively.
+} shell {
+    set zerobits [column bitmap0 8]
+    set onebits  [column bitmap1 8]
+} text {
+    Further, specific bits can be initialized to the complement.
+} shell {
+    set bits [column bitmap0 8 {0 7}]
+}                  
+
+
+text {
+    ((=== * "Storing elements"))
+
+    A column may be modified by either storing a **single**
     value at multiple target locations or a different value at each
     target location. Further, the locations may be a contiguous range
-    or a noncontiguous set of indices.
+    or an arbitrary set of indices. Depending on the command, the
+    values may overwrite existing values or inserted.
 
-    * The `fill` and `vfill` commands store a _single_ value at one or more locations,
-    either contiguous or noncontiguous.
+    ((==== * "Storing a single value in multiple locations"))
 
-    * The `place` and `vplace` commands store each value from a sequence of
-    values at one or more _non-contiguous_ locations in a _specified_ order
-    (not necessarily sequential)
-
-    * The `put` and `vput` commands store each value from a sequence of
-    values in _contiguous_ locations starting at a specified index.
-
-    The sequence of values to be stored may be specified as a Tcl list
-    or a typed array. When multiple noncontiguous target locations are
-    specified, they may be specified as a Tcl list of integers or an
-    `int` column.
+    The ((^` column_fill "column fill")) and
+    ((^` column_vfill "column vfill")) commands store a **single** value
+    at one or more locations, either contiguous or noncontiguous.
 } shell {
-    column vplace col {300.0 200.0 500.0} {3 2 5}; # Stores specified values at indices 3, 2 and 5
-    column vput col {7.0 8.0 9.0} 6;               # Stores specified values at indices 6, 7, 8
-    column vput col {11.0 12.0};                   # Appends specified values
-} text {
-    Instead of specifying values as a list, they may also be specified as a
-    column of the same type.
-} shell {
-    set colA [column create double {1.0 2.0 4.0}]
-    set colB [column create double {}]
-    column vplace colB $colA {1 0 2}
-} text {
-    Again, this form is particularly useful when storing columns returned from
-    commands into another column.
-
-    The table command has equivalent commands. For example
-} shell {
-    set populations [table create {country string population wide} {}]
-    table vput populations {{China 1350000000} {Vatican 850}}
-} text {
-
-    Note that just like in the case of columns, the list of values can
-    be specified as a table instead, provided the column types are the
-    same.
-
-    When storing data, the `-columns` option comes in handy for two
-    different purposes. First, it allows data to be specified in a
-    different order than that specified in the column definition. For
-    example, in the above example, if the order of the supplied data
-    was population followed by country, the command could have been
-    written as follows:
-} shell {
-    table vput -columns {population country} populations {{1350000000 China} {850 Vatican}}
-} text {
-    There is no need to reorder the fields in the input data.
-
-    Secondly, the `-columns` allows modification of a subset of the columns.
-    For example,
-} shell {
-    set populations [table create {country string population wide} {}]
-    table vput populations {{China 1350000000} {Vatican 850}}
-    table vfill -columns {population} populations {851} 1
-} text {
-    The population of the second table row is changed to 851.
-
-    .Extending columns and tables
-    
-    A point to be noted about all the above commands is that they may
-    extend the size of the array if necessary. However, two conditions
-    must apply for this:
-
-    * where an index list or index column is specified, there must not be
-    any gaps in indices that extend the array.
-
-    * Second, if the `-columns` option is specified, it must include all columns
-    (in any order) of the table. Otherwise, the command will not know what
-    value to use for the other columns when extending the table.
-
-    As an illustration,
-} errorok 1 shell {
-    set populations [table create {country string population wide} {{Vatican 850} {China 1350000000}}]
-    table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2} table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
-} text {
-    The first `put` will succeed, changing the existing value at index 1 and
-    extending the array by two rows (note order of indices does not matter).
-    The second `put` will raise an error since index `2` neither exists nor is
-    supplied in the command.
-
-    All the commands dicussed to this point overwrite existing
-    values, at the target locations. The
-    ((^ column_insert "column insert")) and
-    ((^ column_vinsert "column vinsert"))
-    commands and their table equivalents,
-    ((^ table_insert "table insert")) and
-    ((^ table_vinsert "table vinsert"))
-    store a single repeated value or row, into the type
-    array, pushing existing elements further up.
-    Similarly, 
-    ((^ column_inject "column inject")) and
-    ((^ column_vinject "column vinject"))
-    commands and their table equivalents,
-    ((^ table_inject "table inject")) and
-    ((^ table_vinject "table vinject")), insert
-    multiple values or rows (passed as a list or a typed array).
-} shell {
-    column insert $col 3.0 2 10
-    column inject $col {1.0 2.0 3.0} 2
-    column inject $col $col 2
-} text {
-
-    The first command returns a new column with the same value, `3.0`,
-    inserted `10` times at index `2`. The second command returns a new
-    column with all values in the passed list, `1.0`, `2.0`, `3.0`,
-    inserted at index `2`. The last command returns a new column where
-    all existing values in the column are reinserted at index `2`.
+    set I [column series 10]
+    column fill $I 99 end; # Store a single element
+    column fill $I 99 1 8; # Store into a contiguous range
+    column fill $I 99 [column series 10 2]; # Store in every other position
 }
 
 text {
-    == Deleting data
+
+    ((==== * "Storing values in arbitrary locations"))
+
+    The ((^` column_place "column place")) and
+    ((^` column_vplace "column vplace")) commands store each value
+    from a sequence of 
+    values at one or more locations in a specified order
+    (not necessarily sequential).
+} shell {
+    column place $I {101 102 103} [column create int {3 2 5}]; # Stores list of values at an index column
+    column place $I [column create int {101 102 103}] {3 2 5}; # Stores a column of values at an index list
+} text {
+    Note from the above how both values as well as indices can be
+    specified as a Tcl list or as a column. This is true for most commands.
+}
+
+text {
+    ((==== * "Storing values in contiguous locations"))
+
+    The ((^` column_put "column put")) and
+    ((^` column_vput "column vput")) commands store each value from a
+    sequence of values in **contiguous** locations starting at a
+    specified index.
+} shell {
+    column vput I {60 70 80} 6; # Stores values consecutively starting at index 6
+    column vput I $I; # Appends to itself unspecified starting index defaults to end
+}
+
+text {
+    ((==== * "Extending columns"))
     
-    Elements in a typed array can be deleted with the `delete` and
-    `vdelete` commands.  Succeeding elements are moved up to occupy the deleted
+    A point to be noted about all the above commands is that they may
+    extend the size of the array if necessary. However, 
+    where an index list or index column is specified, there must not be
+    any gaps in indices that extend the array.
+
+    For example,
+} errorok 1 shell {
+    set I [column series 5]
+    column place $I {106 105 107 104} {6 5 7 4}; # Ok: Indices not in order but no gaps
+    column place $I {106 107} {6 7}; # Error: no value specified for non-existing index 5
+}
+
+text {
+    ((==== * "Inserting a single value in multiple locations"))
+
+    The ((^` column_insert "column insert")) and
+    ((^` column_vinsert "column vinsert")) commands
+    store a single repeated value a specified number of times starting
+    at a given index. The following command inserts the value 99
+    three times at index 1.
+    
+} shell {
+    set I [column series 5]
+    column insert $I 99 1 3
+}
+
+text {
+    ((==== * "Inserting multiple values"))
+
+    The ((^` column_inject "column inject")) and
+    ((^` column_vinject "column vinject")) commands insert
+    multiple values passed as a list or a column.
+} shell {
+    set I [column series 5]
+    column inject $I {10 20 30} 2; # Inserts 10, 20, 30 at index 2
+    column inject $I $I 2; # Inserts itself at position 2
+}
+
+text {
+    ((=== * "Deleting elements"))
+    
+    Elements in a typed array can be deleted with the
+    ((^` column_delete "column delete")) and
+    ((^` column_vdelete "column vdelete")) commands.
+    Succeeding elements are moved up to occupy the deleted
     slots. Like the `fill` command, the indices of the elements to be
     deleted may be specified as a single index, a range, a list of
     indices or a index column.
 } shell {
-    column vdelete col [column search -all -lt $col 0]
-} text {
-    will delete all negative elements from the column.
+    set I [column random int 10 -100 100]
+    column delete $I end;       # Delete last
+    column delete $I 3 6;       # Delete third through sixth
+    column delete $I {0 7 2};   # Delete specified list
+    column delete $col [column search -all -lt $col 0]; # Delete all negative values
+}
 
+
+text {
+    ((=== * "Retrieving elements"))
+
+    As for storing elements, there are multiple commands for
+    retrieving elements depending on whether multiple elements are to
+    be retrieved and whether they are contiguous or not.
+    In cases where multiple values are retrieved, they are
+    returned as a column by default but can be returned as a list or
+    dictionary (keyed by index) with the use of the `-list` and
+    `-dict` options.
 }
 
 text {
-    == Retrieving data
+    ((==== * "Retrieving a single element"))
 
-    Retrieving data from a typed array involves specifying which
-    elements to retrieve and what format to retrieve them in when
-    multiple elements are retrieved.
-
-    As usual, the elements to be retrieved can be specified as a
-    single index, an index range, a list of indices or an index
-    column. In the simplest cast, the index command can be used to
+    In the simplest cast, the
+    ((^` column_index "column index")) command can be used to
     retrieve a single element.
 } shell {
-    column index $col 4
-    table index $tab end
-} text {
-    Multiple elements can be retrieved with the get and range
-    commands. The get command can be passed a sequence of
-    noncontiguous indices specified as a Tcl list or a `int` column:
-} shell {
-    column get $col {10 7 4}
-    table get $tab [column search -all -lt [table column $tab 0] 0]
-} text {
-    The range command retrieves elements in a specified index range.
-} shell {
-    column range $col 3 5
-    table range $tab 0 10
-} text {
-
-    By default, both commands returns values as a typed array. The
-    `-list` and `-dict` commands can be used to return the values as a Tcl
-    list or dictionary instead.  In the latter case, the dictionary
-    keys are the indices being retrieved.
-} shell {
-    column get -list $col {3 5}
-    table get -dict $tab [column search -all -lt [table column $tab 0] 0]
-} text {
-
-    In the case of tables, both commands also provide for retrieval of
-    a subset of columns and in a different order than in the
-    definition.
-} shell {
-    table range -columns {population country} $populations 0 end
-    table range -columns {1} $populations 0 end
-} text {
-    Note columns may be specified either by position or name.
-
-    Tables provide additional commands for retrieving entire columns.
-
-    * table column returns a column from a table. This is useful for sorting and
-    searching columns as shown in table search examples below.
-
-    * table slice returns a new table containing a subset of the columns of a
-    table.
+    column index $months 4
 }
 
 text {
-    == Searching and filtering
+    ((==== * "Retrieving a range of elements"))
 
-    The column search command works similarly to Tcl's `lsearch`. It
-    returns the indices or the values
+    The command ((^` column_range "column range")) returns
+    multiple contiguously located elements.
+} shell {
+    column range $months 0 2
+    column range -list $months 0 2
+    column range -dict $months 0 2
+}
+
+text {
+    ((==== * "Retrieving an arbitrary list of elements"))
+
+    Multiple elements at arbitrary indices can be retrieved with the
+    ((^` column_get "column get")) command which accepts either a
+    index list or a index column.
+} shell {
+    column get $months {10 7 4 7}
+    column get $months [column create int {10 7 4 7}]
+    column get -list $months [column create int {10 7 4 7}]
+} text {
+    As seen, indices may be repeated and values are returned in order
+    of specified indices.
+
+    Boolean index columns are treated differently in that an element
+    is included if the corresponding bit is set in the index column.
+} shell {
+    column get $months [column create int {1 0 1}]
+    column get $months [column create boolean {1 0 1}]
+} text {
+    Note the difference between the two results above.
+}
+
+text {
+    ((=== * "Searching and filtering"))
+
+    The ((^` column_search "column search")) command works similarly
+    to Tcl's `lsearch`. It returns the indices or the values
     of matching elements in a column. Like `lsearch`, by default
     `column search` stops on the first match and returns the matching index.
 } shell {
@@ -442,6 +461,15 @@ text {
 } text {
     Notice the boolean combination above.
 
+    [TIP]
+    ====
+    Queries like this are easier to do using ((^ chap_xtal_lang Xtal))
+    expressions.
+} shell {
+    xtal::xtal { col[col < -5 || col > 5] }
+} text {
+    ====
+
     You can of course use `-inline` with `-all` to retrieve the
     values instead of indices. Using the `-pat` pattern matching operator
     as an example,
@@ -463,12 +491,445 @@ text {
 } text {
     only examines the elements at positions `4`, `1`, and `2` _in that
     order_. The option `-among` is particularly useful in combining
-    searches as in the table example below.
+    multiple searches where it can be used to constrain each search to
+    the results of the prior search. We will see an example of this later.
 
-    The command supports several matching operators like `-lt`, `-gt` etc.
-    See the
-    ((^ column_search "`column search`")) command reference for a full list.
+    The `column search` command supports several matching operators
+    like `-lt`, `-gt` etc. See the
+    ((^` column_search "command reference")) for a full list.
 
+    [TIP]
+    The ((^` column_intersect3 "column intersect3"))
+    command offers another way to search across
+    multiple columns as described ((^ sect_guide_other later)).
+}
+
+text {
+    ((=== * "Ordering elements"))
+
+    ((==== * "Sorting"))
+
+    Columns can be sorted using the column sort command or its
+    variable targeting analogue column vsort. The commands take the
+    `-increasing` and `-decreasing` options to determine the sort order.
+} shell {
+    column sort $col;   # Default order is `-increasing`
+    column sort -decreasing $col
+} text {
+    The command also supports the option `-indirect` where the operand
+    is a column whose values are indices into the column whose values
+    are to be sorted. The use of this option is illustrated later
+    when we discuss ((^ sect_guide_sort_stability "sort stability")).
+}
+
+
+
+text { 
+    ((==== * "Reversing"))
+
+    Another form of reordering data is reversing the order of elements.
+    Both columns and tables support `reverse` and `vreverse` commands which
+    reverse the order of elements, an operation that is useful in many
+    algorithms.
+} shell {
+    column reverse $col
+}
+
+text {
+    ((==== * "Shuffling"))
+
+    The ((^` column_shuffle "column shuffle")) command returns the elements of a column
+    in random order.
+} shell {
+    column shuffle $col
+    column shuffle $col
+}
+
+text {
+    ((=== * "Arithmetic and logical operations"))
+
+    ((==== * "Operations between columns"))
+
+    The ((^` column_math "column math")) command can be used
+    to perform arithmetic operations on columns on a per-element basic.
+    The command takes multiple arguments each of which may be a column
+    or a scalar numeric value. For example,
+} shell {
+    set I [column create int {10 20 30}]
+    set J [column create double {10.1 19.9 30}]
+    column math + $I $J 1000
+    column math < $I $J
+} text {
+    As a convenience, the above command can also be issued as
+} shell {
+    column + $I $J 1000
+    column < $I $J
+} text {
+    Logical operators work similarly but are generally
+    used with boolean columns.
+} shell {
+    set bita [column bitmap0 5 {0 4}]
+    set bitb [column bitmap0 5 {2}]
+    column || $bita $bitb
+} text {
+    See the description of `column math` for all the available
+    operators.
+}
+
+text {
+    ((==== * "Operations on a column"))
+
+    In contrast to arithmetic commands that operate on a per-element basis,
+    some commands operate on all elements of a single entire column.
+
+    The ((^` column_sum "column sum")) command sums all the elements in
+    a column.
+} shell {
+    column sum $J
+} text {
+    
+    The ((^` column_minmax "column minmax"))
+    command returns a pair containing the minimum
+    and maximum values in a column.
+} shell {
+    column minmax $J
+} text {
+    Note that this command is not restricted to numeric columns
+    and will work for other types as well.
+
+    You can use the `-indices` option to get the indices of the minimum and
+    maximum values instead of the values themselves. An example where
+    this is useful is to retrieve rows of a table.
+} shell {
+
+    set indices [column minmax -indices $J]
+    column get -list $J $indices
+}
+
+text {
+    ((=== * "Counting elements"))
+
+    The ((^` column_size "column size")) and
+    The ((^` table_size "table size"))
+    commands return the number of elements in a
+    column or table.
+} tbd {
+    table size $populations
+} text {
+    If you are only interested in the count for elements that match
+    specific criteria, you can use the 
+    ((^` column_count "column count")) command instead. Thus
+} tbd {
+    column count -gt [table column $populations population] 1000000000
+} text {
+    returns the number of countries with more than a billion people. 
+
+    [TIP]
+    Just as for searches, for more complex criteria, it is more
+    convenient to use an ((^ chap_xtal_lang "Xtal")) query instead.
+}
+
+text {
+    ((=== * "Formatting"))
+    
+    The Tcl `puts` command is not always suitable for printing
+    the value of a column or table for several reasons. The output
+    is not formatted and hence difficult to read. The `print` command
+    provides a alternative that outputs a more readable format.
+} tbd {
+    print [table column $countries population] -head 1 -tail 1
+    print $countries
+} text {
+    By default the command only prints the first few and last few
+    elements although this can be controlled by various options.
+
+    The `prettify` command is another alternative which
+    returns the formatted string instead of printing it to a channel.
+} text {
+    Another command that helps with formatting data is the
+    ((^` column_width "column width")) command. This returns the
+    maximum number of characters required to display elements
+    of the column in a given format.
+} shell {
+    set col [column create int {-1000 10 100}]
+    column width $col;          # Use default format string
+    column width $col "hex representation is %x"; # Specify the format string
+} tbd {
+    column width
+}
+
+text {
+    ((=== * "Introspection"))
+
+    .Column introspection
+    The type of a column can be retrieved with the `column type` command.
+} tbd {
+    column type [table column $countries population]
+}
+
+text {
+    ((=== sect_guide_other "Other commands"))
+
+    The ((^` column_lookup "column lookup")) command
+    provides for a faster, dictionary based
+    retrieval for string columns. This may be beneficial for columns
+    used as keys in a table.
+
+    The ((^` column_intersect3 "column intersect3"))
+    command returns the differences between two
+    columns. The multiple column search example above could also have
+    written as follows:
+} tbd {
+    set pop_col [table column $countries population]
+    set area_col [table column $countries area]
+    set populous [column search -all -gt $pop_col 250000000]
+    set large [column search -all -gt $area_col 5e6]
+    table get -list $countries [lindex [column intersect3 $populous $large] 0]
+} text {
+
+    In most cases, the previous method using `column search -among` is
+    likely to be faster. However, the `column intersect3` may be faster
+    in some cases, for example, when multiple combinations are
+    desired.
+} tbd {
+    lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
+} text {
+    ((=== * "Random numbers"))
+
+    We saw earlier the construction of columns containing randomly generated
+    values. Random numbers can also be directly generated using the
+    `tarray::rng` command. This returns a command object which can then
+    be invoked to generate values of the appropriate type.
+} shell {
+    rng create myrng int;       # Create a random number generator for integers
+    myrng get;                  # Gets a random integer
+    myrng get 5;                    # Get 5 random integers
+    myrng destroy;              # Release resources when no longer needed
+} text {
+    The `rng new` command behaves similarly except a command name need
+    not be specified. Moreover, both forms take an optional argument
+    to generate random numbers within a specified range.
+} shell {
+    set r [rng new double 1.0 2.0]; # Generate real numbers between 1.0 and 2.0
+    $r get 3
+    $r destroy
+} text {
+    For testing purposes, the generator can be initialized with a specific
+    seed to reproduce the same sequence everytime.
+} shell {
+    rng create myrng byte 10 20
+    myrng seed 1000 2000;         # Any 64-bit seed values
+    myrng get 5
+    myrng get 5
+    myrng seed 1000 2000;         # Reset seeds
+    myrng get 5
+    myrng get 5
+    myrng destroy
+} text {
+    As seen, the same sequence is reproduced by initializing the seed
+    with specific values.
+} text {
+    A related command ((^` column_shuffle "column shuffle")) rearranges
+    the elements of a column in random order.
+} shell {
+    set col [column create double {1 2 3 4 5}]
+    column shuffle $col
+    column shuffle $col
+} text {
+    A variation of the command, ((^` column_vshuffle "column vshuffle"))
+    operates on a variable.
+}
+
+text {
+    ((== sect_guide_tab_opers "Operating on tables"))
+    
+    ((=== sect_guide_tab_create "Creating tables"))
+
+    Tables can be created and initialized in analogous
+    fashion by passing arguments defining the table and optionally
+    row values. For example, to create a initialized table
+} shell {
+    set tab [table create {
+        country string population wide
+    } {
+        {China 1350000000}
+        {Vatican 850}
+    }]
+}
+
+text {
+    ((=== * "Storing data"))
+
+    The table command has equivalent commands. For example
+} shell {
+    set populations [table create {country string population wide} {}]
+    table vput populations {{China 1350000000} {Vatican 850}}
+} text {
+
+    Note that just like in the case of columns, the list of values can
+    be specified as a table instead, provided the column types are the
+    same.
+
+    When storing data, the `-columns` option comes in handy for two
+    different purposes. First, it allows data to be specified in a
+    different order than that specified in the column definition. For
+    example, in the above example, if the order of the supplied data
+    was population followed by country, the command could have been
+    written as follows:
+} shell {
+    table vput -columns {population country} populations {{1350000000 China} {850 Vatican}}
+} text {
+    There is no need to reorder the fields in the input data.
+
+    Secondly, the `-columns` allows modification of a subset of the columns.
+    For example,
+} shell {
+    set populations [table create {country string population wide} {}]
+    table vput populations {{China 1350000000} {Vatican 850}}
+    table vfill -columns {population} populations {851} 1
+} text {
+    The population of the second table row is changed to 851.
+}
+
+text {
+    ((==== * "Extending tables"))
+    
+    A point to be noted about all the above commands is that they may
+    extend the size of the array if necessary. However, two conditions
+    must apply for this:
+
+    * where an index list or index column is specified, there must not be
+    any gaps in indices that extend the array.
+
+    * Second, if the `-columns` option is specified, it must include all columns
+    (in any order) of the table. Otherwise, the command will not know what
+    value to use for the other columns when extending the table.
+
+    As an illustration,
+} errorok 1 shell {
+    set populations [table create {country string population wide} {{Vatican 850} {China 1350000000}}]
+    table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2} table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
+} text {
+    The first `put` will succeed, changing the existing value at index 1 and
+    extending the array by two rows (note order of indices does not matter).
+    The second `put` will raise an error since index `2` neither exists nor is
+    supplied in the command.
+
+    All the commands dicussed to this point overwrite existing
+    values, at the target locations. The
+    ((^` column_insert "column insert")) and
+    ((^` column_vinsert "column vinsert"))
+    commands and their table equivalents,
+    ((^` table_insert "table insert")) and
+    ((^` table_vinsert "table vinsert"))
+    store a single repeated value or row, into the type
+    array, pushing existing elements further up.
+    Similarly, 
+    ((^` column_inject "column inject")) and
+    ((^` column_vinject "column vinject"))
+    commands and their table equivalents,
+    ((^` table_inject "table inject")) and
+    ((^` table_vinject "table vinject")), insert
+    multiple values or rows (passed as a list or a typed array).
+} shell {
+    column insert $col 3.0 2 10
+    column inject $col {1.0 2.0 3.0} 2
+    column inject $col $col 2
+} text {
+
+    The first command returns a new column with the same value, `3.0`,
+    inserted `10` times at index `2`. The second command returns a new
+    column with all values in the passed list, `1.0`, `2.0`, `3.0`,
+    inserted at index `2`. The last command returns a new column where
+    all existing values in the column are reinserted at index `2`.
+}
+
+text {
+    ((==== * "Inserting rows"))
+
+    All the commands dicussed to this point overwrite existing
+    values, at the target locations. The
+    ((^` column_insert "column insert")) and
+    ((^` column_vinsert "column vinsert"))
+    commands and their table equivalents,
+    ((^` table_insert "table insert")) and
+    ((^` table_vinsert "table vinsert"))
+    store a single repeated value or row, into the type
+    array, pushing existing elements further up.
+    Similarly, 
+    ((^` column_inject "column inject")) and
+    ((^` column_vinject "column vinject"))
+    commands and their table equivalents,
+    ((^` table_inject "table inject")) and
+    ((^` table_vinject "table vinject")), insert
+    multiple values or rows (passed as a list or a typed array).
+} shell {
+    column insert $col 3.0 2 10
+    column inject $col {1.0 2.0 3.0} 2
+    column inject $col $col 2
+} text {
+
+    The first command returns a new column with the same value, `3.0`,
+    inserted `10` times at index `2`. The second command returns a new
+    column with all values in the passed list, `1.0`, `2.0`, `3.0`,
+    inserted at index `2`. The last command returns a new column where
+    all existing values in the column are reinserted at index `2`.
+}
+
+
+text {
+
+    ((=== * "Retrieving data"))
+
+    Retrieving data from a typed array involves specifying which
+    elements to retrieve and what format to retrieve them in when
+    multiple elements are retrieved.
+
+    As usual, the elements to be retrieved can be specified as a
+    single index, an index range, a list of indices or an index
+    column. In the simplest cast, the index command can be used to
+    retrieve a single element.
+} shell {
+    table index $tab end
+} text {
+    Multiple elements can be retrieved with the get and range
+    commands. The get command can be passed a sequence of
+    noncontiguous indices specified as a Tcl list or a `int` column:
+} shell {
+    table get $tab [column search -all -lt [table column $tab 0] 0]
+} text {
+    The range command retrieves elements in a specified index range.
+} shell {
+    table range $tab 0 10
+} text {
+
+    By default, both commands returns values as a typed array. The
+    `-list` and `-dict` commands can be used to return the values as a Tcl
+    list or dictionary instead.  In the latter case, the dictionary
+    keys are the indices being retrieved.
+} shell {
+    table get -dict $tab [column search -all -lt [table column $tab 0] 0]
+} text {
+
+    In the case of tables, both commands also provide for retrieval of
+    a subset of columns and in a different order than in the
+    definition.
+} shell {
+    table range -columns {population country} $populations 0 end
+    table range -columns {1} $populations 0 end
+} text {
+    Note columns may be specified either by position or name.
+
+    Tables provide additional commands for retrieving entire columns.
+
+    * table column returns a column from a table. This is useful for sorting and
+    searching columns as shown in table search examples below.
+
+    * table slice returns a new table containing a subset of the columns of a
+    table.
+}
+
+tbd {
     To search tables, use the search on individual columns. For example,
 } shell {
     set countries [table create {country string population wide area double} {
@@ -485,7 +946,7 @@ text {
     returns names of countries that are populous and large in area. Note how the
     outside search is limited to specific indices using the `-among` option.
 
-    The ((^ column_intersect3 "column intersect3"))
+    The ((^` column_intersect3 "column intersect3"))
     command offers another way to search across
     multiple columns as described later.
 
@@ -499,10 +960,11 @@ text {
     xtal::xtal { countries.country[countries.population > 1000000000 && countries.area < 5000000]}
 } text {
     ====
+
 }
 
-text {
-    == Sorting and ordering
+tbd {
+        ((==== * "Sorting"))
 
     Columns can be sorted using the column sort command or its
     variable targeting analogue column vsort. The commands take the
@@ -518,7 +980,7 @@ text {
 } text {
     returns rows in the sorted order based on country name.
 
-    ((. sect_guide_sort_stability "Sort stability"))
+    ((==== sect_guide_sort_stability "Sort stability"))
     
     When sorting tables, for display purposes for example, it is often
     necessary to display elements that have the same value in the sort
@@ -566,9 +1028,13 @@ text {
     In this last statement, the sort is done indirectly using values
     from table but the positioning of elements when these values
     compare equal is based on the order in the original table.
-} text { 
-    .Reversing element order
-    Another form of reordering data is reversing the order of elements.
+}
+
+tbd {
+
+    ((==== * "Reversing row order"))
+
+    Another form of reordering data is reversing the order of rows.
     Both columns and tables support `reverse` and `vreverse` commands which
     reverse the order of elements, an operation that is useful in many
     algorithms.
@@ -578,109 +1044,8 @@ text {
 }
 
 text {
-    == Arithmetic and logical operations
+    ((=== * "Introspection"))
 
-    The ((^ column_math "column math")) command can be used
-    to perform arithmetic operations on columns on a per-element basic.
-    The command takes multiple arguments each of which may be a column
-    or a scalar numeric value. For example,
-} shell {
-    set I [column create int {10 20 30}]
-    set J [column create double {1.1 2.2 3.3}]
-    column math + $I $J 1000
-} text {
-    As a convenience, the above command can also be issued as
-} shell {
-    column + $I $J 1000
-} text {
-    See the description of `column math` for all the available arithmetic,
-    logical and comparison operators.
-} tbd {
-    Need example of logical and comparison operators.
-} text {
-    In contrast to arithmetic commands that operate on a per-element basis,
-    some commands operate on the entire column.
-
-    The ((^ column_sum "column sum")) command sums all the elements in
-    a column.
-} shell {
-    column sum $J
-    column sum [table column $populations population]
-} text {
-    The ((^ column_minmax "column minmax"))
-    command returns a pair containing the minimum
-    and maximum values in a column.
-} shell {
-    column minmax [table column $populations population]
-} text {
-    Note that this command is not restricted to numeric columns
-    and will work for other types as well. Also, it has the useful
-    `-indices` option which returns the indices of the minimum and
-    maximum values instead of the values themselves.
-} shell {
-    set indices [column minmax -indices [table column $populations population]]
-    column get -list [table column $populations country] $indices
-}
-
-text {
-    == Counting elements
-
-    The ((^ column_size "column size")) and
-    The ((^ table_size "table size"))
-    commands return the number of elements in a
-    column or table.
-} shell {
-    table size $populations
-} text {
-    If you are only interested in the count for elements that match
-    specific criteria, you can use the 
-    ((^ column_count "column count")) command instead. Thus
-} shell {
-    column count -gt [table column $populations population] 1000000000
-} text {
-    returns the number of countries with more than a billion people. 
-
-    [TIP]
-    Just as for searches, for more complex criteria, it is more
-    convenient to use an ((^ chap_xtal_lang "Xtal")) query instead.
-}
-
-text {
-    == Formatting
-    
-    The Tcl `puts` command is not always suitable for printing
-    the value of a column or table for several reasons. The output
-    is not formatted and hence difficult to read. The `print` command
-    provides a alternative that outputs a more readable format.
-} shell {
-    print [table column $countries population] -head 1 -tail 1
-    print $countries
-} text {
-    By default the command only prints the first few and last few
-    elements although this can be controlled by various options.
-
-    The `prettify` command is another alternative which
-    returns the formatted string instead of printing it to a channel.
-} text {
-    Another command that helps with formatting data is the
-    ((^` column_width "column width")) command. This returns the
-    maximum number of characters required to display elements
-    of the column in a given format.
-} shell {
-    set col [column create int {-1000 10 100}]
-    column width $col;          # Use default format string
-    column width $col "hex representation is %x"; # Specify the format string
-}
-
-text {
-    == Introspection
-
-    .Column introspection
-    The type of a column can be retrieved with the `column type` command.
-} shell {
-    column type [table column $countries population]
-} text {
-    .Table introspection
     The `table cnames` command returns a list containing the names
     of the columns in a table.
 } shell {
@@ -691,79 +1056,6 @@ text {
     used with `table create`.
 } shell {
     table definition $countries
-}
-
-text {
-    == Other commands
-
-    The ((^ column_lookup "column lookup")) command
-    provides for a faster, dictionary based
-    retrieval for string columns. This may be beneficial for columns
-    used as keys in a table.
-
-    The ((^ column_intersect3 "column intersect3"))
-    command returns the differences between two
-    columns. The multiple column search example above could also have
-    written as follows:
-} shell {
-    set pop_col [table column $countries population]
-    set area_col [table column $countries area]
-    set populous [column search -all -gt $pop_col 250000000]
-    set large [column search -all -gt $area_col 5e6]
-    table get -list $countries [lindex [column intersect3 $populous $large] 0]
-} text {
-
-    In most cases, the previous method using `column search -among` is
-    likely to be faster. However, the `column intersect3` may be faster
-    in some cases, for example, when multiple combinations are
-    desired.
-} shell {
-    lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
-} text {
-    == Random numbers
-
-    We saw earlier the construction of columns containing randomly generated
-    values. Random numbers can also be directly generated using the
-    `tarray::rng` command. This returns a command object which can then
-    be invoked to generate values of the appropriate type.
-} shell {
-    rng create myrng int;       # Create a random number generator for integers
-    myrng get;                  # Gets a random integer
-    myrng get 5;                    # Get 5 random integers
-    myrng destroy;              # Release resources when no longer needed
-} text {
-    The `rng new` command behaves similarly except a command name need
-    not be specified. Moreover, both forms take an optional argument
-    to generate random numbers within a specified range.
-} shell {
-    set r [rng new double 1.0 2.0]; # Generate real numbers between 1.0 and 2.0
-    $r get 3
-    $r destroy
-} text {
-    For testing purposes, the generator can be initialized with a specific
-    seed to reproduce the same sequence everytime.
-} shell {
-    rng create myrng byte 10 20
-    myrng seed 1000 2000;         # Any 64-bit seed values
-    myrng get 5
-    myrng get 5
-    myrng seed 1000 2000;         # Reset seeds
-    myrng get 5
-    myrng get 5
-    myrng destroy
-} text {
-    As seen, the same sequence is reproduced by initializing the seed
-    with specific values.
-} text {
-    A related command ((^` column_shuffle "column shuffle")) rearranges
-    the elements of a column in random order.
-} shell {
-    set col [column create double {1 2 3 4 5}]
-    column shuffle $col
-    column shuffle $col
-} text {
-    A variation of the command, ((^` column_vshuffle "column vshuffle"))
-    operates on a variable.
 }
 
 text {
@@ -865,3 +1157,6 @@ text {
     searches is an O(n) operation.
 }
 
+tbd {
+    looping
+}

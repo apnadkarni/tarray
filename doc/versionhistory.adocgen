@@ -16,6 +16,17 @@ text {
     * Added ((^` ui_rbcchart "rbcchart")) widget.
 
     [discrete]
+    === xtal package
+
+    * Added random initializer for column constructors.
+
+    * Added size specifiers for column constructors.
+
+    * Added logical operations `&&`, `||` and `^^` for column expressions.
+
+    * Added comparison operators `==`, `!=`, `<`, `<=`, `>`, `>=` for column expressions.
+    
+    [discrete]
     === tarray package
     
     * Added ((^` table_join "table join")) command.
@@ -48,16 +59,14 @@ text {
     
     * Added ((^` column_width "column width")) command.
 
-    * Added random initializer for column constructors (Xtal).
-
-    * Added size specifiers for column constructors (Xtal).
-
     * Allow any column type to be treated as an index column with
     special treatment for boolean columns for indexing.
 
-    * Added logical operations `&&`, `||` and `^^` for columns.
+    * Added logical operations `&&`, `||` and `^^`
+    to ((^` column_math "column math")).
 
-    * Added comparison operators `==`, `!=`, `<`, `<=`, `>`, `>=` for columns.
+    * Added comparison operators `==`, `!=`, `<`, `<=`, `>`, `>=`
+    to ((^` column_math "column math")).
 
     * Added the `-bitmap` option to the ((^` column_search "column search"))
     command.

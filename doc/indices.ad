@@ -5,7 +5,7 @@ Simple arithmetic adding of offsets to `end` is supported, for example
 `end-2` or `end+5`.
 
 Many commands also allow multiple indices to be specified. These may take one of
-two forms - a _range_ which includes all indices between a lower and an upper
+two forms -- a _range_ which includes all indices between a lower and an upper
 bound (inclusive), and an _index list_ which may be one of the following:
 
 * a list of integers
