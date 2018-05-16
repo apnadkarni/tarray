@@ -1,8 +1,26 @@
 @import url('https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700');
 @import 'asciidoctor.css';
 
+/*
+ * Overrides for asciidoctor.css 
+*/
+
+/* No underlining of links please */
 a {
     text-decoration: none;
+}
+
+/* Inline code: */
+:not(pre) > code {
+    /* font-size: smaller; */
+    padding: 0; /* Remove asciidoctor's padding */
+    background-color: inherit; /* Do not want asciidoctor shading */
+    color: #BA3925; /* Change color to stand out as code */
+}
+
+/* Code links use code color not link color */
+:not(pre) > code > a {
+    color: inherit;
 }
 
 .ui, .menuseq, .menu {font-family:sans-serif}
