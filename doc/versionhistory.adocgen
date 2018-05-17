@@ -8,7 +8,7 @@ text {
 
 text {
     [discrete]
-    == Changes since V0.8.1
+    == V 0.9.0
 
     [discrete]
     === tarray_ui package
@@ -36,7 +36,7 @@ text {
     * Added ((^` table_create2 "table create2")) command.
 
     * Added ((^` table_csvimport "table csvimport")) and
-      ((^ table_csvexport "table csvexport")) commands.
+      ((^` table_csvexport "table csvexport")) commands.
     
     * Added ((^` table_ctype "table ctype")) command.
     

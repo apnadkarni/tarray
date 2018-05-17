@@ -173,12 +173,15 @@ text {
     to a variable.
 
     ((==== * "Creating initialized columns"))
-    A column can be initialized at creation time. Let us create two
-    columns we will use as examples throughout this guide that
-    tracks rainfall through the year.
+    A column can be initialized at creation time. Let us create
+    some columns we will use as examples throughout this guide that
+    tracks weather through the year.
 } shell {
     set months [column create string {
         Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+    }]
+    set temperatures [column create int {
+        12  14  23  28  34  30  26  25  26  22  18  15
     }]
     set rainfall [column create double {
         11.0 23.3 18.4 14.7 70.3 180.5 210.2 205.8 126.4 64.9 33.1 19.2
@@ -426,6 +429,8 @@ text {
 text {
     ((=== * "Searching and filtering"))
 
+    ((==== * "Linear search"))
+
     The ((^` column_search "column search")) command works similarly
     to Tcl's `lsearch`. It returns the indices or the values
     of matching elements in a column. Like `lsearch`, by default
@@ -507,6 +512,22 @@ text {
     The ((^` column_intersect3 "column intersect3"))
     command offers another way to combine searches across
     multiple columns as described ((^ sect_guide_other later)).
+    
+}
+
+text {
+    ((==== * "Keyed lookup"))
+
+    Fore columns of type `string` **only**, the
+    ((^` column_lookup "column lookup")) command
+    provides for faster, dictionary based
+    retrieval. This may be beneficial for columns
+    used as keys in a table.
+
+    The command returns the index of matching element in the column.
+} errorok 1 shell {
+    column lookup months Jun
+    column lookup months xxx;   # Returns -1 if not present
 }
 
 text {
@@ -572,17 +593,12 @@ text {
 text {
     ((=== * "Arithmetic and logical operations"))
 
-    Arithmetic and logical operations fall into two categories:
 
-    * Operations **between** columns, including potentially with
-    scalars
-
-    * Operations on all elements of a single column
-
-    ((==== * "Operations between columns"))
+    ((==== * "Arithmetic operations between columns"))
 
     The ((^` column_math "column math")) command can be used
-    to perform arithmetic operations on columns on a per-element basic.
+    to perform arithmetic and logical operations on columns on
+    a per-element basic.
     The command takes multiple arguments each of which may be a column
     or a scalar numeric value. For example,
 } shell {
@@ -608,7 +624,7 @@ text {
 }
 
 text {
-    ((==== * "Operations on a column"))
+    ((==== * "Arithmetic operations on a column"))
 
     In contrast to arithmetic commands that operate on a per-element basis,
     some commands operate on all elements of a single entire column.
@@ -635,6 +651,28 @@ text {
 }
 
 text {
+    ((==== * "Set operations"))
+
+    The ((^` column_intersect3 "column intersect3"))
+    command returns a list containing the differences between two
+    columns, the first element being the intersection, the second
+    containing elements of the first that are not present in the
+    second, and the third containing elements from the second that are
+    not present in the first.
+} shell {
+    set hot [column search -all -gt $temperatures 25]
+    set wet [column search -all -gt $rainfall 150]
+    lassign [column intersect3 $hot $wet] hot_and_wet hot_and_dry cool_and_wet
+    column get $months $hot_and_wet
+} text {
+    [TIP]
+    An `intersect3` operation on search results is very fast, of order O(n).
+    The fact that an index column returned by a search is in sorted order
+    is internally noted by the implementation and made use of by a subsequent
+    `intersect3`.
+}
+
+text {
     ((=== * "Counting elements"))
 
     The ((^` column_size "column size")) returns the number of
@@ -649,10 +687,6 @@ text {
     column count -gt $rainfall 150
 } text {
     returns the number of months with heavy rainfall.
-
-    [TIP]
-    Just as for searches, for more complex criteria, it is more
-    convenient to use an ((^ chap_xtal_lang "Xtal")) query instead.
 }
 
 
@@ -665,43 +699,27 @@ text {
     column type $rainfall
 }
 
-text {
-    ((=== sect_guide_other "Other commands"))
-
-    The ((^` column_lookup "column lookup")) command
-    provides for a faster, dictionary based
-    retrieval for string columns. This may be beneficial for columns
-    used as keys in a table.
-
-    The ((^` column_intersect3 "column intersect3"))
-    command returns the differences between two
-    columns. The multiple column search example above could also have
-    written as follows:
-} tbd {
-    set pop_col [table column $countries population]
-    set area_col [table column $countries area]
-    set populous [column search -all -gt $pop_col 250000000]
-    set large [column search -all -gt $area_col 5e6]
-    table get -list $countries [lindex [column intersect3 $populous $large] 0]
-} text {
-
-    In most cases, the previous method using `column search -among` is
-    likely to be faster. However, the `column intersect3` may be faster
-    in some cases, for example, when multiple combinations are
-    desired.
-} tbd {
-    lassign [column intersect3 $populous $large] populous_and_large populous_but_small sparse_but_large
-}
-
 
 text {
     ((== sect_guide_tab_opers "Operating on tables"))
+
+    Wherever it makes sense, commands that operate on columns have
+    counterparts that operate on tables. For example,
+    `column fill` and `table fill`, `column range` and `table range`,
+    and so on. Certain commands, like math operations, do not have
+    equivalents for obvious reasons. Conversely, tables have
+    additional commands like `join` that are not applicable to columns.
     
     ((=== sect_guide_tab_create "Creating tables"))
 
-    Tables can be created and initialized in analogous
-    fashion by passing arguments defining the table and optionally
-    row values. For example, to create a initialized table
+    Tables may be created from Tcl lists or from existing columns.
+
+    ((==== * "Creating tables from list of row values"))
+
+    The ((^` table_create "table create")) command
+    constructs a table from a list of rows each
+    of which is also a list. The first argument to the command defines
+    the names and types of each column.
 } shell {
     set tab [table create {
         country string population wide
@@ -709,11 +727,25 @@ text {
         {China 1350000000}
         {Vatican 850}
     }]
+} text {
+    ((==== * "Creating tables from columns"))
+
+    The ((^` table_create2 "table create2")) command
+    constructs a table from a sequence of existing columns, all of
+    which must be the same length. Since columns are already typed,
+    only the column names have to be supplied.
+} shell {
+    set weather [table create2 {
+        month temperature rainfall
+    } [list $months $temperatures $rainfall]]
 }
 
 text {
-    ((=== * "Storing data"))
+    ((=== * "Storing rows"))
 
+    
+
+    
     The table command has equivalent commands. For example
 } shell {
     set populations [table create {country string population wide} {}]
@@ -1055,7 +1087,7 @@ text {
 } shell {
     rng create myrng int;       # Create a random number generator for integers
     myrng get;                  # Gets a random integer
-    myrng get 5;                    # Get 5 random integers
+    myrng get 5;                # Get 5 random integers
     myrng destroy;              # Release resources when no longer needed
 } text {
     The `rng new` command behaves similarly except a command name need
@@ -1183,4 +1215,8 @@ text {
 
 tbd {
     looping
+}
+
+tbd {
+    export/import
 }
