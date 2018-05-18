@@ -202,6 +202,24 @@ namespace eval tarray::test {
         set l
     } -result {0 ten 2 thirty}
 
+    # Verify loops in coroutine contexts
+    test column-loop-coro-1.0 {loop coroutine} -setup {
+        proc loopy col {
+            yield;
+            tarray::loop elem $col {
+                yield $elem
+            }
+        }
+        set l {}
+    } -body {
+        coroutine looper loopy [tarray::column series 2]
+        lappend l [looper]
+        lappend l [looper]
+        lappend l [looper]
+    } -result {0 1 {}}
+        
+    
+    
     # Make sure column and table loop ensembles work
     test column-loop-1.0 {loop column break} -setup {
         set l {}
