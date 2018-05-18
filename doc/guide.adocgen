@@ -708,7 +708,14 @@ text {
     `column fill` and `table fill`, `column range` and `table range`,
     and so on. Certain commands, like math operations, do not have
     equivalents for obvious reasons. Conversely, tables have
-    additional commands like `join` that are not applicable to columns.
+    additional commands like `join` that are not applicable to
+    columns.
+
+    Also like the column commands, table commands have variants that
+    operate on values and variables respectively, e.g.
+    `table put` and `table vput`. We will not always mention both
+    variants here; see the reference pages instead for availability
+    of a particular variant.
     
     ((=== sect_guide_tab_create "Creating tables"))
 
@@ -721,7 +728,7 @@ text {
     of which is also a list. The first argument to the command defines
     the names and types of each column.
 } shell {
-    set tab [table create {
+    set populations [table create {
         country string population wide
     } {
         {China 1350000000}
@@ -735,100 +742,87 @@ text {
     which must be the same length. Since columns are already typed,
     only the column names have to be supplied.
 } shell {
-    set weather [table create2 {
-        month temperature rainfall
-    } [list $months $temperatures $rainfall]]
+    set monthly_temps [table create2 {
+        month temperature
+    } [list $months $temperatures]]
+    set monthly_rainfall [table create2 {
+        month rainfall
+    } [list $months $rainfall]]
+}
+
+text {
+    ((=== * "Selecting columns"))
+
+    While closely paralleling the commands that store values in
+    columns, commands storing rows in tables have an additional
+    consideration that is not applicable to columns.
+    A table row consists of an ordered sequence of values from
+    multiple columns. When reading or storing data, it is
+    often convenient to operate only on a subset of these, and
+    moreover to retrieve or provide the values in a different order
+    than the column order of the table.
+
+    Many table commands accept the `-columns` option for this
+    purpose. Commands that retrieve data will only return the cells
+    for those specified columns and in that specific order.
 }
 
 text {
     ((=== * "Storing rows"))
 
-    
+    ((==== * "Storing a single row in multiple locations"))
 
-    
-    The table command has equivalent commands. For example
+    The ((^` table_fill "table fill")) and
+    ((^` table_vfill "table vfill")) commands store a **single** row
+    in one or more locations. Like `column fill`, the destination may
+    be a single row, a range of rows or at specified row indices.
 } shell {
-    set populations [table create {country string population wide} {}]
-    table vput populations {{China 1350000000} {Vatican 850}}
-} text {
-
-    Note that just like in the case of columns, the list of values can
-    be specified as a table instead, provided the column types are the
-    same.
-
-    When storing data, the `-columns` option comes in handy for two
-    different purposes. First, it allows data to be specified in a
-    different order than that specified in the column definition. For
-    example, in the above example, if the order of the supplied data
-    was population followed by country, the command could have been
-    written as follows:
-} shell {
-    table vput -columns {population country} populations {{1350000000 China} {850 Vatican}}
-} text {
-    There is no need to reorder the fields in the input data.
-
-    Secondly, the `-columns` allows modification of a subset of the columns.
-    For example,
-} shell {
-    set populations [table create {country string population wide} {}]
-    table vput populations {{China 1350000000} {Vatican 850}}
-    table vfill -columns {population} populations {851} 1
-} text {
-    The population of the second table row is changed to 851.
+    table vfill populations {India 1320000000} end+1; # Note use of `end+1` notation
 }
 
 text {
-    ((==== * "Extending tables"))
-    
-    A point to be noted about all the above commands is that they may
-    extend the size of the array if necessary. However, two conditions
-    must apply for this:
+    ((==== * "Storing rows at arbitrary locations"))
 
-    * where an index list or index column is specified, there must not be
-    any gaps in indices that extend the array.
+    The ((^` table_place "table place")) and ((^` table_vplace "table vplace"))
+    commands store one or more source rows at one or more locations in
+    the table in a specified order.
 
-    * Second, if the `-columns` option is specified, it must include all columns
-    (in any order) of the table. Otherwise, the command will not know what
-    value to use for the other columns when extending the table.
-
-    As an illustration,
-} errorok 1 shell {
-    set populations [table create {country string population wide} {{Vatican 850} {China 1350000000}}]
-    table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {0 3 2} table put populations {{Vatican 860} {India 1250000000} {USA 314000000}} {1 3 4}
+    Assuming the Vatican City and China both experiences some population growth.
+} shell {
+    table vplace -columns {population} populations {
+        {1000}
+        {1370000000}
+    } {1 0}
 } text {
-    The first `put` will succeed, changing the existing value at index 1 and
-    extending the array by two rows (note order of indices does not matter).
-    The second `put` will raise an error since index `2` neither exists nor is
-    supplied in the command.
+    Notice this example makes use of the `-columns` option to update
+    only a single column. Also note the supplied indices need not be
+    in order.
 
-    All the commands dicussed to this point overwrite existing
-    values, at the target locations. The
-    ((^` column_insert "column insert")) and
-    ((^` column_vinsert "column vinsert"))
-    commands and their table equivalents,
-    ((^` table_insert "table insert")) and
-    ((^` table_vinsert "table vinsert"))
-    store a single repeated value or row, into the type
-    array, pushing existing elements further up.
-    Similarly, 
-    ((^` column_inject "column inject")) and
-    ((^` column_vinject "column vinject"))
-    commands and their table equivalents,
-    ((^` table_inject "table inject")) and
-    ((^` table_vinject "table vinject")), insert
-    multiple values or rows (passed as a list or a typed array).
-} tbd {
-    column insert $col 3.0 2 10
-    column inject $col {1.0 2.0 3.0} 2
-    column inject $col $col 2
-} text {
-
-    The first command returns a new column with the same value, `3.0`,
-    inserted `10` times at index `2`. The second command returns a new
-    column with all values in the passed list, `1.0`, `2.0`, `3.0`,
-    inserted at index `2`. The last command returns a new column where
-    all existing values in the column are reinserted at index `2`.
+    [NOTE]
+    The `columns` option value and the row values are placed in braces
+    though not really required here because they are actually lists of
+    single elements. You would need braces if updating multiple columns.
 }
+
+text {
+    ((==== * "Storing rows in contiguous locations"))
+
+    The ((^` table_put "table put")) and ((^` table_vput "table vput"))
+    commands store one or more source rows in a contiguous range of
+    locations in the table. 
+
+} shell {
+    table vput -columns {population country} populations {
+        {320000000 USA}
+        { 82500000 Germany}
+    };                          # Note use of the `-columns` option as we are providing row fields in a different order
+} text {
+    Although the above examples supplied the rows in the form of a
+    nested list, the command will also accept a table of the same shape
+    as the destination.
+}
+
+
 
 text {
     ((==== * "Inserting rows"))
@@ -876,17 +870,17 @@ text {
     column. In the simplest cast, the index command can be used to
     retrieve a single element.
 } shell {
-    table index $tab end
+    table index $populations end
 } text {
     Multiple elements can be retrieved with the get and range
     commands. The get command can be passed a sequence of
     noncontiguous indices specified as a Tcl list or a `int` column:
 } shell {
-    table get $tab [column search -all -lt [table column $tab 0] 0]
+    table get $populations [column search -all -lt [table column $populations 0] 0]
 } text {
     The range command retrieves elements in a specified index range.
 } shell {
-    table range $tab 0 10
+    table range $populations 0 10
 } text {
 
     By default, both commands returns values as a typed array. The
@@ -894,7 +888,7 @@ text {
     list or dictionary instead.  In the latter case, the dictionary
     keys are the indices being retrieved.
 } shell {
-    table get -dict $tab [column search -all -lt [table column $tab 0] 0]
+    table get -dict $populations [column search -all -lt [table column $populations 0] 0]
 } text {
 
     In the case of tables, both commands also provide for retrieval of

@@ -224,8 +224,9 @@ text {
     ignored. An error is generated if any element of _ROWVALUE_ does not match
     the type of the corresponding column or if the _ROWVALUE_ width differs
     from the table width. Indices are specified in any of the forms
-    described in ((^ sect_table_indices)). The size of the array will be extended if
-    necessary.
+    described in ((^ sect_table_indices)). The size of the array will
+    be extended if necessary. The index `end` refers to the last
+    element of the table.
 
     The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
     columns of the table or to match the order of columns to the supplied
