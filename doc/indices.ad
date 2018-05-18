@@ -8,7 +8,7 @@ Many commands also allow multiple indices to be specified. These may take one of
 two forms -- a _range_ which includes all indices between a lower and an upper
 bound (inclusive), and an _index list_ which may be one of the following:
 
-* a list of integers
+* a Tcl list of integers
 
 * a column of any type other than `boolean`. The value of each
 element of the column is converted to an integer that is treated as an index.
@@ -16,14 +16,24 @@ element of the column is converted to an integer that is treated as an index.
 * a column of type `boolean`. Here the *index* of each bit in the boolean
 column that is set to `1` is treated as an index.
 
-Index columns allow the indices returned
-by commands such as column search to be efficiently passed to other commands.
-When indices are specified as a list cause an array to be extended, the index
-list must include all indices beyond the current array size in any order but
-without any gaps. For example, if an array contains a thousand elements (the
-highest index thereby being 999), the index list `1001 1000 1002` is legal but
-`1001 1002` is not.
-
 Note that keyword `end` can be used to specify a single index or as a range
 bound, but cannot be used in an index list.
+
+When indices are specified that cause a column or table to be extended,
+they must include all indices beyond the current column or table size
+in any order but without any gaps. For example,
+
+[source,Tcl,subs="verbatim, replacements"]
+----
+% set I [column series 5]
+&rarr; tarray_column int {0 1 2 3 4}
+% column place $I {106 105 107 104} {6 5 7 4} <1>
+&rarr; tarray_column int {0 1 2 3 104 105 106 107}
+% column place $I {106 107} {6 7} <2>
+&#x00d8; tarray index 6 out of bounds.
+----
+<1> Ok: Indices not in order but no gaps
+<2> Error: no value specified for non-existing index 5
+
+pass:[<a class='ta_toplink' href='#top'>Top&nbsp;&uarr;</a>]
 

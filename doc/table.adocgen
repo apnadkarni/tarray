@@ -269,9 +269,9 @@ text {
     in the table as the command would not know what values to use for the
     unspecified columns.
 
-    ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ _COUNT_"))
+    ((cmddef table_insert "table insert ?-columns _COLUMNS_? _TABLE_ _ROWVALUE_ _FIRST_ ?_COUNT_?"))
 
-    Inserts _COUNT_ rows with value _ROWVALUE_ at position
+    Inserts _COUNT_ (default 1) rows with value _ROWVALUE_ at position
     _FIRST_ and returns the new table. The rows are inserted at the
     specified position. In all cases, the command may extend the array if
     necessary.
@@ -446,16 +446,16 @@ text {
     (which may differ because of traces) is returned as the result of the
     command.
     
-    The standard option ((^ tab_table_stdopts -columns)) may be specified to match the order of
-    columns to the supplied data. Note that _COLUMNS_ must include all columns
-    in the table as the command would not know what values to use for the
-    unspecified columns.
+    The standard option ((^ tab_table_stdopts -columns)) may be
+    specified to match the order of columns to the supplied data. Note
+    that _COLUMNS_ must include all columns in the table as the
+    command would not know what values to use for the unspecified
+    columns.
 
-    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _FIRST_ _COUNT_"))
+    ((cmddef table_vinsert "table vinsert ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUE_ _FIRST_ ?_COUNT_?"))
 
-    Inserts _COUNT_ rows with value _ROWVALUE_ at position
-    _FIRST_ in the table stored in variable _TABLEVAR_.
-    The new value is
+    Inserts _COUNT_ rows (default 1) with value _ROWVALUE_ at position
+    _FIRST_ in the table stored in variable _TABLEVAR_. The new value is
     assigned back to the variable. The resulting value of the variable
     (which may differ because of traces) is returned as the result of the
     command.
