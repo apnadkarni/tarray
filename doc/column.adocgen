@@ -313,9 +313,9 @@ text {
     appended to the column. In all cases, the command may extend the array
     if necessary.
     
-    ((cmddef column_insert "column insert _COLUMN_ _VALUE_ _FIRST_ _COUNT_"))
+    ((cmddef column_insert "column insert _COLUMN_ _VALUE_ _FIRST_ ?_COUNT_?"))
 
-    Inserts _COUNT_ elements with value _VALUE_ at position
+    Inserts _COUNT_ (default 1) elements with value _VALUE_ at position
     _FIRST_ and returns the new column.
     In all cases, the command may extend the array if necessary.
 
@@ -710,8 +710,8 @@ text {
     (which may differ because of traces) is returned as the result of the
     command.
 
-    ((cmddef column_vinsert "column vinsert _COLUMNVAR_ _VALUE_ _FIRST_ _COUNT_"))
-    Inserts _COUNT_ elements with value _VALUE_ at position
+    ((cmddef column_vinsert "column vinsert _COLUMNVAR_ _VALUE_ _FIRST_ ?_COUNT_?"))
+    Inserts _COUNT_ (default 1) elements with value _VALUE_ at position
     _FIRST_ in the column stored in variable _COLUMNVAR_.
     If _FIRST_ is `end`, the values are
     appended to the column. The new value is

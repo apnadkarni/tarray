@@ -269,7 +269,7 @@ text {
     or an arbitrary set of indices. Depending on the command, the
     values may overwrite existing values or inserted.
 
-    ((==== * "Storing a single value in multiple locations"))
+    ((==== * "Storing one value in multiple locations"))
 
     The ((^` column_fill "column fill")) and
     ((^` column_vfill "column vfill")) commands store a **single** value
@@ -283,7 +283,7 @@ text {
 
 text {
 
-    ((==== * "Storing values in arbitrary locations"))
+    ((==== * "Storing multiple values in arbitrary locations"))
 
     The ((^` column_place "column place")) and
     ((^` column_vplace "column vplace")) commands store each value
@@ -299,7 +299,7 @@ text {
 }
 
 text {
-    ((==== * "Storing values in contiguous locations"))
+    ((==== * "Storing multiple values in contiguous locations"))
 
     The ((^` column_put "column put")) and
     ((^` column_vput "column vput")) commands store each value from a
@@ -311,22 +311,7 @@ text {
 }
 
 text {
-    ((==== * "Extending columns"))
-    
-    A point to be noted about all the above commands is that they may
-    extend the size of the array if necessary. However, 
-    where an index list or index column is specified, there must not be
-    any gaps in indices that extend the array.
-
-    For example,
-} errorok 1 shell {
-    set I [column series 5]
-    column place $I {106 105 107 104} {6 5 7 4}; # Ok: Indices not in order but no gaps
-    column place $I {106 107} {6 7}; # Error: no value specified for non-existing index 5
-}
-
-text {
-    ((==== * "Inserting a single value in multiple locations"))
+    ((==== * "Inserting one value in multiple locations"))
 
     The ((^` column_insert "column insert")) and
     ((^` column_vinsert "column vinsert")) commands
@@ -344,7 +329,8 @@ text {
 
     The ((^` column_inject "column inject")) and
     ((^` column_vinject "column vinject")) commands insert
-    multiple values passed as a list or a column.
+    multiple values passed as a list or a column into contiguous
+    locations starting at a specified index.
 } shell {
     set I [column series 5]
     column inject $I {10 20 30} 2; # Inserts 10, 20, 30 at index 2
@@ -728,11 +714,11 @@ text {
     of which is also a list. The first argument to the command defines
     the names and types of each column.
 } shell {
-    set populations [table create {
-        country string population wide
+    set countries [table create {
+        Country string Population wide Area double
     } {
-        {China 1350000000}
-        {Vatican 850}
+        {China        1350000000       9330000}
+        {Vatican      850              0.44}
     }]
 } text {
     ((==== * "Creating tables from columns"))
@@ -743,15 +729,40 @@ text {
     only the column names have to be supplied.
 } shell {
     set monthly_temps [table create2 {
-        month temperature
+        Month Temperature
     } [list $months $temperatures]]
     set monthly_rainfall [table create2 {
-        month rainfall
+        Month Rainfall
     } [list $months $rainfall]]
 }
 
 text {
-    ((=== * "Selecting columns"))
+    ((=== * "Operating on columns"))
+
+    ((==== * "Retrieving columns"))
+
+    The ((^` table_column "table column")) command returns a single
+    column from a table.
+    The ((^` table_columns "table columns")) command returns a list
+    containing one or more columns from a table.
+} shell {
+    table column $countries Country
+    table columns $countries {Country 1} ; # Columns may be specified by name or index
+    table columns $countries ; # Defaults to returning all columns
+}
+
+text {
+    ((==== * "Extracting a subtable"))
+
+    The ((^` table_slice "table slice")) command returns a new table
+    containing one or more columns from a table.
+} shell {
+    table slice $countries {Country Area}
+}
+
+text {
+
+    ((==== * "Subsetting columns in commands"))
 
     While closely paralleling the commands that store values in
     columns, commands storing rows in tables have an additional
@@ -777,11 +788,11 @@ text {
     in one or more locations. Like `column fill`, the destination may
     be a single row, a range of rows or at specified row indices.
 } shell {
-    table vfill populations {India 1320000000} end+1; # Note use of `end+1` notation
+    table vfill countries {Russia 141930000 16.38e6} end+1; # Note use of `end+1` notation
 }
 
 text {
-    ((==== * "Storing rows at arbitrary locations"))
+    ((==== * "Storing rows in arbitrary locations"))
 
     The ((^` table_place "table place")) and ((^` table_vplace "table vplace"))
     commands store one or more source rows at one or more locations in
@@ -789,7 +800,7 @@ text {
 
     Assuming the Vatican City and China both experiences some population growth.
 } shell {
-    table vplace -columns {population} populations {
+    table vplace -columns {Population} countries {
         {1000}
         {1370000000}
     } {1 0}
@@ -812,9 +823,9 @@ text {
     locations in the table. 
 
 } shell {
-    table vput -columns {population country} populations {
-        {320000000 USA}
-        { 82500000 Germany}
+    table vput -columns {Population Country Area} countries {
+        {320000000 USA     9.16e6}
+        { 82500000 Germany 348770}
     };                          # Note use of the `-columns` option as we are providing row fields in a different order
 } text {
     Although the above examples supplied the rows in the form of a
@@ -822,38 +833,31 @@ text {
     as the destination.
 }
 
+text {
+    ((==== * "Inserting one row in multiple locations"))
 
+    The ((^` table_insert "table insert")) and
+    ((^` table_vinsert "table vinsert")) commands
+    store a single row value a specified number of times starting at a
+    given index,
+    pushing existing rows further to the end of the table.
+} shell {
+    table vinsert countries {Brazil 201000000 3300000} 2; # Inserts at index 2, (just once because no count specified)
+}
 
 text {
-    ((==== * "Inserting rows"))
+    ((==== * "Inserting multiple rows"))
 
-    All the commands dicussed to this point overwrite existing
-    values, at the target locations. The
-    ((^` column_insert "column insert")) and
-    ((^` column_vinsert "column vinsert"))
-    commands and their table equivalents,
-    ((^` table_insert "table insert")) and
-    ((^` table_vinsert "table vinsert"))
-    store a single repeated value or row, into the type
-    array, pushing existing elements further up.
-    Similarly, 
-    ((^` column_inject "column inject")) and
-    ((^` column_vinject "column vinject"))
-    commands and their table equivalents,
+    The
     ((^` table_inject "table inject")) and
-    ((^` table_vinject "table vinject")), insert
-    multiple values or rows (passed as a list or a typed array).
-} tbd {
-    column insert $col 3.0 2 10
-    column inject $col {1.0 2.0 3.0} 2
-    column inject $col $col 2
-} text {
-
-    The first command returns a new column with the same value, `3.0`,
-    inserted `10` times at index `2`. The second command returns a new
-    column with all values in the passed list, `1.0`, `2.0`, `3.0`,
-    inserted at index `2`. The last command returns a new column where
-    all existing values in the column are reinserted at index `2`.
+    ((^` table_vinject "table vinject")) commands insert
+    multiple rows, passed as a list or a compatible table, at a
+    specified index in a table.
+} shell {
+    table vinject countries {
+        {Ghana 28000000   92100}
+        {India 1320000000 1270000}
+    } 0;                        # Insert at beginning of table
 }
 
 
@@ -870,17 +874,17 @@ text {
     column. In the simplest cast, the index command can be used to
     retrieve a single element.
 } shell {
-    table index $populations end
+    table index $countries end
 } text {
     Multiple elements can be retrieved with the get and range
     commands. The get command can be passed a sequence of
     noncontiguous indices specified as a Tcl list or a `int` column:
 } shell {
-    table get $populations [column search -all -lt [table column $populations 0] 0]
+    table get $countries [column search -all -lt [table column $countries 0] 0]
 } text {
     The range command retrieves elements in a specified index range.
 } shell {
-    table range $populations 0 10
+    table range $countries 0 10
 } text {
 
     By default, both commands returns values as a typed array. The
@@ -888,15 +892,15 @@ text {
     list or dictionary instead.  In the latter case, the dictionary
     keys are the indices being retrieved.
 } shell {
-    table get -dict $populations [column search -all -lt [table column $populations 0] 0]
+    table get -dict $countries [column search -all -lt [table column $countries 0] 0]
 } text {
 
     In the case of tables, both commands also provide for retrieval of
     a subset of columns and in a different order than in the
     definition.
 } shell {
-    table range -columns {population country} $populations 0 end
-    table range -columns {1} $populations 0 end
+    table range -columns {Population Country} $countries 0 end
+    table range -columns {1} $countries 0 end
 } text {
     Note columns may be specified either by position or name.
 
@@ -912,7 +916,7 @@ text {
 tbd {
     To search tables, use the search on individual columns. For example,
 } shell {
-    set countries [table create {country string population wide area double} {
+    set countries [table create {Country string Population wide area double} {
         {Vatican 850 0.44}
         {China 1350000000 9.55e6}
         {USA 314000000 9.63e6}
@@ -920,7 +924,7 @@ tbd {
         {Russia 141930000 17e6} }]
     set pop_col [table column $countries 1]; # Column specified by position
     set area_col [table column $countries area]; # Column specified by name
-    table get -list -columns {country} $countries [column search -all -among [column search -all -gt $pop_col 250000000] -gt $area_col 5e6]
+    table get -list -columns {Country} $countries [column search -all -among [column search -all -gt $pop_col 250000000] -gt $area_col 5e6]
 } text {
 
     returns names of countries that are populous and large in area. Note how the
@@ -937,7 +941,7 @@ tbd {
     of `search` and `intersect3`. For example, to find all countries
     with a population more than a billion in less than 5 million sq.km,
 } shell {
-    xtal::xtal { countries.country[countries.population > 1000000000 && countries.area < 5000000]}
+    xtal::xtal { countries.Country[countries.Population > 1000000000 && countries.area < 5000000]}
 } text {
     ====
 
@@ -1050,7 +1054,7 @@ tbd {
     is not formatted and hence difficult to read. The `print` command
     provides a alternative that outputs a more readable format.
 } tbd {
-    print [table column $countries population] -head 1 -tail 1
+    print [table column $countries Population] -head 1 -tail 1
     print $countries
 } text {
     By default the command only prints the first few and last few
