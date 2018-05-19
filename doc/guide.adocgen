@@ -26,7 +26,7 @@ text {
 
 text {
     
-    == Motivation
+    ((== * Motivation))
 
     Although Tcl provides for collections in the form of lists
     these have limitations when dealing with large
@@ -44,7 +44,7 @@ text {
 }
 
 text {
-    == Installation and loading
+    ((== * "Installation and loading"))
 
     include::download.ad[]
     
@@ -78,7 +78,7 @@ text {
 text {
     ((== sect_guide_concepts Concepts))
 
-    === Columns
+    ((=== * Columns))
 
     A _column_ is an ordered sequence of values of a single
     ((^ sect_guide_types _type_))
@@ -86,7 +86,7 @@ text {
     ((^` chap_column_ref tarray::column))
     can be used to create and manipulate typed columns.
 
-    === Tables
+    ((=== * Tables))
     
     A _table_ is an ordered sequence of named columns of equal
     size. It can be also be viewed as an array of records where the
@@ -451,7 +451,7 @@ text {
     When results are further used in logical operations, it is
     useful to specify the `-bitmap` option. This causes the results to
     be returned as a boolean vector where the matching indices are set
-    to 1.
+    to 1. That further allows for easy logical operations.
 } shell {
     set not_wet [column search -bitmap -lt $rainfall 150]; # The `-bitmap` option implies `-all`
     set not_dry [column search -bitmap -gt $rainfall 50]
@@ -656,6 +656,90 @@ text {
     The fact that an index column returned by a search is in sorted order
     is internally noted by the implementation and made use of by a subsequent
     `intersect3`.
+}
+
+text {
+    ((=== * "Grouping operations"))
+
+    The ((^` column_groupby "column groupby")) command separates the
+    elements of a column into groups based on some criterion and then
+    applies some transform to each group, returning the results.
+
+    ((==== * "Grouping into equal intervals"))
+
+    For example, suppose we want to classify monthly rainfall into
+    four categories -- scanty, light, moderate and heavy -- and find
+    how many months fall into each category. We can use the
+    `column groupby equalintervals` command for the purpose.
+} outputlimit 0 shell {
+    print $rainfall stdout -full 1
+    print [column groupby equalintervals count $rainfall 4]
+} text {
+    The above divies up the range of values in column into 4 equal
+    intervals and counts the number of values that falls in each.
+    The result is a table of two columns, the first being the lower
+    bound of each interval and the second being the number of values
+    that fall into that interval.
+
+    The above looks even more crude than usual, so we can use the
+    `-min` and `-max` options to control the limits.
+} outputlimit 0 shell {
+    print $rainfall stdout -full 1
+    print [column groupby equalintervals count $rainfall 4 -min 0 -max 236]
+} text {
+    Note that when either option is used, any values that do not fall
+    within those limits are ignored.
+    
+    The "transform" we used above was the counting function. We could
+    have also summed the values, returned their indices, or just the
+    values in each bucket. See the reference documentation of the command.
+
+    ((==== * "Grouping into arbitrary categories"))
+
+    The above is a special case of grouping and obviously applies only
+    to numerical columns. A more general form is the
+    `column groupby command` which accepts a command prefix that will
+    do the classification. The return value from the command prefix is
+    interpreter as the bucket "identifier".
+
+    Suppose we want to group the months by
+    their first letters (why? To which I say, why not?).
+    
+} outputlimit 0 script {
+    proc first_letter {elem_index elem_value} {
+        return [string toupper [string index $elem_value 0]]
+    }
+    print [column groupby command values $months first_letter]
+} text {
+
+    Notice the buckets are not sorted and the values in each bucket
+    are returned as a nested column.
+
+    This form is useful for numerical values as well, for example if
+    we do not want the intervals to be equal. The code fragment below
+    classifies rainfall into unequal intervals -- scanty, moderate and
+    heavy -- and prints the months in each.
+
+} script {
+    proc rain_class {elem_index elem_value} {
+        if {$elem_value < 50} {
+            return scanty
+        } elseif {$elem_value < 200} {
+            return moderate
+        } else {
+            return heavy
+        }
+    }
+    
+    loop row [column groupby command indices $rainfall rain_class] {
+        puts -nonewline "[lindex $row 0]: "
+        set indices [lindex $row 1]
+        puts [column get -list $months $indices]
+    }
+} text {
+    Note the use of the `indices` transform to return the indices of
+    the elements in each group. See the command documentation for
+    other variations.
 }
 
 text {
@@ -947,7 +1031,7 @@ text {
 text {
     ((=== * "Ordering rows"))
 
-    ((==== * "Sorting"))
+    ((==== * "Sorting tables"))
 
     Tables are sorted using the ((^` table_sort "table sort"))
     command. This is a thin wrapper around the `column sort` command
@@ -1011,13 +1095,30 @@ text {
 
 text {
 
-    ((==== * "Reversing"))
+    ((==== * "Reversing tables"))
 
     The order of rows in a table can be reversed with the
     ((^` table_reverse "table reverse")) or
     ((^` table_vreverse "table vreverse")) commands.
 } shell {
     print [table reverse $countries]
+}
+
+text {
+    ((=== * "Joining tables"))
+
+    The ((^` table_join "table join")) command implements basic
+    database-type join functionality between tables.
+} outputlimit 6 shell {
+    print [table join $monthly_rainfall $monthly_temps]
+} text {
+    By default, the join is done on the first column name that is
+    common between the tables. The `-on` option can be used to change
+    that. The result table includes all columns with duplicate columns
+    being renamed as shown above. The `-t0cols` and `-t1cols` options
+    can be used to control which columns are included from each table.
+} outputlimit 6 shell {
+    print [table join -t1cols Temperature $monthly_rainfall $monthly_temps]
 }
 
 text {
@@ -1054,6 +1155,40 @@ text {
 }
 
 text {
+    ((== * "Looping"))
+
+    The ((^` tarray_loop loop)) command iterates over a column or
+    table executing a script for every element or row.
+} outputlimit 3 shell {
+    loop row $countries {
+        puts $row
+    }                             
+} text {    
+    A variation includes the element or row index as an iteration
+    variable.
+} outputlimit 3 shell {
+    loop rowindex row $countries {
+        puts "Row $rowindex: $row"
+    }
+} text {
+    The command can be used within a coroutine context to yield
+    values.
+} script {
+    proc loopy col {
+        yield;
+        tarray::loop elem $col {
+            yield $elem
+        }
+    }
+    coroutine next_month loopy $months
+} text {
+    We can next retrieve each element using the iterator.
+} shell {
+    next_month
+    next_month
+}
+
+text {
     ((== * "Formatting output"))
     
     The Tcl `puts` command is not always suitable for printing
@@ -1080,8 +1215,15 @@ text {
     set col [column create int {-1000 10 100}]
     column width $col;          # Use default format string
     column width $col "hex representation is %x"; # Specify the format string
-} tbd {
-    column width
+}
+
+text {
+    ((== * "Export and import"))
+
+    Tables can be exported to, and imported from, CSV format with
+    ((^` table_csvexport "table csvexport")) and
+    ((^` table_csvimport "table csvimport")) respectively.
+    
 }
 
 text {
@@ -1122,7 +1264,7 @@ text {
 }
 
 text {
-    == Usage Hints
+    ((== * "Usage Hints"))
 
     .Specifying multiple indices
     When specifying indices to commands, Tcl lists of integers and columns of
@@ -1143,12 +1285,12 @@ text {
     result in a copy being made, which can be expensive if the
     array is large.  So, to modify a variable that contains a
     typed array, the command
-} tbd {
-    column vput col [list 1.0 2.0]
+} shell {
+    column vput I [list 100 200]
 } text {
     is far more efficient than
-} tbd {
-    set col [column put $col [list 1.0 2.0]]
+} shell {
+    set I [column put $I [list 100 200]]
 } text {
     assuming the value in is not itself shared. This is similar to use of Tcl's
     `lset` command to modify lists.
@@ -1221,9 +1363,8 @@ text {
 }
 
 tbd {
-    looping
-}
-
-tbd {
-    export/import
+    graphics
+    table join
+    column groupby
+    column|table equal|identical
 }
