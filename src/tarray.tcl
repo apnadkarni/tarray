@@ -61,7 +61,7 @@ proc tarray::column::groupby {method compute col args} {
 
     if {[tcl::prefix match {equalintervals command} $method] eq "equalintervals"} {
         return [tarray::table::create2 \
-                    [list bucket $compute] \
+                    [list bucket [string totitle $compute]] \
                     [_group_by_equal_intervals $col $compute {*}$args]]
     }
 
@@ -122,8 +122,8 @@ proc tarray::column::groupby {method compute col args} {
     }
 
     return [tarray::table::create2 \
-                [list Bucket $compute] \
-                [create any [dict keys $buckets]] $groups]
+                [list Bucket [string totitle $compute]] \
+                [list [tarray::column::create any [dict keys $buckets]] $groups]]
 }
 
 
