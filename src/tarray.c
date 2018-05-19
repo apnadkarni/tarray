@@ -5269,7 +5269,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
     thdr_t *thdr = NULL, *buckets = NULL, *lows_thdr = NULL;
     int opt, nbuckets, first, count;
     TCL_RESULT res;
-    ta_value_t start, step, last;
+    ta_value_t start, step, last, ubound;
     span_t *span;
     static const char *cmds[] = {
         "count", "sum", "values", "indices", NULL
@@ -5306,8 +5306,8 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
      * The lower limit of the highest bucket is
      * last = start + (nbuckets-1)*step. We have to ensure that
      * this does not overflow. Note it is ok for 
-     * this last bucket to overflow (in which case it will be
-     * less than "step" units wide)
+     * the last *bucket* to overflow (in which case it will be
+     * less than "step" units wide).
      */
 
     switch (thdr->type) {
@@ -5344,16 +5344,16 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         case TA_INT:
             if (start.wval < INT32_MIN || last.wval > INT32_MAX)
                 goto invalid_bucket_interval;
-            start.ival = (unsigned char) start.wval;
-            step.ival  = (unsigned char) step.wval;
-            last.ival  = (unsigned char) last.wval;
+            start.ival = (int) start.wval;
+            step.ival  = (int) step.wval;
+            last.ival  = (int) last.wval;
             break;
         case TA_UINT:
             if (start.wval < 0 || last.wval > UINT32_MAX)
                 goto invalid_bucket_interval;
-            start.uival = (unsigned char) start.wval;
-            step.uival  = (unsigned char) step.wval;
-            last.uival  = (unsigned char) last.wval;
+            start.uival = (unsigned int) start.wval;
+            step.uival  = (unsigned int) step.wval;
+            last.uival  = (unsigned int) last.wval;
             break;
         case TA_WIDE:
             /* No further range checks needed for wides */
@@ -5398,7 +5398,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         pbucket = THDRELEMPTR(buckets, int, 0);                         \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
-            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+            if (pdata[i] < start.field_                                 \
+                ||                                                      \
+                (pdata[i] > last.field_                                 \
+                 && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
             TA_ASSERT(bucket_index < nbuckets);                         \
@@ -5418,7 +5421,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         pbucket = THDRELEMPTR(buckets, sum_type_, 0);                   \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
-            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+            if (pdata[i] < start.field_                                 \
+                ||                                                      \
+                (pdata[i] > last.field_                                 \
+                 && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
             TA_ASSERT(bucket_index < nbuckets);                         \
@@ -5444,7 +5450,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
-            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+            if (pdata[i] < start.field_                                 \
+                ||                                                      \
+                (pdata[i] > last.field_                                 \
+                 && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
             TA_ASSERT(bucket_index < nbuckets);                         \
@@ -5475,7 +5484,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         pdata = THDRELEMPTR(thdr, type_, first);                        \
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
-            if (pdata[i] < start.field_ || pdata[i] > last.field_)      \
+            if (pdata[i] < start.field_                                 \
+                ||                                                      \
+                (pdata[i] > last.field_                                 \
+                 && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
             TA_ASSERT(bucket_index < nbuckets);                         \
