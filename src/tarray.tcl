@@ -60,7 +60,9 @@ proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
 proc tarray::column::groupby {method compute col args} {
 
     if {[tcl::prefix match {equalintervals command} $method] eq "equalintervals"} {
-        return [_group_by_equal_intervals $col $compute {*}$args]
+        return [tarray::table::create2 \
+                    [list bucket $compute] \
+                    [_group_by_equal_intervals $col $compute {*}$args]]
     }
 
     if {[llength $args] != 1} {
@@ -119,8 +121,9 @@ proc tarray::column::groupby {method compute col args} {
         }
     }
 
-    return [list [create any [dict keys $buckets]] $groups]
-
+    return [tarray::table::create2 \
+                [list Bucket $compute] \
+                [create any [dict keys $buckets]] $groups]
 }
 
 
@@ -745,6 +748,7 @@ namespace eval tarray {
             fill fill
             fold fold
             get get
+            groupby groupby
             identical identical
             index index
             inject inject

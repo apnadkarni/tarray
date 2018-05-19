@@ -210,32 +210,35 @@ text {
     into _buckets_  based on the _METHOD_ argument described
     later. It then computes a value for each bucket based on the
     _COMPUTE_ argument.
-    The return value of the command is a list of two elements. The
-    first element is a column of whose values identify the bucket.
-    The second element on the list is a column containing
-    the computed result for each bucket.
+    The return value of the command is a table with two columns named
+    `Bucket` and the title-ized version of `_COMPUTE_`, for example
+    `Count` when `_COMPUTE_` is `count`. The elements
+    of the `Bucket` column identify the bucket, while the second
+    column contains the computed result for each bucket.
 
     If _COMPUTE_ is `count`, the bucket result is the
-    number of values that fall into that bucket. The second element of
-    the command result is then an integer column containing the count for
-    each bucket.
+    number of values that fall into that bucket. The second column
+    of the command result is then an integer column named `Count`
+    containing the count for each bucket.
 
     If _COMPUTE_ is `sum`, the bucket result is the sum
-    of all values falling into that bucket. The second element of
-    the command result is a column containing the sum for
+    of all values falling into that bucket. The second result column
+    the command result is a column named `Sum` containing the sum for
     each bucket. The column type is `wide` if _COLUMN_ is any
     integral type and `double` otherwise.
 
     If _COMPUTE_ is `indices`, the bucket result is an index column
     containing the indices of the elements whose values fall into that
-    bucket. The second element of the command result is a column of
+    bucket. The second column of the command result is named `Indices`
+    and of
     type `any`. Each element of this column is itself an integer
     column containing the indices for the corresponding bucket.
 
     Finally, if _COMPUTE_ is `values`, the bucket result is
     a column, of the same type as _COLUMN_, containing the actual
-    values that fell into that bucket. The second element of the
-    command result is a column of type `any`. Each element of this
+    values that fell into that bucket. The second column of
+    command result, named `Values`, is a column of type `any`.
+    Each element of this
     column is a column, of the same type as _COLUMN_, containing the
     values in the bucket.
 
@@ -251,10 +254,10 @@ text {
     placed into the bucket identified by the returned value from the
     invocation. 
 
-    The two-element list returned by the command consists of a column
-    of type `any` comprising of the return values of _CMDPREFIX_ which
-    identify the buckets. The second element of the list depends on
-    the _COMPUTE_ argument as described above.
+    The returned table's `Bucket` column is of type `any` and comprises
+    of the return values of _CMDPREFIX_ which
+    identify the buckets. The second column depends on
+    the _COMPUTE_ argument as described earlier.
 
     The command syntax when _METHOD_ is `equalintervals` is
 } syntax {
@@ -277,17 +280,11 @@ text {
     Similarly, if the `-max` option is specified, any values greater than the
     associated option value are ignored.
 
-    The two-element list returned by the command consists of a column
-    of type `any` comprising of the return values of _CMDPREFIX_ which
-    identify the buckets. The second element of the list depends on
-    the _COMPUTE_ argument as described earlier.
-
-    The return value of the command is again a list of two elements
-    where the second element is based on the _COMPUTE_ argument as
-    described earlier. The
-    first element is a column of the same type as _COLUMN_
-    containing _NINTERVALS_ values each of which is the lower bound of
-    the corresponding bucket.
+    The `Bucket` column of the returned table is of the same type as _COLUMN_
+    and contains _NINTERVALS_ elements each of which is the lower bound of
+    the corresponding bucket. Again,
+    the second column is based on the _COMPUTE_ argument as
+    described earlier.
 
     ((cmddef column_identical "column identical _COLA_ _COLB_"))
 
