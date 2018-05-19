@@ -24,7 +24,7 @@ text {
 
     * Added logical operations `&&`, `||` and `^^` for column expressions.
 
-    * Added comparison operators `==`, `!=`, `<`, `<=`, `>`, `>=` for column expressions.
+    * Added comparison operators `==`, `!=`, `<`, `\<=`, `>`, `>=` for column expressions.
     
     [discrete]
     === tarray package
