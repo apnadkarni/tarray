@@ -579,7 +579,22 @@ text {
 text {
     ((=== * "Arithmetic and logical operations"))
 
+    ((==== * "Comparing columns"))
 
+    The ((^` column_identical "column identical")) and
+    ((^` column_equal "column equal")) commands compare two columns in
+    their entirety. The difference is that the former returns `1` if
+    the columns have the same type in addition to elements being
+    equal and `0` otherwise. The latter applies a looser definition in
+    that the columns may be of different types.
+} shell {
+    set I [column create int {1 2 3}]
+    set S [column create string {1 2 3}]
+    column identical $I $S
+    column equal $I $S
+}
+
+text { 
     ((==== * "Arithmetic operations between columns"))
 
     The ((^` column_math "column math")) command can be used
@@ -739,7 +754,8 @@ text {
 } text {
     Note the use of the `indices` transform to return the indices of
     the elements in each group. See the command documentation for
-    other variations.
+    other variations including the ability to skip elements or prematurely
+    terminate the iteration via the `break` and `continue` return codes.
 }
 
 text {
@@ -821,9 +837,9 @@ text {
 }
 
 text {
-    ((=== * "Operating on columns"))
+    ((=== * "Operating on table columns"))
 
-    ((==== * "Retrieving columns"))
+    ((==== * "Retrieving table columns"))
 
     The ((^` table_column "table column")) command returns a single
     column from a table.
@@ -997,6 +1013,20 @@ text {
 } text {
     Note the use of the `-columns` option to retrieve only a subset of the
     table columns.
+}
+
+text {
+    ((==== * "Comparing table"))
+
+    The ((^` table_identical "table identical")) and
+    ((^` table_equal "table equal")) commands compare two tables in
+    their entirety. The difference is that the former returns `1` if
+    the tables have the same column names and the
+    `column identical` command returns true for every corresponding
+    pair of columns, 
+    and `0` otherwise. The latter applies a looser definition in
+    that the `column equal` is used to compare columns and the column
+    names may differ.
 }
 
 text {
@@ -1227,6 +1257,14 @@ text {
 }
 
 text {
+    ((== * "Tk widgets"))
+
+    The `tarray_ui` package provides several widgets for
+    displaying and plotting column and table data. See its
+    link:ui.html[documentation].
+}
+
+text {
     ((== * "Random numbers"))
 
     We saw earlier the construction of columns containing randomly generated
@@ -1362,9 +1400,3 @@ text {
     searches is an O(n) operation.
 }
 
-tbd {
-    graphics
-    table join
-    column groupby
-    column|table equal|identical
-}
