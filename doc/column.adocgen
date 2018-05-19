@@ -252,7 +252,10 @@ text {
     invocation has two additional arguments appended -- the index of
     the element being passed and its value. The element is then
     placed into the bucket identified by the returned value from the
-    invocation. 
+    invocation. If `_CMDPREFIX_` completes with a `break` control
+    code, no further elements are processed. If it completes with a
+    `continue` return code, that particular iteration is ignored and
+    not included in the result. 
 
     The returned table's `Bucket` column is of type `any` and comprises
     of the return values of _CMDPREFIX_ which
