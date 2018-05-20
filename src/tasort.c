@@ -835,7 +835,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     thdr_t *pindices = NULL, *ptarget;
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;
-    span_t *span_indices, *span_target;
+    span_t *span_target;
     TCL_RESULT res;
 
     TA_ASSERT(! Tcl_IsShared(oindices));
