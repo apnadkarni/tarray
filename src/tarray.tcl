@@ -23,6 +23,7 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
 }
 
 proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
+    dict size $args;            # Verify dictionary format
     if {[dict exists $args -min]} {
         set min [dict get $args -min]
     }
@@ -61,7 +62,7 @@ proc tarray::column::groupby {method compute col args} {
 
     if {[tcl::prefix match {equalintervals command} $method] eq "equalintervals"} {
         return [tarray::table::create2 \
-                    [list bucket [string totitle $compute]] \
+                    [list Bucket [string totitle $compute]] \
                     [_group_by_equal_intervals $col $compute {*}$args]]
     }
 
@@ -99,7 +100,7 @@ proc tarray::column::groupby {method compute col args} {
             set groups [create int [dict values $buckets]]
         }
         sum {
-            if {[column type $col] in {double string any}} {
+            if {[type $col] in {double string any}} {
                 set groups [create double [dict values $buckets]]
             } else {
                 set groups [create wide [dict values $buckets]]
@@ -123,7 +124,7 @@ proc tarray::column::groupby {method compute col args} {
 
     return [tarray::table::create2 \
                 [list Bucket [string totitle $compute]] \
-                [list [tarray::column::create any [dict keys $buckets]] $groups]]
+                [list [create any [dict keys $buckets]] $groups]]
 }
 
 
@@ -390,6 +391,7 @@ proc tarray::table::csvimport {args} {
     }
     set path [lindex $args end]
     set args [lrange $args 0 end-1]
+    dict size $args;            # Verify dictionary format
     
     set fd [open $path r]
 
