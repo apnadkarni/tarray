@@ -279,10 +279,11 @@ text {
     the lower bound of the first bucket. If there happen to be any
     values in the column smaller than this, they are ignored in the
     returned result.
-
     Similarly, if the `-max` option is specified, any values greater than the
     associated option value are ignored.
-
+    If the column is empty, both `-min` and `-max` values must be
+    specified, other wise the command will raise an error.
+    
     The `Bucket` column of the returned table is of the same type as _COLUMN_
     and contains _NINTERVALS_ elements each of which is the lower bound of
     the corresponding bucket. Again,

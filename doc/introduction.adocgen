@@ -49,10 +49,8 @@ text {
 
     * vector operations
     * flexible indexing
-    * more powerful search and sort facilities
-
-    The column and table constructs are similar to _dataframes_ in
-    languages like R.
+    * more powerful search and ordering facilities
+    * utility functions like grouping, joins, random number generation
 }
 
 text {
