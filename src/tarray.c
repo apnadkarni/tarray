@@ -5569,7 +5569,6 @@ not_implemented:
     Tcl_SetResult(ip, "Not implemented", TCL_STATIC);
     
 error_return:
-    thdr_free(thdr);
     thdr_free(buckets);
     thdr_free(lows_thdr);
     return TCL_ERROR;
