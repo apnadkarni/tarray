@@ -5266,10 +5266,9 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
 TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                                 int objc, Tcl_Obj *const objv[])
 {
-    thdr_t *thdr = NULL, *buckets = NULL, *lows_thdr = NULL;
+    thdr_t *thdr, *buckets, *lows_thdr;
     int opt, nbuckets, first, count;
-    TCL_RESULT res;
-    ta_value_t start, step, last, ubound;
+    ta_value_t start, step, last;
     span_t *span;
     static const char *cmds[] = {
         "count", "sum", "values", "indices", NULL
@@ -5285,14 +5284,13 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
 	return TCL_ERROR;
     }
 
-    thdr      = NULL;
     buckets   = NULL;
     lows_thdr = NULL;
 
     /* How to bucketize */
     CHECK_OK( ta_opt_from_obj(ip, objv[2], cmds, "command", 0, &opt) );
 
-    /* Number of buckets - this ensures nbuckets >= 0 */
+    /* Number of buckets - this ensures nbuckets > 0 */
     CHECK_OK( ta_get_count_from_obj(ip, objv[3], 0, &nbuckets) );
 
     tcol = objv[1];
@@ -5563,10 +5561,6 @@ invalid_step:
 
 invalid_bucket_interval:
     Tcl_SetResult(ip, "The bucket parameters are invalid for the column type.", TCL_STATIC);
-    goto error_return;
-
-not_implemented:
-    Tcl_SetResult(ip, "Not implemented", TCL_STATIC);
     
 error_return:
     thdr_free(buckets);
