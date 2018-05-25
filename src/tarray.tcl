@@ -89,7 +89,7 @@ proc tarray::column::groupby {method compute col args} {
                 if {![dict exists $buckets $bucket]} {
                     dict set buckets $bucket 0
                 }
-                dict set buckets $bucket [expr {$buckets($bucket) + $e}]
+                dict set buckets $bucket [expr {[dict get $buckets $bucket] + $e}]
             }
         }
     }
@@ -116,7 +116,7 @@ proc tarray::column::groupby {method compute col args} {
         values {
             set values {}
             foreach bucket [dict keys $buckets] {
-                lappend values [create any [dict get $buckets $bucket]]
+                lappend values [create [type $col] [dict get $buckets $bucket]]
             }
             set groups [create any $values]
         }
