@@ -548,6 +548,10 @@ if {![info exists tarray::test::known]} {
             return [tarray::table create $coldef $init]
         }
         
+        proc newtable2 {colnames args} {
+            return [tarray::table create2 $colnames $args]
+        }
+
         proc indices {low high} {
             set l {}
             while {$low <= $high} {
