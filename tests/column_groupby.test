@@ -1,0 +1,401 @@
+# column groupby tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    
+    variable values
+    set values(byte) {
+        1 1 2 3 5 8 13 15
+    }
+
+    proc testcol {type} {
+        variable values
+        return [tarray::column create $type $values($type)]
+    }
+    proc ident {elem_index elem_val} {return $elem_val}
+
+    ################################################################
+    # groupby command tests
+    
+    # Tests for empty columns
+    foreach type {any string boolean byte double int uint wide} {
+        test column_group_command-$type-empty-count-1.0 {
+            Group empty column $type
+        } -setup {
+            set C [tarray::column create $type]
+        } -body {
+            tarray::column group command count $C ident
+        } -result [newtable2 {Bucket Count} [tarray::column create any] [tarray::column create int]]
+        
+        test column_group_command-$type-empty-indices-1.0 {
+            Group empty column $type
+        } -setup {
+            set C [tarray::column create $type]
+        } -body {
+            tarray::column group command indices $C ident
+        } -result [newtable2 {Bucket Indices} [tarray::column create any] [tarray::column create any]]
+        
+        test column_group_command-$type-empty-values-1.0 {
+            Group empty column $type
+        } -setup {
+            set C [tarray::column create $type]
+        } -body {
+            tarray::column group command values $C ident
+        } -result [newtable2 {Bucket Values} [tarray::column create any] [tarray::column create any]]
+
+        if {$type in {string any}} continue
+        
+        test column_group_command-$type-empty-sum-1.0 {
+            Group empty column $type
+        } -setup {
+            set C [tarray::column create $type]
+        } -body {
+            tarray::column group command sum $C ident
+        } -result [newtable2 {Bucket Sum} [newcolumn any] [newcolumn [expr {$type eq "double" ? "double" : "wide"}]]]
+    }
+
+    # General tests, note these ensure that types string and any can
+    # also be used with the sum command. Note boolean is tested separately
+    foreach type {any string byte double int uint wide} {
+
+        test column_group_command-$type-count-1.0 {
+            Group $type column
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command count $C [lambda {index val} {
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Count} [newcolumn any {10 20 40 50}] [newcolumn int {2 1 1 2}]]
+
+        if {$type in {any string}} {
+            # Test non-numeric path for types that allow it
+            test column_group_command-$type-count-1.1 {
+                Group $type column (non-numeric values)
+            } -setup {
+                set C [newcolumn $type {jan feb mar apr may jun jul}]
+            } -body {
+                tarray::column groupby command count $C [lambda {index val} {
+                    return [string index $val 0]
+                }]
+            } -result [newtable2 {Bucket Count} [newcolumn any {j f m a}] [newcolumn int {3 1 2 1}]]
+        }
+
+        test column_group_command-$type-sum-1.0 {
+            Group $type column
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command sum $C [lambda {index val} {
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Sum} [newcolumn any {10 20 40 50}] [newcolumn [expr {$type in {double string any} ? "double" : "wide"}] {21 23 46 102}]]
+        
+        if {$type in {any string}} {
+            # Test non-numeric path for types that allow it
+            test column_group_command-$type-sum-1.1 {
+                Group $type column (non-numeric values)
+            } -setup {
+                set C [newcolumn $type {jan feb mar apr may jun jul}]
+            } -body {
+                tarray::column groupby command sum $C [lambda {index val} {
+                    return [string index $val 0]
+                }]
+            } -result {can't use non-numeric string as operand of "+"} -returnCodes error
+        }
+
+        test column_group_command-$type-indices-1.0 {
+            Group $type column
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command indices $C [lambda {index val} {
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Indices} [newcolumn any {10 20 40 50}] [newcolumn any [list [newcolumn int {0 5}] [newcolumn int {1}] [newcolumn int {2}] [newcolumn int {3 4}]]]] 
+
+        if {$type in {any string}} {
+            # Test non-numeric path for types that allow it
+            test column_group_command-$type-indices-1.1 {
+                Group $type column (non-numeric values)
+            } -setup {
+                set C [newcolumn $type {jan feb mar apr may jun jul}]
+            } -body {
+                tarray::column groupby command indices $C [lambda {index val} {
+                    return [string index $val 0]
+                }]
+            } -result [newtable2 {Bucket Indices} [newcolumn any {j f m a}] [newcolumn any [list [newcolumn int {0 5 6}] [newcolumn int {1}] [newcolumn int {2 4}] [newcolumn int {3}]]]]
+        }
+
+        test column_group_command-$type-values-1.0 {
+            Group $type column
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command values $C [lambda {index val} {
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Values} [newcolumn any {10 20 40 50}] [newcolumn any [list [newcolumn $type {10 11}] [newcolumn $type {23}] [newcolumn $type {46}] [newcolumn $type {50 52}]]]] 
+                
+        if {$type in {any string}} {
+            # Test non-numeric path for types that allow it
+            test column_group_command-$type-values-1.1 {
+                Group $type column (non-numeric values)
+            } -setup {
+                set C [newcolumn $type {jan feb mar apr may jun jul}]
+            } -body {
+                tarray::column groupby command values $C [lambda {index val} {
+                    return [string index $val 0]
+                }]
+            } -result [newtable2 {Bucket Values} [newcolumn any {j f m a}] [newcolumn any [list [newcolumn $type {jan jun jul}] [newcolumn $type {feb}] [newcolumn $type {mar may}] [newcolumn $type {apr}]]]]
+        }
+        # Test break
+        test column_group_command-$type-count-break-1.0 {
+            Group $type column - break
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command count $C [lambda {index val} {
+                if {$index > 2} {return -code break}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Count} [newcolumn any {10 20 40}] [newcolumn int {1 1 1}]]
+
+        test column_group_command-$type-sum-break-1.0 {
+            Group $type column - break
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command sum $C [lambda {index val} {
+                if {$index > 2} {return -code break}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Sum} [newcolumn any {10 20 40}] [newcolumn [expr {$type in {double string any} ? "double" : "wide"}] {10 23 46}]]
+
+        test column_group_command-$type-indices-break-1.0 {
+            Group $type column - break
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command indices $C [lambda {index val} {
+                if {$index > 2} {return -code break}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Indices} [newcolumn any {10 20 40}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {1}] [newcolumn int {2}]]]]
+
+        test column_group_command-$type-values-break-1.0 {
+            Group $type column - break
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command values $C [lambda {index val} {
+                if {$index > 2} {return -code break}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Values} [newcolumn any {10 20 40}] [newcolumn any [list [newcolumn $type {10}] [newcolumn $type {23}] [newcolumn $type {46}]]]]
+
+        # Test continue
+        test column_group_command-$type-count-continue-1.0 {
+            Group $type column - continue
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command count $C [lambda {index val} {
+                if {int($val) & 1} {return -code continue}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Count} [newcolumn any {10 40 50}] [newcolumn int {1 1 2}]]
+
+        test column_group_command-$type-sum-continue-1.0 {
+            Group $type column - continue
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command sum $C [lambda {index val} {
+                if {int($val) & 1} {return -code continue}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Sum} [newcolumn any {10 40 50}] [newcolumn [expr {$type in {double string any} ? "double" : "wide"}] {10 46 102}]]
+
+        test column_group_command-$type-indices-continue-1.0 {
+            Group $type column - continue
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command indices $C [lambda {index val} {
+                if {int($val) & 1} {return -code continue}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Indices} [newcolumn any {10 40 50}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {2}] [newcolumn int {3 4}]]]]
+
+        test column_group_command-$type-values-continue-1.0 {
+            Group $type column - continue
+        } -setup {
+            set C [newcolumn $type {10 23 46 50 52 11}]
+        } -body {
+            tarray::column groupby command values $C [lambda {index val} {
+                if {int($val) & 1} {return -code continue}
+                return [expr {int($val/10)*10}]
+            }]
+        } -result [newtable2 {Bucket Values} [newcolumn any {10 40 50}] [newcolumn any [list [newcolumn $type {10}] [newcolumn $type {46}] [newcolumn $type {50 52}]]]]
+    }
+
+    # Above tests for booleans
+    test column_group_command-boolean-count-1.0 {
+        Group boolean column
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command count $C [lambda {index val} {
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Count} [newcolumn any {0 1 3 4 6}] [newcolumn int {1 1 1 2 2}]]
+
+    test column_group_command-boolean-sum-1.0 {
+        Group boolean column
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command sum $C [lambda {index val} {
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Sum} [newcolumn any {0 1 3 4 6}] [newcolumn wide {0 0 1 1 1}]]
+
+    test column_group_command-boolean-indices-1.0 {
+        Group boolean column
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command indices $C [lambda {index val} {
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Indices} [newcolumn any {0 1 3 4 6}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {1}] [newcolumn int {2}] [newcolumn int {3 4}] [newcolumn int {5 6}]]]] 
+
+    test column_group_command-boolean-values-1.0 {
+        Group boolean column
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command values $C [lambda {index val} {
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Values} [newcolumn any {0 1 3 4 6}] [newcolumn any [list [newcolumn boolean {0}] [newcolumn boolean {0}] [newcolumn boolean {1}] [newcolumn boolean {1 0}] [newcolumn boolean {1 0}]]]] 
+    
+    # Test break
+    test column_group_command-boolean-count-break-1.0 {
+        Group boolean column - break
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command count $C [lambda {index val} {
+            if {$index > 2} {return -code break}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Count} [newcolumn any {0 1 3}] [newcolumn int {1 1 1}]]
+
+    test column_group_command-boolean-sum-break-1.0 {
+        Group boolean column - break
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command sum $C [lambda {index val} {
+            if {$index > 2} {return -code break}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Sum} [newcolumn any {0 1 3}] [newcolumn wide {0 0 1}]]
+
+    test column_group_command-boolean-indices-break-1.0 {
+        Group boolean column - break
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command indices $C [lambda {index val} {
+            if {$index > 2} {return -code break}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Indices} [newcolumn any {0 1 3}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {1}] [newcolumn int {2}]]]]
+
+    test column_group_command-boolean-values-break-1.0 {
+        Group boolean column - break
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command values $C [lambda {index val} {
+            if {$index > 2} {return -code break}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Values} [newcolumn any {0 1 3}] [newcolumn any [list [newcolumn boolean {0}] [newcolumn boolean {0}] [newcolumn boolean {1}]]]]
+
+    # Test continue
+    test column_group_command-boolean-count-continue-1.0 {
+        Group boolean column - continue
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command count $C [lambda {index val} {
+            if {$index & 1} {return -code continue}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Count} [newcolumn any {0 3 4 6}] [newcolumn int {1 1 1 1}]]
+
+    test column_group_command-boolean-sum-continue-1.0 {
+        Group boolean column - continue
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command sum $C [lambda {index val} {
+            if {$index & 1} {return -code continue}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Sum} [newcolumn any {0 3 4 6}] [newcolumn wide {0 1 0 0}]]
+
+    test column_group_command-boolean-indices-continue-1.0 {
+        Group boolean column - continue
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command indices $C [lambda {index val} {
+            if {$index & 1} {return -code continue}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Indices} [newcolumn any {0 3 4 6}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {2}] [newcolumn int {4}] [newcolumn int {6}]]]]
+
+    test column_group_command-boolean-values-continue-1.0 {
+        Group boolean column - continue
+    } -setup {
+        set C [newcolumn boolean {0 0 1 1 0 1 0}]
+    } -body {
+        tarray::column groupby command values $C [lambda {index val} {
+            if {$index & 1} {return -code continue}
+            return [expr {$index + $val}]
+        }]
+    } -result [newtable2 {Bucket Values} [newcolumn any {0 3 4 6}] [newcolumn any [list [newcolumn boolean {0}] [newcolumn boolean {1}] [newcolumn boolean {0}] [newcolumn boolean {0}]]]]
+
+
+    ################################################################
+    # groupby equalintervals tests
+
+    foreach type {byte} {
+        break
+        test column_group_equalintervals-boolean-1.0 {
+            Basic column groupby test (boolean)
+        } -body {
+            tarray::column groupby equalintervals count [testcol byte] 3
+        } -result [tarray::table create2 {Bucket Count} [list [newcolumn byte {1 6 11}] [newcolumn int {5 1 2}]]]
+    }
+
+    # Error cases
+    foreach type {any string boolean byte double int uint wide} {
+        break
+        foreach compute {count sum indices values} {
+            test column_group_equalintervals-boolean-2.0 {
+                Error (count==0) column groupby test (boolean) 
+            } -body {
+                tarray::column groupby equalintervals $compute [testcol boolean] 0
+            } -result "Number of buckets must be greater than zero." -returnCodes error
+        }
+    }
+}
+
+::tcltest::cleanupTests
