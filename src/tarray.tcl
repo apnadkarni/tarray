@@ -41,7 +41,7 @@ proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
     }
 
     if {$min > $max} {
-        error "Invalid bucket range $min-$max"
+        error "Invalid bucket range $min-$max."
     }
     if {$nintervals <= 0} {
         error "Number of buckets must be greater than zero."
@@ -49,8 +49,11 @@ proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
 
     if {[type $col] eq "double"} {
         # Take care to compute as doubles in case values passed in
-        # as integers
-        set step [expr {((double($max) - $min) / $nintervals) + 1}]
+        # as integers. Note that thanks to FP inexact representations
+        # this is not entirely accurate. The C code will take care
+        # of clamping values exceeding the highest bucket to that
+        # bucket.
+        set step [expr {(double($max) - $min) / $nintervals}]
     } else {
         set step [expr {(($max - $min) / $nintervals) + 1}]
     }

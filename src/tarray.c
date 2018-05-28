@@ -5384,6 +5384,13 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         lows_thdr->sort_order = THDR_SORTED_ASCENDING;  \
     } while (0)
 
+/*
+ * NOTE ABOUT bucket_index ASSERTIONS
+ * Computation of bucket width is necessarily inexact for doubles.
+ * and thus it is possible that values may lie beyond the
+ * last bucket. We deal with this by clamping down these
+ * values to the last bucket.
+ */
 #define FILL_COUNTS(type_, field_)                                      \
     do {                                                                \
         int i, bucket_index;                                            \
@@ -5402,7 +5409,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                  && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
-            TA_ASSERT(bucket_index < nbuckets);                         \
+            /* See comment up top */                                    \
+            TA_ASSERT(thdr->type == TA_DOUBLE || bucket_index < nbuckets);   \
+            if (bucket_index >= nbuckets)                               \
+                bucket_index = nbuckets - 1;                            \
             pbucket[bucket_index] += 1;                                 \
         }                                                               \
     } while (0)
@@ -5425,7 +5435,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                  && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
-            TA_ASSERT(bucket_index < nbuckets);                         \
+            /* See comment up top */                                    \
+            TA_ASSERT(thdr->type == TA_DOUBLE || bucket_index < nbuckets);   \
+            if (bucket_index >= nbuckets)                               \
+                bucket_index = nbuckets - 1;                            \
             /* TBD - overflow checks? */                                \
             pbucket[bucket_index] += pdata[i];                          \
         }                                                               \
@@ -5454,7 +5467,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                  && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
-            TA_ASSERT(bucket_index < nbuckets);                         \
+            /* See comment up top */                                    \
+            TA_ASSERT(thdr->type == TA_DOUBLE || bucket_index < nbuckets);   \
+            if (bucket_index >= nbuckets)                               \
+                bucket_index = nbuckets - 1;                            \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
@@ -5488,7 +5504,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                  && (pdata[i] - last.field_) >= step.field_))           \
                 continue;                                               \
             bucket_index = (pdata[i] - start.field_) / step.field_;     \
-            TA_ASSERT(bucket_index < nbuckets);                         \
+            /* See comment up top */                                    \
+            TA_ASSERT(thdr->type == TA_DOUBLE || bucket_index < nbuckets);   \
+            if (bucket_index >= nbuckets)                               \
+                bucket_index = nbuckets - 1;                            \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
