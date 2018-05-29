@@ -11,7 +11,7 @@ namespace eval tarray::test {
 
     proc testcol {type} {
         variable values
-        return [tarray::column create $type $values($type)]
+        return [tarray::column create $type $values(byte)]
     }
     proc ident {elem_index elem_val} {return $elem_val}
 
@@ -20,7 +20,7 @@ namespace eval tarray::test {
     
     # Tests for empty columns
     foreach type {any string boolean byte double int uint wide} {
-        test column_group_command-$type-empty-count-1.0 {
+        test column_group_command-$type-count-1.0 {
             Group empty column $type
         } -setup {
             set C [tarray::column create $type]
@@ -28,7 +28,7 @@ namespace eval tarray::test {
             tarray::column group command count $C ident
         } -result [newtable2 {Bucket Count} [tarray::column create any] [tarray::column create int]]
         
-        test column_group_command-$type-empty-indices-1.0 {
+        test column_group_command-$type-indices-1.0 {
             Group empty column $type
         } -setup {
             set C [tarray::column create $type]
@@ -36,7 +36,7 @@ namespace eval tarray::test {
             tarray::column group command indices $C ident
         } -result [newtable2 {Bucket Indices} [tarray::column create any] [tarray::column create any]]
         
-        test column_group_command-$type-empty-values-1.0 {
+        test column_group_command-$type-values-1.0 {
             Group empty column $type
         } -setup {
             set C [tarray::column create $type]
@@ -46,7 +46,7 @@ namespace eval tarray::test {
 
         if {$type in {string any}} continue
         
-        test column_group_command-$type-empty-sum-1.0 {
+        test column_group_command-$type-sum-1.0 {
             Group empty column $type
         } -setup {
             set C [tarray::column create $type]
@@ -59,7 +59,7 @@ namespace eval tarray::test {
     # also be used with the sum command. Note boolean is tested separately
     foreach type {any string byte double int uint wide} {
 
-        test column_group_command-$type-count-1.0 {
+        test column_group_command-$type-count-2.0 {
             Group $type column
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -71,7 +71,7 @@ namespace eval tarray::test {
 
         if {$type in {any string}} {
             # Test non-numeric path for types that allow it
-            test column_group_command-$type-count-1.1 {
+            test column_group_command-$type-count-2.1 {
                 Group $type column (non-numeric values)
             } -setup {
                 set C [newcolumn $type {jan feb mar apr may jun jul}]
@@ -82,7 +82,7 @@ namespace eval tarray::test {
             } -result [newtable2 {Bucket Count} [newcolumn any {j f m a}] [newcolumn int {3 1 2 1}]]
         }
 
-        test column_group_command-$type-sum-1.0 {
+        test column_group_command-$type-sum-2.0 {
             Group $type column
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -94,7 +94,7 @@ namespace eval tarray::test {
         
         if {$type in {any string}} {
             # Test non-numeric path for types that allow it
-            test column_group_command-$type-sum-1.1 {
+            test column_group_command-$type-sum-2.1 {
                 Group $type column (non-numeric values)
             } -setup {
                 set C [newcolumn $type {jan feb mar apr may jun jul}]
@@ -105,7 +105,7 @@ namespace eval tarray::test {
             } -result {can't use non-numeric string as operand of "+"} -returnCodes error
         }
 
-        test column_group_command-$type-indices-1.0 {
+        test column_group_command-$type-indices-2.0 {
             Group $type column
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -117,7 +117,7 @@ namespace eval tarray::test {
 
         if {$type in {any string}} {
             # Test non-numeric path for types that allow it
-            test column_group_command-$type-indices-1.1 {
+            test column_group_command-$type-indices-2.1 {
                 Group $type column (non-numeric values)
             } -setup {
                 set C [newcolumn $type {jan feb mar apr may jun jul}]
@@ -128,7 +128,7 @@ namespace eval tarray::test {
             } -result [newtable2 {Bucket Indices} [newcolumn any {j f m a}] [newcolumn any [list [newcolumn int {0 5 6}] [newcolumn int {1}] [newcolumn int {2 4}] [newcolumn int {3}]]]]
         }
 
-        test column_group_command-$type-values-1.0 {
+        test column_group_command-$type-values-2.0 {
             Group $type column
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -140,7 +140,7 @@ namespace eval tarray::test {
                 
         if {$type in {any string}} {
             # Test non-numeric path for types that allow it
-            test column_group_command-$type-values-1.1 {
+            test column_group_command-$type-values-2.1 {
                 Group $type column (non-numeric values)
             } -setup {
                 set C [newcolumn $type {jan feb mar apr may jun jul}]
@@ -151,7 +151,7 @@ namespace eval tarray::test {
             } -result [newtable2 {Bucket Values} [newcolumn any {j f m a}] [newcolumn any [list [newcolumn $type {jan jun jul}] [newcolumn $type {feb}] [newcolumn $type {mar may}] [newcolumn $type {apr}]]]]
         }
         # Test break
-        test column_group_command-$type-count-break-1.0 {
+        test column_group_command-$type-count-break-2.0 {
             Group $type column - break
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -162,7 +162,7 @@ namespace eval tarray::test {
             }]
         } -result [newtable2 {Bucket Count} [newcolumn any {10 20 40}] [newcolumn int {1 1 1}]]
 
-        test column_group_command-$type-sum-break-1.0 {
+        test column_group_command-$type-sum-break-2.0 {
             Group $type column - break
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -173,7 +173,7 @@ namespace eval tarray::test {
             }]
         } -result [newtable2 {Bucket Sum} [newcolumn any {10 20 40}] [newcolumn [expr {$type in {double string any} ? "double" : "wide"}] {10 23 46}]]
 
-        test column_group_command-$type-indices-break-1.0 {
+        test column_group_command-$type-indices-break-2.0 {
             Group $type column - break
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -184,7 +184,7 @@ namespace eval tarray::test {
             }]
         } -result [newtable2 {Bucket Indices} [newcolumn any {10 20 40}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {1}] [newcolumn int {2}]]]]
 
-        test column_group_command-$type-values-break-1.0 {
+        test column_group_command-$type-values-break-2.0 {
             Group $type column - break
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -196,7 +196,7 @@ namespace eval tarray::test {
         } -result [newtable2 {Bucket Values} [newcolumn any {10 20 40}] [newcolumn any [list [newcolumn $type {10}] [newcolumn $type {23}] [newcolumn $type {46}]]]]
 
         # Test continue
-        test column_group_command-$type-count-continue-1.0 {
+        test column_group_command-$type-count-continue-2.0 {
             Group $type column - continue
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -207,7 +207,7 @@ namespace eval tarray::test {
             }]
         } -result [newtable2 {Bucket Count} [newcolumn any {10 40 50}] [newcolumn int {1 1 2}]]
 
-        test column_group_command-$type-sum-continue-1.0 {
+        test column_group_command-$type-sum-continue-2.0 {
             Group $type column - continue
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -218,7 +218,7 @@ namespace eval tarray::test {
             }]
         } -result [newtable2 {Bucket Sum} [newcolumn any {10 40 50}] [newcolumn [expr {$type in {double string any} ? "double" : "wide"}] {10 46 102}]]
 
-        test column_group_command-$type-indices-continue-1.0 {
+        test column_group_command-$type-indices-continue-2.0 {
             Group $type column - continue
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -229,7 +229,7 @@ namespace eval tarray::test {
             }]
         } -result [newtable2 {Bucket Indices} [newcolumn any {10 40 50}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {2}] [newcolumn int {3 4}]]]]
 
-        test column_group_command-$type-values-continue-1.0 {
+        test column_group_command-$type-values-continue-2.0 {
             Group $type column - continue
         } -setup {
             set C [newcolumn $type {10 23 46 50 52 11}]
@@ -242,7 +242,7 @@ namespace eval tarray::test {
     }
 
     # Above tests for booleans
-    test column_group_command-boolean-count-1.0 {
+    test column_group_command-boolean-count-2.0 {
         Group boolean column
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -252,7 +252,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Count} [newcolumn any {0 1 3 4 6}] [newcolumn int {1 1 1 2 2}]]
 
-    test column_group_command-boolean-sum-1.0 {
+    test column_group_command-boolean-sum-2.0 {
         Group boolean column
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -262,7 +262,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Sum} [newcolumn any {0 1 3 4 6}] [newcolumn wide {0 0 1 1 1}]]
 
-    test column_group_command-boolean-indices-1.0 {
+    test column_group_command-boolean-indices-2.0 {
         Group boolean column
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -272,7 +272,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Indices} [newcolumn any {0 1 3 4 6}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {1}] [newcolumn int {2}] [newcolumn int {3 4}] [newcolumn int {5 6}]]]] 
 
-    test column_group_command-boolean-values-1.0 {
+    test column_group_command-boolean-values-2.0 {
         Group boolean column
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -283,7 +283,7 @@ namespace eval tarray::test {
     } -result [newtable2 {Bucket Values} [newcolumn any {0 1 3 4 6}] [newcolumn any [list [newcolumn boolean {0}] [newcolumn boolean {0}] [newcolumn boolean {1}] [newcolumn boolean {1 0}] [newcolumn boolean {1 0}]]]] 
     
     # Test break
-    test column_group_command-boolean-count-break-1.0 {
+    test column_group_command-boolean-count-break-2.0 {
         Group boolean column - break
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -294,7 +294,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Count} [newcolumn any {0 1 3}] [newcolumn int {1 1 1}]]
 
-    test column_group_command-boolean-sum-break-1.0 {
+    test column_group_command-boolean-sum-break-2.0 {
         Group boolean column - break
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -305,7 +305,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Sum} [newcolumn any {0 1 3}] [newcolumn wide {0 0 1}]]
 
-    test column_group_command-boolean-indices-break-1.0 {
+    test column_group_command-boolean-indices-break-2.0 {
         Group boolean column - break
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -316,7 +316,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Indices} [newcolumn any {0 1 3}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {1}] [newcolumn int {2}]]]]
 
-    test column_group_command-boolean-values-break-1.0 {
+    test column_group_command-boolean-values-break-2.0 {
         Group boolean column - break
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -328,7 +328,7 @@ namespace eval tarray::test {
     } -result [newtable2 {Bucket Values} [newcolumn any {0 1 3}] [newcolumn any [list [newcolumn boolean {0}] [newcolumn boolean {0}] [newcolumn boolean {1}]]]]
 
     # Test continue
-    test column_group_command-boolean-count-continue-1.0 {
+    test column_group_command-boolean-count-continue-2.0 {
         Group boolean column - continue
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -339,7 +339,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Count} [newcolumn any {0 3 4 6}] [newcolumn int {1 1 1 1}]]
 
-    test column_group_command-boolean-sum-continue-1.0 {
+    test column_group_command-boolean-sum-continue-2.0 {
         Group boolean column - continue
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -350,7 +350,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Sum} [newcolumn any {0 3 4 6}] [newcolumn wide {0 1 0 0}]]
 
-    test column_group_command-boolean-indices-continue-1.0 {
+    test column_group_command-boolean-indices-continue-2.0 {
         Group boolean column - continue
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -361,7 +361,7 @@ namespace eval tarray::test {
         }]
     } -result [newtable2 {Bucket Indices} [newcolumn any {0 3 4 6}] [newcolumn any [list [newcolumn int {0}] [newcolumn int {2}] [newcolumn int {4}] [newcolumn int {6}]]]]
 
-    test column_group_command-boolean-values-continue-1.0 {
+    test column_group_command-boolean-values-continue-2.0 {
         Group boolean column - continue
     } -setup {
         set C [newcolumn boolean {0 0 1 1 0 1 0}]
@@ -378,7 +378,7 @@ namespace eval tarray::test {
 
     foreach type {byte} {
         break
-        test column_group_equalintervals-boolean-1.0 {
+        test column_group_equalintervals-boolean-2.0 {
             Basic column groupby test (boolean)
         } -body {
             tarray::column groupby equalintervals count [testcol byte] 3
@@ -387,15 +387,86 @@ namespace eval tarray::test {
 
     # Error cases
     foreach type {any string boolean byte double int uint wide} {
-        break
         foreach compute {count sum indices values} {
-            test column_group_equalintervals-boolean-2.0 {
-                Error (count==0) column groupby test (boolean) 
+            test column_group_equalintervals-$type-$compute-1.0 {
+                Error (count==0) column groupby equalintervals $compute ($type) 
             } -body {
-                tarray::column groupby equalintervals $compute [testcol boolean] 0
+                tarray::column groupby equalintervals $compute [testcol $type] 0
             } -result "Number of buckets must be greater than zero." -returnCodes error
         }
     }
+
+    proc testcount {id msg type init nintervals buckets counts args} {
+        test column_group_equalintervals-$type-count-$id $msg -setup {
+            set C [newcolumn $type $init]
+        } -body {
+            tarray::column groupby equalintervals count $C $nintervals {*}$args
+        } -result [newtable2 {Bucket Count} [newcolumn $type $buckets] [newcolumn int $counts]]
+    }
+
+    # Basic tests
+    foreach type {byte int uint wide} {
+        testcount 2.0 "Equal intervals - unit step" $type {0 1 2 3 4 5} 6 {0 1 2 3 4 5} {1 1 1 1 1 1}
+        testcount 2.1 "Equal intervals - single interval" $type {0 1 2 3 4 5} 1 {0} {6}
+        testcount 2.2 "Equal intervals - general" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1}
+        testcount 3.0 "Equal intervals - -min below minimum" $type {100 249 120 170 190 195 201 200} 5 {50 90 130 170 210} {0 2 0 5 1} -min 50
+        testcount 3.1 "Equal intervals - -min equal minimum" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
+        testcount 3.2 "Equal intervals - -min above minimum" $type {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
+        testcount 3.3 "Equal intervals - -min equal maximum" $type {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
+
+        test column_group_equalintervals-$type-count-3.4 {
+            Equal intervals - -min above maximum
+        } -body {
+            set C [newcolumn $type {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -min 250
+        } -result "Invalid bucket range 250-249." -returnCodes error
+        
+        test column_group_equalintervals-$type-count-3.5 {
+            Equal intervals - -max below minimum
+        } -body {
+            set C [newcolumn $type {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -max 90
+        } -result "Invalid bucket range 100-90." -returnCodes error
+        testcount 3.6 "Equal intervals - -max equal minimum" $type {100 249 120 170 190 195 201 200} 5 {100 101 102 103 104} {1 0 0 0 0} -max 100
+        testcount 3.7 "Equal intervals - -max above minimum" $type {100 249 120 170 190 195 201 200} 5 {100 105 110 115 120} {1 0 0 0 1} -max 120
+        testcount 3.8 "Equal intervals - -max equal maximum" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -max 249
+        testcount 3.9 "Equal intervals - -max above maximum" $type {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
+    }
+
+    if {1} {
+        # Basic tests for double - separated because interval limits differ from integer cases
+        testcount 2.0 "Equal intervals - unit step" double {0 1 2 3 4 5} 6 {.0 0.8333333333333334 1.6666666666666667 2.5 3.3333333333333335 4.166666666666667} {1 1 1 1 1 1}
+        testcount 2.1 "Equal intervals - single interval" double {0 1 2 3 4 5} 1 {0} {6}
+        testcount 2.2 "Equal intervals" double {0 .00001 .003 .0002 .5 .04} 6 {0.0 0.08333333333333333 0.16666666666666666 0.25 0.3333333333333333 0.41666666666666663} {5 0 0 0 0 1}
+        testcount 2.3 "Equal intervals" double {0 .00001 .00002 .00003 .00004 .00005} 6 {0.0 8.333333333333334e-6 1.6666666666666667e-5 2.5e-5 3.3333333333333335e-5 4.166666666666667e-5} {1 1 1 1 1 1}
+        testcount 2.4 "Equal intervals" double {-10e100 0 10e100} 10 {-1e+101 -8e+100 -6e+100 -3.999999999999999e+100 -1.9999999999999996e+100 0.0 2.0000000000000012e+100 3.999999999999999e+100 6.0000000000000005e+100 8.000000000000002e+100} {1 0 0 0 0 1 0 0 0 1}
+        testcount 2.5 "Equal intervals - -min below minimum" double {0 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min .0002
+        testcount 2.6 "Equal intervals - -min equal minimum" double {-.000004 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min -0.000004
+        testcount 3.1 "Equal intervals - -min equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
+        testcount 3.2 "Equal intervals - -min above minimum" double {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
+        testcount 3.3 "Equal intervals - -min equal maximum" double {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
+
+        test column_group_equalintervals-double-count-3.4 {
+            Equal intervals - -min above maximum
+        } -body {
+            set C [newcolumn double {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -min 250
+        } -result "Invalid bucket range 250-249." -returnCodes error
+        
+        test column_group_equalintervals-double-count-3.5 {
+            Equal intervals - -max below minimum
+        } -body {
+            set C [newcolumn double {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -max 90
+        } -result "Invalid bucket range 100-90." -returnCodes error
+        testcount 3.6 "Equal intervals - -max equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 101 102 103 104} {1 0 0 0 0} -max 100
+        testcount 3.7 "Equal intervals - -max above minimum" double {100 249 120 170 190 195 201 200} 5 {100 105 110 115 120} {1 0 0 0 1} -max 120
+        testcount 3.8 "Equal intervals - -max equal maximum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -max 249
+        testcount 3.9 "Equal intervals - -max above maximum" double {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
+    }    
+
+    # Basic test for boolean
+    # Basic test (error) for string, any
 }
 
 ::tcltest::cleanupTests

@@ -53,12 +53,18 @@ proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
         # this is not entirely accurate. The C code will take care
         # of clamping values exceeding the highest bucket to that
         # bucket.
-        set step [expr {(double($max) - $min) / $nintervals}]
+        set max [tcl::mathfunc::double $max]
+        set min [tcl::mathfunc::double $min]
+        set step [expr {($max - $min) / $nintervals}]
+        set upper [expr {$min + $nintervals * $step}]
+        if {$upper < $max} {
+            set step [expr {$step + (($max - $upper)/$nintervals)}]
+        }
     } else {
         set step [expr {(($max - $min) / $nintervals) + 1}]
     }
     
-    return [_equalintervals $col $compute $nintervals $min $step]
+    return [_equalintervals $col $compute $nintervals $min $max $step]
 }
 
 proc tarray::column::groupby {method compute col args} {
