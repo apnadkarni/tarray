@@ -22,6 +22,55 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 
+# TBD - document
+proc tarray::column::linspace {start stop count args} {
+    dict size $args;            # Verify dictionary format
+
+    set opts [dict merge {
+        -type double
+        -closed 0
+    } $args]
+
+    set type [dict get $opts -type]
+    set closed [dict get $opts -closed]
+    
+    if {$start > $stop} {
+        error "Specified of range $start is greater than the end $stop."
+    }
+
+    if {![string is integer -strict $count] || $count <= 0} {
+        error "Count must be a positive integer."
+    }
+    if {$type in {byte int uint wide}} {
+        if {!([string is integer -strict $start] &&
+              [string is integer -strict $stop])} {
+            error "Start and stop arguments must be integers if return type is $type."
+        }
+        if {$count == 1} {
+            if {$closed} {
+                if {$start != $stop} {
+                    error "Must not specify -closed option as true if start and stop values are different."
+                }
+            }
+            return [create $type [list $start]]
+        }
+        # $count > 1
+        if {$closed} {
+            incr count -1
+        }
+        set step [expr {($stop-$start)/$count}]
+        if {($start + $step*$count) != $stop} {
+            error "The specified range $start:$stop is not a multiple of the specified count."
+        }
+        if {$closed} {
+            incr stop $step
+        }
+        return [create $type [series $start $stop $step]]
+    }
+
+
+}
+
 proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
     dict size $args;            # Verify dictionary format
     if {[dict exists $args -min]} {
@@ -765,6 +814,7 @@ namespace eval tarray {
             inject inject
             insert insert
             intersect3 intersect3
+            linspace linspace
             lookup lookup
             loop ::tarray::loop
             math math
