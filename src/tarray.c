@@ -841,6 +841,40 @@ TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *p
     return status;
 }
 
+TCL_RESULT ta_get_int_from_string(Tcl_Interp *ip, const char *s, int *pi)
+{
+    Tcl_WideInt wide;
+    if (ta_get_wide_from_string(ip, s, &wide) != TCL_OK)
+        return TCL_ERROR;
+    if (wide < INT_MIN || wide > INT_MAX)
+        return ta_integer_overflow_error(ip, "32-bit integer", wide);
+    *pi = (int) wide;
+    return TCL_OK;
+}
+
+TCL_RESULT ta_get_uint_from_string(Tcl_Interp *ip, const char *s, unsigned int *pi)
+{
+    Tcl_WideInt wide;
+    if (ta_get_wide_from_string(ip, s, &wide) != TCL_OK)
+        return TCL_ERROR;
+    if (wide < 0 || wide > UINT_MAX)
+        return ta_integer_overflow_error(ip, "32-bit unsigned integer", wide);
+    *pi = (unsigned int) wide;
+    return TCL_OK;
+}
+
+TCL_RESULT ta_get_uint8_from_string(Tcl_Interp *ip, const char *s, unsigned char *pi)
+{
+    Tcl_WideInt wide;
+    if (ta_get_wide_from_string(ip, s, &wide) != TCL_OK)
+        return TCL_ERROR;
+    if (wide < 0 || wide > UCHAR_MAX)
+        return ta_integer_overflow_error(ip, "8-bit unsigned integer", wide);
+    *pi = (unsigned char) wide;
+    return TCL_OK;
+}
+
+
 TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi)
 {
     TCL_RESULT status;
@@ -3030,14 +3064,21 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
         }                                               \
     } while (0)
 
-#define TAS2NUM(type_)                                                  \
-    do {                                                                \
-        type_ *p = THDRELEMPTR(pdst, type_, dst_first);                 \
-        while (pptas < end) {                                           \
-            TA_NOFAIL(ta_get_wide_from_string(ip, (*pptas)->s, &wide), TCL_OK); \
-            *p++ = (type_) wide;                                        \
-            ++pptas;                                                    \
-        }                                                               \
+#define TAS2NUM(type_, fn_)                             \
+    do {                                                \
+        type_ *p;                                       \
+        TASVALIDATE(type_, fn_); \
+        /* No errors now do the actual conversion. */ \
+        pptas = pptas_src;                              \
+        end = pptas + count;                            \
+        if (insert) \
+            thdr_make_room(pdst, dst_first, count); \
+        p = THDRELEMPTR(pdst, type_, dst_first);        \
+        while (pptas < end) {                           \
+            TA_NOFAIL(fn_(ip, (*pptas)->s, p), TCL_OK); \
+            ++p;                                        \
+            ++pptas;                                    \
+        }                                               \
     } while (0)
 
     if (pdst->type == TA_DOUBLE) {
@@ -3101,22 +3142,11 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
             *baP = ba | (*baP & BITMASKGE(ba_mask));
         }
     } else {
-        Tcl_WideInt wide;
-        TASVALIDATE(Tcl_WideInt, ta_get_wide_from_string);
-        /* No errors, now do the actual conversion. Note conversion
-           is first to wide and then the appropriate size since
-           we have chosen semantics that assigning larger values
-           is OK, they will be truncated.
-        */
-        if (insert)
-            thdr_make_room(pdst, dst_first, count);
-        pptas = pptas_src;
-        end = pptas + count;
         switch (pdst->type) {
-        case TA_BYTE: TAS2NUM(unsigned char) ; break;
-        case TA_INT:  TAS2NUM(int) ; break;
-        case TA_UINT: TAS2NUM(unsigned int) ; break;
-        case TA_WIDE: TAS2NUM(Tcl_WideInt) ; break;
+        case TA_BYTE: TAS2NUM(unsigned char, ta_get_uint8_from_string); break;
+        case TA_INT:  TAS2NUM(int, ta_get_int_from_string); break;
+        case TA_UINT: TAS2NUM(unsigned int, ta_get_uint_from_string); break;
+        case TA_WIDE: TAS2NUM(Tcl_WideInt, ta_get_wide_from_string); break;
         }
     }
 #undef TAS2NUM
@@ -3132,10 +3162,13 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
 {
     int new_used;
     TCL_RESULT status;
+    ta_value_t error_value;
 
     TA_ASSERT(pdst != psrc);
     TA_ASSERT(! thdr_shared(pdst));
     TA_ASSERT(src_first >= 0);
+
+    error_value.type = TA_NONE;
 
     if (pdst->type == psrc->type) {
         thdr_copy(pdst, dst_first, psrc, src_first, count, insert);
@@ -3162,14 +3195,37 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
 
     pdst->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
-#define NUM2NUM(dsttype_, srctype_)                        \
+#define NUM2NUM_UNCHECKED(dsttype_, srctype_)           \
     do {                                                \
         dsttype_ *to;                                   \
         srctype_ *from;                                 \
         to = THDRELEMPTR(pdst, dsttype_, dst_first);    \
         from = THDRELEMPTR(psrc, srctype_, src_first);  \
-        while (count--) { *to++ = (dsttype_) *from++; }     \
+        while (count--) { *to++ = (dsttype_) *from++; } \
     } while (0)
+
+#define NUM2NUM_CHECKED(dsttype_, srctype_, low_, high_)        \
+    do {                                                        \
+        dsttype_ *to;                                           \
+        srctype_ *from;                                         \
+        to = THDRELEMPTR(pdst, dsttype_, dst_first);            \
+        from = THDRELEMPTR(psrc, srctype_, src_first);          \
+        while (count--) {                                       \
+            if (*from < (low_) || *from > (high_)) {            \
+                if (psrc->type == TA_DOUBLE) {                  \
+                    error_value.type = TA_DOUBLE;               \
+                    error_value.dval = *from;                   \
+                } else {                                        \
+                    error_value.type = TA_WIDE;                 \
+                    error_value.wval = *from;                   \
+                }                                               \
+                status = TCL_ERROR;                             \
+                break;                                          \
+            }                                                   \
+            *to++ = (dsttype_) *from++;                         \
+        }                                                       \
+    } while (0)
+
 
     /* TBD - optimize */
 #define BOOL2NUM(dsttype_)                                              \
@@ -3385,54 +3441,46 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         case TA_BYTE:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(unsigned char); break;
-            case TA_INT: NUM2NUM(unsigned char, int); break;
-            case TA_UINT: NUM2NUM(unsigned char, unsigned int); break;
-            case TA_WIDE: NUM2NUM(unsigned char, Tcl_WideInt); break;
-            case TA_DOUBLE: NUM2NUM(unsigned char, double); break;
+            case TA_INT: NUM2NUM_CHECKED(unsigned char, int, 0, UCHAR_MAX); break;
+            case TA_UINT: NUM2NUM_CHECKED(unsigned char, unsigned int, 0, UCHAR_MAX); break;
+            case TA_WIDE: NUM2NUM_CHECKED(unsigned char, Tcl_WideInt, 0, UCHAR_MAX); break;
+            case TA_DOUBLE: NUM2NUM_CHECKED(unsigned char, double, 0, UCHAR_MAX); break;
             }
             break;
         case TA_INT:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(int); break;
-            case TA_BYTE: NUM2NUM(int, unsigned char); break;
-            case TA_UINT: /* Assumes sizeof int == sizeof unsigned int */
-                memcpy(THDRELEMPTR(pdst, int, dst_first),
-                       THDRELEMPTR(psrc, int, src_first),
-                       count * sizeof(int));
-                break;
-            case TA_WIDE: NUM2NUM(int, Tcl_WideInt); break;
-            case TA_DOUBLE: NUM2NUM(int, double); break;
+            case TA_BYTE: NUM2NUM_UNCHECKED(int, unsigned char); break;
+            case TA_UINT: NUM2NUM_CHECKED(int, unsigned int, 0, INT_MAX); break;
+            case TA_WIDE: NUM2NUM_CHECKED(int, Tcl_WideInt, INT_MIN, INT_MAX); break;
+            case TA_DOUBLE: NUM2NUM_CHECKED(int, double, INT_MIN, INT_MAX); break;
             }
             break;
         case TA_UINT:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(unsigned int); break;
-            case TA_BYTE: NUM2NUM(unsigned int, unsigned char); break;
-            case TA_INT: /* Assumes sizeof int == sizeof unsigned int */
-                memcpy(THDRELEMPTR(pdst, int, dst_first),
-                       THDRELEMPTR(psrc, int, src_first),
-                       count * sizeof(int));
-                break;
-            case TA_WIDE: NUM2NUM(unsigned int, Tcl_WideInt); break;
-            case TA_DOUBLE: NUM2NUM(unsigned int, double); break;
+            case TA_BYTE: NUM2NUM_UNCHECKED(unsigned int, unsigned char); break;
+            case TA_INT: NUM2NUM_CHECKED(unsigned int, int, 0, UINT_MAX); break;
+            case TA_WIDE: NUM2NUM_CHECKED(unsigned int, Tcl_WideInt, 0, UINT_MAX); break;
+            case TA_DOUBLE: NUM2NUM_CHECKED(unsigned int, double, 0, UINT_MAX); break;
             }
             break;
         case TA_WIDE:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(Tcl_WideInt); break;
-            case TA_BYTE: NUM2NUM(Tcl_WideInt, unsigned char); break;
-            case TA_INT: NUM2NUM(Tcl_WideInt, int); break;
-            case TA_UINT: NUM2NUM(Tcl_WideInt, unsigned int); break;
-            case TA_DOUBLE: NUM2NUM(Tcl_WideInt, double); break;
+            case TA_BYTE: NUM2NUM_UNCHECKED(Tcl_WideInt, unsigned char); break;
+            case TA_INT: NUM2NUM_UNCHECKED(Tcl_WideInt, int); break;
+            case TA_UINT: NUM2NUM_UNCHECKED(Tcl_WideInt, unsigned int); break;
+            case TA_DOUBLE: NUM2NUM_CHECKED(Tcl_WideInt, double, INT64_MIN, INT64_MAX); break;
             }
             break;
         case TA_DOUBLE:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(double); break;
-            case TA_BYTE: NUM2NUM(double, unsigned char); break;
-            case TA_INT: NUM2NUM(double, int); break;
-            case TA_UINT: NUM2NUM(double, unsigned int); break;
-            case TA_WIDE: NUM2NUM(double, Tcl_WideInt); break;
+            case TA_BYTE: NUM2NUM_UNCHECKED(double, unsigned char); break;
+            case TA_INT: NUM2NUM_UNCHECKED(double, int); break;
+            case TA_UINT: NUM2NUM_UNCHECKED(double, unsigned int); break;
+            case TA_WIDE: NUM2NUM_UNCHECKED(double, Tcl_WideInt); break;
             }
             break;
         default: ta_type_panic(psrc->type);
@@ -3442,10 +3490,17 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
     if (status == TCL_OK) {
         TA_ASSERT(new_used <= pdst->usable);
         pdst->used = new_used;
+    } else if (error_value.type == TA_WIDE) {
+        /* If non-0, the contained value did not fit into destination width */
+        status = ta_integer_overflow_error(ip, ta_type_string(pdst->type), error_value.wval);
+    } else if (error_value.type == TA_DOUBLE) {
+        status = ta_integer_overflow_from_double_error(ip, ta_type_string(pdst->type), error_value.dval);
     }
+
     return status;
 
-#undef NUM2NUM
+#undef NUM2NUM_UNCHECKED
+#undef NUM2NUM_CHECKED
 #undef BOOL2NUM
 #undef NUM2ANY
 #undef NUM2STRING
@@ -5424,7 +5479,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
             else  \
-                bucket_index = (pdata[i] - minval.field_) / step.field_; \
+                bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
             TA_ASSERT(bucket_index < nbuckets); \
             pbucket[bucket_index] += 1;                                 \
         }                                                               \
@@ -5445,8 +5500,8 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (OUTSIDE_LIMITS(i, field_)) continue;                    \
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
-            else  \
-                bucket_index = (pdata[i] - minval.field_) / step.field_; \
+            else                                                      \
+                bucket_index = (int)((pdata[i] - minval.field_) / step.field_); \
             TA_ASSERT(bucket_index < nbuckets); \
             /* TBD - overflow checks? */                                \
             pbucket[bucket_index] += pdata[i];                          \
@@ -5474,7 +5529,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
             else  \
-                bucket_index = (pdata[i] - minval.field_) / step.field_; \
+                bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
             TA_ASSERT(bucket_index < nbuckets); \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
@@ -5507,7 +5562,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
             else  \
-                bucket_index = (pdata[i] - minval.field_) / step.field_; \
+                bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
             TA_ASSERT(bucket_index < nbuckets); \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \

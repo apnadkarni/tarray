@@ -353,6 +353,18 @@ TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideIn
     return TCL_ERROR;
 }
 
+TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, char *precision, double val)
+{
+    if (ip) {
+        Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", "OVERFLOW", NULL);
+        if (val)
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Value %g does not fit in a %s.", val, precision));
+        else
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("%s overflow.", precision));
+    }
+    return TCL_ERROR;
+}
+
 TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, char *precision, Tcl_Obj *o)
 {
     Tcl_Obj *err;
