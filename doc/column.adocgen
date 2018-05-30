@@ -181,7 +181,7 @@ text {
 
     The command will raise an error if either argument is not a column.
     
-    Also see the related command ((^ column_identical "column identical"))
+    Also see the related command ((^` column_identical "column identical"))
     which applies a stricter definition of equality.
 
     ((cmddef column_fill "column fill _COLUMN_ _VALUE_ _INDEX_"))
@@ -298,7 +298,7 @@ text {
 
     The command will raise an error if either argument is not a column.
     
-    Also see the related command ((^ column_equal "column equal"))
+    Also see the related command ((^` column_equal "column equal"))
     which applies a looser definition of equality.
 
     ((cmddef column_index "column index _COLUMN_ _INDEX_"))
@@ -362,7 +362,7 @@ text {
     
     ((cmddef column_loop "column loop _VAR_ _VALUES_ _SCRIPT_"))
     ((cmddef column_loop_indexed "column loop _INDEXVAR_ _VAR_ _VALUES_ _SCRIPT_"))
-    See ((^ tarray_loop loop)).
+    See ((^` tarray_loop loop)).
     
     ((cmddef column_math "column math _OPERATION_ _OPERAND_ ?_OPERAND_...?"))
 
@@ -516,10 +516,10 @@ text {
     conditions listed there are satisfied.
 
     ((cmddef column_prettify "column prettify _COLUMN_ ?_options_?"))
-    See ((^ tarray_prettify prettify)).
+    See ((^` tarray_prettify prettify)).
     
     ((cmddef column_print "column print _COLUMN_ ?_CHAN_? ?_options_?"))
-    See ((^ tarray_print print)).
+    See ((^` tarray_print print)).
     
     ((cmddef column_put "column put _COLUMN_ _VALUES_ ?_FIRST_?"))
 
@@ -697,7 +697,7 @@ text {
     variable (which may differ because of traces) is returned as the result
     of the command.
 
-    See fill for more information.
+    See ((^` column_fill fill)) for more information.
 
     ((cmddef column_vinject "column vinject _COLUMNVAR_ _VALUES_ _FIRST_"))
 
