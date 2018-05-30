@@ -23,16 +23,17 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
 }
 
 # TBD - document
+# TBD - type overflows need to be checked
 proc tarray::column::linspace {start stop count args} {
     dict size $args;            # Verify dictionary format
 
     set opts [dict merge {
         -type double
-        -closed 0
+        -open 0
     } $args]
 
     set type [dict get $opts -type]
-    set closed [dict get $opts -closed]
+    set open [dict get $opts -open]
     
     if {$start > $stop} {
         error "Specified of range $start is greater than the end $stop."
@@ -41,34 +42,68 @@ proc tarray::column::linspace {start stop count args} {
     if {![string is integer -strict $count] || $count <= 0} {
         error "Count must be a positive integer."
     }
+    if {$count == 1} {
+        if {! $open} {
+            if {$start != $stop} {
+                error "Must not specify -open option as false if start and stop values are different and count is 1."
+            }
+        }
+        return [create $type [list $start]]
+    }
+
+    # NOTE: count > 1 beyond this point
+    
+    set div $count
+    if {!$open} {
+        incr div -1
+    }
+
     if {$type in {byte int uint wide}} {
         if {!([string is integer -strict $start] &&
               [string is integer -strict $stop])} {
             error "Start and stop arguments must be integers if return type is $type."
         }
-        if {$count == 1} {
-            if {$closed} {
-                if {$start != $stop} {
-                    error "Must not specify -closed option as true if start and stop values are different."
-                }
+        set step [expr {($stop-$start)/$div}]
+        if {($start + $step*$div) != $stop} {
+            if {$open} {
+                set range "\[$start, $stop\)"
+            } else {
+                set range "\[$start, $stop\]"
             }
-            return [create $type [list $start]]
+            error "Cannot have $count integer values with integral spacing in the range $range."
         }
-        # $count > 1
-        if {$closed} {
-            incr count -1
-        }
-        set step [expr {($stop-$start)/$count}]
-        if {($start + $step*$count) != $stop} {
-            error "The specified range $start:$stop is not a multiple of the specified count."
-        }
-        if {$closed} {
+        if {!$open} {
             incr stop $step
         }
         return [create $type [series $start $stop $step]]
     }
 
+    # Ensure operands are doubles
+    set start [tcl::mathfunc::double $start]
+    set stop  [tcl::mathfunc::double $stop]
 
+    # Credits: numpy
+    set result [series 0.0 $count 1]
+
+    set delta [expr {$stop - $start}]
+    set step [expr {$delta / $div}]
+
+    # TBD - a column vmath command would perform better here
+
+    if {$step == 0} {
+        set result [math / $result $div]
+        set result [math * $result $delta]
+    } else {
+        set result [math * $result $step]
+    }
+
+    set result [math + $result $start]
+    if {!$open} {
+        # Overwrite last element which might have exceeded bound
+        vfill result $stop end
+    }
+
+    return $result
 }
 
 proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
@@ -818,7 +853,6 @@ namespace eval tarray {
             lookup lookup
             loop ::tarray::loop
             math math
-            width width
             minmax minmax
             place place
             prettify prettify
@@ -843,6 +877,7 @@ namespace eval tarray {
             vreverse vreverse
             vshuffle vshuffle
             vsort vsort
+            width width
             + +
             - -
             * *
