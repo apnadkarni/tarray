@@ -1300,6 +1300,7 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
             nmax += 1 + (limit / step);
         }
         /* Note nmax may be an overestimate but no matter */
+        /* TBD - maybe it does matter because the INT_MAX check below may unnecessarily fail */
     }
     
     if (nmax >= INT_MAX) {

@@ -321,6 +321,7 @@ TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip);
 TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideInt val);
+TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, char *precision, double val);
 TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, char *precision, Tcl_Obj *o);
 TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int);
 TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *, ta_value_t *);
@@ -433,6 +434,9 @@ TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, i
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi);
 TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi);
 TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *pi);
+TCL_RESULT ta_get_uint8_from_string(Tcl_Interp *ip, const char *s, unsigned char *pi);
+TCL_RESULT ta_get_int_from_string(Tcl_Interp *ip, const char *s, int *pi);
+TCL_RESULT ta_get_uint_from_string(Tcl_Interp *ip, const char *s, unsigned int *pi);
 
 void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
 void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);

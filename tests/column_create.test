@@ -5,6 +5,13 @@ source testutil.tcl
 namespace eval tarray::test {
     namespace import ::tcltest::test
 
+    proc format_number {val type} {
+        if {$type eq "double"} {
+            return [format %g $val]
+        }
+        return $val
+    }
+    
     # Tests for creating empty and large tarrays
     foreach type {any string boolean byte double int uint wide} {
         test column-create-$type-1.0 {
@@ -68,20 +75,20 @@ namespace eval tarray::test {
     test column-create-int-to-uint-2.0 {
         Test string rep on int->uint conversion
     } -setup {
-        set col [tarray::column create int {0 -1 1}]
+        set col [tarray::column create int {0 2147483647 1}]
         llength $col ;# Force string generation
     } -body {
         tarray::column create uint $col[set col {}] ;# Change ref count to 1
-    } -result [newcolumn uint {0 4294967295 1}]
+    } -result [newcolumn uint {0 0x7fffffff 1}]
     
     test column-create-uint-to-int-2.0 {
         Test string rep on uint->int conversion
     } -setup {
-        set col [tarray::column create uint {0 4294967295 1}]
+        set col [tarray::column create uint {0 2147483647 1}]
         llength $col ;# Force string generation
     } -body {
         tarray::column create int $col[set col {}] ;# Change ref count to 1
-    } -result [newcolumn int {0 -1 1}]
+    } -result [newcolumn int {0 0x7fffffff 1}]
     
     
 
@@ -96,9 +103,71 @@ namespace eval tarray::test {
             } -body {
                 tarray::column create $type [list $value]
             } -result * -match glob -returnCodes error
+            test column-create-$type-invalid-1.[incr num] {
+                Test invalid values raise error in tarray creation
+            } -body {
+                tarray::column create $type [tarray::column create any [list $value]]
+            } -result * -match glob -returnCodes error
+            test column-create-$type-invalid-1.[incr num] {
+                Test invalid values raise error in tarray creation
+            } -body {
+                tarray::column create $type [tarray::column create string [list $value]]
+            } -result * -match glob -returnCodes error
+        }
+    }
+    # Tests for invalid numeric range conversions
+    foreach type {int uint wide double} {
+        set num -1
+        foreach value {-1 256} {
+            if {$value < 0 && $type eq "uint"} continue
+            test column-create-$type-to-byte-invalid-1.[incr num] {
+                Test overflow from $type to byte
+            } -setup {
+                set C [newcolumn $type $value]
+            } -body {
+                tarray::column create byte $C
+            } -result "Value [format_number $value $type] does not fit in a byte." -returnCodes error
+        }
+    }
+    foreach type {uint wide double} {
+        set num -1
+        foreach value {-2147483649 2147483648} {
+            if {$value < 0 && $type eq "uint"} continue
+            test column-create-$type-to-int-invalid-1.[incr num] {
+                Test overflow from $type to int
+            } -setup {
+                set C [newcolumn $type $value]
+            } -body {
+                tarray::column create int $C
+            } -result "Value [format_number $value $type] does not fit in a int." -returnCodes error
         }
     }
 
+    foreach type {int wide double} {
+        set num -1
+        foreach value {-1 4294967296} {
+            if {$value > 2147483647 && $type eq "int"} continue
+            test column-create-$type-to-uint-invalid-1.[incr num] {
+                Test overflow from $type to uint
+            } -setup {
+                set C [newcolumn $type $value]
+            } -body {
+                tarray::column create uint $C
+            } -result "Value [format_number $value $type] does not fit in a uint." -returnCodes error
+        }
+    }
+    
+    set num -1
+    foreach value {-18446744073709551616 18446744073709551616} {
+        test column-create-double-to-wide-invalid-1.[incr num] {
+            Test overflow from double to wide
+        } -setup {
+            set C [newcolumn double $value]
+        } -body {
+            tarray::column create wide $C
+        } -result "Value [format_number $value double] does not fit in a wide." -returnCodes error
+    }
+    
     # Special test for wide -> 0x8000000000000000 allowed but not
     # [expr 0x8000000000000000] (i.e. decimal format)
     test column-create-wide-overflow-1.0 {

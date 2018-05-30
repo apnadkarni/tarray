@@ -433,7 +433,7 @@ namespace eval tarray::test {
         testcount 3.9 "Equal intervals - -max above maximum" $type {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
     }
 
-    if {1} {
+    if {0} {
         # Basic tests for double - separated because interval limits differ from integer cases
         testcount 2.0 "Equal intervals - unit step" double {0 1 2 3 4 5} 6 {.0 0.8333333333333334 1.6666666666666667 2.5 3.3333333333333335 4.166666666666667} {1 1 1 1 1 1}
         testcount 2.1 "Equal intervals - single interval" double {0 1 2 3 4 5} 1 {0} {6}
