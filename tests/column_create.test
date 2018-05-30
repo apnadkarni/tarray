@@ -168,6 +168,17 @@ namespace eval tarray::test {
         } -result "Value [format_number $value double] does not fit in a wide." -returnCodes error
     }
     
+    # Test fractional doubles cannot be stored as integers
+    foreach type {byte int uint wide} {
+        test column-create-double-to-$type-fraction-1.0 {
+            Test double conversion to fraction
+        } -setup {
+            set C [newcolumn double 1.1]
+        } -body {
+            tarray::column create $type $C
+        } -result "Value 1.1 does not fit in a $type." -returnCodes error
+    }
+
     # Special test for wide -> 0x8000000000000000 allowed but not
     # [expr 0x8000000000000000] (i.e. decimal format)
     test column-create-wide-overflow-1.0 {
@@ -268,7 +279,6 @@ namespace eval tarray::test {
     } -body {
         tarray::column bitmap0 4 [tarray::column bitmap0 7 {6 4 3}]
     } -result "tarray index 6 out of bounds." -returnCodes error
-
 
     test column_bitmap1-1.0 {
         Create empty bitmap
