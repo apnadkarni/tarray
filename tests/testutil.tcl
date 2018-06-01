@@ -248,6 +248,19 @@ if {![info exists tarray::test::known]} {
             }
         }
 
+        proc equal_lists {l1 l2} {
+            if {[llength $l1] != [llength $l2]} {
+                return 0
+            }
+            foreach e1 $l1 e2 $l2 {
+                if {$e1 ne $e2} {
+                    return 0
+                }
+            }
+            return 1
+        }
+        tcltest::customMatch list equal_lists
+
         # Test two lists for equality based on type
         proc lequal {type avals bvals} {
             #puts type:$type

@@ -11,6 +11,10 @@ namespace eval tarray {
     namespace eval db {}
     namespace eval unsupported {}
     namespace eval test {}
+
+    proc lambda {arglist body {ns {}}} {
+        return [list ::apply [list $arglist $body $ns]]
+    }
 }
 
 interp alias {} tarray::column::count {} tarray::column::search -count

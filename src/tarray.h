@@ -657,6 +657,7 @@ Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
 Tcl_ObjCmdProc ta_loop_cmd;
 Tcl_ObjCmdProc ta_loop_nr_cmd;
 Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
+Tcl_ObjCmdProc parseargs_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;

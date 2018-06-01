@@ -72,7 +72,8 @@ if {[win32_target]} {
    critcl::cflags -D_WIN32_WINNT=0x0500
 }
 
-critcl::csources bitarray.c errors.c table.c tafold.c tajoin.c taloop.c \
+critcl::csources bitarray.c errors.c parseargs.c \
+    table.c tafold.c tajoin.c taloop.c \
     tamath.c tarandom.c tarbc.c tarray.c tasearch.c tasort.c tastring.c \
     timsort.c timsort_r.c pcg_basic.c \
     rbcStubLib.c
@@ -2106,6 +2107,7 @@ critcl::class::define ::tarray::rng {
 }
 
 critcl::ccommand tarray::rbc::init_stubs ta_rbc_init_stubs_cmd 
+critcl::ccommand tarray::parseargs parseargs_cmd
 
 package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]
 
