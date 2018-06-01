@@ -1,0 +1,125 @@
+# Test column cast
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    namespace import ::tcltest::test
+
+    foreach from_type {any string boolean byte double int uint wide} {
+        foreach to_type {any string boolean byte double int uint wide} {
+            test column_cast-${from_type}-to-${to_type}-1.0 {
+                Test cast of empty column $from_type -> $to_type
+            } -setup {
+                set C [tarray::column create $from_type]
+            } -body {
+                tarray::column cast $to_type $C
+            } -result [crep $to_type {}]
+
+            test column_cast-${from_type}-to-${to_type}-1.1 {
+                Test cast of column $from_type -> $to_type
+            } -setup {
+                set C [tarray::column create $from_type {0 1}]
+            } -body {
+                tarray::column cast $to_type $C
+            } -result [expr {"$from_type,$to_type" in "double,any double,string" ? [newcolumn $to_type {0.0 1.0}] : [newcolumn $to_type {0 1}]}]
+        }
+    }
+
+    
+    #
+    # Tests to ensure string reps are correct when converting int<->uint
+    test column_cast-int-to-uint-2.0 {
+        Test string rep on int->uint conversion
+    } -setup {
+        set col [tarray::column create int {0 -1 1}]
+        string length $col ;# Force string generation
+    } -body {
+        tarray::column cast uint $col[set col {}] ;# Change ref count to 1
+    } -result [newcolumn uint {0 4294967295 1}]
+    
+    test column_cast-uint-to-int-2.0 {
+        Test string rep on uint->int conversion
+    } -setup {
+        set col [tarray::column create uint {0 4294967295 1}]
+        string length $col ;# Force string generation
+    } -body {
+        tarray::column cast int $col[set col {}] ;# Change ref count to 1
+    } -result [newcolumn int {0 -1 1}]
+    
+    
+    # Tests for numeric range conversions where value does not fit target
+    # type - should not generate errors
+    # NOTE: conversions from double are tested later since values
+    # are undefined if they do not fit
+    foreach type {int uint wide} {
+        set num -1
+        foreach value {-1 255 257} {
+            if {$value < 0 && $type eq "uint"} continue
+            test column_cast-$type-to-byte-3.[incr num] {
+                Test overflow cast from $type to byte
+            } -setup {
+                set C [newcolumn $type $value]
+            } -body {
+                tarray::column cast byte $C
+            } -result [newcolumn byte [list [expr {$value & 0xff}]]]
+        }
+    }
+    foreach type {uint wide} {
+        set num -1
+        foreach value {-2147483649 2147483648} {
+            if {$value < 0 && $type eq "uint"} continue
+            test column_cast-$type-to-int-3.[incr num] {
+                Test overflow cast from $type to int
+            } -setup {
+                set C [newcolumn $type $value]
+            } -body {
+                tarray::column cast int $C
+            } -result [newcolumn int [list [expr {int($value)}]]]
+        }
+    }
+
+    foreach type {int wide} {
+        set num -1
+        foreach value {-1 4294967296} {
+            if {$value > 2147483647 && $type eq "int"} continue
+            test column_cast-$type-to-uint-3.[incr num] {
+                Test overflow cast from $type to uint
+            } -setup {
+                set C [newcolumn $type $value]
+            } -body {
+                tarray::column cast uint $C
+            } -result [newcolumn uint [list [expr {$value & 0xffffffff}]]]
+        }
+    }
+    
+    # Test discard of fractional part
+    foreach type {byte int uint wide} {
+        test column_cast-double-to-$type-fraction-1.0 {
+            Test double conversion to fraction
+        } -setup {
+            set C [newcolumn double 1.1]
+        } -body {
+            tarray::column cast $type $C
+        } -result [newcolumn $type {1}]
+    }
+
+    # Test that no error is raised. Note that converted value is
+    # not tested since conversion is undefined if value does not fit
+    foreach {type val} {
+        byte 260
+        int 2147483648
+        uint 4294967296
+        wide 18446744073709551616
+    } {
+        test column_cast-double-to-$type-4.0 {
+            Test double conversion
+        } -setup {
+            set C [newcolumn double $val]
+        } -body {
+            set T [tarray::column cast $type $C]
+            list [tarray::column type $T] [tarray::column size $T]
+        } -result [list $type 1]
+    }
+}
+
+::tcltest::cleanupTests

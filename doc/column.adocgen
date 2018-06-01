@@ -134,10 +134,18 @@ text {
     `1`. If argument _INDICES_ is specified, the elements at those
     position are set to `0`. 
     
-    ((cmddef column_cast "column cast _COLUMN_ _COLTYPE_"))
-    _DEPRECATED_. Returns a new column of type _COLTYPE_ containing elements
-    of _COLUMN_ cast to _COLTYPE_. This command is deprecated. Use
-    ((^ column_create "column create")) instead.
+    ((cmddef column_cast "column cast _COLTYPE_ _COLUMN_"))
+    Returns a new column of type _COLTYPE_ containing elements
+    of _COLUMN_ cast to _COLTYPE_. This differs from the use of
+    ((^ column_create "column create")) in that it will not
+    raise an error if any element value in `_COLUMN_` is too large to
+    fit into a column of type `_COLTYPE_` or if the value contains a
+    non-zero fractional component and `_COLTYPE_` is one of the
+    integral types. In the former case, if `_COLUMN_` is of an integer
+    type, the higher order bits are discarded while if it is of type
+    double, the cast value is undefined. In the latter case, the fractional
+    component of the element value is discarded, and only its integer
+    component is stored in the new column.
 
     ((cmddef column_count "column count ?-range _RANGE_? ?-among _INDICES_? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 

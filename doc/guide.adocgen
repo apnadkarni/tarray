@@ -188,6 +188,7 @@ text {
     }]
 } text {
 
+
     [WARNING]
     ====
     Applications should not depend on the exact string representation of a column
@@ -200,6 +201,23 @@ text {
 }  text {
     ====
 
+    The above examples use a Tcl list for initialization. Alternatively, a
+    column could also be used instead. For example,
+} shell {
+    set first_quarter [column create any [column range $months 0 2]]
+} text {
+    Notice the initialization column type need not be the same as long
+    as the values are compatible.
+
+    A related command is ((^` column_cast "column cast")) which
+    differs in that it is less strict in terms of converting
+    values. For example,
+} errorok 1 shell {
+    set I [column create int {255 256 257}]
+    set B [column create byte $I]; # Error because values do not fit in a byte
+    set B [column cast byte $I]; # No error, high order bits discarded
+    
+} text {
     Columns are resized as needed but as an optimization, preallocation
     may be requested.
 } shell {

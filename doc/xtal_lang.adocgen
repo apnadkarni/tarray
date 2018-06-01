@@ -1055,13 +1055,15 @@ text {
 } text {
     Again, here `_TYPE_` is one of the tarray column types. `_EXPR_`,
     if specified, is an expression that will be used to initialize the column.
-    Thus this form can also be used to ''cast'' a column to a column of
-    a different type. For example, we can create an `int` column from
+    Thus this form can also be used to create a column of a different
+    type provided the values are compatible.
+    For example, we can create an `int` column from
     a `double` column.
 } prompt {} xtal_shell {
-    @int(Rainfall)
-    @int (Rainfall)
-    @int [100] ( Rainfall )
+    D = @double {1.0, 2.0, 3.0}
+    @int(D)
+    @int (D)
+    @int [100] ( D )
 } text {
     Notice the size specifier and whitespace are both optional.
 
