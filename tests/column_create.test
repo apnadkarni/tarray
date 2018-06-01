@@ -14,12 +14,12 @@ namespace eval tarray::test {
     
     # Tests for creating empty and large tarrays
     foreach type {any string boolean byte double int uint wide} {
-        test column-create-$type-1.0 {
+        test column_create-$type-1.0 {
             Test creation of empty column
         } -body {
             tarray::column create $type
         } -result [crep $type {}]
-        test column-create-$type-1.1 {
+        test column_create-$type-1.1 {
             Test creation of empty column with preallocation
         } -body {
             tarray::column create $type {} 1000
@@ -28,7 +28,7 @@ namespace eval tarray::test {
         #
         # Tests for creating large columns
         set num -1
-        test column-create-large-$type-1.[incr num] {
+        test column_create-large-$type-1.[incr num] {
             Test creation of column with large initializer
         } -body {
             tarray::column create $type [largelist $type]
@@ -40,7 +40,7 @@ namespace eval tarray::test {
     foreach {type values} [array get good] {
         set num -1
         foreach value $values {
-            test column-create-$type-2.[incr num] {
+            test column_create-$type-2.[incr num] {
                 Test creation of column with initializer
             } -body {
                 tarray::column create $type $value
@@ -60,7 +60,7 @@ namespace eval tarray::test {
             
     foreach type {any string boolean byte double int uint wide} {
         foreach type2 {any string boolean byte double int uint wide} {
-            test column-create-$type2-to-$type-1.0 {
+            test column_create-$type2-to-$type-1.0 {
                 Test creation from column
             } -setup {
                 set srccol [tarray::column create $type2 [lrepeat 1000 1 0 3]]
@@ -72,7 +72,7 @@ namespace eval tarray::test {
 
     #
     # Tests to ensure string reps are correct when converting int<->uint
-    test column-create-int-to-uint-2.0 {
+    test column_create-int-to-uint-2.0 {
         Test string rep on int->uint conversion
     } -setup {
         set col [tarray::column create int {0 2147483647 1}]
@@ -81,7 +81,7 @@ namespace eval tarray::test {
         tarray::column create uint $col[set col {}] ;# Change ref count to 1
     } -result [newcolumn uint {0 0x7fffffff 1}]
     
-    test column-create-uint-to-int-2.0 {
+    test column_create-uint-to-int-2.0 {
         Test string rep on uint->int conversion
     } -setup {
         set col [tarray::column create uint {0 2147483647 1}]
@@ -98,17 +98,17 @@ namespace eval tarray::test {
     foreach {type values} [array get bad] {
         set num -1
         foreach value $values {
-            test column-create-$type-invalid-1.[incr num] {
+            test column_create-$type-invalid-1.[incr num] {
                 Test invalid values raise error in tarray creation
             } -body {
                 tarray::column create $type [list $value]
             } -result * -match glob -returnCodes error
-            test column-create-$type-invalid-1.[incr num] {
+            test column_create-$type-invalid-1.[incr num] {
                 Test invalid values raise error in tarray creation
             } -body {
                 tarray::column create $type [tarray::column create any [list $value]]
             } -result * -match glob -returnCodes error
-            test column-create-$type-invalid-1.[incr num] {
+            test column_create-$type-invalid-1.[incr num] {
                 Test invalid values raise error in tarray creation
             } -body {
                 tarray::column create $type [tarray::column create string [list $value]]
@@ -120,7 +120,7 @@ namespace eval tarray::test {
         set num -1
         foreach value {-1 256} {
             if {$value < 0 && $type eq "uint"} continue
-            test column-create-$type-to-byte-invalid-1.[incr num] {
+            test column_create-$type-to-byte-invalid-1.[incr num] {
                 Test overflow from $type to byte
             } -setup {
                 set C [newcolumn $type $value]
@@ -133,7 +133,7 @@ namespace eval tarray::test {
         set num -1
         foreach value {-2147483649 2147483648} {
             if {$value < 0 && $type eq "uint"} continue
-            test column-create-$type-to-int-invalid-1.[incr num] {
+            test column_create-$type-to-int-invalid-1.[incr num] {
                 Test overflow from $type to int
             } -setup {
                 set C [newcolumn $type $value]
@@ -147,7 +147,7 @@ namespace eval tarray::test {
         set num -1
         foreach value {-1 4294967296} {
             if {$value > 2147483647 && $type eq "int"} continue
-            test column-create-$type-to-uint-invalid-1.[incr num] {
+            test column_create-$type-to-uint-invalid-1.[incr num] {
                 Test overflow from $type to uint
             } -setup {
                 set C [newcolumn $type $value]
@@ -159,7 +159,7 @@ namespace eval tarray::test {
     
     set num -1
     foreach value {-18446744073709551616 18446744073709551616} {
-        test column-create-double-to-wide-invalid-1.[incr num] {
+        test column_create-double-to-wide-invalid-1.[incr num] {
             Test overflow from double to wide
         } -setup {
             set C [newcolumn double $value]
@@ -170,7 +170,7 @@ namespace eval tarray::test {
     
     # Test fractional doubles cannot be stored as integers
     foreach type {byte int uint wide} {
-        test column-create-double-to-$type-fraction-1.0 {
+        test column_create-double-to-$type-fraction-1.0 {
             Test double conversion to fraction
         } -setup {
             set C [newcolumn double 1.1]
@@ -181,13 +181,13 @@ namespace eval tarray::test {
 
     # Special test for wide -> 0x8000000000000000 allowed but not
     # [expr 0x8000000000000000] (i.e. decimal format)
-    test column-create-wide-overflow-1.0 {
+    test column_create-wide-overflow-1.0 {
         Verify 0x8000000000000000 accepted as wide
     } -body {
         tarray::column create wide 0x8000000000000000
     } -result "tarray_column wide {-9223372036854775808}"
 
-    test column-create-wide-overflow-1.1 {
+    test column_create-wide-overflow-1.1 {
         Verify 9223372036854775808 not accepted as wide
     } -body {
         tarray::column create wide 9223372036854775808
