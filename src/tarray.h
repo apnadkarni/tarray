@@ -490,7 +490,8 @@ void thdr_reverse(thdr_t *tdrhP);
 void thdr_copy_reversed(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
 void thdr_copy(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count, int insert);
 TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
-                          thdr_t *psrc, int src_first, int count, int insert);
+                          thdr_t *psrc, int src_first, int count, int insert,
+                          int strict);
 thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span);
 void thdr_delete_range(thdr_t *thdr, int first, int count);
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices);

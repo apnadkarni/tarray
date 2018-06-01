@@ -503,7 +503,7 @@ static TCL_RESULT ta_math_boolean_result(
                     thdr_decr_refs(thdr);
                     return TCL_ERROR;
                 }
-                if (thdr_copy_cast(ip, thdr2, 0, poper->thdr_operand, poper->span_start, size, 0) != TCL_OK) {
+                if (thdr_copy_cast(ip, thdr2, 0, poper->thdr_operand, poper->span_start, size, 0, 0) != TCL_OK) {
                     thdr_decr_refs(thdr2);
                     thdr_decr_refs(thdr);
                     return TCL_ERROR;

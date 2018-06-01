@@ -3158,7 +3158,9 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
 /* Copies partial content from one thdr_t to another of a different type. 
    See asserts below for requirements */
 TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
-               thdr_t *psrc, int src_first, int count, int insert)
+                          thdr_t *psrc, int src_first, int count, int insert,
+                          int strict
+    )
 {
     int new_used;
     TCL_RESULT status;
@@ -3221,6 +3223,14 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         }                                                       \
     } while (0)
 
+#define NUM2NUM(dsttype_, srctype_, low_, high_)        \
+    do { \
+        if (strict)                                             \
+            NUM2NUM_CHECKED(dsttype_, srctype_, low_, high_); \
+        else \
+            NUM2NUM_UNCHECKED(dsttype_, srctype_, low_, high_); \
+    } while (0)
+    
 #define DOUBLE2NUM_CHECKED(dsttype_, low_, high_)       \
     do {                                                \
         dsttype_ *to;                                   \
@@ -3242,6 +3252,13 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         }                                               \
     } while (0)
 
+#define DOUBLE2NUM(dsttype_, low_, high_)        \
+    do { \
+        if (strict)                                             \
+            DOUBLE2NUM_CHECKED(dsttype_, low_, high_); \
+        else \
+            NUM2NUM_UNCHECKED(dsttype_, double, low_, high_); \
+    } while (0)
 
     /* TBD - optimize */
 #define BOOL2NUM(dsttype_)                                              \
@@ -3457,28 +3474,28 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         case TA_BYTE:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(unsigned char); break;
-            case TA_INT: NUM2NUM_CHECKED(unsigned char, int, 0, UCHAR_MAX); break;
-            case TA_UINT: NUM2NUM_CHECKED(unsigned char, unsigned int, 0, UCHAR_MAX); break;
-            case TA_WIDE: NUM2NUM_CHECKED(unsigned char, Tcl_WideInt, 0, UCHAR_MAX); break;
-            case TA_DOUBLE: DOUBLE2NUM_CHECKED(unsigned char, 0, UCHAR_MAX); break;
+            case TA_INT: NUM2NUM(unsigned char, int, 0, UCHAR_MAX); break;
+            case TA_UINT: NUM2NUM(unsigned char, unsigned int, 0, UCHAR_MAX); break;
+            case TA_WIDE: NUM2NUM(unsigned char, Tcl_WideInt, 0, UCHAR_MAX); break;
+            case TA_DOUBLE: DOUBLE2NUM(unsigned char, 0, UCHAR_MAX); break;
             }
             break;
         case TA_INT:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(int); break;
             case TA_BYTE: NUM2NUM_UNCHECKED(int, unsigned char); break;
-            case TA_UINT: NUM2NUM_CHECKED(int, unsigned int, 0, INT_MAX); break;
-            case TA_WIDE: NUM2NUM_CHECKED(int, Tcl_WideInt, INT_MIN, INT_MAX); break;
-            case TA_DOUBLE: DOUBLE2NUM_CHECKED(int, INT_MIN, INT_MAX); break;
+            case TA_UINT: NUM2NUM(int, unsigned int, 0, INT_MAX); break;
+            case TA_WIDE: NUM2NUM(int, Tcl_WideInt, INT_MIN, INT_MAX); break;
+            case TA_DOUBLE: DOUBLE2NUM(int, INT_MIN, INT_MAX); break;
             }
             break;
         case TA_UINT:
             switch (psrc->type) {
             case TA_BOOLEAN: BOOL2NUM(unsigned int); break;
             case TA_BYTE: NUM2NUM_UNCHECKED(unsigned int, unsigned char); break;
-            case TA_INT: NUM2NUM_CHECKED(unsigned int, int, 0, UINT_MAX); break;
-            case TA_WIDE: NUM2NUM_CHECKED(unsigned int, Tcl_WideInt, 0, UINT_MAX); break;
-            case TA_DOUBLE: DOUBLE2NUM_CHECKED(unsigned int, 0, UINT_MAX); break;
+            case TA_INT: NUM2NUM(unsigned int, int, 0, UINT_MAX); break;
+            case TA_WIDE: NUM2NUM(unsigned int, Tcl_WideInt, 0, UINT_MAX); break;
+            case TA_DOUBLE: DOUBLE2NUM(unsigned int, 0, UINT_MAX); break;
             }
             break;
         case TA_WIDE:
@@ -3487,7 +3504,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
             case TA_BYTE: NUM2NUM_UNCHECKED(Tcl_WideInt, unsigned char); break;
             case TA_INT: NUM2NUM_UNCHECKED(Tcl_WideInt, int); break;
             case TA_UINT: NUM2NUM_UNCHECKED(Tcl_WideInt, unsigned int); break;
-            case TA_DOUBLE: DOUBLE2NUM_CHECKED(Tcl_WideInt, INT64_MIN, INT64_MAX); break;
+            case TA_DOUBLE: DOUBLE2NUM(Tcl_WideInt, INT64_MIN, INT64_MAX); break;
             }
             break;
         case TA_DOUBLE:
@@ -3663,7 +3680,7 @@ thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
         to = thdr_alloc(ip, TA_INT, count);
         if (to == NULL)
             return to;
-        if (thdr_copy_cast(ip, to, 0, thdr, start, count, 0) != TCL_OK) {
+        if (thdr_copy_cast(ip, to, 0, thdr, start, count, 0, 1) != TCL_OK) {
             thdr_decr_refs(to);
             return NULL;
         }
