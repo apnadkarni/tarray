@@ -321,9 +321,8 @@ static void ParseargsUnknownOption(Tcl_Interp *interp, char *badopt, struct Opti
             }
         }
     }
-
+    Tcl_AppendToObj(objP, ".", 1);
     Tcl_SetObjResult(interp, objP);
-    return;
 }
 
 

@@ -293,24 +293,6 @@ proc tarray::table::definition {tab {cnames {}}} {
     return $def
 }
 
-# Checks that no more than one boolean option is selected in the array
-# from the ones given in switches.
-proc tarray::single_switch {vopts switches default} {
-    upvar 1 $vopts opts
-    foreach arg $switches {
-        if {$opts($arg)} {
-            if {[info exists selected]} {
-                error "At most one among options [join $args {, }] may be specified."
-            }
-            set selected $arg
-        }
-    }
-    if {[info exists selected]} {
-        return $selected
-    }
-    return $default
-}
-
 proc tarray::table::sort {args} {
     if {[llength $args] < 2} {
         error "wrong # args: should be \"[lindex [info level 0] 0] ?options? table column"
@@ -319,22 +301,19 @@ proc tarray::table::sort {args} {
     set colname [lindex $args end]
     set args [lrange $args 0 end-2]
     array set opts [parseargs args {
-        decreasing
-        increasing
+        {order.radio increasing {increasing decreasing}}
         nocase
         indices
         columns.arg
-        dict
-        list
-        table
+        {format.radio table {table list dict}}
     } -maxleftover 0 -hyphenated]
 
-    lappend sort_opts [single_switch opts {-decreasing -increasing} -increasing]
+    set sort_opts [list $opts(-order)]
     if {$opts(-nocase)} {
         lappend sort_opts -nocase
     }
 
-    lappend format_opts [single_switch opts {-dict -list -table} -table]
+    set format_opts [list $opts(-format)]
     if {[info exists opts(-columns)]} {
         lappend format_opts -columns $opts(-columns)
     }

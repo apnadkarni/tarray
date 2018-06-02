@@ -135,7 +135,7 @@ namespace eval tarray::test {
         Invalid option
     } -body {
         tarray::table sort -foo [sort_test_table] colA
-    } -returnCodes error -result "Invalid option '-foo'. Must be one of -decreasing, -increasing, -nocase, -indices, -columns, -dict, -list, -table"
+    } -returnCodes error -result "Invalid option '-foo'. Must be one of -increasing, -decreasing, -nocase, -indices, -columns, -table, -list, -dict."
     
 }
 
