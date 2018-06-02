@@ -6,11 +6,10 @@
 #
 
 namespace eval tarray {
-    namespace eval column {}
-    namespace eval table {}
-    namespace eval db {}
-    namespace eval unsupported {}
-    namespace eval test {}
+    namespace eval column { namespace path [namespace parent] }
+    namespace eval table { namespace path [namespace parent] }
+    namespace eval unsupported { namespace path [namespace parent] }
+    namespace eval test { namespace path [namespace parent] }
 
     proc lambda {arglist body {ns {}}} {
         return [list ::apply [list $arglist $body $ns]]
@@ -26,19 +25,16 @@ proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
 }
 
-# TBD - document
+# TBD - document and test
 # TBD - type overflows need to be checked
 proc tarray::column::linspace {start stop count args} {
     dict size $args;            # Verify dictionary format
 
-    set opts [dict merge {
-        -type double
-        -open 0
-    } $args]
+    parseargs args {
+        {type.arg double {byte int uint wide double}}
+        {open.bool 0}
+    } -maxleftover 0 -setvars
 
-    set type [dict get $opts -type]
-    set open [dict get $opts -open]
-    
     if {$start > $stop} {
         error "Specified of range $start is greater than the end $stop."
     }
@@ -62,7 +58,7 @@ proc tarray::column::linspace {start stop count args} {
         incr div -1
     }
 
-    if {$type in {byte int uint wide}} {
+    if {$type ne "double"} {
         if {!([string is integer -strict $start] &&
               [string is integer -strict $stop])} {
             error "Start and stop arguments must be integers if return type is $type."
@@ -82,7 +78,7 @@ proc tarray::column::linspace {start stop count args} {
         return [create $type [series $start $stop $step]]
     }
 
-    # Ensure operands are doubles
+    # Ensure operands are treated as doubles
     set start [tcl::mathfunc::double $start]
     set stop  [tcl::mathfunc::double $stop]
 
@@ -297,40 +293,54 @@ proc tarray::table::definition {tab {cnames {}}} {
     return $def
 }
 
+# Checks that no more than one boolean option is selected in the array
+# from the ones given in switches.
+proc tarray::single_switch {vopts switches default} {
+    upvar 1 $vopts opts
+    foreach arg $switches {
+        if {$opts($arg)} {
+            if {[info exists selected]} {
+                error "At most one among options [join $args {, }] may be specified."
+            }
+            set selected $arg
+        }
+    }
+    if {[info exists selected]} {
+        return $selected
+    }
+    return $default
+}
+
 proc tarray::table::sort {args} {
     if {[llength $args] < 2} {
         error "wrong # args: should be \"[lindex [info level 0] 0] ?options? table column"
     }
-    set sort_opts {}
-    set format_opts {}
-    set want_indices 0
-    set opts [lrange $args 0 end-2]
-    set n [llength $opts]
-    for {set i 0} {$i < $n} {incr i} {
-        set arg [lindex $opts $i]
-        switch -exact -- $arg {
-            -indices {set want_indices 1}
-            -increasing -
-            -decreasing -
-            -nocase { lappend sort_opts $arg}
-            -columns {
-                if {[incr i] == $n} {
-                    error "No value supplied for option -columns"
-                }
-                lappend format_opts $arg [lindex $opts $i]
-            }
-            -dict -
-            -list -
-            -table { lappend format_opts $arg }
-            default {
-                error "Invalid option '$arg'."
-            }
-        }
+    set tab     [lindex $args end-1]
+    set colname [lindex $args end]
+    set args [lrange $args 0 end-2]
+    array set opts [parseargs args {
+        decreasing
+        increasing
+        nocase
+        indices
+        columns.arg
+        dict
+        list
+        table
+    } -maxleftover 0 -hyphenated]
+
+    lappend sort_opts [single_switch opts {-decreasing -increasing} -increasing]
+    if {$opts(-nocase)} {
+        lappend sort_opts -nocase
     }
 
-    set tab [lindex $args end-1]
-    set indices [tarray::column::sort -indices {*}$sort_opts [column $tab [lindex $args end]]]
-    if {$want_indices} {
+    lappend format_opts [single_switch opts {-dict -list -table} -table]
+    if {[info exists opts(-columns)]} {
+        lappend format_opts -columns $opts(-columns)
+    }
+
+    set indices [tarray::column::sort -indices {*}$sort_opts [column $tab $colname]]
+    if {$opts(-indices)} {
         return $indices
     } else {
         return [get {*}$format_opts $tab $indices]
@@ -943,6 +953,7 @@ namespace eval tarray {
         }
     }
 
-    namespace export bitmap0 bitmap1 column loop prettify print randseed rng table
+    namespace export bitmap0 bitmap1 column loop parseargs oneopt prettify print randseed rng table
+
 }
 
