@@ -5,9 +5,7 @@
  * See the file LICENSE for license
  */
 
-#include "tcl.h"
-#include <stdlib.h>
-#include <string.h>
+#include "tarray.h"
 
 struct OptionDescriptor {
     Tcl_Obj    *name; // TBD - should this store name without the .type suffix?
@@ -339,6 +337,12 @@ int parseargs_cmd(
     Tcl_Obj    *retObjs[2*PARSEARGS_STATIC];
     Tcl_Obj    **retP = NULL;
     int         nret = 0;
+    static const char *parseargs_options[] = {
+        "-hyphenated", "-ignoreunknown", "-maxleftover", "-nulldefault", "-setvars", NULL
+    };
+    enum parseargs_options_e {
+        HYPHENATED, IGNOREUNKNOWN, MAXLEFTOVER, NULLDEFAULT, SETVARS
+    };
 
     if (objc < 3) {
         Tcl_WrongNumArgs(interp, 1, objv, "argvVar optlist ?-ignoreunknown? ?-nulldefault? ?-hyphenated? ?-maxleftover COUNT? ?--?");
@@ -367,11 +371,19 @@ int parseargs_cmd(
 
     /* TBD - use Tcl_GetIndexFromObj to parse parseargs options. Faster */
     for (j = 3 ; j < objc ; ++j) {
-        char *s = Tcl_GetString(objv[j]);
-        if (!strcmp("-nulldefault", s)) {
-            nulldefault = 1;
-        }
-        else if (!strcmp("-maxleftover", s)) {
+        int parseargs_opt;
+        int status;
+
+        status = ta_opt_from_obj(interp, objv[j], parseargs_options, "option", 0, &parseargs_opt);
+        if (status != TCL_OK)
+            goto error_return;
+
+        switch ((enum parseargs_options_e) parseargs_opt) {
+        case HYPHENATED:    hyphenated = 1; break;
+        case IGNOREUNKNOWN: ignoreunknown = 1; break;
+        case NULLDEFAULT:   nulldefault = 1; break;
+        case SETVARS:       setvars = 1; break;
+        case MAXLEFTOVER: 
             ++j;
             if (j == objc) {
                 Tcl_SetResult(interp, "Missing value for -maxleftover", TCL_STATIC);
@@ -381,20 +393,7 @@ int parseargs_cmd(
             if (Tcl_GetIntFromObj(interp, objv[j], &maxleftover) != TCL_OK) {
                 goto error_return;
             }
-        }
-        else if (!strcmp("-setvars", s)) {
-            setvars = 1;
-        }
-        else if (!strcmp("-ignoreunknown", s)) {
-            ignoreunknown = 1;
-        }
-        else if (!strcmp("-hyphenated", s)) {
-            hyphenated = 1;
-        }
-        else {
-            Tcl_AppendResult(interp, "Extra argument or unknown option '",
-                             Tcl_GetString(objv[j]), "'", NULL);
-            goto error_return;
+            break;
         }
     }
 
@@ -549,7 +548,7 @@ int parseargs_cmd(
                     goto error_return;
                 s = valuesP[k] ? Tcl_GetString(valuesP[k]) : "";
                 for (ivalid = 0; ivalid < nvalid; ++ivalid) {
-                    if (!lstrcmpA(Tcl_GetString(validObjs[ivalid]), s))
+                    if (!strcmp(Tcl_GetString(validObjs[ivalid]), s))
                         break;
                 }
                 if (ivalid == nvalid) {
@@ -635,7 +634,6 @@ int parseargs_cmd(
 
 
     if (maxleftover < (argc - iarg)) {
-        Tcl_Obj *tooManyErrorObj;
         Tcl_SetResult(interp, "Command has extra arguments specified.", TCL_STATIC);
         goto error_return;
     }
