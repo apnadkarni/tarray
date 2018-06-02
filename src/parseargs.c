@@ -19,6 +19,7 @@ struct OptionDescriptor {
 #define OPT_INT    2
 #define OPT_SWITCH 3
 #define OPT_SYM    4
+#define OPT_RADIO 5
     char        first;          /* First char of name[] */
 };
 
@@ -196,7 +197,11 @@ static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
                 curP->type = OPT_SWITCH;
             else if (!strcmp(type, "sym"))
                 curP->type = OPT_SYM;
-            else
+            else if (!strcmp(type, "radio")) {
+                curP->type = OPT_RADIO;
+                if (nelems == 0)
+                    goto error_handler; /* Must have at least default field */
+            } else
                 goto error_handler;
         }
         if (nelems > 1) {
@@ -300,8 +305,21 @@ static void ParseargsUnknownOption(Tcl_Interp *interp, char *badopt, struct Opti
     objP = Tcl_ObjPrintf("Invalid option '%s'. Must be one of ", badopt);
 
     for (j = 0; j < nopts; ++j) {
-        Tcl_AppendPrintfToObj(objP, "%s%.*s", sep, opts[j].name_len, Tcl_GetString(opts[j].name));
-        sep = ", -";
+        if (opts[j].type != OPT_RADIO) {
+            Tcl_AppendPrintfToObj(objP, "%s%.*s", sep, opts[j].name_len, Tcl_GetString(opts[j].name));
+            sep = ", -";
+        }
+        else {
+            int k, nelems;
+            Tcl_Obj **elems;
+            if (opts[j].valid_values && 
+                Tcl_ListObjGetElements(NULL, opts[j].valid_values, &nelems, &elems) == TCL_OK) {
+                for (k = 0; k < nelems; ++k) {
+                    Tcl_AppendPrintfToObj(objP, "%s%s", sep, Tcl_GetString(elems[k]));
+                    sep = ", -";
+                }
+            }
+        }
     }
 
     Tcl_SetObjResult(interp, objP);
@@ -412,6 +430,7 @@ int parseargs_cmd(
     for (iarg = 0; iarg < argc; ++iarg) {
         int   argp_len;
         char *argp = Tcl_GetStringFromObj(argv[iarg], &argp_len);
+        Tcl_Obj *radioOpt;
 
         /* Non-option arg or a '-' or a "--" signals end of arguments */
         if (*argp != '-')
@@ -423,11 +442,29 @@ int parseargs_cmd(
         }
 
         /* Check against each option in turn */
+        radioOpt = NULL;
         for (j = 0; j < nopts; ++j) {
-            if (opts[j].name_len == (argp_len-1) &&
-                opts[j].first == argp[1] &&
-                ! Tcl_UtfNcmp(Tcl_GetString(opts[j].name), argp+1, (argp_len-1))) {
-                break;          /* Match ! */
+            if (opts[j].type != OPT_RADIO) {
+                if (opts[j].name_len == (argp_len-1) &&
+                    opts[j].first == argp[1] &&
+                    ! Tcl_UtfNcmp(Tcl_GetString(opts[j].name), argp+1, (argp_len-1))) {
+                    break;          /* Match ! */
+                }
+            } else {
+                /* OPT_RADIO - search radio choices */
+                int choice, nchoices;
+                Tcl_Obj **choices;
+                if (opts[j].valid_values && 
+                    Tcl_ListObjGetElements(NULL, opts[j].valid_values, &nchoices, &choices) == TCL_OK) {
+                    for (choice = 0; choice < nchoices; ++choice) {
+                        if (!strcmp(argp+1, Tcl_GetString(choices[choice]))) {
+                            radioOpt = choices[choice];
+                            break;
+                        }
+                    }
+                }
+                if (radioOpt)
+                    break;      /* Matched a radio option */
             }
         }
 
@@ -441,7 +478,8 @@ int parseargs_cmd(
                     Tcl_IncrRefCount(oneObj);
                 }
                 valuesP[j] = oneObj;
-            }
+            } else if (opts[j].type == OPT_RADIO)
+                valuesP[j] = radioOpt;
             else {
                 if (iarg >= (argc-1)) {
                     /* No more args! */
@@ -649,9 +687,14 @@ int parseargs_cmd(
         } else {
             objP = Tcl_NewStringObj(Tcl_GetString(opts[k].name), opts[k].name_len);
         }
+        retP[nret++] = objP; /* The option */
 
-        retP[nret++] = objP;
-        retP[nret++] = valuesP[k];
+        if (hyphenated && opts[k].type == OPT_RADIO) {
+            /* Radio option values also get a - prefix */
+            retP[nret++] = Tcl_ObjPrintf("-%s", Tcl_GetString(valuesP[k]));
+        } else {
+            retP[nret++] = valuesP[k]; /* Option value */
+        }
     }
 
 
