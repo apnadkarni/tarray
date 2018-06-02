@@ -3228,7 +3228,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         if (strict)                                             \
             NUM2NUM_CHECKED(dsttype_, srctype_, low_, high_); \
         else \
-            NUM2NUM_UNCHECKED(dsttype_, srctype_, low_, high_); \
+            NUM2NUM_UNCHECKED(dsttype_, srctype_); \
     } while (0)
     
 #define DOUBLE2NUM_CHECKED(dsttype_, low_, high_)       \
@@ -3257,7 +3257,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         if (strict)                                             \
             DOUBLE2NUM_CHECKED(dsttype_, low_, high_); \
         else \
-            NUM2NUM_UNCHECKED(dsttype_, double, low_, high_); \
+            NUM2NUM_UNCHECKED(dsttype_, double); \
     } while (0)
 
     /* TBD - optimize */
