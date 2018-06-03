@@ -4,7 +4,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
 
-    proc rainfall {} {return [tarray::samples::get city_rainfall] }
+    proc rainfall {} {return [tarray::samples::get rainfall] }
     proc freelancers {} { return [tarray::samples::get freelancers] }
     proc skills {} { return [tarray::samples::get freelancer_skills] }
 
@@ -31,6 +31,18 @@ namespace eval tarray::test {
         tarray::table join -t0cols {Id Name} -t1cols {Language} [freelancers] [skills]
     } -result {tarray_table {Id Name Language} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}}}} 
 
+    test table_join-3.1 {
+        Join and slice, only t1 cols
+    } -body {
+        tarray::table join -t0cols {} -t1cols {Language} [freelancers] [skills]
+    } -result {tarray_table Language {{tarray_column string {C C++ Java Tcl Java Javascript Objective-C Swift Assembler C C++ Tcl {Visual Basic} SQL Javascript PHP Ruby Fortran R C++ Python}}}} 
+    
+    test table_join-3.2 {
+        Join and slice, only t0 cols
+    } -body {
+        tarray::table join -t1cols {} [freelancers] [skills]
+    } -result {tarray_table {Id Name Rate Experience City} {{tarray_column int {1 1 1 1 2 2 3 3 4 4 4 4 4 4 5 5 5 6 6 6 7}} {tarray_column string {Peter Peter Peter Peter John John Joan Joan Marcos Marcos Marcos Marcos Marcos Marcos Kim Kim Kim Mani Mani Mani Idaman}} {tarray_column int {100 100 100 100 85 85 90 90 110 110 110 110 110 110 95 95 95 105 105 105 70}} {tarray_column int {15 15 15 15 10 10 10 10 20 20 20 20 20 20 8 8 8 12 12 12 5}} {tarray_column string {Boston Boston Boston Boston {New York} {New York} {New York} {New York} Chicago Chicago Chicago Chicago Chicago Chicago {San Francisco} {San Francisco} {San Francisco} Boston Boston Boston Miami}}}}
+    
     test table_join-4.0 {
         Basic join -t1suffix
     } -body {
