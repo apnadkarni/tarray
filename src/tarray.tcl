@@ -221,6 +221,83 @@ proc tarray::column::groupby {method compute col args} {
 }
 
 
+proc tarray::column::pigeonhole {args} {
+
+    parseargs args {
+        {collect.radio indices {values indices}}
+        classifier.arg
+    } -setvars
+
+    if {[llength $args] != 1} {
+        error "Wrong #args: should be \"column pigeonhole ?options? COLUMN\"."
+    }
+    set col [lindex $args 0]
+
+    set buckets {}
+
+    # Breaking out loops in various cases is verbose but significantly faster
+    if {[info exists classifier]} {
+        if {$collect eq "indices"} {
+            tarray::loop i e $col {
+                switch -exact -- [catch { {*}$classifier $i $e } bucket ropts] {
+                    0 {}
+                    3 { break }
+                    4 { continue }
+                    default {
+                        dict incr ropts -level
+                        return -options $ropts $bucket
+                    }
+                }
+                dict lappend buckets $bucket $e
+            }
+        } else {
+            tarray::loop i e $col {
+                switch -exact -- [catch { {*}$classifier $i $e } bucket ropts] {
+                    0 {}
+                    3 { break }
+                    4 { continue }
+                    default {
+                        dict incr ropts -level
+                        return -options $ropts $bucket
+                    }
+                }
+                dict lappend buckets $bucket $i
+            }
+        }
+    } else {
+        # Pigeonhole based on value itself
+        if {$collect eq "indices"} {
+            tarray::loop i e $col {
+                dict lappend buckets $e $i
+            }
+        } else {
+            tarray::loop i e $col {
+                dict lappend buckets $e $e
+            }
+        }
+    }
+    
+    if {$collect eq "indices"} {
+        set indices {}
+        foreach bucket [dict keys $buckets] {
+            lappend indices [create int [dict get $buckets $bucket]]
+        }
+        set groups [create any $indices]
+        set title Indices
+    } else {
+        set values {}
+        foreach bucket [dict keys $buckets] {
+            lappend values [create [type $col] [dict get $buckets $bucket]]
+        }
+        set groups [create any $values]
+        set title Values
+    }
+
+    return [tarray::table::create2 \
+                [list Bucket $title] \
+                [list [create any [dict keys $buckets]] $groups]]
+}
+
 
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}
