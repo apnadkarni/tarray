@@ -106,51 +106,6 @@ proc tarray::column::linspace {start stop count args} {
     return $result
 }
 
-proc tarray::column::_group_by_equal_intervals {col compute nintervals args} {
-    dict size $args;            # Verify dictionary format
-    if {[dict exists $args -min]} {
-        set min [dict get $args -min]
-    }
-    if {[dict exists $args -max]} {
-        set max [dict get $args -max]
-    }
-    if {![info exists min] || ![info exists max]} {
-        lassign [minmax $col] smallest largest
-        if {![info exists min]} {
-            set min $smallest
-        }
-        if {![info exists max]} {
-            set max $largest
-        }
-    }
-
-    if {$min > $max} {
-        error "Invalid bucket range $min-$max."
-    }
-    if {$nintervals <= 0} {
-        error "Number of buckets must be greater than zero."
-    }
-
-    if {[type $col] eq "double"} {
-        # Take care to compute as doubles in case values passed in
-        # as integers. Note that thanks to FP inexact representations
-        # this is not entirely accurate. The C code will take care
-        # of clamping values exceeding the highest bucket to that
-        # bucket.
-        set max [tcl::mathfunc::double $max]
-        set min [tcl::mathfunc::double $min]
-        set step [expr {($max - $min) / $nintervals}]
-        set upper [expr {$min + $nintervals * $step}]
-        if {$upper < $max} {
-            set step [expr {$step + (($max - $upper)/$nintervals)}]
-        }
-    } else {
-        set step [expr {(($max - $min) / $nintervals) + 1}]
-    }
-    
-    return [_equalintervals $col $compute $nintervals $min $max $step]
-}
-
 proc tarray::column::groupby {method compute col args} {
 
     if {[tcl::prefix match {equalintervals command} $method] eq "equalintervals"} {
@@ -222,7 +177,7 @@ proc tarray::column::groupby {method compute col args} {
 
 proc tarray::column::histogram {args} {
     parseargs args {
-        {compute.radio counts {counts sums values indices}}
+        {compute.radio count {count sum values indices}}
         min.arg
         max.arg
     } -setvars
@@ -346,6 +301,55 @@ proc tarray::column::pigeonhole {args} {
                 [list [create any [dict keys $buckets]] $groups]]
 }
 
+proc tarray::column::summarize {args} {
+    array set opts [parseargs args {
+        sum
+        count
+        compute.arg
+        {computetype.arg any {boolean byte int uint wide double string any}}
+    }]
+
+    if {[llength $args] != 1} {
+        error "wrong # args: should be \"column summarize ?options? DATACOL\"."
+    }
+    set data_col [lindex $args 0]
+    set nbuckets [size $data_col]
+    set opttotal [expr {$opts(sum) + $opts(count) + [info exists opts(compute)]}]
+    if {$opttotal > 1} {
+        error "Only one among -count, -sum and -compute may be specified."
+    }
+    if {$opttotal == 0} {
+        set opts(count) 1
+    }
+
+    if {$opts(count)} {
+        set col [create int {} $nbuckets]
+        loop i e $data_col {
+            vfill col [size $e] $i
+        }
+    } elseif {$opts(sum)} {
+        if {$nbuckets == 0} {
+            set col [create wide]
+        } else {
+            if {[type [index $data_col 0]] eq "double"} {
+                set sum_type double
+            } else {
+                set sum_type wide
+            }
+            set col [create $sum_type {} $nbuckets]
+            loop i e $data_col {
+                vfill col [sum $e] $i
+            }
+        }
+    } else {
+        set col [create $opts(computetype) {} $nbuckets]
+        loop i e $data_col {
+            vfill col [{*}$opts(compute) $i $e] $i
+        }
+    }
+        
+    return $col
+}
 
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}
@@ -939,6 +943,7 @@ namespace eval tarray {
             fold fold
             get get
             groupby groupby
+            histogram histogram
             identical identical
             index index
             inject inject
@@ -949,6 +954,7 @@ namespace eval tarray {
             loop ::tarray::loop
             math math
             minmax minmax
+            pigeonhole pigeonhole
             place place
             prettify prettify
             print print
@@ -962,6 +968,8 @@ namespace eval tarray {
             shuffle shuffle
             sort sort
             sum sum
+            summarize summarize
+            summarise summarize
             type type
             vdelete vdelete
             vfill vfill
