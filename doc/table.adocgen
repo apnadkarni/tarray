@@ -137,15 +137,18 @@ text {
     contents are given by `_COLUMNS_` which must be a list of tarray
     columns.
 
-    ((cmddef table_csvexport "table csvexport ?options? _PATH_ _TABLE_"))
+    ((cmddef table_csvexport "table csvexport ?options? _OUTPUT_ _TABLE_"))
 
-    Writes out the contents of _TABLE_ in CSV format to the file
-    specified by _PATH_. If the file already exists, an error is
-    raised unless either `-force _BOOLEAN_` or `-append _BOOLEAN_`
-    options are specified with `_BOOLEAN_` being a boolean true value.
-    In the former case, the file is
-    overwritten while in the latter case the CSV data is appended to
-    the end of the existing file content.
+    Writes out the contents of _TABLE_ in CSV format to the Tcl channel
+    or file specified by _OUTPUT_. In case of the latter,
+    if the file already exists, an error is
+    raised unless either `-force` or `-append`
+    options are specified.
+    The `-force` option causes existing files to be
+    overwritten. The `-append` option specifies the CSV data
+    should be appended to
+    the end of the existing file content. Neither option has
+    any effect if `_OUTPUT_` is a channel.
     
     The `-header` option may be used to write out a header row to the
     file. The option value should generally be a list of the same
@@ -161,10 +164,12 @@ text {
     https://tclcsv.magicsplat.com/index.html#tclcsv_csv_write[documentation]
     for that command for available options.
 
-    ((cmddef table_csvimport "table csvimport ?options? _PATH_"))
+    ((cmddef table_csvimport "table csvimport ?options? _INPUT_"))
 
-    Returns a table containing the data from a CSV file. The CSV file
-    is read using the `tclcsv` package. If the CSV file includes a header,
+    Returns a table containing the data formatted as CSV  from the
+    source specified by `_INPUT_` which may be a Tcl channel
+    or file. The data is read using
+    the `tclcsv` package. If the CSV file includes a header,
     it is used to form the column names for the table with characters
     that are illegal in column names replaced by underscores. If the
     file does not have a header, column names of the form `COL_N` are
@@ -174,13 +179,11 @@ text {
     the same semantics as for the Tcl
     `fconfigure` command.
 
-    If the `-sniff` option is specified with an value of `true`,
-    the `tclcsv::sniff` command is used to guess the format of the CSV
-    file.
+    If the `-sniff` switch is specified, the `tclcsv::sniff` command
+    is used to guess the format of the CSV file.
 
     Any additional options are passed on to the `tclcsv::reader`
-    command.
-    Refer to the
+    command. Refer to the
     https://tclcsv.magicsplat.com/index.html#tclcsv_csv_write[documentation]
     for that command for available options.
     Any options specified thus will override the values discovered
