@@ -294,19 +294,17 @@ proc tarray::table::definition {tab {cnames {}}} {
 }
 
 proc tarray::table::sort {args} {
-    if {[llength $args] < 2} {
-        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? table column"
-    }
-    set tab     [lindex $args end-1]
-    set colname [lindex $args end]
-    set args [lrange $args 0 end-2]
     array set opts [parseargs args {
         {order.radio increasing {increasing decreasing}}
         nocase
         indices
         columns.arg
         {format.radio table {table list dict}}
-    } -maxleftover 0 -hyphenated]
+    } -hyphenated]; # -hyphenated to get back "-increasing", not "increasing" etc.
+    if {[llength $args] != 2} {
+        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? table column"
+    }
+    lassign $args tab colname
 
     set sort_opts [list $opts(-order)]
     if {$opts(-nocase)} {
@@ -327,77 +325,29 @@ proc tarray::table::sort {args} {
 }
 
 proc tarray::table::join {args} {
-    set nargs [llength $args]
-    if {[llength $args] < 2} {
+
+    parseargs args {
+        on.arg
+        nocase
+        t0cols.arg
+        t1cols.arg
+        {t1suffix.arg _t1}
+    } -setvars
+
+    if {[llength $args] != 2} {
         error "wrong # args: should be \"[lindex [info level 0] 0] ?options? TABLEA TABLEB"
     }
 
     # Variable index:
+
     # tab0, tab1 - input data tables
+    lassign $args tab0 tab1
     # cnames0, cnames1 - column names of above
-    # tab0col, tab1col - names of columns to be compared
-    # tab0inc, tab1inc - output columns
-
-    set tab0 [lindex $args end-1]
-    set tab1 [lindex $args end]
-    incr nargs -2
-
-    set nocase 0
     set cnames0 [cnames $tab0]
-    set tab0inc $cnames0;       # By default include all columns
     set cnames1 [cnames $tab1]
-    set tab1inc $cnames1
-    set t1suffix "_t1"
-    for {set i 0} {$i < $nargs} {incr i} {
-        set opt [tcl::prefix match {
-            -nocase -on -t0cols -t1cols -t1suffix
-        } [lindex $args $i]]
-        switch -exact -- $opt {
-            -on {
-                if {[incr i] == $nargs} {
-                    error "Missing value for option -on."
-                }
-                set on_cols [lindex $args $i]
-                switch -exact -- [llength $on_cols] {
-                    0 {}
-                    1 {
-                        set tab0col [lindex $on_cols 0]
-                        set tab1col $tab0col
-                    }
-                    2 { lassign $on_cols tab0col tab1col }
-                    default {
-                        error "At most two column names may be specified for the -on option."
-                    }
-                }
-            }
-            -nocase   { set nocase 1 }
-            -t0cols {
-                if {[incr i] == $nargs} {
-                    error "Missing argument for option -t0cols."
-                }
-                set tab0inc [lindex $args $i]
-            }
-            -t1cols {
-                if {[incr i] == $nargs} {
-                    error "Missing argument for option -t1cols."
-                }
-                set tab1inc [lindex $args $i]
-            }
-            -t1suffix { 
-                if {[incr i] == $nargs} {
-                    error "Missing argument for option -t1suffix."
-                }
-                set t1suffix [lindex $args $i]
-            }
-            default {
-                error "Invalid option '$arg'."
-            }
-        }
-    }
 
-    # If the comparison columns have not been specified, find
-    # a column name common to both columns.
-    if {![info exists tab0col]} {
+    # tab0col, tab1col - names of columns to be compared
+    if {![info exists on] || [llength $on] == 0} {
         # Loop to find the first common name.
         foreach c0 $cnames0 {
             foreach c1 $cnames1 {
@@ -411,12 +361,27 @@ proc tarray::table::join {args} {
             error "Unable to find matching column names for join."
         }
         set tab1col $tab0col
+    } elseif {[llength $on] == 1} {
+        set tab0col [lindex $on 0]
+        set tab1col $tab0col
+    } elseif {[llength $on] == 2} {
+        lassign $on tab0col tab1col
+    } else {
+        error "At most two column names may be specified for the -on option."
     }
     if {$tab0col ni $cnames0} {
         error "Column $tab0col not in table."
     }
     if {$tab1col ni $cnames1} {
         error "Column $tab1col not in table."
+    }
+
+    if {![info exists t0cols]} {
+        set t0cols $cnames0;       # By default include all columns
+    }
+
+    if {![info exists t1cols]} {
+        set t1cols $cnames1
     }
 
     set col0 [column $tab0 $tab0col]
@@ -432,18 +397,18 @@ proc tarray::table::join {args} {
     # be included in the output. Moreover, rename columns in case of
     # clashes or if caller requested it.
     # cnames{0,1} contain column names of input tables
-    # tab{0,1}inc are names of input columns to be included in result
+    # t{0,1}cols are names of input columns to be included in result
     # tab1out are names of output columns for tab1 (potentially renamed)
     # (Note currently there is no tab0out as tab0 columns are not renamed.)
 
-    if {[llength $tab0inc] == 0} {
+    if {[llength $t0cols] == 0} {
         # No columns from tab0 to be included in output so no need
         # to rename tab1 columns
-        set tab1out $tab1inc
+        set tab1out $t1cols
     } else {
         # Rename every tab1 column that is clashing with tab0
-        set tab1out [lmap c1 $tab1inc {
-            if {$c1 in $tab0inc} {
+        set tab1out [lmap c1 $t1cols {
+            if {$c1 in $t0cols} {
                 append c1 $t1suffix
             }
             set c1
@@ -451,18 +416,18 @@ proc tarray::table::join {args} {
     }
 
     # Now retrieve the actual data
-    if {[llength $tab0inc]} {
-        set out0 [columns [get -columns $tab0inc $tab0 $tab0indices]]
+    if {[llength $t0cols]} {
+        set out0 [columns [get -columns $t0cols $tab0 $tab0indices]]
     } else {
         set out0 {}
     }
-    if {[llength $tab1inc]} {
-        set out1 [columns [get -columns $tab1inc $tab1 $tab1indices]]
+    if {[llength $t1cols]} {
+        set out1 [columns [get -columns $t1cols $tab1 $tab1indices]]
     } else {
         set out1 {}
     }
 
-    return [create2 [concat $tab0inc $tab1out] [concat $out0 $out1]]
+    return [create2 [concat $t0cols $tab1out] [concat $out0 $out1]]
 }
     
 proc tarray::table::csvimport {args} {
