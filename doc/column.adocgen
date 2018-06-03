@@ -212,91 +212,44 @@ text {
     ((^ tab_column_stdopts)) may be specified with this
     command.
 
-    ((cmddef column_groupby "column groupby _METHOD_ _COMPUTE_ _COLUMN_ ?_ARG ...?"))
-
-    The command first places the elements of the column _COLUMN_
-    into _buckets_  based on the _METHOD_ argument described
-    later. It then computes a value for each bucket based on the
-    _COMPUTE_ argument.
-    The return value of the command is a table with two columns named
-    `Bucket` and the title-ized version of `_COMPUTE_`, for example
-    `Count` when `_COMPUTE_` is `count`. The elements
-    of the `Bucket` column identify the bucket, while the second
-    column contains the computed result for each bucket.
-
-    If _COMPUTE_ is `count`, the bucket result is the
-    number of values that fall into that bucket. The second column
-    of the command result is then an integer column named `Count`
-    containing the count for each bucket.
-
-    If _COMPUTE_ is `sum`, the bucket result is the sum
-    of all values falling into that bucket. The second result column
-    the command result is a column named `Sum` containing the sum for
-    each bucket. The column type is `wide` if _COLUMN_ is any
-    integral type and `double` otherwise.
-
-    If _COMPUTE_ is `indices`, the bucket result is an index column
-    containing the indices of the elements whose values fall into that
-    bucket. The second column of the command result is named `Indices`
-    and of
-    type `any`. Each element of this column is itself an integer
-    column containing the indices for the corresponding bucket.
-
-    Finally, if _COMPUTE_ is `values`, the bucket result is
-    a column, of the same type as _COLUMN_, containing the actual
-    values that fell into that bucket. The second column of
-    command result, named `Values`, is a column of type `any`.
-    Each element of this
-    column is a column, of the same type as _COLUMN_, containing the
-    values in the bucket.
-
-    The grouping of _COLUMN_ values into buckets is based on the
-    _METHOD_ argument which may be either `command` or
-    `equalintervals`. In the former case, the syntax of the command is
-} syntax {
-    column groupby command _COMPUTE_ _COLUMN_ _CMDPREFIX_
-} text {
-    _CMDPREFIX_ is called for every element of _COLUMN_. Each
-    invocation has two additional arguments appended -- the index of
-    the element being passed and its value. The element is then
-    placed into the bucket identified by the returned value from the
-    invocation. If `_CMDPREFIX_` completes with a `break` control
-    code, no further elements are processed. If it completes with a
-    `continue` return code, that particular iteration is ignored and
-    not included in the result. 
-
-    The returned table's `Bucket` column is of type `any` and comprises
-    of the return values of _CMDPREFIX_ which
-    identify the buckets. The second column depends on
-    the _COMPUTE_ argument as described earlier.
-
-    The command syntax when _METHOD_ is `equalintervals` is
-} syntax {
-    column groupby equalintervals _COMPUTE_ _COLUMN_ _NINTERVALS_ ?options?
-} text {
-    In this case, each bucket is a interval of equal size
+    ((cmddef column_histogram "column histogram ?options?  _COLUMN_ _NBUCKETS_"))
+    The command divides the target range of values into `_NBUCKETS_`
+    intervals of equal size
     (except for possibly the last in case of value range overflow).
     The command places the values of the column, which
     must be of numeric type, into these _NINTERVALS_ buckets.
     If no options are specified, the first
-    bucket has a lower bound that is the minimum value in the
+    target range has a lower bound that is the minimum value in the
     column. The size of each bucket is the minimum size required so
     that the maximum value is included in a bucket.
 
     If the `-min` option is specified the associated value is used as
-    the lower bound of the first bucket. If there happen to be any
+    the lower bound of the range and first bucket. If there happen to be any
     values in the column smaller than this, they are ignored in the
     returned result.
     Similarly, if the `-max` option is specified, any values greater than the
     associated option value are ignored.
     If the column is empty, both `-min` and `-max` values must be
-    specified, other wise the command will raise an error.
-    
-    The `Bucket` column of the returned table is of the same type as _COLUMN_
-    and contains _NINTERVALS_ elements each of which is the lower bound of
-    the corresponding bucket. Again,
-    the second column is based on the _COMPUTE_ argument as
-    described earlier.
+    specified; otherwise the command will raise an error.
+
+    The command computes a bucket result for each bucket. By default,
+    or if the `-count` option is specified,
+    this bucket result is the sum of the values falling into that bucket.
+    If the `-sum` option is specified, each bucket result is the sum
+    of all values falling into that bucket.
+    If the `-indices` option is specified, each bucket result is an index column
+    containing the indices of the elements whose values fall into that
+    bucket.
+    Finally, if the `-values` option is specified, each bucket result is
+    a column, of the same type as _COLUMN_, containing the actual
+    values that fell into that bucket.
+
+    The return value of the command is a table with two columns named
+    `Bucket` and either `Count`, `Sum`, `Indices` or `Values`
+    depending on which of the options `-count`, `-sum`, `-indices` or
+    `-values` was specified. The elements
+    of the `Bucket` column identify the bucket, while the second
+    column contains the computed bucket result for each bucket.
 
     ((cmddef column_identical "column identical _COLA_ _COLB_"))
 
@@ -513,6 +466,34 @@ text {
     The option `-nocase` may be specified to indicate case-insensitive
     comparisons. This is only effective if the column type is `any` or
     `string` and ignored for the others.
+
+    ((cmddef column_pigeonhole "column pigeonhole ?-values? ?-indices? ?-classifier _CMDPREFIX_? _COLUMN_"))
+
+    The command first places the elements of the column _COLUMN_
+    into _buckets_. By default, these buckets are keyed by the value
+    of the element. Alternatively, the `-classifier` option may be specified
+    in which case _CMDPREFIX_ is called for every element of _COLUMN_. Each
+    invocation has two additional arguments appended -- the index of
+    the element being passed and its value. The element is then
+    placed into the bucket identified by the returned value from the
+    invocation. If `_CMDPREFIX_` completes with a `break` control
+    code, no further elements are processed. If it completes with a
+    `continue` return code, that particular iteration is ignored and
+    not included in the result. 
+    
+    The return value of the command is a table with two columns. The
+    first is named `Bucket` and is a column of type `any` containing
+    the unique values in `_COLUMN_`, or 
+    the returned values from `_CMDPREFIX_` if the `-classifier` option
+    was specified.
+
+    The second column is of type `any` and of the same size as the
+    first. Each element of this column is itself
+    a column containing either the indices of the elements belonging
+    to the corresponding bucket
+    (by default or if the `-values` option is specified), or the
+    element values themselves (if the `-values` option is specified).
+    Accordingly, the title of this column is either `Indices` or `Values`.
 
     ((cmddef column_place "column place _COLUMN_ _VALUES_ _INDICES_"))
 
