@@ -437,36 +437,39 @@ proc tarray::table::csvimport {args} {
         set tclcsv_loaded 1
     }
 
+    parseargs args {
+        encoding.arg
+        translation.arg
+        sniff
+    } -setvars -ignoreunknown
+
     if {[llength $args] == 0} {
-        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? PATH"
+        error "wrong # args: should be \"[lindex [info level 0] 0] ?options? PATH|CHANNEL"
     }
-    set path [lindex $args end]
+
+    set source [lindex $args end]
     set args [lrange $args 0 end-1]
-    dict size $args;            # Verify dictionary format
-    
-    set fd [open $path r]
+    if {$source in [chan names]} {
+        set fd $source
+        set close_fd 0
+    } else {
+        set fd [open $source r]
+        set close_fd 1
+    }
 
     try {
-        foreach opt {-encoding -translation} {
-            if {[dict exists $args $opt]} {
-                chan configure $fd -encoding [dict get $args $opt]
-                dict unset args $opt
+        foreach opt {encoding translation} {
+            if {[info exists $opt]} {
+                chan configure $fd -$opt [set $opt]
             }
         }
-        if {[dict exists $args -sniff]} {
-            set sniff [dict get $args -sniff]
-            dict unset args -sniff
-            if {$sniff} {
-                set opts [dict merge [tclcsv::sniff $fd] $args]
-            }
-        }
-        if {![info exists opts]} {
-            set opts $args
+        if {$sniff} {
+            set args [dict merge [tclcsv::sniff $fd] $args]
         }
         # Get header if present. Otherwise we will just do it later based
         # on data content.
         if {! [catch {
-            lassign [tclcsv::sniff_header {*}$opts $fd] types header
+            lassign [tclcsv::sniff_header {*}$args $fd] types header
             set def {}
             foreach type $types title $header {
                 if {$title eq ""} {
@@ -479,10 +482,10 @@ proc tarray::table::csvimport {args} {
         }]} {
             set tab [create $def]
             if {[llength $header]} {
-                lappend opts -startline 1
+                lappend args -startline 1
             }
         }
-        set reader [tclcsv::reader new {*}$opts $fd]
+        set reader [tclcsv::reader new {*}$args $fd]
         while {1} {
             set recs [$reader next 1000]
             if {![info exists tab]} {
@@ -506,7 +509,9 @@ proc tarray::table::csvimport {args} {
         if {[info exists reader]} {
             $reader destroy
         }
-        close $fd
+        if {$close_fd} {
+            close $fd
+        }
     }
     return $tab
 }
@@ -518,42 +523,47 @@ proc tarray::table::csvexport {args} {
         set tclcsv_loaded 1
     }
     
+    parseargs args {
+        append
+        force
+        encoding.arg
+        translation.arg
+        header.arg
+    } -setvars -ignoreunknown
+    
     if {[llength $args] < 2} {
         error "wrong # args: should be \"[lindex [info level 0] 0] ?options? PATH TABLE"
     }
     set tab  [lindex $args end]
-    set path [lindex $args end-1]
+    set source [lindex $args end-1]
     set args [lrange $args 0 end-2]
 
-    set append 0
-    if {[dict exists $args -append]} {
-        set append [dict get $args -append]
-        dict unset args -append
-    }
-    if {[file exists $path] && ! $append} {
-        if {![dict exists $args -force] ||
-            [dict get $args -force] != 1} {
-            error "File $path exists. Use -force 1 to overwrite."
-        }
-    }
-    dict unset args -force
-    if {$append} {
-        set fd [open $path a]
+    if {$source in [chan names]} {
+        set fd $source
+        set close_fd 0
     } else {
-        set fd [open $path w]
+        if {[file exists $source] && ! $append && ! $force} {
+            error "File $source exists. Use -force to overwrite."
+        }
+        if {$append} {
+            set fd [open $source a]
+        } else {
+            set fd [open $source w]
+        }
+        set close_fd 1
     }
+
     try {
-        foreach opt {-encoding -translation} {
-            if {[dict exists $args $opt]} {
-                chan configure $fd $opt [dict get $args $opt]
-                dict unset args $opt
+        foreach opt {encoding translation} {
+            if {[info exists $opt]} {
+                chan configure $fd -$opt [set $opt]
             }
         }
-        if {[dict exists $args -header]} {
-            set header [dict get $args -header]
-            dict unset args -header
+
+        if {[info exists header]} {
             tclcsv::csv_write {*}$args $fd [list $header]
         }
+
         # To reduce memory usage, write out a 1000 rows at a time
         set nrows [size $tab]
         set n 0
@@ -562,7 +572,9 @@ proc tarray::table::csvexport {args} {
             ::tclcsv::csv_write {*}$args $fd [range -list $tab $n [incr n 1000]]
         }
     } finally {
-        close $fd
+        if {$close_fd} {
+            close $fd
+        }
     }
 }
 
