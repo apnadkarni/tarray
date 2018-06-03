@@ -452,7 +452,7 @@ namespace eval tarray::test {
         unset -nocomplain opts
         set vargs {-a 1 -b 2 extraarg}
         array set opts [tarray::parseargs vargs {b.arg c.int}]
-    } -returnCodes {error} -result "Invalid option '-a'. Must be one of -b, -c"
+    } -returnCodes {error} -result "Invalid option '-a'. Must be one of -b, -c."
 
     test parseargs-6.1 {
         Verify invalid options without arguments are ignored with -ignoreunknown
@@ -655,7 +655,7 @@ namespace eval tarray::test {
         unset -nocomplain opts
         set vargs {-a 1 -- -b 2 extraarg}
         array set opts [tarray::parseargs vargs {b.arg c.int}]
-    } -returnCodes {error} -result "Invalid option '-a'. Must be one of -b, -c"
+    } -returnCodes {error} -result "Invalid option '-a'. Must be one of -b, -c."
 
     test parseargs-11.6 {
         Verify parsing of invalid options with -- -nulldefault
@@ -697,6 +697,6 @@ namespace eval tarray::test {
 
     ################################################################
 
-    ::tcltest::cleanupTests
 }
 
+::tcltest::cleanupTests

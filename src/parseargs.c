@@ -362,6 +362,13 @@ int parseargs_cmd(
     };
     Tcl_Obj *zeroObj = NULL;
     Tcl_Obj *oneObj = NULL;
+    Tcl_Obj *emptyObj = NULL;
+    int status;
+
+    /* Oof, ugly, yes. Unnecessary, indeed. Microoptimzation, that too */
+#define ZEROOBJ (zeroObj ? zeroObj : (zeroObj = Tcl_NewIntObj(0), Tcl_IncrRefCount(zeroObj), zeroObj))
+#define ONEOBJ (oneObj ? oneObj : (oneObj = Tcl_NewIntObj(1), Tcl_IncrRefCount(oneObj), oneObj))
+#define EMPTYOBJ (emptyObj ? emptyObj : (emptyObj = Tcl_NewObj(), Tcl_IncrRefCount(emptyObj), emptyObj))
 
     if (objc < 3) {
         Tcl_WrongNumArgs(interp, 1, objv, "argvVar optlist ?-ignoreunknown? ?-nulldefault? ?-hyphenated? ?-maxleftover COUNT? ?--?");
@@ -390,10 +397,8 @@ int parseargs_cmd(
 
     for (j = 3 ; j < objc ; ++j) {
         int parseargs_opt;
-        int status;
 
-        status = ta_opt_from_obj(interp, objv[j], parseargs_options, "option", 0, &parseargs_opt);
-        if (status != TCL_OK)
+        if (ta_opt_from_obj(interp, objv[j], parseargs_options, "option", 0, &parseargs_opt) != TCL_OK)
             goto error_return;
 
         switch ((enum parseargs_options_e) parseargs_opt) {
@@ -472,11 +477,7 @@ int parseargs_cmd(
              *  Matches option j. Remember the option value.
              */
             if (opts[j].type == OPT_SWITCH) {
-                if (oneObj == NULL) {
-                    oneObj = Tcl_NewBooleanObj(1);
-                    Tcl_IncrRefCount(oneObj);
-                }
-                valuesP[j] = oneObj;
+                valuesP[j] = ONEOBJ;
             } else if (opts[j].type == OPT_RADIO)
                 valuesP[j] = radioOpt;
             else {
@@ -573,8 +574,9 @@ int parseargs_cmd(
                     goto error_return;
                 }
             }
-            if (valuesP[k] == NULL)
-                valuesP[k] = Tcl_NewIntObj(0); /* Deals with -nulldefault case. */
+            if (valuesP[k] == NULL) {
+                valuesP[k] = ZEROOBJ; /* Deals with -nulldefault case. */
+            }
             break;
 
         case OPT_ANY:
@@ -602,15 +604,15 @@ int parseargs_cmd(
                 }
             }
             if (valuesP[k] == NULL)
-                valuesP[k] = Tcl_NewObj(); /* Deals with -nulldefault */
+                valuesP[k] = EMPTYOBJ; /* Deals with -nulldefault */
 
             break;
 
         case OPT_SYM:
             /* Check list of allowed values if specified */
-            if (valuesP[k] == NULL)
-                valuesP[k] = Tcl_NewIntObj(0); /* Deals with -nulldefault */
-            else {
+            if (valuesP[k] == NULL) {
+                valuesP[k] = ZEROOBJ; /* Deals with -nulldefault */
+            } else {
                 Tcl_WideInt wide;
                 if (opts[k].valid_values) {
                     Tcl_Obj *symvalObj;
@@ -635,11 +637,7 @@ int parseargs_cmd(
             /* Fallthru */
         case OPT_BOOL:
             if (valuesP[k] == NULL) {
-                if (zeroObj == NULL) {
-                    zeroObj = Tcl_NewBooleanObj(0);
-                    Tcl_IncrRefCount(zeroObj);
-                }
-                valuesP[k] = zeroObj;
+                valuesP[k] = ZEROOBJ;
             }
             else {
                 if (Tcl_GetBooleanFromObj(interp, valuesP[k], &j) == TCL_ERROR) {
@@ -659,17 +657,9 @@ int parseargs_cmd(
                      * BAD  - Tcl_SetBooleanObj(opts[k].value, j); 
                      */
                     if (j) {
-                        if (oneObj == NULL) {
-                            oneObj = Tcl_NewBooleanObj(1);
-                            Tcl_IncrRefCount(oneObj);
-                        }
-                        valuesP[k] = oneObj;
+                        valuesP[k] = ONEOBJ;
                     } else {
-                        if (zeroObj == NULL) {
-                            zeroObj = Tcl_NewBooleanObj(0);
-                            Tcl_IncrRefCount(zeroObj);
-                        }
-                        valuesP[k] = zeroObj;
+                        valuesP[k] = ZEROOBJ;
                     }
                 }
             }
@@ -725,7 +715,10 @@ int parseargs_cmd(
         == NULL) {
         goto error_return;
     }
-
+    status = TCL_OK;
+    
+vamoose: /* status should be TCL_OK or TCL_ERROR */
+    
     if (valuesP && valuesP != values)
         ckfree(valuesP);
     if (retP && retP != retObjs)
@@ -734,8 +727,10 @@ int parseargs_cmd(
         Tcl_DecrRefCount(zeroObj);
     if (oneObj)
         Tcl_DecrRefCount(oneObj);
+    if (emptyObj)
+        Tcl_DecrRefCount(emptyObj);
 
-    return TCL_OK;
+    return status;
 
 error_return:
     /* Free up allocated resources that were not used because of error */
@@ -752,16 +747,6 @@ error_return:
             Tcl_DecrRefCount(retP[j]);
         }
     }
-    if (valuesP && valuesP != values)
-        ckfree(valuesP);
-    if (retP && retP != retObjs)
-        ckfree(retP);
-    if (zeroObj)
-        Tcl_DecrRefCount(zeroObj);
-    if (oneObj)
-        Tcl_DecrRefCount(oneObj);
-
-    return TCL_ERROR;
+    status = TCL_ERROR;
+    goto vamoose;
 }
-
-
