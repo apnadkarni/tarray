@@ -697,6 +697,59 @@ namespace eval tarray::test {
 
     ################################################################
 
+    test parseargs-13.0 {
+        Verify radio options default
+    } -setup {
+        unset -nocomplain opts
+        set vargs {-a A -b B}
+    } -body {
+        array set opts [tarray::parseargs vargs {a.arg b.arg {c.radio C {C D E}}}]
+        list $opts(a) $opts(b) $opts(c)
+    } -result {A B C}
+
+    test parseargs-13.1 {
+        Verify radio options
+    } -setup {
+        unset -nocomplain opts
+        set vargs {-a A -b B -E}
+    } -body {
+        array set opts [tarray::parseargs vargs {a.arg b.arg {c.radio C {C D E}}}]
+        list $opts(a) $opts(b) $opts(c)
+    } -result {A B E}
+
+    test parseargs-13.2 {
+        Verify radio options override multiple
+    } -setup {
+        unset -nocomplain opts
+        set vargs {-a A -b B -E -D}
+    } -body {
+        array set opts [tarray::parseargs vargs {a.arg b.arg {c.radio C {C D E}}}]
+        list $opts(a) $opts(b) $opts(c)
+    } -result {A B D}
+
+    test parseargs-13.3 {
+        Verify radio options default -hyphenate
+    } -setup {
+        unset -nocomplain opts
+        set vargs {-a A -b B}
+    } -body {
+        array set opts [tarray::parseargs vargs {a.arg b.arg {c.radio C {C D E}}} -hyphenate]
+        list $opts(-a) $opts(-b) $opts(-c)
+    } -result {A B -C}
+
+    test parseargs-13.4 {
+        Verify radio options -hyphenate
+    } -setup {
+        unset -nocomplain opts
+        set vargs {-a A -b B -E}
+    } -body {
+        array set opts [tarray::parseargs vargs {a.arg b.arg {c.radio C {C D E}}} -hyphenate]
+        list $opts(-a) $opts(-b) $opts(-c)
+    } -result {A B -E}
+
+
+    ################################################################
+
 }
 
 ::tcltest::cleanupTests
