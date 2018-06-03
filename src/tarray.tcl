@@ -220,6 +220,54 @@ proc tarray::column::groupby {method compute col args} {
                 [list [create any [dict keys $buckets]] $groups]]
 }
 
+proc tarray::column::histogram {args} {
+    parseargs args {
+        {compute.radio counts {counts sums values indices}}
+        min.arg
+        max.arg
+    } -setvars
+        
+    if {[llength $args] != 2} {
+        error "wrong #args: should be \"column histogram ?options? COL ARG\"."
+    }
+    lassign $args col nintervals
+    
+    if {![info exists min] || ![info exists max]} {
+        lassign [minmax $col] smallest largest
+        if {![info exists min]} {
+            set min $smallest
+        }
+        if {![info exists max]} {
+            set max $largest
+        }
+    }
+
+    if {$min > $max} {
+        error "Invalid bucket range $min-$max."
+    }
+    if {$nintervals <= 0} {
+        error "Number of buckets must be greater than zero."
+    }
+
+    if {[type $col] eq "double"} {
+        # Take care to compute as doubles in case values passed in
+        # as integers. Note that thanks to FP inexact representations
+        # this is not entirely accurate. The C code will take care
+        # of clamping values exceeding the highest bucket to that
+        # bucket.
+        set max [tcl::mathfunc::double $max]
+        set min [tcl::mathfunc::double $min]
+        set step [expr {($max - $min) / $nintervals}]
+        set upper [expr {$min + $nintervals * $step}]
+        if {$upper < $max} {
+            set step [expr {$step + (($max - $upper)/$nintervals)}]
+        }
+    } else {
+        set step [expr {(($max - $min) / $nintervals) + 1}]
+    }
+    
+    return [_equalintervals $col $compute $nintervals $min $max $step]
+}
 
 proc tarray::column::pigeonhole {args} {
 

@@ -5359,7 +5359,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
     ta_value_t minval, maxval, step, last;
     span_t *span;
     static const char *cmds[] = {
-        "count", "sum", "values", "indices", NULL
+        "counts", "sums", "values", "indices", NULL
     };
     enum flags_e {
         TA_COUNT_CMD, TA_SUM_CMD, TA_VALUES_CMD, TA_INDICES_CMD
