@@ -147,6 +147,33 @@ text {
     component of the element value is discarded, and only its integer
     component is stored in the new column.
 
+    ((cmddef column_categorize "column categorize ?-values? ?-indices? ?-categorizer _CMDPREFIX_? _COLUMN_"))
+
+    The command first places the elements of the column _COLUMN_
+    into _categories_. By default, these are keyed by the value
+    of the element. Alternatively, the `-categorizer` option may be specified
+    in which case _CMDPREFIX_ is called for every element of _COLUMN_. Each
+    invocation has two additional arguments appended -- the index of
+    the element being passed and its value. The element is then
+    placed into the category identified by the returned value from the
+    invocation. If `_CMDPREFIX_` completes with a `break` control
+    code, no further elements are processed. If it completes with a
+    `continue` return code, that particular iteration is ignored and
+    not included in the result. 
+    
+    The return value of the command is a pair of columns, the first of
+    which contains categories constructed from the unique values in `_COLUMN_`, or 
+    the returned values from `_CMDPREFIX_` if the `-categorizer` option
+    was specified.
+    The second column is of type `any` and of the same size as the
+    first. Each element of this column is itself
+    a column containing either the indices of the elements belonging
+    to the corresponding category
+    (by default or if the `-values` option is specified), or the
+    element values themselves (if the `-values` option is specified).
+
+    See ((^ sect_guide_column_categorize)) for an example.
+    
     ((cmddef column_count "column count ?-range _RANGE_? ?-among _INDICES_? ?-not? ?-nocase? ?_OPER_? _COLUMN_ _VALUE_"))
 
     Counts the number of matches for a value in the elements in a column.
@@ -244,13 +271,12 @@ text {
     a column, of the same type as _COLUMN_, containing the actual
     values that fell into that bucket.
 
-    The return value of the command is a table with two columns named
-    `Bucket` and either `Count`, `Sum`, `Indices` or `Values`
-    depending on which of the options `-count`, `-sum`, `-indices` or
-    `-values` was specified. The elements
-    of the `Bucket` column identify the bucket, while the second
-    column contains the computed bucket result for each bucket.
+    The command returns a pair of columns, the first of which contains
+    the lower bound of each interval bucket. The second
+    contains the corresponding computed bucket result for each bucket.
 
+    See ((^ sect_guide_column_histogram)) for an example.
+    
     ((cmddef column_identical "column identical _COLA_ _COLB_"))
 
     Returns 1 if both columns are of the same type, have the
@@ -467,33 +493,6 @@ text {
     comparisons. This is only effective if the column type is `any` or
     `string` and ignored for the others.
 
-    ((cmddef column_pigeonhole "column pigeonhole ?-values? ?-indices? ?-classifier _CMDPREFIX_? _COLUMN_"))
-
-    The command first places the elements of the column _COLUMN_
-    into _buckets_. By default, these buckets are keyed by the value
-    of the element. Alternatively, the `-classifier` option may be specified
-    in which case _CMDPREFIX_ is called for every element of _COLUMN_. Each
-    invocation has two additional arguments appended -- the index of
-    the element being passed and its value. The element is then
-    placed into the bucket identified by the returned value from the
-    invocation. If `_CMDPREFIX_` completes with a `break` control
-    code, no further elements are processed. If it completes with a
-    `continue` return code, that particular iteration is ignored and
-    not included in the result. 
-    
-    The return value of the command is a table with two columns. The
-    first is named `Bucket` and is a column of type `any` containing
-    the unique values in `_COLUMN_`, or 
-    the returned values from `_CMDPREFIX_` if the `-classifier` option
-    was specified.
-
-    The second column is of type `any` and of the same size as the
-    first. Each element of this column is itself
-    a column containing either the indices of the elements belonging
-    to the corresponding bucket
-    (by default or if the `-values` option is specified), or the
-    element values themselves (if the `-values` option is specified).
-    Accordingly, the title of this column is either `Indices` or `Values`.
 
     ((cmddef column_place "column place _COLUMN_ _VALUES_ _INDICES_"))
 
@@ -658,6 +657,39 @@ text {
     be of a numeric type. For integer types, the sum is calculated as a
     64 bit integer even if the column has a smaller integer width. There is
     no detection of integer overflow.
+
+    ((cmddef column_summarize "column summarize ?options? COL"))
+
+    The command returns a column that, depending on the passed options,
+    summarizes the contents of the passed column `_COL_`. The command
+    expects `_COL_` to be of the form returned by
+    ((^` column_categorize "column categorize")) or
+    ((^` column_histogram "column histogram")) with the `-values`
+    option. This form is a column of type `any`, all elements of which are
+    themselves columns, all of the same type.
+
+    The return value is then a column, of the same size as `_COL_`, each
+    element of which is a value that summarizes the corresponding
+    column element in `_COL_`. This summary value may be computed in
+    several ways depending on the specified options.
+
+    * If no options are specified or the `-count` option is specified,
+    the value is the number of elements of the corresponding nested
+    column of `_COL_`. The returned column is of type `int`.
+
+    * If the `-sum` option is specified, the value is the sum of the
+    elements of the corresponding nested column (which must be a
+    numeric type). The type of the column is `double` if the nested
+    columns were of that type or `wide` for integer types.
+    
+    * If the `-compute _CMDPREFIX_` option is specified, the value is
+    that returned by the command prefix `_CMDPREFIX_` which is called
+    with two additional arguments, the index into `_COL_` and the
+    corresponding nested column at that index. The returned column is
+    of type `any` by default. The `-computetype _TYPE_` option
+    may be specified to change this.
+
+    See ((^ sect_guide_column_summarize)) for an example.
 
     ((cmddef column_type "column type _COLUMN_"))
 

@@ -106,75 +106,6 @@ proc tarray::column::linspace {start stop count args} {
     return $result
 }
 
-proc tarray::column::groupby {method compute col args} {
-
-    if {[tcl::prefix match {equalintervals command} $method] eq "equalintervals"} {
-        return [tarray::table::create2 \
-                    [list Bucket [string totitle $compute]] \
-                    [_group_by_equal_intervals $col $compute {*}$args]]
-    }
-
-    if {[llength $args] != 1} {
-        error "Wrong #args: should be \"column groupby command COMPUTE COLUMN CMDPREFIX.\""
-    }
-
-    set buckets {}
-    tarray::loop i e $col {
-        switch -exact -- [catch { {*}[lindex $args 0] $i $e } bucket ropts] {
-            0 {}
-            3 { break }
-            4 { continue }
-            default {
-                dict incr ropts -level
-                return -options $ropts $bucket
-            }
-        }
-        switch -exact -- $compute {
-            count   { dict incr buckets $bucket }
-            indices { dict lappend buckets $bucket $i }
-            values  { dict lappend buckets $bucket $e }
-            sum     { 
-                if {![dict exists $buckets $bucket]} {
-                    dict set buckets $bucket 0
-                }
-                dict set buckets $bucket [expr {[dict get $buckets $bucket] + $e}]
-            }
-        }
-    }
-    
-    switch -exact -- $compute {
-        count {
-            # Note [dict values] returns elements in same order as [dict keys]
-            set groups [create int [dict values $buckets]]
-        }
-        sum {
-            if {[type $col] in {double string any}} {
-                set groups [create double [dict values $buckets]]
-            } else {
-                set groups [create wide [dict values $buckets]]
-            }
-        }
-        indices {
-            set indices {}
-            foreach bucket [dict keys $buckets] {
-                lappend indices [create int [dict get $buckets $bucket]]
-            }
-            set groups [create any $indices]
-        }
-        values {
-            set values {}
-            foreach bucket [dict keys $buckets] {
-                lappend values [create [type $col] [dict get $buckets $bucket]]
-            }
-            set groups [create any $values]
-        }
-    }
-
-    return [tarray::table::create2 \
-                [list Bucket [string totitle $compute]] \
-                [list [create any [dict keys $buckets]] $groups]]
-}
-
 proc tarray::column::histogram {args} {
     parseargs args {
         {compute.radio count {count sum values indices}}
@@ -224,38 +155,25 @@ proc tarray::column::histogram {args} {
     return [_equalintervals $col $compute $nintervals $min $max $step]
 }
 
-proc tarray::column::pigeonhole {args} {
+proc tarray::column::categorize {args} {
 
     parseargs args {
         {collect.radio indices {values indices}}
-        classifier.arg
+        categorizer.arg
     } -setvars
 
     if {[llength $args] != 1} {
-        error "Wrong #args: should be \"column pigeonhole ?options? COLUMN\"."
+        error "Wrong #args: should be \"column categorize ?options? COLUMN\"."
     }
     set col [lindex $args 0]
 
     set buckets {}
 
     # Breaking out loops in various cases is verbose but significantly faster
-    if {[info exists classifier]} {
+    if {[info exists categorizer]} {
         if {$collect eq "indices"} {
             tarray::loop i e $col {
-                switch -exact -- [catch { {*}$classifier $i $e } bucket ropts] {
-                    0 {}
-                    3 { break }
-                    4 { continue }
-                    default {
-                        dict incr ropts -level
-                        return -options $ropts $bucket
-                    }
-                }
-                dict lappend buckets $bucket $e
-            }
-        } else {
-            tarray::loop i e $col {
-                switch -exact -- [catch { {*}$classifier $i $e } bucket ropts] {
+                switch -exact -- [catch { {*}$categorizer $i $e } bucket ropts] {
                     0 {}
                     3 { break }
                     4 { continue }
@@ -266,9 +184,22 @@ proc tarray::column::pigeonhole {args} {
                 }
                 dict lappend buckets $bucket $i
             }
+        } else {
+            tarray::loop i e $col {
+                switch -exact -- [catch { {*}$categorizer $i $e } bucket ropts] {
+                    0 {}
+                    3 { break }
+                    4 { continue }
+                    default {
+                        dict incr ropts -level
+                        return -options $ropts $bucket
+                    }
+                }
+                dict lappend buckets $bucket $e
+            }
         }
     } else {
-        # Pigeonhole based on value itself
+        # Categorize based on value itself
         if {$collect eq "indices"} {
             tarray::loop i e $col {
                 dict lappend buckets $e $i
@@ -286,19 +217,15 @@ proc tarray::column::pigeonhole {args} {
             lappend indices [create int [dict get $buckets $bucket]]
         }
         set groups [create any $indices]
-        set title Indices
     } else {
         set values {}
         foreach bucket [dict keys $buckets] {
             lappend values [create [type $col] [dict get $buckets $bucket]]
         }
         set groups [create any $values]
-        set title Values
     }
 
-    return [tarray::table::create2 \
-                [list Bucket $title] \
-                [list [create any [dict keys $buckets]] $groups]]
+    return [list [create any [dict keys $buckets]] $groups]
 }
 
 proc tarray::column::summarize {args} {
@@ -934,6 +861,7 @@ namespace eval tarray {
             bitmap1 bitmap1
             bucketize bucketize
             cast cast
+            categorize categorize
             count count
             create create
             delete delete
@@ -954,7 +882,6 @@ namespace eval tarray {
             loop ::tarray::loop
             math math
             minmax minmax
-            pigeonhole pigeonhole
             place place
             prettify prettify
             print print
@@ -969,7 +896,6 @@ namespace eval tarray {
             sort sort
             sum sum
             summarize summarize
-            summarise summarize
             type type
             vdelete vdelete
             vfill vfill

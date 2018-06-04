@@ -694,21 +694,20 @@ text {
 text {
     ((=== * "Grouping operations"))
 
-    The ((^` column_groupby "column groupby")) command separates the
-    elements of a column into groups based on some criterion and then
-    applies some transform to each group, returning the results.
+    Several commands are targeted towards making grouping of data
+    and summarization easier and more convenient.
 
-    ((==== * "Grouping into equal intervals"))
+    ((==== sect_guide_column_histogram "Computing histograms"))
 
     For example, suppose we want to classify monthly rainfall into
     four categories -- scanty, light, moderate and heavy -- and find
     how many months fall into each category. We can use the
-    `column groupby equalintervals` command for the purpose.
+    ((^` column_histogram "column histogram")) command for the purpose.
 } outputlimit 0 shell {
     print $rainfall stdout -full 1
-    print [column groupby equalintervals count $rainfall 4]
+    print [table create2 {Rainfall Months} [column histogram $rainfall 4]]
 } text {
-    The above divies up the range of values in column into 4 equal
+    The above divies up the range of values in the column into 4 equal
     intervals and counts the number of values that falls in each.
     The result is a table of two columns, the first being the lower
     bound of each interval and the second being the number of values
@@ -717,63 +716,91 @@ text {
     The above looks even more crude than usual, so we can use the
     `-min` and `-max` options to control the limits.
 } outputlimit 0 shell {
-    print $rainfall stdout -full 1
-    print [column groupby equalintervals count $rainfall 4 -min 0 -max 236]
+    print [table create2 {Rainfall Months} [column histogram -min 0 -max 240 $rainfall 4 ]]
 } text {
     Note that when either option is used, any values that do not fall
     within those limits are ignored.
     
-    The "transform" we used above was the counting function. We could
-    have also summed the values, returned their indices, or just the
-    values in each bucket. See the reference documentation of the command.
+    By default the command applies the counting function to each grouping
+    as seen above. For other possibilities, such as summing or
+    retrieving indices and values, refer to the
+    documentation of the command.
+    
+    ((==== sect_guide_column_categorize "Grouping into categories"))
 
-    ((==== * "Grouping into arbitrary categories"))
-
-    The above is a special case of grouping and obviously applies only
-    to numerical columns. A more general form is the
-    `column groupby command` which accepts a command prefix that will
+    Histograms are a special case of grouping that applies to
+    numerical columns where values are grouped by range.
+    A more general form is the ((^` column_categorize "column categorize"))
+    command.
     do the classification. The return value from the command prefix is
     interpreter as the bucket "identifier".
 
-    Suppose we want to group the months by
+    Suppose we want to categorize the months by
     their first letters (why? To which I say, why not?).
     
 } outputlimit 0 script {
     proc first_letter {elem_index elem_value} {
         return [string toupper [string index $elem_value 0]]
     }
-    print [column groupby command values $months first_letter]
+    lassign [column categorize -values -categorizer first_letter $months] letters letter_months
+    loop index letter $letters {
+        puts "$letter: [column index $letter_months $index]"
+    }
 } text {
+    Notice that the associated value for each category is itself a
+    column containing the actual values. The `column summarize`
+    command discussed in the next section provides a mean to further
+    process this by aggregating the nested columns elements.
 
-    Notice the buckets are not sorted and the values in each bucket
-    are returned as a nested column.
-
-    This form is useful for numerical values as well, for example if
+    This general form is useful for numerical values as well, for example if
     we do not want the intervals to be equal. The code fragment below
-    classifies rainfall into unequal intervals -- scanty, moderate and
-    heavy -- and prints the months in each.
+    classifies rainfall in a month as `scant`, `moderate` or `heavy`
+    in a simlar fashion to our earlier example except that here
+    the intervals are not the same size.
 
 } script {
     proc rain_class {elem_index elem_value} {
         if {$elem_value < 50} {
-            return scanty
+            return scant
         } elseif {$elem_value < 200} {
             return moderate
         } else {
             return heavy
         }
     }
-    
-    loop row [column groupby command indices $rainfall rain_class] {
-        puts -nonewline "[lindex $row 0]: "
-        set indices [lindex $row 1]
-        puts [column get -list $months $indices]
+    lassign [column categorize -values $rainfall] categories rain_in_category
+} text {
+    ((^ sect_guide_column_summarize "Summarizing categorized data"))
+
+    Placing values into categories is only the first step. The next step
+    is to process the categorized data to provide some useful information.
+    The ((^` column_summarize "column summarize")) command is intended
+    for this purpose. It takes a column of the form returned by the
+    `categorize` (or `histogram` with appropriate options) and
+    aggregates the values associated with each category with some
+    prescribed function.
+
+    For example, to print the number of months in each rainfall category,
+} shell {
+    set months_in_category [column summarize $rain_in_category]
+    loop index category $categories {
+        puts "[column index $months_in_category $index] months had $category rain."
     }
 } text {
-    Note the use of the `indices` transform to return the indices of
-    the elements in each group. See the command documentation for
-    other variations including the ability to skip elements or prematurely
-    terminate the iteration via the `break` and `continue` return codes.
+    By default the summarization is the count in each category. You
+    can also get the total instead with the `-sum` option or even
+    implement custom summarization with the `-compute` option. For
+    example, to print the average,
+} shell {
+    proc average {cat_index cat_col} {
+        set n [column size $cat_col]
+        if {$n == 0} {return "-"}
+        return [expr {[column sum $cat_col] / $n}]
+    }
+    set ave_of_category [column summarize -compute average $rain_in_category]
+    loop index category $categories {
+        puts "Average rainfall for months in $category category was [column index $ave_of_category $index]."
+    }
 }
 
 text {

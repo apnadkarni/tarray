@@ -40,7 +40,10 @@ text {
     
     * Added ((^` table_ctype "table ctype")) command.
     
-    * Added ((^` column_groupby "column groupby")) command.
+    * Added ((^` column_categorize "column categorize")),
+    ((^` column_histogram "column histogram")) and
+    ((^` column_summarize "column summarize"))
+    commands.
     
     * Added ((^` column_equal "column equal")),
     ((^` column_identical "column identical")),
