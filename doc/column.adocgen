@@ -161,8 +161,8 @@ text {
     `continue` return code, that particular iteration is ignored and
     not included in the result. 
     
-    The return value of the command is a pair of columns, the first of
-    which contains categories constructed from the unique values in `_COLUMN_`, or 
+    The command returns a table with two columns, the first of which contains
+    categories constructed from the unique values in `_COLUMN_`, or 
     the returned values from `_CMDPREFIX_` if the `-categorizer` option
     was specified.
     The second column is of type `any` and of the same size as the
@@ -171,6 +171,11 @@ text {
     to the corresponding category
     (by default or if the `-values` option is specified), or the
     element values themselves (if the `-values` option is specified).
+    These columns are named `Category` and `Data` by
+    default. The `-cnames` option can be used to change these
+    names, the option's value being a pair containing the names to be
+    used for the two columns.
+    
 
     See ((^ sect_guide_column_categorize)) for an example.
     
@@ -271,9 +276,13 @@ text {
     a column, of the same type as _COLUMN_, containing the actual
     values that fell into that bucket.
 
-    The command returns a pair of columns, the first of which contains
+    The command returns a table with two columns, the first of which contains
     the lower bound of each interval bucket. The second
-    contains the corresponding computed bucket result for each bucket.
+    contains the corresponding computed bucket result for each
+    bucket. These columns are named `LowerBound` and `Data` by
+    default. The `-cnames` option can be used to change these
+    names, the option's value being a pair containing the names to be
+    used for the two columns.
 
     See ((^ sect_guide_column_histogram)) for an example.
     
@@ -531,7 +540,7 @@ text {
 
     For use cases such as testing where you want the same reproducible
     "`random`" values to be produced, you can use the
-    ((^` sect_commands_randseed randseed)) command to set or reset
+    ((^` tarray_randseed randseed)) command to set or reset
     the seed values used for random number generation.
 
     ((cmddef column_range "column range ?_OPTIONS_? _COLUMN_ _LOW_ _HIGH_"))
@@ -662,7 +671,8 @@ text {
 
     The command returns a column that, depending on the passed options,
     summarizes the contents of the passed column `_COL_`. The command
-    expects `_COL_` to be of the form returned by
+    expects `_COL_` to be of the form of the data column in the
+    table returned by
     ((^` column_categorize "column categorize")) or
     ((^` column_histogram "column histogram")) with the `-values`
     option. This form is a column of type `any`, all elements of which are
@@ -689,7 +699,8 @@ text {
     of type `any` by default. The `-computetype _TYPE_` option
     may be specified to change this.
 
-    See ((^ sect_guide_column_summarize)) for an example.
+    Usually, the ((^` table_summarize "table summarize")) command is
+    more convenient to use in lieu of this command.
 
     ((cmddef column_type "column type _COLUMN_"))
 
