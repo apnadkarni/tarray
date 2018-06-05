@@ -111,6 +111,7 @@ proc tarray::column::histogram {args} {
         {compute.radio count {count sum values indices}}
         min.arg
         max.arg
+        {cnames.arg {LowerBound Data}}
     } -setvars
         
     if {[llength $args] != 2} {
@@ -152,7 +153,7 @@ proc tarray::column::histogram {args} {
         set step [expr {(($max - $min) / $nintervals) + 1}]
     }
     
-    return [_equalintervals $col $compute $nintervals $min $max $step]
+    return [tarray::table::create2 $cnames [_equalintervals $col $compute $nintervals $min $max $step]]
 }
 
 proc tarray::column::categorize {args} {
@@ -160,6 +161,7 @@ proc tarray::column::categorize {args} {
     parseargs args {
         {collect.radio indices {values indices}}
         categorizer.arg
+        {cnames.arg {Category Data}}
     } -setvars
 
     if {[llength $args] != 1} {
@@ -225,15 +227,15 @@ proc tarray::column::categorize {args} {
         set groups [create any $values]
     }
 
-    return [list [create any [dict keys $buckets]] $groups]
+    return [tarray::table::create2 $cnames [list [create any [dict keys $buckets]] $groups]]
 }
 
 proc tarray::column::summarize {args} {
     array set opts [parseargs args {
-        sum
         count
         compute.arg
         {computetype.arg any {boolean byte int uint wide double string any}}
+        sum
     }]
 
     if {[llength $args] != 1} {
@@ -277,6 +279,53 @@ proc tarray::column::summarize {args} {
         
     return $col
 }
+
+proc tarray::table::summarize {args} {
+    # Retrieve our options
+    parseargs args {
+        {cname.arg Summary}
+    } -setvars -ignoreunknown
+
+    # Save remaining options to be passed on
+    set saved_args $args
+
+    # Strip off options to get at table argument.
+    # Don't really care about the values
+    parseargs args {
+        count
+        compute.arg
+        {computetype.arg any {boolean byte int uint wide double string any}}
+        sum
+    }
+
+    set nargs [llength $args]
+    if {$nargs < 1 || $nargs > 3} {
+        error "wrong # args: should be \"table summarize ?options? TABLE ??LABELCOL? DATACOL?\"."
+    }
+    set tab [lindex $args 0]
+    if {$nargs == 1} {
+        set label_col_name [lindex [table cnames $tab] 0]
+        set label_col [table column $tab 0]
+        set data_col  [table column $tab 1]
+    } elseif {$nargs == 2} {
+        set label_col_name [lindex [table cnames $tab] 0]
+        set label_col [table column $tab 0]
+        set data_col  [table column $tab [lindex $args 1]]
+    } else {
+        set label_col_name [lindex $args 1]
+        set label_col [table column $tab $label_col_name]
+        set data_col  [table column $tab [lindex $args 2]]
+    }
+
+    # Remove our arguments from options to be passed on
+    set saved_args [lrange $saved_args 0 end-$nargs]
+
+    return [create2 \
+                [list $label_col_name $cname] \
+                [list $label_col \
+                     [tarray::column::summarize {*}$saved_args $data_col]]]
+}
+
 
 proc tarray::table::create {def {init {}} {size 0}} {
     set colnames {}

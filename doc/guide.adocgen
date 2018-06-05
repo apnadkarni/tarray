@@ -716,7 +716,7 @@ text {
     The above looks even more crude than usual, so we can use the
     `-min` and `-max` options to control the limits.
 } outputlimit 0 shell {
-    print [table create2 {Rainfall Months} [column histogram -min 0 -max 240 $rainfall 4 ]]
+    print [column histogram -cnames {Rainfall Months} -min 0 -max 240 $rainfall 4]
 } text {
     Note that when either option is used, any values that do not fall
     within those limits are ignored.
@@ -736,26 +736,35 @@ text {
     interpreter as the bucket "identifier".
 
     Suppose we want to categorize the months by
-    their first letters (why? To which I say, why not?).
-    
-} outputlimit 0 script {
+    their first letters and print how many months start with each
+    letter (why? To which I say, why not?).
+} outputlimit 0 script {    
     proc first_letter {elem_index elem_value} {
         return [string toupper [string index $elem_value 0]]
     }
-    lassign [column categorize -values -categorizer first_letter $months] letters letter_months
-    loop index letter $letters {
-        puts "$letter: [column index $letter_months $index]"
-    }
+    print [column categorize -cnames {Letter Months} -count -categorizer first_letter $months]
+} text {
+    Generally though, we often do not want directly want an aggregate
+    value, such as count, for a group. We can instead generate an
+    intermediate table that holds the individual values for each group.
+} outputlimit 0 script {
+    print [column categorize -cnames {Letter Months} -values -categorizer first_letter $months]
 } text {
     Notice that the associated value for each category is itself a
     column containing the actual values. The `column summarize`
     command discussed in the next section provides a mean to further
     process this by aggregating the nested columns elements.
 
-    This general form is useful for numerical values as well, for example if
+    [NOTE]
+    Although we do not show an example here, by default the
+    `categorize` command returns the _indices_ of the elements
+    belonging to that category, not the value.
+
+    Although slower than the `histogram` command, the `categorize` command 
+    is more general and is useful for numerical values as well, for example if
     we do not want the intervals to be equal. The code fragment below
     classifies rainfall in a month as `scant`, `moderate` or `heavy`
-    in a simlar fashion to our earlier example except that here
+    in a similar fashion to our earlier example except that here
     the intervals are not the same size.
 
 } script {
@@ -768,7 +777,8 @@ text {
             return heavy
         }
     }
-    lassign [column categorize -values $rainfall] categories rain_in_category
+    print [column categorize -cnames {Category NumMonths} -count $rainfall]
+
 } text {
     ((^ sect_guide_column_summarize "Summarizing categorized data"))
 
@@ -780,27 +790,25 @@ text {
     aggregates the values associated with each category with some
     prescribed function.
 
-    For example, to print the number of months in each rainfall category,
-} shell {
-    set months_in_category [column summarize $rain_in_category]
-    loop index category $categories {
-        puts "[column index $months_in_category $index] months had $category rain."
-    }
+    For example, to print the number of months in each rainfall
+    category as we did in our previous example, we could have also
+    taken this route.
+} script {
+    set rain_by_category [column categorize -cnames {Category Months} -values $rainfall]; # Collect values in each category
+    print $rain_by_category
+    print [table summarize $rain_by_category]
 } text {
-    By default the summarization is the count in each category. You
-    can also get the total instead with the `-sum` option or even
-    implement custom summarization with the `-compute` option. For
-    example, to print the average,
+    The above takes an additional step compared to what we saw
+    earlier, but once we have categorized the original data, it makes
+    it easier to summarize using a different, even custom, aggregation
+    function. For example, to print the average,
 } shell {
     proc average {cat_index cat_col} {
         set n [column size $cat_col]
         if {$n == 0} {return "-"}
         return [expr {[column sum $cat_col] / $n}]
     }
-    set ave_of_category [column summarize -compute average $rain_in_category]
-    loop index category $categories {
-        puts "Average rainfall for months in $category category was [column index $ave_of_category $index]."
-    }
+    print [table summarize -compute average $rain_in_category]
 }
 
 text {
