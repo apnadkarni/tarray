@@ -1005,6 +1005,7 @@ namespace eval tarray {
             size size
             slice slice
             sort sort
+            summarize summarize
             vcolumn vcolumn
             vdelete vdelete
             vfill vfill
