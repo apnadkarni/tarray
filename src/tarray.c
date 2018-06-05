@@ -5553,6 +5553,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             pbucket[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size)); \
             if (pbucket[i] == NULL)                                     \
                 goto error_return;                                      \
+            Tcl_IncrRefCount(pbucket[i]);                               \
             buckets->used += 1;                                         \
         }                                                               \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
@@ -5586,6 +5587,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             pbucket[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size)); \
             if (pbucket[i] == NULL)                                     \
                 goto error_return;                                      \
+            Tcl_IncrRefCount(pbucket[i]);                               \
             buckets->used += 1;                                         \
         }                                                               \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
