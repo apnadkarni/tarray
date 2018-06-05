@@ -515,7 +515,8 @@ text {
     [TIP]
     The ((^` column_intersect3 "column intersect3"))
     command offers another way to combine searches across
-    multiple columns as described ((^ sect_guide_other later)).
+    multiple columns as described
+    ((^ sect_guide_set_operations later)).
     
 }
 
@@ -670,7 +671,7 @@ text {
 }
 
 text {
-    ((==== * "Set operations"))
+    ((==== sect_guide_set_operations "Set operations"))
 
     The ((^` column_intersect3 "column intersect3"))
     command returns a list containing the differences between two
@@ -1232,7 +1233,7 @@ text {
     print [column categorize -cnames {Category Rainfall} -categorizer rain_class -values $rainfall]
 
 } text {
-    ((=== sect_guide_column_summarize "Summarizing categorized data"))
+    ((=== sect_guide_table_summarize "Summarizing categorized data"))
 
     Placing values into categories is only the first step. The next step
     is to process the categorized data to provide some useful information.

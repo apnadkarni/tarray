@@ -41,8 +41,9 @@ text {
     * Added ((^` table_ctype "table ctype")) command.
     
     * Added ((^` column_categorize "column categorize")),
-    ((^` column_histogram "column histogram")) and
-    ((^` column_summarize "column summarize"))
+    ((^` column_histogram "column histogram")),
+    ((^` column_summarize "column summarize")) and
+    ((^` table_summarize "table summarize"))
     commands.
     
     * Added ((^` column_equal "column equal")),
