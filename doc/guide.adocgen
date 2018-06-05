@@ -692,126 +692,6 @@ text {
 }
 
 text {
-    ((=== * "Grouping operations"))
-
-    Several commands are targeted towards making grouping of data
-    and summarization easier and more convenient.
-
-    ((==== sect_guide_column_histogram "Computing histograms"))
-
-    For example, suppose we want to classify monthly rainfall into
-    four categories -- scanty, light, moderate and heavy -- and find
-    how many months fall into each category. We can use the
-    ((^` column_histogram "column histogram")) command for the purpose.
-} outputlimit 0 shell {
-    print $rainfall stdout -full 1
-    print [table create2 {Rainfall Months} [column histogram $rainfall 4]]
-} text {
-    The above divies up the range of values in the column into 4 equal
-    intervals and counts the number of values that falls in each.
-    The result is a table of two columns, the first being the lower
-    bound of each interval and the second being the number of values
-    that fall into that interval.
-
-    The above looks even more crude than usual, so we can use the
-    `-min` and `-max` options to control the limits.
-} outputlimit 0 shell {
-    print [column histogram -cnames {Rainfall Months} -min 0 -max 240 $rainfall 4]
-} text {
-    Note that when either option is used, any values that do not fall
-    within those limits are ignored.
-    
-    By default the command applies the counting function to each grouping
-    as seen above. For other possibilities, such as summing or
-    retrieving indices and values, refer to the
-    documentation of the command.
-    
-    ((==== sect_guide_column_categorize "Grouping into categories"))
-
-    Histograms are a special case of grouping that applies to
-    numerical columns where values are grouped by range.
-    A more general form is the ((^` column_categorize "column categorize"))
-    command.
-    do the classification. The return value from the command prefix is
-    interpreter as the bucket "identifier".
-
-    Suppose we want to categorize the months by
-    their first letters and print how many months start with each
-    letter (why? To which I say, why not?).
-} outputlimit 0 script {    
-    proc first_letter {elem_index elem_value} {
-        return [string toupper [string index $elem_value 0]]
-    }
-    print [column categorize -cnames {Letter Months} -count -categorizer first_letter $months]
-} text {
-    Generally though, we often do not want directly want an aggregate
-    value, such as count, for a group. We can instead generate an
-    intermediate table that holds the individual values for each group.
-} outputlimit 0 script {
-    print [column categorize -cnames {Letter Months} -values -categorizer first_letter $months]
-} text {
-    Notice that the associated value for each category is itself a
-    column containing the actual values. The `column summarize`
-    command discussed in the next section provides a mean to further
-    process this by aggregating the nested columns elements.
-
-    [NOTE]
-    Although we do not show an example here, by default the
-    `categorize` command returns the _indices_ of the elements
-    belonging to that category, not the value.
-
-    Although slower than the `histogram` command, the `categorize` command 
-    is more general and is useful for numerical values as well, for example if
-    we do not want the intervals to be equal. The code fragment below
-    classifies rainfall in a month as `scant`, `moderate` or `heavy`
-    in a similar fashion to our earlier example except that here
-    the intervals are not the same size.
-
-} script {
-    proc rain_class {elem_index elem_value} {
-        if {$elem_value < 50} {
-            return scant
-        } elseif {$elem_value < 200} {
-            return moderate
-        } else {
-            return heavy
-        }
-    }
-    print [column categorize -cnames {Category NumMonths} -count $rainfall]
-
-} text {
-    ((^ sect_guide_column_summarize "Summarizing categorized data"))
-
-    Placing values into categories is only the first step. The next step
-    is to process the categorized data to provide some useful information.
-    The ((^` column_summarize "column summarize")) command is intended
-    for this purpose. It takes a column of the form returned by the
-    `categorize` (or `histogram` with appropriate options) and
-    aggregates the values associated with each category with some
-    prescribed function.
-
-    For example, to print the number of months in each rainfall
-    category as we did in our previous example, we could have also
-    taken this route.
-} script {
-    set rain_by_category [column categorize -cnames {Category Months} -values $rainfall]; # Collect values in each category
-    print $rain_by_category
-    print [table summarize $rain_by_category]
-} text {
-    The above takes an additional step compared to what we saw
-    earlier, but once we have categorized the original data, it makes
-    it easier to summarize using a different, even custom, aggregation
-    function. For example, to print the average,
-} shell {
-    proc average {cat_index cat_col} {
-        set n [column size $cat_col]
-        if {$n == 0} {return "-"}
-        return [expr {[column sum $cat_col] / $n}]
-    }
-    print [table summarize -compute average $rain_in_category]
-}
-
-text {
     ((=== * "Counting elements"))
 
     The ((^` column_size "column size")) returns the number of
@@ -1272,6 +1152,117 @@ text {
 }
 
 text {
+    ((== * "Grouping operations"))
+
+    Several commands are targeted towards making grouping of data
+    and summarization of columns and tables easier and more convenient.
+
+    ((=== sect_guide_column_histogram "Computing histograms"))
+
+    For example, suppose we want to classify monthly rainfall into
+    four categories -- scanty, light, moderate and heavy -- and find
+    how many months fall into each category. We can use the
+    ((^` column_histogram "column histogram")) command for the purpose.
+} outputlimit 0 shell {
+    print $rainfall stdout -full 1
+    print [column histogram -cnames {Rainfall NumMonths} $rainfall 4]
+} text {
+    The above divies up the range of values in the column into 4 equal
+    intervals and counts the number of values that falls in each.
+    The result is a table of two columns, the first being the lower
+    bound of each interval and the second being the number of values
+    that fall into that interval.
+
+    The above looks even more crude than usual, so we can use the
+    `-min` and `-max` options to control the limits.
+} outputlimit 0 shell {
+    print [column histogram -cnames {Rainfall NumMonths} -min 0 -max 240 $rainfall 4]
+} text {
+    Note that when either option is used, any values that do not fall
+    within those limits are ignored.
+    
+    By default the command applies the counting function to each grouping
+    as seen above. For other possibilities, refer to the command
+    documentation.
+    
+    ((=== sect_guide_column_categorize "Grouping into categories"))
+
+    Histograms are a special case of grouping that applies to
+    numerical columns where values are grouped by range.
+    A more general form is the ((^` column_categorize "column categorize"))
+    command.
+
+    Suppose we want to categorize the months by
+    their first letters and print how many months start with each
+    letter (why? To which I say, why not?).
+} outputlimit 0 script {    
+    proc first_letter {elem_index elem_value} {
+        return [string toupper [string index $elem_value 0]]
+    }
+    print [column categorize -cnames {Letter Months} -values -categorizer first_letter $months]
+} text {
+    Notice that the associated value for each category is itself a
+    column containing the actual values. The `column summarize`
+    command discussed in the next section provides a mean to further
+    process this by aggregating the nested columns elements.
+
+    [NOTE]
+    Although we do not show an example here, by default the
+    `categorize` command returns the _indices_ of the elements
+    belonging to that category, not their values. Hence the use of the
+    `-values` option.
+
+    Although slower than the `histogram` command, the `categorize` command 
+    is more general and is useful for numerical values as well, for example if
+    we do not want the intervals to be equal. The code fragment below
+    classifies rainfall in a month as `scant`, `moderate` or `heavy`
+    in a similar fashion to our earlier example except that here
+    the intervals are not the same size.
+
+} outputlimit 0 script {
+    proc rain_class {elem_index elem_value} {
+        if {$elem_value < 50} {
+            return scant
+        } elseif {$elem_value < 200} {
+            return moderate
+        } else {
+            return heavy
+        }
+    }
+    print [column categorize -cnames {Category Rainfall} -categorizer rain_class -values $rainfall]
+
+} text {
+    ((=== sect_guide_column_summarize "Summarizing categorized data"))
+
+    Placing values into categories is only the first step. The next step
+    is to process the categorized data to provide some useful information.
+    The ((^` column_summarize "column summarize")) command is intended
+    for this purpose. It takes a column of the form returned by the
+    `categorize` (or `histogram` with appropriate options) and
+    aggregates the values associated with each category with some
+    prescribed function.
+
+    For example, to print the number of months in each rainfall
+    category as we did in our previous example, we could have also
+    taken this route.
+} outputlimit 0 script {
+    set rain_by_category [column categorize -cnames {Category Rainfall} -categorizer rain_class -values $rainfall]; # Collect values in each category
+    print [table summarize -cname NumMonths $rain_by_category]
+} text {
+    The above takes an additional step compared to what we saw
+    earlier, but once we have categorized the original data, it makes
+    it easier to summarize using a different, even custom, aggregation
+    function. For example, to print the average,
+} outputlimit 0 script {
+    proc average {cat_index cat_col} {
+        set n [column size $cat_col]
+        if {$n == 0} {return "-"}
+        return [expr {[column sum $cat_col] / $n}]
+    }
+    print [table summarize -compute average -cname AveRainfall $rain_by_category]
+}
+
+text {
     ((== * "Formatting output"))
     
     The Tcl `puts` command is not always suitable for printing
@@ -1297,7 +1288,8 @@ text {
 } shell {
     set col [column create int {-1000 10 100}]
     column width $col;          # Use default format string
-    column width $col "hex representation is %x"; # Specify the format string
+    column width $col %x;       # Specify the format string
+    column width $col "The number is %d."; # A generalized format string
 }
 
 text {
