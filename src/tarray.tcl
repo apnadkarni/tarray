@@ -162,6 +162,7 @@ proc tarray::column::categorize {args} {
         {collect.radio indices {values indices}}
         categorizer.arg
         {cnames.arg {Category Data}}
+        categorytype.arg
     } -setvars
 
     if {[llength $args] != 1} {
@@ -200,6 +201,9 @@ proc tarray::column::categorize {args} {
                 dict lappend buckets $bucket $e
             }
         }
+        if {![info exists categorytype]} {
+            set categorytype any
+        }
     } else {
         # Categorize based on value itself
         if {$collect eq "indices"} {
@@ -210,6 +214,9 @@ proc tarray::column::categorize {args} {
             tarray::loop i e $col {
                 dict lappend buckets $e $e
             }
+        }
+        if {![info exists categorytype]} {
+            set categorytype [type $col]
         }
     }
     
@@ -227,14 +234,14 @@ proc tarray::column::categorize {args} {
         set groups [create any $values]
     }
 
-    return [tarray::table::create2 $cnames [list [create any [dict keys $buckets]] $groups]]
+    return [tarray::table::create2 $cnames [list [create $categorytype [dict keys $buckets]] $groups]]
 }
 
 proc tarray::column::summarize {args} {
     array set opts [parseargs args {
         count
-        compute.arg
-        {computetype.arg any {boolean byte int uint wide double string any}}
+        summarizer.arg
+        {summarytype.arg any {boolean byte int uint wide double string any}}
         sum
     }]
 
@@ -243,9 +250,9 @@ proc tarray::column::summarize {args} {
     }
     set data_col [lindex $args 0]
     set nbuckets [size $data_col]
-    set opttotal [expr {$opts(sum) + $opts(count) + [info exists opts(compute)]}]
+    set opttotal [expr {$opts(sum) + $opts(count) + [info exists opts(summarizer)]}]
     if {$opttotal > 1} {
-        error "Only one among -count, -sum and -compute may be specified."
+        error "Only one among -count, -sum and -summarizer may be specified."
     }
     if {$opttotal == 0} {
         set opts(count) 1
@@ -271,9 +278,9 @@ proc tarray::column::summarize {args} {
             }
         }
     } else {
-        set col [create $opts(computetype) {} $nbuckets]
+        set col [create $opts(summarytype) {} $nbuckets]
         loop i e $data_col {
-            vfill col [{*}$opts(compute) $i $e] $i
+            vfill col [{*}$opts(summarizer) $i $e] $i
         }
     }
         
@@ -293,8 +300,8 @@ proc tarray::table::summarize {args} {
     # Don't really care about the values
     parseargs args {
         count
-        compute.arg
-        {computetype.arg any {boolean byte int uint wide double string any}}
+        summarizer.arg
+        {summarytype.arg any {boolean byte int uint wide double string any}}
         sum
     }
 
