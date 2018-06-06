@@ -147,11 +147,12 @@ text {
     component of the element value is discarded, and only its integer
     component is stored in the new column.
 
-    ((cmddef column_categorize "column categorize ?-values? ?-indices? ?-categorizer _CMDPREFIX_? _COLUMN_"))
+    ((cmddef column_categorize "column categorize ?options? _COLUMN_"))
 
     The command first places the elements of the column _COLUMN_
     into _categories_. By default, these are keyed by the value
-    of the element. Alternatively, the `-categorizer` option may be specified
+    of the element. Alternatively, the `-categorizer _CMDPREFIX_`
+    option may be specified
     in which case _CMDPREFIX_ is called for every element of _COLUMN_. Each
     invocation has two additional arguments appended -- the index of
     the element being passed and its value. The element is then
@@ -169,13 +170,18 @@ text {
     first. Each element of this column is itself
     a column containing either the indices of the elements belonging
     to the corresponding category
-    (by default or if the `-values` option is specified), or the
+    (by default or if the `-indices` option is specified), or the
     element values themselves (if the `-values` option is specified).
     These columns are named `Category` and `Data` by
     default. The `-cnames` option can be used to change these
     names, the option's value being a pair containing the names to be
     used for the two columns.
-    
+
+    By default the `Category` column is of type `any` if
+    the `-categorizer` option is specified, and the same type as
+    `_COLUMN_` otherwise. The `-categorytype _TYPE_` option may be specified 
+    to force it to be a specific category. Of course the values used for
+    the category column must be compatible with this type.
 
     See ((^ sect_guide_column_categorize)) for an example.
     
@@ -692,11 +698,11 @@ text {
     numeric type). The type of the column is `double` if the nested
     columns were of that type or `wide` for integer types.
     
-    * If the `-compute _CMDPREFIX_` option is specified, the value is
+    * If the `-summarizer _CMDPREFIX_` option is specified, the value is
     that returned by the command prefix `_CMDPREFIX_` which is called
     with two additional arguments, the index into `_COL_` and the
     corresponding nested column at that index. The returned column is
-    of type `any` by default. The `-computetype _TYPE_` option
+    of type `any` by default. The `-summarytype _TYPE_` option
     may be specified to change this.
 
     Usually, the ((^` table_summarize "table summarize")) command is

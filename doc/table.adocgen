@@ -431,13 +431,13 @@ text {
     `double` if the nested
     columns were of that type or `wide` for integer types.
     
-    * Finally, if the `-compute _CMDPREFIX_` option is specified, the
+    * Finally, if the `-summarizer _CMDPREFIX_` option is specified, the
     summary column values are comprised of the values
     returned by the command prefix `_CMDPREFIX_` which is called
     with two additional arguments, the index into `_TABLE_` and the
     corresponding nested column at that index. The returned column
     summary column is then
-    of type `any` by default. The `-computetype _TYPE_` option
+    of type `any` by default. The `-summarytype _TYPE_` option
     may be specified to change this to a different type.
 
     See ((^ sect_guide_table_summarize)) for an example.
