@@ -61,8 +61,20 @@ namespace eval tarray::test {
     
     #
     # loop over columns
+    # Special note: span column bug in 0.8 release. Tests for span versions
+    # were missing
     test loop-column-1.0 {loop column} -setup {
         set col [newcolumn int {1 2 3 4}]
+        set l {}
+    } -body {
+        tarray::loop e $col {
+            lappend l $e
+        }
+        set l
+    } -result {1 2 3 4}
+
+    test loop-column-span-1.0 {loop column} -setup {
+        set col [newspancolumn int {1 2 3 4}]
         set l {}
     } -body {
         tarray::loop e $col {
@@ -81,8 +93,26 @@ namespace eval tarray::test {
         set l
     } -result {1 2}
     
+    test loop-column-span-2.0 {loop column break} -setup {
+        set l {}
+    } -body {
+        tarray::loop e [newspancolumn int {1 2 3 4}] {
+            if {$e > 2} break
+            lappend l $e
+        }
+        set l
+    } -result {1 2}
+    
     test loop-column-2.1 {loop column continue} -setup { set l {} } -body {
         tarray::loop e [newcolumn int {1 2 3 4}] {
+            if {$e & 1} continue
+            lappend l $e
+        }
+        set l
+    } -result {2 4}
+    
+    test loop-column-span-2.1 {loop column continue} -setup { set l {} } -body {
+        tarray::loop e [newspancolumn int {1 2 3 4}] {
             if {$e & 1} continue
             lappend l $e
         }
@@ -92,6 +122,16 @@ namespace eval tarray::test {
     # loop with key over columns
     test loop-column-key-1.0 {loop column keyvar} -setup {
         set col [tarray::column create string {a b c d}]
+        set l {}
+    } -body {
+        tarray::loop k e $col {
+            lappend l $e $k
+        }
+        set l
+    } -result {a 0 b 1 c 2 d 3}
+
+    test loop-column-span-key-1.0 {loop column keyvar} -setup {
+        set col [newspancolumn string {a b c d}]
         set l {}
     } -body {
         tarray::loop k e $col {
@@ -111,8 +151,30 @@ namespace eval tarray::test {
         set l
     } -result {0 a 1 b}
     
+    test loop-column-span-key-2.0 {loop column keyvar break} -setup {
+        set col [newspancolumn string {a b c d}]
+        set l {}
+    } -body {
+        tarray::loop k e $col {
+            if {$e == "c"} { break }
+            lappend l $k $e
+        }
+        set l
+    } -result {0 a 1 b}
+    
     test loop-column-key-2.1 {loop column keyvar continue} -setup {
         set col [tarray::column create string {a b c d}]
+        set l {}
+    } -body {
+        tarray::loop k e $col {
+            if {$k & 1} { continue }
+            lappend l $k $e
+        }
+        set l
+    } -result {0 a 2 c}
+    
+    test loop-column-span-key-2.1 {loop column keyvar continue} -setup {
+        set col [newspancolumn string {a b c d}]
         set l {}
     } -body {
         tarray::loop k e $col {
