@@ -1,0 +1,205 @@
+# column categorize tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    
+    # Return 1.0 if type is double
+    proc numrep {type values} {
+        if {$type eq "double"} {
+            return [lmap val $values {tcl::mathfunc::double $val}]
+        } else {
+            return $values
+        }
+    }
+
+    proc ident {elem_index elem_val} {return $elem_val}
+
+    proc classify {index val} {
+        return [string range $val 0 3]
+    }
+
+    proc verify_categories {srccol result args} {
+
+        # Result table must have exactly two columns
+        set cnames [tarray::table cnames $result]
+        if {[llength $cnames] != 2} {
+            return "Result table has [llength $cnames] column instead of expected 2."
+        }
+        lassign [tarray::table columns $result] catcol datacol
+
+        array set opts [tarray::parseargs args {
+            categorizer.arg
+            categorytype.arg
+            {cnames.arg {Category Data}}
+            {collect.radio indices {indices values}}
+        }]
+
+        if {[lindex $cnames 0] != [lindex $opts(cnames) 0] ||
+            [lindex $cnames 0] != [lindex $opts(cnames) 0]} {
+            return "Column names $cnames do not match expected names $opts(cnames)."
+        }
+
+        if {[info exists opts(categorizer)]} {
+            set cattype any
+        } else {
+            set opts(categorizer) ident
+            set cattype [column type $srccol]
+        }
+        
+        if {[info exists opts(categorytype)]} {
+            set cattype $opts(categorytype)
+        }
+
+        if {$opts(collect) eq "indices"} {
+            set valtype int
+        } else {
+            set valtype [column type $srccol]
+        }
+        
+        if {$cattype != [tarray::column type $catcol]} {
+            return "Category column differs in type. Expected $cattype, got [tarray::column type $catcol]."
+        }
+
+        # Check that catcol has no duplicates
+        set categories [tarray::column values $srccol]
+        if {[llength $categories] != [llength [lsort $categories]]} {
+            return "Values in category column are not unique."
+        }
+        
+        # Now verify each data column
+        if {[tarray::column::type $datacol] ne "any"} {
+            return "Data column is not of type 'any'."
+        }
+        
+        # Verify each nested column 
+        set nvalues 0
+        tarray::column loop i col $datacol {
+            if {[tarray::column type $col] ne $valtype} {
+                return "Nested value column type [tarray::column type $datacol] is not the expected type $valtype."
+            }
+            tarray::column loop j val [tarray::column values $col] {
+                if {$opts(collect) eq "indices"} {
+                    set val [tarray::column index $srccol $val]
+                }
+                set category [{*}$opts(categorizer) $j $val]
+                if {$category != [tarray::column index $catcol $i]} {
+                    return "Value $val was placed in category [tarray::column index $catcol $i] instead of category $category."
+                }
+                incr nvalues
+            }
+        }
+
+        if {$nvalues != [tarray::column size $srccol]} {
+            return "Number of categorized values $nvalues not same as number of elements [tarray::column size $srccol] in original column."
+        }
+
+        return ""
+    }
+
+
+    proc testdef {id comment type init args} {
+        test column_categorize-$type-$id $comment -setup {
+            set C [newcolumn $type $init]
+        } -body {
+            verify_categories $C [tarray::column categorize {*}$args $C] {*}$args
+        } -result ""
+        test column_categorize-$type-span-$id $comment -setup {
+            set C [newspancolumn $type $init]
+        } -body {
+            verify_categories $C [tarray::column categorize {*}$args $C] {*}$args
+        } -result ""
+    }
+
+    # Tests for empty columns
+    foreach type {any string boolean byte double int uint wide} {
+        testdef 1.0 "Categorize empty column" $type {} 
+        testdef 1.1 "Categorize empty column -indices" $type {} -indices
+        testdef 1.2 "Categorize empty column -values" $type {} -values
+        testdef 1.3 "Categorize empty column -indices -categorizer classify" $type {} -indices
+        testdef 1.4 "Categorize empty column -values -categorizer classify" $type {} -values
+        
+        testdef 2.0 "Categorize one-element column" $type {0} 
+        testdef 2.1 "Categorize one-element column -indices" $type {0} -indices
+        testdef 2.2 "Categorize one-element column -values" $type {0} -values
+        testdef 2.3 "Categorize one-element column -indices -categorizer classify" $type {0} -indices -categorizer classify
+        testdef 2.4 "Categorize one-element column -values -categorizer classify" $type {0} -values -categorizer classify
+        
+        testdef 3.0 "Categorize column" $type [samplerange $type] 
+        testdef 3.1 "Categorize column -indices" $type [samplerange $type] -indices
+        testdef 3.2 "Categorize column -values" $type [samplerange $type] -values
+        testdef 3.3 "Categorize column -indices -categorizer classify" $type [samplerange $type] -indices -categorizer classify
+        testdef 3.4 "Categorize column -values -categorizer classify" $type [samplerange $type] -values -categorizer classify
+        test column_categorize-$type-3.5 {
+            Categorize column -indices -categorizer continue
+        } -setup {
+            set C [newcolumn $type {0 1 1 0 1 0}]
+        } -body {
+            tarray::column categorize -indices -categorizer [::tarray::lambda {i val} {
+                if {$i & 1} {return -code continue}
+                return $val
+            }] $C
+        } -result [tarray::table create2 {Category Data} \
+                       [list \
+                            [newcolumn any [numrep $type {0 1}]] \
+                            [newcolumn any [list \
+                                                [newcolumn int 0] \
+                                                [newcolumn int {2 4}]]]]]
+        test column_categorize-$type-3.6 {
+            Categorize column -indices -categorizer break
+        } -setup {
+            set C [newcolumn $type {0 1 1 0 1 0}]
+        } -body {
+            tarray::column categorize -indices -categorizer [::tarray::lambda {i val} {
+                if {$i > 2} {return -code break}
+                return $val
+            }] $C
+        } -result [tarray::table create2 {Category Data} \
+                       [list \
+                            [newcolumn any [numrep $type {0 1}]] \
+                            [newcolumn any [list \
+                                                [newcolumn int 0] \
+                                                [newcolumn int {1 2}]]]]]
+        test column_categorize-$type-3.7 {
+            Categorize column -values -categorizer continue
+        } -setup {
+            set C [newcolumn $type {0 1 1 0 1 0}]
+        } -body {
+            tarray::column categorize -values -categorizer [::tarray::lambda {i val} {
+                if {!($i & 1)} {return -code continue}
+                return $val
+            }] $C
+        } -result [tarray::table create2 {Category Data} \
+                       [list \
+                            [newcolumn any [numrep $type {1 0}]] \
+                            [newcolumn any [list \
+                                                [newcolumn $type [numrep $type 1]] \
+                                                [newcolumn $type [numrep $type {0 0}]]]]]]
+        test column_categorize-$type-3.8 {
+            Categorize column -values -categorizer break
+        } -setup {
+            set C [newcolumn $type {0 1 1 0 1 0}]
+        } -body {
+            tarray::column categorize -values -categorizer [::tarray::lambda {i val} {
+                if {$i > 2} {return -code break}
+                return $val
+            }] $C
+        } -result [tarray::table create2 {Category Data} \
+                       [list \
+                            [newcolumn any [numrep $type {0 1}]] \
+                            [newcolumn any [list \
+                                                [newcolumn $type [numrep $type 0]] \
+                                                [newcolumn $type [numrep $type {1 1}]]]]]]
+        
+        testdef 4.0 "Categorize column -indices -cnames" $type [samplerange $type] -indices -cnames {ColA ColB}
+        testdef 4.1 "Categorize column -values -cnames" $type [samplerange $type] -values -cnames {ColA ColB}
+        
+        testdef 5.0 "Categorize one-element column -indices -categorytype" $type {0} -indices -categorytype [expr {$type eq "double" ? "any" : "int"}]
+        testdef 5.1 "Categorize one-element column -values -categorytype" $type {0} -values -categorytype [expr {$type eq "double" ? "any" : "int"}]
+        testdef 5.2 "Categorize one-element column -indices -categorizer classify -categorytype" $type {0} -indices -categorizer classify -categorytype [expr {$type eq "double" ? "any" : "int"}]
+        testdef 5.3 "Categorize one-element column -values -categorizer classify -categorytype" $type {0} -values -categorizer classify -categorytype [expr {$type eq "double" ? "any" : "int"}]
+        
+    }
+}
+
+::tcltest::cleanupTests
