@@ -14,6 +14,19 @@ namespace eval tarray {
     proc lambda {arglist body {ns {}}} {
         return [list ::apply [list $arglist $body $ns]]
     }
+
+    # Fully qualify command prefix
+    proc _fqcp {cmdprefix {level 2}} {
+        set cmd [lindex $cmdprefix 0]
+        if {[string range $cmd 0 1] eq "::"} {
+            return $cmdprefix
+        }
+        set qual_cmd [uplevel $level [list namespace which -command $cmd]]
+        if {$qual_cmd eq ""} {
+            error "Command $cmd not found in caller namespace."
+        }
+        return [lreplace $cmdprefix 0 0 $qual_cmd]
+    }
 }
 
 interp alias {} tarray::column::count {} tarray::column::search -count
@@ -23,6 +36,14 @@ proc tarray::column::bitmap0 {{count 0} {init {}}} {
 }
 proc tarray::column::bitmap1 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 1 0 [incr count -1]] 0 $init]
+}
+
+proc tarray::column::values {col} {
+    return [range -list $col 0 end]
+}
+
+proc tarray::table::rows {tab} {
+    return [range -list $tab 0 end]
 }
 
 # TBD - document and test
@@ -174,6 +195,7 @@ proc tarray::column::categorize {args} {
 
     # Breaking out loops in various cases is verbose but significantly faster
     if {[info exists categorizer]} {
+        set categorizer [tarray::_fqcp $categorizer]
         if {$collect eq "indices"} {
             tarray::loop i e $col {
                 switch -exact -- [catch { {*}$categorizer $i $e } bucket ropts] {
@@ -278,9 +300,10 @@ proc tarray::column::summarize {args} {
             }
         }
     } else {
+        set fqcn [tarray::_fqcp $opts(summarizer)]
         set col [create $opts(summarytype) {} $nbuckets]
         loop i e $data_col {
-            vfill col [{*}$opts(summarizer) $i $e] $i
+            vfill col [{*}$fqcn $i $e] $i
         }
     }
         
@@ -291,16 +314,23 @@ proc tarray::table::summarize {args} {
     # Retrieve our options
     parseargs args {
         {cname.arg Summary}
+        summarizer.arg
     } -setvars -ignoreunknown
 
     # Save remaining options to be passed on
     set saved_args $args
 
+    if {[info exists summarizer]} {
+        # Fully qualify callback before passing it on
+        set fqcn [tarray::_fqcp $summarizer]
+        lappend saved_args -summarizer $fqcn
+    }
+
+
     # Strip off options to get at table argument.
     # Don't really care about the values
     parseargs args {
         count
-        summarizer.arg
         {summarytype.arg any {boolean byte int uint wide double string any}}
         sum
     }
@@ -953,6 +983,7 @@ namespace eval tarray {
             sum sum
             summarize summarize
             type type
+            values values
             vdelete vdelete
             vfill vfill
             vinject vinject
@@ -1009,6 +1040,7 @@ namespace eval tarray {
             put put
             range range
             reverse reverse
+            rows rows
             size size
             slice slice
             sort sort
