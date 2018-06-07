@@ -61,11 +61,13 @@ static TCL_RESULT ta_loop_assign_vars(Tcl_Interp *ip,
     
     switch (pstate->colltype) {
     case TA_COLL_COLUMN:
-        if (pstate->span)
-            tindex += pstate->span->first;
-        TA_ASSERT(tindex < pstate->thdr->used);
-    
-        val = thdr_index(pstate->thdr, tindex);
+        if (pstate->span) {
+            TA_ASSERT((tindex+pstate->span->first) < pstate->thdr->used);
+            val = thdr_index(pstate->thdr, tindex + pstate->span->first);
+        } else {
+            TA_ASSERT(tindex < pstate->thdr->used);
+            val = thdr_index(pstate->thdr, tindex);
+        }
         break;
     case TA_COLL_TABLE:
         /* TBD - could be made more efficient */
