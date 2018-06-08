@@ -397,6 +397,16 @@ text {
 }
 
 text {
+    ((==== * "Retrieving all elements"))
+
+    The command ((^` column_values "column values")) returns
+    all elements of a column as a Tcl list.
+} shell {
+    column values $months
+}
+
+
+text {
     ((==== * "Retrieving a range of elements"))
 
     The command ((^` column_range "column range")) returns
@@ -927,6 +937,14 @@ text {
 }
 
 text {
+    ((=== * "Retrieving all rows"))
+
+    The ((^` table_rows "table rows")) command returns all rows in a table as a list.
+} shell {
+    table rows $countries
+}
+
+text {
     ((==== * "Retrieving a range of rows"))
 
     The command ((^` table_range "table range")) returns
@@ -1260,7 +1278,7 @@ text {
         if {$n == 0} {return "-"}
         return [expr {[column sum $cat_col] / $n}]
     }
-    print [table summarize -compute average -cname AveRainfall $rain_by_category]
+    print [table summarize -summarizer average -cname AveRainfall $rain_by_category]
 }
 
 text {

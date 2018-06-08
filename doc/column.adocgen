@@ -712,6 +712,10 @@ text {
 
     Returns the ((^ sect_column_types type)) of the typed column.
 
+    ((cmddef column_values "column values _COLUMN_"))
+
+    Returns all the elements of the column as a list.
+    
     ((cmddef column_vdelete "column vdelete _COLUMNVAR_ _INDEX_"))
 
     ((cmddef column_vdelete_1 "column vdelete _COLUMNVAR_ _INDEXLIST_"))

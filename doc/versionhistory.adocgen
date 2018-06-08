@@ -75,6 +75,9 @@ text {
     * Added the `-bitmap` option to the ((^` column_search "column search"))
     command.
 
+    * Added the ((^` column_values "column values")) and
+    ((^` table_rows "table rows")) commands.
+
     * _INCOMPATIBLE CHANGE_. The ((^` column_cast "column cast"))
     command has changed in syntax and semantics.
 }

@@ -320,12 +320,6 @@ proc tarray::table::summarize {args} {
     # Save remaining options to be passed on
     set saved_args $args
 
-    if {[info exists summarizer]} {
-        # Fully qualify callback before passing it on
-        set fqcn [tarray::_fqcp $summarizer]
-        lappend saved_args -summarizer $fqcn
-    }
-
 
     # Strip off options to get at table argument.
     # Don't really care about the values
@@ -356,6 +350,15 @@ proc tarray::table::summarize {args} {
 
     # Remove our arguments from options to be passed on
     set saved_args [lrange $saved_args 0 end-$nargs]
+
+    # We had namespace qualified the summarizer call back
+    # with respect to our caller. Add back that option if it
+    # was specified
+    if {[info exists summarizer]} {
+        # Fully qualify callback before passing it on
+        set fqcn [tarray::_fqcp $summarizer]
+        lappend saved_args -summarizer $fqcn
+    }
 
     return [create2 \
                 [list $label_col_name $cname] \
