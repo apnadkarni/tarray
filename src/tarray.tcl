@@ -140,6 +140,10 @@ proc tarray::column::histogram {args} {
     }
     lassign $args col nintervals
     
+    if {$nintervals <= 0} {
+        error "Number of buckets must be greater than zero."
+    }
+
     if {![info exists min] || ![info exists max]} {
         lassign [minmax $col] smallest largest
         if {![info exists min]} {
@@ -152,9 +156,6 @@ proc tarray::column::histogram {args} {
 
     if {$min > $max} {
         error "Invalid bucket range $min-$max."
-    }
-    if {$nintervals <= 0} {
-        error "Number of buckets must be greater than zero."
     }
 
     if {[type $col] eq "double"} {
@@ -438,7 +439,7 @@ proc tarray::table::definition {tab {cnames {}}} {
     return $def
 }
 
-proc tarray::table::sort {args} {
+proc tarray::table::Sort {args} {
     array set opts [parseargs args {
         {order.radio increasing {increasing decreasing}}
         nocase
@@ -461,7 +462,7 @@ proc tarray::table::sort {args} {
         lappend format_opts -columns $opts(-columns)
     }
 
-    set indices [tarray::column::sort -indices {*}$sort_opts [column $tab $colname]]
+    set indices [tarray::column::Sort -indices {*}$sort_opts [column $tab $colname]]
     if {$opts(-indices)} {
         return $indices
     } else {
@@ -469,7 +470,7 @@ proc tarray::table::sort {args} {
     }
 }
 
-proc tarray::table::join {args} {
+proc tarray::table::Join {args} {
 
     parseargs args {
         on.arg
@@ -940,6 +941,7 @@ interp alias {} tarray::column::<= {} tarray::column::math <=
 interp alias {} tarray::column::> {} tarray::column::math >
 interp alias {} tarray::column::>= {} tarray::column::math >=
 
+# TBD - document fold
 interp alias {} tarray::column::sum {} tarray::column::fold +
 
 namespace eval tarray {
@@ -982,7 +984,7 @@ namespace eval tarray {
             search search
             series series
             shuffle shuffle
-            sort sort
+            sort Sort
             sum sum
             summarize summarize
             type type
@@ -1035,7 +1037,7 @@ namespace eval tarray {
             index index
             inject inject
             insert insert
-            join join
+            join Join
             loop ::tarray::loop
             place place
             prettify prettify
@@ -1046,7 +1048,7 @@ namespace eval tarray {
             rows rows
             size size
             slice slice
-            sort sort
+            sort Sort
             summarize summarize
             vcolumn vcolumn
             vdelete vdelete

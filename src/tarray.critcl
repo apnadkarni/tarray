@@ -536,7 +536,7 @@ critcl::ccommand tarray::column::range {} {
     return tcol_retrieve(interp, objc, objv, TA_RETRIEVE_RANGE);
 }
 
-critcl::ccommand tarray::column::sort {} {
+critcl::ccommand tarray::column::Sort {} {
     int flags, status;
     Tcl_Obj *tcol;
     Tcl_Obj *otarget = NULL;

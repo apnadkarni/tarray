@@ -5298,6 +5298,10 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     span = OBJTHDRSPAN(tcol);
     range_start = 0;
     tcol_count = tcol_occupancy(tcol);
+    if (tcol_count == 0) {
+        Tcl_SetResult(ip, "Cannot determine min-max values for an empty column.", TCL_STATIC);
+        return TCL_ERROR;
+    }
     range_count = tcol_count;
     for (i = 1; i < objc-1; ++i) {
 	status = ta_opt_from_obj(ip, objv[i], tcol_minmax_switches, "option", 0, &opt);
