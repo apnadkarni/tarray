@@ -1,0 +1,28 @@
+# column values tests
+
+source testutil.tcl
+namespace eval tarray::test {
+    
+    foreach type {boolean string any byte double int uint wide} {
+        test column_values-1.0 {
+            Get values from empty column
+        } -body {
+            tarray::column values [newcolumn $type]
+        } -result {}
+
+        test column_values-2.0 {
+            Get values from a column
+        } -body {
+            tarray::column values [samplecolumn $type]
+        } -result [samplerange $type]
+        
+        test column_values-2.1 {
+            Get values from a spanned column
+        } -body {
+            tarray::column values [samplespancolumn $type]
+        } -result [samplerange $type]
+        
+    }
+}
+
+::tcltest::cleanupTests

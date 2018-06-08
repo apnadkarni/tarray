@@ -1,5 +1,5 @@
 # TBD - sorted indices tarray
-# column get tests
+# table range tests
 
 source testutil.tcl
 

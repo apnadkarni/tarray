@@ -1,0 +1,32 @@
+# table range tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc test_table_rows {} {
+        set types {any string boolean byte double int uint wide}
+        set expected_rows [samplerows $types 0 end]
+        set rows [tarray::table rows [sampletable $types]]
+
+        if {[llequal $types $rows $expected_rows]} {
+            return ""
+        } else {
+            return "Returned list != expected"
+        }
+    }
+
+    test table_rows-1.0 {
+        Get rows from empty table
+    } -body {
+        tarray::table rows [newtable {}]
+    } -result {}
+
+    test table_range-aslist-2.0 {
+        Get rows from table
+    } -body {
+        test_table_rows
+    } -result ""
+
+}
+
+::tcltest::cleanupTests

@@ -371,6 +371,10 @@ text {
 
     Returns the number of rows in the table.
     
+    ((cmddef table_rows "table rows _TABLE_"))
+
+    Returns all the rows in the table as a nested list.
+    
     ((cmddef table_slice "table slice _TABLE_ _COLUMNLIST_"))
 
     Returns a table containing only the specified columns from _TABLE_. The
