@@ -294,6 +294,9 @@ critcl::ccommand tarray::types {} {
     return TCL_OK;
 }
 
+critcl::cproc tarray::nextafter {double dval} double {
+    return nextafter(dval, Inf);
+}
 
 ################################################################
 # Column commands
