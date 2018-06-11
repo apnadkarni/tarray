@@ -88,6 +88,8 @@ critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h rbcDec
 
 critcl::ccode {
 #include "tarray.h"
+#include <math.h>
+#include <fenv.h>
 #include "pcg_basic.h"
 }
 
@@ -292,10 +294,6 @@ critcl::ccommand tarray::types {} {
     }
     Tcl_SetObjResult(interp, res);
     return TCL_OK;
-}
-
-critcl::cproc tarray::nextafter {double dval} double {
-    return nextafter(dval, Inf);
 }
 
 ################################################################

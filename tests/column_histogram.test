@@ -1,0 +1,279 @@
+# column histogram tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    
+    proc verify_histogram {srccol result args} {
+        # Result table must have exactly two columns
+        set cnames [tarray::table cnames $result]
+        if {[llength $cnames] != 2} {
+            return "Result table has [llength $cnames] column instead of expected 2."
+        }
+        lassign [tarray::table columns $result] catcol datacol
+        set ncat [tarray::column size $catcol]
+
+        array set opts [tarray::parseargs args {
+            {cnames.arg {LowerBound Data}}
+            {collect.radio count {count sum indices values}}
+            min.arg
+            max.arg
+        }]
+
+        if {[lindex $cnames 0] != [lindex $opts(cnames) 0] ||
+            [lindex $cnames 0] != [lindex $opts(cnames) 0]} {
+            return "Column names $cnames do not match expected names $opts(cnames)."
+        }
+
+        set cattype [tarray::column type $srccol]
+
+        if {$cattype != [tarray::column type $catcol]} {
+            return "Category column differs in type. Expected $cattype, got [tarray::column type $catcol]."
+        }
+
+        # Check that catcol has no duplicates
+        set categories [tarray::column values $srccol]
+        if {[llength $categories] != [llength [lsort $categories]]} {
+            return "Values in category column are not unique."
+        }
+        
+        # Now verify each data column
+        switch -exact -- $opts(collect) {
+            count {
+                if {[tarray::column::type $datacol] ne "int"} {
+                    return "Data column (count) is not of type 'int'."
+                }
+                set counts [tarray::column zeroes $ncat]
+                # Note catlist will be sorted already!
+                set catlist [tarray::column values $catcol]
+                tarray::column loop val $srccol {
+                    if {[info exists opts(min)] && $val < $opts(min)} {
+                        continue
+                    }
+                    if {[info exists opts(max)] && $val > $opts(max)} continue
+                    set pos [lsearch -bisect [expr {$cattype eq "double" ? "-real" : "-integer"}] $catlist $val]
+                    if {$pos < 0} {
+                        return "Value $val smaller than first lower bound [lindex $catlist 0]"
+                    }
+                    tarray::column vfill counts [expr {1+[tarray::column index $counts $pos]}] $pos 
+                }
+                if {![tarray::column identical $counts $datacol]} {
+                    return "Counts:\n$counts\ndiffer from result:\n$datacol."
+                }
+                return ""
+            }
+            sum {
+                if {[tarray::column type $srccol] eq "double"} {
+                    if {[tarray::column::type $datacol] ne "double"} {
+                        return "Data column (sum) is not of type 'double'."
+                    }
+                    set sums [tarray::column zeroes $ncat double]
+                } else {
+                    if {[tarray::column::type $datacol] ne "wide"} {
+                        return "Data column (sum) is not of type 'wide'."
+                    }
+                    set sums [tarray::column zeroes $ncat wide]
+                }
+                # Note catlist will be sorted already!
+                set catlist [tarray::column values $catcol]
+                tarray::column loop val $srccol {
+                    if {[info exists opts(min)] && $val < $opts(min)} continue
+                    if {[info exists opts(max)] && $val > $opts(max)} continue
+                    set pos [lsearch -bisect $catlist $val]
+                    if {$pos < 0} {
+                        return "Value $val smaller than first lower bound [lindex $catlist 0]"
+                    }
+                    tarray::column vfill sums [expr {$val+[tarray::column index $sums $pos]}] $pos 
+                }
+                if {![tarray::column identical $sums $datacol]} {
+                    return "Counts:\n$counts\ndiffer from result:\n$datacol."
+                }
+                return ""
+            }
+            indices { set valtype int }
+            values { set valtype $cattype }
+        }
+        
+        # Only -indices and -values handled from this point
+        if {[tarray::column::type $datacol] ne "any"} {
+            return "Data column ($opts(collect)) is not of type 'any'."
+        }
+
+        # Verify each nested column for -values and -indices
+        tarray::column loop i col $datacol {
+            if {[tarray::column type $col] ne $valtype} {
+                return "Nested value column type [tarray::column type $datacol] is not the expected type $valtype."
+            }
+            tarray::column loop j val [tarray::column values $col] {
+                if {$opts(collect) eq "indices"} {
+                    set val [tarray::column index $srccol $val]
+                }
+                if {([info exists opts(min)] && $val < $opts(min)) ||
+                    ([info exists opts(max)] && $val > $opts(max))} {
+                    continue
+                }
+
+                set lower_bound [tarray::column index $catcol $i]
+                if {$lower_bound > $val} {
+                    return "Value $val is smaller than lower bound $lower_bound."
+                }
+                set upper_index [expr {$i + 1}]
+                if {$upper_index < $ncat} {
+                    set upper_bound [tarray::column index $catcol $upper_index]
+                    if {$upper_bound < $val} {
+                        return "Value $val is > than upper bound $upper_bound."
+                    }
+                }
+            }
+        }
+
+        # Now ensure that every value in the source column is accounted for.
+        tarray::column loop srcval $srccol {
+            if {([info exists opts(min)] && $srcval < $opts(min)) ||
+                ([info exists opts(max)] && $srcval > $opts(max))} {
+                continue
+            }
+            # Not the most efficient but ....
+            set found 0
+            tarray::column loop i col $datacol {
+                tarray::column loop j val $col {
+                    if {$opts(collect) eq "indices"} {
+                        set val [tarray::column index $srccol $val]
+                    }
+                    if {$val == $srcval} {
+                        set found 1
+                        break
+                    }
+                }
+                if {$found} break
+            }
+            if {! $found} {
+                return "Value $srcval not found in data columns."
+            }
+        }
+
+        return ""
+    }
+
+    # Special cases
+    foreach type {any string boolean byte double int uint wide} {
+        # Must have positive interval count
+        foreach compute {count sum indices values} {
+            test column_histogram-$type-$compute-1.0 {
+                Error (count==0) column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -$compute [samplecolumn $type] 0
+            } -result "Number of buckets must be greater than zero." -returnCodes error
+        }
+        # Treatment of empty columns
+        foreach compute {count sum indices values} {
+            test column_histogram-$type-$compute-1.1 {
+                Error empty column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -$compute [newcolumn $type] 1
+            } -result "Cannot determine min-max values for an empty column." -returnCodes error
+        }
+        if {$type in {any string}} {
+            test column_histogram-$type-$compute-1.2 {
+                Empty column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -min 0 -max 1 -$compute [newcolumn $type] 2
+            } -result "Operation is invalid for type $type." -returnCodes error
+        } elseif {$type ne "boolean"} {
+            test column_histogram-$type-$compute-1.2 {
+                Empty column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -min 0 -max 1 -$compute [newcolumn $type] 2
+            } -result [newtable2 {LowerBound Data} [newcolumn $type [list 0 [expr {$type eq "double" ? 0.5 : 1}]]] [newcolumn any [list [newcolumn $type] [newcolumn $type]]]]
+        }
+    }
+
+    proc testdef {id comment type init count args} {
+        test column_histogram-$type-$id "$comment, args: $args" -setup {
+            set C [newcolumn $type $init]
+        } -body {
+            verify_histogram $C [tarray::column histogram {*}$args $C $count] {*}$args
+        } -result ""
+        test column_histogram-$type-span-$id $comment -setup {
+            set C [newspancolumn $type $init]
+        } -body {
+            verify_histogram $C [tarray::column histogram {*}$args $C $count] {*}$args
+        } -result ""
+    }
+    
+    # Basic tests
+    foreach type {byte int uint wide double} {
+        
+        foreach collect {{} -count -sum -indices -values} {
+            testdef ${collect}-2.0 "Histogram - unit step" $type {0 1 2 3 4 5} 6 {*}$collect
+            testdef ${collect}-2.1 "Histogram - single interval" $type {0 1 2 3 4 5} 1 {*}$collect
+            testdef ${collect}-2.2 "Histogram - general" $type {100 249 120 170 190 195 201 200} 5 {*}$collect
+            testdef ${collect}-2.3 "Histogram - -min equal minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 100
+            testdef ${collect}-2.4 "Histogram - -min above minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 120
+            testdef ${collect}-2.5 "Histogram - -min equal maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 249
+            if {$type eq "double"} {
+                testdef ${collect}-2.5.1 "Histogram - -min equal maximum fractional" $type {.0100 .0249 .0120 .0170 .0190 .0195 .0201 .0200} 5 {*}$collect -min 249
+            }
+        }
+        continue
+
+        testcount 3.0 "Equal intervals - -min below minimum" $type {100 249 120 170 190 195 201 200} 5 {50 90 130 170 210} {0 2 0 5 1} -min 50
+        testcount 3.1 "Equal intervals - -min equal minimum" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
+        testcount 3.2 "Equal intervals - -min above minimum" $type {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
+        testcount 3.3 "Equal intervals - -min equal maximum" $type {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
+
+        test column_histogram-$type-count-3.4 {
+            Equal intervals - -min above maximum
+        } -body {
+            set C [newcolumn $type {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -min 250
+        } -result "Invalid bucket range 250-249." -returnCodes error
+        
+        test column_histogram-$type-count-3.5 {
+            Equal intervals - -max below minimum
+        } -body {
+            set C [newcolumn $type {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -max 90
+        } -result "Invalid bucket range 100-90." -returnCodes error
+        testcount 3.6 "Equal intervals - -max equal minimum" $type {100 249 120 170 190 195 201 200} 5 {100 101 102 103 104} {1 0 0 0 0} -max 100
+        testcount 3.7 "Equal intervals - -max above minimum" $type {100 249 120 170 190 195 201 200} 5 {100 105 110 115 120} {1 0 0 0 1} -max 120
+        testcount 3.8 "Equal intervals - -max equal maximum" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -max 249
+        testcount 3.9 "Equal intervals - -max above maximum" $type {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
+    }
+    if {0} {
+        # Basic tests for double - separated because interval limits differ from integer cases
+        testcount 2.0 "Equal intervals - unit step" double {0 1 2 3 4 5} 6 {.0 0.8333333333333334 1.6666666666666667 2.5 3.3333333333333335 4.166666666666667} {1 1 1 1 1 1}
+        testcount 2.1 "Equal intervals - single interval" double {0 1 2 3 4 5} 1 {0} {6}
+        testcount 2.2 "Equal intervals" double {0 .00001 .003 .0002 .5 .04} 6 {0.0 0.08333333333333333 0.16666666666666666 0.25 0.3333333333333333 0.41666666666666663} {5 0 0 0 0 1}
+        testcount 2.3 "Equal intervals" double {0 .00001 .00002 .00003 .00004 .00005} 6 {0.0 8.333333333333334e-6 1.6666666666666667e-5 2.5e-5 3.3333333333333335e-5 4.166666666666667e-5} {1 1 1 1 1 1}
+        testcount 2.4 "Equal intervals" double {-10e100 0 10e100} 10 {-1e+101 -8e+100 -6e+100 -3.999999999999999e+100 -1.9999999999999996e+100 0.0 2.0000000000000012e+100 3.999999999999999e+100 6.0000000000000005e+100 8.000000000000002e+100} {1 0 0 0 0 1 0 0 0 1}
+        testcount 2.5 "Equal intervals - -min below minimum" double {0 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min .0002
+        testcount 2.6 "Equal intervals - -min equal minimum" double {-.000004 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min -0.000004
+        testcount 3.1 "Equal intervals - -min equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
+        testcount 3.2 "Equal intervals - -min above minimum" double {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
+        testcount 3.3 "Equal intervals - -min equal maximum" double {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
+
+        test column_histogram-double-count-3.4 {
+            Equal intervals - -min above maximum
+        } -body {
+            set C [newcolumn double {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -min 250
+        } -result "Invalid bucket range 250-249." -returnCodes error
+        
+        test column_histogram-double-count-3.5 {
+            Equal intervals - -max below minimum
+        } -body {
+            set C [newcolumn double {100 249 120 170 190 195 201 200}]
+            tarray::column groupby equalintervals count $C 5 -max 90
+        } -result "Invalid bucket range 100-90." -returnCodes error
+        testcount 3.6 "Equal intervals - -max equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 101 102 103 104} {1 0 0 0 0} -max 100
+        testcount 3.7 "Equal intervals - -max above minimum" double {100 249 120 170 190 195 201 200} 5 {100 105 110 115 120} {1 0 0 0 1} -max 120
+        testcount 3.8 "Equal intervals - -max equal maximum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -max 249
+        testcount 3.9 "Equal intervals - -max above maximum" double {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
+    }    
+
+    # Basic test for boolean
+    # Basic test (error) for string, any
+}
+
+::tcltest::cleanupTests
