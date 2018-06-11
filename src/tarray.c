@@ -5408,7 +5408,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             goto invalid_limits;
         CHECK_OK( ta_value_from_obj(ip, objv[6], TA_DOUBLE, &step) );
         if (step.dval <= 0)
-            goto invalid_step;
+            goto nonpositive_step;
         TA_ASSERT(nbuckets > 0);
         last.dval = minval.dval + (nbuckets-1)*step.dval;
         if (TA_ISINFINITE(last.dval))
@@ -5424,7 +5424,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             goto invalid_limits;
         CHECK_OK( ta_value_from_obj(ip, objv[6], TA_WIDE, &step) );
         if (step.wval <= 0)
-            goto invalid_step;
+            goto nonpositive_step;
         if (ovf_mul_int64(step.wval, (nbuckets-1), &last.wval) ||
             ovf_add_int64(last.wval, minval.wval, &last.wval))
             goto invalid_bucket_interval;
@@ -5672,8 +5672,8 @@ invalid_limits:
     Tcl_SetResult(ip, "The specified maximum must not be less than the specified minimum.", TCL_STATIC);
     goto error_return;
 
-invalid_step:
-    Tcl_SetResult(ip, "The step value must be positive.", TCL_STATIC);
+nonpositive_step: /* objv[6] must be step value */
+    Tcl_SetObjResult(ip, Tcl_ObjPrintf("Step value %s is not positive.", Tcl_GetString(objv[6])));
     goto error_return;
 
 invalid_bucket_interval:

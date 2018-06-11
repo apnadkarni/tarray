@@ -127,6 +127,41 @@ proc tarray::column::linspace {start stop count args} {
     return $result
 }
 
+# This somewhat obtruse function calculates a heuristic based
+# "reasonable" step size for a histogram when
+# min == max. For example,
+# min = 35 -> step = 1
+# min = 10300 -> step = 100
+# min = .020300 -> step = .0001
+# min = 2.304e25 -> step = .001e25
+
+proc tarray::_histogram_default_step {val} {
+    if {[string is wide -strict $val]} {
+        # negative -> positive and
+        # hex/bin -> decimal
+        set ival [format %ld [tcl::mathfunc::abs $val]]
+        set exp ""
+    } elseif {[string is double -strict $val]} {
+        regexp {^-?(\d+)(?:\.0*)?(e[-+]?\d+)?$} $val -> ival exp
+    } else {
+        error "Non-numeric value '$val' for calculating default histogram step."
+    }
+    
+    if {[info exists ival]} {
+        set ndigits [string length $ival]
+        set nleading [string length [string trimright $ival 0]]
+        if {$nleading == $ndigits} {
+            return 1
+        }
+        return "1[string repeat 0 [expr {$ndigits - $nleading}]]$exp"
+    }
+
+    # Floating point with a fractional part
+    regexp {^-?\d*\.(\d+)?(e[-+]?\d+)?$} $val -> frac exp
+    set nfrac [string length [string trimright $frac 0]]
+    return "0.[string repeat 0 [expr {$nfrac - 1}]]1$exp"
+}
+
 proc tarray::column::histogram {args} {
     parseargs args {
         {compute.radio count {count sum values indices}}
@@ -170,6 +205,16 @@ proc tarray::column::histogram {args} {
         set upper [expr {$min + $nintervals * $step}]
         if {$upper < $max} {
             set step [expr {$step + (($max - $upper)/$nintervals)}]
+        }
+        # Some bogus heuristics - TBD
+        if {$step == 0} {
+            set step [expr {$max - $min}]
+            if {$step == 0} {
+                set step [tarray::_histogram_default_step $min]
+                if {$step == 0} {
+                    set step 1.0
+                }
+            }
         }
     } else {
         set step [expr {(($max - $min) / $nintervals) + 1}]
@@ -783,6 +828,11 @@ proc tarray::column::width {col {format %s}} {
     return $len
 }
 
+# TBD - doc and test
+proc tarray::column::zeroes {n {type int}} {
+    return [fill [create $type {} $n] 0 0 [expr {$n-1}]]
+}
+
 proc tarray::unsupported::build_info {} {
     set result ""
     catch {append result [encoding convertfrom utf-8 [critcl_info]]}
@@ -999,6 +1049,7 @@ namespace eval tarray {
             vshuffle vshuffle
             vsort vsort
             width width
+            zeroes zeroes
             + +
             - -
             * *
