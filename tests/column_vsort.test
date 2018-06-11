@@ -214,6 +214,18 @@ namespace eval tarray::test {
             compare_tcols_lists int [tarray::column vsort -indirect $tcol -nocase indices] $expected $indices $expected
         } -result 0
 
+        set testnum 0
+        foreach ind_type {byte uint wide double} {
+            test column_vsort-$type-indirect-1.0.[incr testnum] {
+                Sort -indirect $type with $ind_type index column
+            } -body {
+                set tcol [tarray::column create $type {a A b B}]
+                set indices [tarray::column create $ind_type [tarray::column sort -indices $tcol]]
+                set expected {1 0 3 2}
+                compare_tcols_lists int [tarray::column vsort -indirect $tcol -nocase indices] $expected $indices $expected
+            } -result 0
+        }
+
         test column_vsort-$type-indirect-1.1 {
             Sort -indirect -decreasing $type
         } -body {
@@ -230,14 +242,6 @@ namespace eval tarray::test {
             set indices [tarray::column sort -indices $tcol]
             tarray::column vsort -nocase -indirect indices
         } -result "Missing argument to -indirect option." -returnCodes error
-
-        test column_vsort-$type-indirect-2.1 {
-            Sort -indirect wrong index type
-        } -body {
-            set tcol [tarray::column create $type {a A b B}]
-            set indices [tarray::column create uint {0 1 2 3}]
-            tarray::column vsort -indirect $tcol -nocase indices
-        } -result "tarray is of the wrong type (uint)" -returnCodes error
 
         test column_vsort-$type-indirect-2.2 {
             Sort -indirect any bad index

@@ -88,7 +88,7 @@ namespace eval tarray::test::xtal_table {
                                 {1, fn(255), 10+10, 0xffffffff, -0x7fffffffff, 1.1e-10, 'something', fn('anything')}
                             }
         }
-    } -result "Value '256' not valid for type byte." -returnCodes error
+    } -result "Value 256 does not fit in a unsigned 8-bit integer." -returnCodes error
 
     test xtal-table-create-4.1 {Create table} -body {
         xtal::xtal { @table(Boolean boolean,
