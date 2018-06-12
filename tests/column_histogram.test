@@ -53,7 +53,7 @@ namespace eval tarray::test {
                     if {[info exists opts(max)] && $val > $opts(max)} continue
                     set pos [lsearch -bisect [expr {$cattype eq "double" ? "-real" : "-integer"}] $catlist $val]
                     if {$pos < 0} {
-                        return "Value $val smaller than first lower bound [lindex $catlist 0]"
+                        return "Value $val smaller than first lower bound [lindex $catlist 0]."
                     }
                     tarray::column vfill counts [expr {1+[tarray::column index $counts $pos]}] $pos 
                 }
@@ -79,7 +79,7 @@ namespace eval tarray::test {
                 tarray::column loop val $srccol {
                     if {[info exists opts(min)] && $val < $opts(min)} continue
                     if {[info exists opts(max)] && $val > $opts(max)} continue
-                    set pos [lsearch -bisect $catlist $val]
+                    set pos [lsearch -bisect [expr {$cattype eq "double" ? "-real" : "-integer"}] $catlist $val]
                     if {$pos < 0} {
                         return "Value $val smaller than first lower bound [lindex $catlist 0]"
                     }
@@ -207,71 +207,78 @@ namespace eval tarray::test {
         foreach collect {{} -count -sum -indices -values} {
             testdef ${collect}-2.0 "Histogram - unit step" $type {0 1 2 3 4 5} 6 {*}$collect
             testdef ${collect}-2.1 "Histogram - single interval" $type {0 1 2 3 4 5} 1 {*}$collect
-            testdef ${collect}-2.2 "Histogram - general" $type {100 249 120 170 190 195 201 200} 5 {*}$collect
-            testdef ${collect}-2.3 "Histogram - -min equal minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 100
-            testdef ${collect}-2.4 "Histogram - -min above minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 120
-            testdef ${collect}-2.5 "Histogram - -min equal maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 249
+            testdef ${collect}-2.2.0 "Histogram - general" $type {100 249 120 170 190 195 201 200} 5 {*}$collect
+            testdef ${collect}-2.2.1 "Histogram - general" $type [samplerange $type] 10 {*}$collect
+            testdef ${collect}-2.2.2 "Histogram - random" $type [tarray::column random $type 10000] 10 {*}$collect
+            testdef ${collect}-2.2.3 "Histogram - random" $type [tarray::column series 100000] 1000 {*}$collect
+
+            # -min tests
+            testdef ${collect}-2.3.0 "Histogram - -min below minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 50
+            testdef ${collect}-2.3.1 "Histogram - -min equal minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 100
+            testdef ${collect}-2.3.2 "Histogram - -min above minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 120
+            testdef ${collect}-2.3.3 "Histogram - -min equal maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 249
             if {$type eq "double"} {
-                testdef ${collect}-2.5.1 "Histogram - -min equal maximum fractional" $type {.0100 .0249 .0120 .0170 .0190 .0195 .0201 .0200} 5 {*}$collect -min 249
+                testdef ${collect}-2.3.3.1 "Histogram - -min equal maximum fractional" $type {.0100 .0249 .0120 .0170 .0190 .0195 .0201 .0200} 5 {*}$collect -min .0249
             }
+            test column_histogram-$type-count-2.3.4 {
+                Histogram - -min above maximum in column
+            } -body {
+                set C [newcolumn $type {100 249 120 170 190 195 201 200}]
+                tarray::column histogram -min 250 $C 5
+            } -result "Invalid bucket range 250-249(.0)?\." -match regexp -returnCodes error
+
+            # -max tests
+            test column_histogram-$type-count-2.4.0 {
+                Equal intervals - -max below minimum
+            } -body {
+                set C [newcolumn $type {100 249 120 170 190 195 201 200}]
+                tarray::column histogram -max 90 $C 5
+            } -result "Invalid bucket range 100(.0)?-90\." -returnCodes error -match regexp
+            testdef ${collect}-2.4.1 "Histogram - -max equal minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 100
+            testdef ${collect}-2.4.2 "Histogram - -max above minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 120
+            testdef ${collect}-2.4.3 "Histogram - -max equal maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 249
+            testdef ${collect}-2.4.4 "Histogram - -max above maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 250
         }
-        continue
-
-        testcount 3.0 "Equal intervals - -min below minimum" $type {100 249 120 170 190 195 201 200} 5 {50 90 130 170 210} {0 2 0 5 1} -min 50
-        testcount 3.1 "Equal intervals - -min equal minimum" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
-        testcount 3.2 "Equal intervals - -min above minimum" $type {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
-        testcount 3.3 "Equal intervals - -min equal maximum" $type {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
-
-        test column_histogram-$type-count-3.4 {
-            Equal intervals - -min above maximum
-        } -body {
-            set C [newcolumn $type {100 249 120 170 190 195 201 200}]
-            tarray::column groupby equalintervals count $C 5 -min 250
-        } -result "Invalid bucket range 250-249." -returnCodes error
-        
-        test column_histogram-$type-count-3.5 {
-            Equal intervals - -max below minimum
-        } -body {
-            set C [newcolumn $type {100 249 120 170 190 195 201 200}]
-            tarray::column groupby equalintervals count $C 5 -max 90
-        } -result "Invalid bucket range 100-90." -returnCodes error
-        testcount 3.6 "Equal intervals - -max equal minimum" $type {100 249 120 170 190 195 201 200} 5 {100 101 102 103 104} {1 0 0 0 0} -max 100
-        testcount 3.7 "Equal intervals - -max above minimum" $type {100 249 120 170 190 195 201 200} 5 {100 105 110 115 120} {1 0 0 0 1} -max 120
-        testcount 3.8 "Equal intervals - -max equal maximum" $type {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -max 249
-        testcount 3.9 "Equal intervals - -max above maximum" $type {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
     }
+
     if {0} {
         # Basic tests for double - separated because interval limits differ from integer cases
-        testcount 2.0 "Equal intervals - unit step" double {0 1 2 3 4 5} 6 {.0 0.8333333333333334 1.6666666666666667 2.5 3.3333333333333335 4.166666666666667} {1 1 1 1 1 1}
-        testcount 2.1 "Equal intervals - single interval" double {0 1 2 3 4 5} 1 {0} {6}
-        testcount 2.2 "Equal intervals" double {0 .00001 .003 .0002 .5 .04} 6 {0.0 0.08333333333333333 0.16666666666666666 0.25 0.3333333333333333 0.41666666666666663} {5 0 0 0 0 1}
-        testcount 2.3 "Equal intervals" double {0 .00001 .00002 .00003 .00004 .00005} 6 {0.0 8.333333333333334e-6 1.6666666666666667e-5 2.5e-5 3.3333333333333335e-5 4.166666666666667e-5} {1 1 1 1 1 1}
-        testcount 2.4 "Equal intervals" double {-10e100 0 10e100} 10 {-1e+101 -8e+100 -6e+100 -3.999999999999999e+100 -1.9999999999999996e+100 0.0 2.0000000000000012e+100 3.999999999999999e+100 6.0000000000000005e+100 8.000000000000002e+100} {1 0 0 0 0 1 0 0 0 1}
-        testcount 2.5 "Equal intervals - -min below minimum" double {0 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min .0002
-        testcount 2.6 "Equal intervals - -min equal minimum" double {-.000004 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min -0.000004
-        testcount 3.1 "Equal intervals - -min equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
-        testcount 3.2 "Equal intervals - -min above minimum" double {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
-        testcount 3.3 "Equal intervals - -min equal maximum" double {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
-
-        test column_histogram-double-count-3.4 {
-            Equal intervals - -min above maximum
-        } -body {
-            set C [newcolumn double {100 249 120 170 190 195 201 200}]
-            tarray::column groupby equalintervals count $C 5 -min 250
-        } -result "Invalid bucket range 250-249." -returnCodes error
-        
-        test column_histogram-double-count-3.5 {
-            Equal intervals - -max below minimum
-        } -body {
-            set C [newcolumn double {100 249 120 170 190 195 201 200}]
-            tarray::column groupby equalintervals count $C 5 -max 90
-        } -result "Invalid bucket range 100-90." -returnCodes error
-        testcount 3.6 "Equal intervals - -max equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 101 102 103 104} {1 0 0 0 0} -max 100
-        testcount 3.7 "Equal intervals - -max above minimum" double {100 249 120 170 190 195 201 200} 5 {100 105 110 115 120} {1 0 0 0 1} -max 120
-        testcount 3.8 "Equal intervals - -max equal maximum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -max 249
-        testcount 3.9 "Equal intervals - -max above maximum" double {100 249 120 170 190 195 201 200} 5 {100 132 164 196 228} {2 0 3 2 1} -max 255
+        testcount 2.0 "Histogram - unit step" double {0 1 2 3 4 5} 6 {.0 0.8333333333333334 1.6666666666666667 2.5 3.3333333333333335 4.166666666666667} {1 1 1 1 1 1}
+        testcount 2.1 "Histogram - single interval" double {0 1 2 3 4 5} 1 {0} {6}
+        testcount 2.2 "Histogram" double {0 .00001 .003 .0002 .5 .04} 6 {0.0 0.08333333333333333 0.16666666666666666 0.25 0.3333333333333333 0.41666666666666663} {5 0 0 0 0 1}
+        testcount 2.3 "Histogram" double {0 .00001 .00002 .00003 .00004 .00005} 6 {0.0 8.333333333333334e-6 1.6666666666666667e-5 2.5e-5 3.3333333333333335e-5 4.166666666666667e-5} {1 1 1 1 1 1}
+        testcount 2.4 "Histogram" double {-10e100 0 10e100} 10 {-1e+101 -8e+100 -6e+100 -3.999999999999999e+100 -1.9999999999999996e+100 0.0 2.0000000000000012e+100 3.999999999999999e+100 6.0000000000000005e+100 8.000000000000002e+100} {1 0 0 0 0 1 0 0 0 1}
+        testcount 2.5 "Histogram - -min below minimum" double {0 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min .0002
+        testcount 2.6 "Histogram - -min equal minimum" double {-.000004 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min -0.000004
+        testcount 3.1 "Histogram - -min equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
+        testcount 3.2 "Histogram - -min above minimum" double {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
+        testcount 3.3 "Histogram - -min equal maximum" double {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
     }    
 
+    # Following caused memory overwrite
+    test column_histogram-crash-1.0 {
+        Crash because of integer overflow resulting in negative bucket index
+    } -setup {
+        # Nothing specifically magic about these numbers other than
+        # the integer overflow on difference. Just happens to be
+        # the random values generated that triggered the crash
+        set C [newcolumn int {-2098313040 923121517 2133372464}]
+    } -body {
+        tarray::column histogram $C 10
+    } -result ""
+
+    test column_histogram-limits-1.0 {
+        Test limits of each type
+    } -setup {
+        set C [newcolumn int {-0x7fffffff 0 0x7fffffff}]
+    } -body {
+        # This fails because the step size does not fit in a column
+        tarray::column histogram $C 2
+    } -result "" -returnCodes error
+
+
+
+    
     # Basic test for boolean
     # Basic test (error) for string, any
 }
