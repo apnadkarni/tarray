@@ -5431,20 +5431,26 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
 
         switch (thdr->type) {
         case TA_BYTE:
+            /* Check the first and last lower bounds */
             if (minval.wval < 0 || last.wval > UINT8_MAX)
                 goto invalid_bucket_interval;
             minval.ucval = (unsigned char) minval.wval;
             if (maxval.wval > UINT8_MAX) /* Already know maxval > 0 'cause maxval > minval */
+                goto invalid_bucket_interval;
+            if (step.wval > UINT8_MAX)
                 goto invalid_bucket_interval;
             maxval.ucval = (unsigned char) maxval.wval;
             step.ucval  = (unsigned char) step.wval;
             last.ucval  = (unsigned char) last.wval;
             break;
         case TA_INT:
+            /* Check the first and last lower bounds */
             if (minval.wval < INT32_MIN || last.wval > INT32_MAX)
                 goto invalid_bucket_interval;
             minval.ival = (int) minval.wval;
             if (maxval.wval > INT32_MAX) /* Already know maxval > INT32_MIN 'cause maxval > minval */
+                goto invalid_bucket_interval;
+            if (step.wval > INT32_MAX)
                 goto invalid_bucket_interval;
             maxval.ival = (int) maxval.wval;
             step.ival  = (int) step.wval;
@@ -5455,6 +5461,8 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 goto invalid_bucket_interval;
             minval.uival = (unsigned int) minval.wval;
             if (maxval.wval > UINT32_MAX) /* Already know maxval > 0 'cause maxval > minval */
+                goto invalid_bucket_interval;
+            if (step.wval > UINT32_MAX)
                 goto invalid_bucket_interval;
             maxval.uival = (unsigned int) maxval.wval;
             step.uival  = (unsigned int) step.wval;
@@ -5517,7 +5525,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 bucket_index = nbuckets-1;                                               \
             else  \
                 bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index < nbuckets); \
+            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets); \
             pbucket[bucket_index] += 1;                                 \
         }                                                               \
     } while (0)
@@ -5539,7 +5547,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 bucket_index = nbuckets-1;                                               \
             else                                                      \
                 bucket_index = (int)((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index < nbuckets); \
+            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets);    \
             /* TBD - overflow checks? */                                \
             pbucket[bucket_index] += pdata[i];                          \
         }                                                               \
@@ -5568,7 +5576,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 bucket_index = nbuckets-1;                                               \
             else  \
                 bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index < nbuckets); \
+            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets); \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
@@ -5602,7 +5610,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 bucket_index = nbuckets-1;                                               \
             else  \
                 bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index < nbuckets); \
+            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets); \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
@@ -5677,7 +5685,7 @@ nonpositive_step: /* objv[6] must be step value */
     goto error_return;
 
 invalid_bucket_interval:
-    Tcl_SetResult(ip, "The bucket parameters are invalid for the column type.", TCL_STATIC);
+    Tcl_SetResult(ip, "The bucket parameters are invalid or out of range for the column type.", TCL_STATIC);
     
 error_return:
     thdr_free(buckets);
