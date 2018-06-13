@@ -5450,10 +5450,12 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             minval.ival = (int) minval.wval;
             if (maxval.wval > INT32_MAX) /* Already know maxval > INT32_MIN 'cause maxval > minval */
                 goto invalid_bucket_interval;
-            if (step.wval > INT32_MAX)
-                goto invalid_bucket_interval;
             maxval.ival = (int) maxval.wval;
-            step.ival  = (int) step.wval;
+            /* NOTE: check against UINT32_MAX, not INT32_MAX as 
+               step needs to be unsigned to cover full signed range */
+            if (step.wval > UINT32_MAX)
+                goto invalid_bucket_interval;
+            step.uival  = (unsigned int) step.wval;
             last.ival  = (int) last.wval;
             break;
         case TA_UINT:
@@ -5508,7 +5510,14 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
  */
 #define OUTSIDE_LIMITS(i_, field_) (pdata[i_] < minval.field_ || pdata[i_] > maxval.field_)
 
-#define FILL_COUNTS(type_, field_)                                      \
+#define BUCKET_INDEX(val_, field_, unsigned_type_, step_field_)         \
+    (                                                                   \
+        ((val_) > 0 && minval.field_ < 0) ?                             \
+        ((((unsigned_type_)(val_)) + (- minval.field_)) / step.step_field_) : \
+        (((val_) - minval.field_) / step.step_field_)                   \
+        )
+
+#define FILL_COUNTS(type_, field_, unsigned_type_, step_field_)         \
     do {                                                                \
         int i, bucket_index;                                            \
         type_ *pdata;                                                   \
@@ -5522,15 +5531,16 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         for (i = 0; i < count; ++i) {                                   \
             if (OUTSIDE_LIMITS(i, field_)) continue;                    \
             if (pdata[i] > last.field_)                                 \
-                bucket_index = nbuckets-1;                                               \
-            else  \
-                bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets); \
+                bucket_index = nbuckets-1;                              \
+            else                                                        \
+                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+            if (bucket_index < 0 && bucket_index >= nbuckets)           \
+                goto bucket_error;                                      \
             pbucket[bucket_index] += 1;                                 \
         }                                                               \
-    } while (0)
+    } while (0)                                                         \
 
-#define FILL_SUMS(type_, field_, sum_type_)                             \
+#define FILL_SUMS(type_, field_, sum_type_, unsigned_type_, step_field_) \
     do {                                                                \
         int i, bucket_index;                                            \
         type_ *pdata;                                                   \
@@ -5546,14 +5556,15 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
             else                                                      \
-                bucket_index = (int)((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets);    \
+                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+            if (bucket_index < 0 && bucket_index >= nbuckets)           \
+                goto bucket_error;                                      \
             /* TBD - overflow checks? */                                \
             pbucket[bucket_index] += pdata[i];                          \
         }                                                               \
     } while (0)
 
-#define FILL_INDICES(type_, field_)                                     \
+#define FILL_INDICES(type_, field_, unsigned_type_, step_field_)         \
     do {                                                                \
         int i, bucket_index, initial_size;                              \
         type_ *pdata;                                                   \
@@ -5575,8 +5586,9 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
             else  \
-                bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets); \
+                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+            if (bucket_index < 0 && bucket_index >= nbuckets)           \
+                goto bucket_error;                                      \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
@@ -5587,7 +5599,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         }                                                               \
     } while (0)
 
-#define FILL_VALUES(type_, field_)                                      \
+#define FILL_VALUES(type_, field_, unsigned_type_, step_field_)         \
     do {                                                                \
         int i, bucket_index, initial_size;                              \
         type_ *pdata;                                                   \
@@ -5609,8 +5621,9 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (pdata[i] > last.field_)                                 \
                 bucket_index = nbuckets-1;                                               \
             else  \
-                bucket_index = (int) ((pdata[i] - minval.field_) / step.field_); \
-            TA_ASSERT(bucket_index >= 0 && bucket_index < nbuckets); \
+                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+            if (bucket_index < 0 && bucket_index >= nbuckets)           \
+                goto bucket_error;                                      \
             inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
             if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
                 != TCL_OK)                                              \
@@ -5626,46 +5639,47 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
     case TA_BYTE:
         FILL_LOWS(unsigned char, ucval);
         switch ((enum flags_e)opt) {
-        case TA_COUNT_CMD: FILL_COUNTS(unsigned char, ucval); break;
-        case TA_SUM_CMD: FILL_SUMS(unsigned char, ucval, Tcl_WideInt); break;
-        case TA_VALUES_CMD: FILL_VALUES(unsigned char, ucval); break;
-        case TA_INDICES_CMD: FILL_INDICES(unsigned char, ucval); break;
+        case TA_COUNT_CMD: FILL_COUNTS(unsigned char, ucval, unsigned char, ucval ); break;
+        case TA_SUM_CMD: FILL_SUMS(unsigned char, ucval, Tcl_WideInt, unsigned char, ucval); break;
+        case TA_VALUES_CMD: FILL_VALUES(unsigned char, ucval, unsigned char, ucval); break;
+        case TA_INDICES_CMD: FILL_INDICES(unsigned char, ucval, unsigned char, ucval); break;
         }
         break;
     case TA_INT:
         FILL_LOWS(int, ival);
         switch ((enum flags_e)opt) {
-        case TA_COUNT_CMD: FILL_COUNTS(int, ival); break;
-        case TA_SUM_CMD: FILL_SUMS(int, ival, Tcl_WideInt); break;
-        case TA_VALUES_CMD: FILL_VALUES(int, ival); break;
-        case TA_INDICES_CMD: FILL_INDICES(int, ival); break;
+            /* NOTE: last two macro params are *unsigned* types */
+        case TA_COUNT_CMD: FILL_COUNTS(int, ival, unsigned int, uival); break;
+        case TA_SUM_CMD: FILL_SUMS(int, ival, Tcl_WideInt, unsigned int, uival); break;
+        case TA_VALUES_CMD: FILL_VALUES(int, ival, unsigned int, uival); break;
+        case TA_INDICES_CMD: FILL_INDICES(int, ival, unsigned int, uival); break;
         }
         break;
     case TA_UINT:
         FILL_LOWS(unsigned int, uival);
         switch ((enum flags_e)opt) {
-        case TA_COUNT_CMD: FILL_COUNTS(unsigned int, uival); break;
-        case TA_SUM_CMD: FILL_SUMS(unsigned int, uival, Tcl_WideInt); break;
-        case TA_VALUES_CMD: FILL_VALUES(unsigned int, uival); break;
-        case TA_INDICES_CMD: FILL_INDICES(unsigned int, uival); break;
+        case TA_COUNT_CMD: FILL_COUNTS(unsigned int, uival, unsigned int, uival); break;
+        case TA_SUM_CMD: FILL_SUMS(unsigned int, uival, Tcl_WideInt, unsigned int, uival); break;
+        case TA_VALUES_CMD: FILL_VALUES(unsigned int, uival, unsigned int, uival); break;
+        case TA_INDICES_CMD: FILL_INDICES(unsigned int, uival, unsigned int, uival); break;
         }
         break;
     case TA_WIDE:
         FILL_LOWS(Tcl_WideInt, wval);
         switch ((enum flags_e)opt) {
-        case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval); break;
-        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt); break;
-        case TA_VALUES_CMD: FILL_VALUES(Tcl_WideInt, wval); break;
-        case TA_INDICES_CMD: FILL_INDICES(Tcl_WideInt, wval); break;
+        case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval, uint64_t, wval); break;
+        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt, uint64_t, wval); break;
+        case TA_VALUES_CMD: FILL_VALUES(Tcl_WideInt, wval, uint64_t, wval); break;
+        case TA_INDICES_CMD: FILL_INDICES(Tcl_WideInt, wval, uint64_t, wval); break;
         }
         break;
     case TA_DOUBLE:
         FILL_LOWS(double, dval);
         switch ((enum flags_e)opt) {
-        case TA_COUNT_CMD: FILL_COUNTS(double, dval); break;
-        case TA_SUM_CMD: FILL_SUMS(double, dval, double); break;
-        case TA_VALUES_CMD: FILL_VALUES(double, dval); break;
-        case TA_INDICES_CMD: FILL_INDICES(double, dval); break;
+        case TA_COUNT_CMD: FILL_COUNTS(double, dval, double, dval); break;
+        case TA_SUM_CMD: FILL_SUMS(double, dval, double, double, dval); break;
+        case TA_VALUES_CMD: FILL_VALUES(double, dval, double, dval); break;
+        case TA_INDICES_CMD: FILL_INDICES(double, dval, double, dval); break;
         }
         break;
     }
@@ -5680,8 +5694,12 @@ invalid_limits:
     Tcl_SetResult(ip, "The specified maximum must not be less than the specified minimum.", TCL_STATIC);
     goto error_return;
 
+bucket_error:
+    Tcl_SetResult(ip, "Internal error: bucket index is not within limits.", TCL_STATIC);
+    goto error_return;
+
 nonpositive_step: /* objv[6] must be step value */
-    Tcl_SetObjResult(ip, Tcl_ObjPrintf("Step value %s is not positive.", Tcl_GetString(objv[6])));
+    Tcl_SetObjResult(ip, Tcl_ObjPrintf("Step value %s does not fit in target type width.", Tcl_GetString(objv[6])));
     goto error_return;
 
 invalid_bucket_interval:
