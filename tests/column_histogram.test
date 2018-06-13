@@ -255,7 +255,7 @@ namespace eval tarray::test {
         testcount 3.3 "Histogram - -min equal maximum" double {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
     }    
 
-    # Following caused memory overwrite
+    # Following caused memory overwrite at one point
     test column_histogram-crash-1.0 {
         Crash because of integer overflow resulting in negative bucket index
     } -setup {
@@ -267,10 +267,32 @@ namespace eval tarray::test {
         tarray::column histogram $C 10
     } -result ""
 
+    # Test limits of each type
+    foreach {type limits} {
+        byte {0 255}
+        int {-0x7fffffff 0 0x7fffffff}
+        uint {0 0xffffffff}
+    } {
+        foreach collect {{} -count -sum -indices -values} {
+            testdef limits-${collect}-1.0 "Histogram - limits" $type $limits 1 {*}$collect
+            testdef limits-${collect}-1.2 "Histogram - limits" $type $limits 2 {*}$collect
+            testdef limits-${collect}-1.3 "Histogram - limits" $type $limits 3 {*}$collect
+        }
+    }
+    
     test column_histogram-limits-1.0 {
         Test limits of each type
     } -setup {
         set C [newcolumn int {-0x7fffffff 0 0x7fffffff}]
+    } -body {
+        # This fails because the step size does not fit in a column
+        tarray::column histogram $C 2
+    } -result ""
+
+    test column_histogram-limits-1.1 {
+        Test limits of each type
+    } -setup {
+        set C [newcolumn wide {-0x7fffffffffffffff 0 0x7fffffffffffffff}]
     } -body {
         # This fails because the step size does not fit in a column
         tarray::column histogram $C 2
