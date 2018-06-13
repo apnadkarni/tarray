@@ -5435,43 +5435,62 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             if (minval.wval < 0 || last.wval > UINT8_MAX)
                 goto invalid_bucket_interval;
             minval.ucval = (unsigned char) minval.wval;
-            if (maxval.wval > UINT8_MAX) /* Already know maxval > 0 'cause maxval > minval */
-                goto invalid_bucket_interval;
-            if (step.wval > UINT8_MAX)
-                goto invalid_bucket_interval;
-            maxval.ucval = (unsigned char) maxval.wval;
-            step.ucval  = (unsigned char) step.wval;
             last.ucval  = (unsigned char) last.wval;
+            if (step.wval > UINT8_MAX) {
+                if ((step.wval-1) == UINT8_MAX && nbuckets == 1) {
+                    /* Deals with edge cast min=0, step=256 */
+                    TA_ASSERT(last.wval == minval.wval);
+                } else 
+                    goto invalid_bucket_interval;
+            }
+            step.ucval  = (unsigned char) step.wval;
+            /* Already know maxval > 0 'cause maxval > minval */
+            if (maxval.wval > UINT8_MAX)
+                maxval.wval = UINT8_MAX;
+            else
+                maxval.ucval = (unsigned char) maxval.wval;
             break;
         case TA_INT:
             /* Check the first and last lower bounds */
             if (minval.wval < INT32_MIN || last.wval > INT32_MAX)
                 goto invalid_bucket_interval;
             minval.ival = (int) minval.wval;
-            if (maxval.wval > INT32_MAX) /* Already know maxval > INT32_MIN 'cause maxval > minval */
-                goto invalid_bucket_interval;
-            maxval.ival = (int) maxval.wval;
+            last.ival  = (int) last.wval;
             /* NOTE: check against UINT32_MAX, not INT32_MAX as 
                step needs to be unsigned to cover full signed range */
             if (step.wval > UINT32_MAX)
                 goto invalid_bucket_interval;
-            step.uival  = (unsigned int) step.wval;
-            last.ival  = (int) last.wval;
+            step.uival  = (unsigned int) step.wval; /* NOTE - use uival, not ival */
+            /* Already know maxval > INT32_MIN 'cause maxval > minval */
+            if (maxval.wval > INT32_MAX)
+                maxval.ival = INT32_MAX;
+            else
+                maxval.ival = (int) maxval.wval;
             break;
         case TA_UINT:
             if (minval.wval < 0 || last.wval > UINT32_MAX)
                 goto invalid_bucket_interval;
             minval.uival = (unsigned int) minval.wval;
-            if (maxval.wval > UINT32_MAX) /* Already know maxval > 0 'cause maxval > minval */
-                goto invalid_bucket_interval;
-            if (step.wval > UINT32_MAX)
-                goto invalid_bucket_interval;
-            maxval.uival = (unsigned int) maxval.wval;
-            step.uival  = (unsigned int) step.wval;
             last.uival  = (unsigned int) last.wval;
+            if (step.wval > UINT32_MAX) {
+                if ((step.wval-1) == UINT32_MAX && nbuckets == 1) {
+                    /* Deals with edge cast min=0, step=0xffffffff */
+                    TA_ASSERT(last.wval == minval.wval);
+                } else 
+                    goto invalid_bucket_interval;
+            }
+            step.uival  = (unsigned int) step.wval;
+            if (maxval.wval > UINT32_MAX) /* Already know maxval > 0 'cause maxval > minval */
+                maxval.uival = UINT32_MAX;
+            else
+                maxval.uival = (unsigned int) maxval.wval;
             break;
         case TA_WIDE:
-            /* No further range checks needed for wides */
+            /* No further range checks for wides. Because Tcl cannot
+               distinguish between signed and unsigned wides.
+               We cannot use the same mechanism as we did
+               for TA_INT because there is no wider type we can use
+               to check - TBD */
             break;
         }
         break;
@@ -5528,15 +5547,24 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         thdr_clear(buckets);                                            \
         pbucket = THDRELEMPTR(buckets, int, 0);                         \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
-        for (i = 0; i < count; ++i) {                                   \
-            if (OUTSIDE_LIMITS(i, field_)) continue;                    \
-            if (pdata[i] > last.field_)                                 \
-                bucket_index = nbuckets-1;                              \
-            else                                                        \
-                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
-            if (bucket_index < 0 && bucket_index >= nbuckets)           \
-                goto bucket_error;                                      \
-            pbucket[bucket_index] += 1;                                 \
+        if (nbuckets == 1) {                                            \
+            /* Special case. Note step here NOT accurate so loop */     \
+            /* below will not work */                                   \
+            for (i = 0; i < count; ++i) {                               \
+                if (OUTSIDE_LIMITS(i, field_)) continue;                \
+                pbucket[0] += 1;                                        \
+            }                                                           \
+        } else {                                                        \
+            for (i = 0; i < count; ++i) {                               \
+                if (OUTSIDE_LIMITS(i, field_)) continue;                \
+                if (pdata[i] > last.field_)                             \
+                    bucket_index = nbuckets-1;                          \
+                else                                                    \
+                    bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+                if (bucket_index < 0 && bucket_index >= nbuckets)       \
+                    goto bucket_error;                                  \
+                pbucket[bucket_index] += 1;                             \
+            }                                                           \
         }                                                               \
     } while (0)                                                         \
 
@@ -5551,16 +5579,25 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         thdr_clear(buckets);                                            \
         pbucket = THDRELEMPTR(buckets, sum_type_, 0);                   \
         pdata = THDRELEMPTR(thdr, type_, first);                        \
-        for (i = 0; i < count; ++i) {                                   \
-            if (OUTSIDE_LIMITS(i, field_)) continue;                    \
-            if (pdata[i] > last.field_)                                 \
-                bucket_index = nbuckets-1;                                               \
-            else                                                      \
-                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
-            if (bucket_index < 0 && bucket_index >= nbuckets)           \
-                goto bucket_error;                                      \
-            /* TBD - overflow checks? */                                \
-            pbucket[bucket_index] += pdata[i];                          \
+        if (nbuckets == 1) {                                            \
+            /* Special case. Note step here NOT accurate so loop */     \
+            /* below will not work */                                   \
+            for (i = 0; i < count; ++i) {                               \
+                if (OUTSIDE_LIMITS(i, field_)) continue;                \
+                pbucket[0] += pdata[i];                                 \
+            }                                                           \
+        } else {                                                        \
+            for (i = 0; i < count; ++i) {                               \
+                if (OUTSIDE_LIMITS(i, field_)) continue;                \
+                if (pdata[i] > last.field_)                             \
+                    bucket_index = nbuckets-1;                          \
+                else                                                    \
+                    bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+                if (bucket_index < 0 && bucket_index >= nbuckets)       \
+                    goto bucket_error;                                  \
+                /* TBD - overflow checks? */                            \
+                pbucket[bucket_index] += pdata[i];                      \
+            }                                                           \
         }                                                               \
     } while (0)
 
@@ -5583,9 +5620,11 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
             if (OUTSIDE_LIMITS(i, field_)) continue;                    \
-            if (pdata[i] > last.field_)                                 \
-                bucket_index = nbuckets-1;                                               \
-            else  \
+            if (nbuckets == 1)                                          \
+                bucket_index = 0; /* step possible invalid */           \
+            else if (pdata[i] > last.field_)                            \
+                bucket_index = nbuckets-1;                              \
+            else                                                        \
                 bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
             if (bucket_index < 0 && bucket_index >= nbuckets)           \
                 goto bucket_error;                                      \
@@ -5618,9 +5657,11 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         for (i = 0; i < count; ++i) {                                   \
             thdr_t *inner_thdr;                                         \
             if (OUTSIDE_LIMITS(i, field_)) continue;                    \
-            if (pdata[i] > last.field_)                                 \
-                bucket_index = nbuckets-1;                                               \
-            else  \
+            if (nbuckets == 1)                                          \
+                bucket_index = 0; /* step possible invalid */           \
+            else if (pdata[i] > last.field_)                          \
+                bucket_index = nbuckets-1;                              \
+            else                                                      \
                 bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
             if (bucket_index < 0 && bucket_index >= nbuckets)           \
                 goto bucket_error;                                      \
