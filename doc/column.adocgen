@@ -292,6 +292,10 @@ text {
 
     See ((^ sect_guide_column_histogram)) for an example.
     
+    **Note:** for columns of type `wide`, the command will raise an error if the
+    difference between the minimum and maximum covers the entire domain range of
+    wides \[-9223372036854775808, 9223372036854775807\] and `_NBUCKETS_` is `1`.
+
     ((cmddef column_identical "column identical _COLA_ _COLB_"))
 
     Returns 1 if both columns are of the same type, have the

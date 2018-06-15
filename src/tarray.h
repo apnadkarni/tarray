@@ -137,6 +137,13 @@ typedef struct ta_value_s {
         unsigned char ucval;
         Tcl_Obj *     oval;
         tas_t *       ptas;
+
+        /*
+         * 64-bit unsinged is not a valid tarray type.
+         * It is however used in some intermediate calcuations.
+         * The type field above will be invalid in such cases.
+         */
+        uint64_t      uwval;
     };
 } ta_value_t;
 
