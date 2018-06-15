@@ -2665,10 +2665,10 @@ namespace eval xtal::rt {
             table {
                 # TBD - check in C source that $target is not a column or
                 # table to prevent shimmering
-                tarray::table::sort {*}$options $operand 0
+                tarray::table::Sort {*}$options $operand 0
             }
             ""      { error "Operand of @sort must be a column or table" } 
-            default { tarray::column::sort {*}$options $operand}
+            default { tarray::column::Sort {*}$options $operand}
         }]
     }
 
@@ -2677,10 +2677,10 @@ namespace eval xtal::rt {
             table {
                 # TBD - check in C source that $target is not a column or
                 # table to prevent shimmering
-                tarray::table::sort {*}$options $operand $target
+                tarray::table::Sort {*}$options $operand $target
             }
             ""      { error "Operand of @sort must be a column or table" } 
-            default { tarray::column::sort -indirect $target {*}$options $operand}
+            default { tarray::column::Sort -indirect $target {*}$options $operand}
         }]
     }
 
