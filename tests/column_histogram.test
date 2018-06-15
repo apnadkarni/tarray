@@ -154,35 +154,22 @@ namespace eval tarray::test {
     }
 
     # Special cases
-    foreach type {any string boolean byte double int uint wide} {
-        # Must have positive interval count
+    foreach type {byte double int uint wide} {
         foreach compute {count sum indices values} {
+            # Must have positive interval count
             test column_histogram-$type-$compute-1.0 {
                 Error (count==0) column histogram $compute ($type) 
             } -body {
                 tarray::column histogram -$compute [samplecolumn $type] 0
             } -result "Number of buckets must be greater than zero." -returnCodes error
-        }
-        # Treatment of empty columns
-        foreach compute {count sum indices values} {
+            
+            # Treatment of empty columns
             test column_histogram-$type-$compute-1.1 {
                 Error empty column histogram $compute ($type) 
             } -body {
                 tarray::column histogram -$compute [newcolumn $type] 1
             } -result "Cannot determine min-max values for an empty column." -returnCodes error
-        }
-        if {$type in {any string}} {
-            test column_histogram-$type-$compute-1.2 {
-                Empty column histogram $compute ($type) 
-            } -body {
-                tarray::column histogram -min 0 -max 1 -$compute [newcolumn $type] 2
-            } -result "Operation is invalid for type $type." -returnCodes error
-        } elseif {$type ne "boolean"} {
-            test column_histogram-$type-$compute-1.2 {
-                Empty column histogram $compute ($type) 
-            } -body {
-                tarray::column histogram -min 0 -max 1 -$compute [newcolumn $type] 2
-            } -result [newtable2 {LowerBound Data} [newcolumn $type [list 0 [expr {$type eq "double" ? 0.5 : 1}]]] [newcolumn any [list [newcolumn $type] [newcolumn $type]]]]
+
         }
     }
 
@@ -197,6 +184,19 @@ namespace eval tarray::test {
         } -body {
             verify_histogram $C [tarray::column histogram {*}$args $C $count] {*}$args
         } -result ""
+    }
+    
+    proc testerrordef {id comment type init count err args} {
+        test column_histogram-$type-error-$id "$comment, args: $args" -setup {
+            set C [newcolumn $type $init]
+        } -body {
+            tarray::column histogram {*}$args $C $count
+        } -result $err -returnCodes error
+        test column_histogram-$type-error-span-$id "$comment, args: $args" -setup {
+            set C [newspancolumn $type $init]
+        } -body {
+            tarray::column histogram {*}$args $C $count
+        } -result $err -returnCodes error
     }
     
     # Basic tests
@@ -238,22 +238,17 @@ namespace eval tarray::test {
             testdef ${collect}-2.4.2 "Histogram - -max above minimum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 120
             testdef ${collect}-2.4.3 "Histogram - -max equal maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 249
             testdef ${collect}-2.4.4 "Histogram - -max above maximum" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -max 250
+
+            # -min -max
+            testdef ${collect}-2.5.0 "Histogram - -min -max with empty column" $type {} 2 {*}$collect -min 0 -max 1
+            testdef ${collect}-2.5.1 "Histogram - -min -max" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -min 120 -max 200
+            testerrordef ${collect}-2.5.2 "Histogram - -min -max" $type {100 249 120 170 190 195 201 200} 5 "Invalid bucket range 200-120." {*}$collect -min 200 -max 120
+            
+            # -cnames test
+            testdef ${collect}-3.0 "Histogram - -cnames" $type {100 249 120 170 190 195 201 200} 5 {*}$collect -cnames {Foo Bar}
+            
         }
     }
-
-    if {0} {
-        # Basic tests for double - separated because interval limits differ from integer cases
-        testcount 2.0 "Histogram - unit step" double {0 1 2 3 4 5} 6 {.0 0.8333333333333334 1.6666666666666667 2.5 3.3333333333333335 4.166666666666667} {1 1 1 1 1 1}
-        testcount 2.1 "Histogram - single interval" double {0 1 2 3 4 5} 1 {0} {6}
-        testcount 2.2 "Histogram" double {0 .00001 .003 .0002 .5 .04} 6 {0.0 0.08333333333333333 0.16666666666666666 0.25 0.3333333333333333 0.41666666666666663} {5 0 0 0 0 1}
-        testcount 2.3 "Histogram" double {0 .00001 .00002 .00003 .00004 .00005} 6 {0.0 8.333333333333334e-6 1.6666666666666667e-5 2.5e-5 3.3333333333333335e-5 4.166666666666667e-5} {1 1 1 1 1 1}
-        testcount 2.4 "Histogram" double {-10e100 0 10e100} 10 {-1e+101 -8e+100 -6e+100 -3.999999999999999e+100 -1.9999999999999996e+100 0.0 2.0000000000000012e+100 3.999999999999999e+100 6.0000000000000005e+100 8.000000000000002e+100} {1 0 0 0 0 1 0 0 0 1}
-        testcount 2.5 "Histogram - -min below minimum" double {0 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min .0002
-        testcount 2.6 "Histogram - -min equal minimum" double {-.000004 .00001 .003 .0002 .5 .04} 5 {.0002 0.10016000000000001 0.20012000000000002 0.30008 0.40004} {3 0 0 0 1} -min -0.000004
-        testcount 3.1 "Histogram - -min equal minimum" double {100 249 120 170 190 195 201 200} 5 {100 130 160 190 220} {2 0 1 4 1} -min 100
-        testcount 3.2 "Histogram - -min above minimum" double {100 249 120 170 190 195 201 200} 5 {120 146 172 198 224} {1 1 2 2 1} -min 120
-        testcount 3.3 "Histogram - -min equal maximum" double {100 249 120 170 190 195 201 200} 5 {249 250 251 252 253} {1 0 0 0 0} -min 249
-    }    
 
     # Following caused memory overwrite at one point
     test column_histogram-crash-1.0 {
@@ -276,20 +271,20 @@ namespace eval tarray::test {
         wide {-9223372036854775808 9223372036854775806}
     } {
         foreach collect {{} -count -sum -indices -values} {
-            testdef limits${collect}-1.0 "Histogram - limits" $type $limits 1 {*}$collect
-            testdef limits${collect}-1.1 "Histogram - limits" $type $limits 2 {*}$collect
-            testdef limits${collect}-1.2 "Histogram - limits" $type $limits 3 {*}$collect
+            testdef limits${collect}-1.0 "Histogram - $type limits" $type $limits 1 {*}$collect
+            testdef limits${collect}-1.1 "Histogram - $type limits" $type $limits 2 {*}$collect
+            testdef limits${collect}-1.2 "Histogram - $type limits" $type $limits 3 {*}$collect
         }
     }
 
     # Special case for full wide range
     set limits {-9223372036854775808 9223372036854775807}
     foreach collect {{} -count -sum -indices -values} {
-        testdef column_histogram-wide-limits${collect}-1.3 "Histogram - limits full wide tange" $type $limits 2 {*}$collect
+        testdef column_histogram-wide-limits${collect}-1.3 "Histogram - limits full wide range" $type $limits 2 {*}$collect
         # This case fails when full wide range and number of bins is 1
 
         test column_histogram-wide-limits-1.1 {
-            Test limits of each type
+            Histogram - wide full domain range (error)
         } -setup {
             set C [newcolumn wide $limits]
         } -body {
@@ -300,8 +295,41 @@ namespace eval tarray::test {
 
 
     
-    # Basic test for boolean
     # Basic test (error) for string, any
+    foreach type {string any} {
+        foreach compute {count sum indices values} {
+            test column_histogram-$type-$compute-1.0 {
+                Error (count==0) column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -$compute [samplecolumn $type] 0
+            } -result "Number of buckets must be greater than zero." -returnCodes error
+            
+            # Treatment of empty columns
+            test column_histogram-$type-$compute-1.1 {
+                Error empty column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -$compute [newcolumn $type] 1
+            } -result "Cannot determine min-max values for an empty column." -returnCodes error
+
+            test column_histogram-$type-$compute-1.2 {
+                Empty column histogram $compute ($type) 
+            } -body {
+                tarray::column histogram -min 0 -max 1 -$compute [newcolumn $type] 2
+            } -result "Operation is invalid for type $type." -returnCodes error
+
+            test column_histogram-$type-$compute-1.3 {
+                Histogram - $type (error)
+            } -setup {
+                set C [newcolumn $type {0}]
+            } -body {
+                # This fails because the step size does not fit in a column
+                tarray::column histogram $C 1
+            } -result "Operation is invalid for type $type." -returnCodes error
+        }
+    }
+
+    # Basic test for boolean
+
 }
 
 ::tcltest::cleanupTests
