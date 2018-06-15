@@ -5424,10 +5424,12 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         if (maxval.wval < minval.wval)
             goto invalid_limits;
         CHECK_OK( ta_value_from_obj(ip, objv[6], TA_WIDE, &step) );
+#if 0
         if (step.wval <= 0)
             goto nonpositive_step;
         /* All step calculations now unsigned. Note that the step
            can be greated than the signed max value */
+#endif
         step.uwval = step.wval;
 
         /* Calculate lower bound of last bucket */

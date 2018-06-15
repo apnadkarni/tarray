@@ -66,6 +66,7 @@ OVF_ADDU_FN(uint8)
 #define ovf_add_uint32 __builtin_uadd_overflow
 /* For 64-bit assumes ll is 64 bits */
 #define ovf_add_int64  __builtin_saddll_overflow
+#define ovf_add_uint64  __builtin_uaddll_overflow
 
 /* Generic gcc built-in */
 #define OVF_SUB_FN(type_) \
@@ -98,6 +99,7 @@ OVF_MULU_FN(uint8)
 #define ovf_mul_uint32 __builtin_umul_overflow
 /* For 64-bit assumes ll is 64 bits */
 #define ovf_mul_int64  __builtin_smulll_overflow
+#define ovf_mul_uint64  __builtin_umulll_overflow
 
 #else
 
@@ -123,6 +125,7 @@ OVF_MULU_FN(uint8)
 OVF_ADDU_FN(uint8)
 OVF_ADD_FN(int32, INT32_MIN, INT32_MAX)
 OVF_ADDU_FN(uint32)
+OVF_ADDU_FN(uint64)
 
 TA_INLINE int ovf_add_int64(int64_t a, int64_t b, int64_t *presult) {
     *presult = a + b;
@@ -178,6 +181,7 @@ OVF_MUL_FN(int32, INT32_MIN, INT32_MAX)
 OVF_MULU_FN(uint32, UINT32_MAX)
 
 int ovf_mul_int64_impl(int64_t a, int64_t b, int64_t *presult);
+int ovf_mul_uint64_impl(uint64_t a, uint64_t b, uint64_t *presult);
 
 
 #if 0 && defined(_MSC_VER) && defined(_M_AMD64)
@@ -195,6 +199,7 @@ TA_INLINE int ovf_mul_int64(int64_t a, int64_t b, int64_t *presult) {
 
 /* Too long to be inline - defined in tamath.c */
 #define ovf_mul_int64 ovf_mul_int64_impl
+#define ovf_mul_uint64 ovf_mul_uint64_impl
 
 #endif
 

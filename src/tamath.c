@@ -1603,3 +1603,16 @@ int ovf_mul_int64_impl(int64_t a, int64_t b, int64_t *presult)
     /* No overflow */
     return 0;
 }
+
+int ovf_mul_uint64_impl(uint64_t a, uint64_t b, uint64_t *presult)
+{
+    
+    if (b == 0) {
+        *presult = 0;
+        return 0;
+    }
+    if (a > (UINT64_MAX/b))
+        return 1;
+    *presult = a*b;
+    return 0;
+}
