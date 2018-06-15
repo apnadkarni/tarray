@@ -5370,6 +5370,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
     };
     Tcl_Obj *tcol;
     Tcl_Obj *objs[2];
+    uint64_t u64;
 
     if (objc != 7) {
 	Tcl_WrongNumArgs(ip, 1, objv, "COL count|sum|values|indices NBUCKETS MIN MAX STEP");
@@ -5425,10 +5426,36 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         CHECK_OK( ta_value_from_obj(ip, objv[6], TA_WIDE, &step) );
         if (step.wval <= 0)
             goto nonpositive_step;
-        if (ovf_mul_int64(step.wval, (nbuckets-1), &last.wval) ||
-            ovf_add_int64(last.wval, minval.wval, &last.wval))
-            goto invalid_bucket_interval;
+        /* All step calculations now unsigned. Note that the step
+           can be greated than the signed max value */
+        step.uwval = step.wval;
 
+        /* Calculate lower bound of last bucket */
+        if (ovf_mul_uint64(step.uwval, (nbuckets-1), &u64))
+            goto invalid_bucket_interval;
+        /* u64 is diff between start of first bucket and last bucket */
+        if (minval.wval >= 0) {
+            if (ovf_add_uint64((uint64_t)minval.wval, u64, &u64))
+                goto invalid_bucket_interval;
+            /* Above was unsigned overflow check, also check signed */
+            if (u64 > INT64_MAX)
+                goto invalid_bucket_interval;
+            last.wval = (int64_t) u64;
+        } else {
+            /* We don't have a signed/unsigned combination of ovf_ routines */
+            uint64_t positive_min = (uint64_t) -minval.wval;
+            if (positive_min <= u64) {
+                u64 -= positive_min;
+                if (u64 > INT64_MAX)
+                    goto invalid_bucket_interval;
+                last.wval = (int64_t) u64;
+            } else  {
+                /* Overflow not possible since INT_MIN < minval < 0
+                   and its magnitude is greater than u64 */
+                last.wval = minval.wval + u64;
+            }
+        }
+        
         switch (thdr->type) {
         case TA_BYTE:
             /* Check the first and last lower bounds */
@@ -5452,14 +5479,20 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
             break;
         case TA_INT:
             /* Check the first and last lower bounds */
-            if (minval.wval < INT32_MIN || last.wval > INT32_MAX)
+            if (minval.wval < INT32_MIN ||
+                (last.wval > INT32_MAX && nbuckets != 1))
                 goto invalid_bucket_interval;
             minval.ival = (int) minval.wval;
             last.ival  = (int) last.wval;
             /* NOTE: check against UINT32_MAX, not INT32_MAX as 
                step needs to be unsigned to cover full signed range */
-            if (step.wval > UINT32_MAX)
-                goto invalid_bucket_interval;
+            if (step.wval > UINT32_MAX) {
+                if ((step.wval-1) == UINT32_MAX && nbuckets == 1) {
+                    /* Deals with edge cast min=0, step=0xffffffff */
+                    TA_ASSERT(last.wval == minval.wval);
+                } else 
+                    goto invalid_bucket_interval;
+            }
             step.uival  = (unsigned int) step.wval; /* NOTE - use uival, not ival */
             /* Already know maxval > INT32_MIN 'cause maxval > minval */
             if (maxval.wval > INT32_MAX)
@@ -5486,11 +5519,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 maxval.uival = (unsigned int) maxval.wval;
             break;
         case TA_WIDE:
-            /* No further range checks for wides. Because Tcl cannot
-               distinguish between signed and unsigned wides.
-               We cannot use the same mechanism as we did
-               for TA_INT because there is no wider type we can use
-               to check - TBD */
+            /* No further range checks for wides. */
             break;
         }
         break;
@@ -5708,10 +5737,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
     case TA_WIDE:
         FILL_LOWS(Tcl_WideInt, wval);
         switch ((enum flags_e)opt) {
-        case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval, uint64_t, wval); break;
-        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt, uint64_t, wval); break;
-        case TA_VALUES_CMD: FILL_VALUES(Tcl_WideInt, wval, uint64_t, wval); break;
-        case TA_INDICES_CMD: FILL_INDICES(Tcl_WideInt, wval, uint64_t, wval); break;
+        case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval, uint64_t, uwval); break;
+        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt, uint64_t, uwval); break;
+        case TA_VALUES_CMD: FILL_VALUES(Tcl_WideInt, wval, uint64_t, uwval); break;
+        case TA_INDICES_CMD: FILL_INDICES(Tcl_WideInt, wval, uint64_t, uwval); break;
         }
         break;
     case TA_DOUBLE:
