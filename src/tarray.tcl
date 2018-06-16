@@ -173,7 +173,7 @@ proc tarray::column::_histogram_boolean {col nintervals compute} {
             set datacol [create int [list $n0 $n1]]
         }
         sum {
-            set datacol [create int [list 0 [count $col 1]]]
+            set datacol [create wide [list 0 [count $col 1]]]
         }
         indices {
             set datacol [create any \
