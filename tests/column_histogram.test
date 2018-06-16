@@ -4,7 +4,7 @@ source testutil.tcl
 
 namespace eval tarray::test {
     
-    proc verify_histogram {srccol result args} {
+    proc verify_histogram {srccol nintervals result args} {
         # Result table must have exactly two columns
         set cnames [tarray::table cnames $result]
         if {[llength $cnames] != 2} {
@@ -12,6 +12,10 @@ namespace eval tarray::test {
         }
         lassign [tarray::table columns $result] catcol datacol
         set ncat [tarray::column size $catcol]
+
+        if {$nintervals != $ncat} {
+            return "Length of table $ncat not equal to number of intervals $nintervals."
+        }
 
         array set opts [tarray::parseargs args {
             {cnames.arg {LowerBound Data}}
@@ -154,29 +158,29 @@ namespace eval tarray::test {
     }
 
 
-    proc testdef {id comment type init count args} {
+    proc testdef {id comment type init nintervals args} {
         test column_histogram-$type-$id "$comment, args: $args" -setup {
             set C [newcolumn $type $init]
         } -body {
-            verify_histogram $C [tarray::column histogram {*}$args $C $count] {*}$args
+            verify_histogram $C $nintervals [tarray::column histogram {*}$args $C $nintervals] {*}$args
         } -result ""
         test column_histogram-$type-span-$id $comment -setup {
             set C [newspancolumn $type $init]
         } -body {
-            verify_histogram $C [tarray::column histogram {*}$args $C $count] {*}$args
+            verify_histogram $C [tarray::column histogram {*}$args $C $nintervals] {*}$args
         } -result ""
     }
     
-    proc testerrordef {id comment type init count err args} {
+    proc testerrordef {id comment type init nintervals err args} {
         test column_histogram-$type-error-$id "$comment, args: $args" -setup {
             set C [newcolumn $type $init]
         } -body {
-            tarray::column histogram {*}$args $C $count
+            tarray::column histogram {*}$args $C $nintervals
         } -result $err -returnCodes error
         test column_histogram-$type-error-span-$id "$comment, args: $args" -setup {
             set C [newspancolumn $type $init]
         } -body {
-            tarray::column histogram {*}$args $C $count
+            tarray::column histogram {*}$args $C $nintervals
         } -result $err -returnCodes error
     }
     
@@ -315,10 +319,10 @@ namespace eval tarray::test {
 
     # Boolean tests
     foreach collect {{} -count -sum -indices -values} {
-        testerrordef ${collect}-1.0 "Histogram - count = 0 (error)" boolean {0 1} 0 "Number of buckets must be greater than zero." {*}$collect
-        testerrordef ${collect}-1.0.1 "Histogram - count = -1 (error)" boolean {0 1} -1 "Number of buckets must be greater than zero." {*}$collect
+        testerrordef ${collect}-1.0 "Histogram - count = 0 (error)" boolean {0 1} 0 "Number of intervals must be 2 for boolean columns." {*}$collect
+        testerrordef ${collect}-1.0.1 "Histogram - count = -1 (error)" boolean {0 1} -1 "Number of intervals must be 2 for boolean columns." {*}$collect
         testerrordef ${collect}-1.1 "Histogram - empty column" boolean {} 1 "Cannot determine min-max values for an empty column." {*}$collect
-        testerrordef ${collect}-1.2 "Histogram - more than 2 buckets" boolean {0 1 0 1 1 0} 3 "" {*}$collect
+        testerrordef ${collect}-1.2 "Histogram - more than 2 buckets" boolean {0 1 0 1 1 0} 3 "Number of intervals must be 2 for boolean columns." {*}$collect
             
         testdef ${collect}-2.0 "Histogram - basic" boolean {0 1 0 1 1 0} 2 {*}$collect
         testdef ${collect}-2.1 "Histogram - basic" boolean {0 1 0 1 1 0} 1 {*}$collect

@@ -162,6 +162,36 @@ proc tarray::_histogram_default_step {val} {
     return "0.[string repeat 0 [expr {$nfrac - 1}]]1$exp"
 }
 
+proc tarray::column::_histogram_boolean {col nintervals compute} {
+    if {$nintervals != 2} {
+        error "Number of intervals must be 2 for boolean columns."
+    }
+    switch -exact -- $compute {
+        count {
+            set n1 [count $col 1]
+            set n0 [expr {[size $col]-$n1}]
+            set datacol [create int [list $n0 $n1]]
+        }
+        sum {
+            set datacol [create int [list 0 [count $col 1]]]
+        }
+        indices {
+            set datacol [create any \
+                             [list \
+                                  [search -all $col 0] \
+                                  [search -all $col 1]]]
+        }
+        values {
+            set n1   [count $col 1]
+            set n0   [expr {[size $col]-$n1}]
+            set datacol [create any [list \
+                                         [bitmap0 $n0] \
+                                         [bitmap1 $n1]]]
+        }
+    }
+    return [list [column create boolean {0 1}] $datacol]
+}
+
 proc tarray::column::histogram {args} {
     parseargs args {
         {compute.radio count {count sum values indices}}
@@ -171,7 +201,7 @@ proc tarray::column::histogram {args} {
     } -setvars
         
     if {[llength $args] != 2} {
-        error "wrong #args: should be \"column histogram ?options? COL ARG\"."
+        error "wrong #args: should be \"column histogram ?options? COL NINTERVALS\"."
     }
     lassign $args col nintervals
     
@@ -179,6 +209,11 @@ proc tarray::column::histogram {args} {
         error "Number of buckets must be greater than zero."
     }
 
+    set coltype [type $col]
+    if {$coltype eq "boolean"} {
+        return [tarray::table create2 $cnames [_histogram_boolean $col $nintervals $compute]]
+    }
+    
     if {![info exists min] || ![info exists max]} {
         lassign [minmax $col] smallest largest
         if {![info exists min]} {
@@ -193,7 +228,7 @@ proc tarray::column::histogram {args} {
         error "Invalid bucket range $min-$max."
     }
 
-    if {[type $col] eq "double"} {
+    if {$coltype eq "double"} {
         # Take care to compute as doubles in case values passed in
         # as integers. Note that thanks to FP inexact representations
         # this is not entirely accurate. The C code will take care
