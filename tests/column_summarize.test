@@ -77,19 +77,6 @@ namespace eval tarray::test {
         } -result ""
     }
     
-    proc testerrordef {id comment type init nintervals err args} {
-        test column_histogram-$type-error-$id "$comment, args: $args" -setup {
-            set C [newcolumn $type $init]
-        } -body {
-            tarray::column histogram {*}$args $C $nintervals
-        } -result $err -returnCodes error
-        test column_histogram-$type-error-span-$id "$comment, args: $args" -setup {
-            set C [newspancolumn $type $init]
-        } -body {
-            tarray::column histogram {*}$args $C $nintervals
-        } -result $err -returnCodes error
-    }
-    
     foreach type {any string boolean byte double int uint wide} {
         testdef 1.0 "Summarize empty column" $type {} 
         testdef 1.1 "Summarize empty column -count" $type {} -count

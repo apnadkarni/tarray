@@ -1,0 +1,119 @@
+# table summarize tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc summarize {index col} {
+        return [tarray::column size $col]
+    }
+    
+    proc verify_table_summary {srctab resulttab args} {
+        if {[llength [tarray::table cnames $resulttab]] != 2} {
+            return "Result table does not have exactly two columns."
+        }
+        if {[tarray::table size $srctab] != [tarray::table size $resulttab]} {
+            return "Result table size not same as source table."
+        }
+
+        array set opts [tarray::parseargs args {
+            count
+            summarizer.arg
+            {summarytype.arg any {boolean byte int uint wide double string any}}
+            sum
+            {labelcolumn.arg 0}
+            {datacolumn.arg 1}
+            {cname.arg Summary}
+        }]
+
+        # First check the label column which should be same as the
+        # source label column
+        set label_col_name [tarray::table cname $srctab $opts(labelcolumn)]
+        if {![tarray::column identical \
+                  [tarray::table column $srctab $label_col_name] \
+                  [tarray::table column $resulttab $label_col_name]]} {
+            return "Label columns are not identical."
+        }
+
+        set srccol [tarray::table column $srctab $opts(datacolumn)]
+        set resultcol [tarray::table column $resulttab $opts(cname)]
+        set restype [tarray::column type $resultcol]
+
+        if {!($opts(count) || $opts(sum) || [info exists opts(summarizer)])} {
+            set opts(count) 1
+        }
+
+        # Now verify each data column
+        if {$opts(count)} {
+            if {$restype ne "int"} {
+                return "Result column (count) is of type $restype instead of type 'int'."
+            }
+            tarray::column loop index srcelem $srccol {
+                set m [tarray::column index $resultcol $index]
+                set n [tarray::column size $srcelem]
+                if {$n != $m} {
+                    return "Count of values $n in source column does not match count $m in result at index $index."
+                }
+            }
+            return ""
+        } elseif {$opts(sum)} {
+            if {$restype ni {wide double}} {
+                return "Result column (sum) type $restype should have been wide or double."
+            }
+            tarray::column loop index srcelem $srccol {
+                set m [tarray::column index $resultcol $index]
+                set n [tarray::column sum $srcelem]
+                if {$n != $m} {
+                    return "Sum of values $n in source column does not match count $m in result at index $index."
+                }
+            }
+            return ""
+        }
+        
+        # -summarizer option
+        if {$restype ne $opts(summarytype)} {
+            return "Result column (sum) type $restype should have been $opts(summarytype)."
+        }
+        tarray::column loop i col $srccol {
+            set val [{*}$opts(summarizer) $i $col]
+            set resval [tarray::column index $resultcol $i]
+            if {$val != $resval} {
+                return "Result $resval at index $i does not match expected value $val."
+            }
+        }
+
+        return ""
+    }
+
+    proc testdef {id comment type init args} {
+        test table_summarize-$type-$id "$comment, args: $args" -setup {
+            set T [tarray::column categorize -values [newcolumn $type $init]]
+        } -body {
+            set S [tarray::table summarize {*}$args $T]
+            verify_table_summary $T $S {*}$args
+        } -result ""
+    }
+    
+    foreach type {any string boolean byte double int uint wide} {
+        testdef 1.0 "Summarize empty table" $type {} 
+        testdef 1.1 "Summarize empty table -count" $type {} -count
+        testdef 1.2 "Summarize empty table -sum " $type {} -sum
+        testdef 1.3 "Summarize empty table -sum " $type {} -summarizer ::tarray::test::summarize
+        
+        set testnum -1
+        foreach opts {
+            {}
+            {-count}
+            {-sum}
+            {-summarizer ::tarray::test::summarize}
+            {-summarizer ::tarray::test::summarize -summarytype wide}
+            {-cname SummarizedData}
+        } {
+            if {$type in {boolean any string} && "-sum" in $opts} continue
+            testdef 2.[incr testnum] "Summarize table $opts" $type [samplerange $type] {*}$opts
+        }
+    }
+
+
+}
+
+::tcltest::cleanupTests
