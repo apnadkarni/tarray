@@ -1,0 +1,111 @@
+# column summarize tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    proc summarize {index col} {
+        return [tarray::column size $col]
+    }
+    
+    proc verify_column_summary {srccol result args} {
+        set restype [tarray::column type $result]
+        set size [tarray::column size $srccol]
+        if {$size != [tarray::column size $result]} {
+            return "Result column size not equal to source column size."
+        }
+
+        array set opts [tarray::parseargs args {
+            count
+            summarizer.arg
+            {summarytype.arg any {boolean byte int uint wide double string any}}
+            sum
+        }]
+
+        if {!($opts(count) || $opts(sum) || [info exists opts(summarizer)])} {
+            set opts(count) 1
+        }
+
+        # Now verify each data column
+        if {$opts(count)} {
+            if {$restype ne "int"} {
+                return "Result column (count) is of type $restype instead of type 'int'."
+            }
+            tarray::column loop index srcelem $srccol {
+                set m [tarray::column index $result $index]
+                set n [tarray::column size $srcelem]
+                if {$n != $m} {
+                    return "Count of values $n in source column does not match count $m in result at index $index."
+                }
+            }
+            return ""
+        } elseif {$opts(sum)} {
+            if {$restype ni {wide double}} {
+                return "Result column (sum) type $restype should have been wide or double."
+            }
+            tarray::column loop index srcelem $srccol {
+                set m [tarray::column index $result $index]
+                set n [tarray::column sum $srcelem]
+                if {$n != $m} {
+                    return "Sum of values $n in source column does not match count $m in result at index $index."
+                }
+            }
+            return ""
+        }
+        
+        # -summarizer option
+        if {$restype ne $opts(summarytype)} {
+            return "Result column (sum) type $restype should have been $opts(summarytype."
+        }
+        tarray::column loop i col $srccol {
+            set val [{*}$opts(summarizer) $i $col]
+            set resval [tarray::column index $result $i]
+            if {$val != $resval} {
+                return "Result $resval at index $i does not match expected value $val."
+            }
+        }
+
+        return ""
+    }
+
+    proc testdef {id comment type init args} {
+        test column_summarize-$type-$id "$comment, args: $args" -setup {
+            set T [tarray::column categorize -values [newcolumn $type $init]]
+            set C [tarray::table column $T 1]
+        } -body {
+            set S [tarray::column summarize {*}$args $C]
+            verify_column_summary $C $S {*}$args
+        } -result ""
+    }
+    
+    proc testerrordef {id comment type init nintervals err args} {
+        test column_histogram-$type-error-$id "$comment, args: $args" -setup {
+            set C [newcolumn $type $init]
+        } -body {
+            tarray::column histogram {*}$args $C $nintervals
+        } -result $err -returnCodes error
+        test column_histogram-$type-error-span-$id "$comment, args: $args" -setup {
+            set C [newspancolumn $type $init]
+        } -body {
+            tarray::column histogram {*}$args $C $nintervals
+        } -result $err -returnCodes error
+    }
+    
+    foreach type {any string boolean byte double int uint wide} {
+        testdef 1.0 "Summarize empty column" $type {} 
+        testdef 1.1 "Summarize empty column -count" $type {} -count
+        testdef 1.2 "Summarize empty column -sum " $type {} -sum
+        testdef 1.3 "Summarize empty column -sum " $type {} -summarizer ::tarray::test::summarize
+        
+        testdef 2.0 "Summarize column" $type [samplerange $type]
+        testdef 2.1 "Summarize column" $type [samplerange $type] -count
+        if {$type ni {boolean any string}} {
+            testdef 2.2 "Summarize column" $type [samplerange $type] -sum
+        }
+        testdef 2.3 "Summarize column" $type [samplerange $type] -summarizer ::tarray::test::summarize
+        testdef 2.4 "Summarize column" $type [samplerange $type] -summarizer ::tarray::test::summarize -summarytype wide
+    }
+
+
+}
+
+::tcltest::cleanupTests
