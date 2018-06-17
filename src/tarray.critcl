@@ -1824,6 +1824,7 @@ proc ta_define_integer_command {procname type typestr getfn op objfn} {
                               ] $TEMPLATE]
 }
 
+# TBD - document and test commands below
 # Byte operations
 ta_define_integer_command addu8 uint8 "unsigned 8-bit integer" ta_get_uint8_from_obj add Tcl_NewIntObj
 ta_define_integer_command subu8 uint8 "unsigned 8-bit integer" ta_get_uint8_from_obj sub Tcl_NewIntObj

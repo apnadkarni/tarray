@@ -398,7 +398,7 @@ text {
     controlled by the `-columns`, `-table`, `-dict` and `-list`
     options as described in ((^ tab_table_stdopts)).
     
-    ((cmddef table_summarize "table summarize ?options? _TABLE_ ??_LABELCOLNAME_? _DATACOLNAME_?"))
+    ((cmddef table_summarize "table summarize ?options? _TABLE_"))
 
     The command computes an aggregation function for categorized data
     in `_TABLE_` which must be of the form returned by the
@@ -409,11 +409,11 @@ text {
     table returned by the command. The other column, the _data column_
     on which aggregation is done, must be a column of type `any`, all
     elements of which are themselves columns, all of the same type and
-    contain values belonging to that category. The optional arguments
-    `_LABELCOLNAME_` and `_DATACOLNAME_` identify the label and data
-    columns. If they are unspecified, the first table column is
-    assumed to be the label column and the second is assumed to be the
-    data column.
+    contain values belonging to that category.  By default,
+    first table column is assumed to be the label column and the
+    second is assumed to be the data column. The `-labelcolumn` and
+    `-datacolumn` options may be used to specify different label and
+    data columns.
 
     The return value is a table with two columns, the first being the
     label column, unchanged. The second column, the _summary column_,

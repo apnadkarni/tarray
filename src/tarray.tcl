@@ -259,7 +259,6 @@ proc tarray::column::histogram {args} {
 }
 
 proc tarray::column::categorize {args} {
-
     parseargs args {
         {collect.radio indices {values indices}}
         categorizer.arg
@@ -391,16 +390,34 @@ proc tarray::column::summarize {args} {
     return $col
 }
 
+# TBD - rewrite in C, doc and test
+# Maps column index or name to name
+proc tarray::table::cname {tab colspec} {
+    set cnames [cnames $tab]
+    if {$colspec in $cnames} {
+        return $colspec
+    }
+    if {![string is integer -strict $colspec]} {
+        error "No column with specified name '$colspec'."
+    }
+    set cname [lindex $cnames $colspec]
+    if {$cname eq ""} {
+        error "Column index '$colspec' out of bounds."
+    }
+    return $cname
+}
+
 proc tarray::table::summarize {args} {
     # Retrieve our options
     parseargs args {
         {cname.arg Summary}
         summarizer.arg
+        {labelcolumn.arg 0}
+        {datacolumn.arg 1}
     } -setvars -ignoreunknown
 
     # Save remaining options to be passed on
     set saved_args $args
-
 
     # Strip off options to get at table argument.
     # Don't really care about the values
@@ -410,27 +427,16 @@ proc tarray::table::summarize {args} {
         sum
     }
 
-    set nargs [llength $args]
-    if {$nargs < 1 || $nargs > 3} {
-        error "wrong # args: should be \"table summarize ?options? TABLE ??LABELCOL? DATACOL?\"."
+    if {[llength $args] != 1} {
+        error "wrong # args: should be \"table summarize ?options? TABLE\"."
     }
     set tab [lindex $args 0]
-    if {$nargs == 1} {
-        set label_col_name [lindex [table cnames $tab] 0]
-        set label_col [table column $tab 0]
-        set data_col  [table column $tab 1]
-    } elseif {$nargs == 2} {
-        set label_col_name [lindex [table cnames $tab] 0]
-        set label_col [table column $tab 0]
-        set data_col  [table column $tab [lindex $args 1]]
-    } else {
-        set label_col_name [lindex $args 1]
-        set label_col [table column $tab $label_col_name]
-        set data_col  [table column $tab [lindex $args 2]]
-    }
+    set label_col_name [cname $tab $labelcolumn]
+    set label_col [column $tab $labelcolumn]
+    set data_col  [column $tab $datacolumn]
 
-    # Remove our arguments from options to be passed on
-    set saved_args [lrange $saved_args 0 end-$nargs]
+    # Remove table arg from options to be passed on
+    set saved_args [lrange $saved_args 0 end-1]
 
     # We had namespace qualified the summarizer call back
     # with respect to our caller. Add back that option if it
@@ -1108,6 +1114,7 @@ namespace eval tarray {
         namespace ensemble create -map {
             column column
             columns columns
+            cname cname
             cnames cnames
             create create
             create2 create2
