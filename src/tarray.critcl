@@ -89,7 +89,6 @@ critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h rbcDec
 critcl::ccode {
 #include "tarray.h"
 #include <math.h>
-#include <fenv.h>
 #include "pcg_basic.h"
 }
 
