@@ -8,7 +8,7 @@ namespace eval tarray::test {
             Minmax an empty column
         } -body {
             tarray::column minmax [newcolumn $type]
-        } -result "Invalid index range limit." -returnCodes error
+        } -result "Cannot determine min-max values for an empty column." -returnCodes error
 
         test column_minmax-$type-1.1 {
             Minmax an empty range
@@ -87,7 +87,7 @@ namespace eval tarray::test {
             Minmax an empty column
         } -body {
             tarray::column minmax [newspancolumn $type]
-        } -result "Invalid index range limit." -returnCodes error
+        } -result "Cannot determine min-max values for an empty column." -returnCodes error
 
         test column_minmax-span-$type-1.1 {
             Minmax an empty range
