@@ -365,8 +365,7 @@ namespace eval tarray::test {
         test [mathid]-div0 "Column $type / 0 column / column" -body [list tarray::column math / [largecolumn $type] [col_with_0 $type] [largecolumn $type]] -result "divide by zero" -returnCodes error
     }
     test [mathid]-div0 "Scalar double / 0" -body {verify_expr / 5 0.0}
-    test [mathid]-div0 "Scalar double / 0" -body [list tarray::column math / 0.0 0.0] -result Inf
-    test [mathid]-div0 "Scalar double 0.0/0.0" -body {verify_expr / [samplecolumn double] 0}
+    test [mathid]-div0 "Scalar double 0.0 / 0" -body [list tarray::column math / 0.0 0.0] -result -NaN
     test [mathid]-div0 "Column double / 0" -body {verify_expr / [samplecolumn double] 0}
     test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
     test [mathid]-div0 "Column double / 0 column" -body {verify_expr / [largecolumn double] [col_with_0 double]}
