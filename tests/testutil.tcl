@@ -1,4 +1,4 @@
-package require Tcl 8.5
+package require Tcl 8.6
 package require platform
 package require tcltest
 
@@ -15,83 +15,9 @@ package require tcltest
 # for the table/column argument
 # TBD - ditto for passing wrong type of value
 
-if {$tcl_version eq "8.6"} {
-    interp alias {} ::listset {} ::lset
-    interp alias {} ::listrepeat {} ::lrepeat
-} else {
-    # 8.5 lrepeat barfs on 0 count
-    proc listrepeat {count args} {
-        if {$count == 0} {
-            return {}
-        } else {
-            return [lrepeat $count {*}$args]
-        }
-    }
-
-    # 8.5 lset cannot append elements so use this version from
-    # the wiki
-    proc listset { varName args } {
-        upvar 1 $varName theList
-        
-        set theValue  [lindex $args end]
-        switch -exact [llength $args] {
-            0 {
-                # lset v (do nothing)
-            }
-            
-            1 {
-                # lset v x (copy x to v)
-                set theList $theValue
-            }
-            
-            2 {
-                # lset v i x        (set the i'th element of v to x)
-                # lset v {} x       (set v to x)
-                # lset v {i j k} x  (set the k'th element of the j'th element of the i'th element of v to x)
-                set indexList [lindex  $args 0]
-                set index     [lindex  $indexList 0]
-                set theLength [llength $theList]
-                switch -exact [llength $indexList] {
-                    0 {
-                        # lset v {} x   (set v to x)
-                        set theList $theValue
-                    }
-                    
-                    1 {
-                        # lset v i x    (set the i'th element of v to x)
-                        if { [string is integer -strict $index] && ($index > $theLength) } {
-                            error "list index out of range: $index > $theLength"
-                        }
-                        if { [string is integer -strict $index] && ($index == $theLength) } {
-                            lappend theList $theValue
-                        } else {
-                            set theList [lreplace $theList[set theList ""] $index $index $theValue]
-                        }
-                    }
-                    
-                    default {
-                        # lset v {i j k} x  (set the k'th element of the j'th element of the i'th element of v to x)
-                        set subList [lindex $theList $index]
-                        set subList [listset subList [lrange $indexList 1 end] $theValue]
-                        if { [llength $theList] == $index} {
-                            lappend theList $subList
-                        } else {
-                            set theList [lreplace $theList[set theList ""] $index $index $subList]
-                        }
-                    }
-                }
-            }
-            
-            default {
-                # lset v i j k x    (set the k'th element of the j'th element of the i'th element of v to x)
-                set indexList [lrange $args 0 end-1]
-                set theList   [listset theList $indexList $theValue]
-            }
-        }
-        
-        return $theList
-    }
-}
+# Historical
+interp alias {} ::listset {} ::lset
+interp alias {} ::listrepeat {} ::lrepeat
 
 
 if {![info exists tarray::test::known]} {
