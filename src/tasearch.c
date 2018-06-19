@@ -1477,7 +1477,6 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
 {
     thdr_t *thdr = NULL;
     tas_t *ptas, *pkey;
-    ClientData value;
     int pos, delete_pos;
     span_t *span = NULL;
     TCL_RESULT status;
@@ -1513,8 +1512,7 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
     pkey = tas_from_obj(objv[2]);
     pos = delete_pos = -1;
 
-    if (tas_lookup_entry(thdr->lookup, pkey, &value)) {
-        pos = (int) value;
+    if (tas_lookup_entry(thdr->lookup, pkey, &pos)) {
         /* Found it. See if it is still valid */
         if (pos >= thdr->used)
             pos = -1;
