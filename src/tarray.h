@@ -424,8 +424,8 @@ TA_INLINE int tas_compare(tas_t *a, tas_t *b, int nocase)
 }
 tas_lookup_t tas_lookup_new(void);
 void tas_lookup_free(tas_lookup_t lookup);
-int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval);
-void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val);
+int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, int *pval);
+void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, int val);
 int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas);
 
 void thdr_lookup_build(thdr_t *thdr, span_t *span);
@@ -436,6 +436,23 @@ TCL_RESULT ta_get_uint8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, uint8_t *pb);
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui);
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi);
 TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pi);
+#ifdef _MSC_VER
+#define ta_get_int64_from_obj ta_get_wide_from_obj
+#else
+/* Gcc complains about pointer mismatch between int64_t (long int)
+   and Tcl_WideInt (long long int) so define a wrapper
+*/
+TA_INLINE TCL_RESULT ta_get_int64_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int64_t *pi64)
+{
+    TCL_RESULT res;
+    Tcl_WideInt wide;
+    res = ta_get_wide_from_obj(ip, o, &wide);
+    if (res == TCL_OK) {
+        *pi64 = (int64_t) wide;
+    }
+    return res;
+}
+#endif
 TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, int *pi);
 
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi);
@@ -890,7 +907,7 @@ TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
        not update that until later */
     TA_ASSERT(thdr->usable > pos);
     if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
-        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), (ClientData) pos);
+        tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), pos);
 }
 TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
     tas_t **pptas;
@@ -902,7 +919,7 @@ TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
         return;
     pptas = THDRELEMPTR(thdr, tas_t *, start);
     for (i = 0; i < count; ++i, ++pptas)
-        tas_lookup_add(thdr->lookup, *pptas, (ClientData) (start+i));
+        tas_lookup_add(thdr->lookup, *pptas, (start+i));
 }
 TA_INLINE void thdr_lookup_delete(thdr_t *thdr, int pos) {
     TA_ASSERT(thdr->type == TA_STRING);

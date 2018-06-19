@@ -112,26 +112,26 @@ void tas_lookup_free(tas_lookup_t lookup)
     TAS_FREEMEM(lookup);
 }
 
-int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, ClientData *pval)
+int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, int *pval)
 {
     Tcl_HashEntry *he;
     he = Tcl_FindHashEntry(lookup, (char *)ptas);
     if (he) {
         if (pval)
-            *pval = Tcl_GetHashValue(he);
+            *pval = (int) Tcl_GetHashValue(he);
         return 1;
     } else
         return 0;
 }
 
-void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, ClientData val)
+void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, int val)
 {
     int newly_created;
     Tcl_HashEntry *he;
 
     he = Tcl_CreateHashEntry(lookup, (char *)ptas, &newly_created);
     /* NOTE WE OVERWRITE EXISTING VALUE IF ANY */
-    Tcl_SetHashValue(he, val);
+    Tcl_SetHashValue(he, (ClientData) val);
 }
 
 int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas)

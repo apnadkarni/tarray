@@ -417,7 +417,7 @@ TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, int row, int col, int 
         if (val && val->bytes)
             e = Tcl_ObjPrintf("Invalid value '%.40s' for type %s in row %d column %d of source data.", val->bytes, ta_type_string(tatype), row, col);
         else
-            e = Tcl_ObjPrintf("Invalid value for type %s in row %d column %d of source data.", row, col, ta_type_string(tatype));
+            e = Tcl_ObjPrintf("Invalid value for type %s in row %d column %d of source data.", ta_type_string(tatype), row, col);
         
         Tcl_SetObjResult(ip, e);
     }

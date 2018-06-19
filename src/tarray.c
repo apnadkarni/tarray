@@ -908,7 +908,7 @@ void thdr_lookup_build(thdr_t *thdr, span_t *span)
     count = span ? span->count : thdr->used;
     pptas = THDRELEMPTR(thdr, tas_t *, i);
     while (i < count) {
-        tas_lookup_add(lookup, *pptas, (ClientData) i);
+        tas_lookup_add(lookup, *pptas, i);
         ++i;
         ++pptas;
     }

@@ -84,7 +84,7 @@ if {$build_opts(unsupported)} {
 
 }
 critcl::tsources tabulate.tcl tarray.tcl taprint.tcl tarbc.tcl taversion.tcl
-critcl::cheaders tarray.h bitarray.h timsort.h timsort-impl.h pcg_basic.h rbcDecls.h
+critcl::cheaders tarray.h tamath.h bitarray.h timsort.h timsort-impl.h pcg_basic.h rbcDecls.h
 
 critcl::ccode {
 #include "tarray.h"
@@ -336,8 +336,8 @@ critcl::ccommand tarray::column::create {} {
                AND no string rep just flip the thdr header */
             if (! Tcl_IsShared(o) && o->bytes == NULL) {
                 if (thdrP->nrefs == 1) {
-                    if (thdrP->type == TA_INT && tatype == TA_UINT ||
-                        thdrP->type == TA_UINT && tatype == TA_INT) {
+                    if ((thdrP->type == TA_INT && tatype == TA_UINT) ||
+		        (thdrP->type == TA_UINT && tatype == TA_INT)) {
                         thdrP->type = tatype;
                         thdrP->sort_order = THDR_UNSORTED;
                         Tcl_SetObjResult(interp, o);
@@ -473,9 +473,9 @@ critcl::cproc tarray::column::cast {Tcl_Interp* interp Tcl_Obj* COLTYPE Tcl_Obj*
      * is shared if the Tcl_Obj is itself shared.
      */
     thdr = tcol_thdr(COLUMN);
-    if ((thdr->type == TA_INT && tatype == TA_UINT 
+    if (((thdr->type == TA_INT && tatype == TA_UINT)
          ||
-         thdr->type == TA_UINT && tatype == TA_INT)
+         (thdr->type == TA_UINT && tatype == TA_INT))
         && thdr->nrefs == 1 
         && ! Tcl_IsShared(COLUMN)) {
         /* Need to invalid existing string rep since a int like -1
@@ -1840,9 +1840,9 @@ ta_define_integer_command subu32 uint32 "unsigned 32-bit integer" ta_get_uint_fr
 ta_define_integer_command mulu32 uint32 "unsigned 32-bit integer" ta_get_uint_from_obj mul Tcl_NewWideIntObj
 
 # 64-bit operations
-ta_define_integer_command add64 int64 "64-bit integer" ta_get_wide_from_obj add Tcl_NewWideIntObj
-ta_define_integer_command sub64 int64 "64-bit integer" ta_get_wide_from_obj sub Tcl_NewWideIntObj
-ta_define_integer_command mul64 int64 "64-bit integer" ta_get_wide_from_obj mul Tcl_NewWideIntObj
+ta_define_integer_command add64 int64 "64-bit integer" ta_get_int64_from_obj add Tcl_NewWideIntObj
+ta_define_integer_command sub64 int64 "64-bit integer" ta_get_int64_from_obj sub Tcl_NewWideIntObj
+ta_define_integer_command mul64 int64 "64-bit integer" ta_get_int64_from_obj mul Tcl_NewWideIntObj
 
 
 critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
@@ -2006,7 +2006,7 @@ critcl::class::define ::tarray::rng {
     method get command {?COUNT? ?LOWER UPPER?} {
         int count;
         int i, bounded;
-        Tcl_Obj *ores;
+        Tcl_Obj *ores = NULL;   /* Just to silence bogus gcc uninitialized use warnings */
         ta_value_t lbound, ubound;
         
         count = 1;
@@ -2056,7 +2056,7 @@ critcl::class::define ::tarray::rng {
             /* Unbounded */
             TA_ASSERT(instance->rtype != TA_BYTE);
             for (i = 0; i < count; ++i) {
-                Tcl_Obj *o;
+                Tcl_Obj *o = NULL; /* Init just to silence gcc's bogus warnings */
                 switch (instance->rtype) {
                 case TA_BOOLEAN:
                     o = Tcl_NewIntObj(pcgbool_random_r(&instance->rng.rng[0]));
