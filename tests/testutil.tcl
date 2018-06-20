@@ -21,7 +21,7 @@ interp alias {} ::listrepeat {} ::lrepeat
 
 
 if {![info exists tarray::test::known]} {
-    set auto_path [linsert $auto_path 0 [file normalize [file join [info script] .. .. build lib]]]
+#    set auto_path [linsert $auto_path 0 [file normalize [file join [info script] .. .. build lib]]]
     namespace eval tarray::test {
         namespace import ::tcltest::test
 
