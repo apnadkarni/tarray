@@ -1,8 +1,8 @@
 rmdir/s/q build
 @rem Form the file names based on the version we are building
-@for /f %%i in ('tclsh src/taversion.tcl') do set TANAME=tarray%%i
-@for /f %%i in ('tclsh src/taversion.tcl') do set XTALNAME=xtal%%i
-@for /f %%i in ('tclsh ui/uiversion.tcl') do set UINAME=tarray_ui%%i
+@for /f %%i in ('tclsh src/taversion.tcl') do set TANAME=tarray-%%i
+@for /f %%i in ('tclsh src/taversion.tcl') do set XTALNAME=xtal-%%i
+@for /f %%i in ('tclsh ui/uiversion.tcl') do set UINAME=tarray_ui-%%i
 
 cmd /c "envset x86 && cd src && tclsh build.tcl extension -target win32-ix86-cl"
 cmd /c "envset x64 && cd src && tclsh build.tcl extension -target win32-x86_64-cl"
