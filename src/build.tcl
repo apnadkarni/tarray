@@ -14,7 +14,8 @@ package require critcl::app
 package require platform
 
 proc usage {} {
-    puts "Usage:\n  [info script] extension\n  [info script] tea\n"
+    set script [info script]
+    puts "Usage:\n  $script extension\n  $script tea\n  $script test"
     exit 1
 }
 set buildarea [file normalize [file join [pwd] .. build]]
@@ -28,6 +29,15 @@ switch -exact -- [lindex $argv 0] {
     }
     tea {
         critcl::app::main [list -tea -libdir [file join $buildarea tea] {*}[lrange $argv 1 end] tarray tarray.critcl]
+    }
+    test {
+        cd ../tests
+        set env(TCLLIBPATH) [linsert $env(TCLLIBPATH) 0 [file join $buildarea lib]]
+        set fd [open |[list [info nameofexecutable] all.tcl -notfile xtal*.test {*}[lrange $argv 1 end]]]
+        while {[gets $fd line] >= 0} {
+            puts $line
+        }
+        close $fd
     }
     default {
         usage

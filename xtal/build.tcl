@@ -7,7 +7,8 @@ package require critcl::app
 set taversion [source ../src/taversion.tcl]
 
 proc usage {} {
-    puts "Usage:\n  [info script] parser\n  [info script] extension\n  [info script] tea\n"
+    set script [info script]
+    puts "Usage:\n  $script parser\n  $script extension\n  $script tea\n  $script test"
     exit 1
 }
 
@@ -25,6 +26,15 @@ switch -exact -- [lindex $argv 0] {
     }
     tea {
         critcl::app::main [list -tea -libdir [file join $buildarea tea] {*}[lrange $argv 1 end] xtal xtal.critcl]
+    }
+    test {
+        cd ../tests
+        set env(TCLLIBPATH) [linsert $env(TCLLIBPATH) 0 [file join $buildarea lib]]
+        set fd [open |[list [info nameofexecutable] all.tcl -file xtal*.test {*}[lrange $argv 1 end]]]
+        while {[gets $fd line] >= 0} {
+            puts $line
+        }
+        close $fd
     }
     default {
         usage
