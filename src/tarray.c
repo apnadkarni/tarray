@@ -5,9 +5,12 @@
  * See the file LICENSE for license
  */
 
-#if __GNUC__ && !__GNUC_STDC_INLINE__
-/* Force generation of code for inline - older gnu compilers */
-#define TA_INLINE
+#if __GNUC__
+#  if __GNUC_STDC_INLINE__
+#    define TA_INLINE extern inline
+#  else
+#    define TA_INLINE
+#  endif
 #endif
 
 #include "tarray.h"
@@ -718,12 +721,12 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
      * as an overflow.
      */
     p = o->bytes;
-    while ((c = *p) != '\0' && isascii(c) && isspace(c))
+    while (((c = *p) != '\0') && isascii(c) && isspace(c))
         ++p;
     if (*p == '0') {
         /* Octal, hex, binary all begin with 0. Always permit them */
     } else {
-        if (wide > 0 && *p == '-' || wide < 0 && *p != '-') {
+        if ((wide > 0 && *p == '-') || (wide < 0 && *p != '-')) {
             return ta_integer_overflow_obj_error(ip, "64-bit integer", o);
         }
     }
@@ -4035,9 +4038,10 @@ void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP)
  * Returns a string representation of the element at the specified
  * thdr index. In the case of TA_ANY or TA_STRING this points to the
  * element's stored string. For numeric types, the string is stored
- * in the buffer pointed to by BufP which must be at least 40 bytes
+ * in the buffer pointed to by BufP which must be at least 
+ * TA_NUMERIC_SPACE bytes
  */
-char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[40])
+char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[TA_NUMERIC_SPACE])
 {
     TA_ASSERT(thdr->used > thdr_index);
     switch (thdr->type) {
@@ -4046,19 +4050,19 @@ char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[40])
         buf[1] = 0;
         break;
     case TA_BYTE:
-        snprintf(buf, sizeof(buf), "%d",
+        snprintf(buf, TA_NUMERIC_SPACE, "%d",
                  *THDRELEMPTR(thdr, unsigned char, thdr_index));
         break;
     case TA_INT:
-        snprintf(buf, sizeof(buf), "%d",
+        snprintf(buf, TA_NUMERIC_SPACE, "%d",
                  *THDRELEMPTR(thdr, int, thdr_index));
         break;
     case TA_UINT:
-        snprintf(buf, sizeof(buf), "%u",
+        snprintf(buf, TA_NUMERIC_SPACE, "%u",
                  *THDRELEMPTR(thdr, unsigned int, thdr_index));
         break;
     case TA_WIDE:
-        snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d",
+        snprintf(buf, TA_NUMERIC_SPACE, "%" TCL_LL_MODIFIER "d",
                  *THDRELEMPTR(thdr, Tcl_WideInt, thdr_index));
         break;
     case TA_DOUBLE:

@@ -337,7 +337,7 @@ TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideInt val)
+TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, const char *precision, Tcl_WideInt val)
 {
     if (ip) {
         Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", "OVERFLOW", NULL);
@@ -353,7 +353,7 @@ TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideIn
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, char *precision, double val)
+TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, const char *precision, double val)
 {
     if (ip) {
         Tcl_SetErrorCode(ip, "TARRAY", "OPERAND", "OVERFLOW", NULL);
@@ -365,7 +365,7 @@ TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, char *precision
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, char *precision, Tcl_Obj *o)
+TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, const char *precision, Tcl_Obj *o)
 {
     Tcl_Obj *err;
     if (ip) {

@@ -14,6 +14,7 @@
 #include <float.h>
 #include <math.h>
 #include <time.h>
+#include <ctype.h>
 
 /* Visual C++ prior to Visual Studio 2010 do not have stdint */
 #if defined(_MSC_VER) && _MSC_VER < 1700
@@ -41,10 +42,14 @@
 #ifndef TA_INLINE
 # ifdef _MSC_VER
 #  define TA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
-# elif __GNUC__ && !__GNUC_STDC_INLINE__
-#  define TA_INLINE extern inline
+# elif __GNUC__
+#  if __GNUC_STDC_INLINE__
+#   define TA_INLINE inline
+#  else
+#   define TA_INLINE extern inline
+#  endif
 # else
-#  define TA_INLINE inline
+#  define TA_INLINE static inline
 # endif
 #endif
 
@@ -100,6 +105,8 @@ typedef int TCL_RESULT;
 #define TA_ATTEMPTALLOCMEM(n_) (void*)attemptckalloc(n_)
 #define TA_ATTEMPTREALLOCMEM attemptckrealloc
 
+/* Space required for a numeric string */
+#define TA_NUMERIC_SPACE 40
 
 /* Must match g_type_tokens definition in tarray.c ! */
 #define TA_NONE 0
@@ -327,9 +334,9 @@ TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
 TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip);
-TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, char *precision, Tcl_WideInt val);
-TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, char *precision, double val);
-TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, char *precision, Tcl_Obj *o);
+TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, const char *precision, Tcl_WideInt val);
+TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, const char *precision, double val);
+TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, const char *precision, Tcl_Obj *o);
 TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int);
 TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *, ta_value_t *);
 TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, int row, int col, int tatype, Tcl_Obj *val);
@@ -491,7 +498,7 @@ void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
                        const ta_value_t *ptav, thdr_t *pindices, int highest_index);
 Tcl_Obj *thdr_index(thdr_t *thdr, int index);
 void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP);
-char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[40]);
+char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[TA_NUMERIC_SPACE]);
 double thdr_index_double(thdr_t *thdr, int thdr_index);
 Tcl_WideInt thdr_index_wide(thdr_t *thdr, int thdr_index);
 
