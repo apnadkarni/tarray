@@ -14,13 +14,50 @@ tables and columns as well as Tcl lists and dicts
 and columns
 
 The packages come with comprehensive documentation, an extensive test
-suite and are covered by a liberal open source license.
+suite containing almost 30,000 tests and are covered
+by a liberal open source license.
 
 
 = Links
 
-* Documentation:   http://tarray.magicsplat.com
-* Introduction:    http://tarray.magicsplat.com/introduction.html
-* Downloads:       http://sourceforge.net/projects/tarray/files/
-* SF project page: http://sourceforge.net/projects/tarray
+* Documentation:   https://tarray.magicsplat.com
+* Introduction:    https://tarray.magicsplat.com/introduction.html
+* Downloads:       https://sourceforge.net/projects/tarray/files/
+* SF project page: https://sourceforge.net/projects/tarray
+
+= Downloads
+
+The Downloads area contains the following files:
+
+* `tarray-bin-VERSION.zip` and `xtal-bin-VERSION.zip contain Windows binaries
+of `tarray` and `xtal` for both 32-bit and 64-bit platforms.
+
+* `tarray-VERSION.tar.gz and xtal-VERSION.tar.gz contain TEA-based
+source distributions of `tarray` and `xtal`  for Unix platforms.
+
+* `tarray_ui-VERSION.tar.gz` and `tarray_ui-VERSION.zip` contain the
+`tarray_ui` pure Tcl package.
+
+The directory also contains optional third-party packages that are
+used to implement the widgets in the `tarray_ui` package:
+
+* `rbc-bin-VERSION (x86).zip` and `rbc-bin-VERSION (x64).zip`
+contain 32- and 64-bit binaries of the `RBC` package used by `tarray_ui`
+to display charts. The rbc-VERSION.tar.gz contains the TEA based
+source distribution suitable for compiling on Unix platforms.
+These are built from a fork of the original RBC package with
+some fixes for Windows and a stubs interface for more efficient
+integration with `tarray`.
+
+* `tktreectrl-bin-VERSION (x86).zip` and `tktreectrl-bin-VERSION (x64).zip`
+contain 32- and 64-bit binaries of the `tktreectrl` package used by `tarray_ui`
+to display tables. The tktreectrl-VERSION.tar.gz contains the TEA based
+source distribution suitable for compiling on Unix platforms.
+These are built from a fork of the original tktreectrl package with
+some performance fixes.
+
+For further information about installing the above files see
+the documentation section at https://tarray.magicsplat.com/build.html.
+
+
 
