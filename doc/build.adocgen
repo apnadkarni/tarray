@@ -39,8 +39,9 @@ text {
     need for a standalone `make` command since the `make install` does the
     actual build as well as install.
 
-    The built extensions will support parallelized operations if
-    the `libdispatch` library is installed on the system. See
+    [IMPORTANT]
+    The current `tarray` release requires the `libdispatch` library to
+    be installed on the system. See
     ((^ build_parallel)) for details.
 
     The `tarray_ui` package, distributed as `tarray_ui-VERSION.tar.gz`
@@ -97,4 +98,8 @@ text {
     If this library is not detected, the extension will not parallelize
     any operations. This library can be installed using the system's
     package manager on most Linux systems.
+
+    [NOTE]
+    In the 0.9 release, the `libdispatch` library is **required**. It
+    is not possible to build with parallelized operations disabled.
 }
