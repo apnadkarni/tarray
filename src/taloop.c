@@ -246,6 +246,7 @@ static TCL_RESULT ta_looper(Tcl_Interp *ip, enum ta_loop_op_e cmd, int objc, Tcl
     case TA_COLL_NONE: /* FALLTHRU */
     default:
         Tcl_SetResult(ip, "Operand is not a column, table or list.", TCL_STATIC);
+        return TCL_ERROR;
     }
 
     if (count == 0) {

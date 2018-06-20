@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Ashok P. Nadkarni
+ * Copyright (c) 2013-2018, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file LICENSE for license
@@ -998,7 +998,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                 tcols_put_COPY(unsigned int, t, ta_get_uint_from_obj);
                 break;
             case TA_INT:
-                tcols_put_COPY(unsigned int, t, Tcl_GetIntFromObj);
+                tcols_put_COPY(int, t, Tcl_GetIntFromObj);
                 break;
             case TA_WIDE:
                 tcols_put_COPY(Tcl_WideInt, t, Tcl_GetWideIntFromObj);

@@ -64,19 +64,30 @@ namespace eval tarray::test {
             } -result [newcolumn byte [list [expr {$value & 0xff}]]]
         }
     }
-    foreach type {uint wide} {
-        set num -1
-        foreach value {-2147483649 2147483648} {
-            if {$value < 0 && $type eq "uint"} continue
-            test column_cast-$type-to-int-3.[incr num] {
-                Test overflow cast from $type to int
-            } -setup {
-                set C [newcolumn $type $value]
-            } -body {
-                tarray::column cast int $C
-            } -result [newcolumn int [list [expr {int($value)}]]]
-        }
-    }
+    
+    test column_cast-uint-to-int-3.0 {
+        Test overflow cast from uint to int
+    } -setup {
+        set C [newcolumn uint 2147483648]
+    } -body {
+        tarray::column cast int $C
+    } -result [newcolumn int -2147483648]
+
+    test column_cast-wide-to-int-3.0 {
+        Test overflow cast from wide to int
+    } -setup {
+        set C [newcolumn wide 2147483648]
+    } -body {
+        tarray::column cast int $C
+    } -result [newcolumn int -2147483648]
+
+    test column_cast-wide-to-int-3.1 {
+        Test overflow cast from wide to int
+    } -setup {
+        set C [newcolumn wide -2147483649]
+    } -body {
+        tarray::column cast int $C
+    } -result [newcolumn int 2147483647]
 
     foreach type {int wide} {
         set num -1

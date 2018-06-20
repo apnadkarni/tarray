@@ -78,7 +78,6 @@ struct thdr_math_mt_context {
 static double ta_math_double_from_operand(struct ta_math_operand *poperand,
                                           int thdr_index)
 {
-    thdr_t *thdr = poperand->thdr_operand;
     if (poperand->thdr_operand) {
         return thdr_index_double(poperand->thdr_operand,
                                  thdr_index + poperand->span_start);
@@ -106,7 +105,7 @@ static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
 }
 
 static char *ta_math_string_from_operand(struct ta_math_operand *poperand,
-                                         int thdr_index, char buf[40])
+                                         int thdr_index, char buf[TA_NUMERIC_SPACE])
 {
     if (poperand->thdr_operand) {
         return thdr_index_string(poperand->thdr_operand, 
@@ -339,6 +338,9 @@ static void thdr_math_mt_worker(void *pv)
         case TA_WIDE: INTEGERLOOP(^=, Tcl_WideInt); break;
         }
         break;
+    default:
+        ta_operator_panic(pctx->op);
+        break;
     }
 }
 
@@ -544,7 +546,6 @@ TCL_RESULT ta_math_compare_operation(
     int i, j;
     thdr_t *thdr;
     ba_t *baP;
-    TCL_RESULT status = TCL_OK;
 
     TA_ASSERT(is_compare_op(op));
     thdr = thdr_alloc(ip, TA_BOOLEAN, size);
@@ -1154,8 +1155,8 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
     double   dbl, dmax, *pdbl;
     
     if (step == 0 ||
-        step > 0 && start > limit ||
-        step < 0 && start < limit) {
+        (step > 0 && start > limit) ||
+        (step < 0 && start < limit)) {
         ta_invalid_operand_error(ip, NULL);
         return NULL;
     }
@@ -1167,8 +1168,8 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
        process regarding over/under flows
     */
     
-    if (start >= 0 && limit >= 0 ||
-        start < 0 && limit < 0) {
+    if ((start >= 0 && limit >= 0) ||
+        (start < 0 && limit < 0)) {
         /* Both have same sign, so limit-start cannot overflow */
         dmax = ceil((limit - start)/step);
         TA_ASSERT(ta_finite_double(dmax));
@@ -1267,8 +1268,8 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
     uint64_t nmax;
 
     if (step == 0 ||
-        step > 0 && start > limit ||
-        step < 0 && start < limit) {
+        (step > 0 && start > limit) ||
+        (step < 0 && start < limit)) {
         ta_invalid_operand_error(ip, NULL);
         return NULL;
     }
@@ -1276,8 +1277,8 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
     if (limit == start) 
         return thdr_alloc(ip, TA_WIDE, 0);
     
-    if (start >= 0 && limit >= 0 ||
-        start < 0 && limit < 0) {
+    if ((start >= 0 && limit >= 0) ||
+        (start < 0 && limit < 0)) {
         /* Both have same sign, so limit-start cannot overflow */
         TA_ASSERT(((limit - start)/step) >= 0); /* limit < start => step < 0 */
         nmax = ((limit - start)/step) + 1;
@@ -1333,8 +1334,8 @@ static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
     Tcl_WideInt nmax;
 
     if (step == 0 ||
-        step > 0 && start > limit ||
-        step < 0 && start < limit) {
+        (step > 0 && start > limit) ||
+        (step < 0 && start < limit)) {
         ta_invalid_operand_error(ip, NULL);
         return NULL;
     }
@@ -1541,7 +1542,7 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
      */
     if (thdra->type == TA_ANY || thdra->type == TA_STRING ||
         thdrb->type == TA_ANY || thdrb->type == TA_STRING) {
-        char bufa[40], bufb[40]; /* Enough to hold string rep of wides */
+        char bufa[TA_NUMERIC_SPACE], bufb[TA_NUMERIC_SPACE];
         char *sa, *sb;
         int i;
         

@@ -52,12 +52,13 @@ TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *ip, ta_value_t *low, ta_value_t *high
 void tcol_random_init(ta_rng_t *prng)
 {
     uint64_t seed, seq;
+    time_t t;
 #ifdef _WIN32
     LARGE_INTEGER pfc;
     QueryPerformanceCounter(&pfc); /* Never fails on XP and later */
     seed = pfc.QuadPart;
 #else
-    seed = time();
+    seed = time(&t);
 #endif
     seq = (uint64_t)(intptr_t) &prng; /* Any value will do */
     /* 
