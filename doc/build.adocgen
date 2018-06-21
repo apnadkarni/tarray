@@ -102,4 +102,5 @@ text {
     [NOTE]
     In the 0.9 release, the `libdispatch` library is **required**. It
     is not possible to build with parallelized operations disabled.
+    A future release will eliminate this restriction.
 }

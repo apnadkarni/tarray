@@ -84,9 +84,19 @@ text {
     == The tarray_ui package
 
     The `tarray_ui` package implements widgets that useful for displaying
-    and interacting with typed arrays. Currently this only includes
-    widgets for displaying table data with sorting/filtering capabilities
+    and interacting with typed arrays. This includes
+    widgets for graphs using the RBC package, displaying table data
+    with sorting/filtering capabilities via the tktreectrl package,
     and for importing CSV files.
+
+    [.float-group]
+    --
+    [.left]
+    image::rain.png[RBC chart example,360]
+
+    [.left]
+    image::cities_visual.png[Using visuals and formatting,495]
+    --
 }
     
 text {
