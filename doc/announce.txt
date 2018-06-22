@@ -1,4 +1,4 @@
-= Overview
+# Overview
 
 As is true for scripting languages in general, Tcl incurs significant
 overhead in terms of memory as well as performance when operating on
@@ -6,11 +6,11 @@ large amounts of data. The set of packages described here provide
 a more performant and convenient means of working with large data
 sets. The three packages are
 
-* `tarray` -- implements the core column and table data types and
+* `tarray` - implements the core column and table data types and
 parallelized operations on data sets
-* `xtal` -- provides succint, convenient syntax for working with
+* `xtal` - provides succint, convenient syntax for working with
 tables and columns as well as Tcl lists and dicts
-* `tarray_ui` -- Tk widget wrappers for displaying data
+* `tarray_ui` - Tk widget wrappers for displaying data
 as charts and tables using RBC and tktreectrl.
 
 The packages come with comprehensive documentation, an extensive test
@@ -18,21 +18,21 @@ suite containing almost 30,000 tests and are covered
 by a liberal open source license.
 
 
-= Links
+# Links
 
 * Documentation:   https://tarray.magicsplat.com
 * Introduction:    https://tarray.magicsplat.com/introduction.html
 * Downloads:       https://sourceforge.net/projects/tarray/files/
 * SF project page: https://sourceforge.net/projects/tarray
 
-= Downloads
+# Downloads
 
 The Downloads area contains the following files:
 
-* `tarray-bin-VERSION.zip` and `xtal-bin-VERSION.zip contain Windows binaries
+* `tarray-bin-VERSION.zip` and `xtal-bin-VERSION.zip` contain Windows binaries
 of `tarray` and `xtal` for both 32-bit and 64-bit platforms.
 
-* `tarray-VERSION.tar.gz and xtal-VERSION.tar.gz contain TEA-based
+* `tarray-VERSION.tar.gz` and `xtal-VERSION.tar.gz` contain TEA-based
 source distributions of `tarray` and `xtal`  for Unix platforms.
 
 * `tarray_ui-VERSION.tar.gz` and `tarray_ui-VERSION.zip` contain the
