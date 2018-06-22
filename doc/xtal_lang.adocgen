@@ -104,20 +104,6 @@ text {
 }
 
 text {
-    This form of indexing works because simple boolean expressions
-    involving columns return an integer column containing the indices
-    for elements which satisfy the expression. Thus, we have
-} xtal {
-    print(Rainfall > 100 && Rainfall < 200)
-} text {
-    This feature can be used in other contexts as well. So for example,
-    we can use the `%` size operator to count the
-    number of such months.
-} prompt {} xtal_shell {
-    %(Rainfall > 100 && Rainfall < 200) 
-}
-
-text {
     .Working with tables
 
     Having looked at basic column operations, we turn our attention
