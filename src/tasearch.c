@@ -1456,9 +1456,9 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
     if (haystackP->type == TA_BOOLEAN)
         status = thdr_search_boolean(ip, haystackP, span, objv[objc-1], &search);
     else if (search.indices)
-        return thdr_indices_search(ip, haystackP, span, objv[objc-1], &search);
+        status = thdr_indices_search(ip, haystackP, span, objv[objc-1], &search);
     else
-        return thdr_basic_search_mt(ip, haystackP, span, objv[objc-1], &search);
+        status = thdr_basic_search_mt(ip, haystackP, span, objv[objc-1], &search);
 
 vamoose:
     if (search.indices)
