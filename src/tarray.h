@@ -751,6 +751,10 @@ void ta_mt_group_release(ta_mt_group_t grp);
 
 # endif
 
+#else /* ! TA_MT_ENABLE */
+
+typedef void(*ta_mt_function_t )(void *);
+
 #endif
 
 /*
