@@ -73,7 +73,7 @@ proc tarray::column::linspace {start stop count args} {
     }
 
     # NOTE: count > 1 beyond this point
-    
+
     set div $count
     if {!$open} {
         incr div -1
@@ -146,7 +146,7 @@ proc tarray::_histogram_default_step {val} {
     } else {
         error "Non-numeric value '$val' for calculating default histogram step."
     }
-    
+
     if {[info exists ival]} {
         set ndigits [string length $ival]
         set nleading [string length [string trimright $ival 0]]
@@ -199,12 +199,12 @@ proc tarray::column::histogram {args} {
         max.arg
         {cnames.arg {LowerBound Data}}
     } -setvars
-        
+
     if {[llength $args] != 2} {
         error "wrong #args: should be \"column histogram ?options? COL NINTERVALS\"."
     }
     lassign $args col nintervals
-    
+
     if {$nintervals <= 0} {
         error "Number of buckets must be greater than zero."
     }
@@ -213,7 +213,7 @@ proc tarray::column::histogram {args} {
     if {$coltype eq "boolean"} {
         return [tarray::table create2 $cnames [_histogram_boolean $col $nintervals $compute]]
     }
-    
+
     if {![info exists min] || ![info exists max]} {
         lassign [minmax $col] smallest largest
         if {![info exists min]} {
@@ -254,7 +254,7 @@ proc tarray::column::histogram {args} {
     } else {
         set step [expr {(($max - $min) / $nintervals) + 1}]
     }
-    
+
     return [tarray::table::create2 $cnames [_equalintervals $col $compute $nintervals $min $max $step]]
 }
 
@@ -661,7 +661,7 @@ proc tarray::table::Join {args} {
 
     return [create2 [concat $t0cols $tab1out] [concat $out0 $out1]]
 }
-    
+
 proc tarray::table::csvimport {args} {
     variable tclcsv_loaded
     if {![info exists tclcsv_loaded]} {
@@ -863,7 +863,7 @@ proc tarray::column::width {col {format %s}} {
                 if {$n > $len} {
                     set len $n
                 }
-            }                
+            }
         }
     }
     return $len
@@ -1121,6 +1121,7 @@ namespace eval tarray {
             csvexport csvexport
             csvimport csvimport
             ctype ctype
+            dbimport dbimport
             definition definition
             delete delete
             equal equal

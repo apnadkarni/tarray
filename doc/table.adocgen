@@ -535,8 +535,9 @@ text {
 
     ((cmddef table_vput "table vput ?-columns _COLUMNS_? _TABLEVAR_ _ROWVALUES_ _FIRST_"))
 
-    Modifies a variable _TABLEVAR_ containing a typed column. The elements of
-    the column starting at index _FIRST_ are replaced by the corresponding
+    Modifies a table stored in variable _TABLEVAR_ in caller's context.
+    The rows of the table
+    starting at index _FIRST_ are replaced by the corresponding
     elements of _ROWVALUES_. If _FIRST_ is not specified the elements are
     appended to the array. The new value is assigned back to the variable.
     The resulting value of the variable (which may differ because of traces)
