@@ -1461,7 +1461,7 @@ oo::class create tarray::ui::Table {
         # sorting. So we extract the column and sort on that instead.
         if {$_sort_column ne ""} {
             set col [tarray::table::column $_data $_sort_column]
-            set _row_ids [tarray::column::sort $_sort_order -nocase -indirect $col $_row_ids]
+            set _row_ids [tarray::column::Sort $_sort_order -nocase -indirect $col $_row_ids]
         }
         return
     }
