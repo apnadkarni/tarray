@@ -193,6 +193,46 @@ text {
     Returns the definition of the specified table in a form that can
     be passed to ((^ table_create "table create")).
     
+    ((cmddef table_dbimport_resultset "table dbimport resultset _RESULTSET_ _TABLEVAR_"))
+
+    Appends the contents of a TDBC result set object _RESULTSET_ to the tarray
+    table stored in the variable _TABLEVAR_ in the caller's context. The result
+    set column types must be compatible with the corresponding columns of the
+    tarray table. In case of errors, the original table is unmodified.
+    
+    ((cmddef table_dbimport_table "table dbimport table _DBCONN_ _DBTABLE_ ?_COLNAMES_?"))
+
+    Returns a table containing the contents of the database table named
+    _DBTABLE_ from the TDBC connection object _DBCONN_. _COLNAMES_ should be a
+    list of columns from which data is to be returned. If unspecified, all
+    columns are returned. The names of the columns in the returned `tarray`
+    table are the same as those returned from _DBCONN_. The database column
+    types are mapped according to the following table.
+
+    ((.Table tab_table_dbimport_typemap "Mapping SQL types to tarray types"))
+    [cols="50,50", width="75%"]
+    |===
+
+    |`int`, `smallint`, `integer`
+    |`int`
+
+    |`bigint`
+    |`wide`
+
+    |`tinyint`
+    |`byte`
+
+    |`float`, `decimal`, `numeric`, `double`
+    |`double`
+
+    |`bit`
+    |`boolean`
+
+    |Anything else
+    |`any`
+
+    |===
+
     ((cmddef table_delete "table delete _TABLE_ _INDEX_"))
 
     ((cmddef table_delete_1 "table delete _TABLE_ _INDEXLIST_"))
@@ -229,7 +269,8 @@ text {
     from the table width. Indices are specified in any of the forms
     described in ((^ sect_table_indices)). The size of the array will
     be extended if necessary. The index `end` refers to the last
-    element of the table.
+    element of the table so to append rows the index must be specified
+    as `end+1`.
 
     The standard option ((^ tab_table_stdopts -columns)) may be specified to target specific
     columns of the table or to match the order of columns to the supplied
