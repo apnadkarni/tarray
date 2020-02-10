@@ -239,7 +239,8 @@ text {
     Returns a typed column with specified indices set to _VALUE_. Indices are
     specified in any of the forms described in ((^ sect_column_indices)) and must follow
     the rules described there. The index keyword `end` refers to the current
-    last occupied position in the column. The size of the array will be
+    last occupied position in the column so to append values the index
+    should be specified as `end+1`. The size of the array will be
     extended if necessary provided the specified indices do not have gaps
     beyond the current column size.
 
