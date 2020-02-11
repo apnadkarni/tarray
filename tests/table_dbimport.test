@@ -1,0 +1,173 @@
+# table dbimport related commands
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    variable db_type_mapping
+    set db_type_map {
+        int int
+        smallint int
+        integer int
+        bigint wide
+        tinyint byte
+        float double
+        decimal double
+        numeric double
+        double double
+        bit boolean
+        blob any
+        text any
+    }
+
+    proc make_db {nrows} {
+        variable db_type_map
+
+        package require tdbc::sqlite3
+        set db [tdbc::sqlite3::connection create ::ta_test_db :memory:]
+        set coldefs {}
+        set vardefs {}
+        set sep ""
+        dict for {dbtype tatype} $db_type_map {
+            append coldefs $sep [string totitle col_$dbtype] " " $dbtype " NOT NULL"
+            append vardefs $sep :v$tatype
+            set sep ,
+        }
+        set stmt [$db prepare "CREATE TABLE ta_test_table ($coldefs)"]
+        $stmt execute
+        $stmt close
+        set stmt [$db prepare "INSERT INTO ta_test_table VALUES ($vardefs)"]
+        while {[incr nrows -1] >= 0} {
+            foreach tatype [dict values $db_type_map] {
+                set v$tatype [samplevalue $tatype $nrows]
+            }
+            $stmt execute
+        }
+        $stmt close
+        return $db
+    }
+
+    ###
+
+    test table-dbimport-table-1.0 {Test DB table import} -setup {
+        set db [make_db 3]
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport table $db ta_test_table
+    } -result {tarray_table {col_int col_smallint col_integer col_bigint col_tinyint col_float col_decimal col_numeric col_double col_bit col_blob col_text} {{tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column wide {10000400004 -10000200001 10000000000}} {tarray_column byte {16 13 14}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column boolean {1 0 1}} {tarray_column any {-0.50005 x0.5 0.5}} {tarray_column any {-0.50005 x0.5 0.5}}}}
+
+    test table-dbimport-table-1.1 {Test DB empty table import} -setup {
+        set db [make_db 0]
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport table $db ta_test_table
+    } -result {tarray_table {col_int col_smallint col_integer col_bigint col_tinyint col_float col_decimal col_numeric col_double col_bit col_blob col_text} {{tarray_column int {}} {tarray_column int {}} {tarray_column int {}} {tarray_column wide {}} {tarray_column byte {}} {tarray_column double {}} {tarray_column double {}} {tarray_column double {}} {tarray_column double {}} {tarray_column boolean {}} {tarray_column any {}} {tarray_column any {}}}}
+
+
+    test table-dbimport-resultset-1.0 {Test result import to empty table} -setup {
+        set db [make_db 3]
+        set stmt [$db prepare {SELECT * FROM ta_test_table}]
+        set rs [$stmt execute]
+        set tatable [tarray::table create {
+            tablecol_int int
+            tablecol_smallint int
+            tablecol_integer int
+            tablecol_bigint wide
+            tablecol_tinyint byte
+            tablecol_float double
+            tablecol_decimal double
+            tablecol_numeric double
+            tablecol_double double
+            tablecol_bit boolean
+            tablecol_blob any
+            tablecol_text any
+        }]
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport resultset $rs tatable
+        set tatable
+    } -result {tarray_table {tablecol_int tablecol_smallint tablecol_integer tablecol_bigint tablecol_tinyint tablecol_float tablecol_decimal tablecol_numeric tablecol_double tablecol_bit tablecol_blob tablecol_text} {{tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column wide {10000400004 -10000200001 10000000000}} {tarray_column byte {16 13 14}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column boolean {1 0 1}} {tarray_column any {-0.50005 x0.5 0.5}} {tarray_column any {-0.50005 x0.5 0.5}}}}
+
+    test table-dbimport-resultset-1.1 {Test dbimport resultset returns empty string} -setup {
+        set db [make_db 3]
+        set stmt [$db prepare {SELECT * FROM ta_test_table}]
+        set rs [$stmt execute]
+        set tatable [tarray::table create {
+            tablecol_int int
+            tablecol_smallint int
+            tablecol_integer int
+            tablecol_bigint wide
+            tablecol_tinyint byte
+            tablecol_float double
+            tablecol_decimal double
+            tablecol_numeric double
+            tablecol_double double
+            tablecol_bit boolean
+            tablecol_blob any
+            tablecol_text any
+        }]
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport resultset $rs tatable
+    } -result {}
+
+    test table-dbimport-resultset-1.2 {Test result import of column subset} -setup {
+        set db [make_db 3]
+        set stmt [$db prepare {SELECT col_int,col_bit,col_text FROM ta_test_table}]
+        set rs [$stmt execute]
+        set tatable [tarray::table create {
+            tablecol_int int
+            tablecol_bit boolean
+            tablecol_text any
+        }]
+        
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport resultset $rs tatable
+        set tatable
+    } -result {tarray_table {tablecol_int tablecol_bit tablecol_text} {{tarray_column int {102 -101 100}} {tarray_column boolean {1 0 1}} {tarray_column any {-0.50005 x0.5 0.5}}}}
+
+    test table-dbimport-resultset-1.3 {Test result import into non-empty table} -setup {
+        set db [make_db 3]
+        set stmt [$db prepare {SELECT col_int,col_bit,col_text FROM ta_test_table}]
+        set rs [$stmt execute]
+        set tatable [tarray::table create {
+            tablecol_int int
+            tablecol_bit boolean
+            tablecol_text any
+        }]
+        tarray::table vfill tatable {42 0 preexisting} end+1
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport resultset $rs tatable
+        set tatable
+    } -result {tarray_table {tablecol_int tablecol_bit tablecol_text} {{tarray_column int {42 102 -101 100}} {tarray_column boolean {0 1 0 1}} {tarray_column any {preexisting -0.50005 x0.5 0.5}}}}
+
+    test table-dbimport-resultset-1.4 {Test result reading numeric and decimal as any} -setup {
+        set db [make_db 3]
+        set stmt [$db prepare {SELECT col_float,col_decimal,col_numeric,col_double FROM ta_test_table}]
+        set rs [$stmt execute]
+        set tatable [tarray::table create {
+            tablecol_float double
+            tablecol_decimal any
+            tablecol_numeric any
+            tablecol_double double
+        }]
+    } -cleanup {
+        $db close
+    } -body {
+        tarray::table dbimport resultset $rs tatable
+        set tatable
+    } -result {tarray_table {tablecol_float tablecol_decimal tablecol_numeric tablecol_double} {{tarray_column double {-0.50005 0.5 0.0}} {tarray_column any {-0.50005 0.5 0}} {tarray_column any {-0.50005 0.5 0}} {tarray_column double {-0.50005 0.5 0.0}}}}
+
+
+}
+
+
+::tcltest::cleanupTests
+

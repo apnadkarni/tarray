@@ -233,6 +233,12 @@ text {
 
     |===
 
+    Note in particular that the precise numeric types `decimal` and `numeric` are
+    mapped to imprecise floats. If this is not desirable, for example mapping to type
+    `any` may be preferable, use the ((^ table_dbimport_resultset)) command instead.
+    The same applies if the above mapping is not suitable for any other reason as well.
+
+
     ((cmddef table_delete "table delete _TABLE_ _INDEX_"))
 
     ((cmddef table_delete_1 "table delete _TABLE_ _INDEXLIST_"))
