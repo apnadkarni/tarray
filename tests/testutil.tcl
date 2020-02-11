@@ -54,7 +54,7 @@ if {![info exists tarray::test::known]} {
             set l [list 0.0]
             time {lappend l $i; lappend anyl $i x$i; set i [expr {$i * -1.0001}]} $count
             lappend good(double) $l
-            
+
             # Note integers are started from arbitrary offsets so that they
             # do not match up with their index position (important when
             # testing search -inline etc.)
@@ -522,7 +522,7 @@ if {![info exists tarray::test::known]} {
             set col [boolindexcolumn $indices]
             return [newspancolumn boolean [tarray::column range -list $col 0 end]]
         }
-        
+
         proc samplerange {type args} {
             variable sample
             if {[llength $args] == 0} {
@@ -556,7 +556,7 @@ if {![info exists tarray::test::known]} {
             check_span_column $col
             return $col
         }
-        
+
         proc samplevalue {type {pos 0}} {
             variable sample
             return [lindex $sample($type) $pos]

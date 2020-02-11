@@ -7,7 +7,7 @@
 
 namespace eval tarray::table::dbimport {
 
-    proc map_sql_type {colmeta nullable} {
+    proc map_sql_type {type nullable} {
         # colmeta in form returned by tdbc in column subdictionary
         # Nullable columns always returned as Tcl_Obj as we have
         # there is no way to represent them for other types.
@@ -71,7 +71,7 @@ namespace eval tarray::table::dbimport {
             } else {
                 set nullable [dict get $tabmeta $colname nullable]
             }
-            lappend column_defs $colname [map_sql_type [dict get $tabmeta $colname] $nullable]
+            lappend column_defs $colname [map_sql_type [dict get $tabmeta $colname type] $nullable]
         }
         set result [tarray::table create $column_defs]
         set stmt [$db prepare "SELECT [join $colnames ,] FROM $tabname"]
