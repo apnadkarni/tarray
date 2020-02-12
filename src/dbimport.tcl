@@ -26,12 +26,17 @@ namespace eval tarray::table::dbimport {
         }
     }
 
+    proc sql_quote_name {name} {
+        # Note - "" quote in MySQL requires ANSI_QUOTES option to be set
+        return "\"$name\""
+    }
+
     proc is_primary_key {db tabname colname} {
         # Return true if the column is a primary key in the table
 
         # Note, tolower because tdbc seems to convert all keys in meta information
         # to lower so tabname and colname passed in are lower case
-        foreach keymeta [$db primarykeys $tabname] {
+        foreach keymeta [$db primarykeys [sql_quote_name $tabname]] {
             if {[dict exists $keymeta columnName] &&
                 [string equal -nocase [dict get $keymeta columnName] $colname]
             } {
@@ -55,8 +60,9 @@ namespace eval tarray::table::dbimport {
         }
     }
 
-    proc table {db tabname args} {
-        set tabmeta [$db columns $tabname]
+    proc table {db dbtable args} {
+        # Extract column type information.
+        set tabmeta [$db columns $dbtable]
         if {[llength $args] == 0} {
             set colnames [dict keys $tabmeta]
         } elseif {[llength $args] == 1} {
@@ -64,19 +70,32 @@ namespace eval tarray::table::dbimport {
         } else {
             throw {TCL WRONGARGS} "wrong # args: should \"table dbimport table DBCONN TABNAME ?COLNAMES?\""
         }
-        set column_defs [list ]
+        array set coltypes {}
         foreach colname $colnames {
-            if {[is_primary_key $db $tabname $colname]} {
+            if {[is_primary_key $db $dbtable $colname]} {
                 set nullable 0
             } else {
                 set nullable [dict get $tabmeta $colname nullable]
             }
-            lappend column_defs $colname [map_sql_type [dict get $tabmeta $colname type] $nullable]
+            set coltypes($colname) [map_sql_type [dict get $tabmeta $colname type] $nullable]
         }
-        set result [tarray::table create $column_defs]
-        set stmt [$db prepare "SELECT [join $colnames ,] FROM $tabname"]
+        set colnames [lmap colname $colnames {sql_quote_name $colname}]
+        set stmt [$db prepare "SELECT [join $colnames ,] FROM [sql_quote_name $dbtable]"]
         try {
             set rs [$stmt execute]
+            set rs_colnames [$rs columns]
+            set column_defs [list ]
+            foreach colname $rs_colnames {
+                if {[info exists coltypes($colname)]} {
+                    set coltype $coltypes($colname)
+                } elseif {[info exists coltypes([string tolower $colname])]} {
+                    set coltype $coltypes([string tolower $colname])
+                } else {
+                    error "Could not get type for column $colname in table $dbtable"
+                }
+                lappend column_defs $colname $coltype
+            }
+            set result [tarray::table create $column_defs]
             resultset $rs result
         } finally {
             $stmt close
