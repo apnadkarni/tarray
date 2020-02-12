@@ -1314,18 +1314,103 @@ text {
 text {
     ((== * "Export and import"))
 
+    ((=== * "Importing from a database"))
+
+    The result set from a TDBC database query can be imported into tarray tables
+    with the ((^` table_dbimport_resultset "table dbimport resultset")) command.
+    Naturally, the number of table columns and types have to match those of
+    the result set.
+
+} outputlimit 7 shell {
+    package require tdbc::sqlite3
+    tdbc::sqlite3::connection create db ../data/northwind_small.sqlite
+    set stmt [db prepare {
+        SELECT CompanyName,OrderCount
+        FROM Customer
+        INNER JOIN (SELECT `Order`.CustomerId AS CID, COUNT(*) AS OrderCount
+                    FROM `Order`
+                    GROUP BY `Order`.CustomerId)
+        WHERE Customer.id=CID
+    }]
+    set rs [$stmt execute]
+    set order_table [table create {Company any Orders int}]
+    table dbimport resultset $rs order_table
+    table print $order_table
+} text {
+    Alternatively, an entire table, or a subset of its columns, can be read
+    with the ((^` table_dbimport_table "table dbimport table")) command. In this case,
+    a new tarray table is returned with the column names matching the column
+    names of the database table as returned by TDBC.
+} outputlimit 7 shell {
+    table print [table dbimport table db Customer {CompanyName ContactName ContactTitle}]
+}
+
+text {
+
+    ((=== * "CSV export and import"))
+
     Tables can be exported to, and imported from, CSV format with
     ((^` table_csvexport "table csvexport")) and
     ((^` table_csvimport "table csvimport")) respectively.
-    
+} shell {
+    table print [table csvimport -sniff ../data/college.csv]
+} text {
+    The commands support a number of options for distinguishing CSV dialects.
+    A related widget, described later, implements a configuration wizard for
+    dialects.
 }
 
 text {
     ((== * "Tk widgets"))
 
     The `tarray_ui` package provides several widgets for
-    displaying and plotting column and table data. See its
-    link:ui.html[documentation].
+    displaying and plotting column and table data.
+
+}
+
+text {
+    ((=== * "Displaying tables"))
+
+    The ((^ ui_tableview tarray::ui::tableview))
+    widget makes it simple to display data in tables. For example,
+    the snippet below will show the result of the database query we did earlier in
+    with sorting and filtering capability.
+} uiscript {
+    package require tarray_ui
+    toplevel .customers
+    tarray::ui::tableview .customers.orders $order_table -showfilter true
+    pack .customers.orders -fill both -expand yes
+} text {
+    The corresponding display table looks like
+
+    image::customer_orders.png[Customer orders]
+
+    The widget supports many capabilities such as sorting, display highlighting based
+    on cell content, filtering and automatic scrollbars. Another example is shown below.
+
+    image::cities_visual.png[City data]
+}
+
+text {
+    ((=== * "Displaying graphs"))
+    An alternate means of displaying table data that is numeric is through graphs.
+    The ((^ ui_rbcchart ::tarray::ui::rbcchart)) widget wraps the RBC Tk extension
+    to simplify the graphing of table data. An example is shown below.
+
+    image::rain.png[Rain chart]
+
+    See the ((^ ui_rbcchart reference)) for the corresponding code.
+}
+
+text {
+    ((=== * "CSV import configuration wizard"))
+
+    The ((^ ui_csvreader ::tarray::ui::csvreader)) widget is an interactive wizard
+    for importing data from CSV files into tables. The widget, pictured below,
+    can be used to interactively select the various CSV formatting conventions for
+    reading CSV files into tables.
+
+    image::csvreader.png[CSV configuration widget]
 }
 
 text {
