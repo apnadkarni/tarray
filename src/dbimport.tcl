@@ -72,6 +72,13 @@ namespace eval tarray::table::dbimport {
         }
         array set coltypes {}
         foreach colname $colnames {
+            if {![dict exists $tabmeta $colname]} {
+                if {[dict exists $tabmeta [string tolower $colname]]} {
+                    set colname [string tolower $colname]
+                } else {
+                    error "Could not get type for column $colname in table $dbtable"
+                }
+            }
             if {[is_primary_key $db $dbtable $colname]} {
                 set nullable 0
             } else {
@@ -79,11 +86,15 @@ namespace eval tarray::table::dbimport {
             }
             set coltypes($colname) [map_sql_type [dict get $tabmeta $colname type] $nullable]
         }
-        set colnames [lmap colname $colnames {sql_quote_name $colname}]
-        set stmt [$db prepare "SELECT [join $colnames ,] FROM [sql_quote_name $dbtable]"]
+        set sql_colnames [lmap colname $colnames {sql_quote_name $colname}]
+        set stmt [$db prepare "SELECT [join $sql_colnames ,] FROM [sql_quote_name $dbtable]"]
         try {
             set rs [$stmt execute]
             set rs_colnames [$rs columns]
+            if {[llength $rs_colnames] == 0} {
+                # Empty table -> no column names in result. Use meta names gathered above
+                set rs_colnames $colnames
+            }
             set column_defs [list ]
             foreach colname $rs_colnames {
                 if {[info exists coltypes($colname)]} {
