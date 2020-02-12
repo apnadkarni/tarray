@@ -54,7 +54,7 @@ namespace eval tarray::test {
         $db close
     } -body {
         tarray::table dbimport table $db ta_test_table
-    } -result {tarray_table {col_int col_smallint col_integer col_bigint col_tinyint col_float col_decimal col_numeric col_double col_bit col_blob col_text} {{tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column wide {10000400004 -10000200001 10000000000}} {tarray_column byte {16 13 14}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column boolean {1 0 1}} {tarray_column any {-0.50005 x0.5 0.5}} {tarray_column any {-0.50005 x0.5 0.5}}}}
+    } -result {tarray_table {Col_int Col_smallint Col_integer Col_bigint Col_tinyint Col_float Col_decimal Col_numeric Col_double Col_bit Col_blob Col_text} {{tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column int {102 -101 100}} {tarray_column wide {10000400004 -10000200001 10000000000}} {tarray_column byte {16 13 14}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column double {-0.50005 0.5 0.0}} {tarray_column boolean {1 0 1}} {tarray_column any {-0.50005 x0.5 0.5}} {tarray_column any {-0.50005 x0.5 0.5}}}}
 
     test table-dbimport-table-1.1 {Test DB empty table import} -setup {
         set db [make_db 0]
