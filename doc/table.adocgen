@@ -159,8 +159,9 @@ text {
     the same semantics as for the Tcl `fconfigure` command.
 
     Any additional options are passed on to the `tclcsv::csv_write`
-    command and control the CSV dialect to be used.
-    Refer to the
+    command and control the CSV dialect to be used. These allow control
+    of the CSV dialect (separators, terminators, quoting etc.) of
+    the generated output. Refer to the
     https://tclcsv.magicsplat.com/index.html#tclcsv_csv_write[documentation]
     for that command for available options.
 
@@ -183,7 +184,9 @@ text {
     is used to guess the format of the CSV file.
 
     Any additional options are passed on to the `tclcsv::reader`
-    command. Refer to the
+    command. These allow specification
+    of the CSV dialect (separators, terminators, quoting etc.) of
+    input data. Refer to the
     https://tclcsv.magicsplat.com/index.html#tclcsv_csv_write[documentation]
     for that command for available options.
     Any options specified thus will override the values discovered
@@ -205,9 +208,15 @@ text {
     Returns a table containing the contents of the database table named
     _DBTABLE_ from the TDBC connection object _DBCONN_. _COLNAMES_ should be a
     list of columns from which data is to be returned. If unspecified, all
-    columns are returned. The names of the columns in the returned `tarray`
-    table are the same as those returned from _DBCONN_. The database column
-    types are mapped according to the following table.
+    columns are returned.
+
+    The names of the columns in the returned `tarray` table are as returned by
+    the database query result set. However, when the table is empty, the query
+    result set does not specify column names. In that case, the column names are
+    as specified by the caller or if unspecified, those returned by the TDBC
+    connection object (this may differ from the actual names in character case).
+
+    The database column types are mapped according to the following table.
 
     ((.Table tab_table_dbimport_typemap "Mapping SQL types to tarray types"))
     [cols="50,50", width="75%"]
@@ -237,7 +246,6 @@ text {
     mapped to imprecise floats. If this is not desirable, for example mapping to type
     `any` may be preferable, use the ((^ table_dbimport_resultset)) command instead.
     The same applies if the above mapping is not suitable for any other reason as well.
-
 
     ((cmddef table_delete "table delete _TABLE_ _INDEX_"))
 
