@@ -344,6 +344,13 @@ text {
     Option `-nocase` only has effect if the column type is `any` or `string`.
     If specified, elements are compared in case-insensitive mode.
 
+    ((cmddef column_linspace "column linspace _START_ _STOP_ _COUNT_ ?-type _TYPE_? ?-open _BOOL_?"))
+
+    Returns a column containing _COUNT_ values evenly spaced between
+    _START_ and _STOP_. The `-type` option specifies the column type and defaults
+    to `double`. If the `-open` option is specified as `true`, the interval is
+    open at the upper bound. The default is `false` indicating a closed interval.
+
     ((cmddef column_lookup "column lookup _COLUMN_ ?_LOOKUPKEY_?"))
 
     The command returns the index of an element in _COLUMN_ that exactly
@@ -513,6 +520,10 @@ text {
     comparisons. This is only effective if the column type is `any` or
     `string` and ignored for the others.
 
+    ((cmddef column_ones "column ones _COUNT_ ?_TYPE_?"))
+
+    Returns a column of size _COUNT_ with all elements initialized to `1`.
+    _TYPE_ defaults to `int`.
 
     ((cmddef column_place "column place _COLUMN_ _VALUES_ _INDICES_"))
 
@@ -816,6 +827,11 @@ text {
     If `_FORMAT_` is not specified, it defaults to `%s`. If the column
     is empty, the command returns `0` irrespective of `_FORMAT_`.
     
+    ((cmddef column_zeroes "column zeroes _COUNT_ ?_TYPE_?"))
+
+    Returns a column of size _COUNT_ with all elements initialized to `0`.
+    _TYPE_ defaults to `int`.
+
 } text {
     // Turn section numbering on again
     :sectnums:
