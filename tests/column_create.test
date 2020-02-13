@@ -364,6 +364,61 @@ namespace eval tarray::test {
         tarray::column bitmap1 4 [tarray::column bitmap0 7 {6 4 3}]
     } -result "tarray index 6 out of bounds." -returnCodes error
 
+    ###
+
+    test column_zeroes-$type-1.0 {
+        Create an empty column of zeroes of default type
+    } -body {
+        tarray::column zeroes 0
+    } -result [tarray::column create int]
+
+    test column_zeroes-$type-1.1 {
+        Create an column of zeroes of default type
+    } -body {
+        tarray::column zeroes 3
+    } -result [tarray::column create int {0 0 0}]
+
+    foreach type {any boolean byte double int uint wide} {
+        test column_zeroes-$type-1.0 {
+            Create an empty column of zeroes
+        } -body {
+            tarray::column zeroes 0 $type
+        } -result [tarray::column create $type]
+
+        test column_zeroes-$type-1.1 {
+            Create an column of zeroes
+        } -body {
+            tarray::column zeroes 3 $type
+        } -result [tarray::column create $type {0 0 0}]
+    }
+
+    ###
+
+    test column_ones-$type-1.0 {
+        Create an empty column of ones of default type
+    } -body {
+        tarray::column ones 0
+    } -result [tarray::column create int]
+
+    test column_ones-$type-1.1 {
+        Create an column of ones of default type
+    } -body {
+        tarray::column ones 3
+    } -result [tarray::column create int {1 1 1}]
+
+    foreach type {any boolean byte double int uint wide} {
+        test column_ones-$type-1.0 {
+            Create an empty column of ones
+        } -body {
+            tarray::column ones 0 $type
+        } -result [tarray::column create $type]
+
+        test column_ones-$type-1.1 {
+            Create an column of ones
+        } -body {
+            tarray::column ones 3 $type
+        } -result [tarray::column create $type {1 1 1}]
+    }
 
 }
 ::tcltest::cleanupTests
