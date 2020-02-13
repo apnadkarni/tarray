@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2016, Ashok P. Nadkarni
+# Copyright (c) 2015-2020, Ashok P. Nadkarni
 # All rights reserved.
 #
 # See the file LICENSE for license
@@ -46,8 +46,8 @@ proc tarray::table::rows {tab} {
     return [range -list $tab 0 end]
 }
 
-# TBD - document and test
 # TBD - type overflows need to be checked
+# Credits: numpy linspace
 proc tarray::column::linspace {start stop count args} {
     dict size $args;            # Verify dictionary format
 
@@ -56,72 +56,45 @@ proc tarray::column::linspace {start stop count args} {
         {open.bool 0}
     } -maxleftover 0 -setvars
 
-    if {$start > $stop} {
-        error "Specified of range $start is greater than the end $stop."
-    }
-
-    if {![string is integer -strict $count] || $count <= 0} {
-        error "Count must be a positive integer."
-    }
-    if {$count == 1} {
-        if {! $open} {
-            if {$start != $stop} {
-                error "Must not specify -open option as false if start and stop values are different and count is 1."
-            }
-        }
+    if {![string is integer -strict $count] || $count < 0} {
+        error "Count must be a non-negative integer."
+    } elseif {$count == 0} {
+        return [create $type]
+    } elseif {$count == 1} {
         return [create $type [list $start]]
     }
 
     # NOTE: count > 1 beyond this point
 
-    set div $count
-    if {!$open} {
-        incr div -1
-    }
-
-    if {$type ne "double"} {
-        if {!([string is integer -strict $start] &&
-              [string is integer -strict $stop])} {
-            error "Start and stop arguments must be integers if return type is $type."
-        }
-        set step [expr {($stop-$start)/$div}]
-        if {($start + $step*$div) != $stop} {
-            if {$open} {
-                set range "\[$start, $stop\)"
-            } else {
-                set range "\[$start, $stop\]"
-            }
-            error "Cannot have $count integer values with integral spacing in the range $range."
-        }
-        if {!$open} {
-            incr stop $step
-        }
-        return [create $type [series $start $stop $step]]
-    }
+    set series [series 0.0 $count 1.0]; # Note series of doubles
 
     # Ensure operands are treated as doubles
     set start [tcl::mathfunc::double $start]
     set stop  [tcl::mathfunc::double $stop]
 
-    # Credits: numpy
-    set result [series 0.0 $count 1]
-
+    # If closed interval, then number of interval divisions is one less than count
+    set div [expr {$open ? $count : ($count-1)}]
     set delta [expr {$stop - $start}]
     set step [expr {$delta / $div}]
 
     # TBD - a column vmath command would perform better here
 
     if {$step == 0} {
-        set result [math / $result $div]
+        set result [math / $series $div]
         set result [math * $result $delta]
     } else {
-        set result [math * $result $step]
+        set result [math * $series $step]
     }
 
     set result [math + $result $start]
     if {!$open} {
         # Overwrite last element which might have exceeded bound
         vfill result $stop end
+    }
+
+    if {$type ne "double"} {
+        # TBD - perhaps round instead of casting?
+        set result [cast $type $result]
     }
 
     return $result
@@ -869,9 +842,12 @@ proc tarray::column::width {col {format %s}} {
     return $len
 }
 
-# TBD - doc and test
 proc tarray::column::zeroes {n {type int}} {
     return [fill [create $type {} $n] 0 0 [expr {$n-1}]]
+}
+
+proc tarray::column::ones {n {type int}} {
+    return [fill [create $type {} $n] 1 0 [expr {$n-1}]]
 }
 
 proc tarray::unsupported::build_info {} {
@@ -1064,6 +1040,7 @@ namespace eval tarray {
             loop ::tarray::loop
             math math
             minmax minmax
+            ones ones
             place place
             prettify prettify
             print print
@@ -1159,4 +1136,3 @@ namespace eval tarray {
     namespace export bitmap0 bitmap1 column loop parseargs oneopt prettify print randseed rng table
 
 }
-
