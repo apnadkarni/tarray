@@ -1,4 +1,4 @@
-# column count tests
+# column series tests
 
 source testutil.tcl
 
@@ -11,7 +11,7 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 5
     } -result [newcolumn int {0 1 2 3 4}]
-    
+
     test column_series-int-1.1 {
         Int stop (empty)
     } -body {
@@ -29,7 +29,7 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 5 2
     } -result [newcolumn int {0 2 4}]
-    
+
     test column_series-int-2.0.1 {
         Int stop step
     } -body {
@@ -41,19 +41,19 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 6 2
     } -result [newcolumn int {0 2 4}]
-    
+
     test column_series-int-2.2 {
         Int stop step
     } -body {
         tarray::column series -5 -2
     } -result [newcolumn int {0 -2 -4}]
-    
+
     test column_series-int-2.3 {
         Int stop step
     } -body {
         tarray::column series -6 -2
     } -result [newcolumn int {0 -2 -4}]
-    
+
     test column_series-int-2.4 {
         Int stop step
     } -body {
@@ -89,49 +89,49 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 0 5 2
     } -result [newcolumn int {0 2 4}]
-    
+
     test column_series-int-3.0.1 {
         Int start stop step
     } -body {
         tarray::column series 0 5 -2
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-int-3.0.2 {
         Int start stop step
     } -body {
         tarray::column series 0 -5 2
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-int-3.0.3 {
         Int start stop step
     } -body {
         tarray::column series 0 5 0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-int-3.1 {
         Int start stop step
     } -body {
         tarray::column series 0 6 2
     } -result [newcolumn int {0 2 4}]
-    
+
     test column_series-int-3.2 {
         Int start stop step
     } -body {
         tarray::column series 1 6 2
     } -result [newcolumn int {1 3 5}]
-    
+
     test column_series-int-3.3 {
         Int start stop step
     } -body {
         tarray::column series 0 -5 -2
     } -result [newcolumn int {0 -2 -4}]
-    
+
     test column_series-int-3.4 {
         Int start stop step
     } -body {
         tarray::column series 0 -6 -2
     } -result [newcolumn int {0 -2 -4}]
-    
+
     test column_series-int-3.5 {
         Int start stop step
     } -body {
@@ -143,37 +143,37 @@ namespace eval tarray::test {
     } -body {
         tarray::column series -1 5 2
     } -result [newcolumn int {-1 1 3}]
-    
+
     test column_series-int-3.7 {
         Int start stop step
     } -body {
         tarray::column series -8 -2 2
     } -result [newcolumn int {-8 -6 -4}]
-    
+
     test column_series-int-3.8 {
         Int start stop step
     } -body {
         tarray::column series 1 -5 -2
     } -result [newcolumn int {1 -1 -3}]
-    
+
     test column_series-int-3.8.1 {
         Int start stop step
     } -body {
         tarray::column series 1 -5 2
     } -result "Invalid operand(s)." -returnCodes error
- 
+
     test column_series-int-3.8.2 {
         Int start stop step
     } -body {
         tarray::column series 1 5 -2
     } -result "Invalid operand(s)." -returnCodes error
- 
+
     test column_series-int-3.9 {
         Int start stop step
     } -body {
         tarray::column series 2 -6 -2
     } -result [newcolumn int {2 0 -2 -4}]
-    
+
     #
     # double type tests
     test column_series-double-1.0 {
@@ -181,7 +181,7 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 5.0
     } -result [newcolumn double {0.0 1.0 2.0 3.0 4.0}]
-    
+
     test column_series-double-1.1 {
         Double stop (empty)
     } -body {
@@ -199,55 +199,55 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 5.0 2.0
     } -result [newcolumn double {0.0 2.0 4.0}]
-    
+
     test column_series-double-2.0.1 {
         Double stop step
     } -body {
         tarray::column series 5 2.0
     } -result [newcolumn double {0.0 2.0 4.0}]
-    
+
     test column_series-double-2.0.2 {
         Double stop step
     } -body {
         tarray::column series 5.0 0.0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-double-2.1 {
         Double stop step
     } -body {
         tarray::column series 6.0 2.0
     } -result [newcolumn double {0.0 2.0 4.0}]
-    
+
     test column_series-double-2.1.1 {
         Double stop step
     } -body {
         tarray::column series 6.0 2
     } -result [newcolumn double {0.0 2.0 4.0}]
-    
+
     test column_series-double-2.2 {
         Double stop step
     } -body {
         tarray::column series -5.0 -2.0
     } -result [newcolumn double {0.0 -2.0 -4.0}]
-    
+
     test column_series-double-2.2.1 {
         Double stop step
     } -body {
         tarray::column series -5 -2.0
     } -result [newcolumn double {0.0 -2.0 -4.0}]
-    
+
     test column_series-double-2.3 {
         Double stop step
     } -body {
         tarray::column series -6.0 -2.0
     } -result [newcolumn double {0.0 -2.0 -4.0}]
-    
+
     test column_series-double-2.3.1 {
         Double stop step
     } -body {
         tarray::column series -6.0 -2
     } -result [newcolumn double {0.0 -2.0 -4.0}]
-    
+
     test column_series-double-2.4 {
         Double stop step
     } -body {
@@ -295,67 +295,67 @@ namespace eval tarray::test {
     } -body {
         tarray::column series 0.0 5.0 2.0
     } -result [newcolumn double {0.0 2.0 4.0}]
-    
+
     test column_series-double-3.0.1 {
         Double start stop step
     } -body {
         tarray::column series 0.0 5.0 -2.0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-double-3.0.2 {
         Double start stop step
     } -body {
         tarray::column series 0.0 -5.0 2.0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-double-3.0.3 {
         Double start stop step
     } -body {
         tarray::column series 0.0 5.0 0.0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-double-3.1 {
         Double start stop step
     } -body {
         tarray::column series 0.0 6.0 2.0
     } -result [newcolumn double {0 2.0 4.0}]
-    
+
     test column_series-double-3.1.1 {
         Double start stop step
     } -body {
         tarray::column series 0 6 2.0
     } -result [newcolumn double {0 2.0 4.0}]
-    
+
     test column_series-double-3.1.2 {
         Double start stop step
     } -body {
         tarray::column series 0 6.0 2
     } -result [newcolumn double {0 2.0 4.0}]
-    
+
     test column_series-double-3.1.3 {
         Double start stop step
     } -body {
         tarray::column series 0.0 6 2
     } -result [newcolumn double {0 2.0 4.0}]
-    
+
     test column_series-double-3.2 {
         Double start stop step
     } -body {
         tarray::column series 1.0 6.0 2.0
     } -result [newcolumn double {1.0 3.0 5.0}]
-    
+
     test column_series-double-3.3 {
         Double start stop step
     } -body {
         tarray::column series 0.0 -5.0 -2.0
     } -result [newcolumn double {0.0 -2.0 -4.0}]
-    
+
     test column_series-double-3.4 {
         Double start stop step
     } -body {
         tarray::column series 0.0 -6.0 -2.0
     } -result [newcolumn double {0.0 -2.0 -4.0}]
-    
+
     test column_series-double-3.5 {
         Double start stop step
     } -body {
@@ -367,43 +367,43 @@ namespace eval tarray::test {
     } -body {
         tarray::column series -1.0 5.0 2.0
     } -result [newcolumn double {-1.0 1.0 3.0}]
-    
+
     test column_series-double-3.7 {
         Double start stop step
     } -body {
         tarray::column series -8.0 -2.0 2.0
     } -result [newcolumn double {-8.0 -6.0 -4.0}]
-    
+
     test column_series-double-3.8 {
         Double start stop step
     } -body {
         tarray::column series 1.0 -5.0 -2.0
     } -result [newcolumn double {1 -1 -3}]
-    
+
     test column_series-double-3.8.1 {
         Double start stop step
     } -body {
         tarray::column series 1.0 -5.0 2.0
     } -result "Invalid operand(s)." -returnCodes error
- 
+
     test column_series-double-3.8.2 {
         Double start stop step
     } -body {
         tarray::column series 1.0 5.0 -2.0
     } -result "Invalid operand(s)." -returnCodes error
- 
+
     test column_series-double-3.9 {
         Double start stop step
     } -body {
         tarray::column series 2.0 -6.0 -2.0
     } -result [newcolumn double {2.0 0.0 -2.0 -4.0}]
-    
+
     test column_series-double-3.10 {
         Double start stop step, tests float rounding
     } -body {
         tarray::column series 1.0 0.0 -0.1
     } -result [newcolumn double {1.0 0.9 0.8 0.7000000000000001 0.6000000000000001 0.5000000000000001 0.40000000000000013 0.30000000000000016 0.20000000000000015 0.10000000000000014 1.3877787807814457e-16}]
-    
+
     test column_series-double-3.10.1 {
         Double start stop step, tests float rounding
     } -body {
@@ -417,76 +417,76 @@ namespace eval tarray::test {
     } -body {
         tarray::column series $Wide
     } -result "Requested array size (4294967297) greater than limit." -returnCodes error
-    
+
     test column_series-wide-1.1 {
         Wide stop
     } -body {
         tarray::column series $Wide $Wide
     } -result [newcolumn wide {0}]
-    
+
     test column_series-wide-1.2 {
         Wide stop
     } -body {
         tarray::column series [expr {1+$Wide}] $Wide
     } -result [newcolumn wide [list 0 $Wide]]
-    
+
     test column_series-wide-1.3 {
         Wide stop
     } -body {
         tarray::column series -$Wide -$Wide
     } -result [newcolumn wide {0}]
-    
+
     test column_series-wide-1.4 {
         Wide stop
     } -body {
         tarray::column series [expr {-$Wide-1}] -$Wide
     } -result [newcolumn wide [list 0 -$Wide]]
-    
+
     test column_series-wide-1.5 {
         Wide stop
     } -body {
         tarray::column series $Wide 0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     test column_series-wide-2.0 {
         Wide stop
     } -body {
         tarray::column series -$Wide $Wide $Wide
     } -result [newcolumn wide [list -$Wide 0]]
-    
+
     test column_series-wide-2.0.1 {
         Wide stop
     } -body {
         tarray::column series -$Wide $Wide 1
     } -result "Requested array size (8589934594) greater than limit." -returnCodes error
-    
+
     test column_series-wide-2.1 {
         Wide stop
     } -body {
         tarray::column series -$Wide [expr {$Wide+1}] $Wide
     } -result [newcolumn wide [list -$Wide 0 $Wide]]
-    
+
     test column_series-wide-2.2 {
         Wide stop
     } -body {
         tarray::column series $Wide -$Wide -$Wide
     } -result [newcolumn wide [list $Wide 0]]
-    
+
     test column_series-wide-2.3 {
         Wide stop
     } -body {
         tarray::column series $Wide [expr {-$Wide-1}] -$Wide
     } -result [newcolumn wide [list $Wide 0 -$Wide]]
-    
+
     test column_series-wide-2.4 {
         Wide stop
     } -body {
         tarray::column series -$Wide $Wide 0
     } -result "Invalid operand(s)." -returnCodes error
-    
+
     #
     # Bad operand type tests
-    
+
     test column_series-bad-1.0 {
         Bad stop types
     } -body {
