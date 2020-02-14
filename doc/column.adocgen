@@ -347,9 +347,16 @@ text {
     ((cmddef column_linspace "column linspace _START_ _STOP_ _COUNT_ ?-type _TYPE_? ?-open _BOOL_?"))
 
     Returns a column containing _COUNT_ values evenly spaced between
-    _START_ and _STOP_. The `-type` option specifies the column type and defaults
+    _START_ and _STOP_. _STOP_ may be less than _START_ in which case returned values
+    are in descending order. The `-type` option specifies the column type and defaults
     to `double`. If the `-open` option is specified as `true`, the interval is
-    open at the upper bound. The default is `false` indicating a closed interval.
+    open and _STOP_ is not included in the returned values. The default is `false`.
+
+    Note that the returned column always contains _COUNT_ elements. For integral
+    types, this means some values may be repeated if the difference between the interval
+    ends is less than _COUNT_. Moreover, the values may not be exactly spaced apart
+    in the case that the interval cannot be divided into _COUNT_ integral divisions.
+
 
     ((cmddef column_lookup "column lookup _COLUMN_ ?_LOOKUPKEY_?"))
 

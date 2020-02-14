@@ -6,6 +6,7 @@
 #
 
 namespace eval tarray {
+    
     namespace eval column { namespace path [namespace parent] }
     namespace eval table { namespace path [namespace parent] }
     namespace eval unsupported { namespace path [namespace parent] }
@@ -26,6 +27,15 @@ namespace eval tarray {
             error "Command $cmd not found in caller namespace."
         }
         return [lreplace $cmdprefix 0 0 $qual_cmd]
+    }
+
+    variable limits
+    array set limits {
+        boolean {0 1}
+        byte {0 255}
+        int {-2147483648 2147483647}
+        uint {0 4294967295}
+        wide {-9223372036854775808 9223372036854775807}
     }
 }
 
@@ -56,12 +66,39 @@ proc tarray::column::linspace {start stop count args} {
         {open.bool 0}
     } -maxleftover 0 -setvars
 
+    foreach arg {start stop} {
+        if {!([string is entier -strict [set $arg]] || [string is double -strict [set $arg]])} {
+            error "expected numeric value, got \"[set $arg]\""
+        }
+    }
+
     if {![string is integer -strict $count] || $count < 0} {
-        error "Count must be a non-negative integer."
+        error "expected non-negative numeric value, got \"$count\""
     } elseif {$count == 0} {
         return [create $type]
     } elseif {$count == 1} {
         return [create $type [list $start]]
+    }
+
+
+    if {$type ne "double"} {
+        if {$stop >= $start} {
+            set upper_bound $stop
+            if {$open} {
+                incr upper_bound -1
+            }
+            set lower_bound $start
+        } else {
+            set upper_bound $start
+            set lower_bound $stop
+            if {$open} {
+                incr lower_bound
+            }
+        }
+        lassign $::tarray::limits($type) lb ub
+        if {$lower_bound < $lb || $upper_bound > $ub} {
+            error "Interval {$start $stop} not within range for type $type."
+        }
     }
 
     # NOTE: count > 1 beyond this point

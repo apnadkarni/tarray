@@ -1,0 +1,217 @@
+# column linspace tests
+
+source testutil.tcl
+
+namespace eval tarray::test {
+    variable Wide 4294967296
+
+    proc testdef {id comment result args} {
+        test column_linspace-$id $comment -body [list ::tarray::column linspace {*}$args] -result $result
+    }
+
+    # Corner cases of 0/1 samples
+    foreach type {byte int uint wide double} {
+        testdef $type-1.0 {start==stop,1,-type,default} [newcolumn $type {10}] 10 10 1 -type $type
+        testdef $type-1.1 {start==stop,1,-type,closed} [newcolumn $type {10}] 10 10 1 -type $type -open 0
+        testdef $type-1.2 {start==stop,1,-type,open} [newcolumn $type {10}] 10 10 1 -type $type -open 1
+        testdef $type-2.0 {start==stop,0,-type,default} [newcolumn $type] 10 10 0 -type $type
+        testdef $type-2.1 {start==stop,0,-type,closed} [newcolumn $type] 10 10 0 -type $type -open 0
+        testdef $type-2.2 {start==stop,0,-type,open} [newcolumn $type] 10 10 0 -type $type -open 1
+        testdef $type-3.0 {start<stop,1,-type,default} [newcolumn $type {10}] 10 20 1 -type $type
+        testdef $type-3.1 {start<stop,1,-type,closed} [newcolumn $type {10}] 10 20 1 -type $type -open 0
+        testdef $type-3.2 {start<stop,1,-type,open} [newcolumn $type {10}] 10 20 1 -type $type -open 1
+        testdef $type-4.0 {start<stop,0,-type,default} [newcolumn $type] 10 20 0 -type $type
+        testdef $type-4.1 {start<stop,0,-type,closed} [newcolumn $type] 10 20 0 -type $type -open 0
+        testdef $type-4.2 {start<stop,0,-type,open} [newcolumn $type] 10 20 0 -type $type -open 1
+
+        testdef $type-5.0 {start>stop,1,-type,default} [newcolumn $type {20}] 20 10 1 -type $type
+        testdef $type-5.1 {start>stop,1,-type,closed} [newcolumn $type {20}] 20 10 1 -type $type -open 0
+        testdef $type-5.2 {start>stop,1,-type,open} [newcolumn $type {20}] 20 10 1 -type $type -open 1
+        testdef $type-6.0 {start>stop,0,-type,default} [newcolumn $type] 20 10 0 -type $type
+        testdef $type-6.1 {start>stop,0,-type,closed} [newcolumn $type] 20 10 0 -type $type -open 0
+        testdef $type-6.2 {start>stop,0,-type,open} [newcolumn $type] 20 10 0 -type $type -open 1
+    }
+
+    # Basic ascending and descending with exact multiples
+    testdef 10.0 {No -type} [newcolumn double {0 4 8 12}] 0 12 4
+    foreach type {byte int uint wide double} {
+        testdef $type-10.0 {multiple ascending,4,-type,default} [newcolumn $type {0 4 8 12}] 0 12 4 -type $type
+        testdef $type-10.1 {multiple ascending,4,-type,closed} [newcolumn $type {0 4 8 12}] 0 12 4 -type $type -open 0
+        testdef $type-10.2 {multiple ascending,4,-type,open} [newcolumn $type {0 3 6 9}] 0 12 4 -type $type -open 1
+
+        if {$type ni {byte uint}} {
+            # Signed
+            testdef $type-10.3 {multiple descending,4,-type,default} [newcolumn $type {6 2 -2 -6}] 6 -6 4 -type $type
+            testdef $type-10.4 {multiple descending,4,-type,closed} [newcolumn $type {6 2 -2 -6}] 6 -6 4 -type $type -open 0
+            testdef $type-10.5 {multiple descending,4,-type,open} [newcolumn $type {6 3 0 -3}] 6 -6 4 -type $type -open 1
+        } else {
+            # Unsigned
+            testdef $type-10.3 {multiple descending,4,-type,default} [newcolumn $type {12 8 4 0}] 12 0 4 -type $type
+            testdef $type-10.4 {multiple descending,4,-type,closed} [newcolumn $type {12 8 4 0}] 12 0 4 -type $type -open 0
+            testdef $type-10.5 {multiple descending,4,-type,open} [newcolumn $type {12 9 6 3}] 12 0 4 -type $type -open 1
+        }
+    }
+
+    # Not exact multiple. For doubles no such thing.
+    foreach type {byte int uint wide} {
+        testdef $type-20.0 {non-multiple ascending,-type, closed} [newcolumn $type {0 3 7 10 14}] 0 14 5 -type $type -open 0
+        testdef $type-20.1 {non-multiple ascending,-type, open} [newcolumn $type {0 2 5 8 11}] 0 14 5 -type $type -open 1
+        if {$type ni {byte uint}} {
+            # Signed
+            testdef $type-20.2 {non-multiple descending,-type, closed} [newcolumn $type {2 -1 -5 -8 -12}] 2 -12 5 -type $type -open 0
+            testdef $type-20.2 {non-multiple descending,-type, closed} [newcolumn $type {2 0 -3 -6 -9}] 2 -12 5 -type $type -open 1
+        } else {
+            testdef $type-20.2 {non-multiple descending,-type, closed} [newcolumn $type {14 10 7 3 0}] 14 0 5 -type $type -open 0
+            testdef $type-20.3 {non-multiple descending,-type, open} [newcolumn $type {14 11 8 5 2}] 14 0 5 -type $type -open 1
+        }
+    }
+
+    # Count greater than integer difference, ascending and descending
+    foreach type {byte int uint wide} {
+        testdef $type-30.0 {small interval ascending,-type, closed} [newcolumn $type {0 0 1 1 2 2 3 3 4 5}] 0 5 10 -type $type -open 0
+        testdef $type-30.1 {small interval ascending,-type, open} [newcolumn $type {0 0 1 1 2 2 3 3 4 4}] 0 5 10 -type $type -open 1
+        testdef $type-30.2 {small interval descending,-type, closed} [newcolumn $type {5 4 3 3 2 2 1 1 0 0}] 5 0 10 -type $type -open 0
+        testdef $type-30.3 {small interval descending,-type, open} [newcolumn $type {5 4 4 3 3 2 2 1 1 0}] 5 0 10 -type $type -open 1
+    }
+
+    # Bounds checking for integral types
+
+    testdef byte-40.0 {max bounds, ascending, closed} [newcolumn byte {0 255}] 0 255 2 -type byte -open 0
+    testdef byte-40.1 {max bounds, ascending, open} [newcolumn byte {0 127}] 0 255 2 -type byte -open 1
+    test column_linspace-byte-40.2 {upper bound+1, ascending,closed} -body {
+        tarray::column linspace 0 256 2 -type byte -open 0
+    } -returnCodes error -result "Interval {0 256} not within range for type byte."
+
+    testdef byte-40.3 {upper bound+1, ascending, open} [newcolumn byte {0 128}] 0 256 2 -type byte -open 1
+    test column_linspace-byte-40.4 {upper bound+2, ascending,open} -body {
+        tarray::column linspace 0 257 2 -type byte -open 1
+    } -returnCodes error -result "Interval {0 257} not within range for type byte."
+
+    test column_linspace-byte-40.5 {lower bound-1, ascending,closed} -body {
+        tarray::column linspace -1 255 2 -type byte -open 0
+    } -returnCodes error -result "Interval {-1 255} not within range for type byte."
+
+    test column_linspace-byte-40.6 {lower bound-1, ascending,open} -body {
+        tarray::column linspace -1 255 2 -type byte -open 1
+    } -returnCodes error -result "Interval {-1 255} not within range for type byte."
+
+
+    testdef byte-41.0 {max bounds, descending, closed} [newcolumn byte {255 0}] 255 0 2 -type byte -open 0
+    testdef byte-41.1 {max bounds, descending, open} [newcolumn byte {255 127}] 255 0 2 -type byte -open 1
+    test column_linspace-byte-41.2 {lower bound-1, descending,closed} -body {
+        tarray::column linspace 255 -1 2 -type byte -open 0
+    } -returnCodes error -result "Interval {255 -1} not within range for type byte."
+
+    testdef byte-41.3 {lower bound-1, descending, open} [newcolumn byte {255 127}] 255 -1 2 -type byte -open 1
+
+    test column_linspace-byte-41.4 {upper bound+1, descending,closed} -body {
+        tarray::column linspace 256 0 2 -type byte -open 0
+    } -returnCodes error -result "Interval {256 0} not within range for type byte."
+
+    test column_linspace-byte-41.5 {upper bound+1, descending,open} -body {
+        tarray::column linspace 256 0 2 -type byte -open 1
+    } -returnCodes error -result "Interval {256 0} not within range for type byte."
+
+    testdef int-40.0 {max bounds, ascending, closed} [newcolumn int {-2147483648 2147483647}] -2147483648 2147483647 2 -type int -open 0
+    testdef int-40.1 {max bounds, ascending, open} [newcolumn int {-2147483648 0}] -2147483648 2147483647 2 -type int -open 1
+    test column_linspace-int-40.2 {upper bound+1, ascending,closed} -body {
+        tarray::column linspace -2147483648 2147483648 2 -type int -open 0
+    } -returnCodes error -result "Interval {-2147483648 2147483648} not within range for type int."
+
+    testdef int-40.3 {upper bound+1, ascending, open} [newcolumn int {-2147483648 0}] -2147483648 2147483648 2 -type int -open 1
+
+    test column_linspace-int-40.4 {upper bound+2, ascending,open} -body {
+        tarray::column linspace 0 2147483649 2 -type int -open 1
+    } -returnCodes error -result "Interval {0 2147483649} not within range for type int."
+
+    test column_linspace-int-40.5 {lower bound-1, ascending,closed} -body {
+        tarray::column linspace -2147483649 0 2 -type int -open 0
+    } -returnCodes error -result "Interval {-2147483649 0} not within range for type int."
+
+    test column_linspace-int-40.6 {lower bound-1, ascending,open} -body {
+        tarray::column linspace -2147483649 0 2 -type int -open 1
+    } -returnCodes error -result "Interval {-2147483649 0} not within range for type int."
+
+    testdef int-41.0 {max bounds, descending, closed} [newcolumn int {2147483647 -2147483648}] 2147483647 -2147483648 2 -type int -open 0
+    testdef int-41.1 {max bounds, descending, open} [newcolumn int {2147483647 0}] 2147483647 -2147483648 2 -type int -open 1
+    test column_linspace-int-41.2 {lower bound-1, descending,closed} -body {
+        tarray::column linspace 2147483647 -2147483649 2 -type int -open 0
+    } -returnCodes error -result "Interval {2147483647 -2147483649} not within range for type int."
+
+    testdef int-41.3 {lower bound-1, descending, open} [newcolumn int {2147483647 -1}] 2147483647 -2147483649 2 -type int -open 1
+
+    test column_linspace-int-41.4 {upper bound+1, descending,closed} -body {
+        tarray::column linspace 2147483648 0 2 -type int -open 0
+    } -returnCodes error -result "Interval {2147483648 0} not within range for type int."
+
+    test column_linspace-int-41.5 {upper bound+1, descending,open} -body {
+        tarray::column linspace 2147483648 0 2 -type int -open 1
+    } -returnCodes error -result "Interval {2147483648 0} not within range for type int."
+
+
+    testdef uint-40.0 {max bounds, ascending, closed} [newcolumn uint {0 4294967295}] 0 4294967295 2 -type uint -open 0
+    testdef uint-40.1 {max bounds, ascending, open} [newcolumn uint {0 2147483647}] 0 4294967295 2 -type uint -open 1
+    test column_linspace-uint-40.2 {upper bound+1, ascending,closed} -body {
+        tarray::column linspace 0 4294967296 2 -type uint -open 0
+    } -returnCodes error -result "Interval {0 4294967296} not within range for type uint."
+
+    testdef uint-40.3 {upper bound+1, ascending, open} [newcolumn uint {0 2147483648}] 0 4294967296 2 -type uint -open 1
+    test column_linspace-uint-40.4 {upper bound+2, ascending,open} -body {
+        tarray::column linspace 0 4294967297 2 -type uint -open 1
+    } -returnCodes error -result "Interval {0 4294967297} not within range for type uint."
+
+    test column_linspace-uint-40.5 {lower bound-1, ascending,closed} -body {
+        tarray::column linspace -1 4294967295 2 -type uint -open 0
+    } -returnCodes error -result "Interval {-1 4294967295} not within range for type uint."
+
+    test column_linspace-uint-40.6 {lower bound-1, ascending,open} -body {
+        tarray::column linspace -1 4294967295 2 -type uint -open 1
+    } -returnCodes error -result "Interval {-1 4294967295} not within range for type uint."
+
+
+    testdef uint-41.0 {max bounds, descending, closed} [newcolumn uint {4294967295 0}] 4294967295 0 2 -type uint -open 0
+    testdef uint-41.1 {max bounds, descending, open} [newcolumn uint {4294967295 2147483647}] 4294967295 0 2 -type uint -open 1
+    test column_linspace-uint-41.2 {lower bound-1, descending,closed} -body {
+        tarray::column linspace 4294967295 -1 2 -type uint -open 0
+    } -returnCodes error -result "Interval {4294967295 -1} not within range for type uint."
+
+    testdef uint-41.3 {lower bound-1, descending, open} [newcolumn uint {4294967295 2147483647}] 4294967295 -1 2 -type uint -open 1
+
+    test column_linspace-uint-41.4 {upper bound+1, descending,closed} -body {
+        tarray::column linspace 4294967296 0 2 -type uint -open 0
+    } -returnCodes error -result "Interval {4294967296 0} not within range for type uint."
+
+    test column_linspace-uint-41.5 {upper bound+1, descending,open} -body {
+        tarray::column linspace 4294967296 0 2 -type uint -open 1
+    } -returnCodes error -result "Interval {4294967296 0} not within range for type uint."
+
+    # TBD - wide versions of above tests 40.*-41.*
+
+    #
+    # Bad operand type tests TBD
+
+    foreach type {byte int uint wide double} {
+        test column_linspace-bad-$type-1.0 {
+            Bad start types
+        } -body {
+            tarray::column linspace abc 10 1 -type $type
+        } -result "expected*numeric value, got \"abc\"" -returnCodes error -match glob
+
+        test column_linspace-bad-$type-1.1 {
+            Bad start types
+        } -body {
+            tarray::column linspace 0 abc 1 -type $type
+        } -result "expected*numeric value, got \"abc\"" -returnCodes error -match glob
+        test column_linspace-bad-$type-1.1 {
+            Bad start types
+        } -body {
+            tarray::column linspace 0 10 abc -type $type
+        } -result "expected*numeric value, got \"abc\"" -returnCodes error -match glob
+    }
+
+}
+
+# TBD - test with large ranges
+
+
+::tcltest::cleanupTests

@@ -248,7 +248,7 @@ text {
     `column linspace` command accepts a interval count.
 } shell {
     column linspace 0 20 5;     # Defaults to closed interval and type double
-    column linspace 0 20 4 -type int -open true; # Open interval of ints
+    column linspace 20 0 4 -type int -open true; # Open interval of descending ints
 }
 
 text {
