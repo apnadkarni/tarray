@@ -443,6 +443,37 @@ namespace eval tarray::test {
             tarray::column math ^^ false [newcolumn $type {1 0}]
         } -result [newcolumn boolean {1 0}]
     }
+
+
+    ################################################################
+    # Tests for ** 
+    foreach type {byte int uint wide double} {
+        test [mathid]-** "$type ** scalar" -body {
+            tarray::column math ** 2
+        } -result 2.0
+        test [mathid]-** "$type ** column" -body {
+            tarray::column math ** [newcolumn $type 2]
+        } -result [newcolumn double 2]
+        test [mathid]-** "$type ** scalar column" -body {
+            tarray::column math ** 2 [newcolumn $type {1 2 3}]
+        } -result [newcolumn double {2.0 4.0 8.0}]
+        test [mathid]-** "$type ** column scalar" -body {
+            tarray::column math ** [newcolumn $type {1 2 3}] 2
+        } -result [newcolumn double {1.0 4.0 9.0}]
+        test [mathid]-** "$type ** scalar scalar" -body {
+            tarray::column math ** 2 3
+        } -result 8.0
+        test [mathid]-** "$type ** column column" -body {
+            tarray::column math ** [newcolumn $type {2 3}] [newcolumn $type {3 2}]
+        } -result [newcolumn double {8 9}]
+        test [mathid]-** "$type ** scalar scalar scalar precedence" -body {
+            tarray::column math ** 2 3 2
+        } -result [expr {double(2**3**2)}]
+        test [mathid]-** "$type ** column column colum precedence" -body {
+            tarray::column math ** [newcolumn $type {2 2}] [newcolumn $type {3 3}] [newcolumn $type {2 2}]
+        } -result [newcolumn double [list [expr {2**3**2}] [expr {2**3**2}]]]
+        
+    }
 }
 
 tcltest::cleanupTests
