@@ -11,7 +11,7 @@ text {
     == V1.0.0
 
     * Added ((^` table_dbimport_table "table dbimport table")) and
-    ((` table_dbimport resultset "table dbimport resultset")) commands
+    ((^` table_dbimport_resultset "table dbimport resultset"))
     for importing from SQL databases.
 
     * Added ((^` column_linspace "column linspace")) and
