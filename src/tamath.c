@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Ashok P. Nadkarni
+ * Copyright (c) 2015-2020, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -20,6 +20,7 @@ static const char *ta_math_op_names[] = {
     "&&", "||", "^^",
     "&", "|", "^",
     "==", "!=", "<", "<=", ">", ">=",
+    "**",
     NULL
 };
 enum ta_math_op_e {
@@ -27,6 +28,7 @@ enum ta_math_op_e {
     TAM_OP_AND, TAM_OP_OR, TAM_OP_XOR,
     TAM_OP_BITAND, TAM_OP_BITOR, TAM_OP_BITXOR,
     TAM_OP_EQ, TAM_OP_NE, TAM_OP_LT, TAM_OP_LE, TAM_OP_GT, TAM_OP_GE,
+    TAM_OP_EXP,
 };
 
 static int is_logical_op(enum ta_math_op_e op)
@@ -151,6 +153,7 @@ static double ta_math_double_operation(enum ta_math_op_e op, double dbl, ta_valu
     case TAM_OP_BITAND: /* Keep gcc happy */
     case TAM_OP_BITOR:  /* ditto */
     case TAM_OP_BITXOR: /* ditto */
+    case TAM_OP_EXP: /* Supposed to be handled elsewhere */
         Tcl_Panic("Invalid math double operand");
     }
     return 0.0;                 /* To keep compiler happy */
@@ -191,6 +194,8 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt wide
     case TAM_OP_BITOR: return wide | operand;
     case TAM_OP_BITAND: return wide & operand;
     case TAM_OP_BITXOR: return wide ^ operand;
+    case TAM_OP_EXP: /* Supposed to be handled as doubles */
+        Tcl_Panic("TAM_OP_EXP called on wide.");
     }
     return 0;                   /* To keep compiler happy */
 }
@@ -338,6 +343,25 @@ static void thdr_math_mt_worker(void *pv)
         case TA_WIDE: INTEGERLOOP(^=, Tcl_WideInt); break;
         }
         break;
+    case TAM_OP_EXP:
+        TA_ASSERT(type == TA_DOUBLE);
+        {
+            int i, j;
+            double *p = THDRELEMPTR(pctx->thdr, double, 0);
+            for (i = start; i < end; ++i) {
+                /* Note pow() has to be computed right to left */
+                double exp;
+                j = noperands-1;
+                exp = ta_math_double_from_operand(&poperands[j], i);
+                while (--j >= 0) {
+                    double base = ta_math_double_from_operand(&poperands[j], i); 
+                    exp = pow(base, exp);
+                }
+                p[i] = exp;
+            }
+        }
+        break;
+
     default:
         ta_operator_panic(pctx->op);
         break;
@@ -454,10 +478,10 @@ static TCL_RESULT ta_math_boolean_result(
             ba_fill(baP, 0, size, 0); /* OR and XOR */
         thdr->used = size;
     }
-    
+
     /* Now handle remaining operands, skipping scalars */ 
     /* TBD - optimize by combining two columns at a time recursively */
-    
+
     /* Loop for bitwise operations */
     if (is_bit_op(op)) {
         for ( ; opindex < noperands; ++opindex) {
@@ -514,12 +538,12 @@ static TCL_RESULT ta_math_boolean_result(
                 start = 0;
             }
             switch (op) {
-            case TAM_OP_AND: 
-            case TAM_OP_BITAND: 
+            case TAM_OP_AND:
+            case TAM_OP_BITAND:
                 ba_conjunct(baP, 0, ba_oper, start, size);
                 break;
-            case TAM_OP_OR: 
-            case TAM_OP_BITOR: 
+            case TAM_OP_OR:
+            case TAM_OP_BITOR:
                 ba_disjunct(baP, 0, ba_oper, start, size);
                 break;
             case TAM_OP_XOR:
@@ -529,7 +553,7 @@ static TCL_RESULT ta_math_boolean_result(
             }
         }
     }
-        
+
 done:
     if (thdr2)
         thdr_decr_refs(thdr2);
@@ -552,10 +576,10 @@ TCL_RESULT ta_math_compare_operation(
     if (thdr == NULL)
         return TCL_ERROR;
     baP = THDRELEMPTR(thdr, ba_t, 0);
-    
+
     if (size == 0)
         goto done;
-    
+
     if (noperands <= 1) {
         ba_fill(baP, 0, size, 1);
         goto done;
@@ -721,7 +745,26 @@ TCL_RESULT ta_math_scalar_operation(
             }
         }
         Tcl_SetObjResult(ip, Tcl_NewIntObj(result));
-        
+
+    } else if (op == TAM_OP_EXP) {
+        /* Special cases because we have to compute right to left */
+        double dresult;
+
+        TA_ASSERT(promoted_type == TA_DOUBLE);
+        --noperands;
+        if (poperands[noperands].scalar_operand.type == TA_DOUBLE)
+            dresult = poperands[noperands].scalar_operand.dval;
+        else
+            dresult = (double) poperands[noperands].scalar_operand.wval;
+        while (--noperands >= 0) {
+            double base;
+            if (poperands[noperands].scalar_operand.type == TA_DOUBLE)
+                base = poperands[noperands].scalar_operand.dval;
+            else
+                base = (double) poperands[noperands].scalar_operand.wval;
+            dresult = pow(base, dresult);
+        }
+        Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
     } else if (promoted_type == TA_DOUBLE) {
         /* Operations on doubles other than logical operations */
 
@@ -730,12 +773,12 @@ TCL_RESULT ta_math_scalar_operation(
             dresult = poperands[0].scalar_operand.dval;
         else
             dresult = (double) poperands[0].scalar_operand.wval;
-            
+
         for (j = 1 ; j < noperands; ++j) {
             TA_ASSERT(poperands[j].scalar_operand.type == TA_DOUBLE || poperands[j].scalar_operand.type == TA_WIDE );
             dresult = ta_math_double_operation(op, dresult, &poperands[j].scalar_operand);
         }
-        if (is_logical_op(op)) 
+        if (is_logical_op(op))
             Tcl_SetObjResult(ip, Tcl_NewIntObj(dresult ? 1 : 0));
         else
             Tcl_SetObjResult(ip, Tcl_NewDoubleObj(dresult));
@@ -783,11 +826,11 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
 	Tcl_WrongNumArgs(ip, 1, objv, "operation tarray ?tarray...?");
 	return TCL_ERROR;
     }
-    
+
     if ((status = ta_opt_from_obj(ip, objv[1], ta_math_op_names, "operation", 0, &op)) != TCL_OK)
         return status;
-    
-    noperands = objc - 2;    
+
+    noperands = objc - 2;
 
     if (noperands != 2 && op == TAM_OP_NE) {
         return ta_invalid_argcount(ip);
@@ -803,7 +846,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
        if scalar is identity for the operation, skip that operand.
        If scalar is the "zero" for the operation return the zero column
     */
-    
+
     /*
      * The loop does three related things:
      * - ensure compatibility of each operand
@@ -815,7 +858,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         if (tcol_convert(NULL, objv[j]) == TCL_OK) {
             Tcl_Obj *tcol = objv[j];
             span_t *span;
-            
+
             /* Check if size is consistent with previous thdrs */
             if (thdr_size) {
                 if (tcol_occupancy(tcol) != thdr_size) {
@@ -949,7 +992,11 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
             poperands[i].obj = objv[j];
         }
     }
-    
+
+    /* pow() always returns doubles */
+    if (op == TAM_OP_EXP)
+        result_type = TA_DOUBLE;
+
     TA_ASSERT(result_type != TA_NONE && result_type != TA_STRING);
     
     if (result_type == TA_DOUBLE && is_bit_op(op)) {

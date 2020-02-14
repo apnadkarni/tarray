@@ -3,7 +3,6 @@
 source testutil.tcl
 
 namespace eval tarray::test {
-    variable Wide 4294967296
 
     proc testdef {id comment result args} {
         test column_linspace-$id $comment -body [list ::tarray::column linspace {*}$args] -result $result

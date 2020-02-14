@@ -131,10 +131,30 @@ proc tarray::column::linspace {start stop count args} {
 
     if {$type ne "double"} {
         # TBD - perhaps round instead of casting?
-        set result [cast $type $result]
+        return [cast $type $result]
+    } else {
+        return $result
     }
+}
 
-    return $result
+# Credits: numpy linspace
+proc tarray::column::logspace {start stop count args} {
+    dict size $args;            # Verify dictionary format
+
+    parseargs args {
+        {type.arg double {byte int uint wide double}}
+        {open.bool 0}
+        {base.arg 10.0}
+    } -maxleftover 0 -setvars
+
+    set lin [linspace $start $stop $count -open $open -type double]
+    set result [math ** $base $lin]
+    if {$type ne "double"} {
+        # TBD - perhaps round instead of casting?
+        return [cast $type $result]
+    } else {
+        return $result
+    }
 }
 
 # This somewhat obtruse function calculates a heuristic based
@@ -1044,6 +1064,7 @@ interp alias {} tarray::column::< {} tarray::column::math <
 interp alias {} tarray::column::<= {} tarray::column::math <=
 interp alias {} tarray::column::> {} tarray::column::math >
 interp alias {} tarray::column::>= {} tarray::column::math >=
+interp alias {} tarray::column::** {} tarray::column::math **
 
 # TBD - document fold
 interp alias {} tarray::column::sum {} tarray::column::fold +
@@ -1073,6 +1094,7 @@ namespace eval tarray {
             insert insert
             intersect3 intersect3
             linspace linspace
+            logspace logspace
             lookup lookup
             loop ::tarray::loop
             math math
@@ -1121,6 +1143,7 @@ namespace eval tarray {
             <= <=
             >  >
             >= >=
+            ** **
         }
     }
 
