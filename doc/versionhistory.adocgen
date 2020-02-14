@@ -8,7 +8,22 @@ text {
 
 text {
     [discrete]
-    == V 0.9.0
+    == V1.0.0
+
+    * Added ((^` table_dbimport_table "table dbimport table")) and
+    ((` table_dbimport resultset "table dbimport resultset")) commands
+    for importing from SQL databases.
+
+    * Added ((^` column_linspace "column linspace")) and
+    ((^` column_logspace "column logspace")) commands.
+
+    * Added `+**+` exponentiation math operator.
+
+    * Added ((^` column_zeroes "column zeroes")) and
+    ((^` column_ones "column ones")) command.
+
+    [discrete]
+    == V0.9.0
 
     [discrete]
     === tarray_ui package
