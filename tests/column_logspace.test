@@ -1,0 +1,28 @@
+# column linspace tests
+
+source testutil.tcl
+
+# TBD - need more tests that this. Currently relying on
+# logspace being implemented on top of linspace
+namespace eval tarray::test {
+    proc testdef {id comment result args} {
+        test column_logspace-$id $comment -body [list ::tarray::column logspace {*}$args] -result $result
+    }
+
+    testdef default-1.0 {defaults} [newcolumn double {100 1000 10000}] 2 4 3
+    foreach type {int uint wide double} {
+        if {$type ne "byte"} {
+            testdef $type-1.0 {ascending -type} [newcolumn $type {100 1000 10000}] 2 4 3 -type $type
+            testdef $type-1.1 {descending -type} [newcolumn $type {10000 1000 100}] 4 2 3 -type $type
+            testdef $type-1.2 {ascending -type} [newcolumn $type {100 1000 10000}] 2 5 3 -type $type -open 1
+            testdef $type-1.3 {descending -type} [newcolumn $type {100000 10000 1000}] 5 2 3 -type $type -open 1
+        }
+        testdef $type-2.0 {ascending -type -base} [newcolumn $type {4 8 16}] 2 4 3 -type $type -base 2
+            testdef $type-2.1 {descending -type base} [newcolumn $type {16 8 4}] 4 2 3 -type $type -base 2
+    }
+
+    testdef fracexp-1.0 {fractional exponent} [newcolumn double {1.4142135623730951 1.5422108254079407 1.681792830507429 1.8340080864093424 2.0}] 0.5 1.0 5 -base 2
+}
+
+
+::tcltest::cleanupTests

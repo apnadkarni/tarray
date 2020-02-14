@@ -249,7 +249,14 @@ text {
 } shell {
     column linspace 0 20 5;     # Defaults to closed interval and type double
     column linspace 20 0 4 -type int -open true; # Open interval of descending ints
+} text {
+    While `column linspace` generates evenly distributed values in linear fashion,
+    ((^` column_logspace "column logspace"))
+    generates evenly distributed values on a logarithmic scale.
+} shell {
+    column logspace 2.0 3.0 4 -base 10
 }
+
 
 text {
 
