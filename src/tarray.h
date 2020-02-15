@@ -647,26 +647,25 @@ int tclobjcmprev(const void *a, const void *b);
 int tclobjcmpnocase(const void *a, const void *b);
 int tclobjcmprevnocase(const void *a, const void *b);
 
-int intcmpindexed(void *, const void *a, const void *b);
-int intcmpindexedrev(void *, const void *a, const void *b);
-int uintcmpindexed(void *, const void *a, const void *b);
-int uintcmpindexedrev(void *, const void *a, const void *b);
-int widecmpindexed(void *, const void *a, const void *b);
-int widecmpindexedrev(void *, const void *a, const void *b);
-int doublecmpindexed(void *, const void *a, const void *b);
-int doublecmpindexedrev(void *, const void *a, const void *b);
-int bytecmpindexed(void *, const void *a, const void *b);
-int bytecmpindexedrev(void *, const void *a, const void *b);
-int tclobjcmpindexed(void *, const void *a, const void *b);
-int tclobjcmpindexedrev(void *, const void *a, const void *b);
-int tclobjcmpnocaseindexed(void *, const void *a, const void *b);
-int tclobjcmpnocaseindexedrev(void *, const void *a, const void *b);
+int intcmpindexed(const void *a, const void *b, void *);
+int intcmpindexedrev(const void *a, const void *b, void *);
+int uintcmpindexed(const void *a, const void *b, void *);
+int uintcmpindexedrev(const void *a, const void *b, void *);
+int widecmpindexed(const void *a, const void *b, void *);
+int widecmpindexedrev(const void *a, const void *b, void *);
+int doublecmpindexed(const void *a, const void *b, void *);
+int doublecmpindexedrev(const void *a, const void *b, void *);
+int bytecmpindexed(const void *a, const void *b, void *);
+int bytecmpindexedrev(const void *a, const void *b, void *);
+int tclobjcmpindexed(const void *a, const void *b, void *);
+int tclobjcmpindexedrev(const void *a, const void *b, void *);
+int tclobjcmpnocaseindexed(const void *a, const void *b, void *);
+int tclobjcmpnocaseindexedrev(const void *a, const void *b, void *);
 
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
                                    int *pflags, Tcl_Obj **ptarget);
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
-
 
 
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);

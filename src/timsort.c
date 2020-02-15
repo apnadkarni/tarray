@@ -95,13 +95,13 @@
 
 #ifdef IS_TIMSORT_R
 /*
- * Note order of elements to comparator matches that of BSD qsort_r, not
- * GNU qsort_t
+ * Note order of elements to comparator matches that of C11 qsort_s,
+ * not BSD qsort_r or Windows qsort_s
  */
-typedef int (*comparator) (void *thunk, const void *x, const void *y);
-#define CMPPARAMS(compar, thunk) void *thunk, comparator compar
-#define CMPARGS(compar, thunk) (thunk), (compar)
-#define CMP(compar, thunk, x, y) (compar((thunk), (x), (y)))
+typedef int (*comparator) (const void *x, const void *y, void *thunk);
+#define CMPPARAMS(compar, thunk) comparator compar, void *thunk
+#define CMPARGS(compar, thunk) (compar), (thunk)
+#define CMP(compar, thunk, x, y) (compar((x), (y), (thunk)))
 #define TIMSORT timsort_r
 
 #else
@@ -187,9 +187,12 @@ static int timsort_init(struct timsort *ts, void *a, size_t len,
 			CMPPARAMS(c, carg),
 			size_t width)
 {
+	int err = 0;
+
 	assert(ts);
 	assert(a || !len);
 	assert(c);
+	assert(width);
 
 	ts->minGallop = MIN_GALLOP;
 	ts->stackSize = 0;
@@ -204,7 +207,12 @@ static int timsort_init(struct timsort *ts, void *a, size_t len,
 	// Allocate temp storage (which may be increased later if necessary)
 	ts->tmp_length = (len < 2 * INITIAL_TMP_STORAGE_LENGTH ?
 			  len >> 1 : INITIAL_TMP_STORAGE_LENGTH);
-	ts->tmp = malloc(ts->tmp_length * width);
+	if (ts->tmp_length) {
+		ts->tmp = malloc(ts->tmp_length * width);
+		err |= ts->tmp == NULL;
+	} else {
+		ts->tmp = NULL;
+	}
 
 	/*
 	 * Allocate runs-to-be-merged stack (which cannot be expanded).  The
@@ -280,11 +288,12 @@ static int timsort_init(struct timsort *ts, void *a, size_t len,
 	//stackLen = (len < 120 ? 5 : len < 1542 ? 10 : len < 119151 ? 19 : 40);
 
 	ts->run = malloc(ts->stackLen * sizeof(ts->run[0]));
+	err |= ts->run == NULL;
 #else
 	ts->stackLen = MAX_STACK;
 #endif
 
-	if (ts->tmp && ts->run) {
+	if (!err) {
 		return SUCCESS;
 	} else {
 		timsort_deinit(ts);
