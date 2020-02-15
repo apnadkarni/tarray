@@ -33,24 +33,21 @@ text {
     
     == The tarray package
     
-    The `tarray` (_typed array_)
-    extension implements two new Tcl collection data
+    The `tarray` (_typed array_) extension implements two
+    new Tcl collection data
     types -- ((^ chap_column_ref columns)) and ((^ chap_table_ref tables)).
-    Typed arrays store elements of a specific data type in native format
-    and in comparison to Tcl collection types like lists and dicts,
-    offer performance benefits of
+    Typed arrays store elements of a specific data type in native format and
+    provide some features that are not built into lists and dictionaries
 
-    * efficient memory utilization
-    * fast execution
-    * parallelization on multi-core systems
-
-    In addition, the extension provides some convenience features
-    that are not built into lists and dictionaries
-
-    * vector operations
-    * flexible indexing
+    * vector operations on whole columns
     * more powerful search and ordering facilities
-    * utility functions like grouping, joins, random number generation
+    * flexible indexing and modification commands
+    * grouping, joins, summarization and histograms
+    * utilities like random numbers and sampling
+
+    In addition, typed arrays offer considerable benefits in performance
+    in both memory consumption and execution time through native
+    representation and parallelization on multiple cores.
 }
 
 text {
