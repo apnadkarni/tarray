@@ -1,6 +1,9 @@
 #include "tcl.h"
 #include "tarray.h"
 #ifdef TA_MT_ENABLE
+
+/* timsort implementation from https://github.com/patperry/timsort
+
 /*
  * Threshold for when sorts are multithreaded. Based on some preliminary
  * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
@@ -82,65 +85,65 @@ int tcltascmpnocaserev(const void *a, const void *b) {
     } while (0)
 
 
-int intcmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,int, ctx); }
-int intcmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,int, ctx); }
-int uintcmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,unsigned int, ctx); }
-int uintcmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,unsigned int, ctx); }
-int widecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,Tcl_WideInt, ctx); }
-int widecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,Tcl_WideInt, ctx); }
-int doublecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,double, ctx); }
-int doublecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,double, ctx); }
-int bytecmpindexed(void *ctx, const void *a, const void *b) { RETCMPINDEXED(a,b,unsigned char, ctx); }
-int bytecmpindexedrev(void *ctx, const void *a, const void *b) { RETCMPINDEXEDREV(a,b,unsigned char, ctx); }
-int tclobjcmpindexed(void *ctx, const void *ai, const void *bi) {
+int intcmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,int, ctx); }
+int intcmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,int, ctx); }
+int uintcmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,unsigned int, ctx); }
+int uintcmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,unsigned int, ctx); }
+int widecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,Tcl_WideInt, ctx); }
+int widecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,Tcl_WideInt, ctx); }
+int doublecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,double, ctx); }
+int doublecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,double, ctx); }
+int bytecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,unsigned char, ctx); }
+int bytecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,unsigned char, ctx); }
+int tclobjcmpindexed(const void *ai, const void *bi, void *ctx) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(a, b, 0);
 }
-int tclobjcmpindexedrev(void *ctx, const void *ai, const void *bi) {
+int tclobjcmpindexedrev(const void *ai, const void *bi, void *ctx) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(b, a, 0);
 }
-int tclobjcmpnocaseindexed(void *ctx, const void *ai, const void *bi) {
+int tclobjcmpnocaseindexed(const void *ai, const void *bi, void *ctx) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(a, b, 1);
 }
-int tclobjcmpnocaseindexedrev(void *ctx, const void *ai, const void *bi) {
+int tclobjcmpnocaseindexedrev(const void *ai, const void *bi, void *ctx) {
     Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
     Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(b, a, 1);
 }
-int tcltascmpindexed(void *ctx, const void *ai, const void *bi) {
+int tcltascmpindexed(const void *ai, const void *bi, void *ctx) {
     tas_t *a = *(*(int *)ai + (tas_t **)ctx);
     tas_t *b = *(*(int *)bi + (tas_t **)ctx);
     return tas_compare(a, b, 0);
 }
-int tcltascmpindexedrev(void *ctx, const void *ai, const void *bi) {
+int tcltascmpindexedrev(const void *ai, const void *bi, void *ctx) {
     tas_t *a = *(*(int *)ai + (tas_t **)ctx);
     tas_t *b = *(*(int *)bi + (tas_t **)ctx);
     return tas_compare(b, a, 0);
 }
-int tcltascmpnocaseindexed(void *ctx, const void *ai, const void *bi) {
+int tcltascmpnocaseindexed(const void *ai, const void *bi, void *ctx) {
     tas_t *a = *(*(int *)ai + (tas_t **)ctx);
     tas_t *b = *(*(int *)bi + (tas_t **)ctx);
     return tas_compare(a, b, 1);
 }
-int tcltascmpnocaseindexedrev(void *ctx, const void *ai, const void *bi) {
+int tcltascmpnocaseindexedrev(const void *ai, const void *bi, void *ctx) {
     tas_t *a = *(*(int *)ai + (tas_t **)ctx);
     tas_t *b = *(*(int *)bi + (tas_t **)ctx);
     return tas_compare(b, a, 1);
 }
 
 
-int booleancmpindexed(void *ctx, const void *ai, const void *bi) {
+int booleancmpindexed(const void *ai, const void *bi, void *ctx) {
     unsigned char uca, ucb;
     uca = ba_get((ba_t *)ctx, *(int *)ai);
     ucb = ba_get((ba_t *)ctx, *(int *)bi);
     return uca == ucb ? 0 : (uca ? 1 : -1);
 }
-int booleancmpindexedrev(void *ctx, const void *ai, const void *bi) {
+int booleancmpindexedrev(const void *ai, const void *bi, void *ctx) {
     unsigned char uca, ucb;
     uca = ba_get((ba_t *)ctx, *(int *)ai);
     ucb = ba_get((ba_t *)ctx, *(int *)bi);
@@ -410,7 +413,7 @@ struct ta_sort_mt_context {
     int   nelems;               /* Number of elements to sort */
     int   elem_size;            /* Size of each element */
     int (*cmpfn)(const void*, const void*); /* Comparison function */
-    int (*cmpindexedfn)(void*, const void*, const void*); /* for indexed compares */
+    int (*cmpindexedfn)(const void*, const void*, void*); /* for indexed compares */
     void *arg;                  /* Passed through for indexed compares */
 };
 
@@ -423,7 +426,7 @@ static void ta_sort_mt_worker(void *pv)
 static void ta_sort_mt_worker_r(void *pv)
 {
     struct ta_sort_mt_context *pctx = pv;
-    timsort_r(pctx->base, pctx->nelems, pctx->elem_size, pctx->arg, pctx->cmpindexedfn);
+    timsort_r(pctx->base, pctx->nelems, pctx->elem_size, pctx->cmpindexedfn, pctx->arg);
 }
 
 #endif
@@ -434,7 +437,7 @@ static void ta_sort_mt_worker_r(void *pv)
 static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int nocase)
 {
     int (*cmp)(const void*, const void*);
-    int (*cmpind)(void *, const void*, const void*);
+    int (*cmpind)(const void*, const void*, void*);
 #if defined (TA_MT_ENABLE)
     int mt_sizes[4];
     struct ta_sort_mt_context sort_context[4];
@@ -577,7 +580,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
                 ta_mt_group_async_f(grp, &sort_context[i], ta_sort_mt_worker_r);
             }
             /* Do our share */
-            timsort_r(sort_context[0].base, sort_context[0].nelems, elem_size, sort_context[0].arg, cmpind);
+            timsort_r(sort_context[0].base, sort_context[0].nelems, elem_size, cmpind, sort_context[0].arg);
         } else {
             /* TBD - check errors */
             for (i = 1; i < ncontexts; ++i) {
@@ -597,8 +600,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
     
     if (psrc) {
         timsort_r(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
-                  elem_size,
-                  src_base, cmpind);
+                  elem_size, cmpind, src_base);
     } else {
         timsort(THDRELEMPTR(thdr, unsigned char, 0), thdr->used,
                 elem_size, cmp);
@@ -740,11 +742,11 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                     thdr_incr_refs(psrc2);
                 } else
                     psrc2 = psrc;
-                    
+
                 timsort_r(THDRELEMPTR(psorted, int, 0),
                           psorted->used, sizeof(int),
-                          THDRELEMPTR(psrc2, unsigned char, 0),
-                          decreasing ? booleancmpindexedrev : booleancmpindexed
+                          decreasing ? booleancmpindexedrev : booleancmpindexed,
+                          THDRELEMPTR(psrc2, unsigned char, 0)
                     );
                 if (psrc2 != psrc)
                     thdr_decr_refs(psrc2);
@@ -913,8 +915,8 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         
         timsort_r(THDRELEMPTR(pindices, int, 0),
                   pindices->used, sizeof(int),
-                  THDRELEMPTR(ptarget2, unsigned char, 0),
-                  decreasing ? booleancmpindexedrev : booleancmpindexed
+                  decreasing ? booleancmpindexedrev : booleancmpindexed,
+                  THDRELEMPTR(ptarget2, unsigned char, 0)
             );
         if (ptarget2 != ptarget)
             thdr_decr_refs(ptarget2);
