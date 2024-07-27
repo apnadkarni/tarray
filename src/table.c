@@ -1739,13 +1739,13 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
     if (end > tcol_occupancy(srccols[0]))
         end = tcol_occupancy(srccols[0]);
     count = end-low;
-        
+
     if (fmt == TA_FORMAT_DICT) {
         olist = Tcl_NewListObj(2*count, NULL);
         for (i = low; i < end; ++i) {
             Tcl_ListObjAppendElement(ip, olist, Tcl_NewIntObj(i));
             Tcl_ListObjAppendElement(ip, olist, Tcl_NewListObj(nsrccols, NULL));
-        }        
+        }
     } else {
         olist = Tcl_NewListObj(count, NULL);
         i = count;
@@ -1754,7 +1754,7 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
     }
 
     Tcl_ListObjGetElements(ip, olist, &i, &olistelems); /* i just dummy temp */
-                
+
 #define table_range_COPY(type_, objfn_)                                 \
     do {                                                                \
         type_ *p = THDRELEMPTR(src_thdr, type_, src_first); \
@@ -1787,13 +1787,14 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
             TA_ASSERT((low+count) <= src_thdr->used);
             src_first = low;
         }
-            
+
         switch (src_thdr->type) {
         case TA_BOOLEAN:
             {
                 ba_t *srcbaP = THDRELEMPTR(src_thdr, ba_t, 0);
                 int k;
-                for (k = src_first; k < end; j += incr, ++k) {
+                int src_end = src_first + count; /* Not same as "end" var which is logical end */
+                for (k = src_first; k < src_end; j += incr, ++k) {
                     Tcl_ListObjAppendElement(ip, olistelems[j],
                                              Tcl_NewIntObj(ba_get(srcbaP, k)));
                 }

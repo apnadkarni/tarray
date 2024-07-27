@@ -9,8 +9,6 @@
 # files are preserved
 
 
-package require critcl 3.1
-package require critcl::app
 package require platform
 
 proc usage {} {
@@ -25,6 +23,8 @@ set buildarea [file normalize [file join [pwd] .. build]]
 switch -exact -- [lindex $argv 0] {
     ext -
     extension {
+        package require critcl 3.1
+        package require critcl::app
         critcl::app::main [list -pkg -libdir [file join $buildarea lib] -includedir [file join $buildarea include] -cache [file join $buildarea cache] -clean {*}[lrange $argv 1 end] tarray tarray.critcl]
     }
     tea {
@@ -32,7 +32,11 @@ switch -exact -- [lindex $argv 0] {
     }
     test {
         cd ../tests
-        set env(TCLLIBPATH) [linsert $env(TCLLIBPATH) 0 [file join $buildarea lib]]
+        if {[info exists env(TCLLIBPATH)]} {
+            set env(TCLLIBPATH) [linsert $env(TCLLIBPATH) 0 [file join $buildarea lib]]
+        } else {
+            set env(TCLLIBPATH) [list [file join $buildarea lib]]
+        }
         set fd [open |[list [info nameofexecutable] all.tcl -notfile xtal*.test {*}[lrange $argv 1 end]]]
         while {[gets $fd line] >= 0} {
             puts $line

@@ -379,8 +379,34 @@ namespace eval tarray::test {
         tarray::table range -columns {-1} $tab 1 3
     } -result "Column index '-1' out of bounds." -returnCodes error
 
+    ###
 
+    test table_range-bug#1-0 {Bug #1 - range broken on spanned columns for booleans} -body {
+        set tab [tarray::table create {
+            A boolean B boolean C int
+        } {
+            {0 1 10}
+            {0 1 20}
+            {0 1 30}
+        }]
+        # Following delete necessary as that will create a spanned column
+        set tab [tarray::table delete $tab 0]
+        tarray::table range -list $tab 0 1
+    } -result {{0 1 20} {0 1 30}}
 
+    test table_range-bug#1-1 {Bug #1 - range broken on spanned columns for booleans} -body {
+        # Ensure same bug does not happen for int types
+        set tab [tarray::table create {
+            A int B int C int
+        } {
+            {0 1 10}
+            {0 1 20}
+            {0 1 30}
+        }]
+        # Following delete necessary as that will create a spanned column
+        set tab [tarray::table delete $tab 0]
+        tarray::table range -list $tab 0 1
+    } -result {{0 1 20} {0 1 30}}
 
 }
 
