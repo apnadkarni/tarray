@@ -1,7 +1,7 @@
 rmdir/s/q build
 
 set OLDTCLSH=%TCLSH%
-set TCLSH=d:\tcl\debug\x64\bin\tclsh86t.exe
+set TCLSH=d:\tcl\magic\bin\tclsh86t.exe
 
 @rem Form the file names based on the version we are building
 @for /f %%i in ('%TCLSH% src/taversion.tcl') do set TANAME=tarray-%%i
@@ -10,10 +10,10 @@ set TCLSH=d:\tcl\debug\x64\bin\tclsh86t.exe
 
 cmd /c "envset x86 && cd src && %TCLSH% build.tcl extension -target win32-ix86-cl"
 cmd /c "envset x64 && cd src && %TCLSH% build.tcl extension -target win32-x86_64-cl"
-cmd /c "cd src && %TCLSH% build.tcl tea"
+@rem cmd /c "cd src && %TCLSH% build.tcl tea"
 cmd /c "envset x86 && cd xtal && %TCLSH% build.tcl extension -target win32-ix86-cl"
 cmd /c "envset x64 && cd xtal && %TCLSH% build.tcl extension -target win32-x86_64-cl"
-cmd /c "cd xtal && %TCLSH% build.tcl tea"
+@rem cmd /c "cd xtal && %TCLSH% build.tcl tea"
 cmd /c "cd ui && %TCLSH% build.tcl package"
 
 copy doc\announce.txt build\lib\tarray\readme.txt
