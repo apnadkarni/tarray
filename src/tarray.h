@@ -670,24 +670,49 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
 
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);
 
-/* Note we need prototypes for commands defined separately but
-   registered with critcl::ccommand. Otherwise, since
-   critcl itself only generates declarations of the form "int foo()"
-   compiler complains (warnings) when passed to Tcl_CreateObjCommand
-*/
-Tcl_ObjCmdProc tcol_series_cmd;
-Tcl_ObjCmdProc tcol_search_cmd;
+Tcl_ObjCmdProc parseargs_cmd;
 Tcl_ObjCmdProc ta_dump_cmd;
-Tcl_ObjCmdProc tcol_minmax_cmd;
-Tcl_ObjCmdProc tcol_lookup_cmd;
-Tcl_ObjCmdProc tcol_math_cmd;
-Tcl_ObjCmdProc tcol_fold_cmd;
-Tcl_ObjCmdProc tcol_equalintervals_cmd;
-Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
 Tcl_ObjCmdProc ta_loop_cmd;
 Tcl_ObjCmdProc ta_loop_nr_cmd;
 Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
-Tcl_ObjCmdProc parseargs_cmd;
+Tcl_ObjCmdProc tcol_equalintervals_cmd;
+Tcl_ObjCmdProc tcol_create_cmd;
+Tcl_ObjCmdProc tcol_delete_cmd;
+Tcl_ObjCmdProc tcol_vdelete_cmd;
+Tcl_ObjCmdProc tcol_fold_cmd;
+Tcl_ObjCmdProc tcol_lookup_cmd;
+Tcl_ObjCmdProc tcol_math_cmd;
+Tcl_ObjCmdProc tcol_minmax_cmd;
+Tcl_ObjCmdProc tcol_search_cmd;
+Tcl_ObjCmdProc tcol_series_cmd;
+Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
+Tcl_ObjCmdProc tcol_size_cmd;
+Tcl_ObjCmdProc tcol_type_cmd;
+Tcl_ObjCmdProc tcol_equal_cmd;
+Tcl_ObjCmdProc tcol_identical_cmd;
+Tcl_ObjCmdProc tcol_cast_cmd;
+Tcl_ObjCmdProc tcol_index_cmd;
+Tcl_ObjCmdProc tcol_get_cmd;
+Tcl_ObjCmdProc tcol_range_cmd;
+Tcl_ObjCmdProc tcol_sort_cmd;
+Tcl_ObjCmdProc tcol_vsort_cmd;
+Tcl_ObjCmdProc tcol_bitsset_cmd;
+Tcl_ObjCmdProc tcol_insert_cmd;
+Tcl_ObjCmdProc tcol_vinsert_cmd;
+Tcl_ObjCmdProc tcol_inject_cmd;
+Tcl_ObjCmdProc tcol_vinject_cmd;
+Tcl_ObjCmdProc tcol_put_cmd;
+Tcl_ObjCmdProc tcol_vplace_cmd;
+Tcl_ObjCmdProc tcol_place_cmd;
+Tcl_ObjCmdProc tcol_vput_cmd;
+Tcl_ObjCmdProc tcol_fill_cmd;
+Tcl_ObjCmdProc tcol_vfill_cmd;
+Tcl_ObjCmdProc tcol_reverse_cmd;
+Tcl_ObjCmdProc tcol_vreverse_cmd;
+Tcl_ObjCmdProc tcol_intersect3_cmd;
+
+
+
 
 extern int ta_experiment;
 extern int ta_full_validation;
@@ -1135,6 +1160,8 @@ TA_INLINE uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
             return r % bound;
     }
 }
+
+TCL_RESULT ta_real_init(Tcl_Interp *);
 
 /*
   Local Variables:
