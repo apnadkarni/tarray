@@ -6035,13 +6035,7 @@ tcol_index_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 TCL_RESULT
 tcol_get_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
-    return tcol_retrieve(ip, objc, objv, TA_RETRIEVE_GET);
-}
-
-TCL_RESULT
-tcol_range_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
-{
-    return tcol_retrieve(ip, objc, objv, TA_RETRIEVE_RANGE);
+    return tcol_retrieve(ip, objc, objv, (int) cdata);
 }
 
 TCL_RESULT

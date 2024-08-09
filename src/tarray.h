@@ -693,7 +693,6 @@ Tcl_ObjCmdProc tcol_identical_cmd;
 Tcl_ObjCmdProc tcol_cast_cmd;
 Tcl_ObjCmdProc tcol_index_cmd;
 Tcl_ObjCmdProc tcol_get_cmd;
-Tcl_ObjCmdProc tcol_range_cmd;
 Tcl_ObjCmdProc tcol_sort_cmd;
 Tcl_ObjCmdProc tcol_vsort_cmd;
 Tcl_ObjCmdProc tcol_bitsset_cmd;
@@ -710,6 +709,23 @@ Tcl_ObjCmdProc tcol_vfill_cmd;
 Tcl_ObjCmdProc tcol_reverse_cmd;
 Tcl_ObjCmdProc tcol_vreverse_cmd;
 Tcl_ObjCmdProc tcol_intersect3_cmd;
+
+Tcl_ObjCmdProc table_put_cmd;
+Tcl_ObjCmdProc table_vput_cmd;
+Tcl_ObjCmdProc table_fill_cmd;
+Tcl_ObjCmdProc table_vfill_cmd;
+Tcl_ObjCmdProc table_delete_cmd;
+Tcl_ObjCmdProc table_vdelete_cmd;
+Tcl_ObjCmdProc table_get_cmd;
+Tcl_ObjCmdProc table_index_cmd;
+Tcl_ObjCmdProc table_insert_cmd;
+Tcl_ObjCmdProc table_vinsert_cmd;
+Tcl_ObjCmdProc table_inject_cmd;
+Tcl_ObjCmdProc table_vinject_cmd;
+Tcl_ObjCmdProc table_place_cmd;
+Tcl_ObjCmdProc table_vplace_cmd;
+Tcl_ObjCmdProc table_reverse_cmd;
+Tcl_ObjCmdProc table_vreverse_cmd;
 
 
 
