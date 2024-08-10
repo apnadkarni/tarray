@@ -5908,6 +5908,8 @@ tcol_size_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
 	return TCL_ERROR;
     }
+    if (tcol_convert(ip, objv[1]) != TCL_OK)
+        return TCL_ERROR;
     Tcl_SetObjResult(ip, Tcl_NewIntObj(tcol_occupancy(objv[1])));
     return TCL_OK;
 }
@@ -5919,6 +5921,8 @@ tcol_type_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
 	return TCL_ERROR;
     }
+    if (tcol_convert(ip, objv[1]) != TCL_OK)
+        return TCL_ERROR;
     Tcl_SetObjResult(ip,
                      Tcl_NewStringObj(ta_type_string(tcol_type(objv[1])), -1));
     return TCL_OK;
@@ -6102,6 +6106,7 @@ tcol_vsort_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     }
 
     TA_ASSERT(status != TCL_OK || tcol_check(ip, tcol));
+    return status;
 }
 
 /* TBD - is this documented? Also test cases */

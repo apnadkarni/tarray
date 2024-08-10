@@ -726,6 +726,13 @@ Tcl_ObjCmdProc table_place_cmd;
 Tcl_ObjCmdProc table_vplace_cmd;
 Tcl_ObjCmdProc table_reverse_cmd;
 Tcl_ObjCmdProc table_vreverse_cmd;
+Tcl_ObjCmdProc table_size_cmd;
+Tcl_ObjCmdProc table_width_cmd;
+Tcl_ObjCmdProc table_column_cmd;
+Tcl_ObjCmdProc table_vcolumn_cmd;
+Tcl_ObjCmdProc table__columns_cmd;
+Tcl_ObjCmdProc table_cnames_cmd;
+Tcl_ObjCmdProc table_slice_cmd;
 
 
 

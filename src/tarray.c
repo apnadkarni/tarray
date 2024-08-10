@@ -179,6 +179,13 @@ ta_define_commands(Tcl_Interp *ip)
         {"tarray::table::vplace", table_vplace_cmd, NULL, NULL},
         {"tarray::table::reverse", table_reverse_cmd, NULL, NULL},
         {"tarray::table::vreverse", table_vreverse_cmd, NULL, NULL},
+        {"tarray::table::size", table_size_cmd, (void *) 0, NULL},
+        {"tarray::table::width", table_size_cmd, (void *) 1, NULL},
+        {"tarray::table::column", table_column_cmd, NULL, NULL},
+        {"tarray::table::vcolumn", table_vcolumn_cmd, NULL, NULL},
+        {"tarray::table::_columns", table__columns_cmd, NULL, NULL},
+        {"tarray::table::cnames", table_cnames_cmd, NULL, NULL},
+        {"tarray::table::slice", table_slice_cmd, NULL, NULL},
     };
     int i;
 
