@@ -185,61 +185,6 @@ critcl::cinit {
 } {
 }
 
-
-################################################################
-# Table commands
-
-
-# Helper to define integer commands that check overflow.
-proc ta_define_integer_command {procname type typestr getfn op objfn} {
-    
-    set TEMPLATE {
-        critcl::cproc tarray::%PROC% {Tcl_Interp* ip Tcl_Obj* oa Tcl_Obj* ob} ok {
-            %TYPE%_t a, b, result;
-            if (%GETFN%(ip, oa, &a) != TCL_OK || %GETFN%(ip, ob, &b) != TCL_OK)
-                return TCL_ERROR;
-
-            if (ovf_%OP%_%TYPE%(a, b, &result)) 
-                return ta_integer_overflow_error(ip, "%TYPESTR%", 0);
-            else {
-                Tcl_SetObjResult(ip, %OBJFN%(result));
-                return TCL_OK;
-            }
-        }
-    }
-
-    uplevel 1 [string map [list \
-                               %PROC% $procname \
-                               %TYPE% $type \
-                               %TYPESTR% $typestr \
-                               %GETFN%  $getfn \
-                               %OP% $op \
-                               %OBJFN% $objfn \
-                              ] $TEMPLATE]
-}
-
-# TBD - document and test commands below
-# Byte operations
-ta_define_integer_command addu8 uint8 "unsigned 8-bit integer" ta_get_uint8_from_obj add Tcl_NewIntObj
-ta_define_integer_command subu8 uint8 "unsigned 8-bit integer" ta_get_uint8_from_obj sub Tcl_NewIntObj
-ta_define_integer_command mulu8 uint8 "unsigned 8-bit integer" ta_get_uint8_from_obj mul Tcl_NewIntObj
-
-# 32-bit int operations
-ta_define_integer_command add32 int32 "32-bit integer" ta_get_int_from_obj add Tcl_NewIntObj
-ta_define_integer_command sub32 int32 "32-bit integer" ta_get_int_from_obj sub Tcl_NewIntObj
-ta_define_integer_command mul32 int32 "32-bit integer" ta_get_int_from_obj mul Tcl_NewIntObj
-
-# 32-bit unsigned operations
-ta_define_integer_command addu32 uint32 "unsigned 32-bit integer" ta_get_uint_from_obj add Tcl_NewWideIntObj
-ta_define_integer_command subu32 uint32 "unsigned 32-bit integer" ta_get_uint_from_obj sub Tcl_NewWideIntObj
-ta_define_integer_command mulu32 uint32 "unsigned 32-bit integer" ta_get_uint_from_obj mul Tcl_NewWideIntObj
-
-# 64-bit operations
-ta_define_integer_command add64 int64 "64-bit integer" ta_get_int64_from_obj add Tcl_NewWideIntObj
-ta_define_integer_command sub64 int64 "64-bit integer" ta_get_int64_from_obj sub Tcl_NewWideIntObj
-ta_define_integer_command mul64 int64 "64-bit integer" ta_get_int64_from_obj mul Tcl_NewWideIntObj
-
-
 critcl::cproc tarray::unsupported::compiler_info {Tcl_Interp* interp} ok {
     Tcl_Obj *objs[6];
 

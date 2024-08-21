@@ -27,14 +27,54 @@ const Tcl_ObjType *g_tcl_dict_type_ptr;
 const Tcl_ObjType *g_tcl_list_type_ptr;
 const Tcl_ObjType *g_tcl_string_type_ptr;
 
+#define CHECK2ARGS(ip_, objc_, objv_)                   \
+    do {                                                \
+        if (objc_ != 3) {                               \
+            Tcl_WrongNumArgs(ip_, 1, objv_, "arg arg"); \
+            return TCL_ERROR;                           \
+        }                                               \
+    } while (0)
+
+#define FN2ARG(name_, type_, typestr_, getfn_, opfn_, newobjfn_)        \
+    static TCL_RESULT                                                   \
+    name_(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[]) \
+    {                                                                   \
+        type_ a, b, r;                                                  \
+                                                                        \
+        CHECK2ARGS(ip, objc, objv);                                     \
+        if (getfn_(ip, objv[1], &a) != TCL_OK ||                        \
+            getfn_(ip, objv[2], &b) != TCL_OK) {                        \
+            return TCL_ERROR;                                           \
+        }                                                               \
+                                                                        \
+        if (opfn_(a, b, &r))                                            \
+            return ta_integer_overflow_error(ip, typestr_, 0);          \
+        else {                                                          \
+            Tcl_SetObjResult(ip, newobjfn_(r));                         \
+            return TCL_OK;                                              \
+        }                                                               \
+    }
+
+FN2ARG(ta_addu8_cmd, uint8_t, "unsigned 8-bit integer", ta_get_uint8_from_obj, ovf_add_uint8, Tcl_NewIntObj)
+FN2ARG(ta_subu8_cmd, uint8_t, "unsigned 8-bit integer", ta_get_uint8_from_obj, ovf_sub_uint8, Tcl_NewIntObj)
+FN2ARG(ta_mulu8_cmd, uint8_t, "unsigned 8-bit integer", ta_get_uint8_from_obj, ovf_mul_uint8, Tcl_NewIntObj)
+
+FN2ARG(ta_add32_cmd, int32_t, "32-bit integer", ta_get_int_from_obj, ovf_add_int32, Tcl_NewIntObj)
+FN2ARG(ta_sub32_cmd, int32_t, "32-bit integer", ta_get_int_from_obj, ovf_sub_int32, Tcl_NewIntObj)
+FN2ARG(ta_mul32_cmd, int32_t, "32-bit integer", ta_get_int_from_obj, ovf_mul_int32, Tcl_NewIntObj)
+
+FN2ARG(ta_addu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_add_uint32, Tcl_NewWideIntObj)
+FN2ARG(ta_subu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_sub_uint32, Tcl_NewWideIntObj)
+FN2ARG(ta_mulu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_mul_uint32, Tcl_NewWideIntObj)
+
+FN2ARG(ta_add64_cmd, uint32_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_sub64_cmd, uint32_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_mul64_cmd, uint32_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
 
 static TCL_RESULT
 ta_same_tclobj_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
-    if (objc != 3) {
-        Tcl_WrongNumArgs(ip, 1, objv, "obj1 obj2");
-        return TCL_ERROR;
-    }
+    CHECK2ARGS(ip, objc, objv);
     Tcl_SetObjResult(ip, Tcl_NewBooleanObj(objv[1] == objv[2]));
     return TCL_OK;
 }
@@ -186,6 +226,19 @@ ta_define_commands(Tcl_Interp *ip)
         {"tarray::table::_columns", table__columns_cmd, NULL, NULL},
         {"tarray::table::cnames", table_cnames_cmd, NULL, NULL},
         {"tarray::table::slice", table_slice_cmd, NULL, NULL},
+
+        {"tarray::addu8", ta_addu8_cmd, NULL, NULL},
+        {"tarray::subu8", ta_subu8_cmd, NULL, NULL},
+        {"tarray::mulu8", ta_mulu8_cmd, NULL, NULL},
+        {"tarray::add32", ta_add32_cmd, NULL, NULL},
+        {"tarray::sub32", ta_sub32_cmd, NULL, NULL},
+        {"tarray::mul32", ta_mul32_cmd, NULL, NULL},
+        {"tarray::addu32", ta_addu32_cmd, NULL, NULL},
+        {"tarray::subu32", ta_subu32_cmd, NULL, NULL},
+        {"tarray::mulu32", ta_mulu32_cmd, NULL, NULL},
+        {"tarray::add64", ta_add64_cmd, NULL, NULL},
+        {"tarray::sub64", ta_sub64_cmd, NULL, NULL},
+        {"tarray::mul64", ta_mul64_cmd, NULL, NULL},
     };
     int i;
 
