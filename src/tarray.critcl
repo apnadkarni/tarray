@@ -1813,7 +1813,8 @@ proc ta_define_integer_command {procname type typestr getfn op objfn} {
         }
     }
 
-    uplevel 1 [string map [list \
+    # critcl 3.3.1 barfs on uplevel 1. Use tailcall
+    tailcall {*}[string map [list \
                                %PROC% $procname \
                                %TYPE% $type \
                                %TYPESTR% $typestr \

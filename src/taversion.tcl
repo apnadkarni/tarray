@@ -1,5 +1,5 @@
 namespace eval tarray {
-    proc version {} {return 1.0.1}
+    proc version {} {return 1.0.2}
     # Print version if this file is the main script. Used during builds.
     # Also check if safe interp in which case argv0 will not be defined
     if {[info exists ::argv0] && [file tail [info script]] eq [file tail [lindex $::argv0 0]]} {
