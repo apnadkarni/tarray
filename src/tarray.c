@@ -227,7 +227,7 @@ ta_define_commands(Tcl_Interp *ip)
         {"tarray::table::cnames", table_cnames_cmd, NULL, NULL},
         {"tarray::table::slice", table_slice_cmd, NULL, NULL},
 
-        {"tarray::addu8", ta_addu8_cmd, NULL, NULL},
+        {"tarray::addu8", ta_addu8_cmd, NULL, NULL}, /* TBD - doc and test these */
         {"tarray::subu8", ta_subu8_cmd, NULL, NULL},
         {"tarray::mulu8", ta_mulu8_cmd, NULL, NULL},
         {"tarray::add32", ta_add32_cmd, NULL, NULL},
