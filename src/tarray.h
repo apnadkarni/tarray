@@ -748,6 +748,11 @@ Tcl_ObjCmdProc table_slice_cmd;
 Tcl_CmdDeleteProc ta_rng_destructor;
 Tcl_ObjCmdProc ta_rng_cmd;
 
+Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
+
+
+Tcl_ObjCmdProc ta_compiler_info_cmd;
+
 extern int ta_experiment;
 extern int ta_full_validation;
 

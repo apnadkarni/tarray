@@ -5938,7 +5938,7 @@ tcol_equal_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     }
     if (tcol_convert(ip, objv[1]) != TCL_OK || tcol_convert(ip, objv[2]) != TCL_OK)
         return TCL_ERROR;
-    equal = tcol_equality_test(ip, objv[1], objv[2], cdata == NULL);
+    equal = tcol_equality_test(ip, objv[1], objv[2], cdata != NULL);
     Tcl_SetObjResult(ip, Tcl_NewBooleanObj(equal));
     return TCL_OK;
 }
@@ -6106,7 +6106,7 @@ tcol_vsort_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     }
 
     TA_ASSERT(status != TCL_OK || tcol_check(ip, tcol));
-    return status;
+    return ta_set_var_result(ip, status, objv[objc-1], tcol);
 }
 
 /* TBD - is this documented? Also test cases */
@@ -6410,7 +6410,7 @@ tcol_reverse_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
     TCL_RESULT status;
     Tcl_Obj *tcol;
-    if (objc != 3) {
+    if (objc != 2) {
 	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
 	return TCL_ERROR;
     }
@@ -6428,7 +6428,7 @@ tcol_vreverse_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     Tcl_Obj *ovar;
     Tcl_Obj *tcol;
     TCL_RESULT status;
-    if (objc != 3) {
+    if (objc != 2) {
 	Tcl_WrongNumArgs(ip, 1, objv, "COLVAR");
 	return TCL_ERROR;
     }

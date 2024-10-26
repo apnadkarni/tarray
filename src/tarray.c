@@ -67,9 +67,9 @@ FN2ARG(ta_addu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj,
 FN2ARG(ta_subu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_sub_uint32, Tcl_NewWideIntObj)
 FN2ARG(ta_mulu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_mul_uint32, Tcl_NewWideIntObj)
 
-FN2ARG(ta_add64_cmd, uint32_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
-FN2ARG(ta_sub64_cmd, uint32_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
-FN2ARG(ta_mul64_cmd, uint32_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_add64_cmd, uint64_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_sub64_cmd, uint64_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_mul64_cmd, uint64_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
 
 static TCL_RESULT
 ta_same_tclobj_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
@@ -165,7 +165,9 @@ ta_define_commands(Tcl_Interp *ip)
         Tcl_CmdDeleteProc *delFn;
     } cmds[] = {
         {"::tarray::_same_tclobj", ta_same_tclobj_cmd, NULL, NULL},
+        {"::tarray::parseargs", parseargs_cmd, NULL, NULL},
         {"::tarray::types", ta_types_cmd, NULL, NULL},
+
         {"::tarray::column::bitsset", tcol_bitsset_cmd, NULL, NULL},
         {"::tarray::column::create", tcol_create_cmd, NULL, NULL},
         {"::tarray::column::delete", tcol_delete_cmd, NULL, NULL},
@@ -239,6 +241,10 @@ ta_define_commands(Tcl_Interp *ip)
         {"::tarray::add64", ta_add64_cmd, NULL, NULL},
         {"::tarray::sub64", ta_sub64_cmd, NULL, NULL},
         {"::tarray::mul64", ta_mul64_cmd, NULL, NULL},
+
+        {"::tarray::rbc_init_stubs", ta_rbc_init_stubs_cmd, NULL, NULL},
+
+        {"::tarray::unsupported::compiler_info", ta_compiler_info_cmd, NULL, NULL},
     };
     int i;
 
@@ -258,8 +264,10 @@ ta_define_commands(Tcl_Interp *ip)
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
     {
         /* RNG object */
+        ta_cmd_counter *counterP = Tcl_Alloc(sizeof(ta_cmd_counter));
+        *counterP = 0;
 	Tcl_CreateObjCommand(ip, "::tarray::rng",
-                             ta_rng_cmd, Tcl_Alloc(sizeof(ta_cmd_counter)), ta_rng_destructor);
+                             ta_rng_cmd, counterP, ta_rng_destructor);
 
         /* Commands related to random number generation */
 	ta_rng_t *prng;

@@ -2722,8 +2722,8 @@ table_cnames_cmd(ClientData cdata, Tcl_Interp *ip,
     int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *table;
-    if (objc != 3) {
-        Tcl_WrongNumArgs(ip, 1, objv, "TABLE INDEX");
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE");
         return TCL_ERROR;
     }
     table = objv[1];

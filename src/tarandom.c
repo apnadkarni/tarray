@@ -488,39 +488,71 @@ TCL_RESULT ta_rng_cmd(ClientData cdata, Tcl_Interp *ip,
     static const char *cmds[] = {"new", "create", NULL};
     enum cmd { NEW, CREATE };
     int cmd_index;
+    int cmd_is_create;
 
-    if (objc < 3 || objc > 5) {
-        Tcl_WrongNumArgs(ip, 1, objv, "new|create TYPE ?LOWBOUND ?HIGHBOUND??");
+    if (objc < 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "new|create args...");
         return TCL_ERROR;
     }
-
-    if (ta_parse_type(ip, objv[2], &instance->rtype) != TCL_OK)
+    if (Tcl_GetIndexFromObj(ip, objv[1], &cmds, "subcommand", 0, &cmd_index) != TCL_OK)
         return TCL_ERROR;
+
+    if (cmd_index == NEW) {
+        if (objc < 3 || objc > 5) {
+            Tcl_WrongNumArgs(ip, 1, objv, "new TYPE ?LOWBOUND ?HIGHBOUND??");
+            return TCL_ERROR;
+        }
+        cmd_is_create = 0;
+        Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
+        *counterP += 1;
+        /* ns->name is "" for global namespace */
+        resultObj = Tcl_ObjPrintf("%s%s%lld", ns->fullName, ns->name[0] ? "::rng" : "rng", *counterP);
+    } else {
+        if (objc < 4 || objc > 6) {
+            Tcl_WrongNumArgs(ip, 1, objv, "create OBJNAME TYPE ?LOWBOUND ?HIGHBOUND??");
+            return TCL_ERROR;
+        }
+        cmd_is_create = 1;
+        const char *name = Tcl_GetString(objv[2]);
+        if (name[0] == ':' && name[1] == ':') {
+            /* Fully qualified name */
+            resultObj = objv[2];
+        } else {
+            /* Name is not fully qualified */
+            Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
+            /* ns->name is "" for global namespace */
+            resultObj = Tcl_ObjPrintf("%s%s%s", ns->fullName, ns->name[0] ? "::" : "", name);
+        }
+    }
+
+    instance = (ta_rng_instance_t *) Tcl_Alloc(sizeof(*instance));
+    instance->bounded = 0;
+
+    /* NOTE: resultObj has not been IncrRefCount'ed. */
+    if (ta_parse_type(ip, objv[2+cmd_is_create], &instance->rtype) != TCL_OK)
+        goto error;
     switch (instance->rtype) {
     case TA_BOOLEAN: case TA_BYTE: case TA_INT:
     case TA_UINT: case TA_WIDE: case TA_DOUBLE:
         break;
     default:
         ta_invalid_op_for_type(ip, instance->rtype);
-        return TCL_ERROR;
+        goto error;
     }
-
-    instance = (ta_rng_instance_t *) Tcl_Alloc(sizeof(*instance));
 
     tcol_random_init(&instance->rng);
     /* Note TA_BOOLEAN do not obey bounds */
-    if (objc > 3 && instance->rtype != TA_BOOLEAN) {
+    if (objc > (3+cmd_is_create) && instance->rtype != TA_BOOLEAN) {
         instance->bounded = 1;
-        if (ta_value_from_obj(ip, objv[3], instance->rtype, &instance->lbound) != TCL_OK)
+        if (ta_value_from_obj(ip, objv[3+cmd_is_create], instance->rtype, &instance->lbound) != TCL_OK)
             goto error;
-        instance->ubound = instance->lbound;
-        if (objc > 4) {
-            if (ta_value_from_obj(ip, objv[4], instance->rtype, &instance->ubound) != TCL_OK)
+        if (objc > (4+cmd_is_create)) {
+            if (ta_value_from_obj(ip, objv[4+cmd_is_create], instance->rtype, &instance->ubound) != TCL_OK)
                 goto error;
         }
         if (ta_rng_fixup_bounds(ip,
                                 &instance->lbound, &instance->ubound,
-                                objc <= 2) != TCL_OK)
+                                objc <= (4+cmd_is_create)) != TCL_OK)
             goto error;
     } else if (instance->rtype == TA_BYTE) {
         instance->bounded = 1;
@@ -529,26 +561,6 @@ TCL_RESULT ta_rng_cmd(ClientData cdata, Tcl_Interp *ip,
         instance->ubound.ucval = 255;
     }
 
-    if (Tcl_GetIndexFromObj(ip, objv[1], &cmds, "subcommand", 0, &cmd_index) != TCL_OK)
-        goto error;
-
-    if (cmd_index == NEW) {
-        Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
-        *counterP += 1;
-        /* ns->name is "" for global namespace */
-        resultObj = Tcl_ObjPrintf("%s%s%" TCL_LL_MODIFIER "d", ns->fullName, ns->name[0] ? "::rng" : "rng", *counterP);
-    } else {
-        const char *name = Tcl_GetString(objv[2]);
-        if (name[0] == ':' && name[1] == ':') {
-            /* Fully qualified name */
-            resultObj = objv[2];
-        } else {
-            /* Name is not fully qualified */
-            Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
-            resultObj = Tcl_ObjPrintf("%s%s", ns->fullName, name);
-        }
-    }
-    /* NOTE: resultObj has not been IncrRefCount'ed. */
 
     instance->cmd_token = Tcl_CreateObjCommand(ip,
                                                Tcl_GetString(resultObj),
@@ -560,6 +572,8 @@ TCL_RESULT ta_rng_cmd(ClientData cdata, Tcl_Interp *ip,
     return TCL_OK;
 
 error:
+    if (resultObj)
+        Tcl_DecrRefCount(resultObj);
     if (instance)
         Tcl_Free((char *)instance);
     return TCL_ERROR;

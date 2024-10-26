@@ -100,3 +100,41 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_SetObjResult(ip, Tcl_NewListObj(i, oresult));
     return TCL_OK;
 }
+
+TCL_RESULT ta_compiler_info_cmd(ClientData clientdata, Tcl_Interp *ip,
+                               int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *objs[6];
+
+    if (objc != 1) {
+        Tcl_WrongNumArgs(ip, 1, objv, NULL);
+	return TCL_ERROR;
+    }
+
+    objs[0] = Tcl_NewStringObj("compiler", -1);
+#if defined(_MSC_VER)
+    objs[1] = Tcl_ObjPrintf("vc++ %u", _MSC_VER);
+#elif defined(__GNUC__)
+    objs[1] = Tcl_NewStringObj("gcc" __VERSION__, -1);
+#else
+    objs[1] = Tcl_NewStringObj("unknown", -1);
+#endif
+
+    objs[2] = Tcl_NewStringObj("opts", -1);
+
+    objs[3] = Tcl_NewListObj(0, NULL);
+#ifdef TA_MT_ENABLE
+    Tcl_ListObjAppendElement(NULL, objs[3], Tcl_NewStringObj("mt_enabled", -1));
+#endif
+#if TA_ENABLE_ASSERT
+    Tcl_ListObjAppendElement(NULL, objs[3], Tcl_NewStringObj("asserts_enabled", -1));
+#endif
+
+    /* Which Tcl did we build against ? (As opposed to run time) */
+    objs[4] = Tcl_NewStringObj("tcl_headers", -1);
+    objs[5] = Tcl_NewStringObj(TCL_PATCH_LEVEL, -1);
+
+    Tcl_SetObjResult(ip, Tcl_NewListObj(6, objs));
+    return TCL_OK;
+    
+}
