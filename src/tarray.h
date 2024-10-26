@@ -249,6 +249,17 @@ typedef struct ta_rng_s {
     int nrefs;
 } ta_rng_t;
 
+typedef struct ta_rng_instance_s {
+    Tcl_Command cmd_token;
+    ta_rng_t rng;
+    ta_value_t lbound;
+    ta_value_t ubound;
+    unsigned char bounded;
+    unsigned char rtype;
+} ta_rng_instance_t;
+
+typedef Tcl_WideInt ta_cmd_counter;
+
 /*
  * Inline functions to manipulate internal representation of Tarray columns
  */
@@ -734,8 +745,8 @@ Tcl_ObjCmdProc table__columns_cmd;
 Tcl_ObjCmdProc table_cnames_cmd;
 Tcl_ObjCmdProc table_slice_cmd;
 
-
-
+Tcl_CmdDeleteProc ta_rng_destructor;
+Tcl_ObjCmdProc ta_rng_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;

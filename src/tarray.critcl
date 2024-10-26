@@ -242,10 +242,10 @@ critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int f
 #endif
 }
 
-critcl::class::define ::tarray::rng {
+critcl::class::define ::tarray::xrng {
     include pcg_basic.h
     support {
-        ta_value_t get_bounded_random(ta_rng_t *rng, ta_value_t *lbound, ta_value_t *ubound)
+        ta_value_t xget_bounded_random(ta_rng_t *rng, ta_value_t *lbound, ta_value_t *ubound)
         {
             ta_value_t tav;
                 
@@ -385,7 +385,7 @@ critcl::class::define ::tarray::rng {
         if (bounded) {
             for (i = 0; i < count; ++i) {
                 ta_value_t tav;
-                tav = get_bounded_random(&instance->rng, &lbound, &ubound);
+                tav = xget_bounded_random(&instance->rng, &lbound, &ubound);
                 if (count == 1) {
                     ores = ta_value_to_obj(&tav);
                     break;
@@ -441,7 +441,7 @@ critcl::class::define ::tarray::rng {
                               instance->rtype,&ubound) != TCL_OK ||
             ta_rng_fixup_bounds(interp, &lbound, &ubound, 0) != TCL_OK)
             return TCL_ERROR;
-        tav = get_bounded_random(&instance->rng, &lbound, &ubound);
+        tav = xget_bounded_random(&instance->rng, &lbound, &ubound);
         Tcl_SetObjResult(interp, ta_value_to_obj(&tav));
         return TCL_OK;
     }

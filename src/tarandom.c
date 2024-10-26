@@ -20,11 +20,11 @@ TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *ip, ta_value_t *low, ta_value_t *high
 
     if (init_high)
         ta_value_init_max(low->type, high);
-    
+
     /*
      * Swap values if low > high.
      * If values are equal, error since PCG will infinite loop. Upper
-     * bound is exclusive. 
+     * bound is exclusive.
      */
 #define FIXUP(fld_)                                     \
     do {                                                \
@@ -37,7 +37,7 @@ TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *ip, ta_value_t *low, ta_value_t *high
             return TCL_OK;                              \
         }                                               \
     } while (0)
-        
+
     switch (low->type) {
     case TA_BOOLEAN: FIXUP(bval); break;
     case TA_BYTE: FIXUP(ucval); break;
@@ -52,12 +52,12 @@ TCL_RESULT ta_rng_fixup_bounds(Tcl_Interp *ip, ta_value_t *low, ta_value_t *high
 void tcol_random_init(ta_rng_t *prng)
 {
     uint64_t seed, seq;
-    time_t t;
 #ifdef _WIN32
     LARGE_INTEGER pfc;
     QueryPerformanceCounter(&pfc); /* Never fails on XP and later */
     seed = pfc.QuadPart;
 #else
+    time_t t;
     seed = time(&t);
 #endif
     seq = (uint64_t)(intptr_t) &prng; /* Any value will do */
@@ -285,6 +285,286 @@ TCL_RESULT ta_randseed_cmd(ClientData cdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
+static ta_value_t
+get_bounded_random(ta_rng_t *rng, ta_value_t *lbound, ta_value_t *ubound)
+{
+    ta_value_t tav;
+
+    TA_ASSERT(lbound->type == ubound->type);
+    TA_ASSERT(lbound->type != TA_BOOLEAN); /* Does not support bounds */
+    switch (lbound->type) {
+    case TA_BYTE:
+        tav.ucval = pcg32_boundedrand_r(&rng->rng[0],   
+                                        ubound->ucval - lbound->ucval);
+        tav.ucval += lbound->ucval;
+        break;
+    case TA_INT:
+        tav.ival = pcg32_boundedrand_r(&rng->rng[0], 
+                                       ubound->ival - lbound->ival);
+        tav.ival += lbound->ival;
+        break;
+    case TA_UINT:
+        tav.uival = pcg32_boundedrand_r(&rng->rng[0], 
+                                        ubound->uival - lbound->uival);
+        tav.uival += lbound->uival;
+        break;
+    case TA_WIDE:
+        tav.wval = pcg32x2_boundedrand_r(rng->rng,
+                                         ubound->wval - lbound->wval);
+        tav.wval += lbound->wval;
+        break;
+    case TA_DOUBLE:
+        tav.dval = pcgdouble_boundedrand_r(rng->rng,
+                                           ubound->dval - lbound->dval);
+        tav.dval += lbound->dval;
+        break;
+    default:
+        ta_type_panic(lbound->type);
+        break;
+    }
+    tav.type = lbound->type;
+    return tav;
+}
+
+static TCL_RESULT ta_rng_get_method(ta_rng_instance_t *instance, Tcl_Interp *ip,
+                                    int objc, Tcl_Obj *const objv[])
+{
+    int count;
+    int i, bounded;
+    Tcl_Obj *ores = NULL;   /* Just to silence bogus gcc uninitialized use warnings */
+    ta_value_t lbound, ubound;
+
+    count = 1;
+    bounded = instance->bounded;
+    if (bounded) {
+        lbound = instance->lbound;
+        ubound = instance->ubound;
+    }
+    if (objc) {
+        if (Tcl_GetIntFromObj(ip, objv[0], &count) != TCL_OK)
+            return TCL_ERROR;
+        if (count < 0)
+            return ta_negative_count_error(ip, count);
+        if (objc > 1) {
+            if (objc != 3)
+                return ta_invalid_argcount(ip);
+            if (instance->rtype == TA_BOOLEAN) {
+                /* Booleans do not support bounds */
+                return ta_invalid_op_for_type(ip, instance->rtype);
+            }
+            if (ta_value_from_obj(ip, objv[1],
+                                  instance->rtype, &lbound) != TCL_OK ||
+                ta_value_from_obj(ip, objv[2],
+                                  instance->rtype, &ubound) != TCL_OK ||
+                ta_rng_fixup_bounds(ip, &lbound, &ubound, 0) != TCL_OK)
+                return TCL_ERROR;
+            bounded = 1;
+        }
+    }
+
+    if (count == 0)
+        return TCL_OK;
+
+    if (count > 1)
+        ores = Tcl_NewListObj(count, NULL);
+    if (bounded) {
+        for (i = 0; i < count; ++i) {
+            ta_value_t tav;
+            tav = get_bounded_random(&instance->rng, &lbound, &ubound);
+            if (count == 1) {
+                ores = ta_value_to_obj(&tav);
+                break;
+            }
+            Tcl_ListObjAppendElement(ip, ores, ta_value_to_obj(&tav));
+        }
+    } else {
+        /* Unbounded */
+        TA_ASSERT(instance->rtype != TA_BYTE);
+        for (i = 0; i < count; ++i) {
+            Tcl_Obj *o = NULL; /* Init just to silence gcc's bogus warnings */
+            switch (instance->rtype) {
+            case TA_BOOLEAN:
+                o = Tcl_NewIntObj(pcgbool_random_r(&instance->rng.rng[0]));
+                break;
+            case TA_INT:
+                o = Tcl_NewIntObj(pcg32_random_r(&instance->rng.rng[0]));
+                break;
+            case TA_UINT:
+                o = Tcl_NewWideIntObj(pcg32_random_r(&instance->rng.rng[0]));
+                break;
+            case TA_WIDE:
+                o = Tcl_NewWideIntObj(pcg32x2_random_r(instance->rng.rng));
+                break;
+            case TA_DOUBLE:
+                o = Tcl_NewDoubleObj(pcgdouble_random_r(instance->rng.rng));
+                break;
+            default:
+                ta_type_panic(instance->rtype);
+                break;
+            }
+            if (count == 1) {
+                ores = o;
+                break;
+            }
+            Tcl_ListObjAppendElement(ip, ores, o);
+        }
+    }
+    Tcl_SetObjResult(ip, ores);
+    return TCL_OK;
+
+}
+
+static TCL_RESULT
+ta_rng_instance_cmd(ClientData cdata, Tcl_Interp *ip,
+                    int objc, Tcl_Obj *const objv[])
+{
+    ta_rng_instance_t *instance = (ta_rng_instance_t *)cdata;
+    static const char* cmds[] = {
+        "destroy", /* Syntax: <instance> destroy */
+        "get",     /* Syntax: <instance> get cmd<<?COUNT? ?LOWER UPPER?>> */
+        "seed",    /* Syntax: <instance> seed SEED1 SEED2 */
+        NULL
+    };
+    enum cmd {DESTROY, GET, SEED};
+    int cmd_index;
+
+    if (objc < 2) {
+	Tcl_WrongNumArgs(ip, 1, objv, "option ?arg arg ...?");
+	return TCL_ERROR;
+    }
+    if (Tcl_GetIndexFromObj(ip, objv[1],
+                            cmds, "option", 0, &cmd_index) != TCL_OK) {
+	return TCL_ERROR;
+    }
+
+    switch (cmd_index) {
+    case DESTROY:
+        if (objc != 2) {
+            Tcl_WrongNumArgs(ip, 2, objv, NULL);
+            return TCL_ERROR;
+        }
+        Tcl_DeleteCommandFromToken(ip, instance->cmd_token);
+        /* Note instance will be freed by the command destructor */
+        break;
+
+    case GET:
+        return ta_rng_get_method(instance, ip, objc-2, objv+2);
+
+    case SEED:
+        if (objc != 4) {
+            Tcl_WrongNumArgs(ip, 2, objv, "SEED1 SEED2");
+            return TCL_ERROR;
+        } else {
+            Tcl_WideInt seed1;
+            Tcl_WideInt seed2;
+            if (Tcl_GetWideIntFromObj(ip, objv[2], &seed1) != TCL_OK ||
+                Tcl_GetWideIntFromObj(ip, objv[3], &seed2) != TCL_OK)
+                return TCL_ERROR;
+            pcg32_srandom_r(&instance->rng.rng[0], seed1, 0xf0f0f0f0);
+            pcg32_srandom_r(&instance->rng.rng[1], seed2, 0x0f0f0f0f);
+        }
+        break;
+    }
+
+    return TCL_OK;
+}
+
+static void ta_rng_instance_destructor(ClientData cdata)
+{
+    Tcl_Free(cdata);
+}
+
+void ta_rng_destructor(ClientData cdata)
+{
+    Tcl_Free(cdata);
+}
+
+TCL_RESULT ta_rng_cmd(ClientData cdata, Tcl_Interp *ip,
+                       int objc, Tcl_Obj *const objv[])
+{
+    ta_cmd_counter *counterP = (ta_cmd_counter *) cdata;
+    ta_rng_instance_t *instance = NULL;
+    Tcl_Obj *resultObj = NULL;
+    static const char *cmds[] = {"new", "create", NULL};
+    enum cmd { NEW, CREATE };
+    int cmd_index;
+
+    if (objc < 3 || objc > 5) {
+        Tcl_WrongNumArgs(ip, 1, objv, "new|create TYPE ?LOWBOUND ?HIGHBOUND??");
+        return TCL_ERROR;
+    }
+
+    if (ta_parse_type(ip, objv[2], &instance->rtype) != TCL_OK)
+        return TCL_ERROR;
+    switch (instance->rtype) {
+    case TA_BOOLEAN: case TA_BYTE: case TA_INT:
+    case TA_UINT: case TA_WIDE: case TA_DOUBLE:
+        break;
+    default:
+        ta_invalid_op_for_type(ip, instance->rtype);
+        return TCL_ERROR;
+    }
+
+    instance = (ta_rng_instance_t *) Tcl_Alloc(sizeof(*instance));
+
+    tcol_random_init(&instance->rng);
+    /* Note TA_BOOLEAN do not obey bounds */
+    if (objc > 3 && instance->rtype != TA_BOOLEAN) {
+        instance->bounded = 1;
+        if (ta_value_from_obj(ip, objv[3], instance->rtype, &instance->lbound) != TCL_OK)
+            goto error;
+        instance->ubound = instance->lbound;
+        if (objc > 4) {
+            if (ta_value_from_obj(ip, objv[4], instance->rtype, &instance->ubound) != TCL_OK)
+                goto error;
+        }
+        if (ta_rng_fixup_bounds(ip,
+                                &instance->lbound, &instance->ubound,
+                                objc <= 2) != TCL_OK)
+            goto error;
+    } else if (instance->rtype == TA_BYTE) {
+        instance->bounded = 1;
+        instance->lbound.type = instance->ubound.type = TA_BYTE;
+        instance->lbound.ucval = 0;
+        instance->ubound.ucval = 255;
+    }
+
+    if (Tcl_GetIndexFromObj(ip, objv[1], &cmds, "subcommand", 0, &cmd_index) != TCL_OK)
+        goto error;
+
+    if (cmd_index == NEW) {
+        Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
+        *counterP += 1;
+        /* ns->name is "" for global namespace */
+        resultObj = Tcl_ObjPrintf("%s%s%" TCL_LL_MODIFIER "d", ns->fullName, ns->name[0] ? "::rng" : "rng", *counterP);
+    } else {
+        const char *name = Tcl_GetString(objv[2]);
+        if (name[0] == ':' && name[1] == ':') {
+            /* Fully qualified name */
+            resultObj = objv[2];
+        } else {
+            /* Name is not fully qualified */
+            Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
+            resultObj = Tcl_ObjPrintf("%s%s", ns->fullName, name);
+        }
+    }
+    /* NOTE: resultObj has not been IncrRefCount'ed. */
+
+    instance->cmd_token = Tcl_CreateObjCommand(ip,
+                                               Tcl_GetString(resultObj),
+                                               ta_rng_instance_cmd,
+                                               (ClientData)instance,
+                                               ta_rng_instance_destructor);
+
+    Tcl_SetObjResult(ip, resultObj);
+    return TCL_OK;
+
+error:
+    if (instance)
+        Tcl_Free((char *)instance);
+    return TCL_ERROR;
+}
+
 TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
 {
     thdr_t *thdr;
@@ -292,7 +572,7 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
     int n;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
-    
+
     if (tcol_convert(ip, tcol) != TCL_OK)
         return TCL_ERROR;;
 
@@ -300,10 +580,10 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
     if (thdr->type == TA_BOOLEAN)
         return ta_invalid_op_for_type(ip, TA_BOOLEAN);
     span = OBJTHDRSPAN(tcol);
-    
+
     if (thdr_shared(thdr) || span) {
-        /* Construct shuffle into a new column. 
-         * "Inside-out" version of Fisher-Yates shuffle 
+        /* Construct shuffle into a new column.
+         * "Inside-out" version of Fisher-Yates shuffle
          */
 #define SHUFFLECOPY(type_)                                              \
         do {                                                            \
