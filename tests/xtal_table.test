@@ -2,7 +2,7 @@
 
 # TBD - are there tests for each assignment type where rvalue is a Tcl list?
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test::xtal_table {
     namespace path ::tarray::test

@@ -9,7 +9,7 @@
 package require tcltest
 eval tcltest::configure $argv
 
-source testutil.tcl 
+source [file join [file dirname [info script]] testutil.tcl] 
 package require tarray
 
 namespace eval tarray::test {

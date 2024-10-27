@@ -1,6 +1,6 @@
 # column series tests
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     variable Wide 4294967296

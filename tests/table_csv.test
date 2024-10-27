@@ -1,8 +1,16 @@
 # table csv related commands
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
+
+if {![catch {package require tclcsv}]} {
+    tcltest::testConstraint havecsv 1
+}
 
 namespace eval tarray::test {
+    proc csvtest args {
+        tailcall ::tcltest::test {*}$args -constraints havecsv
+    }
+
     # We don't use tcltest::viewFile because it trims trailing \n which is
     # really bogus if you want to test that all lines are properly
     # terminated.
@@ -28,13 +36,13 @@ namespace eval tarray::test {
         }
     }
 
-    test table_csvimport-1.0 {
+    csvtest table_csvimport-1.0 {
         Import empty file
     } -body {
         tarray::table csvimport [tcltest::makeFile "" [pid].tmp]
     } -result {tarray_table {} {}}
 
-    test table_csvimport-1.0.1 {
+    csvtest table_csvimport-1.0.1 {
         Import empty channel
     } -setup {
         set chan [open [tcltest::makeFile "" [pid].tmp]]
@@ -44,13 +52,13 @@ namespace eval tarray::test {
         close $chan
     } -result {tarray_table {} {}}
 
-    test table_csvimport-1.1 {
+    csvtest table_csvimport-1.1 {
         Default import
     } -body {
         tarray::table csvimport [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]
     } -result {tarray_table {Col_1 Col_2 Col_3} {{tarray_column wide {0 3}} {tarray_column wide {1 4}} {tarray_column wide {2 5}}}}
     
-    test table_csvimport-1.1.1 {
+    csvtest table_csvimport-1.1.1 {
         Default import from channel
     } -setup {
         set chan [open [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]]
@@ -60,14 +68,14 @@ namespace eval tarray::test {
         tarray::table csvimport $chan
     } -result {tarray_table {Col_1 Col_2 Col_3} {{tarray_column wide {0 3}} {tarray_column wide {1 4}} {tarray_column wide {2 5}}}}
     
-    test table_csvimport-2.0 {
+    csvtest table_csvimport-2.0 {
         Import with -encoding
     } -body {
         # TBD - fix this test to use UTF-8 chars that do not map to system enc
         tarray::table csvimport -encoding utf-8 [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]
     } -result {tarray_table {Col_1 Col_2 Col_3} {{tarray_column wide {0 3}} {tarray_column wide {1 4}} {tarray_column wide {2 5}}}}
     
-    test table_csvimport-2.0.1 {
+    csvtest table_csvimport-2.0.1 {
         Import with -encoding
     } -setup {
         set chan [open [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]]
@@ -78,13 +86,13 @@ namespace eval tarray::test {
         tarray::table csvimport -encoding utf-8 $chan
     } -result {tarray_table {Col_1 Col_2 Col_3} {{tarray_column wide {0 3}} {tarray_column wide {1 4}} {tarray_column wide {2 5}}}}
     
-    test table_csvimport-3.0 {
+    csvtest table_csvimport-3.0 {
         Import with -sniff
     } -body {
         tarray::table csvimport -sniff [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
     } -result "tarray_table {Col_1 Col_2 Col_3} {{tarray_column string {0,1 4,5}} {tarray_column wide {2 6}} {tarray_column wide {3 7}}}"
     
-    test table_csvimport-3.0.1 {
+    csvtest table_csvimport-3.0.1 {
         Import with -sniff
     } -setup {
         set chan [open [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]]
@@ -94,13 +102,13 @@ namespace eval tarray::test {
         tarray::table csvimport -sniff $chan
     } -result "tarray_table {Col_1 Col_2 Col_3} {{tarray_column string {0,1 4,5}} {tarray_column wide {2 6}} {tarray_column wide {3 7}}}"
     
-    test table_csvimport-4.0 {
+    csvtest table_csvimport-4.0 {
         Import with -delimiter
     } -body {
         tarray::table csvimport -delimiter \t [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
     } -result "tarray_table {Col_1 Col_2 Col_3} {{tarray_column string {0,1 4,5}} {tarray_column wide {2 6}} {tarray_column wide {3 7}}}"
     
-    test table_csvimport-4.1 {
+    csvtest table_csvimport-4.1 {
         Import with -delimiter overrides -sniff
     } -body {
         tarray::table csvimport -sniff -delimiter , [tcltest::makeFile "0,1\t2\t3\n4,5\t6\t7" [pid].tmp]
@@ -111,7 +119,7 @@ namespace eval tarray::test {
                         {tarray_column wide {0 4}} \
                         [list tarray_column string [list "1\t2\t3" "5\t6\t7"]]]]
 
-    test table_csvimport-5.0 {
+    csvtest table_csvimport-5.0 {
         Verify file not left open after import from file
     } -body {
         set chans [chan names]
@@ -119,7 +127,7 @@ namespace eval tarray::test {
         expr {$chans eq [chan names]}
     } -result 1
 
-    test table_csvimport-5.1 {
+    csvtest table_csvimport-5.1 {
         Verify channel not closed after import from channel
     } -setup {
         set chan [open [tcltest::makeFile "0,1,2\n3,4,5" [pid].tmp]]
@@ -130,7 +138,7 @@ namespace eval tarray::test {
 
     ################################################################
     
-    test table_csvexport-1.0 {
+    csvtest table_csvexport-1.0 {
         Export empty table
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -142,7 +150,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result ""
 
-   test table_csvexport-1.1 {
+   csvtest table_csvexport-1.1 {
         Export empty table with headers
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -155,7 +163,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "ColA,ColB\n"
     
-   test table_csvexport-1.1.1 {
+   csvtest table_csvexport-1.1.1 {
         Export empty table with headers to a channel
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -169,7 +177,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "ColA,ColB\n"
 
-    test table_csvexport-2.0 {
+    csvtest table_csvexport-2.0 {
         Export table (default)
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -181,7 +189,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [sample_table_csv]
 
-    test table_csvexport-2.0.1 {
+    csvtest table_csvexport-2.0.1 {
         Export table (default) to channel
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -194,7 +202,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [sample_table_csv]
 
-    test table_csvexport-2.1 {
+    csvtest table_csvexport-2.1 {
         Export table -header
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -207,7 +215,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "[join [tarray::table cnames [sample_table]] ,]\n[sample_table_csv]"
     
-    test table_csvexport-3.0 {
+    csvtest table_csvexport-3.0 {
         Export table existing file (fail)
     } -setup {
         set csvpath [tcltest::makeFile "Old content" csvtest.csv]
@@ -217,7 +225,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "File * exists. Use -force to overwrite." -match glob -returnCodes error
 
-    test table_csvexport-3.1 {
+    csvtest table_csvexport-3.1 {
         Export table existing file -force
     } -setup {
         set csvpath [tcltest::makeFile "Old content" csvtest.csv]
@@ -226,7 +234,7 @@ namespace eval tarray::test {
         catfile $csvpath
     } -result "[sample_table_csv]"
 
-    test table_csvexport-4.0 {
+    csvtest table_csvexport-4.0 {
         Export table existing file (fail)
     } -setup {
         set csvpath [tcltest::makeFile "Old content" csvtest.csv]
@@ -236,7 +244,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "File * exists. Use -force to overwrite." -match glob -returnCodes error
 
-    test table_csvexport-4.1 {
+    csvtest table_csvexport-4.1 {
         Export table non-existing file -append
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -248,7 +256,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [sample_table_csv]
 
-    test table_csvexport-4.2 {
+    csvtest table_csvexport-4.2 {
         Export table existing file -append
     } -setup {
         set csvpath [tcltest::makeFile "Old content" csvtest.csv]
@@ -259,7 +267,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "Old content\n[sample_table_csv]"
 
-    test table_csvexport-4.2.1 {
+    csvtest table_csvexport-4.2.1 {
         Export table existing file -append to channel
     } -setup {
         set csvpath [tcltest::makeFile "Old content" csvtest.csv]
@@ -272,7 +280,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "Old content\n[sample_table_csv]"
 
-    test table_csvexport-5.0 {
+    csvtest table_csvexport-5.0 {
         Export table -translation lf
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -284,7 +292,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [sample_table_csv]
 
-    test table_csvexport-5.0.1 {
+    csvtest table_csvexport-5.0.1 {
         Export table -translation lf to channel
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -297,7 +305,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [sample_table_csv]
 
-    test table_csvexport-5.1 {
+    csvtest table_csvexport-5.1 {
         Export table -translation crlf
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -309,7 +317,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [string map {\n \r\n} [sample_table_csv]]
 
-    test table_csvexport-6.0 {
+    csvtest table_csvexport-6.0 {
         Export table -encoding
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -324,7 +332,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "\xe2\xe8\u016b\u889f,100\n"
 
-    test table_csvexport-7.0 {
+    csvtest table_csvexport-7.0 {
         Export table -delimiter (pass option to tclcsv)
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -336,7 +344,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result [string map {, |} [sample_table_csv]]
 
-    test table_csvexport-7.1 {
+    csvtest table_csvexport-7.1 {
         Export table unknown option passed to tclcsv
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]
@@ -347,7 +355,7 @@ namespace eval tarray::test {
         file delete $csvpath
     } -result "bad option \"-badopt\"*" -match glob -returnCodes error
 
-    test table_csvexport-8.0 {
+    csvtest table_csvexport-8.0 {
         Export table using a dialect
     } -setup {
         set csvpath [file join [tcltest::temporaryDirectory] csvtest.csv]

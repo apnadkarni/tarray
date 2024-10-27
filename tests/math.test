@@ -1,5 +1,5 @@
 # column math tests
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     namespace import ::tcl::mathop::*

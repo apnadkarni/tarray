@@ -1,6 +1,6 @@
 # xtal for stmt tests
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     test xtal-for-range-1.0 {for - simple} -body {

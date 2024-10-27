@@ -1,6 +1,6 @@
 # xtal try tests
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     test xtal-try-1.0 {Try with no arg} -body {

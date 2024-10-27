@@ -1,6 +1,6 @@
 # xtal throw tests
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     test xtal-throw-1.0 {throw one arg} -body {
