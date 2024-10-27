@@ -682,7 +682,6 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);
 
 Tcl_ObjCmdProc parseargs_cmd;
-Tcl_ObjCmdProc ta_dump_cmd;
 Tcl_ObjCmdProc ta_loop_cmd;
 Tcl_ObjCmdProc ta_loop_nr_cmd;
 Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
@@ -750,8 +749,10 @@ Tcl_ObjCmdProc ta_rng_cmd;
 
 Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
 
-
 Tcl_ObjCmdProc ta_compiler_info_cmd;
+Tcl_ObjCmdProc ta_config_cmd;
+Tcl_ObjCmdProc ta_dump_cmd;
+Tcl_ObjCmdProc ta_mt_split_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;

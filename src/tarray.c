@@ -245,6 +245,7 @@ ta_define_commands(Tcl_Interp *ip)
         {"::tarray::rbc_init_stubs", ta_rbc_init_stubs_cmd, NULL, NULL},
 
         {"::tarray::unsupported::compiler_info", ta_compiler_info_cmd, NULL, NULL},
+        {"::tarray::unsupported::mt_split", ta_mt_split_cmd, NULL, NULL},
     };
     int i;
 

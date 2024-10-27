@@ -8,7 +8,7 @@ if {[catch {
     lappend auto_path [file normalize [file join [file dirname [info script]] .. build lib]]
     package require tarray
 }
-#package require xtal
+package require xtal
 
 # TBD - special tests to stress boolean types
 # TBD - add tests for all commands to insert / delete large amount of data
@@ -854,5 +854,5 @@ if {![info exists tarray::test::known]} {
     }
     
     package require tarray
-    #package require xtal
+    package require xtal
 }

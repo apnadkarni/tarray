@@ -78,11 +78,6 @@ critcl::csources bitarray.c column.c errors.c parseargs.c \
     timsort.c timsort_r.c pcg_basic.c \
     rbcStubLib.c
 
-if {$build_opts(unsupported)} {
-    critcl::csources unsupported.c
-    critcl::ccommand tarray::unsupported::dump ta_dump_cmd
-
-}
 critcl::tsources tabulate.tcl tarray.tcl taprint.tcl tarbc.tcl dbimport.tcl taversion.tcl
 critcl::cheaders tarray.h tamath.h bitarray.h timsort.h timsort-impl.h pcg_basic.h rbcDecls.h
 
@@ -102,45 +97,6 @@ if {$build_opts(mt_enable)} {
 }
 
 critcl::ccommand tarray::unsupported::config {} {
-    const char *vname;
-    int *pval;	 
-    if (objc < 2 || objc > 3) {
-        Tcl_WrongNumArgs(interp, 1, objv, "CONFIGVAR ?VALUE?");
-        return TCL_ERROR;
-    }
-
-    vname = Tcl_GetString(objv[1]);
-    if (ta_strequal(vname, "experiment"))
-        pval = &ta_experiment;
-    else if (ta_strequal(vname, "full_validation"))
-        pval = &ta_full_validation;
-#ifdef TA_MT_ENABLE
-    else if (ta_strequal(vname, "sort_mt_threshold"))
-        pval = &ta_sort_mt_threshold;
-    else if (ta_strequal(vname, "sort_mt_enable_any"))
-        pval = &ta_sort_mt_enable_any;
-    else if (ta_strequal(vname, "search_mt_threshold"))
-        pval = &ta_search_mt_threshold;
-    else if (ta_strequal(vname, "fill_mt_threshold"))
-        pval = &ta_fill_mt_threshold;
-    else if (ta_strequal(vname, "minmax_mt_threshold"))
-        pval = &ta_minmax_mt_threshold;
-    else if (ta_strequal(vname, "fold_mt_threshold"))
-        pval = &ta_fold_mt_threshold;
-    else if (ta_strequal(vname, "math_mt_threshold"))
-        pval = &ta_math_mt_threshold;
-#endif
-    else {
-        Tcl_SetResult(interp, "Invalid config setting name.", TCL_STATIC);
-        return TCL_ERROR;
-    }
-
-    if (objc == 3) {
-        if (Tcl_GetIntFromObj(interp, objv[2], pval) != TCL_OK)
-        return TCL_ERROR;
-    }
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(*pval));
-    return TCL_OK;
 }
 
 if {$build_opts(use_libdispatch)} {
@@ -188,27 +144,6 @@ critcl::cinit {
 critcl::cdata tarray::unsupported::critcl_info [critcl::showconfig]
 # Commented out because will not work when building from TEA
 #critcl::cdata tarray::unsupported::hg_id       [exec hg identify]
-
-critcl::cproc tarray::unsupported::mt_split {Tcl_Interp* interp int tatype int first int count int min_hint int nsizes} ok {
-#ifdef TA_MT_ENABLE
-    int sizes[16];
-    Tcl_Obj *ores;
-    int i, split_count;
-    if (nsizes > ARRAYSIZE(sizes)) {
-        Tcl_SetResult(interp, "Invalid array size", TCL_STATIC);
-        return TCL_ERROR;
-    }
-    split_count = thdr_calc_mt_split_ex(tatype, first, count, min_hint, nsizes, sizes);
-    ores = Tcl_NewListObj(nsizes, NULL);
-    for (i = 0; i < split_count; ++i)
-        Tcl_ListObjAppendElement(interp, ores, Tcl_NewIntObj(sizes[i]));
-    Tcl_SetObjResult(interp, ores);
-    return TCL_OK;
-#else
-    Tcl_SetResult(interp, "Multithreading not enabled", TCL_STATIC);
-    return TCL_ERROR;
-#endif
-}
 
 package provide tarray [source [file join [file dirname [info script]] taversion.tcl]]
 

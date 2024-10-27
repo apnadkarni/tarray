@@ -7,7 +7,8 @@
 
 #include "tarray.h"
 
-TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
+TCL_RESULT
+ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
                        int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *o;
@@ -19,13 +20,13 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
 	Tcl_WrongNumArgs(ip, 1, objv, "value");
 	return TCL_ERROR;
     }
-    
+
     o = objv[1];
     i = 0;
     oresult[i++] = Tcl_NewStringObj("Tcl_Obj*", -1);
     sprintf(buf, "%p", (void *) o);
     oresult[i++] = Tcl_NewStringObj(buf, -1);
-    
+
     oresult[i++] = Tcl_NewStringObj("Tcl_Obj.refCount", -1);
     oresult[i++] = Tcl_NewIntObj(o->refCount);
 
@@ -101,8 +102,9 @@ TCL_RESULT ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     return TCL_OK;
 }
 
-TCL_RESULT ta_compiler_info_cmd(ClientData clientdata, Tcl_Interp *ip,
-                               int objc, Tcl_Obj *const objv[])
+TCL_RESULT
+ta_compiler_info_cmd(ClientData clientdata, Tcl_Interp *ip,
+                     int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *objs[6];
 
@@ -135,6 +137,88 @@ TCL_RESULT ta_compiler_info_cmd(ClientData clientdata, Tcl_Interp *ip,
     objs[5] = Tcl_NewStringObj(TCL_PATCH_LEVEL, -1);
 
     Tcl_SetObjResult(ip, Tcl_NewListObj(6, objs));
+    return TCL_OK;
+}
+
+TCL_RESULT
+ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
+                     int objc, Tcl_Obj *const objv[])
+{
+    if (objc != 6) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TATYPE FIRST COUNT MIN_HINT NSIZES");
+        return TCL_ERROR;
+    }
+
+    int tatype, first, count, min_hint, nsizes;
+    if (Tcl_GetIntFromObj(ip, objv[1], &tatype) != TCL_OK ||
+        Tcl_GetIntFromObj(ip, objv[2], &first) != TCL_OK ||
+        Tcl_GetIntFromObj(ip, objv[1], &count) != TCL_OK ||
+        Tcl_GetIntFromObj(ip, objv[1], &min_hint) != TCL_OK ||
+        Tcl_GetIntFromObj(ip, objv[1], &nsizes) != TCL_OK) {
+        return TCL_ERROR;
+    }
+#ifdef TA_MT_ENABLE
+    int sizes[16];
+    Tcl_Obj *ores;
+    int i, split_count;
+    if (nsizes > ARRAYSIZE(sizes)) {
+        Tcl_SetResult(ip, "Invalid array size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+    split_count = thdr_calc_mt_split_ex(tatype, first, count, min_hint, nsizes, sizes);
+    ores = Tcl_NewListObj(nsizes, NULL);
+    for (i = 0; i < split_count; ++i)
+        Tcl_ListObjAppendElement(ip, ores, Tcl_NewIntObj(sizes[i]));
+    Tcl_SetObjResult(ip, ores);
+    return TCL_OK;
+#else
+    Tcl_SetResult(ip, "Multithreading not enabled", TCL_STATIC);
+    return TCL_ERROR;
+#endif
+}
+
+TCL_RESULT
+ta_config_cmd(ClientData clientdata, Tcl_Interp *ip,
+                       int objc, Tcl_Obj *const objv[])
+{
+    const char *vname;
+    int *pval;
+    if (objc < 2 || objc > 3) {
+        Tcl_WrongNumArgs(ip, 1, objv, "CONFIGVAR ?VALUE?");
+        return TCL_ERROR;
+    }
+
+    vname = Tcl_GetString(objv[1]);
+    if (ta_strequal(vname, "experiment"))
+        pval = &ta_experiment;
+    else if (ta_strequal(vname, "full_validation"))
+        pval = &ta_full_validation;
+#ifdef TA_MT_ENABLE
+    else if (ta_strequal(vname, "sort_mt_threshold"))
+        pval = &ta_sort_mt_threshold;
+    else if (ta_strequal(vname, "sort_mt_enable_any"))
+        pval = &ta_sort_mt_enable_any;
+    else if (ta_strequal(vname, "search_mt_threshold"))
+        pval = &ta_search_mt_threshold;
+    else if (ta_strequal(vname, "fill_mt_threshold"))
+        pval = &ta_fill_mt_threshold;
+    else if (ta_strequal(vname, "minmax_mt_threshold"))
+        pval = &ta_minmax_mt_threshold;
+    else if (ta_strequal(vname, "fold_mt_threshold"))
+        pval = &ta_fold_mt_threshold;
+    else if (ta_strequal(vname, "math_mt_threshold"))
+        pval = &ta_math_mt_threshold;
+#endif
+    else {
+        Tcl_SetResult(ip, "Invalid config setting name.", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (objc == 3) {
+        if (Tcl_GetIntFromObj(ip, objv[2], pval) != TCL_OK)
+        return TCL_ERROR;
+    }
+    Tcl_SetObjResult(ip, Tcl_NewIntObj(*pval));
     return TCL_OK;
     
 }
