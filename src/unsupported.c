@@ -152,11 +152,26 @@ ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
     int tatype, first, count, min_hint, nsizes;
     if (Tcl_GetIntFromObj(ip, objv[1], &tatype) != TCL_OK ||
         Tcl_GetIntFromObj(ip, objv[2], &first) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[1], &count) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[1], &min_hint) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[1], &nsizes) != TCL_OK) {
+        Tcl_GetIntFromObj(ip, objv[3], &count) != TCL_OK ||
+        Tcl_GetIntFromObj(ip, objv[4], &min_hint) != TCL_OK ||
+        Tcl_GetIntFromObj(ip, objv[5], &nsizes) != TCL_OK) {
         return TCL_ERROR;
     }
+
+    switch (tatype) {
+    case TA_STRING:
+    case TA_ANY:
+    case TA_INT:
+    case TA_UINT:
+    case TA_DOUBLE:
+    case TA_WIDE:
+    case TA_BYTE:
+        break;
+    default:
+        Tcl_SetResult(ip, "Invalid type for multithreading", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
 #ifdef TA_MT_ENABLE
     int sizes[16];
     Tcl_Obj *ores;

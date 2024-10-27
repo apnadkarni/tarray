@@ -245,6 +245,8 @@ ta_define_commands(Tcl_Interp *ip)
         {"::tarray::rbc_init_stubs", ta_rbc_init_stubs_cmd, NULL, NULL},
 
         {"::tarray::unsupported::compiler_info", ta_compiler_info_cmd, NULL, NULL},
+        {"::tarray::unsupported::config", ta_config_cmd, NULL, NULL},
+        {"::tarray::unsupported::dump", ta_dump_cmd, NULL, NULL},
         {"::tarray::unsupported::mt_split", ta_mt_split_cmd, NULL, NULL},
     };
     int i;
@@ -295,4 +297,20 @@ TCL_RESULT
 ta_real_init (Tcl_Interp *ip)
 {
     return ta_define_commands(ip);
+}
+
+DLLEXPORT int
+Tarray_Init(Tcl_Interp *ip)
+{
+#ifdef USE_TCL_STUBS
+    if (Tcl_InitStubs(ip, TCL_VERSION, 0) == NULL)
+        return TCL_ERROR;
+#else
+    if (Tcl_PkgRequire(ip, "Tcl", TCL_VERSION, 0) == NULL)
+        return TCL_ERROR;
+#endif
+    if (ta_real_init(ip) != TCL_OK)
+        return TCL_ERROR;
+    Tcl_PkgProvide(ip, PACKAGE_NAME, PACKAGE_VERSION);
+    return TCL_OK;
 }

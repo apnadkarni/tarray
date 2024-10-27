@@ -6,7 +6,11 @@
 #
 
 namespace eval tarray {
-    
+    variable package_dir
+    if {![info exists package_dir]} {
+        set package_dir [file dirname [info script]]
+    }
+
     namespace eval column { namespace path [namespace parent] }
     namespace eval table { namespace path [namespace parent] }
     namespace eval unsupported { namespace path [namespace parent] }
@@ -1069,8 +1073,13 @@ interp alias {} tarray::column::** {} tarray::column::math **
 # TBD - document fold
 interp alias {} tarray::column::sum {} tarray::column::fold +
 
+source [file join $::tarray::package_dir tabulate.tcl]
+source [file join $::tarray::package_dir taprint.tcl]
+source [file join $::tarray::package_dir tarbc.tcl]
+source [file join $::tarray::package_dir dbimport.tcl]
+
 namespace eval tarray {
-    
+
     namespace eval column {
         namespace ensemble create -map {
             bitmap0 bitmap0
@@ -1196,3 +1205,4 @@ namespace eval tarray {
     namespace export bitmap0 bitmap1 column loop parseargs oneopt prettify print randseed rng table
 
 }
+
