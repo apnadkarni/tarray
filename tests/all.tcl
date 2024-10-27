@@ -1,6 +1,5 @@
 package require Tcl 8.6
 package require tcltest 2.2
-source [file join [file dirname [info script]] testutil.tcl]
 
 # Test configuration options that may be set are:
 # (currently none)

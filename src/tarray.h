@@ -24,8 +24,12 @@
 
 #include "tcl.h"
 
-#ifdef TA_USE_LIBDISPATCH
+#ifdef HAVE_LIBDISPATCH
 # include <dispatch/dispatch.h>
+#elif !defined(_WIN32)
+# ifdef TA_MT_ENABLE
+#  error Threadpool enabled but libdispatch not available.
+# endif
 #endif
 
 #if defined(_MSC_VER)
@@ -771,7 +775,7 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
 int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
                           int nsizes, int sizes[]);
 
-# ifdef TA_USE_LIBDISPATCH
+# ifdef HAVE_LIBDISPATCH
 
 typedef dispatch_group_t    ta_mt_group_t;
 typedef dispatch_function_t ta_mt_function_t;
