@@ -73,6 +73,9 @@ PRJ_DEFINES = $(PRJ_DEFINES) -DBA_ENABLE_ASSERT=1 -DTA_ENABLE_ASSERT=1
 # to load binaries from platform-specific subdirectories of the package
 # directory.
 DISABLE_TARGET_install = 1
+# Disable default shell and test targets because we need to load xtal
+DISABLE_TARGET_test = 1
+DISABLE_TARGET_shell = 1
 !include "$(_RULESDIR)\targets.vc"
 
 pkgindex: default-pkgindex-tea
@@ -86,6 +89,15 @@ install: pkgindex $(PRJLIB) default-install-scripts
 	@$(CPY) $(OUT_DIR)\pkgIndex.tcl "$(SCRIPT_INSTALL_DIR)"
 	@$(CPY) $(GENERICDIR)\license.terms "$(SCRIPT_INSTALL_DIR)"
 
+test: default-setup $(PROJECT)
+	@set TCLLIBPATH=$(OUT_DIR:\=/) $(ROOT:\=/)/build/lib
+	@if exist $(LIBDIR) for %f in ("$(LIBDIR)\*.tcl") do @$(COPY) %f "$(OUT_DIR)"
+	cd "$(TESTDIR)" && $(DEBUGGER) $(TCLSH) all.tcl $(TESTFLAGS)
+
+shell: default-setup $(PROJECT)
+	@set TCLLIBPATH=$(OUT_DIR:\=/) $(ROOT:\=/)/build/lib
+	@if exist $(LIBDIR) for %f in ("$(LIBDIR)\*.tcl") do @$(COPY) %f "$(OUT_DIR)"
+	$(DEBUGGER) $(TCLSH)
 
 $(PRJ_OBJS): $(HEADERS) $(ROOT)\configure.ac
 

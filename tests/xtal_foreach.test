@@ -315,8 +315,28 @@ namespace eval tarray::test {
         set d
     } -result {1 twenty}
 
+    test xtal-foreach-5.0 {foreach keyword} -body {
+        xtal::xtal {foreach}
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-foreach-5.1 {foreach missing identifier} -body {
+        xtal::xtal {foreach x {}}
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-foreach-5.3 {foreach variablelist syntax error} -body {
+        xtal::xtal {foreach i, l {}}
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-foreach-5.4 {foreach variable list syntax error} -body {
+        xtal::xtal {foreach ,i l {}
+        }
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-foreach-5.5 {foreach missing body} -body {
+        xtal::xtal {foreach i l}
+    } -result "Parse error*" -match glob -returnCodes error
     
-    # TBD syntax errors
+
     # TBD tests for modiying collection from within loop
 }
 

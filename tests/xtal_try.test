@@ -4,9 +4,8 @@ source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     test xtal-try-1.0 {Try with no arg} -body {
-        # Note error is "no such var" because xtal interprets this as variable
         xtal::xtal {try}
-    } -result "*no such var*" -returnCodes error -match glob
+    } -result "Parse error*" -returnCodes error -match glob
 
     test xtal-try-2.0 {Try with one arg} -body {
         set x 1

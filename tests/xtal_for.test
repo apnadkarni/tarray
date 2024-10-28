@@ -74,7 +74,6 @@ namespace eval tarray::test {
         }
         set l
     } -result {-2 0 2 4 6}
-    
 
     test xtal-for-range-4.0 {for range high default} -body {
         xtal::xtal {
@@ -86,7 +85,7 @@ namespace eval tarray::test {
         }
         set l
     } -result {-3 -2 -1 0}
-    
+
     test xtal-for-range-4.1 {for range high default} -body {
         xtal::xtal {
             l = ""
@@ -97,22 +96,40 @@ namespace eval tarray::test {
         }
         set l
     } -result {-5 -3 -1}
-    
-    test xtal-for-range-4.2 {for range syntax error} -body {
+
+    test xtal-for-range-5.0 {for keyword} -body {
+        xtal::xtal {for}
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-for-range-5.1 {for missing identifier} -body {
+        xtal::xtal {for 1:3 {}}
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-for-range-5.2 {for missing range} -body {
+        xtal::xtal {for i {}}
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-for-range-5.3 {for range syntax error} -body {
         xtal::xtal {
             for i 0: {x = i}
         }
     } -result "Parse error*" -match glob -returnCodes error
-    
-    test xtal-for-range-4.3 {for range syntax error} -body {
+
+    test xtal-for-range-5.4 {for range syntax error} -body {
         xtal::xtal {
             for i 0:: {x = i}
         }
     } -result "Parse error*" -match glob -returnCodes error
 
-    test xtal-for-range-4.3 {for range syntax error} -body {
+    test xtal-for-range-5.5 {for range syntax error} -body {
         xtal::xtal {
             for i 0:1: {x = i}
+        }
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-for-range-5.6 {for missing body} -body {
+        xtal::xtal {
+            for i 0:1
         }
     } -result "Parse error*" -match glob -returnCodes error
 

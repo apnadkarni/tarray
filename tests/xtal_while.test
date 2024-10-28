@@ -11,7 +11,7 @@ namespace eval tarray::test {
             z
         }
     } -result 0
-    
+
     test xtal-while-1.1 { Simple while} -setup {
         set x 0; set z 0
     } -body {
@@ -23,16 +23,24 @@ namespace eval tarray::test {
             z
         }
     } -result 6
-     
+
     test xtal-while-2.0 {while - missing expr} -body {
         xtal::xtal { while {y = 1} }
     } -result "Parse error*" -match glob -returnCodes error
-    
-    test xtal-while-2.1 {while - missing body} -body {
+
+    test xtal-while-2.1 {while - missing expr} -body {
+        xtal::xtal { while () {y = 1} }
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-while-2.2 {while - missing body} -body {
         xtal::xtal { while y = 1 }
     } -result "Parse error*" -match glob -returnCodes error
-    
-    test xtal-while-2.2 {while - compile error in body} -body {
+
+    test xtal-while-2.4 {while - missing body - function syntax} -body {
+        xtal::xtal { while (y = 1) }
+    } -result "Parse error*" -match glob -returnCodes error
+
+    test xtal-while-2.5 {while - compile error in body} -body {
         xtal::xtal {
             while 1 {
                 set y 1
