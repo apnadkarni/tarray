@@ -2,13 +2,7 @@ package require Tcl 8.6
 package require platform
 package require tcltest
 
-if {[catch {
-    package require tarray
-}]} {
-    lappend auto_path [file normalize [file join [file dirname [info script]] .. build lib]]
-    package require tarray
-}
-package require xtal
+package require tarray
 
 # TBD - special tests to stress boolean types
 # TBD - add tests for all commands to insert / delete large amount of data
@@ -854,5 +848,5 @@ if {![info exists tarray::test::known]} {
     }
     
     package require tarray
-    package require xtal
+    catch {package require xtal}
 }

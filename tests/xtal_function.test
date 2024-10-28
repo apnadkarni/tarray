@@ -1,6 +1,6 @@
 # xtal function definitions
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     test function_tcl-1.0 {Define xtal function} -body {

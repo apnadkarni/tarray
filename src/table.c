@@ -2139,3 +2139,674 @@ TCL_RESULT table_set_column(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *colspec, Tc
 
     return TCL_OK;
 }
+
+static TCL_RESULT
+table_put_parseargs(Tcl_Interp *ip, int objc,
+                    Tcl_Obj * const *objv,
+                    Tcl_Obj **potab, Tcl_Obj **povalues,
+                    Tcl_Obj **pomap, Tcl_Obj **poff)
+{
+    if (objc < 3 || objc > 6) {
+        if (ip)
+            Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE VALUES ?POSITION?");
+        return TCL_ERROR;
+    }
+
+    switch (objc) {
+    case 3:
+    case 4:
+        /* Cannot contain an valid option. Parse as though no options */
+        *pomap = NULL;
+        *potab = objv[1];
+        *povalues = objv[2];
+        *poff = objc == 4 ? objv[3] : NULL;
+        break;
+    case 5:
+    case 6:
+        /* If valid, options must be present */
+        /* To prevent shimmering, don't check for options if a tarray */
+        if (strcmp(Tcl_GetString(objv[1]), "-columns"))
+            return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+        *pomap = objv[2];
+        *potab = objv[3];
+        *povalues = objv[4];
+        *poff = objc == 6 ? objv[5] : NULL;
+        break;
+    }
+    return TCL_OK;
+}
+
+TCL_RESULT table_put_cmd(ClientData clientdata, Tcl_Interp *ip,
+                         int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table, *ovalues, *omap, *ofirst;
+    int status;
+
+    if ((status = table_put_parseargs(ip, objc, objv, &table, &ovalues, &omap, &ofirst)) != TCL_OK)
+        return status;
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    /* Values may be given as a table or a Tcl list */
+    if (table_convert(NULL, ovalues) == TCL_OK)
+        status = table_copy(ip, table, ovalues, ofirst, omap, 0);
+    else
+        status = table_put_objs(ip, table, ovalues, ofirst, omap, 0);
+
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT table_vput_cmd(ClientData clientdata, Tcl_Interp *ip,
+                          int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *ovar, *table, *ovalues, *omap, *ofirst;
+    int status;
+
+    if ((status = table_put_parseargs(ip, objc, objv, &ovar, &ovalues, &omap, &ofirst)) != TCL_OK)
+        return status;
+
+    table = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    /* Values may be given as a table or a Tcl list */
+    if (table_convert(NULL, ovalues) == TCL_OK)
+        status = table_copy(ip, table, ovalues, ofirst, omap, 0);
+    else
+        status = table_put_objs(ip, table, ovalues, ofirst, omap, 0);
+
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, ovar, table);
+}
+
+static TCL_RESULT
+table_fill_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                     Tcl_Obj **potab, Tcl_Obj **porow, Tcl_Obj **aindex,
+                     Tcl_Obj **bindex, Tcl_Obj **pomap)
+{
+    int argoff;
+
+    if (objc < 4 || objc > 7) {
+        if (ip)
+            Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE ROW (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
+    }
+
+    argoff = 0;
+    *pomap = NULL;
+    /* If 4 or 5 args, no options are present */
+    if (objc > 5) {
+        /* To prevent shimmering, don't check for options if a tarray */
+        if (strcmp(Tcl_GetString(objv[1]), "-columns"))
+            return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+        argoff = 2;
+        *pomap = objv[2];
+    }
+
+    *potab = objv[++argoff];
+    *porow = objv[++argoff];
+    *aindex = objv[++argoff];
+    *bindex = ++argoff < objc ? objv[argoff] : NULL;
+
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_fill_cmd(ClientData clientdata, Tcl_Interp *ip,
+                          int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table, *orow, *aindex, *bindex, *omap;
+    int status;
+
+    if (table_fill_parseargs(ip, objc, objv, &table, &orow, &aindex, &bindex, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_fill_obj(ip, table, orow, aindex, bindex, omap, 0);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT
+table_vfill_cmd(ClientData clientdata, Tcl_Interp *ip,
+                           int objc, Tcl_Obj *const objv[])
+{
+    int status;
+    Tcl_Obj *ovar, *table, *orow, *aindex, *bindex, *omap;
+
+    if (table_fill_parseargs(ip, objc, objv, &ovar, &orow, &aindex, &bindex, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    table = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_fill_obj(ip, table, orow, aindex, bindex, omap, 0);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, ovar, table);
+}
+
+TCL_RESULT
+table_delete_cmd(ClientData clientdata, Tcl_Interp *ip,
+                 int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    int status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(ip, 1, objv, "TABLE (INDEXLIST | LOW ?HIGH?)");
+	return TCL_ERROR;
+    }
+
+    table = objv[1];
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_delete(ip, table, objv[2], objc == 4 ? objv[3] : NULL);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT table_vdelete_cmd(ClientData clientdata, Tcl_Interp *ip,
+                             int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    int status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR (INDEXLIST | LOW ?HIGH?)");
+	return TCL_ERROR;
+    }
+
+    table = Tcl_ObjGetVar2(ip, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_delete(ip, table, objv[2], objc == 4 ? objv[3] : NULL);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, objv[1], table);
+}
+
+TCL_RESULT
+table_get_cmd(ClientData cdata, Tcl_Interp *ip,
+              int objc, Tcl_Obj *const objv[])
+{
+    return table_retrieve(ip, objc, objv, (int)cdata);
+}
+
+TCL_RESULT
+table_index_cmd(ClientData cdata, Tcl_Interp *ip,
+                int objc, Tcl_Obj *const objv[])
+{
+    int ix;
+    Tcl_Obj *o;
+    Tcl_Obj *grid;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE INDEX");
+        return TCL_ERROR;
+    }
+    grid = objv[1];
+    if (table_convert(ip, grid) == TCL_OK) {
+        int end = table_length(grid) - 1;
+	if (ta_convert_index(ip, objv[2], &ix, end, 0, end) == TCL_OK) {
+            o = table_index(ip, grid, ix);
+            if (o) {
+                Tcl_SetObjResult(ip, o);
+                return TCL_OK;
+            }
+        }
+    }
+    return TCL_ERROR;
+}
+
+static TCL_RESULT
+table_insert_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                       Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pofirst,
+                       int *pcount, Tcl_Obj **pomap)
+{
+    int argoff;
+
+    if (objc < 4 || objc > 7) {
+        if (ip)
+            Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE ROW LOW ?COUNT?");
+        return TCL_ERROR;
+    }
+
+    argoff = 0;
+    *pomap = NULL;
+    /* If 4 or 5 args, no options are present */
+    if (objc > 5) {
+        if (strcmp(Tcl_GetString(objv[1]), "-columns"))
+            return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+        argoff = 2;
+        *pomap = objv[2];
+    }
+
+    *potab = objv[++argoff];
+    *povalues = objv[++argoff];
+    *pofirst = objv[++argoff];
+    if (++argoff < objc) {
+        if (ta_get_int_from_obj(ip, objv[argoff], pcount) != TCL_OK)
+            return TCL_ERROR;
+    } else
+        *pcount = 1;
+
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_insert_cmd(ClientData cdata, Tcl_Interp *ip,
+    int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table, *ovalues, *ofirst, *omap;
+    int status, count;
+
+    if (table_insert_parseargs(ip, objc, objv, &table, &ovalues,
+                               &ofirst, &count, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_insert_row(ip, table, ovalues, ofirst, count, omap);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT
+table_vinsert_cmd(ClientData cdata, Tcl_Interp *ip,
+                  int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *ovar, *table, *ovalues, *ofirst, *omap;
+    int status, count;
+
+    if (table_insert_parseargs(ip, objc, objv, &ovar, &ovalues,
+                               &ofirst, &count, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    table = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_insert_row(ip, table, ovalues, ofirst, count, omap);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, ovar, table);
+}
+
+static TCL_RESULT
+table_inject_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                       Tcl_Obj **potab, Tcl_Obj **povalues,
+                       Tcl_Obj **pofirst, Tcl_Obj **pomap)
+{
+    int argoff;
+
+    if (objc != 4 && objc != 6) {
+        if (ip)
+            Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE ROWS POS");
+        return TCL_ERROR;
+    }
+
+    argoff = 0;
+    *pomap = NULL;
+    if (objc == 6) {
+        if (strcmp(Tcl_GetString(objv[1]), "-columns"))
+            return ta_invalid_opt_error(ip, Tcl_GetString(objv[1]));
+        argoff = 2;
+        *pomap = objv[2];
+    }
+
+    *potab = objv[++argoff];
+    *povalues = objv[++argoff];
+    *pofirst = objv[++argoff];
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_inject_cmd(ClientData cdata, Tcl_Interp *ip,
+                 int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table, *ovalues, *ofirst, *omap;
+    int status;
+
+    if (table_inject_parseargs(ip, objc, objv, &table, &ovalues,
+                               &ofirst, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_inject_rows(ip, table, ovalues, ofirst, omap);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT
+table_vinject_cmd (ClientData cdata, Tcl_Interp *ip,
+                   int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *ovar, *table, *ovalues, *ofirst, *omap;
+    int status;
+
+    if (table_inject_parseargs(ip, objc, objv, &ovar, &ovalues,
+                               &ofirst, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    table = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+    status = table_inject_rows(ip, table, ovalues, ofirst, omap);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, ovar, table);
+}
+
+static TCL_RESULT
+table_place_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
+                      Tcl_Obj **potab, Tcl_Obj **povalues,
+                      Tcl_Obj **poindices, Tcl_Obj **pomap)
+{
+    int argpos;
+    char *s;
+
+    if (objc == 4) {
+        argpos = 0;
+        *pomap = NULL;
+    } else {
+        if (objc != 6) {
+            if (ip)
+                Tcl_WrongNumArgs(ip, 1, objv, "?-columns COLUMNMAP? TABLE VALUES INDICES");
+            return TCL_ERROR;
+        }
+        s = Tcl_GetString(objv[1]);
+        if (strcmp(s, "-columns"))
+            return ta_invalid_opt_error(ip, s);
+        argpos = 2;
+        *pomap = objv[2];
+    }
+
+    *potab = objv[1+argpos];
+    *povalues = objv[2+argpos];
+    *poindices = objv[3+argpos];
+
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_place_cmd(ClientData cdata, Tcl_Interp *ip,
+                int objc, Tcl_Obj *const objv[])
+{
+    int status;
+    Tcl_Obj *otab, *ovalues, *oindices, *omap;
+
+    if (table_place_parseargs(ip, objc, objv, &otab, &ovalues,
+                              &oindices, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(otab))
+        otab = Tcl_DuplicateObj(otab);
+
+    status = table_place(ip, otab, ovalues, oindices, omap);
+    TA_ASSERT(status != TCL_OK || table_check(ip, otab));
+    return ta_return_result(ip, status, otab);
+}
+
+TCL_RESULT
+table_vplace_cmd(ClientData cdata, Tcl_Interp *ip,
+                int objc, Tcl_Obj *const objv[])
+{
+    int status;
+    Tcl_Obj *ovar, *ovalues, *oindices, *omap, *otab;
+
+    if (table_place_parseargs(ip, objc, objv, &ovar, &ovalues,
+                              &oindices, &omap) != TCL_OK)
+        return TCL_ERROR;
+
+    otab = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (otab == NULL)
+        return TCL_ERROR;
+    if (Tcl_IsShared(otab))
+        otab = Tcl_DuplicateObj(otab);
+
+    status = table_place(ip, otab, ovalues, oindices, omap);
+    TA_ASSERT(status != TCL_OK || table_check(ip, otab));
+    return ta_set_var_result(ip, status, ovar, otab);
+}
+
+TCL_RESULT
+table_reverse_cmd(ClientData clientdata, Tcl_Interp *ip,
+                  int objc, Tcl_Obj *const objv[])
+{
+    TCL_RESULT status;
+    Tcl_Obj *table;
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE");
+        return TCL_ERROR;
+    }
+    table = objv[1];
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_reverse(ip, table);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT
+table_vreverse_cmd(ClientData clientdata, Tcl_Interp *ip,
+                   int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    Tcl_Obj *ovar;
+    TCL_RESULT status;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR");
+        return TCL_ERROR;
+    }
+
+    ovar = objv[1];
+    table = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_reverse(ip, table);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, ovar, table);
+}
+
+TCL_RESULT
+table_size_cmd(ClientData cdata, Tcl_Interp *ip,
+               int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    Tcl_WideInt size;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE");
+        return TCL_ERROR;
+    }
+    table = objv[1];
+    if (table_convert(ip, table) != TCL_OK)
+        return TCL_ERROR;
+    size = (int)cdata ? table_width(table) : table_length(table);
+    Tcl_SetObjResult(ip, Tcl_NewWideIntObj(size));
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_column_cmd(ClientData cdata, Tcl_Interp *ip,
+                 int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    TCL_RESULT status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
+	return TCL_ERROR;
+    }
+
+    table = objv[1];
+    if (objc == 3)
+        return table_get_column(ip, table, objv[2]);
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_set_column(ip, table, objv[2], objv[3]);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_return_result(ip, status, table);
+}
+
+TCL_RESULT
+table_vcolumn_cmd(ClientData cdata, Tcl_Interp *ip,
+                  int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    TCL_RESULT status;
+
+    if (objc != 3 && objc != 4) {
+	Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
+	return TCL_ERROR;
+    }
+
+    table = Tcl_ObjGetVar2(ip, objv[1], NULL, TCL_LEAVE_ERR_MSG);
+    if (table == NULL)
+        return TCL_ERROR;
+
+    if (objc == 3)
+        return table_get_column(ip, table, objv[2]);
+
+    if (Tcl_IsShared(table))
+        table = Tcl_DuplicateObj(table);
+
+    status = table_set_column(ip, table, objv[2], objv[3]);
+    TA_ASSERT(status != TCL_OK || table_check(ip, table));
+    return ta_set_var_result(ip, status, objv[1], table);
+}
+
+TCL_RESULT
+table__columns_cmd(ClientData cdata, Tcl_Interp *ip,
+                   int objc, Tcl_Obj *const objv[])
+{
+    thdr_t *thdr;
+    Tcl_Obj **tcols;
+    Tcl_Obj *table;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE");
+        return TCL_ERROR;
+    }
+    table = objv[1];
+    if (table_convert(ip, table) != TCL_OK)
+        return TCL_ERROR;
+
+    thdr = OBJTHDR(table);
+    tcols = THDRELEMPTR(thdr, Tcl_Obj*, 0);
+    Tcl_SetObjResult(ip, Tcl_NewListObj(thdr->used, tcols));
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_cnames_cmd(ClientData cdata, Tcl_Interp *ip,
+    int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    if (objc != 2) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE");
+        return TCL_ERROR;
+    }
+    table = objv[1];
+    if (table_convert(ip, table) != TCL_OK)
+        return TCL_ERROR;
+    Tcl_SetObjResult(ip, table_column_names(table));
+    return TCL_OK;
+}
+
+TCL_RESULT
+table_slice_cmd(ClientData cdata, Tcl_Interp *ip,
+                int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *table;
+    Tcl_Obj *collist;
+    Tcl_Obj *ocolnames, *ocolname, **pdstcols;
+    int      count, status, srcindex;
+    thdr_t  *thdr;
+    int i;
+    Tcl_Obj *oindex;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE COLUMNLIST");
+        return TCL_ERROR;
+    }
+    table = objv[1];
+    collist = objv[2];
+
+    /* Have to protect against shimmering between table and the collist
+       (this would be a caller bug but can cause a crash). In any case,
+       since there is no reasonable call in practice where the table and 
+       column list are the same, we simply don't allow the two to be
+       the same rather than play games with duping objects */
+    if (table == collist) {
+        Tcl_SetResult(ip, "Invalid column name list", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (table_convert(ip, table) != TCL_OK)
+        return TCL_ERROR;
+
+    if ((status = Tcl_ListObjLength(ip, collist, &count)) != TCL_OK)
+        return status;
+    thdr = thdr_alloc(ip, TA_ANY, count);
+    if (thdr == NULL)
+        return TCL_ERROR;
+    /* TBD - maybe we can use column_map_get_columns here ? */
+    pdstcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
+    ocolnames = Tcl_NewListObj(0, NULL);
+    for (i = 0; i < count; ++i) {
+        TA_NOFAIL(Tcl_ListObjIndex(ip, collist, i, &oindex), TCL_OK);
+        TA_ASSERT(oindex);
+        if (table_parse_column_index(ip, table, oindex, &srcindex) != TCL_OK)
+            break;
+        if (table_column_index_to_name(ip, table, srcindex, &ocolname) != TCL_OK)
+            break;
+        /* Everything seems in order. Store name->index mapping */
+        Tcl_ListObjAppendElement(NULL, ocolnames, ocolname);
+        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewIntObj(i));
+        /* Store the column in the output */
+        pdstcols[i] = table_column(table, srcindex);
+        Tcl_IncrRefCount(pdstcols[i]);
+        thdr->used += 1;
+    }
+    if (i < count)
+            status = TCL_ERROR; /* Early termination => error */
+    else {
+        /*
+         * So far so good but tThere is one last thing to be checked - no
+         * duplicate names. We do this by checking size of the column
+         * names dictionary.
+         */
+        TA_NOFAIL(Tcl_DictObjSize(ip, ocolnames, &i), TCL_OK);
+        status = i == count ? TCL_OK : ta_duplicate_columns_error(ip, collist);
+    }
+
+    if (status == TCL_ERROR) {
+        thdr_decr_refs(thdr);
+        Tcl_DecrRefCount(ocolnames);
+    } else {
+        Tcl_Obj *otab = table_new(thdr, ocolnames);
+        TA_ASSERT(table_check(ip, otab));
+        Tcl_SetObjResult(ip, otab);
+    }
+    return status;
+}

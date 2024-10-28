@@ -6,11 +6,11 @@ PEG XtalParser (Program)
     Block <- WS (Statement (WS Separator WS Statement)*)? WS ;
 void:  EOF <- !.;
 
-    Statement <- FunctionDefinition
-                 / IfStatement
+    Statement <- IfStatement
 		 / WhileStatement
 		 / ForRangeStatement
 		 / ForEachStatement
+                 / FunctionDefinition
 		 / TryStatement
 		 / ThrowStatement
 		 / ReturnStatement
@@ -164,7 +164,8 @@ ColumnIdentifier <- Identifier / IndirectIdentifier / IndirectLiteral / String /
 ElementIdentifier <- Identifier / IndirectIdentifier / IndirectLiteral / String / Number;
 IdentifierList <- Identifier (WSNL ',' WSNL Identifier)* ;
 leaf: ParameterIdentifier <- ('_' / <alpha>) ('_' / <alnum>)* ;
-leaf: Identifier <- ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
+leaf: Identifier <- ! Keyword ('_' / '::' / <alpha>) ('_' / '::' / <alnum>)* ;
+void: Keyword <- 'if' / 'while' / 'for' / 'foreach' / 'function' / 'try' / 'throw' / 'return' / 'break' / 'continue' ;
 leaf: OptionString <- '-' ('_' / '-' / <alnum>)+ ;
 leaf: Number <- '0x' <xdigit>+ / <ddigit> + ('.' <ddigit> + )? ( ('e' / 'E' ) ('+' / '-') ? <ddigit> + )? ;
 Sequence <- '{' WSNL SequenceContent? WSNL '}' ;

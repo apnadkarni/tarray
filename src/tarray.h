@@ -2,7 +2,6 @@
 #define TA_H
 
 #ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS /* Disable Visual C++ snprintf security warnings */
 #include <windows.h>            /* TBD - define LEAN_AND_MEAN ? */
 #else
 #define _stricmp strcasecmp
@@ -25,8 +24,12 @@
 
 #include "tcl.h"
 
-#ifdef TA_USE_LIBDISPATCH
+#ifdef HAVE_LIBDISPATCH
 # include <dispatch/dispatch.h>
+#elif !defined(_WIN32)
+# ifdef TA_MT_ENABLE
+#  error Threadpool enabled but libdispatch not available.
+# endif
 #endif
 
 #if defined(_MSC_VER)
@@ -248,6 +251,17 @@ typedef struct ta_rng_s {
     pcg32_random_t rng[2];
     int nrefs;
 } ta_rng_t;
+
+typedef struct ta_rng_instance_s {
+    Tcl_Command cmd_token;
+    ta_rng_t rng;
+    ta_value_t lbound;
+    ta_value_t ubound;
+    unsigned char bounded;
+    unsigned char rtype;
+} ta_rng_instance_t;
+
+typedef Tcl_WideInt ta_cmd_counter;
 
 /*
  * Inline functions to manipulate internal representation of Tarray columns
@@ -670,24 +684,78 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags);
 
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags);
 
-/* Note we need prototypes for commands defined separately but
-   registered with critcl::ccommand. Otherwise, since
-   critcl itself only generates declarations of the form "int foo()"
-   compiler complains (warnings) when passed to Tcl_CreateObjCommand
-*/
-Tcl_ObjCmdProc tcol_series_cmd;
-Tcl_ObjCmdProc tcol_search_cmd;
-Tcl_ObjCmdProc ta_dump_cmd;
-Tcl_ObjCmdProc tcol_minmax_cmd;
-Tcl_ObjCmdProc tcol_lookup_cmd;
-Tcl_ObjCmdProc tcol_math_cmd;
-Tcl_ObjCmdProc tcol_fold_cmd;
-Tcl_ObjCmdProc tcol_equalintervals_cmd;
-Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
+Tcl_ObjCmdProc parseargs_cmd;
 Tcl_ObjCmdProc ta_loop_cmd;
 Tcl_ObjCmdProc ta_loop_nr_cmd;
 Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
-Tcl_ObjCmdProc parseargs_cmd;
+Tcl_ObjCmdProc tcol_equalintervals_cmd;
+Tcl_ObjCmdProc tcol_create_cmd;
+Tcl_ObjCmdProc tcol_delete_cmd;
+Tcl_ObjCmdProc tcol_vdelete_cmd;
+Tcl_ObjCmdProc tcol_fold_cmd;
+Tcl_ObjCmdProc tcol_lookup_cmd;
+Tcl_ObjCmdProc tcol_math_cmd;
+Tcl_ObjCmdProc tcol_minmax_cmd;
+Tcl_ObjCmdProc tcol_search_cmd;
+Tcl_ObjCmdProc tcol_series_cmd;
+Tcl_ObjCmdProc tcol_sortmerge_helper_cmd;
+Tcl_ObjCmdProc tcol_size_cmd;
+Tcl_ObjCmdProc tcol_type_cmd;
+Tcl_ObjCmdProc tcol_equal_cmd;
+Tcl_ObjCmdProc tcol_identical_cmd;
+Tcl_ObjCmdProc tcol_cast_cmd;
+Tcl_ObjCmdProc tcol_index_cmd;
+Tcl_ObjCmdProc tcol_get_cmd;
+Tcl_ObjCmdProc tcol_sort_cmd;
+Tcl_ObjCmdProc tcol_vsort_cmd;
+Tcl_ObjCmdProc tcol_bitsset_cmd;
+Tcl_ObjCmdProc tcol_insert_cmd;
+Tcl_ObjCmdProc tcol_vinsert_cmd;
+Tcl_ObjCmdProc tcol_inject_cmd;
+Tcl_ObjCmdProc tcol_vinject_cmd;
+Tcl_ObjCmdProc tcol_put_cmd;
+Tcl_ObjCmdProc tcol_vplace_cmd;
+Tcl_ObjCmdProc tcol_place_cmd;
+Tcl_ObjCmdProc tcol_vput_cmd;
+Tcl_ObjCmdProc tcol_fill_cmd;
+Tcl_ObjCmdProc tcol_vfill_cmd;
+Tcl_ObjCmdProc tcol_reverse_cmd;
+Tcl_ObjCmdProc tcol_vreverse_cmd;
+Tcl_ObjCmdProc tcol_intersect3_cmd;
+
+Tcl_ObjCmdProc table_put_cmd;
+Tcl_ObjCmdProc table_vput_cmd;
+Tcl_ObjCmdProc table_fill_cmd;
+Tcl_ObjCmdProc table_vfill_cmd;
+Tcl_ObjCmdProc table_delete_cmd;
+Tcl_ObjCmdProc table_vdelete_cmd;
+Tcl_ObjCmdProc table_get_cmd;
+Tcl_ObjCmdProc table_index_cmd;
+Tcl_ObjCmdProc table_insert_cmd;
+Tcl_ObjCmdProc table_vinsert_cmd;
+Tcl_ObjCmdProc table_inject_cmd;
+Tcl_ObjCmdProc table_vinject_cmd;
+Tcl_ObjCmdProc table_place_cmd;
+Tcl_ObjCmdProc table_vplace_cmd;
+Tcl_ObjCmdProc table_reverse_cmd;
+Tcl_ObjCmdProc table_vreverse_cmd;
+Tcl_ObjCmdProc table_size_cmd;
+Tcl_ObjCmdProc table_width_cmd;
+Tcl_ObjCmdProc table_column_cmd;
+Tcl_ObjCmdProc table_vcolumn_cmd;
+Tcl_ObjCmdProc table__columns_cmd;
+Tcl_ObjCmdProc table_cnames_cmd;
+Tcl_ObjCmdProc table_slice_cmd;
+
+Tcl_CmdDeleteProc ta_rng_destructor;
+Tcl_ObjCmdProc ta_rng_cmd;
+
+Tcl_ObjCmdProc ta_rbc_init_stubs_cmd;
+
+Tcl_ObjCmdProc ta_compiler_info_cmd;
+Tcl_ObjCmdProc ta_config_cmd;
+Tcl_ObjCmdProc ta_dump_cmd;
+Tcl_ObjCmdProc ta_mt_split_cmd;
 
 extern int ta_experiment;
 extern int ta_full_validation;
@@ -707,7 +775,7 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
 int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
                           int nsizes, int sizes[]);
 
-# ifdef TA_USE_LIBDISPATCH
+# ifdef HAVE_LIBDISPATCH
 
 typedef dispatch_group_t    ta_mt_group_t;
 typedef dispatch_function_t ta_mt_function_t;
@@ -1135,6 +1203,8 @@ TA_INLINE uint64_t pcg32x2_boundedrand_r(pcg32_random_t rng[2], uint64_t bound)
             return r % bound;
     }
 }
+
+TCL_RESULT ta_real_init(Tcl_Interp *);
 
 /*
   Local Variables:

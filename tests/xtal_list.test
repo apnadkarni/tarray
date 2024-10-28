@@ -1,6 +1,6 @@
 # xtal list operation tests
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test::xtal_list {
     namespace path ::tarray::test

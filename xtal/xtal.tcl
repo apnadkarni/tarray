@@ -33,7 +33,7 @@ if {! $xtal::_use_oo_parser} {
     # Next line because the generated code has a return which
     # causes script to exit if not caught
     switch [catch {
-        eval [pt::pgen peg [fileutil::cat ../xtal/xtal.peg] oo -class xtal::ParserBase -package xtal -version 0.1]
+        eval [pt::pgen peg [fileutil::cat ../xtal/xtal.peg] oo -class xtal::ParserBase -package xtal -version 2.0a0]
     } msg opts] {
         0 - 2 {}
         default {

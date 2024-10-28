@@ -1,0 +1,34 @@
+# xtal if stmt tests
+
+source [file join [file dirname [info script]] testutil.tcl]
+
+namespace eval tarray::test {
+    test xtal-version-0 {XTAL version} -body {
+        package require xtal
+    } -result 2.0a0
+    variable x
+
+    # Keyword tests
+    variable keywords {
+        break
+        continue
+        for
+        foreach
+        function
+        if
+        return
+        throw
+        try
+        while
+    }
+    foreach x $keywords {
+        test xtal-keyword-$x-1.0 "keyword $x as variable" \
+            -body "xtal::xtal {$x = 1}" \
+            -result "Parse error*" -match glob -returnCodes error
+        test xtal-keyword-$x-1.0 "keyword $x as function" \
+            -body "xtal::xtal {$x\()}" \
+            -result "Parse error*" -match glob -returnCodes error
+    }
+}
+
+::tcltest::cleanupTests

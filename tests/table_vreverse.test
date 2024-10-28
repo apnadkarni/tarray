@@ -1,6 +1,6 @@
 # table vreverse tests
 
-source testutil.tcl
+source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
     test table_vreverse-1.0 {
