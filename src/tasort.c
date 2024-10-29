@@ -53,7 +53,6 @@ int tcltascmpnocaserev(const void *a, const void *b) {
     return  tas_compare(*(tas_t **)b, *(tas_t **)a, 1);
 }
 
-
 /*
  * Comparison functions for sorting when the passed values are integer
  * indexes into a TArrayHdr.

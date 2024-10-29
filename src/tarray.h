@@ -15,14 +15,20 @@
 #include <time.h>
 #include <ctype.h>
 
-/* Visual C++ prior to Visual Studio 2010 do not have stdint */
-#if defined(_MSC_VER) && _MSC_VER < 1700
-#include "ms_stdint.h"
-#else
 #include <stdint.h>
-#endif
 
 #include "tcl.h"
+
+#if TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION < 7
+# undef Tcl_Size
+# ifndef Tcl_Size
+  typedef int Tcl_Size;
+# endif
+# define Tcl_GetSizeIntFromObj Tcl_GetIntFromObj
+# define Tcl_NewSizeIntObj Tcl_NewIntObj
+# define TCL_SIZE_MAX      INT_MAX
+# define TCL_SIZE_MODIFIER ""
+#endif
 
 #ifdef HAVE_LIBDISPATCH
 # include <dispatch/dispatch.h>
@@ -86,7 +92,7 @@
 #if TA_ENABLE_ASSERT
 #define BA_ENABLE_ASSERT 1
 #endif
-#include "bitarray.h"           /* Include AFTER assert definitions */
+#include "bitarray.h"           /* Include AFTER tcl.h and assert definitions */
 #include "timsort.h"
 #include "tamath.h"
 
@@ -121,6 +127,7 @@ typedef int TCL_RESULT;
 #define TA_ANY 6
 #define TA_STRING 7
 #define TA_BOOLEAN 8
+#define TA_INDEX (sizeof(Tcl_Size) == sizeof(int) ? TA_INT : TA_WIDE)
 
 /* Type of tarray */
 enum ta_collection_type_e {
@@ -192,9 +199,9 @@ extern const Tcl_ObjType *g_tcl_string_type_ptr;
  * A span_t is used to store a span or subrange limits 
  */
 typedef struct span_s {
-    int nrefs;
-    int first;
-    int count;
+    Tcl_Size nrefs;
+    Tcl_Size first;
+    Tcl_Size count;
 } span_t;
 
 /*
@@ -207,12 +214,12 @@ typedef union thdr_s {
     double double_aligner;
     struct {
         tas_lookup_t lookup;  /* Index. Currently only used with type string */
-        int nrefs;              /* Ref count when shared between Tcl_Objs */
-        int usable;             /* Number of slots that can be used. This
+        Tcl_Size nrefs;              /* Ref count when shared between Tcl_Objs */
+        Tcl_Size usable;             /* Number of slots that can be used. This
                                    is one less than number allocated as
                                    we keep one as a sentinel.
                                 */
-        int used;
+        Tcl_Size used;
         unsigned char type;
         unsigned char elem_bits; /* Size of element in bits */
         unsigned char sort_order;
@@ -235,21 +242,24 @@ typedef union thdr_s {
     ((n_) < 10 ? 10 : ((n_) < 100 ? (n_) : ((n_) < 800 ? 100 : ((n_)/8))))
 
 void thdr_free(thdr_t *thdr);
-thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP,int new_count);
-thdr_t *thdr_alloc(Tcl_Interp *, int tatype, int count);
-thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype,int nelems,struct Tcl_Obj *const *elems ,int init_size);
-thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count);
-thdr_t *thdr_indices_to_bitmap(Tcl_Interp *,int size,thdr_t *src,span_t *span);
-TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size);
+thdr_t *thdr_realloc(Tcl_Interp *, thdr_t *oldP, Tcl_Size new_count);
+thdr_t *thdr_alloc(Tcl_Interp *, int tatype, Tcl_Size count);
+thdr_t *thdr_alloc_and_init(Tcl_Interp *, int tatype, Tcl_Size nelems,
+                            struct Tcl_Obj *const *elems , Tcl_Size init_size);
+thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, Tcl_Size count);
+thdr_t *thdr_indices_to_bitmap(Tcl_Interp *,Tcl_Size size,thdr_t *src,span_t *span);
+TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, Tcl_Size new_size);
 
 #define THDRELEMPTR(thdr_, type_, index_) ((index_) + (type_ *)(sizeof(thdr_t) + (char *) (thdr_)))
+/* thdr_t holding indices are Tcl_Size */
+#define THDRINDEXELEMPTR(thdr_, index_) THDRELEMPTR(thdr_, Tcl_Size, index_)
 
 /*
  * Random number generation using PCG
  */
 typedef struct ta_rng_s {
     pcg32_random_t rng[2];
-    int nrefs;
+    Tcl_Size nrefs;
 } ta_rng_t;
 
 typedef struct ta_rng_instance_s {
@@ -298,7 +308,6 @@ extern struct Tcl_ObjType ta_index_type;
 
 TCL_RESULT ta_return_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ores);
 TCL_RESULT ta_set_var_result(Tcl_Interp *ip, TCL_RESULT status, Tcl_Obj *ovarname, Tcl_Obj *ovalue);
-int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 
 const char *ta_type_string(int tatype);
 void ta_update_string_for_variable_element_size(Tcl_Obj *o);
@@ -326,48 +335,52 @@ TCL_RESULT ta_not_table_error(Tcl_Interp *);
 TCL_RESULT ta_search_op_error(Tcl_Interp *, int op);
 TCL_RESULT ta_value_type_error(Tcl_Interp *, Tcl_Obj *o, int tatype);
 TCL_RESULT ta_table_length_error(Tcl_Interp *);
-TCL_RESULT ta_row_width_error(Tcl_Interp *, int rowwidth, int tablewidth);
+TCL_RESULT ta_row_width_error(Tcl_Interp *, Tcl_Size rowwidth, Tcl_Size tablewidth);
 TCL_RESULT ta_bad_type_error(Tcl_Interp *ip, thdr_t *thdr);
-TCL_RESULT ta_memory_error(Tcl_Interp *, int size);
+TCL_RESULT ta_memory_error(Tcl_Interp *, Tcl_Size size);
 TCL_RESULT ta_limit_error(Tcl_Interp *, Tcl_WideInt);
 TCL_RESULT ta_indices_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_index_error(Tcl_Interp *ip, Tcl_Obj *o);
-TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index);
+TCL_RESULT ta_index_range_error(Tcl_Interp *ip, Tcl_Size index);
 TCL_RESULT ta_invalid_range_error(Tcl_Interp *ip, Tcl_Obj *);
-TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count);
+TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, Tcl_Size count);
 TCL_RESULT ta_mismatched_types_error(Tcl_Interp *ip, int typea, int typeb);
 TCL_RESULT ta_invalid_op_for_type(Tcl_Interp *ip, int typea);
 TCL_RESULT ta_invalid_op_for_table(Tcl_Interp *ip);
-TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues);
+TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, Tcl_Size nindices, Tcl_Size nvalues);
 TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname);
 TCL_RESULT ta_invalid_opt_error(Tcl_Interp *ip, char *optname);
 TCL_RESULT ta_column_name_error(Tcl_Interp *ip, Tcl_Obj *o);
-TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int index);
+TCL_RESULT ta_column_index_error(Tcl_Interp *ip, Tcl_Size index);
 TCL_RESULT ta_duplicate_columns_error(Tcl_Interp *ip, Tcl_Obj *o);
-TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex);
+TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, Tcl_Size colindex);
 TCL_RESULT ta_column_lengths_error(Tcl_Interp *ip);
 TCL_RESULT ta_invalid_operand_error(Tcl_Interp *ip, Tcl_Obj *o);
 TCL_RESULT ta_invalid_argcount(Tcl_Interp *ip);
 TCL_RESULT ta_integer_overflow_error(Tcl_Interp *ip, const char *precision, Tcl_WideInt val);
 TCL_RESULT ta_integer_overflow_from_double_error(Tcl_Interp *ip, const char *precision, double val);
 TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, const char *precision, Tcl_Obj *o);
-TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int);
+TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, Tcl_Size);
 TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *, ta_value_t *);
-TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, int row, int col, int tatype, Tcl_Obj *val);
-TCL_RESULT ta_invalid_source_row_width(Tcl_Interp *ip, int row, int nfields, int ncols);
+TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, Tcl_Size row, Tcl_Size col, int tatype, Tcl_Obj *val);
+TCL_RESULT ta_invalid_source_row_width(Tcl_Interp *ip, Tcl_Size row, Tcl_Size nfields, Tcl_Size ncols);
 
 TCL_RESULT ta_check_column_type(Tcl_Interp *ip, thdr_t *thdr, int wanted_type);
+
+TA_INLINE Tcl_Size ta_strlen(const char *s) {
+    return (Tcl_Size)strlen(s);
+}
 
 /* tas_t interface */
 #define TAS_ALLOCMEM TA_ALLOCMEM
 #define TAS_FREEMEM  TA_FREEMEM
-tas_t *tas_alloc(int len);
-tas_t *tas_alloc_nbytes(char *s, int len);
+tas_t *tas_alloc(Tcl_Size len);
+tas_t *tas_alloc_nbytes(char *s, Tcl_Size len);
 TA_INLINE tas_t *tas_alloc_string(char *s) {
-    return tas_alloc_nbytes(s, strlen(s));
+    return tas_alloc_nbytes(s, (Tcl_Size) strlen(s));
 }
 TA_INLINE tas_t * tas_from_obj(Tcl_Obj *o) {
-    int len;
+    Tcl_Size len;
     char *s = Tcl_GetStringFromObj(o, &len);
     return tas_alloc_nbytes(s, len);
 }
@@ -445,8 +458,8 @@ TA_INLINE int tas_compare(tas_t *a, tas_t *b, int nocase)
 }
 tas_lookup_t tas_lookup_new(void);
 void tas_lookup_free(tas_lookup_t lookup);
-int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, int *pval);
-void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, int val);
+int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, Tcl_Size *pval);
+void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, Tcl_Size val);
 int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas);
 
 void thdr_lookup_build(thdr_t *thdr, span_t *span);
@@ -474,7 +487,8 @@ TA_INLINE TCL_RESULT ta_get_int64_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int64_t *
     return res;
 }
 #endif
-TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, int *pi);
+TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o,
+               int zero_allowed, Tcl_Size *pi);
 
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi);
 TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi);
@@ -483,10 +497,10 @@ TCL_RESULT ta_get_uint8_from_string(Tcl_Interp *ip, const char *s, unsigned char
 TCL_RESULT ta_get_int_from_string(Tcl_Interp *ip, const char *s, int *pi);
 TCL_RESULT ta_get_uint_from_string(Tcl_Interp *ip, const char *s, unsigned int *pi);
 
-void thdr_incr_obj_refs(thdr_t *thdr,int first,int count);
-void thdr_decr_obj_refs(thdr_t *thdr,int first,int count);
-void thdr_incr_tas_refs(thdr_t *thdr, int first, int count);
-void thdr_decr_tas_refs(thdr_t *thdr, int first, int count);
+void thdr_incr_obj_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count);
+void thdr_decr_obj_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count);
+void thdr_incr_tas_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count);
+void thdr_decr_tas_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count);
 
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
 TCL_RESULT table_convert_from_other(Tcl_Interp *, Tcl_Obj *o);
@@ -503,50 +517,56 @@ TA_INLINE void ta_value_init(ta_value_t *ptav) {
 void ta_value_init_max(unsigned char tatype, ta_value_t *ptav);
 
 void thdr_fill_range(Tcl_Interp *, thdr_t *thdr,
-                     const ta_value_t *ptav, int pos, int count, int insert);
-void thdr_fill_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj *oval, int highest_in_indices);
-TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
-                         int nelems, Tcl_Obj * const elems[], int insert);
-void thdr_place_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj * const *ovalues, int highest_in_indices);
-void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr,
-                       const ta_value_t *ptav, thdr_t *pindices, int highest_index);
-Tcl_Obj *thdr_index(thdr_t *thdr, int index);
-void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP);
-char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[TA_NUMERIC_SPACE]);
-double thdr_index_double(thdr_t *thdr, int thdr_index);
-Tcl_WideInt thdr_index_wide(thdr_t *thdr, int thdr_index);
+                     const ta_value_t *ptav, Tcl_Size pos, Tcl_Size count, int insert);
+void thdr_fill_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj *oval, Tcl_Size highest_in_indices);
+TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, Tcl_Size first,
+                         Tcl_Size nelems, Tcl_Obj * const elems[], int insert);
+void thdr_place_ta_objs(thdr_t *thdr, thdr_t *pindices, Tcl_Obj *const *ovalues,
+                        Tcl_Size highest_in_indices);
+void thdr_fill_indices(Tcl_Interp *, thdr_t *thdr, const ta_value_t *ptav,
+                       thdr_t *pindices, Tcl_Size highest_index);
+Tcl_Obj *thdr_index(thdr_t *thdr, Tcl_Size index);
+void thdr_index_ta_value(thdr_t *thdr, Tcl_Size index, ta_value_t *tavP);
+char *thdr_index_string(thdr_t *thdr, Tcl_Size thdr_index, char buf[TA_NUMERIC_SPACE]);
+double thdr_index_double(thdr_t *thdr, Tcl_Size thdr_index);
+Tcl_WideInt thdr_index_wide(thdr_t *thdr, Tcl_Size thdr_index);
 
 Tcl_Obj * tcol_new(thdr_t *thdr);
-TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol, int minsize, int prefsize);
-TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
-                                 Tcl_Obj *table, int minsize, int prefsize);
+TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip, Tcl_Obj *tcol,
+                                Tcl_Size minsize, Tcl_Size prefsize);
+TCL_RESULT table_make_modifiable(Tcl_Interp *ip, Tcl_Obj *table,
+                                 Tcl_Size minsize, Tcl_Size prefsize);
 
-TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ncols, Tcl_Obj * const *tcols,
-                          int nrows, Tcl_Obj * const *rows,
-                          int first, int insert);
+TCL_RESULT tcols_put_objs(Tcl_Interp *ip, Tcl_Size ntcols,
+                          Tcl_Obj *const *tcols, Tcl_Size nrows,
+                          Tcl_Obj *const *rows, Tcl_Size first, int insert);
 
 void thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
-                     int new_size,
-                     int nvalues, Tcl_Obj * const *pvalues);
-void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_span, thdr_t *pindices, int new_size);
+                     Tcl_Size new_size,
+                     Tcl_Size nvalues, Tcl_Obj * const *pvalues);
+void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc,
+                        span_t *src_span, thdr_t *pindices, Tcl_Size new_size);
 
-int thdr_required_size(int tatype, int count);
+int thdr_required_size(int tatype, Tcl_Size count);
 void thdr_reverse(thdr_t *tdrhP);
-void thdr_copy_reversed(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count);
-void thdr_copy(thdr_t *pdst,int dst_first,thdr_t *psrc,int src_first,int count, int insert);
-TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
-                          thdr_t *psrc, int src_first, int count, int insert,
-                          int strict);
+void thdr_copy_reversed(thdr_t *pdst, Tcl_Size dst_first, thdr_t *psrc,
+                        Tcl_Size src_first, Tcl_Size count);
+void thdr_copy(thdr_t *pdst, Tcl_Size dst_first, thdr_t *psrc,
+               Tcl_Size src_first, Tcl_Size count, int insert);
+TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, Tcl_Size dst_first,
+                          thdr_t *psrc, Tcl_Size src_first, Tcl_Size count,
+                          int insert, int strict);
 thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span);
-void thdr_delete_range(thdr_t *thdr, int first, int count);
+void thdr_delete_range(thdr_t *thdr, Tcl_Size first, Tcl_Size count);
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices);
-thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, int init_size, span_t *);
-thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, int init_size, span_t *);
+thdr_t *thdr_clone(Tcl_Interp *, thdr_t *psrc, Tcl_Size init_size, span_t *);
+thdr_t *thdr_clone_reversed(Tcl_Interp *, thdr_t *psrc, Tcl_Size init_size, span_t *);
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *intepr, int tatype,
-                             int nelems, Tcl_Obj * const elems[]);
-TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t *pindices, int *new_sizeP);
-int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o,
-                      int want_sorted, int end, thdr_t **thdrP, int *pindex);
+                             Tcl_Size nelems, Tcl_Obj * const elems[]);
+TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, Tcl_Size current_size,
+                                        thdr_t *pindices, Tcl_Size *new_sizeP);
+int ta_obj_to_indices(struct Tcl_Interp *, struct Tcl_Obj *o, int want_sorted,
+                      Tcl_Size end, thdr_t **thdrP, Tcl_Size *pindex);
 #define TA_INDEX_TYPE_ERROR 0
 #define TA_INDEX_TYPE_INT   1
 #define TA_INDEX_TYPE_THDR 2
@@ -556,24 +576,24 @@ int thdr_check(Tcl_Interp *, thdr_t *);
 int tcol_check(Tcl_Interp *, Tcl_Obj *);
 TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
                          int command);
-Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *srcObj, int low, int count,
+Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *srcObj, Tcl_Size low, Tcl_Size count,
                      int fmt);
-TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count);
+TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Size low, Tcl_Size count);
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexA, Tcl_Obj *indexB);
 TCL_RESULT tcol_insert_elem(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, int count);
+                            Tcl_Obj *opos, Tcl_Size count);
 TCL_RESULT tcol_inject_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                              Tcl_Obj *opos);
 TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol);
 
-TCL_RESULT tcols_fill_range(Tcl_Interp *ip, int ntcols, Tcl_Obj **tcols,
-                            Tcl_Obj *orow, int pos, int count, int insert);
-TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, int ntcols,
+TCL_RESULT tcols_fill_range(Tcl_Interp *ip, Tcl_Size ntcols, Tcl_Obj **tcols,
+                            Tcl_Obj *orow, Tcl_Size pos, Tcl_Size count, int insert);
+TCL_RESULT tcols_fill_indices(Tcl_Interp *ip, Tcl_Size ntcols,
                               Tcl_Obj **tcols, Tcl_Obj *orow, thdr_t *pindices,
-                              int highest_index);
+                              Tcl_Size highest_index);
 int tcol_equality_test(Tcl_Interp *, Tcl_Obj *cola, Tcl_Obj *colb, int strict);
     
 void tcol_random_init(ta_rng_t *prng);
@@ -589,9 +609,9 @@ Tcl_Obj *table_new(thdr_t *thdr, Tcl_Obj *ocolumns);
 Tcl_Obj *table_column_names (Tcl_Obj *otab);
 TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
                                     Tcl_Obj *table, Tcl_Obj *oindex,
-                                    int *pindex);
+                                    Tcl_Size *pindex);
 TCL_RESULT table_column_index_to_name(Tcl_Interp *ip, Tcl_Obj *otab,
-                                      int colindex, Tcl_Obj **pname);
+                                      Tcl_Size colindex, Tcl_Obj **pname);
 
 TCL_RESULT table_fill_obj(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *orow, Tcl_Obj *indexa, Tcl_Obj *indexb, Tcl_Obj *omap, int insert);
 TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
@@ -605,7 +625,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
 #define TA_RETRIEVE_GET 0
 #define TA_RETRIEVE_RANGE 1
 TCL_RESULT table_reverse(Tcl_Interp *interp, Tcl_Obj *table);
-Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index);
+Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Size index);
 TCL_RESULT table_place_objs(Tcl_Interp *ip, Tcl_Obj *table,
                             Tcl_Obj *orows, Tcl_Obj *oindices);
 TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
@@ -613,15 +633,15 @@ TCL_RESULT table_place_indices(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
 TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *psrc,
                                Tcl_Obj *oindices, Tcl_Obj *omap);
 TCL_RESULT table_insert_row(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, int count, Tcl_Obj *omap);
+                            Tcl_Obj *opos, Tcl_Size count, Tcl_Obj *omap);
 TCL_RESULT table_inject_rows(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
                             Tcl_Obj *opos, Tcl_Obj *omap);
 TCL_RESULT table_get_column(Tcl_Interp *, Tcl_Obj *table, Tcl_Obj *);
 TCL_RESULT table_set_column(Tcl_Interp *, Tcl_Obj *table, Tcl_Obj *, Tcl_Obj *);
 
-Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index);
+Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Size index);
 Tcl_Obj *tcol_get(struct Tcl_Interp *, Tcl_Obj *osrc, thdr_t *pindices, int fmt);
-int TArrayNumSetBits(thdr_t *thdr);
+Tcl_Size TArrayNumSetBits(thdr_t *thdr);
 TCL_RESULT tcol_copy_thdr(Tcl_Interp *, Tcl_Obj *tcol, thdr_t *psrc, span_t *, Tcl_Obj *firstObj, int insert);
 TCL_RESULT tcol_put_objs(Tcl_Interp *, Tcl_Obj *tcol,
                          Tcl_Obj *valueListObj, Tcl_Obj *firstObj, int insert);
@@ -629,21 +649,21 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                                Tcl_Obj *valueListObj, Tcl_Obj *indicesObj);
 TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
                               Tcl_Obj *oindices);
-TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, int *pindex,
-                      int end_value, int low, int high);
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, int nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount);
-TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *rangeObj, int *plow, int *pcount);
+TCL_RESULT ta_convert_index(Tcl_Interp *, Tcl_Obj *o, Tcl_Size *pindex,
+                      Tcl_Size end_value, Tcl_Size low, Tcl_Size high);
+TCL_RESULT ta_fix_range_bounds(Tcl_Interp *, Tcl_Size nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, Tcl_Size *plow, Tcl_Size *pcount);
+TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, Tcl_Size nelems, Tcl_Obj *rangeObj, Tcl_Size *plow, Tcl_Size *pcount);
 
-TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
-                                         int nrows, Tcl_Obj * const rows[]);
-TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
+TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, Tcl_Size width,
+                                         Tcl_Size nrows, Tcl_Obj * const rows[]);
+TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, Tcl_Size ntcols,
                                    Tcl_Obj * const *tcols,
-                                   int nrows, Tcl_Obj * const rows[]);
+                                   Tcl_Size nrows, Tcl_Obj * const rows[]);
 
-TCL_RESULT tcols_copy(Tcl_Interp *ip, int ntcols,
-                      Tcl_Obj * const *dstcols, int dst_elem_first,
-                      Tcl_Obj * const *srccols, int src_elem_first,
-                      int count, int insert);
+TCL_RESULT tcols_copy(Tcl_Interp *ip, Tcl_Size ntcols,
+                      Tcl_Obj * const *dstcols, Tcl_Size dst_elem_first,
+                      Tcl_Obj * const *srccols, Tcl_Size src_elem_first,
+                      Tcl_Size count, int insert);
 
 void tarray_qsort_r(void *a, size_t n, size_t es, void *thunk, int (*cmp)(void *, const void *, const void *));
 int intcmp(const void *a, const void *b);
@@ -675,6 +695,18 @@ int tclobjcmpindexed(const void *a, const void *b, void *);
 int tclobjcmpindexedrev(const void *a, const void *b, void *);
 int tclobjcmpnocaseindexed(const void *a, const void *b, void *);
 int tclobjcmpnocaseindexedrev(const void *a, const void *b, void *);
+
+#if TCL_SIZE_MAX == INT_MAX
+#define tclsizecmp intcmp
+#define tclsizecmprev intcmprev
+#define tclsizecmpindexed intcmpindexed
+#define tclsizecmpindexedrev intcmpindexedrev
+#else
+#define tclsizecmp widecmp
+#define tclsizecmprev widecmprev
+#define tclsizecmpindexed widecmpindexed
+#define tclsizecmpindexedrev widecmpindexedrev
+#endif
 
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
@@ -763,17 +795,18 @@ extern int ta_full_validation;
 #ifdef TA_MT_ENABLE
 /* Threshold for when sorts are multithreaded */
 #define TA_MT_THRESHOLD_DEFAULT 10000
-extern int ta_search_mt_threshold;
-extern int ta_sort_mt_threshold;
-extern int ta_sort_mt_enable_any;
-extern int ta_fill_mt_threshold;
-extern int ta_minmax_mt_threshold;
-extern int ta_fold_mt_threshold;
-extern int ta_math_mt_threshold;
+extern Tcl_Size ta_search_mt_threshold;
+extern Tcl_Size ta_sort_mt_threshold;
+extern Tcl_Size ta_sort_mt_enable_any;
+extern Tcl_Size ta_fill_mt_threshold;
+extern Tcl_Size ta_minmax_mt_threshold;
+extern Tcl_Size ta_fold_mt_threshold;
+extern Tcl_Size ta_math_mt_threshold;
 /* Multithreading support */
-int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size);
-int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
-                          int nsizes, int sizes[]);
+int thdr_calc_mt_split(int tatype, Tcl_Size first,
+                       Tcl_Size count, Tcl_Size *psecond_block_size);
+int thdr_calc_mt_split_ex(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size min_hint,
+                          Tcl_Size nsizes, Tcl_Size sizes[]);
 
 # ifdef HAVE_LIBDISPATCH
 
@@ -979,7 +1012,7 @@ TA_INLINE tas_lookup_t thdr_lookup_init(thdr_t *thdr) {
     thdr->lookup = tas_lookup_new();
     return thdr->lookup;
 }
-TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
+TA_INLINE void thdr_lookup_add(thdr_t *thdr, Tcl_Size pos) {
     TA_ASSERT(thdr->type == TA_STRING);
     /* Note we do not check against thdr->used because some callers do
        not update that until later */
@@ -987,9 +1020,9 @@ TA_INLINE void thdr_lookup_add(thdr_t *thdr, int pos) {
     if (thdr->lookup != TAS_LOOKUP_INVALID_HANDLE)
         tas_lookup_add(thdr->lookup, *THDRELEMPTR(thdr, tas_t *, pos), pos);
 }
-TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
+TA_INLINE void thdr_lookup_addn(thdr_t *thdr, Tcl_Size start, Tcl_Size count) {
     tas_t **pptas;
-    int i;
+    Tcl_Size i;
     /* Note we do not check against thdr->used because some callers do
        not update that until later */
     TA_ASSERT((start+count) <= thdr->usable);
@@ -999,7 +1032,7 @@ TA_INLINE void thdr_lookup_addn(thdr_t *thdr, int start, int count) {
     for (i = 0; i < count; ++i, ++pptas)
         tas_lookup_add(thdr->lookup, *pptas, (start+i));
 }
-TA_INLINE void thdr_lookup_delete(thdr_t *thdr, int pos) {
+TA_INLINE void thdr_lookup_delete(thdr_t *thdr, Tcl_Size pos) {
     TA_ASSERT(thdr->type == TA_STRING);
     /* Note we do not check against thdr->used because some callers do
        not update that until later */
@@ -1022,7 +1055,7 @@ TA_INLINE int ta_strequal(const char *a, const char *b)
 }
 
 TA_INLINE unsigned char tcol_type(Tcl_Obj *o) { return tcol_thdr(o)->type; }
-TA_INLINE int tcol_occupancy(Tcl_Obj *o) {
+TA_INLINE Tcl_Size tcol_occupancy(Tcl_Obj *o) {
     thdr_t *thdr = tcol_thdr(o);
     span_t *span = OBJTHDRSPAN(o);
     if (span) {
@@ -1036,7 +1069,7 @@ TA_INLINE int tcol_occupancy(Tcl_Obj *o) {
 /*
  * Return the starting index and store count of elements in *countP
  */
-TA_INLINE int thdr_start_and_count(thdr_t *thdr, span_t *span, int *countP)
+TA_INLINE Tcl_Size thdr_start_and_count(thdr_t *thdr, span_t *span, Tcl_Size *countP)
 {
     if (span) {
         *countP = span->count;
@@ -1052,10 +1085,10 @@ TA_INLINE int thdr_start_and_count(thdr_t *thdr, span_t *span, int *countP)
  * as well as converts count number of elements to equivalent bytes.
  * Must not be called for TA_BOOLEAN as that combines bits into ba_t's.
  */
-TA_INLINE int thdr_compute_move(thdr_t *thdr, int dst_off, int src_off, int count, void **ppdst, void **ppsrc)
+TA_INLINE Tcl_Size thdr_compute_move(thdr_t *thdr, Tcl_Size dst_off, Tcl_Size src_off, Tcl_Size count, void **ppdst, void **ppsrc)
 {
     char *p = THDRELEMPTR(thdr, char, 0);
-    int elem_size = thdr->elem_bits / CHAR_BIT; /* sizeof of one element in bytes */
+    Tcl_Size elem_size = thdr->elem_bits / CHAR_BIT; /* sizeof of one element in bytes */
     TA_ASSERT(thdr->type != TA_BOOLEAN);
     *ppsrc = (src_off * elem_size) + p;
     *ppdst = (dst_off * elem_size) + p;
@@ -1065,10 +1098,10 @@ TA_INLINE int thdr_compute_move(thdr_t *thdr, int dst_off, int src_off, int coun
 /* Sanitize destination offset for writing and also
  *   Recompute the new value of used slots when writing or inserting
  */
-TA_INLINE int thdr_recompute_occupancy(thdr_t *thdr, int *poff, int count, int insert)
+TA_INLINE Tcl_Size thdr_recompute_occupancy(thdr_t *thdr, Tcl_Size *poff, Tcl_Size count, int insert)
 {
-    int off = *poff;
-    int occupancy;
+    Tcl_Size off = *poff;
+    Tcl_Size occupancy;
 
     TA_ASSERT(count >= 0);
 
@@ -1092,10 +1125,10 @@ TA_INLINE int thdr_recompute_occupancy(thdr_t *thdr, int *poff, int count, int i
 }
 
 /* Make room for count elements at offset off. Caller must have ensured allocation */
-TA_INLINE void thdr_make_room(thdr_t *thdr, int off, int count)
+TA_INLINE void thdr_make_room(thdr_t *thdr, Tcl_Size off, Tcl_Size count)
 {
     void *d, *s;
-    int nbytes;
+    Tcl_Size nbytes;
 
     if (thdr->type == TA_BOOLEAN) {
         d = THDRELEMPTR(thdr, char, 0);
@@ -1113,7 +1146,7 @@ TA_INLINE TCL_RESULT table_convert(Tcl_Interp *ip, Tcl_Obj *table)
     return table->typePtr == &ta_table_type ? TCL_OK : table_convert_from_other(ip, table);
 }
 
-TA_INLINE int table_width(Tcl_Obj *table)
+TA_INLINE Tcl_Size table_width(Tcl_Obj *table)
 {
     TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return table_thdr(table)->used;
@@ -1125,13 +1158,13 @@ TA_INLINE Tcl_Obj **table_columns(Tcl_Obj *table)
     return THDRELEMPTR(table_thdr(table), Tcl_Obj *, 0);
 }
 
-TA_INLINE Tcl_Obj *table_column(Tcl_Obj *table, int i)
+TA_INLINE Tcl_Obj *table_column(Tcl_Obj *table, Tcl_Size i)
 {
     TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return *THDRELEMPTR(table_thdr(table), Tcl_Obj *, i);
 }
 
-TA_INLINE int table_length(Tcl_Obj *table)
+TA_INLINE Tcl_Size table_length(Tcl_Obj *table)
 {
     TA_NOFAIL(table_convert(NULL, table), TCL_OK);
     return table_width(table) == 0 ? 0 : tcol_occupancy(table_column(table, 0));
@@ -1147,22 +1180,22 @@ TA_INLINE enum ta_collection_type_e ta_collection_type(Tcl_Obj *o)
     else
         return ta_detect_collection_type(o);
 }
-    
-/* 
- * Math - checking for valid doubles 
+
+/*
+ * Math - checking for valid doubles
  */
 TA_INLINE int ta_isNaN(double dbl)
 {
     /* If dbl is NaN, dbl != dbl */
     return ! (dbl == dbl);
 }
-        
+
 TA_INLINE int ta_finite_double(double dbl)
 {
     /* If dbl is Nan, both comparisons fail.
        If it is -Inf or Inf, one or the other fails
     */
-    return (dbl <= DBL_MAX && dbl >= -DBL_MAX);    
+    return (dbl <= DBL_MAX && dbl >= -DBL_MAX);
 }
 
 /* Random number generation inlines */

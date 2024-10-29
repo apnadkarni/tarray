@@ -51,9 +51,9 @@ void ta_small_panic(thdr_t *thdr, const char *where)
     Tcl_Panic("Insufficient space in thdr_t (allocated %d) in %s.", thdr->usable, where);
 }
 
-void ta_memory_panic(int req_size)
+void ta_memory_panic(Tcl_Size req_size)
 {
-    Tcl_Panic("Memory allocation failed (%d bytes).", req_size);
+    Tcl_Panic("Memory allocation failed (%" TCL_SIZE_MODIFIER "d bytes).", req_size);
 }
 
 TCL_RESULT ta_missing_arg_error(Tcl_Interp *ip, char *optname)
@@ -107,21 +107,25 @@ TCL_RESULT ta_bad_type_error(Tcl_Interp *ip, thdr_t *thdr)
 }
 
 
-TCL_RESULT ta_index_range_error(Tcl_Interp *ip, int index)
+TCL_RESULT ta_index_range_error(Tcl_Interp *ip, Tcl_Size index)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("tarray index %d out of bounds.", index));
+                         Tcl_ObjPrintf("tarray index %" TCL_SIZE_MODIFIER
+                                       "d out of bounds.",
+                                       index));
         Tcl_SetErrorCode(ip, "TARRAY", "INDEX", "RANGE", NULL);
     }
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, int count)
+TCL_RESULT ta_bad_count_error(Tcl_Interp *ip, Tcl_Size count)
 {
     if (ip) {
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Invalid count %d specified.", count));
+                         Tcl_ObjPrintf("Invalid count %" TCL_SIZE_MODIFIER
+                                       "d specified.",
+                                       count));
         Tcl_SetErrorCode(ip, "TARRAY", "COUNT", "RANGE", NULL);
     }
     return TCL_ERROR;
@@ -144,11 +148,16 @@ TCL_RESULT ta_value_type_error(Tcl_Interp *ip, Tcl_Obj *o, int tatype)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_row_width_error(Tcl_Interp *ip, int row_width, int min_width)
+TCL_RESULT ta_row_width_error(Tcl_Interp *ip, Tcl_Size row_width, Tcl_Size min_width)
 {
     if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Row or table width %d does not match destination width %d.", row_width, min_width));
+        Tcl_SetObjResult(
+            ip,
+            Tcl_ObjPrintf(
+                "Row or table width %" TCL_SIZE_MODIFIER
+                "d does not match destination width %" TCL_SIZE_MODIFIER "d.",
+                row_width,
+                min_width));
         Tcl_SetErrorCode(ip, "TARRAY", "ROW", "WIDTH", NULL);
     }
     return TCL_ERROR;
@@ -165,12 +174,14 @@ TCL_RESULT ta_table_length_error(Tcl_Interp *ip)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_memory_error(Tcl_Interp *ip, int req_size)
+TCL_RESULT ta_memory_error(Tcl_Interp *ip, Tcl_Size req_size)
 {
     if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Memory allocation failed (%d bytes).",
-                                       req_size));
+        Tcl_SetObjResult(
+            ip,
+            Tcl_ObjPrintf("Memory allocation failed (%" TCL_SIZE_MODIFIER
+                          "d bytes).",
+                          req_size));
         Tcl_SetErrorCode(ip, "TARRAY", "NOMEM", NULL);
     }
     return TCL_ERROR;
@@ -180,8 +191,8 @@ TCL_RESULT ta_limit_error(Tcl_Interp *ip, Tcl_WideInt req_count)
 {
     if (ip) {
         Tcl_Obj *ores;
-        char *fmt = "Requested array size (%ld) greater than limit.";
-        if (req_count > INT_MAX || req_count < INT_MIN) {
+        char *fmt = "Requested array size (%" TCL_LL_MODIFIER "ld) greater than limit.";
+        if (req_count > TCL_SIZE_MAX || req_count < -TCL_SIZE_MAX) {
             /* Because Tcl_ObjPrintf as of 8.6.4 cannot print wides with %ld */
             Tcl_Obj *o = Tcl_NewWideIntObj(req_count);
             Tcl_IncrRefCount(o);
@@ -244,11 +255,16 @@ TCL_RESULT ta_invalid_op_for_table(Tcl_Interp *ip)
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, int nindices, int nvalues)
+TCL_RESULT ta_indices_count_error(Tcl_Interp *ip, Tcl_Size nindices, Tcl_Size nvalues)
 {
     if (ip) {
-        Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Number of indices (%d) not same as number of values (%d).", nindices, nvalues));
+        Tcl_SetObjResult(
+            ip,
+            Tcl_ObjPrintf("Number of indices (%" TCL_SIZE_MODIFIER
+                          "d) not same as number of values (%" TCL_SIZE_MODIFIER
+                          "d).",
+                          nindices,
+                          nvalues));
         Tcl_SetErrorCode(ip, "TARRAY", "INDICES", "COUNT", NULL);
     }
 
@@ -285,19 +301,23 @@ TCL_RESULT ta_conflicting_options_error(Tcl_Interp *ip, const char *optA, const 
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_column_index_error(Tcl_Interp *ip, int colindex)
+TCL_RESULT ta_column_index_error(Tcl_Interp *ip, Tcl_Size colindex)
 {
     if (ip) {
-        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index '%d' out of bounds.", colindex));
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index %" TCL_SIZE_MODIFIER "d out of bounds.", colindex));
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
     }
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, int colindex)
+TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, Tcl_Size colindex)
 {
     if (ip) {
-        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index '%d' specified multiple times in column list.", colindex));
+        Tcl_SetObjResult(
+            ip,
+            Tcl_ObjPrintf("Column index '" TCL_SIZE_MODIFIER
+                          "%d' specified multiple times in column list.",
+                          colindex));
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
     }
     return TCL_ERROR;
@@ -382,11 +402,14 @@ TCL_RESULT ta_integer_overflow_obj_error(Tcl_Interp *ip, const char *precision, 
 }
 
 
-TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, int count)
+TCL_RESULT ta_negative_count_error(Tcl_Interp *ip, Tcl_Size count)
 {
     if (ip) {
         Tcl_SetErrorCode(ip, "TARRAY", "COUNT", NULL);
-        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Negative value %d specified as count.", count));
+        Tcl_SetObjResult(ip,
+                         Tcl_ObjPrintf("Negative value %" TCL_SIZE_MODIFIER
+                                       "d specified as count.",
+                                       count));
     }
     return TCL_ERROR;
 }
@@ -408,28 +431,39 @@ TCL_RESULT ta_invalid_rng_bounds(Tcl_Interp *ip, ta_value_t *plow, ta_value_t *p
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_invalid_source_column_value(Tcl_Interp *ip, int row, int col, int tatype, Tcl_Obj *val)
+TCL_RESULT
+ta_invalid_source_column_value(
+    Tcl_Interp *ip, Tcl_Size row, Tcl_Size col, int tatype, Tcl_Obj *val)
 {
     if (ip != NULL) {
         Tcl_Obj *e;
 
         /* Take care not to generate string rep if one does not exist */
         if (val && val->bytes)
-            e = Tcl_ObjPrintf("Invalid value '%.40s' for type %s in row %d column %d of source data.", val->bytes, ta_type_string(tatype), row, col);
+            e = Tcl_ObjPrintf("Invalid value '%.40s' for type %s in row %" TCL_SIZE_MODIFIER "d column %" TCL_SIZE_MODIFIER "d of source data.", val->bytes, ta_type_string(tatype), row, col);
         else
-            e = Tcl_ObjPrintf("Invalid value for type %s in row %d column %d of source data.", ta_type_string(tatype), row, col);
-        
+            e = Tcl_ObjPrintf("Invalid value for type %s in row %" TCL_SIZE_MODIFIER "d column %" TCL_SIZE_MODIFIER "d of source data.", ta_type_string(tatype), row, col);
+
         Tcl_SetObjResult(ip, e);
     }
 
     return TCL_ERROR;
 }
 
-TCL_RESULT ta_invalid_source_row_width(Tcl_Interp *ip, int row, int nfields, int ncols)
+TCL_RESULT
+ta_invalid_source_row_width(Tcl_Interp *ip,
+                            Tcl_Size row,
+                            Tcl_Size nfields,
+                            Tcl_Size ncols)
 {
     if (ip)
         Tcl_SetObjResult(ip,
-                         Tcl_ObjPrintf("Width %d of source row %d does not match expected destination width %d.",
-                                       nfields, row, ncols));
+                         Tcl_ObjPrintf("Width %" TCL_SIZE_MODIFIER
+                                       "d of source row %" TCL_SIZE_MODIFIER
+                                       "d does not match expected destination "
+                                       "width %" TCL_SIZE_MODIFIER "d.",
+                                       nfields,
+                                       row,
+                                       ncols));
     return TCL_ERROR;
 }

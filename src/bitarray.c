@@ -11,10 +11,10 @@
 #endif
 #include "bitarray.h"
 
-static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, int len)
+static void ba_copy_unaligned_upward(ba_t *to, ba_off_t to_internal_off, const ba_t *from, ba_off_t from_internal_off, ba_off_t len)
 {
     ba_t ba;
-    int nbits, ba_len;
+    ba_off_t nbits, ba_len;
 
     BA_ASSERT(to_internal_off < BA_UNIT_SIZE);
     BA_ASSERT(from_internal_off < BA_UNIT_SIZE);
@@ -73,11 +73,11 @@ static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *
     ba_putn(to, 0, ba, len);
 }
 
-static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, int len)
+static void ba_copy_unaligned_downward(ba_t *to, ba_off_t to_internal_off, const ba_t *from, ba_off_t from_internal_off, ba_off_t len)
 {
     ba_t ba;
-    int nbits, ba_len;
-    int off;
+    ba_off_t nbits, ba_len;
+    ba_off_t off;
 
     BA_ASSERT(to_internal_off < BA_UNIT_SIZE);
     BA_ASSERT(from_internal_off < BA_UNIT_SIZE);
@@ -148,11 +148,11 @@ static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t
 
 /* Caller must have ensured enough space in destination (see BA_BYTES_NEEDED) */
 /* TBD - test with overlapping moves, both where dst > src and src > dst */
-void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
+void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_off_t len)
 {
     const ba_t *from;
     ba_t *to;
-    int from_internal_off, to_internal_off, ba_len;
+    ba_off_t from_internal_off, to_internal_off, ba_len;
 
     if (len == 0 || (dst == src && dst_off == src_off))
         return;
@@ -175,7 +175,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
     if (from_internal_off == to_internal_off) {
         ba_t *leadingP;
         ba_t saved_leading_partial;
-        int  leading_partial_len;
+        ba_off_t  leading_partial_len;
         ba_t saved_trailing_partial;
 
         /*
@@ -251,7 +251,7 @@ void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
     /* Phew! */
 }
 
-void ba_copy_reverse(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len)
+void ba_copy_reverse(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_off_t len)
 {
     /* TBD - make more efficient but tricky when overlapping */
     ba_copy(dst, dst_off, src, src_off, len);
@@ -259,9 +259,9 @@ void ba_copy_reverse(ba_t *dst, int dst_off, const ba_t *src, int src_off, int l
 }
 
 
-void ba_fill(ba_t *baP, int off, int count, int ival)
+void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival)
 {
-    int bitpos;
+    ba_off_t bitpos;
 
     if (count == 0)
         return;
@@ -304,7 +304,7 @@ void ba_fill(ba_t *baP, int off, int count, int ival)
 }
 
 /* count is total # bits in baP, not beyond offset */
-int ba_find(ba_t *baP, int bval, int off, int count)
+ba_off_t ba_find(ba_t *baP, int bval, ba_off_t off, ba_off_t count)
 {
     ba_t ba, skip, ba_mask;
 
@@ -352,10 +352,10 @@ int ba_find(ba_t *baP, int bval, int off, int count)
 }
 
 
-int ba_count_ones(ba_t *baP, int off, int count)
+ba_off_t ba_count_ones(ba_t *baP, ba_off_t off, ba_off_t count)
 {
     ba_t ba;
-    int n, nbits;
+    ba_off_t n, nbits;
 
     if (count <= off)
         return 0;
@@ -387,10 +387,10 @@ int ba_count_ones(ba_t *baP, int off, int count)
     return nbits;
 }
 
-void ba_reverse(ba_t *baP, int off, int len)
+void ba_reverse(ba_t *baP, ba_off_t off, ba_off_t len)
 {
     ba_t front, end;
-    int end_off;
+    ba_off_t end_off;
 
     /* TBD - optimize by aligning front or back */
 #if 1
@@ -444,9 +444,9 @@ void ba_reverse(ba_t *baP, int off, int len)
 #endif
 }
 
-void ba_complement (ba_t *a, int offa, int count)
+void ba_complement (ba_t *a, ba_off_t offa, ba_off_t count)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -467,9 +467,9 @@ void ba_complement (ba_t *a, int offa, int count)
 
 /* a &= b */
 /* Note - src and dst areas must not overlap */
-void ba_conjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
+void ba_conjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -490,9 +490,9 @@ void ba_conjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
 
 /* a |= b */
 /* Note - src and dst areas must not overlap */
-void ba_disjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
+void ba_disjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -513,9 +513,9 @@ void ba_disjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
 
 /* a ^= b */
 /* Note - src and dst areas must not overlap */
-void ba_xdisjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
+void ba_xdisjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -535,9 +535,9 @@ void ba_xdisjunct (ba_t *a, int offa, ba_t *b, int offb, int count)
 }
 
 /* Return 1 if two bitarrays are equal, else 0 */
-int ba_equal (ba_t *a, int offa, ba_t *b, int offb, int count)
+int ba_equal (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -560,9 +560,9 @@ int ba_equal (ba_t *a, int offa, ba_t *b, int offb, int count)
 }
 #ifdef NOTUSED
 /* Note - src and dst areas must not overlap */
-void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
+void ba_conjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count, ba_t *dst, ba_off_t dstoff)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -585,9 +585,9 @@ void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *
 
 #ifdef NOTUSED
 /* Note - src and dst areas must not overlap */
-void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff)
+void ba_disjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count, ba_t *dst, ba_off_t dstoff)
 {
-    int i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, nbits, bitsoff;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -610,7 +610,7 @@ void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *
 
 /* Caller should take care of case where there are not n bits of memory
    valid at offset off */
-void ba_putn(ba_t *baP, int off, ba_t ba, int n)
+void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, ba_off_t n)
 {
     BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
 
