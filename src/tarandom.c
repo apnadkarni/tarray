@@ -86,7 +86,7 @@ void ta_random_rng_delete(ClientData cdata)
 TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
                          int objc, Tcl_Obj *const objv[])
 {
-    unsigned int count;
+    Tcl_Size count;
     Tcl_Obj *olbound, *oubound;
     ta_value_t lbound, ubound;
     TCL_RESULT res;
@@ -107,7 +107,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
     if (ta_parse_type(ip, objv[1], &tatype) != TCL_OK)
 	return TCL_ERROR;
 
-    res = ta_get_uint_from_obj(ip, objv[2], &count);
+    res = ta_get_count_from_obj(ip, objv[2], 1, &count);
     if (res != TCL_OK)
         return res;
 
@@ -185,18 +185,18 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
 
     /* We have to deal with bounds */
 
-#define RFILL_(type_, fld_, basetype_, fn_, prng_)                            \
-    do {                                                                \
-        type_ *p = THDRELEMPTR(thdr, type_, 0);                         \
-        type_ *end = p + count;                                         \
-        basetype_ bound;                                                \
+#define RFILL_(type_, fld_, basetype_, fn_, prng_)                           \
+    do {                                                                     \
+        type_ *p   = THDRELEMPTR(thdr, type_, 0);                            \
+        type_ *end = p + count;                                              \
+        basetype_ bound;                                                     \
         /* Note pcg crash if lbound==ubound since ubound is open interval */ \
-        TA_ASSERT(lbound.fld_ < ubound.fld_); \
-        bound = ubound. fld_ - lbound. fld_;                            \
-        while (p < end) {                                               \
-            basetype_ temp = fn_(prng_, bound);                    \
-            *p++ = (type_) (temp + lbound. fld_);                       \
-        }                                                               \
+        TA_ASSERT(lbound.fld_ < ubound.fld_);                                \
+        bound = ubound.fld_ - lbound.fld_;                                   \
+        while (p < end) {                                                    \
+            basetype_ temp = fn_(prng_, bound);                              \
+            *p++           = (type_)(temp + lbound.fld_);                    \
+        }                                                                    \
     } while (0)
 
     switch (tatype) {
@@ -214,8 +214,8 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
            treat both the same but conceptually different as the 32x2 expects
            an array of two rngs */
         RFILL_(Tcl_WideInt, wval, uint64_t, pcg32x2_boundedrand_r, prng->rng);
-        break;        
-            
+        break;
+
     case TA_DOUBLE:
         TA_ASSERT(olbound);
         /* TBD - how about over/underflows if bounds specified? */
@@ -230,7 +230,7 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
         /* Note: Bounds are ignored for booleans */
        {
            ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-           int i;
+           Tcl_Size i;
            for (i = 0; i < count; ++i)
                ba_put(baP, i, pcgbool_random_r(&prng->rng[0]));
        }
@@ -240,10 +240,10 @@ TCL_RESULT tcol_random_cmd(ClientData cdata, Tcl_Interp *ip,
         ta_type_panic(tatype);
         break;
     }
-    
+
 vamoose: /* If res != TCL_OK, ip must already hold error */
-    
-    if (res == TCL_OK) {    
+
+    if (res == TCL_OK) {
         thdr->used = count;
         Tcl_SetObjResult(ip, tcol_new(thdr));
         return TCL_OK;
@@ -294,17 +294,17 @@ get_bounded_random(ta_rng_t *rng, ta_value_t *lbound, ta_value_t *ubound)
     TA_ASSERT(lbound->type != TA_BOOLEAN); /* Does not support bounds */
     switch (lbound->type) {
     case TA_BYTE:
-        tav.ucval = pcg32_boundedrand_r(&rng->rng[0],   
+        tav.ucval = pcg32_boundedrand_r(&rng->rng[0],
                                         ubound->ucval - lbound->ucval);
         tav.ucval += lbound->ucval;
         break;
     case TA_INT:
-        tav.ival = pcg32_boundedrand_r(&rng->rng[0], 
+        tav.ival = pcg32_boundedrand_r(&rng->rng[0],
                                        ubound->ival - lbound->ival);
         tav.ival += lbound->ival;
         break;
     case TA_UINT:
-        tav.uival = pcg32_boundedrand_r(&rng->rng[0], 
+        tav.uival = pcg32_boundedrand_r(&rng->rng[0],
                                         ubound->uival - lbound->uival);
         tav.uival += lbound->uival;
         break;
@@ -329,8 +329,8 @@ get_bounded_random(ta_rng_t *rng, ta_value_t *lbound, ta_value_t *ubound)
 static TCL_RESULT ta_rng_get_method(ta_rng_instance_t *instance, Tcl_Interp *ip,
                                     int objc, Tcl_Obj *const objv[])
 {
-    int count;
-    int i, bounded;
+    Tcl_Size i, count;
+    int bounded;
     Tcl_Obj *ores = NULL;   /* Just to silence bogus gcc uninitialized use warnings */
     ta_value_t lbound, ubound;
 
@@ -429,8 +429,8 @@ ta_rng_instance_cmd(ClientData cdata, Tcl_Interp *ip,
     int cmd_index;
 
     if (objc < 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "option ?arg arg ...?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "option ?arg arg ...?");
+        return TCL_ERROR;
     }
     if (Tcl_GetIndexFromObj(ip, objv[1],
                             cmds, "option", 0, &cmd_index) != TCL_OK) {
@@ -583,7 +583,7 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
 {
     thdr_t *thdr;
     span_t *span;
-    int n;
+    Tcl_Size n;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
@@ -599,20 +599,20 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
         /* Construct shuffle into a new column.
          * "Inside-out" version of Fisher-Yates shuffle
          */
-#define SHUFFLECOPY(type_)                                              \
-        do {                                                            \
-            int i, j;                                                   \
-            type_ *from = THDRELEMPTR(thdr, type_, start);              \
-            type_ *to = THDRELEMPTR(thdr2, type_, 0);                   \
-            for (i = 0; i < n; ++i) {                                   \
-                j = pcg32_boundedrand_r(&prng->rng[0], i+1); /* j in 0:i */ \
-                to[i] = to[j];                                          \
-                to[j] = from[i];                                        \
-            }                                                           \
-        } while (0)
+#define SHUFFLECOPY(type_)                                                    \
+    do {                                                                      \
+        Tcl_Size i, j;                                                        \
+        type_ *from = THDRELEMPTR(thdr, type_, start);                        \
+        type_ *to   = THDRELEMPTR(thdr2, type_, 0);                           \
+        for (i = 0; i < n; ++i) {                                             \
+            j     = pcg32_boundedrand_r(&prng->rng[0], i + 1); /* j in 0:i */ \
+            to[i] = to[j];                                                    \
+            to[j] = from[i];                                                  \
+        }                                                                     \
+    } while (0)
 
         thdr_t *thdr2;
-        int start;
+        Tcl_Size start;
         if (span) {
             start = span->first;
             n = span->count;
@@ -645,7 +645,7 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
         /* Shuffle in place - Fisher-Yates shuffle */
 #define SHUFFLE(type_)                                                  \
         do {                                                            \
-            int i, j;                                                   \
+            Tcl_Size i, j;                                                   \
             type_ temp;                                                 \
             type_ *p = THDRELEMPTR(thdr, type_, 0);                     \
             for (i = n; i > 1; --i) {                                   \

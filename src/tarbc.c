@@ -17,7 +17,7 @@ static TCL_RESULT ta_rbc_fromvector_cmd(
 ) {
     Rbc_Vector *rbcV;
     double *toP, *fromP;
-    int first, end, len;
+    Tcl_Size first, end, len;
     TCL_RESULT res;
     thdr_t *thdrP;
 
@@ -36,11 +36,11 @@ static TCL_RESULT ta_rbc_fromvector_cmd(
     first = 0;
     end = len;
     if (objc > 2) {
-        res = Tcl_GetIntFromObj(ip, objv[2], &first);
+        res = Tcl_GetSizeIntFromObj(ip, objv[2], &first);
         if (res != TCL_OK)
             return res;
         if (objc > 3) {
-            res = Tcl_GetIntFromObj(ip, objv[3], &end);
+            res = Tcl_GetSizeIntFromObj(ip, objv[3], &end);
             if (res != TCL_OK)
                 return res;
         }
@@ -54,7 +54,7 @@ static TCL_RESULT ta_rbc_fromvector_cmd(
         first = 0;
     else if (first > end)
         first = end;
-        
+
     thdrP = thdr_alloc(ip, TA_DOUBLE, end-first);
     if (thdrP == NULL)
         return TCL_ERROR;
@@ -63,7 +63,7 @@ static TCL_RESULT ta_rbc_fromvector_cmd(
     memcpy(toP, fromP, (end-first)*sizeof(double));
     thdrP->used = end-first;
     TA_ASSERT(thdrP->used <= thdrP->usable);
-    
+
     Tcl_SetObjResult(ip, tcol_new(thdrP));
     return TCL_OK;
 }
@@ -75,7 +75,7 @@ static TCL_RESULT ta_rbc_tovector_cmd(
     Tcl_Obj *const objv[]
 ) {
     Rbc_Vector *rbcV;
-    int count, from_count, first;
+    Tcl_Size count, from_count, first;
     TCL_RESULT res;
     thdr_t *thdrP, *indicesP;
     span_t *spanP;
@@ -137,24 +137,26 @@ static TCL_RESULT ta_rbc_tovector_cmd(
         res = Rbc_ResetVector(rbcV, fromP, count, count, TCL_VOLATILE);
     } else {
         double *bufP = ckalloc(count*sizeof(double));
-        int i;
-#define COPYNUMS(type_)                                         \
-        do {                                                    \
-            type_ *fromP = THDRELEMPTR(thdrP, type_, first);    \
-            if (indicesP == NULL) {                             \
-                for (i = 0; i < count; ++i)                     \
-                    bufP[i] = fromP[i];                         \
-            } else {                                            \
-                int *indexP = THDRELEMPTR(indicesP, int, 0);    \
-                for (i = 0; i < count; ++i, ++indexP) {         \
-                    if (*indexP >= from_count) {                \
-                        res = ta_index_range_error(ip, *indexP);        \
-                        goto vamoose;                           \
-                    }                                           \
-                    bufP[i] = fromP[*indexP];                   \
-                }                                               \
-            }                                                   \
-        } while (0)
+        Tcl_Size i;
+#define COPYNUMS(type_)                                       \
+    do {                                                      \
+        type_ *fromP = THDRELEMPTR(thdrP, type_, first);      \
+        if (indicesP == NULL) {                               \
+            for (i = 0; i < count; ++i)                       \
+                bufP[i] = (double)fromP[i];                   \
+        }                                                     \
+        else {                                                \
+            Tcl_Size *indexP = THDRINDEXELEMPTR(indicesP, 0); \
+            for (i = 0; i < count; ++i, ++indexP) {           \
+                if (*indexP >= from_count) {                  \
+                    res = ta_index_range_error(ip, *indexP);  \
+                    goto vamoose;                             \
+                }                                             \
+                /* TBD - check overflow if Tcl_WideInt */     \
+                bufP[i] = (double)fromP[*indexP];             \
+            }                                                 \
+        }                                                     \
+    } while (0)
         switch (thdrP->type) {
         case TA_BOOLEAN:
             if (indicesP == NULL) {
@@ -163,7 +165,7 @@ static TCL_RESULT ta_rbc_tovector_cmd(
                     bufP[i] = ba_get(baP, first+i);
             } else {
                 ba_t *baP = THDRELEMPTR(thdrP, ba_t, 0);
-                int *indexP = THDRELEMPTR(indicesP, int, 0);
+                Tcl_Size *indexP = THDRINDEXELEMPTR(indicesP, 0);
                 for (i = 0; i < count; ++i, ++indexP) {
                     if (*indexP >= from_count) {
                         res = ta_index_range_error(ip, *indexP);

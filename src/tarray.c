@@ -265,31 +265,40 @@ ta_define_commands(Tcl_Interp *ip)
     }
     Tcl_NRCreateCommand(ip, "::tarray::loop",
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
-    {
-        /* RNG object */
-        ta_cmd_counter *counterP = Tcl_Alloc(sizeof(ta_cmd_counter));
-        *counterP = 0;
-	Tcl_CreateObjCommand(ip, "::tarray::rng",
-                             ta_rng_cmd, counterP, ta_rng_destructor);
 
-        /* Commands related to random number generation */
-	ta_rng_t *prng;
-        prng = ckalloc(sizeof(ta_rng_t));
-        tcol_random_init(prng);
-        prng->nrefs = 4;        /* For each command reference below */
-	/*
-	 * Note all commands have the same ta_random_rng_delete
-	 * as last parameter. That's not a typo
-	 */
-	Tcl_CreateObjCommand(ip, "::tarray::column::random",
-                             tcol_random_cmd, prng, ta_random_rng_delete);
-        Tcl_CreateObjCommand(ip, "::tarray::randseed",
-                             ta_randseed_cmd, prng, ta_random_rng_delete);
-        Tcl_CreateObjCommand(ip, "::tarray::column::shuffle",
-                             tcol_shuffle_cmd, prng, ta_random_rng_delete);
-        Tcl_CreateObjCommand(ip, "::tarray::column::vshuffle",
-                             tcol_vshuffle_cmd, prng, ta_random_rng_delete);
-    }
+    /* RNG object */
+    ta_cmd_counter *counterP =
+        (ta_cmd_counter *)Tcl_Alloc(sizeof(ta_cmd_counter));
+    *counterP                = 0;
+    Tcl_CreateObjCommand(
+        ip, "::tarray::rng", ta_rng_cmd, counterP, ta_rng_destructor);
+
+    /* Commands related to random number generation */
+    ta_rng_t *prng;
+    prng = ckalloc(sizeof(ta_rng_t));
+    tcol_random_init(prng);
+    prng->nrefs = 4; /* For each command reference below */
+    /*
+     * Note all commands have the same ta_random_rng_delete
+     * as last parameter. That's not a typo
+     */
+    Tcl_CreateObjCommand(ip,
+                         "::tarray::column::random",
+                         tcol_random_cmd,
+                         prng,
+                         ta_random_rng_delete);
+    Tcl_CreateObjCommand(
+        ip, "::tarray::randseed", ta_randseed_cmd, prng, ta_random_rng_delete);
+    Tcl_CreateObjCommand(ip,
+                         "::tarray::column::shuffle",
+                         tcol_shuffle_cmd,
+                         prng,
+                         ta_random_rng_delete);
+    Tcl_CreateObjCommand(ip,
+                         "::tarray::column::vshuffle",
+                         tcol_vshuffle_cmd,
+                         prng,
+                         ta_random_rng_delete);
     return TCL_OK;
 }
 
