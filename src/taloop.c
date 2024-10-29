@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Ashok P. Nadkarni
+ * Copyright (c) 2024, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -37,8 +37,8 @@ struct ta_loop_state {
     Tcl_Obj *oindexvar;     /* Name of iteration index variable, maybe NULL */
     Tcl_Obj *oscript;       /* Script body */
     Tcl_Obj *ocmdname;      /* Needed for error reporting */
-    int     count;          /* Count of items   */
-    int     next;           /* Index of next item to iterate */
+    Tcl_Size count;         /* Count of items   */
+    Tcl_Size next;          /* Index of next item to iterate */
     enum ta_loop_op_e cmd;     /* TA_LOOP_COLITER, TA_LOOP_TABMAP etc. */
     enum ta_collection_type_e colltype; /* Table, column or list operand */
 };
@@ -50,7 +50,7 @@ struct ta_loop_state {
 static TCL_RESULT ta_loop_assign_vars(Tcl_Interp *ip, 
                                       struct ta_loop_state *pstate)
 {
-    int tindex;
+    Tcl_Size tindex;
     Tcl_Obj *val, *varval;
     
     tindex = pstate->next;
@@ -102,9 +102,9 @@ static TCL_RESULT ta_loop_assign_vars(Tcl_Interp *ip,
 			Tcl_GetString(pstate->ovar)));
         return TCL_ERROR;
     }
-    
+
     if (pstate->oindexvar) {
-        Tcl_Obj *oindex = Tcl_NewIntObj(tindex);
+        Tcl_Obj *oindex = Tcl_NewWideIntObj(tindex);
         varval = Tcl_ObjSetVar2(ip, pstate->oindexvar, NULL, oindex, TCL_LEAVE_ERR_MSG);
         if (varval == NULL) {
             Tcl_DecrRefCount(oindex);
@@ -205,22 +205,25 @@ static TCL_RESULT ta_loop_step(ClientData data[], Tcl_Interp *ip, int status)
 /* Following the Tcl implementation of foreach/map, we have a common
  * routine implementing column/table loop and map (eventually)
  */
-static TCL_RESULT ta_looper(Tcl_Interp *ip, enum ta_loop_op_e cmd, int objc, Tcl_Obj *const objv[])
+static TCL_RESULT
+ta_looper(Tcl_Interp *ip,
+          enum ta_loop_op_e cmd,
+          int objc,
+          Tcl_Obj *const objv[])
 {
     struct ta_loop_state *pstate;
     thdr_t *thdr;
     span_t *span;
-    int count;
+    Tcl_Size count;
     Tcl_Obj *collObj;
     TCL_RESULT status;
     enum ta_collection_type_e colltype;
     
     TA_ASSERT(cmd == TA_LOOP_LOOP); /* Only handle this currently */
-    
+
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(ip, 1, objv,
-		"?indexvar? var tarray script");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "?indexvar? var tarray script");
+        return TCL_ERROR;
     }
 
     collObj = objc == 4 ? objv[2] : objv[3];
@@ -294,7 +297,7 @@ static TCL_RESULT ta_looper(Tcl_Interp *ip, enum ta_loop_op_e cmd, int objc, Tcl
     pstate->next = 0;
     pstate->cmd = cmd;
     pstate->colltype = colltype;
-    
+
     /* All ready to begin loop. Assign the variable and begin loop. */
     status = ta_loop_assign_vars(ip, pstate);
     if (status == TCL_OK) {
@@ -305,7 +308,7 @@ static TCL_RESULT ta_looper(Tcl_Interp *ip, enum ta_loop_op_e cmd, int objc, Tcl
     }
 
     return status;
-}                            
+}
 
 TCL_RESULT ta_loop_cmd(ClientData dummy, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
