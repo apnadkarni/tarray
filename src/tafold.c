@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Ashok P. Nadkarni
+ * Copyright (c) 2024, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -12,25 +12,25 @@
  * Thresholds for multithreading.
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
-int ta_fold_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_fold_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 static const char *ta_fold_op_names[] = {
     "+", NULL
 };
 enum ta_fold_op_e {
-    TAF_OP_SUM, 
+    TAF_OP_SUM,
 };
 
 struct thdr_fold_mt_context {
     ta_value_t accumulator;     /* Holds result of folding */
     thdr_t  *thdr;              /* thdr to be folded */
-    int      start;             /* Starting position in source thdr
+    Tcl_Size start;             /* Starting position in source thdr
                                    for this thread */
-    int      count;             /* Number of elements in thdr to examine */
+    Tcl_Size count;             /* Number of elements in thdr to examine */
     TCL_RESULT status;             /* Status of thread */
     enum ta_fold_op_e op;                /* Operation */
-};    
+};
 
 
 static void thdr_fold_mt_worker(void *pv)
@@ -38,16 +38,16 @@ static void thdr_fold_mt_worker(void *pv)
     struct thdr_fold_mt_context *pctx = pv;
     double daccumulator, *dstart, *dend;
 
-#define INTEGERLOOP(type_)                                      \
-    do {                                                        \
-        type_ *start, *end;                                     \
-        Tcl_WideInt accum;                                      \
-        start = THDRELEMPTR(pctx->thdr, type_, pctx->start);    \
-        end   = start + pctx->count;                           \
-        accum = 0;                                              \
-        while (start < end)                                     \
-            accum += *start++;                                  \
-        pctx->accumulator.wval = accum;                         \
+#define INTEGERLOOP(type_)                                   \
+    do {                                                     \
+        type_ *start, *end;                                  \
+        Tcl_WideInt accum;                                   \
+        start = THDRELEMPTR(pctx->thdr, type_, pctx->start); \
+        end   = start + pctx->count;                         \
+        accum = 0;                                           \
+        while (start < end)                                  \
+            accum += *start++;                               \
+        pctx->accumulator.wval = accum;                      \
     } while (0)
 
     switch (pctx->op) {
@@ -81,8 +81,9 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
     int j, ncontexts;
     thdr_t *thdr;
     struct thdr_fold_mt_context mt_context[4];
-    int mt_sizes[4];
-    int start, nelems, op;
+    Tcl_Size mt_sizes[4];
+    Tcl_Size start, nelems;
+    int op;
     TCL_RESULT status;
     span_t *span;
 
@@ -90,10 +91,10 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
 	Tcl_WrongNumArgs(ip, 1, objv, "operation tarray");
 	return TCL_ERROR;
     }
-    
+
     if ((status = ta_opt_from_obj(ip, objv[1], ta_fold_op_names, "operation", 0, &op)) != TCL_OK)
         return status;
-    
+
     if ((status = tcol_convert(ip, objv[2])) != TCL_OK)
         return status;
 
@@ -118,13 +119,13 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
         start = 0;
         nelems = thdr->used;
     }
-        
+
 #if !defined(TA_MT_ENABLE)
     ncontexts = 1;
     mt_sizes[0] = nelems;
 #else
     ncontexts = thdr_calc_mt_split_ex(thdr->type, start, nelems,
-                                      ta_fold_mt_threshold, 
+                                      ta_fold_mt_threshold,
                                       ARRAYSIZE(mt_sizes), mt_sizes);
 #   if defined(TA_ENABLE_ASSERT)
     {
@@ -135,7 +136,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
         TA_ASSERT(total == nelems);
     }
 #   endif
-    
+
 #endif
 
     for (j = 0; j < ncontexts; ++j) {
@@ -147,7 +148,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
             mt_context[j].accumulator.type = TA_WIDE;
             mt_context[j].accumulator.wval = 0;
         }
-            
+
         mt_context[j].status = TCL_OK;
         mt_context[j].op = op;
         mt_context[j].start = start;
@@ -155,14 +156,13 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
         start += mt_sizes[j];
     }
 
-    
     if (ncontexts == 1) {
         thdr_fold_mt_worker(&mt_context[0]);
     }
 #if defined(TA_MT_ENABLE)
     else {
         ta_mt_group_t grp;
-        
+
         grp = ta_mt_group_create();
         TA_ASSERT(grp != NULL); /* TBD */
         /* Fire off other threads. Context 0 we will handle ourselves */
