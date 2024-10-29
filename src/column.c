@@ -50,6 +50,8 @@ struct Tcl_ObjType ta_column_type = {
  * we do not parse "end" or "last" repeatedly. We could actually use the
  * more sophisticated Tcl equivalent but unfortunately that is not exported.
  */
+#if TCL_MAJOR_VERSION < 9
+static int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 static void ta_indexobj_update_string(Tcl_Obj *);
 struct Tcl_ObjType ta_index_type = {
     "tarray_index",
@@ -59,13 +61,109 @@ struct Tcl_ObjType ta_index_type = {
     NULL, /* convert from any - jenglish advises to keep this NULL */
 };
 
+/*
+ * indexobj routines
+ */
+static void ta_indexobj_update_string(Tcl_Obj *o)
+{
+    char buffer[TCL_INTEGER_SPACE + 5];
+    Tcl_Size len;
+
+    if (o->internalRep.longValue == 0)
+        strcpy(buffer, "end");
+    else if (o->internalRep.longValue > 0)
+        snprintf(buffer, sizeof(buffer), "end+%ld", o->internalRep.longValue);
+    else
+        snprintf(buffer, sizeof(buffer), "end%ld", o->internalRep.longValue);
+
+    len = (Tcl_Size) ta_strlen(buffer);
+    o->bytes = ckalloc(len+1);
+    memcpy(o->bytes, buffer, len+1);
+    o->length = len;
+}
+
+/*
+ * Look for a string of the form "end[+-]offset" and convert it to an
+ * internal representation holding the offset.
+ * Returns TCL_OK if ok, TCL_ERROR if the string was badly formed.
+ * If interp is not NULL, stores an error message in the interpreter
+ * result.
+ * NOTE: Naming is a little unfortunate - the "from_any" does not refer
+ * to our TA_ANY
+ */
+int ta_indexobj_from_any(
+    Tcl_Interp *interp,		/* Tcl interpreter or NULL */
+    Tcl_Obj *o)		/* Pointer to the object to parse */
+{
+    /* Copied from Tcl's SetEndOffsetFromAny which is not public */
+    Tcl_Size offset;	/* Offset in the "end-offset" expression */
+    const char *bytes;	/* String rep of the object */
+    Tcl_Size length;	/* Length of the object's string rep */
+
+    if (o->typePtr == &ta_index_type) {
+	return TCL_OK;
+    }
+
+    /* Check for a string rep of the right form. */
+    bytes = Tcl_GetStringFromObj(o, &length);
+    if ((*bytes != 'e') ||
+        (strncmp(bytes, "end", (size_t)((length > 3) ? 3 : length)) != 0)) {
+        goto error_handler;
+    }
+
+    /* Convert the string rep. */
+
+    if (length <= 3) {
+	offset = 0;
+    } else if ((length > 4) && ((bytes[3] == '-') || (bytes[3] == '+'))) {
+	/*
+	 * This is our limited string expression evaluator. Pass everything
+	 * after "end-" to Tcl_GetInt, then reverse for offset. Tcl_GetInt
+         * accepts whitespace so check for next char to avoid it
+	 */
+        if (bytes[4] < '0' || bytes[4] > '9')
+            goto error_handler;
+	if (Tcl_GetInt(interp, bytes+4, &offset) != TCL_OK) {
+	    return TCL_ERROR;
+	}
+	if (bytes[3] == '-') {
+	    offset = -offset;
+	}
+    } else {
+	/* Conversion failed. Report the error. */
+        goto error_handler;
+    }
+
+    /* The conversion succeeded. Free the old internal rep and set the new */
+    if (o->typePtr && o->typePtr->freeIntRepProc)
+        o->typePtr->freeIntRepProc(o);
+    TA_ASSERT(sizeof(offset) == sizeof(o->internalRep.longValue));
+    o->internalRep.longValue = offset;
+    o->typePtr = &ta_index_type;
+
+    return TCL_OK;
+
+error_handler:
+    if (interp != NULL) {
+        Tcl_SetObjResult(interp,
+                         Tcl_ObjPrintf(
+                             "bad index \"%s\": must be end?[+-]integer?",
+                             bytes));
+        Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
+    }
+    return TCL_ERROR;
+}
+
+
+#endif
+
 /* Panics on consistency check failure. int return value so it can
  be called from TA_ASSERT */
 int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
 {
     Tcl_Obj **objPP;
     tas_t **pptas;
-    int i;
+    Tcl_Size i;
 
     if (!ta_full_validation)
         return 1;
@@ -154,7 +252,7 @@ const char *ta_type_string(int tatype)
 /* Generally call the inline ta_collection_type wrapper instead of this */
 enum ta_collection_type_e ta_detect_collection_type(Tcl_Obj *o)
 {
-    int len;
+    Tcl_Size len;
     if (tcol_convert(NULL, o) == TCL_OK)
         return TA_COLL_COLUMN;
     if (table_convert(NULL, o) == TCL_OK)
@@ -202,19 +300,19 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
         Tcl_Obj **objv;      /* Used for TA_ANY */
         tas_t **pptas;              /* Used for TA_STRING */
     } u;
-    int objc, span_start;
+    Tcl_Size objc, span_start;
     thdr_t *thdr;
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr = NULL;
-    int i;
-    int length, lengths[LOCAL_SIZE], *lengthPtr = NULL;
+    Tcl_Size i;
+    Tcl_Size length, lengths[LOCAL_SIZE], *lengthPtr = NULL;
     size_t bytesNeeded;
     const char *elem;
     char *dst;
     int quote_hash;
     Tcl_Obj *onames = NULL;
     const char *names = NULL;
-    int names_len;
+    Tcl_Size names_len;
     unsigned char tatype;
     span_t *span;
 
@@ -258,7 +356,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
             lengthPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
     }
 
-    bytesNeeded = strlen(o->typePtr->name);
+    bytesNeeded = ta_strlen(o->typePtr->name);
     if (o->typePtr == &ta_table_type) {
         /* If a table, need to add on column names */
         TA_ASSERT(OBJCOLNAMES(o));
@@ -267,7 +365,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
         bytesNeeded += 1 + 1 + names_len + 1; /* With lead space, enclosing {} */
     } else {
         /* If a column, need to add the column type */
-        names_len = strlen(g_type_tokens[tatype]);
+        names_len = ta_strlen(g_type_tokens[tatype]);
         bytesNeeded += 1 + names_len;/* With lead space */
     }
 
@@ -282,7 +380,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
             elem = Tcl_GetStringFromObj(u.objv[i], &length);
         else {
             elem = u.pptas[i]->s;
-            lengthPtr[i] = strlen(u.pptas[i]->s); /* Will need later */
+            lengthPtr[i] = ta_strlen(u.pptas[i]->s); /* Will need later */
             length = lengthPtr[i];
         }
         bytesNeeded += Tcl_ScanCountedElement(elem, length, &flagPtr[i]);
@@ -344,7 +442,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
         *dst++ = '}';
     *dst = '\0';
     TA_ASSERT(dst < (o->bytes + bytesNeeded));
-    o->length = dst - o->bytes;
+    o->length = (Tcl_Size) (dst - o->bytes);
 
     if (flagPtr != localFlags) {
         TA_FREEMEM((char *) flagPtr);
@@ -358,16 +456,16 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
 
 static void tcol_type_update_string(Tcl_Obj *o)
 {
-    unsigned int i, n, count, span_start;
-    unsigned int allocated, unused, min_needed, prefix_len;
+    size_t i, n, count, span_start;
+    size_t allocated, unused, min_needed, prefix_len;
     char *cP;
-    int max_elem_space;  /* Max space to print one element including
-                            either terminating null or space */
+    size_t max_elem_space;  /* Max space to print one element including
+                                 either terminating null or space */
     thdr_t *thdr;
     span_t *span;
-        
+
     max_elem_space = 100; /* Unnecessary, keep gcc happy for all code paths */
-    
+
     TA_ASSERT(tcol_affirm(o));
 
     thdr = OBJTHDR(o);
@@ -382,9 +480,9 @@ static void tcol_type_update_string(Tcl_Obj *o)
 
     o->bytes = NULL;
 
-    prefix_len = strlen(o->typePtr->name)
+    prefix_len = ta_strlen(o->typePtr->name)
         + 1            /* Space */
-        + strlen(g_type_tokens[thdr->type])
+        + ta_strlen(g_type_tokens[thdr->type])
         + 2;                         /* Start of list " {" */
     min_needed = prefix_len + 1 + 1;            /* Trailing "}" and null */
 
@@ -395,7 +493,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
         o->bytes = cP;
         snprintf(cP, min_needed, "%s %s {}", o->typePtr->name,
                  g_type_tokens[thdr->type]);
-        o->length = min_needed - 1;
+        o->length = (Tcl_Size) min_needed - 1;
         return;
     }
 
@@ -405,17 +503,17 @@ static void tcol_type_update_string(Tcl_Obj *o)
      * When output size cannot be calculated exactly, we allocate using
      * some estimate based on the type.
      */
-        
+
     switch (thdr->type) {
     case TA_BOOLEAN:
         {
             /*
              * Special case Boolean since we know exactly how many chars will
-             * be required 
+             * be required
              */
             ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-            unsigned int span_end;
-            
+            size_t span_end;
+
             /* Note this MUST be ckalloc, not TA_ALLOCMEM which might not be
                defined as ckalloc */
             cP = ckalloc(min_needed + 2*count - 1);
@@ -426,16 +524,16 @@ static void tcol_type_update_string(Tcl_Obj *o)
             cP += n;
             span_end = span_start + count;
             for (i = span_start; i < span_end; ++i) {
-                *cP++ = ba_get(baP, i) ? '1' : '0';
+                *cP++ = ba_get(baP, (ba_off_t) i) ? '1' : '0';
                 *cP++ = ' ';
             }
             cP[-1] = '}';
             *cP = '\0';
-            o->length = cP - o->bytes;
+            o->length = (Tcl_Size) (cP - o->bytes);
             TA_ASSERT(o->length < (min_needed + 2*count - 1));
         }
         return;
-                
+
     case TA_ANY:
     case TA_STRING:
         /* TBD - can't we check for this much earlier in this function? */
@@ -459,7 +557,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
     default:
         ta_type_panic(thdr->type);
     }
-            
+
     /*
      * Assume an element averages half max space with room for at
      * least one max element. Note max_elem_space includes trailing ' '
@@ -553,8 +651,8 @@ static void tcol_type_update_string(Tcl_Obj *o)
     TA_ASSERT(unused >=1 );
     cP[-1] = '}';         /* Terminate list */
     *cP = '\0';
-    o->length = cP - o->bytes; /* Terminating null not included in length */
-            
+    o->length = (Tcl_Size) (cP - o->bytes); /* Terminating null not included in length */
+
     /*  TBD - Only shrink array if unused space is comparatively too large */
     unused = allocated - (o->length + 1);
     if (unused > (allocated / 8) && unused > 20)
@@ -562,107 +660,14 @@ static void tcol_type_update_string(Tcl_Obj *o)
     return;
 }
 
-/*
- * indexobj routines
- */
-static void ta_indexobj_update_string(Tcl_Obj *o)
-{
-    char buffer[TCL_INTEGER_SPACE + 5];
-    int len;
-
-    if (o->internalRep.longValue == 0)
-        strcpy(buffer, "end");
-    else if (o->internalRep.longValue > 0)
-        snprintf(buffer, sizeof(buffer), "end+%ld", o->internalRep.longValue);
-    else
-        snprintf(buffer, sizeof(buffer), "end%ld", o->internalRep.longValue);
-
-    len = strlen(buffer);
-    o->bytes = ckalloc(len+1);
-    memcpy(o->bytes, buffer, len+1);
-    o->length = len;
-}
-
-/*
- * Copied from Tcl's SetEndOffsetFromAny which is unfortunately not public
- * Look for a string of the form "end[+-]offset" and convert it to an
- * internal representation holding the offset.
- * Returns TCL_OK if ok, TCL_ERROR if the string was badly formed.
- * If interp is not NULL, stores an error message in the interpreter
- * result.
- * NOTE: Naming is a little unfortunate - the "from_any" does not refer
- * to our TA_ANY
- */
-int ta_indexobj_from_any(
-    Tcl_Interp *interp,		/* Tcl interpreter or NULL */
-    Tcl_Obj *o)		/* Pointer to the object to parse */
-{
-    int offset;			/* Offset in the "end-offset" expression */
-    const char *bytes;	/* String rep of the object */
-    int length;			/* Length of the object's string rep */
-
-    if (o->typePtr == &ta_index_type) {
-	return TCL_OK;
-    }
-
-    /* Check for a string rep of the right form. */
-    bytes = Tcl_GetStringFromObj(o, &length);
-    if ((*bytes != 'e') ||
-        (strncmp(bytes, "end", (size_t)((length > 3) ? 3 : length)) != 0)) {
-        goto error_handler;
-    }
-
-    /* Convert the string rep. */
-
-    if (length <= 3) {
-	offset = 0;
-    } else if ((length > 4) && ((bytes[3] == '-') || (bytes[3] == '+'))) {
-	/*
-	 * This is our limited string expression evaluator. Pass everything
-	 * after "end-" to Tcl_GetInt, then reverse for offset. Tcl_GetInt
-         * accepts whitespace so check for next char to avoid it
-	 */
-        if (bytes[4] < '0' || bytes[4] > '9')
-            goto error_handler;
-	if (Tcl_GetInt(interp, bytes+4, &offset) != TCL_OK) {
-	    return TCL_ERROR;
-	}
-	if (bytes[3] == '-') {
-	    offset = -offset;
-	}
-    } else {
-	/* Conversion failed. Report the error. */
-        goto error_handler;
-    }
-
-    /* The conversion succeeded. Free the old internal rep and set the new */
-    if (o->typePtr && o->typePtr->freeIntRepProc)
-        o->typePtr->freeIntRepProc(o);
-    o->internalRep.longValue = offset;
-    o->typePtr = &ta_index_type;
-
-    return TCL_OK;
-
-error_handler:
-    if (interp != NULL) {
-        Tcl_SetObjResult(interp,
-                         Tcl_ObjPrintf(
-                             "bad index \"%s\": must be end?[+-]integer?",
-                             bytes));
-        Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
-    }
-    return TCL_ERROR;
-}
-
 /* We cannot rely on Tcl_GetWideIntFromObj because that does not signal an
    error on signed overflow
 */
 TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
 {
-#if 1
     char c, *p;
     Tcl_WideInt wide;
-    int n;
+    Tcl_Size n;
     TCL_RESULT status;
     /*
      * Avoid shimmering in case of wrong arguments as shimmering from
@@ -680,9 +685,13 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
     }
 
     status = Tcl_GetWideIntFromObj(ip, o, &wide);
+#if TCL_MAJOR_VERSION > 8
+    /* TBD - check that Tcl 9 does in fact check overflows */
+    return status;
+#else
     if (status != TCL_OK)
         return status;
-    /* To deal with Tcl's lack of overflow checking, see if the
+    /* To deal with Tcl8's lack of overflow checking, see if the
      * sign matches the string representation if there is one.
      */
     if (o->bytes == NULL) {
@@ -714,46 +723,7 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
     if (pwide)
         *pwide = wide;
     return TCL_OK;
-    
-#else
-    
-    /* We do not want to rely on Tcl conversion to WideInt. So if
-     * a string rep is present, we will parse that even if the type
-     * is already an integer.
-     * Note we do not want to call Tcl_GetStringFromObj instead of
-     * checking o->bytes here so as to avoid unnecessary generation
-     * of a string rep
-     */
-    if (o->bytes == NULL) {
-        /*
-         * No string rep is present so we have to generate one.
-         * For some types (e.g. columns), no point generating a string
-         * since it could not possibly be a integer. For others like
-         * integers, generating a string is pointless since any
-         * overflow errors are not recoverable since original string
-         * rep is no longer present. For other types, generate a string.
-         */
-        int n;
-        if (o->typePtr == g_tcl_wide_type_ptr ||
-            o->typePtr == g_tcl_int_type_ptr)
-            return Tcl_GetWideIntFromObj(ip, o, pwide);
-        
-        /* TBD - for doubles, should we do a conversion to wide and
-           see if pure integer ? */
-        if (o->typePtr == &ta_column_type ||
-            o->typePtr == &ta_table_type ||
-            o->typePtr == g_tcl_dict_type_ptr ||
-            o->typePtr == g_tcl_double_type_ptr ||
-            (o->typePtr == g_tcl_list_type_ptr &&
-             (Tcl_ListObjLength(NULL, o, &n) != TCL_OK || n != 1))) {
-            return ta_value_type_error(ip, o, TA_WIDE);
-        }
-
-        Tcl_GetStringFromObj(o);
-        TA_ASSERT(o->bytes);
-    }
-    TBD - now use _strtoi64 to parse o->bytes;
-#endif    
+#endif
 }
 
 TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
@@ -769,6 +739,7 @@ TCL_RESULT ta_get_uint_from_obj(Tcl_Interp *ip, Tcl_Obj *o, unsigned int *pui)
 
 /* We cannot rely on Tcl_GetIntFromObj because that does not signal an
    error on signed overflow (i.e. 0x80000000 is treated as a valid integer)
+   TBD - is this still true with Tcl 9?
 */
 TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 {
@@ -782,10 +753,10 @@ TCL_RESULT ta_get_int_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int *pi)
 }
 
 /* Get a 31-bit positive integer value - for arguments that represent counts */
-TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, int *pi)
+TCL_RESULT ta_get_count_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int zero_allowed, Tcl_Size *pi)
 {
-    int val;
-    if (Tcl_GetIntFromObj(ip, o, &val) != TCL_OK)
+    Tcl_Size val;
+    if (Tcl_GetSizeIntFromObj(ip, o, &val) != TCL_OK)
         return TCL_ERROR;
     if (val < 0 || (val == 0 && ! zero_allowed))
         return ta_bad_count_error(ip, val);
@@ -818,8 +789,8 @@ TCL_RESULT ta_get_int8_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int8_t *pb)
 TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *pi)
 {
     TCL_RESULT status;
+    /* TBD - optimize using _strtoi64 or Tcl_GetNumber */
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
-    /* TBD - optimize using _strtoi64 */
     status = ta_get_wide_from_obj(ip, o, pi);
     Tcl_DecrRefCount(o);
     return status;
@@ -828,6 +799,7 @@ TCL_RESULT ta_get_wide_from_string(Tcl_Interp *ip, const char *s, Tcl_WideInt *p
 TCL_RESULT ta_get_int_from_string(Tcl_Interp *ip, const char *s, int *pi)
 {
     Tcl_WideInt wide;
+    /* TBD - optimize using _strtoi64 or Tcl_GetInt */
     if (ta_get_wide_from_string(ip, s, &wide) != TCL_OK)
         return TCL_ERROR;
     if (wide < INT_MIN || wide > INT_MAX)
@@ -862,8 +834,8 @@ TCL_RESULT ta_get_uint8_from_string(Tcl_Interp *ip, const char *s, unsigned char
 TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi)
 {
     TCL_RESULT status;
+    /* TBD - optimize using Tcl_GetBoolean */
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
-    /* TBD - optimize */
     status = Tcl_GetBooleanFromObj(ip, o, pi);
     Tcl_DecrRefCount(o);
     return status;
@@ -872,8 +844,8 @@ TCL_RESULT ta_get_boolean_from_string(Tcl_Interp *ip, const char *s, int *pi)
 TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi)
 {
     TCL_RESULT status;
+    /* TBD - optimize using Tcl_GetDouble */
     Tcl_Obj *o = Tcl_NewStringObj(s, -1);
-    /* TBD - optimize */
     status = Tcl_GetDoubleFromObj(ip, o, pi);
     Tcl_DecrRefCount(o);
     return status;
@@ -881,7 +853,7 @@ TCL_RESULT ta_get_double_from_string(Tcl_Interp *ip, const char *s, double *pi)
 
 void thdr_lookup_build(thdr_t *thdr, span_t *span)
 {
-    int i, count;
+    Tcl_Size i, count;
     tas_t **pptas;
     tas_lookup_t lookup;
 
@@ -903,7 +875,7 @@ void thdr_lookup_build(thdr_t *thdr, span_t *span)
    to run past end of array. Note the elements may be replaced if
    ref counts overflow.
 */
-void thdr_incr_tas_refs(thdr_t *thdr, int first, int count)
+void thdr_incr_tas_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count)
 {
     TA_ASSERT(thdr->type == TA_STRING);
     if ((first + count) > thdr->used)
@@ -923,7 +895,7 @@ void thdr_incr_tas_refs(thdr_t *thdr, int first, int count)
 /* Decrements the ref counts of tas_t elements in a tarray.
    Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
 */
-void thdr_decr_tas_refs(thdr_t *thdr, int first, int count)
+void thdr_decr_tas_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count)
 {
     TA_ASSERT(thdr->type == TA_STRING);
     if ((first + count) > thdr->used)
@@ -943,7 +915,7 @@ void thdr_decr_tas_refs(thdr_t *thdr, int first, int count)
 
 /* Increments the ref counts of Tcl_Objs in a tarray making sure not
    to run past end of array */
-void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
+void thdr_incr_obj_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count)
 {
     TA_ASSERT(thdr->type == TA_ANY);
     if ((first + count) > thdr->used)
@@ -963,7 +935,7 @@ void thdr_incr_obj_refs(thdr_t *thdr, int first, int count)
 /* Decrements the ref counts of Tcl_Objs in a tarray.
    Does NOT CLEAR ANY OTHER HEADER FIELDS. CALLER MUST DO THAT 
 */
-void thdr_decr_obj_refs(thdr_t *thdr, int first, int count)
+void thdr_decr_obj_refs(thdr_t *thdr, Tcl_Size first, Tcl_Size count)
 {
     TA_ASSERT(thdr->type == TA_ANY);
     if ((first + count) > thdr->used)
@@ -1019,10 +991,10 @@ void thdr_ensure_obj_strings(thdr_t *thdr, span_t *span)
  *
  * Note tatype must not be TA_BOOLEAN.
  */
-int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size)
+int thdr_calc_mt_split(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size *psecond_block_size)
 {
-    int second_block_size;
-    int memunits;
+    Tcl_Size second_block_size;
+    Tcl_Size memunits;
     
     /* Assumes the thdr array is aligned properly and that processors
      * already access ints, wides and doubles atomically.
@@ -1038,13 +1010,13 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
         break;
         
     case TA_BYTE:
-        /* Assumes int is appropriate for memory atomicity */
+        /* TBD - Assumes int is appropriate for memory atomicity */
         if (count < (2*sizeof(int)))
             second_block_size = 0;
         else {
             /* Remember first may not be aligned apprpriately */
-            int aligned_first;
-            int remaining_count;
+            Tcl_Size aligned_first;
+            Tcl_Size remaining_count;
             aligned_first = (first + sizeof(int) - 1) & (- (int) sizeof(int));
             remaining_count = count - (aligned_first - first);
             TA_ASSERT(remaining_count >= 0);
@@ -1084,13 +1056,18 @@ int thdr_calc_mt_split(int tatype, int first, int count, int *psecond_block_size
  * Returns number of threads to use or equivalently how many slots
  * of sizes[] are filled. Remaining slots in sizes[] are NOT INITIALIZED.
  */
-int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
-                          int nsizes, int sizes[])
+int
+thdr_calc_mt_split_ex(int tatype,
+                      Tcl_Size first,
+                      Tcl_Size count,
+                      Tcl_Size min_hint,
+                      Tcl_Size nsizes,
+                      Tcl_Size sizes[])
 {
     int nthreads;
-    int split_size;
-    int i;
-    int aligned_first;
+    Tcl_Size split_size;
+    Tcl_Size i;
+    Tcl_Size aligned_first;
 
     if (min_hint < 1000)
         min_hint = 1000;
@@ -1135,8 +1112,8 @@ int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
         /* Assumes count > 2*sizeof(int) because of checks at top */
 
         /*
-         * Assume int is appropriate for memory atomicity. So the boundaries
-         * for splitting have to be aligned. 
+         * TBD - Assume int is appropriate for memory atomicity. So the
+         * boundaries for splitting have to be aligned.
          * Remember 'first' may not be aligned appropriately so do that first.
          */
         aligned_first = (first + sizeof(int) - 1) & (- (int) sizeof(int));
@@ -1186,16 +1163,16 @@ int thdr_calc_mt_split_ex(int tatype, int first, int count, int min_hint,
 void thdr_place_ta_strings(thdr_t *thdr,
                            thdr_t *pindices,
                            Tcl_Obj * const *ovalues,
-                           int new_size
+                           Tcl_Size new_size
     )
 {
-    int i;
-    int *pindex, *end;
+    Tcl_Size i;
+    Tcl_Size *pindex, *end;
     tas_t **pptas;
 
     TA_ASSERT(thdr->nrefs <= 1);
     
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
     pptas = THDRELEMPTR(thdr, tas_t *, 0);
 
@@ -1234,16 +1211,16 @@ void thdr_place_ta_strings(thdr_t *thdr,
 void thdr_place_ta_objs(thdr_t *thdr,
                         thdr_t *pindices,
                         Tcl_Obj * const *ovalues,
-                        int new_size
+                        Tcl_Size new_size
     )
 {
-    int i;
-    int *pindex, *end;
+    Tcl_Size i;
+    Tcl_Size *pindex, *end;
     Tcl_Obj **pobjs;
 
     TA_ASSERT(thdr->nrefs <= 1);
 
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
     pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
 
@@ -1279,11 +1256,11 @@ void thdr_place_ta_objs(thdr_t *thdr,
 void thdr_fill_ta_strings(thdr_t *thdr,
                           thdr_t *pindices,
                           tas_t *ptas,
-                          int new_size
+                          Tcl_Size new_size
     )
 {
-    int i;
-    int *pindex, *end;
+    Tcl_Size i;
+    Tcl_Size *pindex, *end;
     tas_t **pptas;
 
     if (pindices->used == 0)
@@ -1291,7 +1268,7 @@ void thdr_fill_ta_strings(thdr_t *thdr,
 
     TA_ASSERT(thdr->nrefs <= 1);
 
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
     pptas = THDRELEMPTR(thdr, tas_t *, 0);
 
@@ -1333,16 +1310,16 @@ void thdr_fill_ta_strings(thdr_t *thdr,
 void thdr_fill_ta_objs(thdr_t *thdr,
                        thdr_t *pindices,
                        Tcl_Obj *oval,
-                       int new_size
+                       Tcl_Size new_size
     )
 {
-    int i;
-    int *pindex, *end;
+    Tcl_Size i;
+    Tcl_Size *pindex, *end;
     Tcl_Obj **pobjs;
 
     TA_ASSERT(thdr->nrefs <= 1);
 
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
     pobjs = THDRELEMPTR(thdr, Tcl_Obj *, 0);
 
@@ -1375,9 +1352,15 @@ void thdr_fill_ta_objs(thdr_t *thdr,
 /*
  * Map numeric or string index to numeric integer index.
  */
-TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_value, int low, int high)
+TCL_RESULT
+ta_convert_index(Tcl_Interp *ip,
+                 Tcl_Obj *o,
+                 int *pindex,
+                 Tcl_Size end_value,
+                 Tcl_Size low,
+                 Tcl_Size high)
 {
-    int val;
+    Tcl_Size val;
 
     /* Do type checks to avoid expensive shimmering in case of errors */
     if (tcol_affirm(o) || table_affirm(o))
@@ -1388,12 +1371,17 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
             return ta_index_error(ip, o);
     }
 
+#if TCL_MAJOR_VERSION > 8
+    if (Tcl_GetIntForIndex(ip, o, end_value, &val) != TCL_OK)
+        return ta_index_error(ip, o);
+#else
     if (Tcl_GetIntFromObj(NULL, o, &val) != TCL_OK) {
         if (ta_indexobj_from_any(NULL, o) != TCL_OK)
             return ta_index_error(ip, o);
+        TA_ASSERT(sizeof(val) == sizeof(o->internalRep.longValue));
         val = end_value + o->internalRep.longValue;
     }
-    
+#endif
     /* Note it is ok for val to be greater than end_value as it is used
        in calls where (for example) the column is extended */
 
@@ -1413,17 +1401,17 @@ TCL_RESULT ta_convert_index(Tcl_Interp *ip, Tcl_Obj *o, int *pindex, int end_val
  * if (high < low) count is returned as 0 (not an error)
  * Negative indices treated as 0
  */
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, int *plow, int *pcount)
+TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, Tcl_Size nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, Tcl_Size *plow, Tcl_Size *pcount)
 {
-    int low, high;
+    Tcl_Size low, high;
 
     /* TBD - need we restrict low to < nelems? Some routines which allow that
      cannot call this */
-    if (ta_convert_index(ip, olow, &low, nelems-1, INT_MIN, nelems) != TCL_OK)
+    if (ta_convert_index(ip, olow, &low, nelems-1, -TCL_SIZE_MAX, nelems) != TCL_OK)
         return TCL_ERROR;
 
     if (ohigh) {
-        if (ta_convert_index(ip, ohigh, &high, nelems-1, INT_MIN, INT_MAX) != TCL_OK)
+        if (ta_convert_index(ip, ohigh, &high, nelems-1, -TCL_SIZE_MAX, TCL_SIZE_MAX) != TCL_OK)
             return TCL_ERROR;
     } else {
         high = nelems-1;        /* If nelems==0, will be dealt with below */
@@ -1440,10 +1428,15 @@ TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, int nelems, Tcl_Obj *olow, Tcl_Ob
     return TCL_OK;
 }
 
-TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *orange, int *plow, int *pcount)
+TCL_RESULT
+ta_parse_range_option_value(Tcl_Interp *ip,
+                            Tcl_Size nelems,
+                            Tcl_Obj *orange,
+                            Tcl_Size *plow,
+                            Tcl_Size *pcount)
 {
     Tcl_Obj **objs;
-    int       nobjs;
+    Tcl_Size nobjs;
 
     /*
      * Do type checks to avoid expensive shimmering in case of caller error
@@ -1454,8 +1447,8 @@ TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *oran
         Tcl_ListObjGetElements(NULL, orange, &nobjs, &objs) != TCL_OK ||
         (nobjs != 1 && nobjs != 2)) {
         return ta_invalid_range_error(ip, orange);
-    }    
-    
+    }
+
     return ta_fix_range_bounds(ip, nelems,
                                objs[0],
                                nobjs == 1 ? NULL : objs[1],
@@ -1466,15 +1459,15 @@ TCL_RESULT ta_parse_range_option_value(Tcl_Interp *ip, int nelems, Tcl_Obj *oran
 TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
     Tcl_Obj **elems;
-    int nelems;
+    Tcl_Size nelems;
     unsigned char tatype;
 
     TA_ASSERT(! tcol_affirm(o));
-    
+
     /* Avoid shimmering tables if passed a table by mistake */
     if (table_affirm(o))
         return ta_not_column_error(ip);
-    
+
     /* See if we can convert it to one based on string representation */
     if (Tcl_ListObjGetElements(NULL, o, &nelems, &elems) == TCL_OK
         && nelems == 3
@@ -1483,8 +1476,8 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
         /* So far so good. Try and convert */
         thdr_t *thdr;
         Tcl_Obj **ovalues;
-        int nvalues;
-        
+        Tcl_Size nvalues;
+
         if (Tcl_ListObjGetElements(ip, elems[2], &nvalues, &ovalues)
             != TCL_OK)
             return TCL_ERROR;
@@ -1506,7 +1499,7 @@ TCL_RESULT tcol_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
         tcol_set_intrep(o, thdr, NULL);
         return TCL_OK;
     }
-                
+
     return ta_not_column_error(ip);
 }
 
@@ -1564,7 +1557,7 @@ Tcl_Obj *ta_value_to_obj(ta_value_t *ptav)
 void ta_value_init_max(unsigned char tatype, ta_value_t *ptav)
 {
     TA_ASSERT(tatype != TA_ANY && tatype != TA_STRING);
-    
+
     switch (tatype) {
     case TA_BOOLEAN: ptav->bval = 1; break;
     case TA_BYTE: ptav->ucval = UINT8_MAX; break;
@@ -1614,7 +1607,7 @@ int ta_value_compare(ta_value_t *pa, ta_value_t *pb, int ignore_case)
 struct thdr_fill_mt_context {
     ta_value_t tav;
     void *base;
-    int   nelems;
+    Tcl_Size nelems;
 };
 
 static void thdr_fill_int_mt_worker(void *pv)
@@ -1644,7 +1637,7 @@ static void thdr_fill_double_mt_worker(void *pv)
     struct thdr_fill_mt_context *pctx = pv;
     double val = pctx->tav.dval;
     double *pdbl, *end;
-    
+
     pdbl = pctx->base;
     end = pdbl + pctx->nelems;
     while (pdbl < end)
@@ -1656,7 +1649,7 @@ static void thdr_fill_wide_mt_worker(void *pv)
     struct thdr_fill_mt_context *pctx = pv;
     Tcl_WideInt val = pctx->tav.wval;
     Tcl_WideInt *pwide, *end;
-    
+
     /*
       TBD - newer MS compiler generates as good code for any fill,
       no need to special case to memset for 0. However, VC++ 6 does not.
@@ -1685,7 +1678,7 @@ static void thdr_fill_byte_mt_worker(void *pv)
  * Caller must do that.
  */
 void thdr_fill_scalars(Tcl_Interp *ip, thdr_t *thdr,
-                       const ta_value_t *ptav, int pos, int count)
+                       const ta_value_t *ptav, Tcl_Size pos, Tcl_Size count)
 {
     ta_mt_function_t workerfn = NULL;
     int elem_size;
@@ -1754,11 +1747,16 @@ void thdr_fill_scalars(Tcl_Interp *ip, thdr_t *thdr,
  * Set the value of an element range at a position in a thdr_t.
  * See the asserts below for conditions under which this can be called
  */
-void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
-                     const ta_value_t *ptav, int pos, int count, int insert)
+void
+thdr_fill_range(Tcl_Interp *ip,
+                thdr_t *thdr,
+                const ta_value_t *ptav,
+                Tcl_Size pos,
+                Tcl_Size count,
+                int insert)
 {
-    int i;
-    int new_used;
+    Tcl_Size i;
+    Tcl_Size new_used;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(pos <= thdr->used);
@@ -1796,7 +1794,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     case TA_ANY:
         {
             Tcl_Obj **pobjs;
-            int n;
+            Tcl_Size n;
 
             /*
              * We have to deal with reference counts here. For the object
@@ -1831,7 +1829,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
     case TA_STRING:
         {
             tas_t **pptas;
-            int n;
+            Tcl_Size n;
 
             /*
              * We have to deal with reference counts here. For the object
@@ -1876,7 +1874,7 @@ void thdr_fill_range(Tcl_Interp *ip, thdr_t *thdr,
 
 
 TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
-                                int nelems, Tcl_Obj * const elems[])
+                                Tcl_Size nelems, Tcl_Obj * const elems[])
 {
     Tcl_Obj * const *pobjs = elems;
     Tcl_Obj * const *end = elems + nelems;
@@ -1889,7 +1887,7 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
                 return TCL_ERROR;               \
         }                                       \
     } while (0)
-        
+
     switch (tatype) {
     case TA_BOOLEAN:
         ta_verify_value_LOOP(int, Tcl_GetBooleanFromObj);
@@ -1925,16 +1923,17 @@ TCL_RESULT ta_verify_value_objs(Tcl_Interp *ip, int tatype,
    themselves extend the range. Sort indices to simplify this.
    Returns new size needed in *new_sizeP
 */
-TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t *pindices, int *new_sizeP)
+TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, Tcl_Size current_size, thdr_t *pindices, Tcl_Size *new_sizeP)
 {
-    int cur, highest, status;
-    int *pindex, *end;
+    Tcl_Size cur, highest;
+    int status;
+    Tcl_Size *pindex, *end;
     thdr_t *psorted = NULL;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_SIZE);
 
-    pindex = THDRELEMPTR(pindices, int, 0);
-    end = THDRELEMPTR(pindices, int, pindices->used);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
+    end = THDRINDEXELEMPTR(pindices, pindices->used);
 
     /* Special cases so we don't go through the long path */
     if (pindices->used < 2) {
@@ -1949,7 +1948,7 @@ TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t
                 *new_sizeP = current_size + 1;
         }
         return TCL_OK;
-    }    
+    }
 
     /*
      * If indices are not sorted, we need to sort them to ensure no gaps.
@@ -1959,7 +1958,7 @@ TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, int current_size, thdr_t
         psorted = thdr_clone(ip, pindices, 0, NULL);
         if (psorted == NULL)
             return TCL_ERROR;
-        qsort(THDRELEMPTR(psorted, int, 0), psorted->used, sizeof(int), intcmp);
+        qsort(THDRELEMPTR(psorted, Tcl_Size, 0), psorted->used, sizeof(Tcl_Size), tclsizecmp);
         psorted->sort_order = THDR_SORTED_ASCENDING;
         pindices = psorted;
         pindex = THDRELEMPTR(pindices, int, 0);
@@ -2029,14 +2028,14 @@ vamoose:
 /* thdr must be large enough for largest index. And see asserts in code */
 void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr, 
                        const ta_value_t *ptav, thdr_t *pindices,
-                       int new_size
+                       Tcl_Size new_size
     )
 {
-    int *pindex, *end;
+    Tcl_Size *pindex, *end;
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_SIZE);
 
     /* Caller guarantees room for highest index value */
     TA_ASSERT(new_size <= thdr->usable);
@@ -2046,8 +2045,8 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
     /* Rest of code assumes > 0 indices */
 
-    pindex = THDRELEMPTR(pindices, int, 0);
-    end = THDRELEMPTR(pindices, int, pindices->used);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
+    end = THDRINDEXELEMPTR(pindices, pindices->used);
 
     thdr->sort_order = THDR_UNSORTED;
     switch (thdr->type) {
@@ -2142,7 +2141,7 @@ Tcl_Obj *tcol_new(thdr_t *thdr)
     return o;
 }
 
-Tcl_Obj *tcol_new_span(thdr_t *thdr, int first, int count)
+Tcl_Obj *tcol_new_span(thdr_t *thdr, Tcl_Size first, Tcl_Size count)
 {
     Tcl_Obj *o;
     span_t *span;
@@ -2151,26 +2150,25 @@ Tcl_Obj *tcol_new_span(thdr_t *thdr, int first, int count)
     TA_ASSERT(first >= 0);
     TA_ASSERT(count >= 0);
     TA_ASSERT(first+count <= thdr->used);
-    
+
     o = Tcl_NewObj();
     Tcl_InvalidateStringRep(o);
     if (first == 0 && count == thdr->used)
         span = NULL;
     else
         span = span_alloc(first, count);
-    
+
     tcol_set_intrep(o, thdr, span);
     return o;
 }
 
 /* thdr must NOT be shared and must have enough slots */
 /* ip may be NULL (only used for errors) */
-TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
-                         int nelems, Tcl_Obj * const elems[], int insert)
+TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, Tcl_Size first,
+                         Tcl_Size nelems, Tcl_Obj * const elems[], int insert)
 {
-    int i, ival;
-    int status;
-    int new_used;
+    int ival, status;
+    Tcl_Size i, new_used;
 
     TA_ASSERT(thdr->nrefs < 2);
 
@@ -2222,7 +2220,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, int first,
        {
            register ba_t *baP;
            ba_t ba, ba_mask;
-           int off;
+           Tcl_Size off;
 
            /* NOTE: same code as in thdr_numerics_from_tas_strings except there
               we are dealing with tas_t and thus cannot be shared with this.
@@ -2327,18 +2325,18 @@ convert_error:                  /* Interp should already contain errors */
 void thdr_place_objs(
     Tcl_Interp *ip,
     thdr_t *thdr,               /* thdr_t to be modified - must NOT be shared */
-    thdr_t *pindices,            /* Contains indices. If any >= thdr->used,
+    thdr_t *pindices,           /* Contains indices. If any >= thdr->used,
                                     all intermediate indices must also be
                                     present in pindices. Caller
                                     must have checked */
-    int new_size,
-    int nvalues,                /* # values in ovalues */
+    Tcl_Size new_size,
+    Tcl_Size nvalues,           /* # values in ovalues */
     Tcl_Obj * const *ovalues)   /* Values to be stored, must be type verified */
 {
-    int *pindex, *end;
+    Tcl_Size *pindex, *end;
 
     TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_SIZE);
     TA_ASSERT(new_size <= thdr->usable);
     TA_ASSERT(pindices->used <= nvalues);
     TA_ASSERT(ta_verify_value_objs(ip, thdr->type, nvalues, ovalues) == TCL_OK);
@@ -2358,8 +2356,8 @@ void thdr_place_objs(
             TA_NOFAIL(fn(ip, *ovalues++, &p[*pindex++]), TCL_OK);       \
         }                                                               \
     } while (0)
-    
-    pindex = THDRELEMPTR(pindices, int, 0);
+
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
     switch (thdr->type) {
     case TA_BOOLEAN:
@@ -2403,13 +2401,19 @@ void thdr_place_objs(
     thdr->used = new_size;
 }
 
-void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_span, thdr_t *pindices, int new_size)
+void
+thdr_place_indices(Tcl_Interp *ip,
+                   thdr_t *thdr,
+                   thdr_t *psrc,
+                   span_t *src_span,
+                   thdr_t *pindices,
+                   Tcl_Size new_size)
 {
-    int *pindex, *end;
-    int i, src_first;
+    Tcl_Size *pindex, *end;
+    Tcl_Size i, src_first;
 
     TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_SIZE);
     TA_ASSERT(new_size <= thdr->usable);
     TA_ASSERT(thdr->type == psrc->type);
 
@@ -2420,12 +2424,12 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_
         src_first = 0;
         TA_ASSERT(pindices->used <= psrc->used);
     }
-    
+
     if (pindices->used == 0)
         return;          /* Nothing to change */
 
     thdr->sort_order = THDR_UNSORTED; /* TBD - optimize */
-    
+
 #define thdr_place_COPYINDICES(type) do {       \
         type *dst, *src;                        \
         dst = THDRELEMPTR(thdr, type, 0);       \
@@ -2435,10 +2439,10 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_
             dst[*pindex++] = *src++;            \
         }                                       \
     } while (0)
-    
-    pindex = THDRELEMPTR(pindices, int, 0);
+
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
-    
+
     switch (thdr->type) {
     case TA_BOOLEAN:
         {
@@ -2513,9 +2517,9 @@ void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc, span_t *src_
     thdr->used = new_size;
 }
 
-int thdr_required_size(int tatype, int count)
+Tcl_Size thdr_required_size(int tatype, Tcl_Size count)
 {
-    int space;
+    Tcl_Size space;
 
     switch (tatype) {
     case TA_BOOLEAN:
@@ -2548,9 +2552,9 @@ int thdr_required_size(int tatype, int count)
     return sizeof(thdr_t) + space;
 }
 
-static TCL_RESULT thdr_roundup_alloc_size(int current_count, int requested_count, int *pcount)
+static TCL_RESULT thdr_roundup_alloc_size(Tcl_Size current_count, Tcl_Size requested_count, Tcl_Size *pcount)
 {
-    int extra, rounded;
+    Tcl_Size extra, rounded;
     TA_ASSERT(requested_count > current_count);
 
     extra = TA_EXTRA(current_count);
@@ -2571,10 +2575,10 @@ static TCL_RESULT thdr_roundup_alloc_size(int current_count, int requested_count
 /* ip may be NULL. oldP must not be shared (ref count must be 0 or 1)
    Ref count of new returned thdr same as that of oldP
  */
-thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
+thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, Tcl_Size new_count)
 {
     thdr_t *thdr;
-    int sz;
+    Tcl_Size sz;
 
     /* TBD - check new_count against TA_MAX_COUNT */
 
@@ -2596,10 +2600,10 @@ thdr_t *thdr_realloc(Tcl_Interp *ip, thdr_t *oldP, int new_count)
 }
 
 /* ip may be NULL */
-thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
+thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, Tcl_Size count)
 {
     unsigned char nbits;
-    int sz;
+    Tcl_Size sz;
     thdr_t *thdr;
 
     /* TBD - check count against TA_MAX_COUNT */
@@ -2639,8 +2643,8 @@ thdr_t * thdr_alloc(Tcl_Interp *ip, int tatype, int count)
 }
 
 thdr_t * thdr_alloc_and_init(Tcl_Interp *ip, int tatype,
-                           int nelems, Tcl_Obj * const elems[],
-                           int init_size)
+                           Tcl_Size nelems, Tcl_Obj * const elems[],
+                           Tcl_Size init_size)
 {
     thdr_t *thdr;
 
@@ -2673,7 +2677,7 @@ thdr_t * thdr_alloc_and_init(Tcl_Interp *ip, int tatype,
 }
 
 /* Returns 0-initialized boolean column */
-thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count)
+thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, Tcl_Size count)
 {
     thdr_t *thdr;
     
@@ -2688,16 +2692,16 @@ thdr_t *thdr_alloc_bitmap(Tcl_Interp *ip, int count)
 /* Convert a integer index column to a bitmap index. */
 thdr_t *thdr_indices_to_bitmap(
     Tcl_Interp *ip,
-    int size, /* Size of bitmap. Errors if any index is higher */
+    Tcl_Size size, /* Size of bitmap. Errors if any index is higher */
     thdr_t *src, span_t *span)
 {
     thdr_t *thdr;
-    int *pindex;
-    int count, pos;
+    Tcl_Size *pindex;
+    Tcl_Size count, pos;
     ba_t *baP;
 
-    TA_ASSERT(src->type == TA_INT);
-    pindex = THDRELEMPTR(src, int, 0);
+    TA_ASSERT(src->type == TA_SIZE);
+    pindex = THDRINDEXELEMPTR(src, 0);
     count = src->used;
     if (span) {
         count = span->count;
@@ -2719,7 +2723,7 @@ thdr_t *thdr_indices_to_bitmap(
 }
 
 /* Grow the internal rep to a minimum size */
-TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size)
+TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, Tcl_Size new_size)
 {
     thdr_t *thdr;
 
@@ -2745,9 +2749,9 @@ TCL_RESULT tcol_grow_intrep(Tcl_Interp *ip, Tcl_Obj *o, int new_size)
 
 
 /* Deletes a range from a thdr_t. See asserts below for requirements */
-void thdr_delete_range(thdr_t *thdr, int first, int count)
+void thdr_delete_range(thdr_t *thdr, Tcl_Size first, Tcl_Size count)
 {
-    int n;
+    Tcl_Size n;
     void *s, *d;
 
     TA_ASSERT(! thdr_shared(thdr));
@@ -2813,19 +2817,21 @@ void thdr_delete_range(thdr_t *thdr, int first, int count)
 
 void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
 {
-    int prev;
-    int *pindex, *plimit;
+    Tcl_Size prev;
+    Tcl_Size *pindex, *plimit;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_SIZE);
+
+    /* TBD - does this handle the case where thdr and pindices are the same ?*/
 
     /*
      * We have to be careful to delete from back to front so as to not
      * invalidate index positions when earlier ones are deleted
      */
     TA_ASSERT(pindices->sort_order == THDR_SORTED_ASCENDING || pindices->sort_order == THDR_SORTED_DESCENDING);
-    
-    /* TBD - this will be desperately slow. Fix */
-    
+
+    /* TBD - this will be desperately slow. Fix - see remove_helper in cram */
+
     /* We always want to delete back to front. However the index array
      * may be presorted in any direction. So check and loop accordingly
      * Because duplicates might be present, we keep track of last deleted
@@ -2835,7 +2841,7 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
         return;
     if (pindices->sort_order == THDR_SORTED_ASCENDING) {
         /* Sort order is ascending so iterate index array back to front */
-        plimit = THDRELEMPTR(pindices, int, 0);
+        plimit = THDRINDEXELEMPTR(pindices, 0);
         pindex = plimit + pindices->used - 1;
         prev = *pindex + 1;     /* Dummy value for first iteration */
         for ( ; pindex >= plimit; --pindex) {
@@ -2845,7 +2851,7 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
         }
     } else {
         /* Sort order is descending so iterate index array front to back */
-        pindex = THDRELEMPTR(pindices, int, 0);
+        pindex = THDRINDEXELEMPTR(pindices, 0);
         prev = *pindex + 1;     /* Dummy value for first iteration */
         for (plimit = pindex + pindices->used - 1; pindex <= plimit; ++pindex) {
             if (*pindex != prev && *pindex >= 0 && *pindex < thdr->used)
@@ -2906,12 +2912,12 @@ void thdr_reverse(thdr_t *thdr)
     }
 }
 
-void thdr_copy(thdr_t *pdst, int dst_first,
-               thdr_t *psrc, int src_first, int count, int insert)
+void thdr_copy(thdr_t *pdst, Tcl_Size dst_first,
+               thdr_t *psrc, Tcl_Size src_first, Tcl_Size count, int insert)
 {
-    int nbytes;
+    Tcl_Size nbytes;
     void *s, *d;
-    int new_used;
+    Tcl_Size new_used;
     int elem_size;
 
     TA_ASSERT(pdst != psrc);
@@ -3016,7 +3022,13 @@ void thdr_copy(thdr_t *pdst, int dst_first,
 /* TBD - adding support for TA_ANY and TA_STRING here would make it complete
    and callable for setting any array type from a TA_STRING_SOURCE like
    thdr_puts_objs */
-static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, int dst_first, tas_t * const pptas_src[], int count, int insert)
+static TCL_RESULT
+thdr_numerics_from_tas_strings(Tcl_Interp *ip,
+                               thdr_t *pdst,
+                               Tcl_Size dst_first,
+                               tas_t *const pptas_src[],
+                               Tcl_Size count,
+                               int insert)
 {
     tas_t * const *pptas;
     tas_t * const *end;
@@ -3082,7 +3094,7 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
     } else if (pdst->type == TA_BOOLEAN) {
         register ba_t *baP;
         ba_t ba, ba_mask;
-        int i, off;
+        Tcl_Size i, off;
 
         TASVALIDATE(int, ta_get_boolean_from_string);
 
@@ -3141,12 +3153,17 @@ static TCL_RESULT thdr_numerics_from_tas_strings(Tcl_Interp *ip, thdr_t *pdst, i
 
 /* Copies partial content from one thdr_t to another of a different type. 
    See asserts below for requirements */
-TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
-                          thdr_t *psrc, int src_first, int count, int insert,
-                          int strict
-    )
+TCL_RESULT
+thdr_copy_cast(Tcl_Interp *ip,
+               thdr_t *pdst,
+               Tcl_Size dst_first,
+               thdr_t *psrc,
+               Tcl_Size src_first,
+               Tcl_Size count,
+               int insert,
+               int strict)
 {
-    int new_used;
+    Tcl_Size new_used;
     TCL_RESULT status;
     ta_value_t error_value;
 
@@ -3249,7 +3266,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
     do {                                                                \
         ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);                         \
         dsttype_ *to;                                                   \
-        int i, end;                                                     \
+        Tcl_Size i, end;                                                     \
         to = THDRELEMPTR(pdst, dsttype_, dst_first);                    \
         for (i = src_first, end = src_first + count ; i < end; ++i)     \
             *to++ = ba_get(baP, i);                                     \
@@ -3312,7 +3329,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         } else {
             register ba_t *baP;
             ba_t ba, ba_mask;
-            int off;
+            Tcl_Size off;
 
             if (insert)
                 thdr_make_room(pdst, dst_first, count);
@@ -3358,7 +3375,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         case TA_BOOLEAN:
             {
                 ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);
-                int low, end;
+                Tcl_Size low, end;
                 tas_t **podst;
                 tas_t *one, *zero;
                 one = tas_alloc_nbytes("1", 1);
@@ -3411,7 +3428,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         case TA_BOOLEAN:
             {
                 ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);
-                int low, end;
+                Tcl_Size low, end;
                 Tcl_Obj **podst;
                 podst = THDRELEMPTR(pdst, Tcl_Obj *, dst_first);
                 for (low = src_first, end = src_first+count; low < end; ++podst, ++low) {
@@ -3445,7 +3462,7 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
         break; /* dst == TA_ANY */
 
     default:
-        /* Numeric destination */ 
+        /* Numeric destination */
         if (psrc->type == TA_STRING) {
             status = thdr_numerics_from_tas_strings
                 (ip, pdst, dst_first,
@@ -3525,8 +3542,8 @@ TCL_RESULT thdr_copy_cast(Tcl_Interp *ip, thdr_t *pdst, int dst_first,
 
 /* Copies partial content from one thdr_t to another in reverse.
    See asserts below for requirements */
-void thdr_copy_reversed(thdr_t *pdst, int dst_first,
-                       thdr_t *psrc, int src_first, int count)
+void thdr_copy_reversed(thdr_t *pdst, Tcl_Size dst_first,
+                       thdr_t *psrc, Tcl_Size src_first, Tcl_Size count)
 {
     TA_ASSERT(pdst != psrc);
     TA_ASSERT(pdst->type == psrc->type);
@@ -3548,18 +3565,18 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
 
     pdst->sort_order = THDR_UNSORTED; /* TBD - optimize */
 
-#define COPYREVERSE(type_, pdst_, doff_, psrc_, soff_, count_)          \
-    do {                                                                \
-        type_ *src;                                                     \
-        type_ *dst;                                                     \
-        int    i = (count_);                                            \
-        src = THDRELEMPTR((psrc_), type_ , (soff_));                  \
-        dst  = THDRELEMPTR((pdst_), type_ , 0);                       \
-        dst += (doff_ ) + i - 1;                                        \
-        while (i--) {                                                   \
-            /* Remember caller ensured no overlap between src & dst */  \
-            *dst-- = *src++;                                            \
-        }                                                               \
+#define COPYREVERSE(type_, pdst_, doff_, psrc_, soff_, count_)         \
+    do {                                                               \
+        type_ *src;                                                    \
+        type_ *dst;                                                    \
+        Tcl_Size i = (count_);                                         \
+        src        = THDRELEMPTR((psrc_), type_, (soff_));             \
+        dst        = THDRELEMPTR((pdst_), type_, 0);                   \
+        dst += (doff_) + i - 1;                                        \
+        while (i--) {                                                  \
+            /* Remember caller ensured no overlap between src & dst */ \
+            *dst-- = *src++;                                           \
+        }                                                              \
     } while (0)
 
     switch (psrc->type) {
@@ -3595,7 +3612,7 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
         thdr_decr_tas_refs(pdst, dst_first, count);
         {
             tas_t **srctas, **dsttas;
-            int i = count;
+            Tcl_Size i  = count;
             srctas = THDRELEMPTR(psrc, tas_t *, src_first);
             dsttas = THDRELEMPTR(pdst, tas_t *, 0);
             dsttas += dst_first + i - 1;
@@ -3642,26 +3659,26 @@ void thdr_copy_reversed(thdr_t *pdst, int dst_first,
 thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
 {
     thdr_t *to;
-    int count, start;
+    Tcl_Size count, start;
 
     if (span) {
         start = span->first;
         count = span->count;
     } else {
         /*
-         * If column is integer, and no span specified, we can just
+         * If column is already index type, and no span specified, we can just
          * return the same column
          */
-        if (thdr->type == TA_INT) {
+        if (thdr->type == TA_INDEX) {
             thdr_incr_refs(thdr);
             return thdr;
         }
         start = 0;
         count = thdr->used;
     }
-            
+
     if (thdr->type != TA_BOOLEAN) {
-        to = thdr_alloc(ip, TA_INT, count);
+        to = thdr_alloc(ip, TA_INDEX, count);
         if (to == NULL)
             return to;
         if (thdr_copy_cast(ip, to, 0, thdr, start, count, 0, 1) != TCL_OK) {
@@ -3670,13 +3687,13 @@ thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
         }
     } else {
         ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
-        int *p;
-        int i, ones;
+        Tcl_Size *p;
+        Tcl_Size i, ones;
 
         /* TBD - optimize at least for case where start == 0 */
         ones = ba_count_ones(baP, start, start+count);
-        to = thdr_alloc(ip, TA_INT, ones);
-        p = THDRELEMPTR(to, int, 0);
+        to = thdr_alloc(ip, TA_INDEX, ones);
+        p = THDRINDEXELEMPTR(to, 0);
         for (i = 0; i < count; ++i) {
             if (ba_get(baP, start+i))
                 *p++ = i;
@@ -3690,10 +3707,10 @@ thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
 }
 
 /* Note: nrefs of cloned array is 0 */
-thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
+thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, Tcl_Size minsize, span_t *span)
 {
     thdr_t *thdr;
-    int count, start;
+    Tcl_Size count, start;
 
     if (span) {
         start = span->first;
@@ -3702,7 +3719,7 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
         start = 0;
         count = psrc->used;
     }
-    
+
     if (minsize == 0)
         minsize = psrc->usable;
     else if (minsize < count)
@@ -3718,11 +3735,11 @@ thdr_t *thdr_clone(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
 }
 
 /* Note: nrefs of cloned array is 0 */
-thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *span)
+thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, Tcl_Size minsize, span_t *span)
 {
     thdr_t *thdr;
     int orig_order;
-    int count, start;
+    Tcl_Size count, start;
 
     if (span) {
         start = span->first;
@@ -3753,12 +3770,12 @@ thdr_t *thdr_clone_reversed(Tcl_Interp *ip, thdr_t *psrc, int minsize, span_t *s
     return thdr;
 }
 
-Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
+Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Size index)
 {
     thdr_t *thdr;
     span_t *span;
-    int first, count;
-    
+    Tcl_Size first, count;
+
     if (tcol_convert(ip, tcol) != TCL_OK)
         return NULL;
     thdr = OBJTHDR(tcol);
@@ -3777,10 +3794,10 @@ Tcl_Obj *tcol_index(Tcl_Interp *ip, Tcl_Obj *tcol, int index)
     return thdr_index(thdr, first + index);
 }
 
-Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
+Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, Tcl_Size low, Tcl_Size count,
                      int fmt)
 {
-    int end;
+    Tcl_Size end;
     thdr_t *psrc;
     Tcl_Obj *o;
     span_t *span;
@@ -3810,7 +3827,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
         if (end > psrc->used)
             end = psrc->used;
     }
-            
+
     if (fmt == TA_FORMAT_TARRAY) 
         return tcol_new_span(psrc, low, end-low);
 
@@ -3893,7 +3910,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count,
  * TBD - make a inline fastpath version of this
  */
 TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
-                                Tcl_Obj *tcol, int minsize, int prefsize)
+                                Tcl_Obj *tcol, Tcl_Size minsize, Tcl_Size prefsize)
 {
     thdr_t *thdr;
     span_t *span;
@@ -3911,9 +3928,9 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
             return TCL_ERROR;   /* Note tcol is not changed */
         tcol_replace_intrep(tcol, thdr, NULL);
         TA_ASSERT(tcol_thdr(tcol)->usable >= minsize);
-        return TCL_OK; 
+        return TCL_OK;
     }
-    
+ 
     if (thdr->usable >= minsize && !thdr_shared(thdr)) {
         /* Case (2) - just reuse, invalidate the string rep */
         Tcl_InvalidateStringRep(tcol);
@@ -3955,7 +3972,7 @@ TCL_RESULT tcol_make_modifiable(Tcl_Interp *ip,
 
 
 /* Returns a Tcl_Obj for a TArray slot. NOTE: WITHOUT its ref count incremented */
-Tcl_Obj * thdr_index(thdr_t *thdr, int index)
+Tcl_Obj * thdr_index(thdr_t *thdr, Tcl_Size index)
 {
     TA_ASSERT(index >= 0 && index < thdr->used);
 
@@ -3984,7 +4001,7 @@ Tcl_Obj * thdr_index(thdr_t *thdr, int index)
 
 /* NOTE: Caller must call ta_value_clear as needed. See comment for
    ta_value_from_obj */
-void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP)
+void thdr_index_ta_value(thdr_t *thdr, Tcl_Size index, ta_value_t *tavP)
 {
     TA_ASSERT(index >= 0 && index < thdr->used);
 
@@ -4022,7 +4039,7 @@ void thdr_index_ta_value(thdr_t *thdr, int index, ta_value_t *tavP)
  * in the buffer pointed to by BufP which must be at least 
  * TA_NUMERIC_SPACE bytes
  */
-char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[TA_NUMERIC_SPACE])
+char *thdr_index_string(thdr_t *thdr, Tcl_Size thdr_index, char buf[TA_NUMERIC_SPACE])
 {
     TA_ASSERT(thdr->used > thdr_index);
     switch (thdr->type) {
@@ -4064,7 +4081,7 @@ char *thdr_index_string(thdr_t *thdr, int thdr_index, char buf[TA_NUMERIC_SPACE]
  * Returns a double corresponding to a numeric thdr element
  * Will panic on non-numeric
  */
-double thdr_index_double(thdr_t *thdr, int thdr_index)
+double thdr_index_double(thdr_t *thdr, Tcl_Size thdr_index)
 {
     TA_ASSERT(thdr->used > thdr_index);
     switch (thdr->type) {
@@ -4086,7 +4103,7 @@ double thdr_index_double(thdr_t *thdr, int thdr_index)
     }
 }
 
-Tcl_WideInt thdr_index_wide(thdr_t *thdr, int thdr_index)
+Tcl_WideInt thdr_index_wide(thdr_t *thdr, Tcl_Size thdr_index)
 {
     TA_ASSERT(thdr->used > thdr_index);
     switch (thdr->type) {
@@ -4125,12 +4142,12 @@ struct thdr_minmax_mt_context {
     ta_value_t max_value;
 
     /* Index of the min value and max value */
-    int min_index;
-    int max_index;
+    Tcl_Size min_index;
+    Tcl_Size max_index;
 
     /* Where the thread should begin its checks and count of elements to check*/
     void *base;
-    int   nelems;
+    Tcl_Size   nelems;
 
     unsigned char type;
     char ignore_case;
@@ -4143,30 +4160,31 @@ static void thdr_minmax_mt_worker (void *pv)
 
     TA_ASSERT(pctx->nelems > 0);
 
-#define MINMAXLOOP(pctx_, type_, minptr_, maxptr_)      \
-    do {                                                \
-        type_ *p, *pend;                            \
-        type_ minval, maxval;                           \
-        type_ *pmin, *pmax;                             \
-        p = (type_ *) (pctx_)->base;                \
-        pend = p + (pctx_)->nelems;                 \
-        minval = maxval = *p;                       \
-        pmin = pmax = p;                            \
-        while (p < pend) {                          \
-            TA_ASSERT(maxval >= minval);                \
-            if (*p < minval) {                          \
-                minval = *p; \
-                pmin = p;                           \
-            } else if (*p > maxval) {               \
-                maxval = *p; \
-                pmax = p;                           \
-            } \
-            ++p;                                    \
-        }                                               \
-        (pctx_)->min_index = pmin - (type_ *) (pctx_)->base;     \
-        *(minptr_) = minval;                             \
-        (pctx_)->max_index = pmax - (type_ *) (pctx_)->base;     \
-        *(maxptr_) = maxval;                             \
+#define MINMAXLOOP(pctx_, type_, minptr_, maxptr_)                      \
+    do {                                                                \
+        type_ *p, *pend;                                                \
+        type_ minval, maxval;                                           \
+        type_ *pmin, *pmax;                                             \
+        p      = (type_ *)(pctx_)->base;                                \
+        pend   = p + (pctx_)->nelems;                                   \
+        minval = maxval = *p;                                           \
+        pmin = pmax = p;                                                \
+        while (p < pend) {                                              \
+            TA_ASSERT(maxval >= minval);                                \
+            if (*p < minval) {                                          \
+                minval = *p;                                            \
+                pmin   = p;                                             \
+            }                                                           \
+            else if (*p > maxval) {                                     \
+                maxval = *p;                                            \
+                pmax   = p;                                             \
+            }                                                           \
+            ++p;                                                        \
+        }                                                               \
+        (pctx_)->min_index = (Tcl_Size)(pmin - (type_ *)(pctx_)->base); \
+        *(minptr_)         = minval;                                    \
+        (pctx_)->max_index = (Tcl_Size)(pmax - (type_ *)(pctx_)->base); \
+        *(maxptr_)         = maxval;                                    \
     } while (0)
 
     switch (pctx->type) {
@@ -4191,7 +4209,7 @@ static void thdr_minmax_mt_worker (void *pv)
             Tcl_Obj *minval, *maxval;
             Tcl_Obj **pmin, **pmax;
             int ignore_case = pctx->ignore_case;
-            TA_ASSERT(pctx->nelems > 0);                 
+            TA_ASSERT(pctx->nelems > 0);
             p = (Tcl_Obj **) pctx->base;
             pend = p + pctx->nelems;
             minval = maxval = *p;
@@ -4207,9 +4225,9 @@ static void thdr_minmax_mt_worker (void *pv)
                 }
                 ++p;
             }
-            pctx->min_index = pmin - (Tcl_Obj **)pctx->base;
+            pctx->min_index      = (Tcl_Size)(pmin - (Tcl_Obj **)pctx->base);
             pctx->min_value.oval = minval;
-            pctx->max_index = pmax - (Tcl_Obj **)pctx->base;
+            pctx->max_index      = (Tcl_Size)(pmax - (Tcl_Obj **)pctx->base);
             pctx->max_value.oval = maxval;
         }
         break;
@@ -4219,7 +4237,7 @@ static void thdr_minmax_mt_worker (void *pv)
             tas_t *minval, *maxval;
             tas_t **pmin, **pmax;
             int ignore_case = pctx->ignore_case;
-            TA_ASSERT(pctx->nelems > 0);                 
+            TA_ASSERT(pctx->nelems > 0);
             p = (tas_t **) pctx->base;
             pend = p + pctx->nelems;
             minval = maxval = *p;
@@ -4235,8 +4253,8 @@ static void thdr_minmax_mt_worker (void *pv)
                 }
                 ++p;
             }
-            pctx->min_index = pmin - (tas_t **)pctx->base;
-            pctx->max_index = pmax - (tas_t **)pctx->base;
+            pctx->min_index = (Tcl_Size)(pmin - (tas_t **)pctx->base);
+            pctx->max_index = (Tcl_Size)(pmax - (tas_t **)pctx->base);
             /* NOTE: multithreaded so do NOT update ref counts
                (through tas_ref). Instead, copy pointers as is */
             pctx->min_value.ptas = minval;
@@ -4254,7 +4272,15 @@ static void thdr_minmax_mt_worker (void *pv)
 
 
 /* Returns the minimum and maximum */
-static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int *min_indexP, int *max_indexP, Tcl_Obj **ppomin, Tcl_Obj **ppomax)
+static void
+thdr_minmax(thdr_t *thdr,
+            Tcl_Size start,
+            Tcl_Size count,
+            int ignore_case,
+            Tcl_Size *min_indexP,
+            Tcl_Size *max_indexP,
+            Tcl_Obj **ppomin,
+            Tcl_Obj **ppomax)
 {
     struct thdr_minmax_mt_context mt_context[2];
     int elem_size;
@@ -4292,7 +4318,7 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
     }
 
     if (thdr->type == TA_BOOLEAN) {
-        int min_index, max_index;
+        Tcl_Size min_index, max_index;
         ba_t *baP = THDRELEMPTR(thdr, ba_t, 0);
         min_index = ba_find(baP, 0, start, start+count);
         max_index = ba_find(baP, 1, start, start+count);
@@ -4394,16 +4420,18 @@ static void thdr_minmax(thdr_t *thdr, int start, int count, int ignore_case, int
  * not use this to pick whether a single index or a list was specified
  * if it impacts their semantics.
  */
-int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
-                      int want_sorted,
-                      int end,        /* Value to use for "end",
-                                         ignored if pindex == NULL */
-                      thdr_t **thdrP, /* Cannot be NULL */
-                      int *pindex)    /* Can be NULL */
+int
+ta_obj_to_indices(Tcl_Interp *ip,
+                  Tcl_Obj *o,
+                  int want_sorted,
+                  Tcl_Size end,     /* Value to use for "end",
+                                       ignored if pindex == NULL */
+                  thdr_t **thdrP,   /* Cannot be NULL */
+                  Tcl_Size *pindex) /* Can be NULL */
 {
     thdr_t *thdr;
     Tcl_Obj **elems;
-    int       n;
+    Tcl_Size n;
     TCL_RESULT status;
 
     /*
@@ -4419,7 +4447,8 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         if (pindex != NULL) {
             /* To prevent shimmering, first check known to be a list */
             if (o->typePtr != g_tcl_list_type_ptr) {
-                status = ta_convert_index(NULL, o, &n, end, INT_MIN, INT_MAX);
+                status = ta_convert_index(
+                    NULL, o, &n, end, -TCL_SIZE_MAX, TCL_SIZE_MAX);
                 if (status == TCL_OK) {
                     *pindex = n;
                     return TA_INDEX_TYPE_INT;
@@ -4436,7 +4465,9 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
         /* Even as a list, it may be the single element "end". Check for that */
         if (n == 1) {
             if (pindex != NULL) {
-                if (ta_convert_index(NULL, elems[0], &n, end, INT_MIN, INT_MAX) == TCL_OK) {
+                if (ta_convert_index(
+                        NULL, elems[0], &n, end, -TCL_SIZE_MAX, TCL_SIZE_MAX)
+                    == TCL_OK) {
                     *pindex = n;
                     return TA_INDEX_TYPE_INT;
                 }
@@ -4453,7 +4484,7 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     if (tcol_affirm(o)) {
         thdr = thdr_to_indexcolumn(ip, OBJTHDR(o), OBJTHDRSPAN(o));
         /* NOTE thdr is ref incremented and needs a decrref at some point! */
-        
+
         if (thdr == NULL) {
             ta_indices_error(ip, o);
             return TA_INDEX_TYPE_ERROR;
@@ -4464,7 +4495,7 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
             thdr = thdr2;
             if (thdr == NULL)
                 return TA_INDEX_TYPE_ERROR;
-            qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
+            qsort(THDRELEMPTR(thdr, Tcl_Size, 0), thdr->used, sizeof(Tcl_Size), tclsizecmp);
             thdr->sort_order = THDR_SORTED_ASCENDING;
             thdr_incr_refs(thdr);
         }
@@ -4473,10 +4504,10 @@ int ta_obj_to_indices(Tcl_Interp *ip, Tcl_Obj *o,
     }
 
     /* Not a column */
-    thdr = thdr_alloc_and_init(ip, TA_INT, n, elems, 0);
+    thdr = thdr_alloc_and_init(ip, TA_INDEX, n, elems, 0);
     if (thdr) {
         if (want_sorted) {
-            qsort(THDRELEMPTR(thdr, int, 0), thdr->used, sizeof(int), intcmp);
+            qsort(THDRELEMPTR(thdr, Tcl_Size, 0), thdr->used, sizeof(Tcl_Size), tclsizecmp);
             thdr->sort_order = THDR_SORTED_ASCENDING;
         }
         thdr->nrefs++;
@@ -4494,15 +4525,15 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
 {
     thdr_t *psrc;
     thdr_t *thdr;
-    int count, index, bound, span_first;
-    int *pindex, *end;
+    Tcl_Size count, index, bound, span_first;
+    Tcl_Size *pindex, *end;
     Tcl_Obj *tcol;
     void *srcbase, *thdrbase;
     span_t *span;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INDEX);
     count = pindices->used;
-    
+
     if (tcol_convert(ip, osrc) != TCL_OK)
         return NULL;
 
@@ -4558,7 +4589,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
         }                                                               \
     } while (0)
 
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + count;
     span = OBJTHDRSPAN(osrc);
     if (span) {
@@ -4573,10 +4604,10 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
         {
             ba_t *srcbaP = THDRELEMPTR(psrc, ba_t, 0);
             ba_t *baP = thdrbase;
-            int i;
+            Tcl_Size i;
             if (fmt == TA_FORMAT_TARRAY) {
                 for (i = 0; pindex < end; ++i, ++pindex) {
-                    index = *pindex; 
+                    index = *pindex;
                     if (index < 0 || index >= bound)
                         goto index_error;
                     ba_put(baP, i, ba_get(srcbaP, span_first+index));
@@ -4584,7 +4615,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 thdr->used = count;             \
             } else {
                 for (i = 0; pindex < end; ++i, ++pindex) {
-                    index = *pindex; 
+                    index = *pindex;
                     if (index < 0 || index >= bound)
                         goto index_error;
                     if (fmt == TA_FORMAT_DICT)
@@ -4678,11 +4709,12 @@ index_error:   /* index should hold the current index in error */
 }
 
 /* Trims the leading or end elements of a column. See asserts for conditions */
-TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
+TCL_RESULT
+tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Size low, Tcl_Size count)
 {
     thdr_t *thdr;
-    int current_count, offset;
-    
+    Tcl_Size current_count, offset;
+
     TA_ASSERT(! Tcl_IsShared(tcol));
     TA_ASSERT(low >= 0);
     TA_ASSERT(tcol_affirm(tcol));
@@ -4703,9 +4735,9 @@ TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
 
     if ((low+count) > current_count)
         count = current_count - low;
-    
+
     thdr = OBJTHDR(tcol);
-    
+
     if (low == 0) {
         /* Trimming from front */
         offset = count;
@@ -4713,7 +4745,7 @@ TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
         /* Trimming from back */
         offset = 0;
     }
-    
+
     tcol_replace_intrep(tcol, thdr, span_alloc(OBJTHDRFIRST(tcol)+offset, current_count - count));
     TA_ASSERT(tcol_check);
     return TCL_OK;
@@ -4723,7 +4755,7 @@ TCL_RESULT tcol_trim_end(Tcl_Interp *ip, Tcl_Obj *tcol, int low, int count)
 TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
                         Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
-    int low, count, current_count;
+    Tcl_Size low, count, current_count;
     int status;
     thdr_t *thdr;
 
@@ -4732,7 +4764,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
     current_count = tcol_occupancy(tcol);
-    
+
     if (indexb) {
         /* Delete a range. */
         status = ta_fix_range_bounds(ip, current_count, indexa,
@@ -4745,7 +4777,7 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
            return column as is */
         if (current_count == 0 || count == 0)
             return TCL_OK;
-        
+
         /* If we are deleting from the front or the back we can just
            adjust the span */
         if (low == 0 || (low+count) >= current_count) {
@@ -4789,10 +4821,10 @@ TCL_RESULT tcol_delete(Tcl_Interp *ip, Tcl_Obj *tcol,
 }
 
 TCL_RESULT tcol_insert_elem(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, int count) 
+                            Tcl_Obj *opos, Tcl_Size count) 
 {
     int status;
-    int pos, used;
+    Tcl_Size pos, used;
     TA_ASSERT(! Tcl_IsShared(tcol));
     if ((status = tcol_convert(ip, tcol)) == TCL_OK) {
         used = tcol_occupancy(tcol);
@@ -4831,7 +4863,7 @@ TCL_RESULT tcol_inject_elems(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
 TCL_RESULT tcol_fill_obj(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *ovalue,
                          Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
-    int low, count, nelems;
+    Tcl_Size low, count, nelems;
     int status;
     ta_value_t tav;
 
@@ -4897,7 +4929,7 @@ TCL_RESULT tcol_reverse(Tcl_Interp *ip, Tcl_Obj *tcol)
 
     thdr = OBJTHDR(tcol);
     span = OBJTHDRSPAN(tcol);
-    
+
     if (span || thdr_shared(thdr)) {
         thdr = thdr_clone_reversed(ip, thdr, 0, span);
         if (thdr == NULL)
@@ -4966,7 +4998,6 @@ int ta_obj_compare(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 }
 
 
-/* Note - na, nb are in BYTES, not in UTF8 CHARS */
 int ta_utf8_equal(char *a, char *b, int ignorecase)
 {
     /* TBD - check first letter ? But be careful of case-insensitivity*/
@@ -5006,7 +5037,7 @@ int ta_utf8_equal(char *a, char *b, int ignorecase)
 int ta_obj_equal(Tcl_Obj *oaP, Tcl_Obj *obP, int ignorecase)
 {
     char *a, *b;
-    int alen, blen;
+    Tcl_Size alen, blen;
 
     /* TBD - optimize for when both are table or columns */
     a = Tcl_GetStringFromObj(oaP, &alen);
@@ -5023,8 +5054,8 @@ TCL_RESULT tcol_copy_thdr(Tcl_Interp *ip, Tcl_Obj *tcol,
                           Tcl_Obj *ofirst, /* NULL -> end */
                           int insert)
 {
-    int first, status, cur_used;
-    int src_first, count;
+    Tcl_Size first, cur_used, src_first, count;
+    int status;
     
     TA_ASSERT(! Tcl_IsShared(tcol));
     
@@ -5061,12 +5092,11 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 {
     int status;
     Tcl_Obj **values;
-    int nvalues;
-    int n, cur_used;
+    Tcl_Size nvalues, n, cur_used;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
-    /* 
+    /*
      * Note on reference counting / shimmering (related to Bug 20)
      *  - tcol is expected to be unshared so no need to worry about that.
      *  - ovalues and ofirst might point to the same object. Thus
@@ -5077,7 +5107,6 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
      */
     if ((status = tcol_convert(ip, tcol)) != TCL_OK)
         return status;
-    
 
     cur_used = tcol_occupancy(tcol);
     n = cur_used;
@@ -5104,7 +5133,7 @@ TCL_RESULT tcol_put_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                                    n, nvalues, values, insert);
         }
     }
-    
+
     return status;
 }
 
@@ -5112,11 +5141,11 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
                            Tcl_Obj *ovaluelist,
                            Tcl_Obj *oindices)
 {
-    int new_size;
+    Tcl_Size new_size;
+    Tcl_Size nvalues;
     int status;
     thdr_t *pindices;
     Tcl_Obj **ovalues;
-    int nvalues;
 
     TA_ASSERT(! Tcl_IsShared(tcol));
 
@@ -5156,7 +5185,7 @@ TCL_RESULT tcol_place_objs(Tcl_Interp *ip, Tcl_Obj *tcol,
 TCL_RESULT tcol_place_indices(Tcl_Interp *ip, Tcl_Obj *tcol, Tcl_Obj *osrc,
                               Tcl_Obj *oindices)
 {
-    int new_size;
+    Tcl_Size new_size;
     int status;
     thdr_t *pindices, *psrc;
     span_t *src_span;
@@ -5236,7 +5265,7 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
         thdr_decr_refs(pindices);
     } else {
         /* Range LOW HIGH */
-        int low, count;
+        Tcl_Size low, count;
         status = ta_fix_range_bounds(ip, tcol_occupancy(tcol),
                                      objv[objc-2], objv[objc-1],
                                      &low, &count);
@@ -5256,7 +5285,8 @@ TCL_RESULT tcol_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
 TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
                            int objc, Tcl_Obj *const objv[])
 {
-    int i, opt, range_start, range_count;
+    int opt;
+    Tcl_Size range_start, range_count;
     int ignore_case = 0, want_indices = 0;
     TCL_RESULT status;
     static const char *tcol_minmax_switches[] = {
@@ -5265,15 +5295,15 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
     enum tcol_minmax_switches_e {
         TA_MINMAX_OPT_RANGE, TA_MINMAX_OPT_INDICES, TA_MINMAX_OPT_NOCASE
     };
-    int min_index, max_index, tcol_count;
+    Tcl_Size i, min_index, max_index, tcol_count;
     thdr_t *thdr;
     Tcl_Obj *objs[2];
     Tcl_Obj *tcol;
     span_t *span;
 
     if (objc < 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "?options? column");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "?options? column");
+        return TCL_ERROR;
     }
 
     tcol = objv[objc-1];
@@ -5344,7 +5374,8 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                                 int objc, Tcl_Obj *const objv[])
 {
     thdr_t *thdr, *buckets, *lows_thdr;
-    int opt, nbuckets, first, count;
+    int opt;
+    Tcl_Size nbuckets, first, count;
     ta_value_t minval, maxval, step, last;
     span_t *span;
     static const char *cmds[] = {
@@ -5437,12 +5468,12 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                     goto invalid_bucket_interval;
                 last.wval = (int64_t) u64;
             } else  {
-                /* Overflow not possible since INT_MIN < minval < 0
+                /* Overflow not possible since INT64_MIN < minval < 0
                    and its magnitude is greater than u64 */
                 last.wval = minval.wval + u64;
             }
         }
-        
+
         switch (thdr->type) {
         case TA_BYTE:
             /* Check the first and last lower bounds */
@@ -5454,7 +5485,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 if ((step.wval-1) == UINT8_MAX && nbuckets == 1) {
                     /* Deals with edge cast min=0, step=256 */
                     TA_ASSERT(last.wval == minval.wval);
-                } else 
+                } else
                     goto invalid_bucket_interval;
             }
             step.ucval  = (unsigned char) step.wval;
@@ -5471,7 +5502,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 goto invalid_bucket_interval;
             minval.ival = (int) minval.wval;
             last.ival  = (int) last.wval;
-            /* NOTE: check against UINT32_MAX, not INT32_MAX as 
+            /* NOTE: check against UINT32_MAX, not INT32_MAX as
                step needs to be unsigned to cover full signed range */
             if (step.wval > UINT32_MAX) {
                 if ((step.wval-1) == UINT32_MAX && nbuckets == 1) {
@@ -5528,11 +5559,11 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
 #define FILL_LOWS(type_, field_)                        \
     do {                                                \
         type_ *plows;                                   \
-        int i;                                          \
+        Tcl_Size i;                                     \
         plows = THDRELEMPTR(lows_thdr, type_, 0);       \
         for (i = 0; i < nbuckets; ++i)                  \
-            plows[i] = minval.field_ + i*step.field_;    \
-        lows_thdr->used = nbuckets;                     \
+            plows[i] = minval.field_ + i * step.field_; \
+        lows_thdr->used       = nbuckets;               \
         lows_thdr->sort_order = THDR_SORTED_ASCENDING;  \
     } while (0)
 
@@ -5545,48 +5576,52 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
  */
 #define OUTSIDE_LIMITS(i_, field_) (pdata[i_] < minval.field_ || pdata[i_] > maxval.field_)
 
-#define BUCKET_INDEX(val_, field_, unsigned_type_, step_field_)         \
-    (                                                                   \
-        ((val_) > 0 && minval.field_ < 0) ?                             \
-        ((((unsigned_type_)(val_)) + (- minval.field_)) / step.step_field_) : \
-        (((val_) - minval.field_) / step.step_field_)                   \
-        )
+#define BUCKET_INDEX(val_, field_, unsigned_type_, step_field_)      \
+    ((Tcl_Size)(((val_) > 0 && minval.field_ < 0)                    \
+                    ? ((((unsigned_type_)(val_)) + (-minval.field_)) \
+                       / step.step_field_)                           \
+                    : (((val_) - minval.field_) / step.step_field_)))
 
 #define FILL_COUNTS(type_, field_, unsigned_type_, step_field_)         \
     do {                                                                \
-        int i, bucket_index;                                            \
+        Tcl_Size i, bucket_index;                                       \
         type_ *pdata;                                                   \
-        int *pbucket;                                                   \
-        buckets = thdr_alloc(ip, TA_INT, nbuckets);                     \
-        if (buckets == NULL) goto error_return;                         \
+        Tcl_Size *pbucket;                                              \
+        buckets = thdr_alloc(ip, TA_INDEX, nbuckets);                   \
+        if (buckets == NULL)                                            \
+            goto error_return;                                          \
         buckets->used = nbuckets;                                       \
         thdr_clear(buckets);                                            \
-        pbucket = THDRELEMPTR(buckets, int, 0);                         \
-        pdata = THDRELEMPTR(thdr, type_, first);                        \
+        pbucket = THDRINDEXELEMPTR(buckets, 0);                         \
+        pdata   = THDRELEMPTR(thdr, type_, first);                      \
         if (nbuckets == 1) {                                            \
             /* Special case. Note step here NOT accurate so loop */     \
             /* below will not work */                                   \
             for (i = 0; i < count; ++i) {                               \
-                if (OUTSIDE_LIMITS(i, field_)) continue;                \
+                if (OUTSIDE_LIMITS(i, field_))                          \
+                    continue;                                           \
                 pbucket[0] += 1;                                        \
             }                                                           \
-        } else {                                                        \
+        }                                                               \
+        else {                                                          \
             for (i = 0; i < count; ++i) {                               \
-                if (OUTSIDE_LIMITS(i, field_)) continue;                \
+                if (OUTSIDE_LIMITS(i, field_))                          \
+                    continue;                                           \
                 if (pdata[i] > last.field_)                             \
-                    bucket_index = nbuckets-1;                          \
+                    bucket_index = nbuckets - 1;                        \
                 else                                                    \
-                    bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+                    bucket_index = BUCKET_INDEX(                        \
+                        pdata[i], field_, unsigned_type_, step_field_); \
                 if (bucket_index < 0 && bucket_index >= nbuckets)       \
                     goto bucket_error;                                  \
                 pbucket[bucket_index] += 1;                             \
             }                                                           \
         }                                                               \
-    } while (0)                                                         \
+    } while (0)
 
 #define FILL_SUMS(type_, field_, sum_type_, unsigned_type_, step_field_) \
     do {                                                                \
-        int i, bucket_index;                                            \
+        Tcl_Size i, bucket_index;                                            \
         type_ *pdata;                                                   \
         sum_type_ *pbucket;                                             \
         buckets = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbuckets); \
@@ -5608,7 +5643,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
                 if (pdata[i] > last.field_)                             \
                     bucket_index = nbuckets-1;                          \
                 else                                                    \
-                    bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
+                    bucket_index = BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
                 if (bucket_index < 0 && bucket_index >= nbuckets)       \
                     goto bucket_error;                                  \
                 /* TBD - overflow checks? */                            \
@@ -5617,80 +5652,89 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         }                                                               \
     } while (0)
 
-#define FILL_INDICES(type_, field_, unsigned_type_, step_field_)         \
-    do {                                                                \
-        int i, bucket_index, initial_size;                              \
-        type_ *pdata;                                                   \
-        Tcl_Obj **pbucket;                                              \
-        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                     \
-        if (buckets == NULL) goto error_return;                         \
-        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                   \
-        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {   \
-            pbucket[i] = tcol_new(thdr_alloc(ip, TA_INT, initial_size)); \
-            if (pbucket[i] == NULL)                                     \
-                goto error_return;                                      \
-            Tcl_IncrRefCount(pbucket[i]);                               \
-            buckets->used += 1;                                         \
-        }                                                               \
-        pdata = THDRELEMPTR(thdr, type_, first);                        \
-        for (i = 0; i < count; ++i) {                                   \
-            thdr_t *inner_thdr;                                         \
-            if (OUTSIDE_LIMITS(i, field_)) continue;                    \
-            if (nbuckets == 1)                                          \
-                bucket_index = 0; /* step possible invalid */           \
-            else if (pdata[i] > last.field_)                            \
-                bucket_index = nbuckets-1;                              \
-            else                                                        \
-                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
-            if (bucket_index < 0 && bucket_index >= nbuckets)           \
-                goto bucket_error;                                      \
-            inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
-            if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
-                != TCL_OK)                                              \
-                goto error_return;                                      \
-            inner_thdr = OBJTHDR(pbucket[bucket_index]); /* Reload, might have changed */ \
-            *THDRELEMPTR(inner_thdr, int, inner_thdr->used) = i;        \
-            inner_thdr->used += 1;                                      \
-        }                                                               \
+#define FILL_INDICES(type_, field_, unsigned_type_, step_field_)           \
+    do {                                                                   \
+        Tcl_Size i, bucket_index, initial_size;                            \
+        type_ *pdata;                                                      \
+        Tcl_Obj **pbucket;                                                 \
+        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                        \
+        if (buckets == NULL)                                               \
+            goto error_return;                                             \
+        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                      \
+        for (i = 0, initial_size = count / nbuckets; i < nbuckets; ++i) {  \
+            pbucket[i] = tcol_new(thdr_alloc(ip, TA_INDEX, initial_size)); \
+            if (pbucket[i] == NULL)                                        \
+                goto error_return;                                         \
+            Tcl_IncrRefCount(pbucket[i]);                                  \
+            buckets->used += 1;                                            \
+        }                                                                  \
+        pdata = THDRELEMPTR(thdr, type_, first);                           \
+        for (i = 0; i < count; ++i) {                                      \
+            thdr_t *inner_thdr;                                            \
+            if (OUTSIDE_LIMITS(i, field_))                                 \
+                continue;                                                  \
+            if (nbuckets == 1)                                             \
+                bucket_index = 0; /* step possible invalid */              \
+            else if (pdata[i] > last.field_)                               \
+                bucket_index = nbuckets - 1;                               \
+            else                                                           \
+                bucket_index = BUCKET_INDEX(                               \
+                    pdata[i], field_, unsigned_type_, step_field_);        \
+            if (bucket_index < 0 && bucket_index >= nbuckets)              \
+                goto bucket_error;                                         \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]);                   \
+            if (tcol_make_modifiable(                                      \
+                    ip, pbucket[bucket_index], 1 + inner_thdr->used, 0)    \
+                != TCL_OK)                                                 \
+                goto error_return;                                         \
+            inner_thdr = OBJTHDR(                                          \
+                pbucket[bucket_index]); /* Reload, might have changed */   \
+            *THDRINDEXELEMPTR(inner_thdr, inner_thdr->used) = i;           \
+            inner_thdr->used += 1;                                         \
+        }                                                                  \
     } while (0)
 
-#define FILL_VALUES(type_, field_, unsigned_type_, step_field_)         \
-    do {                                                                \
-        int i, bucket_index, initial_size;                              \
-        type_ *pdata;                                                   \
-        Tcl_Obj **pbucket;                                              \
-        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                     \
-        if (buckets == NULL) goto error_return;                         \
-        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                   \
-        for (i = 0, initial_size=count/nbuckets; i < nbuckets; ++i) {   \
+#define FILL_VALUES(type_, field_, unsigned_type_, step_field_)              \
+    do {                                                                     \
+        Tcl_Size i, bucket_index, initial_size;                              \
+        type_ *pdata;                                                        \
+        Tcl_Obj **pbucket;                                                   \
+        buckets = thdr_alloc(ip, TA_ANY, nbuckets);                          \
+        if (buckets == NULL)                                                 \
+            goto error_return;                                               \
+        pbucket = THDRELEMPTR(buckets, Tcl_Obj *, 0);                        \
+        for (i = 0, initial_size = count / nbuckets; i < nbuckets; ++i) {    \
             pbucket[i] = tcol_new(thdr_alloc(ip, thdr->type, initial_size)); \
-            if (pbucket[i] == NULL)                                     \
-                goto error_return;                                      \
-            Tcl_IncrRefCount(pbucket[i]);                               \
-            buckets->used += 1;                                         \
-        }                                                               \
-        pdata = THDRELEMPTR(thdr, type_, first);                        \
-        for (i = 0; i < count; ++i) {                                   \
-            thdr_t *inner_thdr;                                         \
-            if (OUTSIDE_LIMITS(i, field_)) continue;                    \
-            if (nbuckets == 1)                                          \
-                bucket_index = 0; /* step possible invalid */           \
-            else if (pdata[i] > last.field_)                          \
-                bucket_index = nbuckets-1;                              \
-            else                                                      \
-                bucket_index = (int) BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
-            if (bucket_index < 0 && bucket_index >= nbuckets)           \
-                goto bucket_error;                                      \
-            inner_thdr = OBJTHDR(pbucket[bucket_index]);                \
-            if (tcol_make_modifiable(ip, pbucket[bucket_index], 1+inner_thdr->used, 0) \
-                != TCL_OK)                                              \
-                goto error_return;                                      \
-            inner_thdr = OBJTHDR(pbucket[bucket_index]); /* Reload, might have changed */ \
-            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = pdata[i]; \
-            inner_thdr->used += 1;                                      \
-        }                                                               \
+            if (pbucket[i] == NULL)                                          \
+                goto error_return;                                           \
+            Tcl_IncrRefCount(pbucket[i]);                                    \
+            buckets->used += 1;                                              \
+        }                                                                    \
+        pdata = THDRELEMPTR(thdr, type_, first);                             \
+        for (i = 0; i < count; ++i) {                                        \
+            thdr_t *inner_thdr;                                              \
+            if (OUTSIDE_LIMITS(i, field_))                                   \
+                continue;                                                    \
+            if (nbuckets == 1)                                               \
+                bucket_index = 0; /* step possible invalid */                \
+            else if (pdata[i] > last.field_)                                 \
+                bucket_index = nbuckets - 1;                                 \
+            else                                                             \
+                bucket_index = BUCKET_INDEX(                                 \
+                    pdata[i], field_, unsigned_type_, step_field_);          \
+            if (bucket_index < 0 && bucket_index >= nbuckets)                \
+                goto bucket_error;                                           \
+            inner_thdr = OBJTHDR(pbucket[bucket_index]);                     \
+            if (tcol_make_modifiable(                                        \
+                    ip, pbucket[bucket_index], 1 + inner_thdr->used, 0)      \
+                != TCL_OK)                                                   \
+                goto error_return;                                           \
+            inner_thdr = OBJTHDR(                                            \
+                pbucket[bucket_index]); /* Reload, might have changed */     \
+            *THDRELEMPTR(inner_thdr, type_, inner_thdr->used) = pdata[i];    \
+            inner_thdr->used += 1;                                           \
+        }                                                                    \
     } while (0)
-
 
     switch (thdr->type) {
     case TA_BYTE:
@@ -5743,7 +5787,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     objs[0] = tcol_new(lows_thdr);
     objs[1] = tcol_new(buckets);
-    
+
     Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
     return TCL_OK;
 
@@ -5771,10 +5815,9 @@ error_return:
 TCL_RESULT
 tcol_create_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
-    int init_size;
+    Tcl_Size nelems, init_size;
     unsigned char tatype;
     Tcl_Obj **elems;
-    int nelems;
     thdr_t *thdrP;
     Tcl_Obj *o;
 
@@ -5796,7 +5839,7 @@ tcol_create_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
         }
         if (tcol_convert(NULL, objv[2]) == TCL_OK) {
             span_t *span;
-            int first, count;
+            Tcl_Size first, count;
             thdr_t *thdr2;
             o = objv[2];
             if (tcol_type(o) == tatype) {
@@ -5809,8 +5852,8 @@ tcol_create_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
                AND no string rep just flip the thdr header */
             if (! Tcl_IsShared(o) && o->bytes == NULL) {
                 if (thdrP->nrefs == 1) {
-                    if ((thdrP->type == TA_INT && tatype == TA_UINT) ||
-		        (thdrP->type == TA_UINT && tatype == TA_INT)) {
+                    if ((thdrP->type == TA_INT && tatype == TA_UINT)
+                        || (thdrP->type == TA_UINT && tatype == TA_INT)) {
                         thdrP->type = tatype;
                         thdrP->sort_order = THDR_UNSORTED;
                         Tcl_SetObjResult(ip, o);
@@ -5865,8 +5908,8 @@ tcol_delete_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TARRAY (INDEXLIST | LOW ?HIGH?)");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TARRAY (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
     }
 
     tcol = objv[1];
@@ -5886,8 +5929,8 @@ tcol_vdelete_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TARRAYVAR (INDEXLIST | LOW ?HIGH?)");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TARRAYVAR (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
     }
 
     tcol = Tcl_ObjGetVar2(ip, objv[1], NULL, TCL_LEAVE_ERR_MSG);
@@ -5905,12 +5948,12 @@ TCL_RESULT
 tcol_size_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
     if (objc != 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
     }
     if (tcol_convert(ip, objv[1]) != TCL_OK)
         return TCL_ERROR;
-    Tcl_SetObjResult(ip, Tcl_NewIntObj(tcol_occupancy(objv[1])));
+    Tcl_SetObjResult(ip, Tcl_NewSizeIntObj(tcol_occupancy(objv[1])));
     return TCL_OK;
 }
 
@@ -5918,8 +5961,8 @@ TCL_RESULT
 tcol_type_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
     if (objc != 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
     }
     if (tcol_convert(ip, objv[1]) != TCL_OK)
         return TCL_ERROR;
@@ -5933,8 +5976,8 @@ tcol_equal_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
     int equal;
     if (objc != 3) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
     }
     if (tcol_convert(ip, objv[1]) != TCL_OK || tcol_convert(ip, objv[2]) != TCL_OK)
         return TCL_ERROR;
@@ -5946,15 +5989,15 @@ tcol_equal_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 TCL_RESULT
 tcol_cast_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
-    int count, first;
+    Tcl_Size count, first;
     unsigned char tatype;
     thdr_t *thdr, *thdr2;
     Tcl_Obj *o;
     span_t *span;
 
     if (objc != 3) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TYPE COLUMN");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TYPE COLUMN");
+        return TCL_ERROR;
     }
 
     if (ta_parse_type(ip, objv[1], &tatype) != TCL_OK)
@@ -6014,11 +6057,11 @@ tcol_cast_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 TCL_RESULT
 tcol_index_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
-    int ix;
+    Tcl_Size ix;
     Tcl_Obj *o;
     if (objc != 3) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN INDEX");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN INDEX");
+        return TCL_ERROR;
     }
     if (ta_convert_index(ip, objv[2], &ix, tcol_occupancy(objv[1])-1, 0, tcol_occupancy(objv[1])-1) != TCL_OK)
         return TCL_ERROR;
@@ -6050,8 +6093,8 @@ tcol_sort_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     Tcl_Obj *otarget = NULL;
 
     if (objc < 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "?options? tarray");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "?options? tarray");
+        return TCL_ERROR;
     }
 
     if ((status = tcol_parse_sort_options(ip, objc, objv, &flags, &otarget)) != TCL_OK)
@@ -6117,11 +6160,11 @@ tcol_bitsset_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 
     thdr_t *thdrP;
     span_t *span;
-    int count, first;
+    Tcl_Size count, first;
 
     if (objc != 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
     }
     if (tcol_convert(ip, tcol) != TCL_OK)
         return TCL_ERROR;
@@ -6153,15 +6196,15 @@ tcol_insert_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *tcol;
     int status;
-    int count;
+    Tcl_Size count;
 
     if (objc != 4 && objc != 5) {
-    	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUE POSITION ?COUNT?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUE POSITION ?COUNT?");
+        return TCL_ERROR;
     }
 
     if (objc == 5) {
-        status = ta_get_int_from_obj(ip, objv[4], &count);
+        status = ta_get_count_from_obj(ip, objv[4], 1, &count);
         if (status != TCL_OK)
             return status;
     } else
@@ -6180,7 +6223,7 @@ tcol_vinsert_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *tcol;
     int status;
-    int count;
+    Tcl_Size count;
 
     if (objc != 4 && objc != 5) {
     	Tcl_WrongNumArgs(ip, 1, objv, "COLUMNVAR VALUE POSITION ?COUNT?");
@@ -6188,7 +6231,7 @@ tcol_vinsert_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     }
 
     if (objc == 5) {
-        status = ta_get_int_from_obj(ip, objv[4], &count);
+        status = ta_get_count_from_obj(ip, objv[4], 1, &count);
         if (status != TCL_OK)
             return status;
     } else
@@ -6252,8 +6295,8 @@ tcol_put_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc < 3 || objc > 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUES ?FIRST?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUES ?FIRST?");
+        return TCL_ERROR;
     }
 
     tcol = objv[1];
@@ -6282,8 +6325,8 @@ tcol_vput_cmd (void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLVAR VALUES ?FIRST?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLVAR VALUES ?FIRST?");
+        return TCL_ERROR;
     }
     varObj = objv[1];
     valuesObj = objv[2];
@@ -6315,8 +6358,8 @@ tcol_place_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUES INDICES");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUES INDICES");
+        return TCL_ERROR;
     }
 
     tcol = objv[1];
@@ -6341,8 +6384,8 @@ tcol_vplace_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLVAR VALUES INDICES");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLVAR VALUES INDICES");
+        return TCL_ERROR;
     }
 
     varObj = objv[1];
@@ -6369,8 +6412,8 @@ tcol_fill_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUE (INDEXLIST | LOW ?HIGH?)");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN VALUE (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
     }
 
     tcol = objv[1];
@@ -6390,8 +6433,9 @@ tcol_vfill_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     int status;
 
     if (objc != 4 && objc != 5) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TCOLUMNVAR VALUE (INDEXLIST | LOW ?HIGH?)");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(
+            ip, 1, objv, "TCOLUMNVAR VALUE (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
     }
 
     tcol = Tcl_ObjGetVar2(ip, objv[1], NULL, TCL_LEAVE_ERR_MSG);
@@ -6411,8 +6455,8 @@ tcol_reverse_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     TCL_RESULT status;
     Tcl_Obj *tcol;
     if (objc != 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLUMN");
+        return TCL_ERROR;
     }
     tcol = objv[1];
     if (Tcl_IsShared(tcol))
@@ -6429,8 +6473,8 @@ tcol_vreverse_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     Tcl_Obj *tcol;
     TCL_RESULT status;
     if (objc != 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "COLVAR");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "COLVAR");
+        return TCL_ERROR;
     }
     ovar = objv[1];
     tcol = Tcl_ObjGetVar2(ip, ovar, NULL, TCL_LEAVE_ERR_MSG);
@@ -6451,18 +6495,18 @@ tcol_intersect3_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[]
     Tcl_Obj *acol, *bcol;
     thdr_t *athdr, *bthdr;
     span_t *aspan, *bspan;
-    int     afirst, acount, bfirst, bcount;
+    Tcl_Size afirst, acount, bfirst, bcount, nmin;
     thdr_t *aintersectb=NULL, *aminusb=NULL, *bminusa=NULL;
     int atype;
     unsigned char order, a_current_order, b_current_order;
     int free_acol = 0, free_bcol = 0;
     TCL_RESULT status = TCL_ERROR;
-    int sort_flags, nmin, nocase = 0;
+    int sort_flags, nocase = 0;
     Tcl_Obj *results[3];
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "?-nocase? COLUMNA COLUMNB");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "?-nocase? COLUMNA COLUMNB");
+        return TCL_ERROR;
     }
 
     if (objc == 4) {
@@ -6552,7 +6596,7 @@ tcol_intersect3_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[]
                             order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
                         else if (SORT_ORDER_IS_ASCENDING(a_current_order))
                             order = nocase ? THDR_SORTED_ASCENDING_NOCASE : THDR_SORTED_ASCENDING;
-                    }  
+                    }
                     if (order == 0) {
                         if (SORT_ORDER_IS_DESCENDING(b_current_order))
                             order = nocase ? THDR_SORTED_DESCENDING_NOCASE : THDR_SORTED_DESCENDING;
@@ -6584,7 +6628,7 @@ tcol_intersect3_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[]
             }
         }
     }
-    
+
     if (atype != TA_BOOLEAN) {
         switch (order) {
         case THDR_SORTED_ASCENDING:         sort_flags = 0; break;
@@ -6595,7 +6639,7 @@ tcol_intersect3_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[]
             sort_flags = 0; /* Keep gcc happy */
             Tcl_Panic("Unexpected sort order %d in function intersect", order);
         }
-                                                                        
+
         if (a_current_order != order) {
             /* a needs to be sorted. Needs to be unshared to do so */
             if (Tcl_IsShared(acol)) {
@@ -6642,66 +6686,72 @@ tcol_intersect3_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[]
 
     afirst = aspan ? aspan->first : 0;
     bfirst = bspan ? bspan->first : 0;
-    
+
     /* IMPORTANT - INTERSECT must NOT error out else ref counts for
        type TA_ANY will be broken as they are updated later */
 #define EQ(x_, y_) ((x_) == (y_))
 #define LT(x_, y_) ((x_) < (y_))
-#define INTERSECT(t_)                                                   \
-    do {                                                                \
-        t_ *pintersect = THDRELEMPTR(aintersectb, t_, 0);               \
-        t_ *paminusb = THDRELEMPTR(aminusb, t_, 0);                     \
-        t_ *pbminusa = THDRELEMPTR(bminusa, t_, 0);                     \
-        t_ *a = THDRELEMPTR(athdr, t_, afirst);                         \
-        t_ *b = THDRELEMPTR(bthdr, t_, bfirst);                         \
-        t_ *aend = a + acount;                                     \
-        t_ *bend = b + bcount;                                     \
-                                                                        \
-        if (SORT_ORDER_IS_ASCENDING(order)) {                           \
-            while (a < aend && b < bend) {                              \
-                if (EQ(*a, *b)) {                                       \
-                    *pintersect++ = *a;                                 \
-                    ++a;                                                \
-                    ++b;                                                \
-                } else if (LT(*a, *b)) {                                \
-                    *paminusb++ = *a++;                                 \
-                } else {                                                \
-                    *pbminusa++ = *b++;                                 \
-                }                                                       \
-            }                                                           \
-        } else {                                                        \
-            /* Sorted in descending order */                            \
-            while (a < aend && b < bend) {                              \
-                if (EQ(*a, *b)) {                                       \
-                    *pintersect++ = *a;                                 \
-                    ++a;                                                \
-                    ++b;                                                \
-                } else if (LT(*a, *b)) {                                \
-                    *pbminusa++ = *b++;                                 \
-                } else {                                                \
-                    *paminusb++ = *a++;                                 \
-                }                                                       \
-            }                                                           \
-        }                                                               \
-                                                                        \
-        /* Now copy left over elements */                               \
-        while (a < aend) {                                              \
-            *paminusb++ = *a++;                                         \
-        }                                                               \
-        while (b < bend) {                                              \
-            *pbminusa++ = *b++;                                         \
-        }                                                               \
-                                                                        \
-        aintersectb->used = pintersect - THDRELEMPTR(aintersectb, t_, 0); \
-        aminusb->used = paminusb - THDRELEMPTR(aminusb, t_, 0);         \
-        bminusa->used = pbminusa - THDRELEMPTR(bminusa, t_, 0);         \
+#define INTERSECT(t_)                                                       \
+    do {                                                                    \
+        t_ *pintersect = THDRELEMPTR(aintersectb, t_, 0);                   \
+        t_ *paminusb   = THDRELEMPTR(aminusb, t_, 0);                       \
+        t_ *pbminusa   = THDRELEMPTR(bminusa, t_, 0);                       \
+        t_ *a          = THDRELEMPTR(athdr, t_, afirst);                    \
+        t_ *b          = THDRELEMPTR(bthdr, t_, bfirst);                    \
+        t_ *aend       = a + acount;                                        \
+        t_ *bend       = b + bcount;                                        \
+                                                                            \
+        if (SORT_ORDER_IS_ASCENDING(order)) {                               \
+            while (a < aend && b < bend) {                                  \
+                if (EQ(*a, *b)) {                                           \
+                    *pintersect++ = *a;                                     \
+                    ++a;                                                    \
+                    ++b;                                                    \
+                }                                                           \
+                else if (LT(*a, *b)) {                                      \
+                    *paminusb++ = *a++;                                     \
+                }                                                           \
+                else {                                                      \
+                    *pbminusa++ = *b++;                                     \
+                }                                                           \
+            }                                                               \
+        }                                                                   \
+        else {                                                              \
+            /* Sorted in descending order */                                \
+            while (a < aend && b < bend) {                                  \
+                if (EQ(*a, *b)) {                                           \
+                    *pintersect++ = *a;                                     \
+                    ++a;                                                    \
+                    ++b;                                                    \
+                }                                                           \
+                else if (LT(*a, *b)) {                                      \
+                    *pbminusa++ = *b++;                                     \
+                }                                                           \
+                else {                                                      \
+                    *paminusb++ = *a++;                                     \
+                }                                                           \
+            }                                                               \
+        }                                                                   \
+                                                                            \
+        /* Now copy left over elements */                                   \
+        while (a < aend) {                                                  \
+            *paminusb++ = *a++;                                             \
+        }                                                                   \
+        while (b < bend) {                                                  \
+            *pbminusa++ = *b++;                                             \
+        }                                                                   \
+                                                                            \
+        aintersectb->used =                                                 \
+            (Tcl_Size)(pintersect - THDRELEMPTR(aintersectb, t_, 0));       \
+        aminusb->used = (Tcl_Size)(paminusb - THDRELEMPTR(aminusb, t_, 0)); \
+        bminusa->used = (Tcl_Size)(pbminusa - THDRELEMPTR(bminusa, t_, 0)); \
     } while (0)
 
     switch (atype) {
     case TA_BOOLEAN:
        {
-           int ones_in_a, ones_in_b, zeroes_in_a, zeroes_in_b;
-           int ones, zeroes;
+           Tcl_Size ones_in_a, ones_in_b, zeroes_in_a, zeroes_in_b;
+           Tcl_Size ones, zeroes;
            ba_t *pbits;
            ones_in_a = ba_count_ones(THDRELEMPTR(athdr, ba_t, 0), afirst, afirst+acount);
            ones_in_b = ba_count_ones(THDRELEMPTR(bthdr, ba_t, 0), bfirst, bfirst+bcount);

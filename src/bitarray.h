@@ -2,6 +2,7 @@
 #define BITARRAY_H
 
 #include <limits.h>             /* CHAR_BIT etc. */
+#include <stdint.h>
 
 #if !defined(BA_ASSERT)
 # ifdef BA_ENABLE_ASSERT
@@ -17,6 +18,12 @@
 #else
 # define LIT64X(x, suff) (x ## suff)
 # define LIT64(x) LIT64X(x, LLU)
+#endif
+
+#if defined(TCL_MAJOR_VERSION) && TCL_MAJOR_VERSION >= 9
+typedef Tcl_Size ba_off_t;
+#else
+typedef int ba_off_t;
 #endif
 
 /*
@@ -97,20 +104,20 @@
 # define BA_MASK_FFFF 0x0000FFFF
 #endif
 
-void ba_putn(ba_t *baP, int off, ba_t ba, int n);
-void ba_copy(ba_t *dst, int dst_off, const ba_t *src, int src_off, int len);
-void ba_fill(ba_t *baP, int off, int count, int ival);
-int ba_find(ba_t *baP, int bval, int offset, int count);
-int ba_count_ones(ba_t *baP, int off, int count);
-void ba_reverse(ba_t *baP, int off, int len);
-void ba_complement (ba_t *a, int offa, int count);
-void ba_conjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
-void ba_disjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
-void ba_xdisjunct (ba_t *a, int offa, ba_t *srcb, int offb, int count);
-int ba_equal (ba_t *a, int offa, ba_t *b, int offb, int count);
+void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, ba_off_t n);
+void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_off_t len);
+void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival);
+int ba_find(ba_t *baP, int bval, ba_off_t offset, ba_off_t count);
+int ba_count_ones(ba_t *baP, ba_off_t off, ba_off_t count);
+void ba_reverse(ba_t *baP, ba_off_t off, ba_off_t len);
+void ba_complement (ba_t *a, ba_off_t offa, ba_off_t count);
+void ba_conjunct (ba_t *a, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count);
+void ba_disjunct (ba_t *a, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count);
+void ba_xdisjunct (ba_t *a, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count);
+int ba_equal (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count);
 #ifdef NOTUSED
-void ba_conjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
-void ba_disjunct2 (ba_t *srca, int offa, ba_t *srcb, int offb, int count, ba_t *dst, int dstoff);
+void ba_conjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count, ba_t *dst, ba_off_t dstoff);
+void ba_disjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count, ba_t *dst, ba_off_t dstoff);
 #endif
 int ba_sanity_check(void);
 
@@ -123,7 +130,7 @@ BA_INLINE ba_t ba_position_mask(int pos)
 }
 
 /* Count bits in unit */
-BA_INLINE int ba_count_unit_ones(ba_t ba)
+BA_INLINE ba_off_t ba_count_unit_ones(ba_t ba)
 {
 #if BA_UNIT_SIZE == 32
     // See http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetNaive
@@ -152,7 +159,7 @@ BA_INLINE ba_t ba_merge_unit(ba_t a, ba_t b, ba_t mask)
 
 /* Caller should take care of case where there are not n bits
    valid at offset off */
-BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
+BA_INLINE ba_t ba_getn(const ba_t *baP, ba_off_t off, ba_off_t n)
 {
     BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
     baP += off / BA_UNIT_SIZE;
@@ -183,7 +190,7 @@ BA_INLINE ba_t ba_getn(const ba_t *baP, int off, int n)
 
 /* Caller should take care of case where there are not BA_UNIT_SIZE bits
    valid at offset off */
-BA_INLINE ba_t ba_get_unit(ba_t *baP, int off)
+BA_INLINE ba_t ba_get_unit(ba_t *baP, ba_off_t off)
 {
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
@@ -195,7 +202,7 @@ BA_INLINE ba_t ba_get_unit(ba_t *baP, int off)
 
 /* Caller should take care of case where there are not BA_UNIT_SIZE bits
    valid at offset off */
-BA_INLINE void ba_put_unit(ba_t *baP, int off, ba_t ba)
+BA_INLINE void ba_put_unit(ba_t *baP, ba_off_t off, ba_t ba)
 {
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
@@ -235,12 +242,12 @@ BA_INLINE ba_t ba_reverse_unit(ba_t ba)
 #endif
 }
 
-BA_INLINE int ba_get(ba_t *baP, int off)
+BA_INLINE int ba_get(ba_t *baP, ba_off_t off)
 {
     return (baP[off / BA_UNIT_SIZE] & BITPOSMASK(off % BA_UNIT_SIZE)) != 0;
 }
 
-BA_INLINE void ba_put(ba_t *baP, int off, int val)
+BA_INLINE void ba_put(ba_t *baP, ba_off_t off, int val)
 {
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
@@ -250,14 +257,14 @@ BA_INLINE void ba_put(ba_t *baP, int off, int val)
         *baP &= ~ BITPOSMASK(off);
 }
 
-BA_INLINE void ba_set(ba_t *baP, int off)
+BA_INLINE void ba_set(ba_t *baP, ba_off_t off)
 {
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
     *baP |= BITPOSMASK(off);
 }
 
-BA_INLINE void ba_reset(ba_t *baP, int off)
+BA_INLINE void ba_reset(ba_t *baP, ba_off_t off)
 {
     baP += off / BA_UNIT_SIZE;
     off = off % BA_UNIT_SIZE;
@@ -265,7 +272,7 @@ BA_INLINE void ba_reset(ba_t *baP, int off)
 }
 
 /* Find number bits set in a bit array */
-BA_INLINE int ba_count_zeroes(ba_t *baP,  int off, int count)
+BA_INLINE ba_off_t ba_count_zeroes(ba_t *baP,  ba_off_t off, ba_off_t count)
 {
     if (count <= off)
         return 0;
