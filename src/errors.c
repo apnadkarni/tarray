@@ -191,8 +191,9 @@ TCL_RESULT ta_limit_error(Tcl_Interp *ip, Tcl_WideInt req_count)
 {
     if (ip) {
         Tcl_Obj *ores;
-        char *fmt = "Requested array size (%" TCL_LL_MODIFIER "ld) greater than limit.";
-        if (req_count > TCL_SIZE_MAX || req_count < -TCL_SIZE_MAX) {
+        const char *fmt = "Requested array size (%ld) greater than limit.";
+
+        if (req_count > INT_MAX || req_count < INT_MIN) {
             /* Because Tcl_ObjPrintf as of 8.6.4 cannot print wides with %ld */
             Tcl_Obj *o = Tcl_NewWideIntObj(req_count);
             Tcl_IncrRefCount(o);
@@ -304,7 +305,7 @@ TCL_RESULT ta_conflicting_options_error(Tcl_Interp *ip, const char *optA, const 
 TCL_RESULT ta_column_index_error(Tcl_Interp *ip, Tcl_Size colindex)
 {
     if (ip) {
-        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index %" TCL_SIZE_MODIFIER "d out of bounds.", colindex));
+        Tcl_SetObjResult(ip, Tcl_ObjPrintf("Column index '%" TCL_SIZE_MODIFIER "d' out of bounds.", colindex));
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
     }
     return TCL_ERROR;
