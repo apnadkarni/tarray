@@ -7,10 +7,10 @@
 
 #include "tarray.h"
 
-tas_t *tas_alloc(int len)
+tas_t *tas_alloc(Tcl_Size len)
 {
     tas_t *ptas;
-    int sz;
+    Tcl_Size sz;
 
     TA_ASSERT(len >= 0);
 
@@ -22,10 +22,9 @@ tas_t *tas_alloc(int len)
     return ptas;
 }
 
-
 /* Note len does not include trailing null and unlike Tcl_Obj's
    returned ref count is 1 on allocation */
-tas_t *tas_alloc_nbytes(char *s, int len)
+tas_t *tas_alloc_nbytes(char *s, Tcl_Size len)
 {
     tas_t *ptas;
 
@@ -35,8 +34,6 @@ tas_t *tas_alloc_nbytes(char *s, int len)
     ptas->s[len] = 0;           /* Always terminate */
     return ptas;
 }
-
-
 
 /* The descriptor for our custom hash */
 static void tas_hash_free(Tcl_HashEntry *he);
@@ -91,9 +88,9 @@ static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
 
     /* Exact copy of Tcl's string hash */
     if ((result = *s) != 0) {
-	while ((c = *++s) != 0) {
-	    result += (result << 3) + c;
-	}
+        while ((c = *++s) != 0) {
+            result += (result << 3) + c;
+        }
     }
 
     return result;
@@ -112,19 +109,19 @@ void tas_lookup_free(tas_lookup_t lookup)
     TAS_FREEMEM(lookup);
 }
 
-int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, int *pval)
+int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, Tcl_Size *pval)
 {
     Tcl_HashEntry *he;
     he = Tcl_FindHashEntry(lookup, (char *)ptas);
     if (he) {
         if (pval)
-            *pval = (int) Tcl_GetHashValue(he);
+            *pval = (Tcl_Size) Tcl_GetHashValue(he);
         return 1;
     } else
         return 0;
 }
 
-void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, int val)
+void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, Tcl_Size val)
 {
     int newly_created;
     Tcl_HashEntry *he;

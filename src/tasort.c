@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2012-2024, Ashok P. Nadkarni
+ * All rights reserved.
+ *
+ * See the file license.terms for license
+ */
 #include "tcl.h"
 #include "tarray.h"
 #ifdef TA_MT_ENABLE
@@ -61,8 +67,8 @@ int tcltascmpnocaserev(const void *a, const void *b) {
  */
 #define RETCMPINDEXED(ai_, bi_, t_, v_)                 \
     do {                                                \
-        t_ a_ = *((*(int*)(ai_)) + (t_ *)v_);           \
-        t_ b_ = *((*(int*)(bi_)) + (t_ *)v_);           \
+        t_ a_ = *((*(Tcl_Size*)(ai_)) + (t_ *)v_);           \
+        t_ b_ = *((*(Tcl_Size*)(bi_)) + (t_ *)v_);           \
         if (a_ < b_)                                    \
             return -1;                                  \
         else if (a_ > b_)                               \
@@ -71,18 +77,17 @@ int tcltascmpnocaserev(const void *a, const void *b) {
             return 0; \
     } while (0)
 
-#define RETCMPINDEXEDREV(ai_, bi_, t_, v_)                 \
-    do {                                                \
-        t_ a_ = *((*(int*)(ai_)) + (t_ *)v_);           \
-        t_ b_ = *((*(int*)(bi_)) + (t_ *)v_);           \
-        if (a_ < b_)                                    \
-            return 1;                                  \
-        else if (a_ > b_)                               \
-            return -1;                                   \
-        else                                            \
-            return 0; \
+#define RETCMPINDEXEDREV(ai_, bi_, t_, v_)     \
+    do {                                       \
+        t_ a_ = *((*(Tcl_Size *)(ai_)) + (t_ *)v_); \
+        t_ b_ = *((*(Tcl_Size *)(bi_)) + (t_ *)v_); \
+        if (a_ < b_)                           \
+            return 1;                          \
+        else if (a_ > b_)                      \
+            return -1;                         \
+        else                                   \
+            return 0;                          \
     } while (0)
-
 
 int intcmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,int, ctx); }
 int intcmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,int, ctx); }
@@ -95,57 +100,57 @@ int doublecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXED
 int bytecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,unsigned char, ctx); }
 int bytecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,unsigned char, ctx); }
 int tclobjcmpindexed(const void *ai, const void *bi, void *ctx) {
-    Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
-    Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
+    Tcl_Obj *a = *(*(Tcl_Size *)ai + (Tcl_Obj **)ctx);
+    Tcl_Obj *b = *(*(Tcl_Size *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(a, b, 0);
 }
 int tclobjcmpindexedrev(const void *ai, const void *bi, void *ctx) {
-    Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
-    Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
+    Tcl_Obj *a = *(*(Tcl_Size *)ai + (Tcl_Obj **)ctx);
+    Tcl_Obj *b = *(*(Tcl_Size *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(b, a, 0);
 }
 int tclobjcmpnocaseindexed(const void *ai, const void *bi, void *ctx) {
-    Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
-    Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
+    Tcl_Obj *a = *(*(Tcl_Size *)ai + (Tcl_Obj **)ctx);
+    Tcl_Obj *b = *(*(Tcl_Size *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(a, b, 1);
 }
 int tclobjcmpnocaseindexedrev(const void *ai, const void *bi, void *ctx) {
-    Tcl_Obj *a = *(*(int *)ai + (Tcl_Obj **)ctx);
-    Tcl_Obj *b = *(*(int *)bi + (Tcl_Obj **)ctx);
+    Tcl_Obj *a = *(*(Tcl_Size *)ai + (Tcl_Obj **)ctx);
+    Tcl_Obj *b = *(*(Tcl_Size *)bi + (Tcl_Obj **)ctx);
     return ta_obj_compare(b, a, 1);
 }
 int tcltascmpindexed(const void *ai, const void *bi, void *ctx) {
-    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
-    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    tas_t *a = *(*(Tcl_Size *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(Tcl_Size *)bi + (tas_t **)ctx);
     return tas_compare(a, b, 0);
 }
 int tcltascmpindexedrev(const void *ai, const void *bi, void *ctx) {
-    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
-    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    tas_t *a = *(*(Tcl_Size *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(Tcl_Size *)bi + (tas_t **)ctx);
     return tas_compare(b, a, 0);
 }
 int tcltascmpnocaseindexed(const void *ai, const void *bi, void *ctx) {
-    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
-    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    tas_t *a = *(*(Tcl_Size *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(Tcl_Size *)bi + (tas_t **)ctx);
     return tas_compare(a, b, 1);
 }
 int tcltascmpnocaseindexedrev(const void *ai, const void *bi, void *ctx) {
-    tas_t *a = *(*(int *)ai + (tas_t **)ctx);
-    tas_t *b = *(*(int *)bi + (tas_t **)ctx);
+    tas_t *a = *(*(Tcl_Size *)ai + (tas_t **)ctx);
+    tas_t *b = *(*(Tcl_Size *)bi + (tas_t **)ctx);
     return tas_compare(b, a, 1);
 }
 
 
 int booleancmpindexed(const void *ai, const void *bi, void *ctx) {
     unsigned char uca, ucb;
-    uca = ba_get((ba_t *)ctx, *(int *)ai);
-    ucb = ba_get((ba_t *)ctx, *(int *)bi);
+    uca = ba_get((ba_t *)ctx, *(Tcl_Size *)ai);
+    ucb = ba_get((ba_t *)ctx, *(Tcl_Size *)bi);
     return uca == ucb ? 0 : (uca ? 1 : -1);
 }
 int booleancmpindexedrev(const void *ai, const void *bi, void *ctx) {
     unsigned char uca, ucb;
-    uca = ba_get((ba_t *)ctx, *(int *)ai);
-    ucb = ba_get((ba_t *)ctx, *(int *)bi);
+    uca = ba_get((ba_t *)ctx, *(Tcl_Size *)ai);
+    ucb = ba_get((ba_t *)ctx, *(Tcl_Size *)bi);
     return uca == ucb ? 0 : (uca ? -1 : 1);
 }
 
@@ -287,7 +292,7 @@ loop:	SWAPINIT(a, es);
 	swap_cnt = 0;
 	if (n < 7) {
 		for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
-			for (pl = pm; 
+			for (pl = pm;
 			     pl > (char *)a && CMP(thunk, pl - es, pl) > 0;
 			     pl -= es)
 				swap(pl, pl - es);
@@ -378,10 +383,10 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
 
     /* Note objv[] is entire command line so last objv[] element is array */
     for (i = 1; i < objc-1; ++i) {
-	if (ta_opt_from_obj(ip, objv[i], switches, "option", 0, &opt)
+        if (ta_opt_from_obj(ip, objv[i], switches, "option", 0, &opt)
             != TCL_OK) {
             return TCL_ERROR;
-	}
+        }
         switch (opt) {
         case 0: flags |= TA_SORT_DECREASING; break;
         case 1: flags &= ~TA_SORT_DECREASING; break;
@@ -408,12 +413,14 @@ TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
 
 /* Structure to hold the context for each sorting thread */
 struct ta_sort_mt_context {
-    void *base;                 /* Base of the sort array */
-    int   nelems;               /* Number of elements to sort */
-    int   elem_size;            /* Size of each element */
-    int (*cmpfn)(const void*, const void*); /* Comparison function */
-    int (*cmpindexedfn)(const void*, const void*, void*); /* for indexed compares */
-    void *arg;                  /* Passed through for indexed compares */
+    void *base;                               /* Base of the sort array */
+    Tcl_Size nelems;                          /* Number of elements to sort */
+    int elem_size;                       /* Size of each element */
+    int (*cmpfn)(const void *, const void *); /* Comparison function */
+    int (*cmpindexedfn)(const void *,
+                        const void *,
+                        void *); /* for indexed compares */
+    void *arg;                   /* Passed through for indexed compares */
 };
 
 static void ta_sort_mt_worker(void *pv)
@@ -438,7 +445,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
     int (*cmp)(const void*, const void*);
     int (*cmpind)(const void*, const void*, void*);
 #if defined (TA_MT_ENABLE)
-    int mt_sizes[4];
+    Tcl_Size mt_sizes[4];
     struct ta_sort_mt_context sort_context[4];
     int ncontexts, i;
 #endif
@@ -527,7 +534,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
                                           ARRAYSIZE(mt_sizes), mt_sizes);
 #ifdef TA_ENABLE_ASSERT
         {
-            int total = 0;
+            Tcl_Size total = 0;
             for (i = 0; i < ncontexts; ++i) {
                 total += mt_sizes[i];
             }
@@ -624,7 +631,7 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
 
 TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 {
-    int i, n, src_count;
+    Tcl_Size i, n, src_count;
     thdr_t *psrc;
     thdr_t *psorted;
     int status;
@@ -697,13 +704,13 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
     if (return_indices) {
         /* Caller wants indices to be returned */
-        int *indexP;
-        psorted = thdr_alloc(ip, TA_INT, src_count);
+        Tcl_Size *indexP;
+        psorted = thdr_alloc(ip, TA_INDEX, src_count);
         if (psorted == NULL)
             return TCL_ERROR;
         /* Initialize the indexes */
         psorted->used = src_count;
-        indexP = THDRELEMPTR(psorted, int, 0);
+        indexP = THDRINDEXELEMPTR(psorted, 0);
 
         /* TBD - just reversing the order of a presorted array is no good
            since the sort will not be a stable sort. So for now dump that
@@ -732,7 +739,7 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                 thdr_mt_sort(psorted, decreasing, psrc, span, nocase);
             else {
                 thdr_t *psrc2;
-                /* The sort compare functions have not concept of 
+                /* The sort compare functions have not concept of
                    column spans so if a span is provided, "unspan" it */
                 if (span) {
                     psrc2 = thdr_clone(ip, psrc, 0, span);
@@ -742,8 +749,8 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
                 } else
                     psrc2 = psrc;
 
-                timsort_r(THDRELEMPTR(psorted, int, 0),
-                          psorted->used, sizeof(int),
+                timsort_r(THDRELEMPTR(psorted, Tcl_Size, 0),
+                          psorted->used, sizeof(Tcl_Size),
                           decreasing ? booleancmpindexedrev : booleancmpindexed,
                           THDRELEMPTR(psrc2, unsigned char, 0)
                     );
@@ -832,7 +839,8 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags)
 {
-    int *pindex, *pend, ntarget, status, index_type, free_pindices;
+    Tcl_Size *pindex, *pend, ntarget, status, free_pindices;
+    int index_type;
     thdr_t *pindices = NULL, *ptarget;
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;
@@ -865,7 +873,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     }
 
     /* Validate indices for bounds */
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     pend = pindex + pindices->used;
     while (pindex < pend) {
         if (*pindex >= ntarget || *pindex < 0) {
@@ -874,7 +882,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
         }
         ++pindex;
     }
-    
+
     if (thdr_shared(pindices)) {
         /* Cannot modify in place. Need to dup it */
         thdr_t *temp = thdr_clone(ip, pindices, 0, NULL);
@@ -892,7 +900,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
     }
     TA_ASSERT(! Tcl_IsShared(oindices));
     TA_ASSERT(pindices->nrefs == 1);
-    
+
     ptarget = OBJTHDR(otarget);
     span_target = OBJTHDRSPAN(otarget);
 
@@ -911,9 +919,9 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
             thdr_incr_refs(ptarget2);
         } else
             ptarget2 = ptarget;
-        
-        timsort_r(THDRELEMPTR(pindices, int, 0),
-                  pindices->used, sizeof(int),
+
+        timsort_r(THDRINDEXELEMPTR(pindices, 0),
+                  pindices->used, sizeof(Tcl_Size),
                   decreasing ? booleancmpindexedrev : booleancmpindexed,
                   THDRELEMPTR(ptarget2, unsigned char, 0)
             );

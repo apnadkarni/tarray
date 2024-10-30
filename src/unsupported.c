@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, Ashok P. Nadkarni
+ * Copyright (c) 2012-2024, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -17,8 +17,8 @@ ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     Tcl_Obj *oresult[30];
 
     if (objc != 2) {
-	Tcl_WrongNumArgs(ip, 1, objv, "value");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "value");
+        return TCL_ERROR;
     }
 
     o = objv[1];
@@ -28,7 +28,7 @@ ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
     oresult[i++] = Tcl_NewStringObj(buf, -1);
 
     oresult[i++] = Tcl_NewStringObj("Tcl_Obj.refCount", -1);
-    oresult[i++] = Tcl_NewIntObj(o->refCount);
+    oresult[i++] = Tcl_NewWideIntObj(o->refCount);
 
     oresult[i++] = Tcl_NewStringObj("Tcl_Obj.type", -1);
     oresult[i++] = Tcl_NewStringObj(
@@ -55,11 +55,11 @@ ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
         }
         if (span) {
             oresult[i++] = Tcl_NewStringObj("span.nrefs", -1);
-            oresult[i++] = Tcl_NewIntObj(span->nrefs);
+            oresult[i++] = Tcl_NewWideIntObj(span->nrefs);
             oresult[i++] = Tcl_NewStringObj("span.first",-1);
-            oresult[i++] = Tcl_NewIntObj(span->first);
+            oresult[i++] = Tcl_NewWideIntObj(span->first);
             oresult[i++] = Tcl_NewStringObj("span.count",-1);
-            oresult[i++] = Tcl_NewIntObj(span->count);
+            oresult[i++] = Tcl_NewWideIntObj(span->count);
         }
     } else if (o->typePtr == &ta_table_type) {
         oresult[i++] = Tcl_NewStringObj("columnnames", -1);
@@ -74,11 +74,11 @@ ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
         sprintf(buf, "%p", (void *) thdr);
         oresult[i++] = Tcl_NewStringObj(buf, -1);
         oresult[i++] = Tcl_NewStringObj("thdr.nrefs", -1);
-        oresult[i++] = Tcl_NewIntObj(thdr->nrefs);
+        oresult[i++] = Tcl_NewWideIntObj(thdr->nrefs);
         oresult[i++] = Tcl_NewStringObj("thdr.usable",-1);
-        oresult[i++] = Tcl_NewIntObj(thdr->usable);
+        oresult[i++] = Tcl_NewWideIntObj(thdr->usable);
         oresult[i++] = Tcl_NewStringObj("thdr.used",-1);
-        oresult[i++] = Tcl_NewIntObj(thdr->used);
+        oresult[i++] = Tcl_NewWideIntObj(thdr->used);
         oresult[i++] = Tcl_NewStringObj("thdr.type",-1);
         oresult[i++] = Tcl_NewStringObj(ta_type_string(thdr->type), -1);
         oresult[i++] = Tcl_NewStringObj("thdr.sort_order",-1);
@@ -149,7 +149,7 @@ ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_ERROR;
     }
 
-    int tatype, first, count, min_hint, nsizes;
+    Tcl_Size tatype, first, count, min_hint, nsizes;
     if (Tcl_GetIntFromObj(ip, objv[1], &tatype) != TCL_OK ||
         Tcl_GetIntFromObj(ip, objv[2], &first) != TCL_OK ||
         Tcl_GetIntFromObj(ip, objv[3], &count) != TCL_OK ||
@@ -173,7 +173,7 @@ ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
     }
 
 #ifdef TA_MT_ENABLE
-    int sizes[16];
+    Tcl_Size sizes[16];
     Tcl_Obj *ores;
     int i, split_count;
     if (nsizes > ARRAYSIZE(sizes)) {
@@ -183,7 +183,7 @@ ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
     split_count = thdr_calc_mt_split_ex(tatype, first, count, min_hint, nsizes, sizes);
     ores = Tcl_NewListObj(nsizes, NULL);
     for (i = 0; i < split_count; ++i)
-        Tcl_ListObjAppendElement(ip, ores, Tcl_NewIntObj(sizes[i]));
+        Tcl_ListObjAppendElement(ip, ores, Tcl_NewWideIntObj(sizes[i]));
     Tcl_SetObjResult(ip, ores);
     return TCL_OK;
 #else
@@ -235,5 +235,5 @@ ta_config_cmd(ClientData clientdata, Tcl_Interp *ip,
     }
     Tcl_SetObjResult(ip, Tcl_NewIntObj(*pval));
     return TCL_OK;
-    
+
 }
