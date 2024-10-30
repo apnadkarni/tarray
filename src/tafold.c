@@ -78,7 +78,7 @@ static void thdr_fold_mt_worker(void *pv)
 TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
                          int objc, Tcl_Obj *const objv[])
 {
-    int j, ncontexts;
+    Tcl_Size j, ncontexts;
     thdr_t *thdr;
     struct thdr_fold_mt_context mt_context[4];
     Tcl_Size mt_sizes[4];
@@ -129,7 +129,7 @@ TCL_RESULT tcol_fold_cmd(ClientData clientdata, Tcl_Interp *ip,
                                       ARRAYSIZE(mt_sizes), mt_sizes);
 #   if defined(TA_ENABLE_ASSERT)
     {
-        int total = 0;
+        Tcl_Size total = 0;
         for (j = 0; j < ncontexts; ++j) {
             total += mt_sizes[j];
         }

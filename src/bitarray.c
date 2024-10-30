@@ -610,7 +610,7 @@ void ba_disjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_
 
 /* Caller should take care of case where there are not n bits of memory
    valid at offset off */
-void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, ba_off_t n)
+void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, int n)
 {
     BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
 

@@ -149,12 +149,13 @@ ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
         return TCL_ERROR;
     }
 
-    Tcl_Size tatype, first, count, min_hint, nsizes;
+    Tcl_Size first, count, min_hint, nsizes;
+    int tatype;
     if (Tcl_GetIntFromObj(ip, objv[1], &tatype) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[2], &first) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[3], &count) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[4], &min_hint) != TCL_OK ||
-        Tcl_GetIntFromObj(ip, objv[5], &nsizes) != TCL_OK) {
+        Tcl_GetSizeIntFromObj(ip, objv[2], &first) != TCL_OK ||
+        Tcl_GetSizeIntFromObj(ip, objv[3], &count) != TCL_OK ||
+        Tcl_GetSizeIntFromObj(ip, objv[4], &min_hint) != TCL_OK ||
+        Tcl_GetSizeIntFromObj(ip, objv[5], &nsizes) != TCL_OK) {
         return TCL_ERROR;
     }
 
@@ -175,7 +176,7 @@ ta_mt_split_cmd(ClientData clientdata, Tcl_Interp *ip,
 #ifdef TA_MT_ENABLE
     Tcl_Size sizes[16];
     Tcl_Obj *ores;
-    int i, split_count;
+    Tcl_Size i, split_count;
     if (nsizes > ARRAYSIZE(sizes)) {
         Tcl_SetResult(ip, "Invalid array size", TCL_STATIC);
         return TCL_ERROR;
@@ -197,43 +198,58 @@ ta_config_cmd(ClientData clientdata, Tcl_Interp *ip,
                        int objc, Tcl_Obj *const objv[])
 {
     const char *vname;
-    int *pval;
+    Tcl_WideInt wide;
+    int *pint = 0;
+    Tcl_Size *psize = 0;
     if (objc < 2 || objc > 3) {
         Tcl_WrongNumArgs(ip, 1, objv, "CONFIGVAR ?VALUE?");
+        return TCL_ERROR;
+    }
+    if (objc == 3) {
+        if (Tcl_GetWideIntFromObj(ip, objv[2], &wide) != TCL_OK)
         return TCL_ERROR;
     }
 
     vname = Tcl_GetString(objv[1]);
     if (ta_strequal(vname, "experiment"))
-        pval = &ta_experiment;
+        pint = &ta_experiment;
     else if (ta_strequal(vname, "full_validation"))
-        pval = &ta_full_validation;
+        pint = &ta_full_validation;
 #ifdef TA_MT_ENABLE
     else if (ta_strequal(vname, "sort_mt_threshold"))
-        pval = &ta_sort_mt_threshold;
+        psize = &ta_sort_mt_threshold;
     else if (ta_strequal(vname, "sort_mt_enable_any"))
-        pval = &ta_sort_mt_enable_any;
+        pint = &ta_sort_mt_enable_any;
     else if (ta_strequal(vname, "search_mt_threshold"))
-        pval = &ta_search_mt_threshold;
+        psize = &ta_search_mt_threshold;
     else if (ta_strequal(vname, "fill_mt_threshold"))
-        pval = &ta_fill_mt_threshold;
+        psize = &ta_fill_mt_threshold;
     else if (ta_strequal(vname, "minmax_mt_threshold"))
-        pval = &ta_minmax_mt_threshold;
+        psize = &ta_minmax_mt_threshold;
     else if (ta_strequal(vname, "fold_mt_threshold"))
-        pval = &ta_fold_mt_threshold;
+        psize = &ta_fold_mt_threshold;
     else if (ta_strequal(vname, "math_mt_threshold"))
-        pval = &ta_math_mt_threshold;
+        psize = &ta_math_mt_threshold;
 #endif
     else {
         Tcl_SetResult(ip, "Invalid config setting name.", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    if (objc == 3) {
-        if (Tcl_GetIntFromObj(ip, objv[2], pval) != TCL_OK)
-        return TCL_ERROR;
+    TA_ASSERT(pint || psize);
+    if (pint) {
+        if (objc==3)
+            *pint = (int)wide;
+        wide = *pint;
     }
-    Tcl_SetObjResult(ip, Tcl_NewIntObj(*pval));
+    else {
+        if (objc==3)
+            *psize = (Tcl_Size)wide;
+        wide = *psize;
+
+    }
+
+    Tcl_SetObjResult(ip, Tcl_NewWideIntObj(wide));
     return TCL_OK;
 
 }

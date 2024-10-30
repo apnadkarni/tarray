@@ -210,7 +210,7 @@ static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
 
             if (nelems > 2) {
                 Tcl_Obj **validObjs;
-                int nvalid;
+                Tcl_Size nvalid;
                 if (Tcl_ListObjGetElements(interp, elems[2], &nvalid, &validObjs) != TCL_OK)
                     goto error_handler;
                 if (nvalid == 0) {
@@ -261,7 +261,7 @@ static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
 #endif
 
     objP->internalRep.ptrAndLongRep.ptr = optsP;
-    objP->internalRep.ptrAndLongRep.value = nopts;
+    objP->internalRep.ptrAndLongRep.value = (unsigned long) nopts;
     objP->typePtr = &gParseargsOptionType;
 
     return TCL_OK;
@@ -332,7 +332,7 @@ int parseargs_cmd(
     ClientData clientData,
     Tcl_Interp *interp,
     int objc,
-    Tcl_Obj *CONST objv[])
+    Tcl_Obj *const objv[])
 {
     Tcl_Obj    *argvObj;
     Tcl_Size    argc, iarg;

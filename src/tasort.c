@@ -8,13 +8,13 @@
 #include "tarray.h"
 #ifdef TA_MT_ENABLE
 
-/* timsort implementation from https://github.com/patperry/timsort
+/* timsort implementation from https://github.com/patperry/timsort */
 
 /*
  * Threshold for when sorts are multithreaded. Based on some preliminary
  * tests. Can be changed at runtime (tarray::unsupported::set_sort_mt_threshold)
  */
-int ta_sort_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_sort_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 /* Whether multithreading is to be enabled for TA_ANY or not */
 int ta_sort_mt_enable_any = 0; /* TBD, change to 1 once sufficient testing */
 #endif
@@ -32,6 +32,8 @@ int uintcmp(const void *a, const void *b) { RETCMP(a, b, unsigned int); }
 int uintcmprev(const void *a, const void *b) { RETCMP(b, a, unsigned int); }
 int widecmp(const void *a, const void *b) { RETCMP(a, b, Tcl_WideInt); }
 int widecmprev(const void *a, const void *b) { RETCMP(b, a, Tcl_WideInt); }
+int tclsizecmp(const void *a, const void *b) { RETCMP(a, b, Tcl_Size); }
+int tclsizecmprev(const void *a, const void *b) { RETCMP(b, a, Tcl_Size); }
 int doublecmp(const void *a, const void *b) { RETCMP(a, b, double); }
 int doublecmprev(const void *a, const void *b) { RETCMP(b, a, double); }
 int tclobjcmp(const void *a, const void *b) {
@@ -95,6 +97,8 @@ int uintcmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,
 int uintcmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,unsigned int, ctx); }
 int widecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,Tcl_WideInt, ctx); }
 int widecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,Tcl_WideInt, ctx); }
+int tclsizecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,Tcl_Size, ctx); }
+int tclsizecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,Tcl_Size, ctx); }
 int doublecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,double, ctx); }
 int doublecmpindexedrev(const void *a, const void *b, void *ctx) { RETCMPINDEXEDREV(a,b,double, ctx); }
 int bytecmpindexed(const void *a, const void *b, void *ctx) { RETCMPINDEXED(a,b,unsigned char, ctx); }
@@ -447,22 +451,22 @@ static void thdr_mt_sort(thdr_t *thdr, int decr, thdr_t *psrc, span_t *span, int
 #if defined (TA_MT_ENABLE)
     Tcl_Size mt_sizes[4];
     struct ta_sort_mt_context sort_context[4];
-    int ncontexts, i;
+    Tcl_Size ncontexts, i;
 #endif
     int elem_size;
-    char *src_base;
+    unsigned char *src_base;
 
     cmpind = NULL; /* Unnecessary, only used if psrc!=NULL but keep gcc happy */
     cmp = NULL; /* Ditto */
-    
+
     TA_ASSERT(thdr->nrefs < 2);
     /* The column to be sorted is never span based. span can be null
        only when sorting is indirect and in that case applies to psrc */
     TA_ASSERT(span == NULL || psrc);
-    
+
     if (psrc) {
         /* Sort indices */
-        TA_ASSERT(thdr->type == TA_INT);
+        TA_ASSERT(thdr->type == TA_INDEX);
         switch (psrc->type) {
         case TA_BYTE: cmpind = decr ? bytecmpindexedrev : bytecmpindexed; break;
         case TA_UINT: cmpind = decr ? uintcmpindexedrev : uintcmpindexed; break;
@@ -839,8 +843,8 @@ TCL_RESULT tcol_sort(Tcl_Interp *ip, Tcl_Obj *tcol, int flags)
 
 TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarget, int flags)
 {
-    Tcl_Size *pindex, *pend, ntarget, status, free_pindices;
-    int index_type;
+    Tcl_Size *pindex, *pend, ntarget;
+    int status, free_pindices, index_type;
     thdr_t *pindices = NULL, *ptarget;
     int decreasing = flags & TA_SORT_DECREASING;
     int nocase = flags & TA_SORT_NOCASE;

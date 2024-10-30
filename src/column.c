@@ -48,18 +48,29 @@ struct Tcl_ObjType ta_column_type = {
 /*
  * A Tcl object to parse tarray index tokens and cache the result so
  * we do not parse "end" or "last" repeatedly. We could actually use the
- * more sophisticated Tcl equivalent but unfortunately that is not exported.
+ * more sophisticated Tcl equivalent but unfortunately that is not exported
+ * and moreover in Tcl 9 is quirky in end conditions (encoding of end+2,
+ * end+3 etc. will all map to the same value)
  */
-#if TCL_MAJOR_VERSION < 9
 static int ta_indexobj_from_any(Tcl_Interp *interp, Tcl_Obj *o);
 static void ta_indexobj_update_string(Tcl_Obj *);
 struct Tcl_ObjType ta_index_type = {
     "tarray_index",
     NULL, /* No need for a free proc */
-    NULL, 
+    NULL,
     ta_indexobj_update_string,
     NULL, /* convert from any - jenglish advises to keep this NULL */
 };
+TA_INLINE Tcl_Size ta_indexobj_get_offset(Tcl_Obj *o) {
+    TA_ASSERT(o->typePtr == &ta_index_type);
+    return (Tcl_Size) o->internalRep.wideValue;
+}
+TA_INLINE void ta_indexobj_shimmer(Tcl_Obj *o, Tcl_Size off) {
+    if (o->typePtr && o->typePtr->freeIntRepProc)
+        o->typePtr->freeIntRepProc(o);
+    o->typePtr = &ta_index_type;
+    o->internalRep.wideValue = off;
+}
 
 /*
  * indexobj routines
@@ -68,13 +79,13 @@ static void ta_indexobj_update_string(Tcl_Obj *o)
 {
     char buffer[TCL_INTEGER_SPACE + 5];
     Tcl_Size len;
-
-    if (o->internalRep.longValue == 0)
+    len = ta_indexobj_get_offset(o);
+    if (len == 0)
         strcpy(buffer, "end");
-    else if (o->internalRep.longValue > 0)
-        snprintf(buffer, sizeof(buffer), "end+%ld", o->internalRep.longValue);
+    else if (len > 0)
+        snprintf(buffer, sizeof(buffer), "end+%" TCL_SIZE_MODIFIER "d", len);
     else
-        snprintf(buffer, sizeof(buffer), "end%ld", o->internalRep.longValue);
+        snprintf(buffer, sizeof(buffer), "end%" TCL_SIZE_MODIFIER "d", len);
 
     len = (Tcl_Size) ta_strlen(buffer);
     o->bytes = ckalloc(len+1);
@@ -114,32 +125,42 @@ int ta_indexobj_from_any(
     /* Convert the string rep. */
 
     if (length <= 3) {
-	offset = 0;
+        offset = 0;
     } else if ((length > 4) && ((bytes[3] == '-') || (bytes[3] == '+'))) {
-	/*
-	 * This is our limited string expression evaluator. Pass everything
-	 * after "end-" to Tcl_GetInt, then reverse for offset. Tcl_GetInt
+        /*
+         * This is our limited string expression evaluator. Pass everything
+         * after "end-" to Tcl_GetInt, then reverse for offset. Tcl_GetInt
          * accepts whitespace so check for next char to avoid it
-	 */
+         */
         if (bytes[4] < '0' || bytes[4] > '9')
             goto error_handler;
-	if (Tcl_GetInt(interp, bytes+4, &offset) != TCL_OK) {
-	    return TCL_ERROR;
-	}
-	if (bytes[3] == '-') {
-	    offset = -offset;
-	}
+#if TCL_MAJOR_VERSION < 9
+        if (Tcl_GetInt(interp, bytes + 4, &offset) != TCL_OK) {
+            return TCL_ERROR;
+        }
+#else
+        void *valueP;
+        int number_type;
+        Tcl_WideInt wide;
+        if (Tcl_GetNumber(interp, bytes + 4, -1, &valueP, &number_type)
+                != TCL_OK
+            || number_type != TCL_NUMBER_INT)
+            goto error_handler;
+        wide = *(Tcl_WideInt *)valueP;
+        if (wide > TCL_SIZE_MAX)
+            goto error_handler;
+        offset = (Tcl_Size)wide;
+#endif
+        if (bytes[3] == '-') {
+            offset = -offset;
+        }
     } else {
-	/* Conversion failed. Report the error. */
+        /* Conversion failed. Report the error. */
         goto error_handler;
     }
 
     /* The conversion succeeded. Free the old internal rep and set the new */
-    if (o->typePtr && o->typePtr->freeIntRepProc)
-        o->typePtr->freeIntRepProc(o);
-    TA_ASSERT(sizeof(offset) == sizeof(o->internalRep.longValue));
-    o->internalRep.longValue = offset;
-    o->typePtr = &ta_index_type;
+    ta_indexobj_shimmer(o, offset);
 
     return TCL_OK;
 
@@ -154,9 +175,6 @@ error_handler:
     return TCL_ERROR;
 }
 
-
-#endif
-
 /* Panics on consistency check failure. int return value so it can
  be called from TA_ASSERT */
 int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
@@ -169,7 +187,7 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
         return 1;
 
     if (thdr->used > thdr->usable) {
-        Tcl_Panic("thdr->used (%d) > thdr->usable (%d)", thdr->used, thdr->usable);
+        Tcl_Panic("thdr->used (%" TCL_SIZE_MODIFIER "d) > thdr->usable (%" TCL_SIZE_MODIFIER "d)", thdr->used, thdr->usable);
     }
 
     switch (thdr->type) {
@@ -184,7 +202,7 @@ int thdr_check(Tcl_Interp *ip, thdr_t *thdr)
         objPP = THDRELEMPTR(thdr, Tcl_Obj *, 0);
         for (i = 0; i < thdr->used; ++i) {
             if (objPP[i]->refCount < 1)
-                Tcl_Panic("thdr TA_ANY element ref count (%d) < 1", objPP[i]->refCount);
+                Tcl_Panic("thdr TA_ANY element ref count (%" TCL_SIZE_MODIFIER "d) < 1", objPP[i]->refCount);
         }
         break;
     case TA_STRING:
@@ -219,7 +237,7 @@ int tcol_check(Tcl_Interp *ip, Tcl_Obj *tcol)
     if (thdr == NULL)
         Tcl_Panic("NULL thdr in Tcl_Obj");
     if (thdr->nrefs < 1)
-        Tcl_Panic("Column thdr->nrefs (%d) < 1", thdr->nrefs);
+        Tcl_Panic("Column thdr->nrefs (%" TCL_SIZE_MODIFIER "d) < 1", thdr->nrefs);
     
     /* Note even if the tcol's OBJTHDRSPAN() field is non-null,
        the WHOLE thdr must still be valid */
@@ -353,7 +371,7 @@ void ta_update_string_for_variable_element_size(Tcl_Obj *o)
          * not need to allocate lengthPtr.
          */
         if (tatype == TA_STRING)
-            lengthPtr = (int *) TA_ALLOCMEM(objc * sizeof(int));
+            lengthPtr = (Tcl_Size *) TA_ALLOCMEM(objc * sizeof(Tcl_Size));
     }
 
     bytesNeeded = ta_strlen(o->typePtr->name);
@@ -475,7 +493,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
     if ((span = OBJTHDRSPAN(o)) != NULL) {
         count = span->count;
         span_start = span->first;
-        TA_ASSERT(span_start+count <= thdr->used);
+        TA_ASSERT(span_start+count <= (size_t) thdr->used);
     }
 
     o->bytes = NULL;
@@ -530,7 +548,7 @@ static void tcol_type_update_string(Tcl_Obj *o)
             cP[-1] = '}';
             *cP = '\0';
             o->length = (Tcl_Size) (cP - o->bytes);
-            TA_ASSERT(o->length < (min_needed + 2*count - 1));
+            TA_ASSERT((size_t) o->length < (min_needed + 2*count - 1));
         }
         return;
 
@@ -665,7 +683,6 @@ static void tcol_type_update_string(Tcl_Obj *o)
 */
 TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
 {
-    char c, *p;
     Tcl_WideInt wide;
     Tcl_Size n;
     TCL_RESULT status;
@@ -685,12 +702,17 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pwide)
     }
 
     status = Tcl_GetWideIntFromObj(ip, o, &wide);
-#if TCL_MAJOR_VERSION > 8
-    /* TBD - check that Tcl 9 does in fact check overflows */
-    return status;
-#else
     if (status != TCL_OK)
         return status;
+#if TCL_MAJOR_VERSION > 8
+    /* TBD - check that Tcl 9 does in fact check overflows */
+    if (pwide)
+        *pwide = wide;
+    return TCL_OK;
+#else
+
+    char c, *p;
+
     /* To deal with Tcl8's lack of overflow checking, see if the
      * sign matches the string representation if there is one.
      */
@@ -991,7 +1013,7 @@ void thdr_ensure_obj_strings(thdr_t *thdr, span_t *span)
  *
  * Note tatype must not be TA_BOOLEAN.
  */
-int thdr_calc_mt_split(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size *psecond_block_size)
+Tcl_Size thdr_calc_mt_split(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size *psecond_block_size)
 {
     Tcl_Size second_block_size;
     Tcl_Size memunits;
@@ -1056,7 +1078,7 @@ int thdr_calc_mt_split(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size *pse
  * Returns number of threads to use or equivalently how many slots
  * of sizes[] are filled. Remaining slots in sizes[] are NOT INITIALIZED.
  */
-int
+Tcl_Size
 thdr_calc_mt_split_ex(int tatype,
                       Tcl_Size first,
                       Tcl_Size count,
@@ -1064,7 +1086,7 @@ thdr_calc_mt_split_ex(int tatype,
                       Tcl_Size nsizes,
                       Tcl_Size sizes[])
 {
-    int nthreads;
+    Tcl_Size nthreads;
     Tcl_Size split_size;
     Tcl_Size i;
     Tcl_Size aligned_first;
@@ -1107,7 +1129,7 @@ thdr_calc_mt_split_ex(int tatype,
         TA_ASSERT(count > 0);
         sizes[0] = count;
         break;
-        
+
     case TA_BYTE:
         /* Assumes count > 2*sizeof(int) because of checks at top */
 
@@ -1355,7 +1377,7 @@ void thdr_fill_ta_objs(thdr_t *thdr,
 TCL_RESULT
 ta_convert_index(Tcl_Interp *ip,
                  Tcl_Obj *o,
-                 int *pindex,
+                 Tcl_Size *pindex,
                  Tcl_Size end_value,
                  Tcl_Size low,
                  Tcl_Size high)
@@ -1371,17 +1393,12 @@ ta_convert_index(Tcl_Interp *ip,
             return ta_index_error(ip, o);
     }
 
-#if TCL_MAJOR_VERSION > 8
-    if (Tcl_GetIntForIndex(ip, o, end_value, &val) != TCL_OK)
-        return ta_index_error(ip, o);
-#else
-    if (Tcl_GetIntFromObj(NULL, o, &val) != TCL_OK) {
+    if (Tcl_GetSizeIntFromObj(NULL, o, &val) != TCL_OK) {
         if (ta_indexobj_from_any(NULL, o) != TCL_OK)
             return ta_index_error(ip, o);
-        TA_ASSERT(sizeof(val) == sizeof(o->internalRep.longValue));
-        val = end_value + o->internalRep.longValue;
+        val = end_value + ta_indexobj_get_offset(o);
     }
-#endif
+
     /* Note it is ok for val to be greater than end_value as it is used
        in calls where (for example) the column is extended */
 
@@ -1401,17 +1418,23 @@ ta_convert_index(Tcl_Interp *ip,
  * if (high < low) count is returned as 0 (not an error)
  * Negative indices treated as 0
  */
-TCL_RESULT ta_fix_range_bounds(Tcl_Interp *ip, Tcl_Size nelems, Tcl_Obj *olow, Tcl_Obj *ohigh, Tcl_Size *plow, Tcl_Size *pcount)
+TCL_RESULT
+ta_fix_range_bounds(Tcl_Interp *ip,
+                    Tcl_Size nelems,
+                    Tcl_Obj *olow,
+                    Tcl_Obj *ohigh,
+                    Tcl_Size *plow,
+                    Tcl_Size *pcount)
 {
     Tcl_Size low, high;
 
     /* TBD - need we restrict low to < nelems? Some routines which allow that
      cannot call this */
-    if (ta_convert_index(ip, olow, &low, nelems-1, -TCL_SIZE_MAX, nelems) != TCL_OK)
+    if (ta_convert_index(ip, olow, &low, nelems-1, TCL_SIZE_MIN, nelems) != TCL_OK)
         return TCL_ERROR;
 
     if (ohigh) {
-        if (ta_convert_index(ip, ohigh, &high, nelems-1, -TCL_SIZE_MAX, TCL_SIZE_MAX) != TCL_OK)
+        if (ta_convert_index(ip, ohigh, &high, nelems-1, TCL_SIZE_MIN, TCL_SIZE_MAX) != TCL_OK)
             return TCL_ERROR;
     } else {
         high = nelems-1;        /* If nelems==0, will be dealt with below */
@@ -1930,7 +1953,7 @@ TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, Tcl_Size current_size, t
     Tcl_Size *pindex, *end;
     thdr_t *psorted = NULL;
 
-    TA_ASSERT(pindices->type == TA_SIZE);
+    TA_ASSERT(pindices->type == TA_INDEX);
 
     pindex = THDRINDEXELEMPTR(pindices, 0);
     end = THDRINDEXELEMPTR(pindices, pindices->used);
@@ -1958,11 +1981,11 @@ TCL_RESULT thdr_verify_indices_in_range(Tcl_Interp *ip, Tcl_Size current_size, t
         psorted = thdr_clone(ip, pindices, 0, NULL);
         if (psorted == NULL)
             return TCL_ERROR;
-        qsort(THDRELEMPTR(psorted, Tcl_Size, 0), psorted->used, sizeof(Tcl_Size), tclsizecmp);
+        qsort(THDRINDEXELEMPTR(psorted, 0), psorted->used, sizeof(Tcl_Size), tclsizecmp);
         psorted->sort_order = THDR_SORTED_ASCENDING;
         pindices = psorted;
-        pindex = THDRELEMPTR(pindices, int, 0);
-        end = THDRELEMPTR(pindices, int, pindices->used);
+        pindex = THDRINDEXELEMPTR(pindices, 0);
+        end = THDRINDEXELEMPTR(pindices, pindices->used);
     }
 
     /* Make sure no negative indices and no gaps in indices */
@@ -2035,7 +2058,7 @@ void thdr_fill_indices(Tcl_Interp *ip, thdr_t *thdr,
 
     TA_ASSERT(! thdr_shared(thdr));
     TA_ASSERT(thdr->type == ptav->type);
-    TA_ASSERT(pindices->type == TA_SIZE);
+    TA_ASSERT(pindices->type == TA_INDEX);
 
     /* Caller guarantees room for highest index value */
     TA_ASSERT(new_size <= thdr->usable);
@@ -2219,8 +2242,7 @@ TCL_RESULT thdr_put_objs(Tcl_Interp *ip, thdr_t *thdr, Tcl_Size first,
     case TA_BOOLEAN:
        {
            register ba_t *baP;
-           ba_t ba, ba_mask;
-           Tcl_Size off;
+           ba_t ba, ba_mask, off;
 
            /* NOTE: same code as in thdr_numerics_from_tas_strings except there
               we are dealing with tas_t and thus cannot be shared with this.
@@ -2336,7 +2358,7 @@ void thdr_place_objs(
     Tcl_Size *pindex, *end;
 
     TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT(pindices->type == TA_SIZE);
+    TA_ASSERT(pindices->type == TA_INDEX);
     TA_ASSERT(new_size <= thdr->usable);
     TA_ASSERT(pindices->used <= nvalues);
     TA_ASSERT(ta_verify_value_objs(ip, thdr->type, nvalues, ovalues) == TCL_OK);
@@ -2413,7 +2435,7 @@ thdr_place_indices(Tcl_Interp *ip,
     Tcl_Size i, src_first;
 
     TA_ASSERT(! thdr_shared(thdr));
-    TA_ASSERT(pindices->type == TA_SIZE);
+    TA_ASSERT(pindices->type == TA_INDEX);
     TA_ASSERT(new_size <= thdr->usable);
     TA_ASSERT(thdr->type == psrc->type);
 
@@ -2700,7 +2722,7 @@ thdr_t *thdr_indices_to_bitmap(
     Tcl_Size count, pos;
     ba_t *baP;
 
-    TA_ASSERT(src->type == TA_SIZE);
+    TA_ASSERT(src->type == TA_INDEX);
     pindex = THDRINDEXELEMPTR(src, 0);
     count = src->used;
     if (span) {
@@ -2820,7 +2842,7 @@ void thdr_delete_indices(thdr_t *thdr, thdr_t *pindices)
     Tcl_Size prev;
     Tcl_Size *pindex, *plimit;
 
-    TA_ASSERT(pindices->type == TA_SIZE);
+    TA_ASSERT(pindices->type == TA_INDEX);
 
     /* TBD - does this handle the case where thdr and pindices are the same ?*/
 
@@ -3092,9 +3114,9 @@ thdr_numerics_from_tas_strings(Tcl_Interp *ip,
             ++pdbl;
         }
     } else if (pdst->type == TA_BOOLEAN) {
-        register ba_t *baP;
-        ba_t ba, ba_mask;
-        Tcl_Size i, off;
+        ba_t *baP;
+        ba_t ba, ba_mask, off;
+        Tcl_Size i;
 
         TASVALIDATE(int, ta_get_boolean_from_string);
 
@@ -3328,8 +3350,7 @@ thdr_copy_cast(Tcl_Interp *ip,
             break;
         } else {
             register ba_t *baP;
-            ba_t ba, ba_mask;
-            Tcl_Size off;
+            ba_t ba, ba_mask, off;
 
             if (insert)
                 thdr_make_room(pdst, dst_first, count);
@@ -3698,7 +3719,7 @@ thdr_t *thdr_to_indexcolumn(Tcl_Interp *ip, thdr_t *thdr, span_t *span)
             if (ba_get(baP, start+i))
                 *p++ = i;
         }
-        TA_ASSERT((p-THDRELEMPTR(to, int, 0)) == ones);
+        TA_ASSERT((p-THDRINDEXELEMPTR(to, 0)) == ones);
         to->used = ones;
         to->sort_order = THDR_SORTED_ASCENDING;
     }
@@ -4448,7 +4469,7 @@ ta_obj_to_indices(Tcl_Interp *ip,
             /* To prevent shimmering, first check known to be a list */
             if (o->typePtr != g_tcl_list_type_ptr) {
                 status = ta_convert_index(
-                    NULL, o, &n, end, -TCL_SIZE_MAX, TCL_SIZE_MAX);
+                    NULL, o, &n, end, TCL_SIZE_MIN, TCL_SIZE_MAX);
                 if (status == TCL_OK) {
                     *pindex = n;
                     return TA_INDEX_TYPE_INT;
@@ -4466,7 +4487,7 @@ ta_obj_to_indices(Tcl_Interp *ip,
         if (n == 1) {
             if (pindex != NULL) {
                 if (ta_convert_index(
-                        NULL, elems[0], &n, end, -TCL_SIZE_MAX, TCL_SIZE_MAX)
+                        NULL, elems[0], &n, end, TCL_SIZE_MIN, TCL_SIZE_MAX)
                     == TCL_OK) {
                     *pindex = n;
                     return TA_INDEX_TYPE_INT;
@@ -4495,7 +4516,7 @@ ta_obj_to_indices(Tcl_Interp *ip,
             thdr = thdr2;
             if (thdr == NULL)
                 return TA_INDEX_TYPE_ERROR;
-            qsort(THDRELEMPTR(thdr, Tcl_Size, 0), thdr->used, sizeof(Tcl_Size), tclsizecmp);
+            qsort(THDRINDEXELEMPTR(thdr, 0), thdr->used, sizeof(Tcl_Size), tclsizecmp);
             thdr->sort_order = THDR_SORTED_ASCENDING;
             thdr_incr_refs(thdr);
         }
@@ -4507,7 +4528,7 @@ ta_obj_to_indices(Tcl_Interp *ip,
     thdr = thdr_alloc_and_init(ip, TA_INDEX, n, elems, 0);
     if (thdr) {
         if (want_sorted) {
-            qsort(THDRELEMPTR(thdr, Tcl_Size, 0), thdr->used, sizeof(Tcl_Size), tclsizecmp);
+            qsort(THDRINDEXELEMPTR(thdr, 0), thdr->used, sizeof(Tcl_Size), tclsizecmp);
             thdr->sort_order = THDR_SORTED_ASCENDING;
         }
         thdr->nrefs++;
@@ -5562,7 +5583,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         Tcl_Size i;                                     \
         plows = THDRELEMPTR(lows_thdr, type_, 0);       \
         for (i = 0; i < nbuckets; ++i)                  \
-            plows[i] = minval.field_ + i * step.field_; \
+            plows[i] = (type_) (minval.field_ + i * step.field_); \
         lows_thdr->used       = nbuckets;               \
         lows_thdr->sort_order = THDR_SORTED_ASCENDING;  \
     } while (0)
@@ -5834,7 +5855,7 @@ tcol_create_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     elems = NULL;
     if (objc > 2) {
         if (objc > 3) {
-            if (Tcl_GetIntFromObj(ip, objv[3], &init_size) != TCL_OK)
+            if (Tcl_GetSizeIntFromObj(ip, objv[3], &init_size) != TCL_OK)
                 return TCL_ERROR;
         }
         if (tcol_convert(NULL, objv[2]) == TCL_OK) {
@@ -5953,7 +5974,7 @@ tcol_size_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     }
     if (tcol_convert(ip, objv[1]) != TCL_OK)
         return TCL_ERROR;
-    Tcl_SetObjResult(ip, Tcl_NewSizeIntObj(tcol_occupancy(objv[1])));
+    Tcl_SetObjResult(ip, Tcl_NewWideIntObj(tcol_occupancy(objv[1])));
     return TCL_OK;
 }
 
@@ -6082,7 +6103,7 @@ tcol_index_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 TCL_RESULT
 tcol_get_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
 {
-    return tcol_retrieve(ip, objc, objv, (int) cdata);
+    return tcol_retrieve(ip, objc, objv, (int) (intptr_t) cdata);
 }
 
 TCL_RESULT

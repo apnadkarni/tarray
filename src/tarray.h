@@ -29,6 +29,7 @@
 # define TCL_SIZE_MAX      INT_MAX
 # define TCL_SIZE_MODIFIER ""
 #endif
+#define TCL_SIZE_MIN (-TCL_SIZE_MAX - 1)
 
 #ifdef HAVE_LIBDISPATCH
 # include <dispatch/dispatch.h>
@@ -60,11 +61,6 @@
 # else
 #  define TA_INLINE static inline
 # endif
-#endif
-
-/* If building out of twapi pool, use its settings */
-#if defined(TWAPI_ENABLE_ASSERT) && !defined(TA_ENABLE_ASSERT)
-#define TA_ENABLE_ASSERT TWAPI_ENABLE_ASSERT
 #endif
 
 #if TA_ENABLE_ASSERT
@@ -328,7 +324,7 @@ void ta_type_panic(int tatype);
 void ta_operator_panic(int oper);
 void ta_shared_panic(const char *where);
 void ta_small_panic(thdr_t *thdr, const char *where);
-void ta_memory_panic(int);
+void ta_memory_panic(Tcl_Size);
 TCL_RESULT ta_conflicting_options_error(Tcl_Interp *ip, const char *optA, const char *optB);
 TCL_RESULT ta_not_column_error(Tcl_Interp *);
 TCL_RESULT ta_not_table_error(Tcl_Interp *);
@@ -547,7 +543,7 @@ void thdr_place_objs(Tcl_Interp *, thdr_t *thdr, thdr_t *pindices,
 void thdr_place_indices(Tcl_Interp *ip, thdr_t *thdr, thdr_t *psrc,
                         span_t *src_span, thdr_t *pindices, Tcl_Size new_size);
 
-int thdr_required_size(int tatype, Tcl_Size count);
+Tcl_Size thdr_required_size(int tatype, Tcl_Size count);
 void thdr_reverse(thdr_t *tdrhP);
 void thdr_copy_reversed(thdr_t *pdst, Tcl_Size dst_first, thdr_t *psrc,
                         Tcl_Size src_first, Tcl_Size count);
@@ -672,6 +668,8 @@ int uintcmp(const void *a, const void *b);
 int uintcmprev(const void *a, const void *b);
 int widecmp(const void *a, const void *b);
 int widecmprev(const void *a, const void *b);
+int tclsizecmp(const void *a, const void *b);
+int tclsizecmprev(const void *a, const void *b);
 int doublecmp(const void *a, const void *b);
 int doublecmprev(const void *a, const void *b);
 int bytecmp(const void *a, const void *b);
@@ -687,6 +685,8 @@ int uintcmpindexed(const void *a, const void *b, void *);
 int uintcmpindexedrev(const void *a, const void *b, void *);
 int widecmpindexed(const void *a, const void *b, void *);
 int widecmpindexedrev(const void *a, const void *b, void *);
+int tclsizecmpindexed(const void *a, const void *b, void *);
+int tclsizecmpindexedrev(const void *a, const void *b, void *);
 int doublecmpindexed(const void *a, const void *b, void *);
 int doublecmpindexedrev(const void *a, const void *b, void *);
 int bytecmpindexed(const void *a, const void *b, void *);
@@ -695,18 +695,6 @@ int tclobjcmpindexed(const void *a, const void *b, void *);
 int tclobjcmpindexedrev(const void *a, const void *b, void *);
 int tclobjcmpnocaseindexed(const void *a, const void *b, void *);
 int tclobjcmpnocaseindexedrev(const void *a, const void *b, void *);
-
-#if TCL_SIZE_MAX == INT_MAX
-#define tclsizecmp intcmp
-#define tclsizecmprev intcmprev
-#define tclsizecmpindexed intcmpindexed
-#define tclsizecmpindexedrev intcmpindexedrev
-#else
-#define tclsizecmp widecmp
-#define tclsizecmprev widecmprev
-#define tclsizecmpindexed widecmpindexed
-#define tclsizecmpindexedrev widecmpindexedrev
-#endif
 
 TCL_RESULT tcol_parse_sort_options(Tcl_Interp *ip,
                                    int objc, Tcl_Obj *const objv[],
@@ -797,15 +785,15 @@ extern int ta_full_validation;
 #define TA_MT_THRESHOLD_DEFAULT 10000
 extern Tcl_Size ta_search_mt_threshold;
 extern Tcl_Size ta_sort_mt_threshold;
-extern Tcl_Size ta_sort_mt_enable_any;
+extern int ta_sort_mt_enable_any;
 extern Tcl_Size ta_fill_mt_threshold;
 extern Tcl_Size ta_minmax_mt_threshold;
 extern Tcl_Size ta_fold_mt_threshold;
 extern Tcl_Size ta_math_mt_threshold;
 /* Multithreading support */
-int thdr_calc_mt_split(int tatype, Tcl_Size first,
+Tcl_Size thdr_calc_mt_split(int tatype, Tcl_Size first,
                        Tcl_Size count, Tcl_Size *psecond_block_size);
-int thdr_calc_mt_split_ex(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size min_hint,
+Tcl_Size thdr_calc_mt_split_ex(int tatype, Tcl_Size first, Tcl_Size count, Tcl_Size min_hint,
                           Tcl_Size nsizes, Tcl_Size sizes[]);
 
 # ifdef HAVE_LIBDISPATCH
@@ -875,7 +863,7 @@ TA_INLINE void thdr_decr_refs(thdr_t *thdr) {
     if (thdr->nrefs-- <= 1) thdr_free(thdr);
 }
 TA_INLINE int thdr_shared(thdr_t *thdr) { return thdr->nrefs > 1; }
-TA_INLINE span_t *span_alloc(int first, int count) {
+TA_INLINE span_t *span_alloc(Tcl_Size first, Tcl_Size count) {
     span_t *span;
     span = TA_ALLOCMEM(sizeof(*span));
     span->nrefs = 0;

@@ -79,13 +79,13 @@ int table_check(Tcl_Interp *ip, Tcl_Obj *otab)
     if (thdr->type != TA_ANY)
         Tcl_Panic("Table thdr->type not TA_ANY");
     if (thdr->nrefs < 1)
-        Tcl_Panic("Table thdr->nrefs (%d) < 1", thdr->nrefs);
+        Tcl_Panic("Table thdr->nrefs (%" TCL_SIZE_MODIFIER "d) < 1", thdr->nrefs);
 
     ncols = thdr->used;
     tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
     for (i = 0; i < ncols; ++i) {
         if (tcols[i]->refCount < 1)
-            Tcl_Panic("Table column ref count (%d) < 1", tcols[i]->refCount);
+            Tcl_Panic("Table column ref count (%" TCL_SIZE_MODIFIER "d) < 1", tcols[i]->refCount);
         tcol_check(ip, tcols[i]);
     }
 
@@ -140,7 +140,7 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
     }
 
     if (n > ARRAYSIZE(pmap->mapped_indices))
-        pmap->pmapped_indices = (int *) TA_ALLOCMEM(n * sizeof(*pmap->pmapped_indices));
+        pmap->pmapped_indices = (Tcl_Size *) TA_ALLOCMEM(n * sizeof(*pmap->pmapped_indices));
     pmap->mapped_indices_count = n;
 
     TA_ASSERT(table_affirm(table));
@@ -152,7 +152,7 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
 
     while (n--) {
         Tcl_Size colnum;
-        if (Tcl_GetIntFromObj(NULL, objs[n], &colnum) != TCL_OK &&
+        if (Tcl_GetSizeIntFromObj(NULL, objs[n], &colnum) != TCL_OK &&
             table_parse_column_index(ip, table, objs[n], &colnum) != TCL_OK)
             goto error_handler;
 
@@ -409,7 +409,7 @@ TCL_RESULT table_column_index_to_name(
             /* Cross check */
             TA_ASSERT(Tcl_ListObjIndex(NULL, onames, i+1, &oname) == TCL_OK);
             TA_ASSERT(oname);
-            TA_ASSERT(Tcl_GetIntFromObj(NULL, oname, &i) == TCL_OK);
+            TA_ASSERT(Tcl_GetSizeIntFromObj(NULL, oname, &i) == TCL_OK);
             TA_ASSERT(i == colindex);
             return TCL_OK;
         }
@@ -780,7 +780,7 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, Tcl_Size ntcols,
         Tcl_Size nfields;
 
         if (Tcl_ListObjGetElements(NULL, rows[r], &nfields, &fields) != TCL_OK) {
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid list syntax in row %d of source data.", r));
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid list syntax in row %" TCL_SIZE_MODIFIER "d of source data.", r));
             return TCL_ERROR;
         }
 
@@ -959,8 +959,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, Tcl_Size ntcols, Tcl_Obj * const *tcol
             case TA_BOOLEAN:
                 {
                     register ba_t *baP;
-                    ba_t ba, ba_mask;
-                    Tcl_Size off;
+                    ba_t ba, ba_mask, off;
 
                     /* Take care of the initial condition where the first bit
                        may not be aligned on a boundary */
@@ -2368,7 +2367,7 @@ TCL_RESULT
 table_get_cmd(ClientData cdata, Tcl_Interp *ip,
               int objc, Tcl_Obj *const objv[])
 {
-    return table_retrieve(ip, objc, objv, (int)cdata);
+    return table_retrieve(ip, objc, objv, (int) (intptr_t) cdata);
 }
 
 TCL_RESULT

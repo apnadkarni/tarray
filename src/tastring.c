@@ -37,9 +37,13 @@ tas_t *tas_alloc_nbytes(char *s, Tcl_Size len)
 
 /* The descriptor for our custom hash */
 static void tas_hash_free(Tcl_HashEntry *he);
+#if TCL_MAJOR_VERSION < 9
 static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey);
-static int tas_hash_compare(void *pkey, Tcl_HashEntry *he);
+#else
+static TCL_HASH_TYPE tas_hash_compute(Tcl_HashTable *phashtab, void *pkey);
+#endif
 static Tcl_HashEntry *tas_hash_alloc(Tcl_HashTable *phashtab, void *pkey);
+static int tas_hash_compare(void *pkey, Tcl_HashEntry *he);
 
 Tcl_HashKeyType tas_hash_type = {
     TCL_HASH_KEY_TYPE_VERSION,	/* version */
@@ -80,10 +84,20 @@ static void tas_hash_free(Tcl_HashEntry *he)
     ckfree((char *)he);
 }
 
-static unsigned int tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
+static 
+#if TCL_MAJOR_VERSION < 9
+unsigned int
+#else
+TCL_HASH_TYPE
+#endif
+tas_hash_compute(Tcl_HashTable *phashtab, void *pkey)
 {
-    const char *s = ((tas_t *)pkey)->s;
+    const unsigned char *s = (unsigned char *)((tas_t *)pkey)->s;
+#if TCL_MAJOR_VERSION < 9
     unsigned int result;
+#else
+    TCL_HASH_TYPE result;
+#endif
     unsigned char c;
 
     /* Exact copy of Tcl's string hash */

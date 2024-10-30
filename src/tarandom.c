@@ -341,7 +341,7 @@ static TCL_RESULT ta_rng_get_method(ta_rng_instance_t *instance, Tcl_Interp *ip,
         ubound = instance->ubound;
     }
     if (objc) {
-        if (Tcl_GetIntFromObj(ip, objv[0], &count) != TCL_OK)
+        if (Tcl_GetSizeIntFromObj(ip, objv[0], &count) != TCL_OK)
             return TCL_ERROR;
         if (count < 0)
             return ta_negative_count_error(ip, count);
@@ -599,16 +599,26 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
         /* Construct shuffle into a new column.
          * "Inside-out" version of Fisher-Yates shuffle
          */
-#define SHUFFLECOPY(type_)                                                    \
-    do {                                                                      \
-        Tcl_Size i, j;                                                        \
-        type_ *from = THDRELEMPTR(thdr, type_, start);                        \
-        type_ *to   = THDRELEMPTR(thdr2, type_, 0);                           \
-        for (i = 0; i < n; ++i) {                                             \
-            j     = pcg32_boundedrand_r(&prng->rng[0], i + 1); /* j in 0:i */ \
-            to[i] = to[j];                                                    \
-            to[j] = from[i];                                                  \
-        }                                                                     \
+#define SHUFFLECOPY(type_)                                                      \
+    do {                                                                        \
+        type_ *from = THDRELEMPTR(thdr, type_, start);                          \
+        type_ *to   = THDRELEMPTR(thdr2, type_, 0);                             \
+        if (sizeof(Tcl_Size) == sizeof(int)) {                                  \
+            int i, j;                                                           \
+            for (i = 0; i < n; ++i) {                                           \
+                j = pcg32_boundedrand_r(&prng->rng[0], i + 1); /* j in 0:i */   \
+                to[i] = to[j];                                                  \
+                to[j] = from[i];                                                \
+            }                                                                   \
+        }                                                                       \
+        else {                                                                  \
+            Tcl_Size i, j;                                                      \
+            for (i = 0; i < n; ++i) {                                           \
+                j     = (Tcl_Size) pcg32x2_boundedrand_r(prng->rng, i + 1); /* j in 0:i */ \
+                to[i] = to[j];                                                  \
+                to[j] = from[i];                                                \
+            }                                                                   \
+        }                                                                       \
     } while (0)
 
         thdr_t *thdr2;
@@ -643,18 +653,31 @@ TCL_RESULT tcol_shuffle(Tcl_Interp *ip, ta_rng_t *prng, Tcl_Obj *tcol)
         tcol_replace_intrep(tcol, thdr2, NULL);
     } else {
         /* Shuffle in place - Fisher-Yates shuffle */
-#define SHUFFLE(type_)                                                  \
-        do {                                                            \
-            Tcl_Size i, j;                                                   \
-            type_ temp;                                                 \
-            type_ *p = THDRELEMPTR(thdr, type_, 0);                     \
-            for (i = n; i > 1; --i) {                                   \
-                j = pcg32_boundedrand_r(&prng->rng[0], i); /* j in 0:(i-1) */ \
-                temp = p[j];                                            \
-                p[j] = p[i-1];                                          \
-                p[i-1] = temp;                                          \
-            }                                                           \
-        } while (0)
+
+#define SHUFFLE(type_)                                                           \
+    do {                                                                         \
+        type_ temp;                                                              \
+        type_ *p = THDRELEMPTR(thdr, type_, 0);                                  \
+        if (sizeof(Tcl_Size) == sizeof(int)) {                                   \
+            int i, j;                                                            \
+            for (i = (int)n; i > 1; --i) {                                       \
+                j    = pcg32_boundedrand_r(&prng->rng[0], i); /* j in 0:(i-1) */ \
+                temp = p[j];                                                     \
+                p[j] = p[i - 1];                                                 \
+                p[i - 1] = temp;                                                 \
+            }                                                                    \
+        }                                                                        \
+        else {                                                                   \
+            Tcl_Size i, j;                                                       \
+            for (i = n; i > 1; --i) {                                            \
+                j    = (Tcl_Size) pcg32x2_boundedrand_r(prng->rng, i); /* j in 0:(i-1) */   \
+                temp = p[j];                                                     \
+                p[j] = p[i - 1];                                                 \
+                p[i - 1] = temp;                                                 \
+            }                                                                    \
+        }                                                                        \
+    } while (0)
+
         n = thdr->used;
         switch (thdr->type) {
         case TA_BYTE: SHUFFLE(unsigned char); break;

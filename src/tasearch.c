@@ -12,7 +12,7 @@
  * Thresholds for multithreading.
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
-int ta_search_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_search_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 /*
@@ -95,7 +95,8 @@ ta_search_nomatches(Tcl_Interp *ip,
 }
 
 /* Helper to figure out next slot to test when search indices are specified */
-int ta_search_calc_slot_indices(ta_search_t *psearch)
+static Tcl_Size
+ta_search_calc_slot_indices(ta_search_t *psearch)
 {
     Tcl_Size slot;
 
@@ -113,7 +114,7 @@ int ta_search_calc_slot_indices(ta_search_t *psearch)
 }
 
 /* Helper to figure out next slot to test */
-TA_INLINE int ta_search_calc_slot(ta_search_t *psearch)
+static TA_INLINE Tcl_Size ta_search_calc_slot(ta_search_t *psearch)
 {
     if (psearch->indices)
         return ta_search_calc_slot_indices(psearch);
@@ -727,7 +728,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
     TCL_RESULT res;
     struct thdr_search_mt_context mt_context[4];
     Tcl_Size mt_sizes[4];
-    int i, ncontexts;
+    Tcl_Size i, ncontexts;
     Tcl_Size count, haystack_lower, haystack_upper;
 
     TA_ASSERT(haystackP->type != TA_BOOLEAN);
@@ -792,7 +793,7 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
                                           ARRAYSIZE(mt_sizes), mt_sizes);
 #ifdef TA_ENABLE_ASSERT
         {
-            int total = 0;
+            Tcl_Size total = 0;
             for (i = 0; i < ncontexts; ++i) {
                 total += mt_sizes[i];
             }
@@ -863,8 +864,8 @@ static TCL_RESULT thdr_basic_search_mt(Tcl_Interp *ip, thdr_t * haystackP,
         if (psearch->flags & TA_SEARCH_ALL) {
             thdr_t *result_thdr = NULL;
             Tcl_Size total;
-            int matching_contexts;
-            int first_matching_context;
+            Tcl_Size matching_contexts;
+            Tcl_Size first_matching_context;
 
             /*
              * Based on above checks, all contexts that exist have status OK.
@@ -1617,7 +1618,7 @@ TCL_RESULT tcol_lookup_cmd(ClientData clientdata, Tcl_Interp *ip,
         if (thdr_basic_search_mt(ip, thdr, span, objv[2], &search) == TCL_OK) {
             /* TBD - clean up search interface to return value, not interp result */
             Tcl_Obj *resultObj = Tcl_GetObjResult(ip);
-            TA_NOFAIL(Tcl_GetIntFromObj(NULL, resultObj, &pos), TCL_OK);
+            TA_NOFAIL(Tcl_GetSizeIntFromObj(NULL, resultObj, &pos), TCL_OK);
         }
         if (pos >= 0) 
             thdr_lookup_add(thdr, span ? (pos + span->first) : pos);

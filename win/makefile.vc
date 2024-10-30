@@ -30,8 +30,6 @@ DLLSUBDIR = win32-ix86
 !endif
 BIN_INSTALL_DIR = $(SCRIPT_INSTALL_DIR)\$(DLLSUBDIR)
 
-# TBD - add TA_ENABLE_ASSERT
-
 # Define the object files and resource file that make up the extension.
 PRJ_OBJS = \
 	$(TMP_DIR)\bitarray.obj \

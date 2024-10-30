@@ -12,7 +12,7 @@
  * Thresholds for multithreading.
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
-int ta_math_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_math_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 static const char *ta_math_op_names[] = {
@@ -1049,6 +1049,7 @@ tcol_math_cmd(ClientData clientdata,
     /* We have at least one column and with at least one element */
 
 #if !defined(TA_MT_ENABLE)
+    have_boolean_col = have_boolean_col; /* Avoid gcc "unused var" */
     ncontexts = 1;
     mt_sizes[0] = thdr_size;
 #else
@@ -1376,7 +1377,7 @@ init_wide_series(Tcl_Interp *ip,
                 *pwide++ = wide;
         }
         thdr->used = (Tcl_Size) (pwide - THDRELEMPTR(thdr, Tcl_WideInt, 0));
-        TA_ASSERT(thdr->used <= nmax);
+        TA_ASSERT((uint64_t) thdr->used <= nmax);
     }
 
     return thdr;

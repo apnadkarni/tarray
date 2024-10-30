@@ -104,7 +104,7 @@ typedef int ba_off_t;
 # define BA_MASK_FFFF 0x0000FFFF
 #endif
 
-void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, ba_off_t n);
+void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, int n);
 void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_off_t len);
 void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival);
 int ba_find(ba_t *baP, int bval, ba_off_t offset, ba_off_t count);
@@ -159,11 +159,11 @@ BA_INLINE ba_t ba_merge_unit(ba_t a, ba_t b, ba_t mask)
 
 /* Caller should take care of case where there are not n bits
    valid at offset off */
-BA_INLINE ba_t ba_getn(const ba_t *baP, ba_off_t off, ba_off_t n)
+BA_INLINE ba_t ba_getn(const ba_t *baP, ba_off_t offset, int n)
 {
     BA_ASSERT(n > 0 && n <= BA_UNIT_SIZE);
-    baP += off / BA_UNIT_SIZE;
-    off = off % BA_UNIT_SIZE;
+    baP += offset / BA_UNIT_SIZE;
+    ba_t off = offset % BA_UNIT_SIZE;
     if (off == 0)
         return (n == BA_UNIT_SIZE ? *baP : (*baP & BITPOSMASKLT(n)));
     else {
@@ -242,32 +242,33 @@ BA_INLINE ba_t ba_reverse_unit(ba_t ba)
 #endif
 }
 
-BA_INLINE int ba_get(ba_t *baP, ba_off_t off)
+BA_INLINE int ba_get(ba_t *baP, ba_off_t offset)
 {
-    return (baP[off / BA_UNIT_SIZE] & BITPOSMASK(off % BA_UNIT_SIZE)) != 0;
+    ba_t off = offset % BA_UNIT_SIZE;
+    return (baP[offset / BA_UNIT_SIZE] & BITPOSMASK(off)) != 0;
 }
 
-BA_INLINE void ba_put(ba_t *baP, ba_off_t off, int val)
+BA_INLINE void ba_put(ba_t *baP, ba_off_t offset, int val)
 {
-    baP += off / BA_UNIT_SIZE;
-    off = off % BA_UNIT_SIZE;
+    baP += offset / BA_UNIT_SIZE;
+    ba_t off = offset % BA_UNIT_SIZE;
     if (val)
         *baP |= BITPOSMASK(off);
     else
         *baP &= ~ BITPOSMASK(off);
 }
 
-BA_INLINE void ba_set(ba_t *baP, ba_off_t off)
+BA_INLINE void ba_set(ba_t *baP, ba_off_t offset)
 {
-    baP += off / BA_UNIT_SIZE;
-    off = off % BA_UNIT_SIZE;
+    baP += offset / BA_UNIT_SIZE;
+    ba_t off = offset % BA_UNIT_SIZE;
     *baP |= BITPOSMASK(off);
 }
 
-BA_INLINE void ba_reset(ba_t *baP, ba_off_t off)
+BA_INLINE void ba_reset(ba_t *baP, ba_off_t offset)
 {
-    baP += off / BA_UNIT_SIZE;
-    off = off % BA_UNIT_SIZE;
+    baP += offset / BA_UNIT_SIZE;
+    ba_t off = offset % BA_UNIT_SIZE;
     *baP &= ~ BITPOSMASK(off);
 }
 

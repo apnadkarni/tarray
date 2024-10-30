@@ -28,7 +28,7 @@ static TCL_RESULT error_from_obj(Tcl_Interp *ip, char *s, Tcl_Obj *o)
 
 void ta_string_overflow_panic(const char *where)
 {
-    Tcl_Panic("Max size for a Tcl value (%d bytes) exceeded in %s", INT_MAX, where ? where : "unknown function");
+    Tcl_Panic("Max size for a Tcl value (%" TCL_SIZE_MODIFIER "d bytes) exceeded in %s", TCL_SIZE_MAX, where ? where : "unknown function");
 }
 
 void ta_type_panic(int tatype)
@@ -48,7 +48,7 @@ void ta_shared_panic(const char *where)
 
 void ta_small_panic(thdr_t *thdr, const char *where)
 {
-    Tcl_Panic("Insufficient space in thdr_t (allocated %d) in %s.", thdr->usable, where);
+    Tcl_Panic("Insufficient space in thdr_t (allocated %" TCL_SIZE_MODIFIER "d) in %s.", thdr->usable, where);
 }
 
 void ta_memory_panic(Tcl_Size req_size)
@@ -316,8 +316,8 @@ TCL_RESULT ta_multiple_columns_error(Tcl_Interp *ip, Tcl_Size colindex)
     if (ip) {
         Tcl_SetObjResult(
             ip,
-            Tcl_ObjPrintf("Column index '" TCL_SIZE_MODIFIER
-                          "%d' specified multiple times in column list.",
+            Tcl_ObjPrintf("Column index '%" TCL_SIZE_MODIFIER
+                          "d' specified multiple times in column list.",
                           colindex));
         Tcl_SetErrorCode(ip, "TARRAY", "TABLE", "COLUMN", NULL);
     }
