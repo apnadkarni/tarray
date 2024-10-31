@@ -865,7 +865,7 @@ TCL_RESULT tcol_sort_indirect(Tcl_Interp *ip, Tcl_Obj *oindices, Tcl_Obj *otarge
      * on pindices because WE incremented it along the way.
      */
     pindices = tcol_thdr(oindices);
-    if (pindices->type == TA_INT && tcol_span(oindices) == 0)
+    if (pindices->type == TA_INDEX && tcol_span(oindices) == 0)
         free_pindices = 0;
     else {
         index_type = ta_obj_to_indices(ip, oindices, 0, ntarget-1,
