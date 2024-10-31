@@ -25,7 +25,7 @@ namespace eval tarray::test {
             Search an empty column -all
         } -body {
             tarray::column search -eq -all [newcolumn $type] [samplevalue $type]
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-eq-1.1.1 {
             Search an empty column -bitmap
@@ -88,7 +88,7 @@ namespace eval tarray::test {
             Match -eq -all
         } -body {
             tarray::column search -all -eq [samplecolumn $type] [samplevalue $type 0]
-        } -result [crep int [lsearch -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
+        } -result [crep [indextype] [lsearch -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
 
         test column_search-$type-eq-2.3.1 {
             Match -eq -bitmap
@@ -104,7 +104,7 @@ namespace eval tarray::test {
             set val [samplevalue $type 0]
             set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
             lappend l $val
-            clequal [tarray::column search -all -eq [newcolumn $type $l] $val] int [lsearch -exact -all $l $val]
+            clequal [tarray::column search -all -eq [newcolumn $type $l] $val] [indextype] [lsearch -exact -all $l $val]
         } -result 1
 
         test column_search-$type-eq-2.5 {
@@ -134,7 +134,7 @@ namespace eval tarray::test {
             set val [samplevalue $type 0]
             set l [linsert [linsert [samplerange $type] 0 $val] end-5 $val]
             lappend l $val
-            clequal [tarray::column search -all -not -eq [newcolumn $type $l] $val] int [lsearch -exact -all -not $l $val]
+            clequal [tarray::column search -all -not -eq [newcolumn $type $l] $val] [indextype] [lsearch -exact -all -not $l $val]
         } -result 1
             
         test column_search-$type-eq-2.9 {
@@ -150,14 +150,14 @@ namespace eval tarray::test {
             Match -eq -all -range
         } -body {
             tarray::column search -range 1 -all -eq [samplecolumn $type] [samplevalue $type 0]
-        } -result [crep int [lsearch -start 1 -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
+        } -result [crep [indextype] [lsearch -start 1 -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
 
         test column_search-$type-eq-2.11 {
             Match -eq -all -range (ensure duplicates)
         } -body {
             set l [samplerange $type 0 20 0 10]
             set val [lindex $l 9]
-            clequal [tarray::column search -all -eq -range 10 [newcolumn $type $l] $val] int [lsearch -exact -all -start 10 $l $val]
+            clequal [tarray::column search -all -eq -range 10 [newcolumn $type $l] $val] [indextype] [lsearch -exact -all -start 10 $l $val]
         } -result 1
 
         test column_search-$type-eq-2.11.1 {
@@ -224,7 +224,7 @@ namespace eval tarray::test {
             Match -eq -all -range
         } -body {
             tarray::column search -range {1 end} -all -eq [samplecolumn $type] [samplevalue $type 0]
-        } -result [crep int [lsearch -start 1 -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
+        } -result [crep [indextype] [lsearch -start 1 -exact -all [samplerange $type] [samplevalue $type 0]]] -match column
 
         test column_search-$type-eq-2.21 {
             Match -eq -all -range (ensure duplicates)
@@ -232,7 +232,7 @@ namespace eval tarray::test {
             set l [samplerange $type 0 9 0 9 0 9 0 9]
             set val [lindex $l 5]
         } -body {
-            clequal [tarray::column search -all -eq -range {6 30} [newcolumn $type $l] $val] int [lsearch -exact -all -start 6 [lrange $l 0 30] $val]
+            clequal [tarray::column search -all -eq -range {6 30} [newcolumn $type $l] $val] [indextype] [lsearch -exact -all -start 6 [lrange $l 0 30] $val]
         } -result 1
 
         test column_search-$type-eq-2.21.1 {
@@ -351,7 +351,7 @@ namespace eval tarray::test {
         } -body {
             set val [samplemax $type]
             tarray::column search -eq -all [newcolumn $type [samplefilter $type $val]] $val
-        } -result [crep int {}]
+        } -result [crep [indextype] {}]
 
 
         test column_search-$type-eq-5.3 {
@@ -381,7 +381,7 @@ namespace eval tarray::test {
                 Search an empty column -all
             } -body {
                 tarray::column search $op -all [newcolumn $type] [samplevalue $type]
-            } -result [crep int {}] -match column
+            } -result [crep [indextype] {}] -match column
 
             test column_search-$type$op-1.1.1 {
                 Search an empty column -bitmap
@@ -500,7 +500,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.3.1 {
             Match -inline -among
         } -body {
-            tarray::column search -eq -inline -among [newcolumn int {1 3 4 7}] [newcolumn $type {
+            tarray::column search -eq -inline -among [newcolumn [indextype] {1 3 4 7}] [newcolumn $type {
                 100 180 75 100 100 230 250
             }] 100
         } -result 100 -match numeric
@@ -508,7 +508,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.3.2 {
             Match -inline -among
         } -body {
-            tarray::column search -eq -inline -among [newspancolumn int {1 3 4 7}] [newcolumn $type {
+            tarray::column search -eq -inline -among [newspancolumn [indextype] {1 3 4 7}] [newcolumn $type {
                 100 180 75 100 100 230 250
             }] 100
         } -result 100 -match numeric
@@ -532,7 +532,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.4.2 {
             Match -among out of order indices
         } -body {
-            tarray::column search -eq -among [newspancolumn int {1 4 3 7}] [newcolumn $type {
+            tarray::column search -eq -among [newspancolumn [indextype] {1 4 3 7}] [newcolumn $type {
                 100 180 75 100 100 230 250
             }] 100
         } -result 4
@@ -543,23 +543,23 @@ namespace eval tarray::test {
             tarray::column search -eq -all -among {-1 3 5 7} [newcolumn $type {
                 100 100 100 200 100 100 100
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-eq-6.5.1 {
             Match -all -among (negative and out of bounds indices)
         } -body {
-            tarray::column search -eq -all -among [newcolumn int {-1 3 5 7}] [newcolumn $type {
+            tarray::column search -eq -all -among [newcolumn [indextype] {-1 3 5 7}] [newcolumn $type {
                 100 100 100 200 100 100 100
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-eq-6.5.2 {
             Match -all -among (negative and out of bounds indices)
         } -body {
-            tarray::column search -eq -all -among [newspancolumn int {-1 3 5 7}] [newcolumn $type {
+            tarray::column search -eq -all -among [newspancolumn [indextype] {-1 3 5 7}] [newcolumn $type {
                 100 100 100 200 100 100 100
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-eq-6.5.3 {
             Match -all -among (negative and out of bounds indices)
@@ -580,7 +580,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.6.1 {
             Match -not -all -among -inline (negative and out of bounds indices)
         } -body {
-            tarray::column search -inline -not -eq -all -among [newcolumn int {-1 3 5 6 7}] [newcolumn $type {
+            tarray::column search -inline -not -eq -all -among [newcolumn [indextype] {-1 3 5 6 7}] [newcolumn $type {
                 10 20 30 40 50 10 70
             }] 10
         } -result [crep $type {40 70}] -match column
@@ -588,7 +588,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.6.2 {
             Match -not -all -among -inline (negative and out of bounds indices)
         } -body {
-            tarray::column search -inline -not -eq -all -among [newspancolumn int {-1 3 5 6 7}] [newcolumn $type {
+            tarray::column search -inline -not -eq -all -among [newspancolumn [indextype] {-1 3 5 6 7}] [newcolumn $type {
                 10 20 30 40 50 10 70
             }] 10
         } -result [crep $type {40 70}] -match column
@@ -609,30 +609,30 @@ namespace eval tarray::test {
             tarray::column search -eq -all -range {1 5} -among {0 5 7 5 4} [newcolumn $type {
                 20 10 10 10 10 10 10
             }] 10
-        } -result [crep int {5 5 4}] -match column
+        } -result [crep [indextype] {5 5 4}] -match column
 
         test column_search-$type-eq-6.7.1 {
             Match -among -range -all
         } -body {
-            tarray::column search -eq -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -eq -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 10 10 10 10 10 10
             }] 10
-        } -result [crep int {5 5 4}] -match column
+        } -result [crep [indextype] {5 5 4}] -match column
 
         test column_search-$type-eq-6.7.2 {
             Match -among -range -all
         } -body {
-            tarray::column search -eq -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -eq -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 10 10 10 10 10 10
             }] 10
-        } -result [crep int {5 5 4}] -match column
+        } -result [crep [indextype] {5 5 4}] -match column
 
         test column_search-$type-eq-6.7.3 {
             Match -among -range -bitmap
         } -body {
             bitmap_search_test [newcolumn $type {
                 20 10 10 10 10 10 10
-            }] 10 -eq -range {1 5} -among [newcolumn int {0 5 7 4}] 
+            }] 10 -eq -range {1 5} -among [newcolumn [indextype] {0 5 7 4}] 
         } -result 1
 
         test column_search-$type-eq-6.8 {
@@ -646,7 +646,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.8.1 {
             Match -among -range -inline -all -not
         } -body {
-            tarray::column search -not -eq -inline -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -not -eq -inline -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 30 40 50 10 70 80
             }] 10
         } -result [crep $type {70 70}] -match column
@@ -654,7 +654,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.8.2 {
             Match -among -range -inline -all -not
         } -body {
-            tarray::column search -not -eq -inline -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -not -eq -inline -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 30 40 50 10 70 80
             }] 10
         } -result [crep $type {70 70}] -match column
@@ -670,7 +670,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.9.1 {
             Match -among -range
         } -body {
-            tarray::column search -eq -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -eq -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 10 10 10 10 10 10
             }] 10
         } -result 5
@@ -678,7 +678,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.9.2 {
             Match -among -range
         } -body {
-            tarray::column search -eq -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -eq -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 10 10 10 10 10 10
             }] 10
         } -result 5
@@ -694,7 +694,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.10.1 {
             Match -among -range -inline -not
         } -body {
-            tarray::column search -inline -not -eq -range {1 5} -among [newcolumn int {0 4 5 7 }] [newcolumn $type {
+            tarray::column search -inline -not -eq -range {1 5} -among [newcolumn [indextype] {0 4 5 7 }] [newcolumn $type {
                 20 30 40 50 10 70 80
             }] 10
         } -result 70 -match numeric
@@ -702,7 +702,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.10.2 {
             Match -among -range -inline -not
         } -body {
-            tarray::column search -inline -not -eq -range {1 5} -among [newspancolumn int {0 4 5 7 }] [newcolumn $type {
+            tarray::column search -inline -not -eq -range {1 5} -among [newspancolumn [indextype] {0 4 5 7 }] [newcolumn $type {
                 20 30 40 50 10 70 80
             }] 10
         } -result 70 -match numeric
@@ -716,13 +716,13 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.11.1 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -eq -among [newcolumn int {0 1}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -eq -among [newcolumn [indextype] {0 1}] [newcolumn $type {}] [samplevalue $type]
         } -result -1
 
         test column_search-$type-eq-6.11.2 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -eq -among [newspancolumn int {0 1}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -eq -among [newspancolumn [indextype] {0 1}] [newcolumn $type {}] [samplevalue $type]
         } -result -1
 
         test column_search-$type-eq-6.12 {
@@ -734,13 +734,13 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.12.1 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -inline -eq -among [newcolumn int {0}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -inline -eq -among [newcolumn [indextype] {0}] [newcolumn $type {}] [samplevalue $type]
         } -result {}
 
         test column_search-$type-eq-6.12.2 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -inline -eq -among [newspancolumn int {0}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -inline -eq -among [newspancolumn [indextype] {0}] [newcolumn $type {}] [samplevalue $type]
         } -result {}
 
         test column_search-$type-eq-6.13 {
@@ -754,7 +754,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.13.1 {
             Match -among -range reversed
         } -body {
-            tarray::column search -eq -range {5 0} -among [newcolumn int {0 1 2 3 4 5 6}] [newcolumn $type {
+            tarray::column search -eq -range {5 0} -among [newcolumn [indextype] {0 1 2 3 4 5 6}] [newcolumn $type {
                 10 10 10 10 10 10 10 10 10
             }] 10
         } -result -1
@@ -762,7 +762,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.13.2 {
             Match -among -range reversed
         } -body {
-            tarray::column search -eq -range {5 0} -among [newspancolumn int {0 1 2 3 4 5 6}] [newcolumn $type {
+            tarray::column search -eq -range {5 0} -among [newspancolumn [indextype] {0 1 2 3 4 5 6}] [newcolumn $type {
                 10 10 10 10 10 10 10 10 10
             }] 10
         } -result -1
@@ -778,7 +778,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.14.1 {
             Match -among empty
         } -body {
-            tarray::column search -eq -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -eq -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result -1
@@ -786,7 +786,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.14.2 {
             Match -among empty
         } -body {
-            tarray::column search -eq -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -eq -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result -1
@@ -802,7 +802,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.15.1 {
             Match -among empty
         } -body {
-            tarray::column search -inline -eq -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -inline -eq -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result {}
@@ -810,7 +810,7 @@ namespace eval tarray::test {
         test column_search-$type-eq-6.15.2 {
             Match -among empty
         } -body {
-            tarray::column search -inline -eq -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -inline -eq -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result {}
@@ -821,23 +821,23 @@ namespace eval tarray::test {
             tarray::column search -all -eq -among {} [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-eq-6.16.1 {
             Match -among empty
         } -body {
-            tarray::column search -all -eq -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -all -eq -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-eq-6.16.2 {
             Match -among empty
         } -body {
-            tarray::column search -all -eq -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -all -eq -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         #
         # Numeric -lt tests
@@ -875,7 +875,7 @@ namespace eval tarray::test {
             tarray::column search -lt -all [newcolumn $type {
                 128 180 70 75 128 230 128
             }] 75
-        } -result [crep int {2}] -match column
+        } -result [crep [indextype] {2}] -match column
 
         test column_search-$type-lt-2.4 {
             Match -all
@@ -883,7 +883,7 @@ namespace eval tarray::test {
             tarray::column search -lt -all [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 180
-        } -result [crep int {0 2 3 4 6}] -match column
+        } -result [crep [indextype] {0 2 3 4 6}] -match column
 
         test column_search-$type-lt-2.4.1 {
             Match -bitmap
@@ -967,7 +967,7 @@ namespace eval tarray::test {
             tarray::column search -lt -not -all [newcolumn $type {
                 28 180 70 75 128 230 128
             }] 230
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-lt-3.9 {
             Match -all -not
@@ -975,7 +975,7 @@ namespace eval tarray::test {
             tarray::column search -lt -not -all [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 128
-        } -result [crep int {0 1 4 5 6}] -match column
+        } -result [crep [indextype] {0 1 4 5 6}] -match column
 
         test column_search-$type-lt-3.9.1 {
             Match -bitmap -not
@@ -1019,7 +1019,7 @@ namespace eval tarray::test {
             tarray::column search -lt -all -range 3 [newcolumn $type {
                 128 180 70 125 128 20
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-lt-4.4 {
             Match -all -range
@@ -1027,7 +1027,7 @@ namespace eval tarray::test {
             tarray::column search -lt -all -range 3 [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 180
-        } -result [crep int {3 4 6}] -match column
+        } -result [crep [indextype] {3 4 6}] -match column
 
         test column_search-$type-lt-4.5 {
             Match -all -inline -range
@@ -1111,7 +1111,7 @@ namespace eval tarray::test {
             tarray::column search -lt -all -range {3 end} [newcolumn $type {
                 128 180 70 125 128 20
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-lt-4.16 {
             Match -all -range
@@ -1119,7 +1119,7 @@ namespace eval tarray::test {
             tarray::column search -lt -all -range {3 5} [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 180
-        } -result [crep int {3 4}] -match column
+        } -result [crep [indextype] {3 4}] -match column
 
         test column_search-$type-lt-4.17 {
             Match -all -inline -range
@@ -1143,7 +1143,7 @@ namespace eval tarray::test {
             tarray::column search -not -lt -all -range {1 5} [newcolumn $type {
                 128 170 75 175 10 230 250
             }] 175
-        } -result [crep int {3 5}] -match column
+        } -result [crep [indextype] {3 5}] -match column
 
         test column_search-$type-lt-4.20 {
             Match -inline -range -not -all
@@ -1218,13 +1218,13 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.29.1 {
             Match on element -among
         } -body {
-            tarray::column search -lt -among [newcolumn int {1 3 4}] [newcolumn $type {5 128 10 55 101}] 100
+            tarray::column search -lt -among [newcolumn [indextype] {1 3 4}] [newcolumn $type {5 128 10 55 101}] 100
         } -result 3
 
         test column_search-$type-lt-4.29.2 {
             Match on element -among
         } -body {
-            tarray::column search -lt -among [newspancolumn int {1 3 4}] [newcolumn $type {5 128 10 55 101}] 100
+            tarray::column search -lt -among [newspancolumn [indextype] {1 3 4}] [newcolumn $type {5 128 10 55 101}] 100
         } -result 3
 
         test column_search-$type-lt-4.30 {
@@ -1236,13 +1236,13 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.30.1 {
             Match on element -among (fail)
         } -body {
-            tarray::column search -lt -among [newcolumn int {1 3 4}] [newcolumn $type {5 128 10 55 101}] 10
+            tarray::column search -lt -among [newcolumn [indextype] {1 3 4}] [newcolumn $type {5 128 10 55 101}] 10
         } -result -1
 
         test column_search-$type-lt-4.30.2 {
             Match on element -among (fail)
         } -body {
-            tarray::column search -lt -among [newspancolumn int {1 3 4}] [newcolumn $type {5 128 10 55 101}] 10
+            tarray::column search -lt -among [newspancolumn [indextype] {1 3 4}] [newcolumn $type {5 128 10 55 101}] 10
         } -result -1
 
         test column_search-$type-lt-4.31 {
@@ -1256,7 +1256,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.31.1 {
             Match -inline -among
         } -body {
-            tarray::column search -lt -inline -among [newcolumn int {1 3 4 7}] [newcolumn $type {
+            tarray::column search -lt -inline -among [newcolumn [indextype] {1 3 4 7}] [newcolumn $type {
                 128 180 75 75 10 230 250
             }] 100
         } -result 75 -match numeric
@@ -1264,7 +1264,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.31.2 {
             Match -inline -among
         } -body {
-            tarray::column search -lt -inline -among [newspancolumn int {1 3 4 7}] [newcolumn $type {
+            tarray::column search -lt -inline -among [newspancolumn [indextype] {1 3 4 7}] [newcolumn $type {
                 128 180 75 75 10 230 250
             }] 100
         } -result 75 -match numeric
@@ -1280,7 +1280,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.32.1 {
             Match -inline -among out of order indices
         } -body {
-            tarray::column search -lt -inline -among [newcolumn int {1 4 3 7}] [newcolumn $type {
+            tarray::column search -lt -inline -among [newcolumn [indextype] {1 4 3 7}] [newcolumn $type {
                 128 180 75 75 10 230 250
             }] 100
         } -result 10 -match numeric
@@ -1288,7 +1288,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.32.2 {
             Match -inline -among out of order indices
         } -body {
-            tarray::column search -lt -inline -among [newspancolumn int {1 4 3 7}] [newcolumn $type {
+            tarray::column search -lt -inline -among [newspancolumn [indextype] {1 4 3 7}] [newcolumn $type {
                 128 180 75 75 10 230 250
             }] 100
         } -result 10 -match numeric
@@ -1299,23 +1299,23 @@ namespace eval tarray::test {
             tarray::column search -lt -all -among {-1 3 5 7} [newcolumn $type {
                 128 180 70 125 128 20 120
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-lt-4.33.1 {
             Match -all -among (negative and out of bounds indices)
         } -body {
-            tarray::column search -lt -all -among [newcolumn int {-1 3 5 7}] [newcolumn $type {
+            tarray::column search -lt -all -among [newcolumn [indextype] {-1 3 5 7}] [newcolumn $type {
                 128 180 70 125 128 20 120
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-lt-4.33.2 {
             Match -all -among (negative and out of bounds indices)
         } -body {
-            tarray::column search -lt -all -among [newspancolumn int {-1 3 5 7}] [newcolumn $type {
+            tarray::column search -lt -all -among [newspancolumn [indextype] {-1 3 5 7}] [newcolumn $type {
                 128 180 70 125 128 20 120
             }] 100
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-lt-4.34 {
             Match -not -all -among -inline (negative and out of bounds indices)
@@ -1328,7 +1328,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.34.1 {
             Match -not -all -among -inline (negative and out of bounds indices)
         } -body {
-            tarray::column search -inline -not -lt -all -among [newcolumn int {-1 3 5 6 7}] [newcolumn $type {
+            tarray::column search -inline -not -lt -all -among [newcolumn [indextype] {-1 3 5 6 7}] [newcolumn $type {
                 128 180 70 100 128 20 120
             }] 100
         } -result [crep $type {100 120}] -match column
@@ -1336,7 +1336,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.34.2 {
             Match -not -all -among -inline (negative and out of bounds indices)
         } -body {
-            tarray::column search -inline -not -lt -all -among [newspancolumn int {-1 3 5 6 7}] [newcolumn $type {
+            tarray::column search -inline -not -lt -all -among [newspancolumn [indextype] {-1 3 5 6 7}] [newcolumn $type {
                 128 180 70 100 128 20 120
             }] 100
         } -result [crep $type {100 120}] -match column
@@ -1347,23 +1347,23 @@ namespace eval tarray::test {
             tarray::column search -lt -all -range {1 5} -among {0 5 7 5 4} [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {5 5 4}] -match column
+        } -result [crep [indextype] {5 5 4}] -match column
 
         test column_search-$type-lt-4.35.1 {
             Match -among -range -all
         } -body {
-            tarray::column search -lt -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {5 5 4}] -match column
+        } -result [crep [indextype] {5 5 4}] -match column
 
         test column_search-$type-lt-4.35.2 {
             Match -among -range -all
         } -body {
-            tarray::column search -lt -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {5 5 4}] -match column
+        } -result [crep [indextype] {5 5 4}] -match column
 
         test column_search-$type-lt-4.36 {
             Match -among -range -inline -all
@@ -1376,7 +1376,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.36.1 {
             Match -among -range -inline -all
         } -body {
-            tarray::column search -lt -inline -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -inline -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result [crep $type {30 30 10}] -match column
@@ -1384,7 +1384,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.36.2 {
             Match -among -range -inline -all
         } -body {
-            tarray::column search -lt -inline -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -inline -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result [crep $type {30 30 10}] -match column
@@ -1400,7 +1400,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.37.1 {
             Match -among -range
         } -body {
-            tarray::column search -lt -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result 5
@@ -1408,7 +1408,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.37.2 {
             Match -among -range
         } -body {
-            tarray::column search -lt -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result 5
@@ -1424,7 +1424,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.38.1 {
             Match -among -range -inline
         } -body {
-            tarray::column search -inline -lt -range {1 5} -among [newcolumn int {0 4 5 7 }] [newcolumn $type {
+            tarray::column search -inline -lt -range {1 5} -among [newcolumn [indextype] {0 4 5 7 }] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result 10 -match numeric
@@ -1432,7 +1432,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.38.2 {
             Match -among -range -inline
         } -body {
-            tarray::column search -inline -lt -range {1 5} -among [newspancolumn int {0 4 5 7 }] [newcolumn $type {
+            tarray::column search -inline -lt -range {1 5} -among [newspancolumn [indextype] {0 4 5 7 }] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result 10 -match numeric
@@ -1446,13 +1446,13 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.39.1 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -lt -among [newcolumn int {0 1}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -lt -among [newcolumn [indextype] {0 1}] [newcolumn $type {}] [samplevalue $type]
         } -result -1
 
         test column_search-$type-lt-4.39.2 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -lt -among [newspancolumn int {0 1}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -lt -among [newspancolumn [indextype] {0 1}] [newcolumn $type {}] [samplevalue $type]
         } -result -1
 
         test column_search-$type-eq-4.40 {
@@ -1464,13 +1464,13 @@ namespace eval tarray::test {
         test column_search-$type-eq-4.40.1 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -inline -lt -among [newcolumn int {0}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -inline -lt -among [newcolumn [indextype] {0}] [newcolumn $type {}] [samplevalue $type]
         } -result {}
 
         test column_search-$type-eq-4.40.2 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -inline -lt -among [newspancolumn int {0}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -inline -lt -among [newspancolumn [indextype] {0}] [newcolumn $type {}] [samplevalue $type]
         } -result {}
 
         test column_search-$type-lt-4.41 {
@@ -1484,7 +1484,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.41.1 {
             Match -among -range reversed
         } -body {
-            tarray::column search -lt -range {5 0} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -range {5 0} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result -1
@@ -1492,7 +1492,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.41.2 {
             Match -among -range reversed
         } -body {
-            tarray::column search -lt -range {5 0} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -lt -range {5 0} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result -1
@@ -1508,7 +1508,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.42.1 {
             Match -among empty
         } -body {
-            tarray::column search -lt -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -lt -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result -1
@@ -1516,7 +1516,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.42.2 {
             Match -among empty
         } -body {
-            tarray::column search -lt -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -lt -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result -1
@@ -1532,7 +1532,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.43.1 {
             Match -among empty
         } -body {
-            tarray::column search -inline -lt -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -inline -lt -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result {}
@@ -1540,7 +1540,7 @@ namespace eval tarray::test {
         test column_search-$type-lt-4.43.2 {
             Match -among empty
         } -body {
-            tarray::column search -inline -lt -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -inline -lt -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
         } -result {}
@@ -1551,23 +1551,23 @@ namespace eval tarray::test {
             tarray::column search -all -lt -among {} [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-lt-4.44.1 {
             Match -among empty
         } -body {
-            tarray::column search -all -lt -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -all -lt -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-lt-4.44.2 {
             Match -among empty
         } -body {
-            tarray::column search -all -lt -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -all -lt -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 175
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
 
         test column_search-$type-lt-5.0 {
@@ -1594,7 +1594,7 @@ namespace eval tarray::test {
             Match missing element -all
         } -body {
             tarray::column search -lt -all [newcolumn $type {10 11 12}] 1
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-lt-6.3 {
             Match missing element -not
@@ -1644,7 +1644,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all [newcolumn $type {
                 128 180 70 75 128 230 128
             }] 200
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-gt-2.4 {
             Match -all
@@ -1652,7 +1652,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all [newcolumn $type {
                 128 180 75 75 128 230 228
             }] 150
-        } -result [crep int {1 5 6}] -match column
+        } -result [crep [indextype] {1 5 6}] -match column
 
         test column_search-$type-gt-2.4.1 {
             Match -bitmap
@@ -1736,7 +1736,7 @@ namespace eval tarray::test {
             tarray::column search -gt -not -all [newcolumn $type {
                 180 170 75 128 230 128
             }] 75
-        } -result [crep int {2}] -match column
+        } -result [crep [indextype] {2}] -match column
 
         test column_search-$type-gt-3.9 {
             Match -all -not
@@ -1744,7 +1744,7 @@ namespace eval tarray::test {
             tarray::column search -gt -not -all [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 128
-        } -result [crep int {0 2 3 4 6}] -match column
+        } -result [crep [indextype] {0 2 3 4 6}] -match column
 
         test column_search-$type-gt-3.10 {
             Match -not -all -inline
@@ -1780,7 +1780,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all -range 3 [newcolumn $type {
                 128 180 225 70 128 201
             }] 200
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-gt-4.4 {
             Match -all -range
@@ -1788,7 +1788,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all -range 2 [newcolumn $type {
                 128 180 75 75 128 230 128
             }] 75
-        } -result [crep int {4 5 6}] -match column
+        } -result [crep [indextype] {4 5 6}] -match column
 
         test column_search-$type-gt-4.5 {
             Match -all -inline -range
@@ -1872,7 +1872,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all -range {3 5} [newcolumn $type {
                 128 180 225 70 128 201 220
             }] 200
-        } -result [crep int {5}] -match column
+        } -result [crep [indextype] {5}] -match column
 
         test column_search-$type-gt-4.16 {
             Match -all -range
@@ -1880,7 +1880,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all -range {2 7} [newcolumn $type {
                 128 180 75 75 128 230 128 50 200
             }] 75
-        } -result [crep int {4 5 6}] -match column
+        } -result [crep [indextype] {4 5 6}] -match column
 
         test column_search-$type-gt-4.17 {
             Match -all -inline -range
@@ -1920,7 +1920,7 @@ namespace eval tarray::test {
             tarray::column search -gt -all -range {end end} [newcolumn $type {
                 129 180 75 75 128 30 129
             }] 128
-        } -result [crep int {6}] -match column
+        } -result [crep [indextype] {6}] -match column
 
         test column_search-$type-gt-4.22 {
             Match -all -inline -range out of bounds
@@ -1955,13 +1955,13 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.25.1 {
             Match on element -among
         } -body {
-            tarray::column search -gt -among [newcolumn int {1 3 4}] [newcolumn $type {50 10 20 50 11}] 10
+            tarray::column search -gt -among [newcolumn [indextype] {1 3 4}] [newcolumn $type {50 10 20 50 11}] 10
         } -result 3
 
         test column_search-$type-gt-4.25.2 {
             Match on element -among
         } -body {
-            tarray::column search -gt -among [newspancolumn int {1 3 4}] [newcolumn $type {50 10 20 50 11}] 10
+            tarray::column search -gt -among [newspancolumn [indextype] {1 3 4}] [newcolumn $type {50 10 20 50 11}] 10
         } -result 3
 
         test column_search-$type-gt-4.26 {
@@ -1973,13 +1973,13 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.26.1 {
             Match on element -among (fail)
         } -body {
-            tarray::column search -gt -among [newcolumn int {1 3 4}] [newcolumn $type {5 50 200 55 100}] 100
+            tarray::column search -gt -among [newcolumn [indextype] {1 3 4}] [newcolumn $type {5 50 200 55 100}] 100
         } -result -1
 
         test column_search-$type-gt-4.26.2 {
             Match on element -among (fail)
         } -body {
-            tarray::column search -gt -among [newspancolumn int {1 3 4}] [newcolumn $type {5 50 200 55 100}] 100
+            tarray::column search -gt -among [newspancolumn [indextype] {1 3 4}] [newcolumn $type {5 50 200 55 100}] 100
         } -result -1
 
         test column_search-$type-gt-4.27 {
@@ -1993,7 +1993,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.27.1 {
             Match -inline -among
         } -body {
-            tarray::column search -gt -inline -among [newcolumn int {1 3 4 7}] [newcolumn $type {
+            tarray::column search -gt -inline -among [newcolumn [indextype] {1 3 4 7}] [newcolumn $type {
                 20 5 20 30 40 50
             }] 10
         } -result 30 -match numeric
@@ -2001,7 +2001,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.27.2 {
             Match -inline -among
         } -body {
-            tarray::column search -gt -inline -among [newspancolumn int {1 3 4 7}] [newcolumn $type {
+            tarray::column search -gt -inline -among [newspancolumn [indextype] {1 3 4 7}] [newcolumn $type {
                 20 5 20 30 40 50
             }] 10
         } -result 30 -match numeric
@@ -2017,7 +2017,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.28.1 {
             Match -inline -among out of order indices
         } -body {
-            tarray::column search -gt -inline -among [newcolumn int {1 4 3 7}] [newcolumn $type {
+            tarray::column search -gt -inline -among [newcolumn [indextype] {1 4 3 7}] [newcolumn $type {
                 20 5 20 30 40 50
             }] 10
         } -result 40 -match numeric
@@ -2025,7 +2025,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.28.2 {
             Match -inline -among out of order indices
         } -body {
-            tarray::column search -gt -inline -among [newspancolumn int {1 4 3 7}] [newcolumn $type {
+            tarray::column search -gt -inline -among [newspancolumn [indextype] {1 4 3 7}] [newcolumn $type {
                 20 5 20 30 40 50
             }] 10
         } -result 40 -match numeric
@@ -2036,23 +2036,23 @@ namespace eval tarray::test {
             tarray::column search -gt -all -among {-1 3 5 7} [newcolumn $type {
                 128 180 70 125 128 20 120
             }] 100
-        } -result [crep int {3}] -match column
+        } -result [crep [indextype] {3}] -match column
 
         test column_search-$type-gt-4.29.1 {
             Match -all -among (negative and out of bounds indices)
         } -body {
-            tarray::column search -gt -all -among [newcolumn int {-1 3 5 7}] [newcolumn $type {
+            tarray::column search -gt -all -among [newcolumn [indextype] {-1 3 5 7}] [newcolumn $type {
                 128 180 70 125 128 20 120
             }] 100
-        } -result [crep int {3}] -match column
+        } -result [crep [indextype] {3}] -match column
 
         test column_search-$type-gt-4.29.2 {
             Match -all -among (negative and out of bounds indices)
         } -body {
-            tarray::column search -gt -all -among [newspancolumn int {-1 3 5 7}] [newcolumn $type {
+            tarray::column search -gt -all -among [newspancolumn [indextype] {-1 3 5 7}] [newcolumn $type {
                 128 180 70 125 128 20 120
             }] 100
-        } -result [crep int {3}] -match column
+        } -result [crep [indextype] {3}] -match column
 
         test column_search-$type-gt-4.30 {
             Match -not -all -among -inline (negative and out of bounds indices)
@@ -2065,7 +2065,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.30.1 {
             Match -not -all -among -inline (negative and out of bounds indices)
         } -body {
-            tarray::column search -inline -not -gt -all -among [newcolumn int {-1 3 5 6 7}] [newcolumn $type {
+            tarray::column search -inline -not -gt -all -among [newcolumn [indextype] {-1 3 5 6 7}] [newcolumn $type {
                 128 180 70 100 128 20 120
             }] 100
         } -result [crep $type {100 20}] -match column
@@ -2073,7 +2073,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.30.2 {
             Match -not -all -among -inline (negative and out of bounds indices)
         } -body {
-            tarray::column search -inline -not -gt -all -among [newspancolumn int {-1 3 5 6 7}] [newcolumn $type {
+            tarray::column search -inline -not -gt -all -among [newspancolumn [indextype] {-1 3 5 6 7}] [newcolumn $type {
                 128 180 70 100 128 20 120
             }] 100
         } -result [crep $type {100 20}] -match column
@@ -2084,23 +2084,23 @@ namespace eval tarray::test {
             tarray::column search -gt -all -range {1 5} -among {0 1 5 7 5 4} [newcolumn $type {
                 11 20 10 30 5 50 60 5 70
             }] 10
-        } -result [crep int {1 5 5}] -match column
+        } -result [crep [indextype] {1 5 5}] -match column
 
         test column_search-$type-gt-4.31.1 {
             Match -among -range -all
         } -body {
-            tarray::column search -gt -all -range {1 5} -among [newcolumn int {0 1 5 7 5 4}] [newcolumn $type {
+            tarray::column search -gt -all -range {1 5} -among [newcolumn [indextype] {0 1 5 7 5 4}] [newcolumn $type {
                 11 20 10 30 5 50 60 5 70
             }] 10
-        } -result [crep int {1 5 5}] -match column
+        } -result [crep [indextype] {1 5 5}] -match column
 
         test column_search-$type-gt-4.31.2 {
             Match -among -range -all
         } -body {
-            tarray::column search -gt -all -range {1 5} -among [newspancolumn int {0 1 5 7 5 4}] [newcolumn $type {
+            tarray::column search -gt -all -range {1 5} -among [newspancolumn [indextype] {0 1 5 7 5 4}] [newcolumn $type {
                 11 20 10 30 5 50 60 5 70
             }] 10
-        } -result [crep int {1 5 5}] -match column
+        } -result [crep [indextype] {1 5 5}] -match column
 
         test column_search-$type-gt-4.32 {
             Match -among -range -inline -all
@@ -2113,7 +2113,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.32.1 {
             Match -among -range -inline -all
         } -body {
-            tarray::column search -gt -inline -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -gt -inline -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 11 20 10 30 5 50 60 5 70
             }] 10
         } -result [crep $type {50 50}] -match column
@@ -2121,7 +2121,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.32.2 {
             Match -among -range -inline -all
         } -body {
-            tarray::column search -gt -inline -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -gt -inline -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 11 20 10 30 5 50 60 5 70
             }] 10
         } -result [crep $type {50 50}] -match column
@@ -2137,7 +2137,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.33.1 {
             Match -among -range
         } -body {
-            tarray::column search -gt -range {1 5} -among [newcolumn int {0 5 4 7}] [newcolumn $type {
+            tarray::column search -gt -range {1 5} -among [newcolumn [indextype] {0 5 4 7}] [newcolumn $type {
                 10 20 10 30 40 50 60 50 70
             }] 10
         } -result 5
@@ -2145,7 +2145,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.33.2 {
             Match -among -range
         } -body {
-            tarray::column search -gt -range {1 5} -among [newspancolumn int {0 5 4 7}] [newcolumn $type {
+            tarray::column search -gt -range {1 5} -among [newspancolumn [indextype] {0 5 4 7}] [newcolumn $type {
                 10 20 10 30 40 50 60 50 70
             }] 10
         } -result 5
@@ -2161,7 +2161,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.34.1 {
             Match -among -range -inline
         } -body {
-            tarray::column search -inline -gt -range {1 5} -among [newcolumn int {0 4 5 7 }] [newcolumn $type {
+            tarray::column search -inline -gt -range {1 5} -among [newcolumn [indextype] {0 4 5 7 }] [newcolumn $type {
                 10 20 10 30 40 50 60 50 70
             }] 10
         } -result 40 -match numeric
@@ -2169,7 +2169,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.34.2 {
             Match -among -range -inline
         } -body {
-            tarray::column search -inline -gt -range {1 5} -among [newspancolumn int {0 4 5 7 }] [newcolumn $type {
+            tarray::column search -inline -gt -range {1 5} -among [newspancolumn [indextype] {0 4 5 7 }] [newcolumn $type {
                 10 20 10 30 40 50 60 50 70
             }] 10
         } -result 40 -match numeric
@@ -2183,13 +2183,13 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.35.1 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -gt -among [newcolumn int {0 1}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -gt -among [newcolumn [indextype] {0 1}] [newcolumn $type {}] [samplevalue $type]
         } -result -1
 
         test column_search-$type-gt-4.35.2 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -gt -among [newspancolumn int {0 1}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -gt -among [newspancolumn [indextype] {0 1}] [newcolumn $type {}] [samplevalue $type]
         } -result -1
 
         test column_search-$type-gt-4.36 {
@@ -2201,13 +2201,13 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.36.1 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -inline -gt -among [newcolumn int {0}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -inline -gt -among [newcolumn [indextype] {0}] [newcolumn $type {}] [samplevalue $type]
         } -result {}
 
         test column_search-$type-gt-4.36.2 {
             Match -range -inline (empty)
         } -body {
-            tarray::column search -inline -gt -among [newspancolumn int {0}] [newcolumn $type {}] [samplevalue $type]
+            tarray::column search -inline -gt -among [newspancolumn [indextype] {0}] [newcolumn $type {}] [samplevalue $type]
         } -result {}
 
         test column_search-$type-gt-4.37 {
@@ -2221,7 +2221,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.37.1 {
             Match -among -range reversed
         } -body {
-            tarray::column search -gt -range {5 0} -among [newcolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -gt -range {5 0} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 30 40 50 60 70 80
             }] 10
         } -result -1
@@ -2229,7 +2229,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.37.2 {
             Match -among -range reversed
         } -body {
-            tarray::column search -gt -range {5 0} -among [newspancolumn int {0 5 7 5 4}] [newcolumn $type {
+            tarray::column search -gt -range {5 0} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn $type {
                 20 30 40 50 60 70 80
             }] 10
         } -result -1
@@ -2245,7 +2245,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.38.1 {
             Match -among empty
         } -body {
-            tarray::column search -gt -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -gt -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
         } -result -1
@@ -2253,7 +2253,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.38.2 {
             Match -among empty
         } -body {
-            tarray::column search -gt -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -gt -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
         } -result -1
@@ -2269,7 +2269,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.39.1 {
             Match -among empty
         } -body {
-            tarray::column search -inline -gt -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -inline -gt -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
         } -result {}
@@ -2277,7 +2277,7 @@ namespace eval tarray::test {
         test column_search-$type-gt-4.39.2 {
             Match -among empty
         } -body {
-            tarray::column search -inline -gt -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -inline -gt -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
         } -result {}
@@ -2288,23 +2288,23 @@ namespace eval tarray::test {
             tarray::column search -all -gt -among {} [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-gt-4.40.1 {
             Match -among empty
         } -body {
-            tarray::column search -all -gt -among [newcolumn int {}] [newcolumn $type {
+            tarray::column search -all -gt -among [newcolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-gt-4.40.2 {
             Match -among empty
         } -body {
-            tarray::column search -all -gt -among [newspancolumn int {}] [newcolumn $type {
+            tarray::column search -all -gt -among [newspancolumn [indextype] {}] [newcolumn $type {
                 128 170 75 175 10 30 250 100
             }] 0
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-gt-5.0 {
             Match invalid value
@@ -2330,7 +2330,7 @@ namespace eval tarray::test {
             Match missing element -all
         } -body {
             tarray::column search -gt -all [newcolumn $type {10 11 12}] 100
-        } -result [crep int {}] -match column
+        } -result [crep [indextype] {}] -match column
 
         test column_search-$type-gt-6.3 {
             Match missing element -not
@@ -2361,7 +2361,7 @@ namespace eval tarray::test {
     } -body {
         # Make sure 0x80000000 is treated as unsigned and not as -1
         tarray::column search -lt -all [newcolumn uint {0 0x80000000 2}] 10 
-    } -result [crep int {0 2}] -match column
+    } -result [crep [indextype] {0 2}] -match column
 
     test column_search-uint-lt-7.1 {
         Match UINT_MAX (verifying comparisons are unsigned)
@@ -2381,8 +2381,8 @@ namespace eval tarray::test {
     test column_search-int-lt-7.0 {
         Match verifying comparisons are signed
     } -body {
-        tarray::column search -lt -all -not [newcolumn int {0 -1 2 -2147483648}] 0
-    } -result [crep int {0 2}] -match column
+        tarray::column search -lt -all -not [newcolumn [indextype] {0 -1 2 -2147483648}] 0
+    } -result [crep [indextype] {0 2}] -match column
 
     test column_search-int-lt-7.1 {
         Match verifying comparisons are signed
@@ -2460,13 +2460,13 @@ namespace eval tarray::test {
         Match verifying comparisons are signed
     } -body {
         tarray::column search -gt -all -not [newcolumn int {0 -10 2 -2147483648}] -10
-    } -result [crep int {1 3}] -match column
+    } -result [crep [indextype] {1 3}] -match column
 
     test column_search-int-gt-7.1 {
         Match verifying comparisons are signed
     } -body {
         tarray::column search -gt -inline -all [newcolumn int {10 -1 2 -2147483648}] 0
-    } -result [crep int {10 2}] -match column
+    } -result [crep [indextype] {10 2}] -match column
 
     test column_search-int-gt-7.2 {
         Match out of range value
@@ -2478,7 +2478,7 @@ namespace eval tarray::test {
         Match verifying comparisons are signed
     } -body {
         tarray::column search -gt -all -not [newcolumn wide {0 -1 2 -2147483648 549755813888 -549755813888}] 0
-    } -result [crep int {0 1 3 5}] -match column
+    } -result [crep [indextype] {0 1 3 5}] -match column
 
     test column_search-wide-gt-7.1 {
         Match verifying comparisons are signed
@@ -2519,7 +2519,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.1.1 {
         Match on element -among
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 3 4}] [newcolumn boolean {
+        tarray::column search -eq -among [newcolumn [indextype] {1 3 4}] [newcolumn boolean {
             1 0 1 1 1 1
         }] 1
     } -result 3
@@ -2527,7 +2527,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.1.2 {
         Match on element -among
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 3 4}] [newcolumn boolean {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 3 4}] [newcolumn boolean {
             1 0 1 1 1 1
         }] 1
     } -result 3
@@ -2543,7 +2543,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.2.1 {
         Match on element -among
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 3 4}] [newcolumn boolean {
+        tarray::column search -eq -among [newcolumn [indextype] {1 3 4}] [newcolumn boolean {
             0 1 0 1 0 0 0
         }] 0
     } -result 4
@@ -2551,7 +2551,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.2.2 {
         Match on element -among
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 3 4}] [newcolumn boolean {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 3 4}] [newcolumn boolean {
             0 1 0 1 0 0 0
         }] 0
     } -result 4
@@ -2567,7 +2567,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.3.1 {
         Match on element -among (fail)
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 3 4}] [newcolumn boolean {
+        tarray::column search -eq -among [newcolumn [indextype] {1 3 4}] [newcolumn boolean {
             0 1 0 1 1 0 1
         }] 0
     } -result -1
@@ -2575,7 +2575,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.3.2 {
         Match on element -among (fail)
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 3 4}] [newcolumn boolean {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 3 4}] [newcolumn boolean {
             0 1 0 1 1 0 1
         }] 0
     } -result -1
@@ -2591,7 +2591,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.4.1 {
         Match -inline -among
     } -body {
-        tarray::column search -eq -inline -among [newcolumn int {1 3 4 7}] [newcolumn boolean {
+        tarray::column search -eq -inline -among [newcolumn [indextype] {1 3 4 7}] [newcolumn boolean {
             0 0 0 0 1 0 0
         }] 1
     } -result 1
@@ -2599,7 +2599,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.4.2 {
         Match -inline -among
     } -body {
-        tarray::column search -eq -inline -among [newspancolumn int {1 3 4 7}] [newcolumn boolean {
+        tarray::column search -eq -inline -among [newspancolumn [indextype] {1 3 4 7}] [newcolumn boolean {
             0 0 0 0 1 0 0
         }] 1
     } -result 1
@@ -2615,7 +2615,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.5.1 {
         Match -among out of order indices
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 4 3 7}] [newcolumn boolean {
+        tarray::column search -eq -among [newcolumn [indextype] {1 4 3 7}] [newcolumn boolean {
             0 1 0 0 0 0 0
         }] 0
     } -result 4
@@ -2623,7 +2623,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.5.2 {
         Match -among out of order indices
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 4 3 7}] [newcolumn boolean {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 4 3 7}] [newcolumn boolean {
             0 1 0 0 0 0 0
         }] 0
     } -result 4
@@ -2634,23 +2634,23 @@ namespace eval tarray::test {
         tarray::column search -eq -all -among {-1 3 5 7} [newcolumn boolean {
             1 1 1 0 1 1 1
         }] 1
-    } -result [crep int {5}] -match column
+    } -result [crep [indextype] {5}] -match column
 
     test column_search-boolean-eq-6.6.1 {
         Match -all -among (negative and out of bounds indices)
     } -body {
-        tarray::column search -eq -all -among [newcolumn int {-1 3 5 7}] [newcolumn boolean {
+        tarray::column search -eq -all -among [newcolumn [indextype] {-1 3 5 7}] [newcolumn boolean {
             1 1 1 0 1 1 1
         }] 1
-    } -result [crep int {5}] -match column
+    } -result [crep [indextype] {5}] -match column
 
     test column_search-boolean-eq-6.6.2 {
         Match -all -among (negative and out of bounds indices)
     } -body {
-        tarray::column search -eq -all -among [newspancolumn int {-1 3 5 7}] [newcolumn boolean {
+        tarray::column search -eq -all -among [newspancolumn [indextype] {-1 3 5 7}] [newcolumn boolean {
             1 1 1 0 1 1 1
         }] 1
-    } -result [crep int {5}] -match column
+    } -result [crep [indextype] {5}] -match column
 
     test column_search-boolean-eq-6.7 {
         Match -among -range -all
@@ -2658,23 +2658,23 @@ namespace eval tarray::test {
         tarray::column search -eq -all -range {1 5} -among {0 3 5 7 5 4} [newcolumn boolean {
             0 0 0 1 0 0 0
         }] 0
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-boolean-eq-6.7.1 {
         Match -among -range -all
     } -body {
-        tarray::column search -eq -all -range {1 5} -among [newcolumn int {0 3 5 7 5 4}] [newcolumn boolean {
+        tarray::column search -eq -all -range {1 5} -among [newcolumn [indextype] {0 3 5 7 5 4}] [newcolumn boolean {
             0 0 0 1 0 0 0
         }] 0
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-boolean-eq-6.7.2 {
         Match -among -range -all
     } -body {
-        tarray::column search -eq -all -range {1 5} -among [newspancolumn int {0 3 5 7 5 4}] [newcolumn boolean {
+        tarray::column search -eq -all -range {1 5} -among [newspancolumn [indextype] {0 3 5 7 5 4}] [newcolumn boolean {
             0 0 0 1 0 0 0
         }] 0
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-boolean-eq-6.8 {
         Match -among -range -all -not
@@ -2682,23 +2682,23 @@ namespace eval tarray::test {
         tarray::column search -not -eq -all -range {1 5} -among {0 5 7 5 4} [newcolumn boolean {
             1 1 0 0 0 0 1 1 1
         }] 1
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-boolean-eq-6.8.1 {
         Match -among -range -all -not
     } -body {
-        tarray::column search -not -eq -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn boolean {
+        tarray::column search -not -eq -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn boolean {
             1 1 0 0 0 0 1 1 1
         }] 1
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-boolean-eq-6.8.2 {
         Match -among -range -all -not
     } -body {
-        tarray::column search -not -eq -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn boolean {
+        tarray::column search -not -eq -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn boolean {
             1 1 0 0 0 0 1 1 1
         }] 1
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-boolean-eq-6.8.3 {
         Match -among -range -bitmap -not
@@ -2717,13 +2717,13 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.9.1 {
         Match -among -inline (empty)
     } -body {
-        tarray::column search -eq -among [newcolumn int {0 1}] [newcolumn boolean {}] [samplevalue boolean]
+        tarray::column search -eq -among [newcolumn [indextype] {0 1}] [newcolumn boolean {}] [samplevalue boolean]
     } -result -1
 
     test column_search-boolean-eq-6.9.2 {
         Match -among -inline (empty)
     } -body {
-        tarray::column search -eq -among [newspancolumn int {0 1}] [newcolumn boolean {}] [samplevalue boolean]
+        tarray::column search -eq -among [newspancolumn [indextype] {0 1}] [newcolumn boolean {}] [samplevalue boolean]
     } -result -1
 
     test column_search-boolean-eq-6.10 {
@@ -2735,13 +2735,13 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.10.1 {
         Match -among -inline (empty)
     } -body {
-        tarray::column search -inline -eq -among [newcolumn int {0}] [newcolumn boolean {}] [samplevalue boolean]
+        tarray::column search -inline -eq -among [newcolumn [indextype] {0}] [newcolumn boolean {}] [samplevalue boolean]
     } -result {}
 
     test column_search-boolean-eq-6.10.2 {
         Match -among -inline (empty)
     } -body {
-        tarray::column search -inline -eq -among [newspancolumn int {0}] [newcolumn boolean {}] [samplevalue boolean]
+        tarray::column search -inline -eq -among [newspancolumn [indextype] {0}] [newcolumn boolean {}] [samplevalue boolean]
     } -result {}
 
     test column_search-boolean-eq-6.11 {
@@ -2755,7 +2755,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.11.1 {
         Match -among -range reversed
     } -body {
-        tarray::column search -eq -range {5 0} -among [newcolumn int {0 1 2 3 4 5 6}] [newcolumn boolean {
+        tarray::column search -eq -range {5 0} -among [newcolumn [indextype] {0 1 2 3 4 5 6}] [newcolumn boolean {
             0 0 0 0 0 0
         }] 0
     } -result -1
@@ -2763,7 +2763,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.11.2 {
         Match -among -range reversed
     } -body {
-        tarray::column search -eq -range {5 0} -among [newspancolumn int {0 1 2 3 4 5 6}] [newcolumn boolean {
+        tarray::column search -eq -range {5 0} -among [newspancolumn [indextype] {0 1 2 3 4 5 6}] [newcolumn boolean {
             0 0 0 0 0 0
         }] 0
     } -result -1
@@ -2779,7 +2779,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.12.1 {
         Match -among empty
     } -body {
-        tarray::column search -eq -among [newcolumn int {}] [newcolumn boolean {
+        tarray::column search -eq -among [newcolumn [indextype] {}] [newcolumn boolean {
             1 1 1 1 1 1 1 1
         }] 1
     } -result -1
@@ -2787,7 +2787,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.12.2 {
         Match -among empty
     } -body {
-        tarray::column search -eq -among [newspancolumn int {}] [newcolumn boolean {
+        tarray::column search -eq -among [newspancolumn [indextype] {}] [newcolumn boolean {
             1 1 1 1 1 1 1 1
         }] 1
     } -result -1
@@ -2803,7 +2803,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.13.1 {
         Match -among empty
     } -body {
-        tarray::column search -inline -eq -among [newcolumn int {}] [newcolumn boolean {
+        tarray::column search -inline -eq -among [newcolumn [indextype] {}] [newcolumn boolean {
             0 0 0 0 0 0 0
         }] 0
     } -result {}
@@ -2811,7 +2811,7 @@ namespace eval tarray::test {
     test column_search-boolean-eq-6.13.2 {
         Match -among empty
     } -body {
-        tarray::column search -inline -eq -among [newspancolumn int {}] [newcolumn boolean {
+        tarray::column search -inline -eq -among [newspancolumn [indextype] {}] [newcolumn boolean {
             0 0 0 0 0 0 0
         }] 0
     } -result {}
@@ -2822,23 +2822,23 @@ namespace eval tarray::test {
         tarray::column search -all -eq -among {} [newcolumn boolean {
             1 1 1 1 1 1
         }] 1
-    } -result [crep int {}] -match column
+    } -result [crep [indextype] {}] -match column
 
     test column_search-boolean-eq-6.14.1 {
         Match -among empty
     } -body {
-        tarray::column search -all -eq -among [newcolumn int {}] [newcolumn boolean {
+        tarray::column search -all -eq -among [newcolumn [indextype] {}] [newcolumn boolean {
             1 1 1 1 1 1
         }] 1
-    } -result [crep int {}] -match column
+    } -result [crep [indextype] {}] -match column
 
     test column_search-boolean-eq-6.14.2 {
         Match -among empty
     } -body {
-        tarray::column search -all -eq -among [newspancolumn int {}] [newcolumn boolean {
+        tarray::column search -all -eq -among [newspancolumn [indextype] {}] [newcolumn boolean {
             1 1 1 1 1 1
         }] 1
-    } -result [crep int {}] -match column
+    } -result [crep [indextype] {}] -match column
 
     #
     # Now do the "any" type, not -eq we have already done except for -among.
@@ -2856,7 +2856,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.1.1 {
         Match on element -among
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 3 4}] [newcolumn any {
+        tarray::column search -eq -among [newcolumn [indextype] {1 3 4}] [newcolumn any {
             a b c a e f
         }] a
     } -result 3
@@ -2864,7 +2864,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.1.2 {
         Match on element -among
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 3 4}] [newcolumn any {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 3 4}] [newcolumn any {
             a b c a e f
         }] a
     } -result 3
@@ -2880,7 +2880,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.2.1 {
         Match on element -among (fail)
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 3 4}] [newcolumn any {
+        tarray::column search -eq -among [newcolumn [indextype] {1 3 4}] [newcolumn any {
             a b c d e a
         }] a
     } -result -1
@@ -2888,7 +2888,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.2.2 {
         Match on element -among (fail)
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 3 4}] [newcolumn any {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 3 4}] [newcolumn any {
             a b c d e a
         }] a
     } -result -1
@@ -2904,7 +2904,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.3.1 {
         Match -inline -among
     } -body {
-        tarray::column search -nocase -eq -inline -among [newcolumn int {1 3 4 7}] [newcolumn any {
+        tarray::column search -nocase -eq -inline -among [newcolumn [indextype] {1 3 4 7}] [newcolumn any {
             a b a A a a
         }] a
     } -result A
@@ -2912,7 +2912,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.3.2 {
         Match -inline -among
     } -body {
-        tarray::column search -nocase -eq -inline -among [newspancolumn int {1 3 4 7}] [newcolumn any {
+        tarray::column search -nocase -eq -inline -among [newspancolumn [indextype] {1 3 4 7}] [newcolumn any {
             a b a A a a
         }] a
     } -result A
@@ -2928,7 +2928,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.4.1 {
         Match -among out of order indices
     } -body {
-        tarray::column search -eq -among [newcolumn int {1 4 3 7}] [newcolumn any {
+        tarray::column search -eq -among [newcolumn [indextype] {1 4 3 7}] [newcolumn any {
             a b a a a a
         }] a
     } -result 4
@@ -2936,7 +2936,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.4.2 {
         Match -among out of order indices
     } -body {
-        tarray::column search -eq -among [newspancolumn int {1 4 3 7}] [newcolumn any {
+        tarray::column search -eq -among [newspancolumn [indextype] {1 4 3 7}] [newcolumn any {
             a b a a a a
         }] a
     } -result 4
@@ -2947,23 +2947,23 @@ namespace eval tarray::test {
         tarray::column search -eq -all -among {-1 3 5 7} [newcolumn any {
             a A c A a a a
         }] a
-    } -result [crep int {5}] -match column
+    } -result [crep [indextype] {5}] -match column
 
     test column_search-any-eq-6.5.1 {
         Match -all -among (negative and out of bounds indices)
     } -body {
-        tarray::column search -eq -all -among [newcolumn int {-1 3 5 7}] [newcolumn any {
+        tarray::column search -eq -all -among [newcolumn [indextype] {-1 3 5 7}] [newcolumn any {
             a A c A a a a
         }] a
-    } -result [crep int {5}] -match column
+    } -result [crep [indextype] {5}] -match column
 
     test column_search-any-eq-6.5.2 {
         Match -all -among (negative and out of bounds indices)
     } -body {
-        tarray::column search -eq -all -among [newspancolumn int {-1 3 5 7}] [newcolumn any {
+        tarray::column search -eq -all -among [newspancolumn [indextype] {-1 3 5 7}] [newcolumn any {
             a A c A a a a
         }] a
-    } -result [crep int {5}] -match column
+    } -result [crep [indextype] {5}] -match column
 
     test column_search-any-eq-6.6 {
         Match -not -all -among -inline (negative and out of bounds indices)
@@ -2976,7 +2976,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.6.1 {
         Match -not -all -among -inline (negative and out of bounds indices)
     } -body {
-        tarray::column search -inline -nocase -not -eq -all -among [newcolumn int {-1 3 5 6 7}] [newcolumn any {
+        tarray::column search -inline -nocase -not -eq -all -among [newcolumn [indextype] {-1 3 5 6 7}] [newcolumn any {
             a b x X e f g x
         }] x
     } -result [crep any {f g}] -match column
@@ -2984,7 +2984,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.6.2 {
         Match -not -all -among -inline (negative and out of bounds indices)
     } -body {
-        tarray::column search -inline -nocase -not -eq -all -among [newspancolumn int {-1 3 5 6 7}] [newcolumn any {
+        tarray::column search -inline -nocase -not -eq -all -among [newspancolumn [indextype] {-1 3 5 6 7}] [newcolumn any {
             a b x X e f g x
         }] x
     } -result [crep any {f g}] -match column
@@ -2995,23 +2995,23 @@ namespace eval tarray::test {
         tarray::column search -nocase -eq -all -range {1 5} -among {0 5 7 5 4} [newcolumn any {
             a x x x X x x x
         }] x
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-any-eq-6.7.1 {
         Match -among -range -all
     } -body {
-        tarray::column search -nocase -eq -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn any {
+        tarray::column search -nocase -eq -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn any {
             a x x x X x x x
         }] x
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-any-eq-6.7.2 {
         Match -among -range -all
     } -body {
-        tarray::column search -nocase -eq -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn any {
+        tarray::column search -nocase -eq -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn any {
             a x x x X x x x
         }] x
-    } -result [crep int {5 5 4}] -match column
+    } -result [crep [indextype] {5 5 4}] -match column
 
     test column_search-any-eq-6.7.3 {
         Match -among -range -all
@@ -3032,7 +3032,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.8.1 {
         Match -among -range -inline -all -not
     } -body {
-        tarray::column search -not -eq -inline -all -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn any {
+        tarray::column search -not -eq -inline -all -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn any {
             a x x e X f g x
         }] x
     } -result [crep any {f f X}] -match column
@@ -3040,7 +3040,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.8.2 {
         Match -among -range -inline -all -not
     } -body {
-        tarray::column search -not -eq -inline -all -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn any {
+        tarray::column search -not -eq -inline -all -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn any {
             a x x e X f g x
         }] x
     } -result [crep any {f f X}] -match column
@@ -3056,7 +3056,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.9.1 {
         Match -among -range
     } -body {
-        tarray::column search -nocase -eq -range {1 5} -among [newcolumn int {0 5 7 5 4}] [newcolumn any {
+        tarray::column search -nocase -eq -range {1 5} -among [newcolumn [indextype] {0 5 7 5 4}] [newcolumn any {
             a x x x x X x
         }] x
     } -result 5
@@ -3064,7 +3064,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.9.2 {
         Match -among -range
     } -body {
-        tarray::column search -nocase -eq -range {1 5} -among [newspancolumn int {0 5 7 5 4}] [newcolumn any {
+        tarray::column search -nocase -eq -range {1 5} -among [newspancolumn [indextype] {0 5 7 5 4}] [newcolumn any {
             a x x x x X x
         }] x
     } -result 5
@@ -3080,7 +3080,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.10.1 {
         Match -among -range -inline -not
     } -body {
-        tarray::column search -inline -not -eq -range {1 5} -among [newcolumn int {0 4 5 7 }] [newcolumn any {
+        tarray::column search -inline -not -eq -range {1 5} -among [newcolumn [indextype] {0 4 5 7 }] [newcolumn any {
             a b c d a f g
         }] a
     } -result f
@@ -3088,7 +3088,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.10.2 {
         Match -among -range -inline -not
     } -body {
-        tarray::column search -inline -not -eq -range {1 5} -among [newspancolumn int {0 4 5 7 }] [newcolumn any {
+        tarray::column search -inline -not -eq -range {1 5} -among [newspancolumn [indextype] {0 4 5 7 }] [newcolumn any {
             a b c d a f g
         }] a
     } -result f
@@ -3102,13 +3102,13 @@ namespace eval tarray::test {
     test column_search-any-eq-6.11.1 {
         Match -among (empty)
     } -body {
-        tarray::column search -eq -among [newcolumn int {0 1}] [newcolumn any {}] x
+        tarray::column search -eq -among [newcolumn [indextype] {0 1}] [newcolumn any {}] x
     } -result -1
 
     test column_search-any-eq-6.11.2 {
         Match -among (empty)
     } -body {
-        tarray::column search -eq -among [newspancolumn int {0 1}] [newcolumn any {}] x
+        tarray::column search -eq -among [newspancolumn [indextype] {0 1}] [newcolumn any {}] x
     } -result -1
 
     test column_search-any-eq-6.12 {
@@ -3120,13 +3120,13 @@ namespace eval tarray::test {
     test column_search-any-eq-6.12.1 {
         Match -among -inline (empty)
     } -body {
-        tarray::column search -inline -eq -among [newcolumn int {0}] [newcolumn any {}] x
+        tarray::column search -inline -eq -among [newcolumn [indextype] {0}] [newcolumn any {}] x
     } -result {}
 
     test column_search-any-eq-6.12.2 {
         Match -among -inline (empty)
     } -body {
-        tarray::column search -inline -eq -among [newspancolumn int {0}] [newcolumn any {}] x
+        tarray::column search -inline -eq -among [newspancolumn [indextype] {0}] [newcolumn any {}] x
     } -result {}
 
     test column_search-any-eq-6.13 {
@@ -3140,7 +3140,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.13.1 {
         Match -among -range reversed
     } -body {
-        tarray::column search -eq -range {5 0} -among [newcolumn int {0 1 2 3 4 5 6}] [newcolumn any {
+        tarray::column search -eq -range {5 0} -among [newcolumn [indextype] {0 1 2 3 4 5 6}] [newcolumn any {
             x x x x
         }] x
     } -result -1
@@ -3148,7 +3148,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.13.2 {
         Match -among -range reversed
     } -body {
-        tarray::column search -eq -range {5 0} -among [newspancolumn int {0 1 2 3 4 5 6}] [newcolumn any {
+        tarray::column search -eq -range {5 0} -among [newspancolumn [indextype] {0 1 2 3 4 5 6}] [newcolumn any {
             x x x x
         }] x
     } -result -1
@@ -3164,7 +3164,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.14.1 {
         Match -among empty
     } -body {
-        tarray::column search -eq -among [newcolumn int {}] [newcolumn any {
+        tarray::column search -eq -among [newcolumn [indextype] {}] [newcolumn any {
             x x x x x
         }] x
     } -result -1
@@ -3172,7 +3172,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.14.2 {
         Match -among empty
     } -body {
-        tarray::column search -eq -among [newspancolumn int {}] [newcolumn any {
+        tarray::column search -eq -among [newspancolumn [indextype] {}] [newcolumn any {
             x x x x x
         }] x
     } -result -1
@@ -3188,7 +3188,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.15.1 {
         Match -among -inline empty
     } -body {
-        tarray::column search -inline -eq -among [newcolumn int {}] [newcolumn any {
+        tarray::column search -inline -eq -among [newcolumn [indextype] {}] [newcolumn any {
             x x x x x
         }] x
     } -result {}
@@ -3196,7 +3196,7 @@ namespace eval tarray::test {
     test column_search-any-eq-6.15.2 {
         Match -among -inline empty
     } -body {
-        tarray::column search -inline -eq -among [newspancolumn int {}] [newcolumn any {
+        tarray::column search -inline -eq -among [newspancolumn [indextype] {}] [newcolumn any {
             x x x x x
         }] x
     } -result {}
@@ -3207,12 +3207,12 @@ namespace eval tarray::test {
         tarray::column search -all -eq -among {} [newcolumn any {
             x x x x x
         }] x
-    } -result [crep int {}] -match column
+    } -result [crep [indextype] {}] -match column
 
     test column_search-any-eq-6.16.1 {
         Match -among -all empty
     } -body {
-        tarray::column search -all -eq -among [newcolumn int {}] [newcolumn any {
+        tarray::column search -all -eq -among [newcolumn [indextype] {}] [newcolumn any {
             x x x x x
         }] x
     } -result [crep int {}] -match column
