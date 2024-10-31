@@ -502,10 +502,15 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
-        proc indexcolumn {args} {
-            return [newcolumn int [concat {*}$args]]
+        if {[package vsatisfies [package require Tcl] 9-] && $::tcl_platform(pointerSize) == 8} {
+            proc indextype {} {return wide}
+        } else {
+            proc indextype {} {return int}
         }
-        
+        proc indexcolumn {args} {
+            return [newcolumn [indextype] [concat {*}$args]]
+        }
+
         proc indexspancolumn {args} {
             return [newspancolumn int [concat {*}$args]]
         }
