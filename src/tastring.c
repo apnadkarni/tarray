@@ -129,7 +129,7 @@ int tas_lookup_entry(tas_lookup_t lookup, tas_t *ptas, Tcl_Size *pval)
     he = Tcl_FindHashEntry(lookup, (char *)ptas);
     if (he) {
         if (pval)
-            *pval = (Tcl_Size) Tcl_GetHashValue(he);
+            *pval = (Tcl_Size) (intptr_t) Tcl_GetHashValue(he);
         return 1;
     } else
         return 0;
@@ -142,7 +142,7 @@ void tas_lookup_add(tas_lookup_t lookup, tas_t *ptas, Tcl_Size val)
 
     he = Tcl_CreateHashEntry(lookup, (char *)ptas, &newly_created);
     /* NOTE WE OVERWRITE EXISTING VALUE IF ANY */
-    Tcl_SetHashValue(he, (ClientData) val);
+    Tcl_SetHashValue(he, (ClientData) (intptr_t) val);
 }
 
 int tas_lookup_delete(tas_lookup_t lookup, tas_t *ptas)

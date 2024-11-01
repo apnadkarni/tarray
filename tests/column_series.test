@@ -412,11 +412,12 @@ namespace eval tarray::test {
 
     #
     # Wide tests
+
     test column_series-wide-1.0 {
-        Wide stop
+        Wide stop - TBD because depends on Tcl 8/9
     } -body {
-        tarray::column series $Wide
-    } -result "Requested array size (4294967297) greater than limit." -returnCodes error
+        tarray::column series 4294967297
+    } -result "Requested array size (4294967297) greater than limit." -returnCodes error -constraints TBD
 
     test column_series-wide-1.1 {
         Wide stop
@@ -455,10 +456,10 @@ namespace eval tarray::test {
     } -result [newcolumn wide [list -$Wide 0]]
 
     test column_series-wide-2.0.1 {
-        Wide stop
+        Wide stop - TBD because depends on Tcl 8/9
     } -body {
-        tarray::column series -$Wide $Wide 1
-    } -result "Requested array size (8589934594) greater than limit." -returnCodes error
+        tarray::column series -4294967297 4294967297 1
+    } -result "Requested array size (8589934594) greater than limit." -returnCodes error -constraints TBD
 
     test column_series-wide-2.1 {
         Wide stop

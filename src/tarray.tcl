@@ -41,6 +41,12 @@ namespace eval tarray {
         uint {0 4294967295}
         wide {-9223372036854775808 9223372036854775807}
     }
+
+    if {[package vsatisfies [package require Tcl] 9-] && $::tcl_platform(pointerSize) == 8} {
+        proc _indextype {} {return wide}
+    } else {
+        proc _indextype {} {return int}
+    }
 }
 
 interp alias {} tarray::column::count {} tarray::column::search -count
@@ -204,7 +210,7 @@ proc tarray::column::_histogram_boolean {col nintervals compute} {
         count {
             set n1 [count $col 1]
             set n0 [expr {[size $col]-$n1}]
-            set datacol [create int [list $n0 $n1]]
+            set datacol [create [_indextype] [list $n0 $n1]]
         }
         sum {
             set datacol [create wide [list 0 [count $col 1]]]
@@ -286,7 +292,10 @@ proc tarray::column::histogram {args} {
             }
         }
     } else {
-        set step [expr {(($max - $min) / $nintervals) + 1}]
+        set step [expr {(($max - $min + ($nintervals-1)) / $nintervals)}]
+        if {$step == 0} {
+            set step 1
+        }
     }
 
     return [tarray::table::create2 $cnames [_equalintervals $col $compute $nintervals $min $max $step]]

@@ -5460,14 +5460,17 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         CHECK_OK( ta_value_from_obj(ip, objv[5], TA_WIDE, &maxval) );
         if (maxval.wval < minval.wval)
             goto invalid_limits;
+#if TCL_MAJOR_VERSION < 9
         CHECK_OK( ta_value_from_obj(ip, objv[6], TA_WIDE, &step) );
-#if 0
-        if (step.wval <= 0)
+        step.uwval = step.wval;
+#else
+        Tcl_GetWideUIntFromObj(ip, objv[6], &step.uwval);
+#endif
+        if (step.uwval == 0 || step.uwval > ((uint64_t)INT64_MAX+1))
             goto nonpositive_step;
+
         /* All step calculations now unsigned. Note that the step
            can be greated than the signed max value */
-#endif
-        step.uwval = step.wval;
 
         /* Calculate lower bound of last bucket */
         if (ovf_mul_uint64(step.uwval, (nbuckets-1), &u64))

@@ -506,7 +506,7 @@ TCL_RESULT ta_rng_cmd(ClientData cdata, Tcl_Interp *ip,
         Tcl_Namespace *ns = Tcl_GetCurrentNamespace(ip);
         *counterP += 1;
         /* ns->name is "" for global namespace */
-        resultObj = Tcl_ObjPrintf("%s%s%lld", ns->fullName, ns->name[0] ? "::rng" : "rng", *counterP);
+        resultObj = Tcl_ObjPrintf("%s%s%" TCL_LL_MODIFIER "d", ns->fullName, ns->name[0] ? "::rng" : "rng", *counterP);
     } else {
         if (objc < 4 || objc > 6) {
             Tcl_WrongNumArgs(ip, 1, objv, "create OBJNAME TYPE ?LOWBOUND ?HIGHBOUND??");

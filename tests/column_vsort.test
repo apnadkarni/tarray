@@ -211,7 +211,7 @@ namespace eval tarray::test {
             set tcol [tarray::column create $type {a A b B}]
             set indices [tarray::column sort -indices $tcol]
             set expected {1 0 3 2}
-            compare_tcols_lists int [tarray::column vsort -indirect $tcol -nocase indices] $expected $indices $expected
+            compare_tcols_lists [indextype] [tarray::column vsort -indirect $tcol -nocase indices] $expected $indices $expected
         } -result 0
 
         set testnum 0
@@ -222,7 +222,7 @@ namespace eval tarray::test {
                 set tcol [tarray::column create $type {a A b B}]
                 set indices [tarray::column create $ind_type [tarray::column sort -indices $tcol]]
                 set expected {1 0 3 2}
-                compare_tcols_lists int [tarray::column vsort -indirect $tcol -nocase indices] $expected $indices $expected
+                compare_tcols_lists [indextype] [tarray::column vsort -indirect $tcol -nocase indices] $expected $indices $expected
             } -result 0
         }
 
@@ -232,7 +232,7 @@ namespace eval tarray::test {
             set tcol [tarray::column create $type {A a B b}]
             set indices [tarray::column sort -indices -decreasing $tcol]
             set expected {3 2 1 0}
-            compare_tcols_lists int [tarray::column vsort -indirect $tcol -nocase -decreasing indices] $expected $indices $expected
+            compare_tcols_lists [indextype] [tarray::column vsort -indirect $tcol -nocase -decreasing indices] $expected $indices $expected
         } -result 0
 
         test column_vsort-$type-indirect-2.0 {
@@ -247,7 +247,7 @@ namespace eval tarray::test {
             Sort -indirect any bad index
         } -body {
             set tcol [tarray::column create $type {a A b B}]
-            set indices [tarray::column create int {0 1 2 4 3}]
+            set indices [tarray::column create [indextype] {0 1 2 4 3}]
             tarray::column vsort -indirect $tcol -nocase indices
         } -result {tarray index 4 out of bounds.} -returnCodes error
 
@@ -255,7 +255,7 @@ namespace eval tarray::test {
             Sort -indirect any negative index
         } -body {
             set tcol [tarray::column create $type {a A b B}]
-            set indices [tarray::column create int {0 -1 2 3}]
+            set indices [tarray::column create [indextype] {0 -1 2 3}]
             tarray::column vsort -indirect $tcol -nocase indices
         } -result {tarray index -1 out of bounds.} -returnCodes error
     }
