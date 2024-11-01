@@ -37,10 +37,10 @@ TCL_RESULT tcol_sortmerge_helper_cmd(ClientData clientdata, Tcl_Interp *ip,
     bcol = objv[4];
 
     if ((status = tcol_convert(ip, aindex)) != TCL_OK ||
-        (status = ta_check_column_type(ip, OBJTHDR(aindex), TA_INT)) != TCL_OK ||
+        (status = ta_check_column_type(ip, OBJTHDR(aindex), TA_INDEX)) != TCL_OK ||
         (status = tcol_convert(ip, acol)) != TCL_OK ||
         (status = tcol_convert(ip, bindex)) != TCL_OK ||
-        (status = ta_check_column_type(ip, OBJTHDR(bindex), TA_INT)) != TCL_OK ||
+        (status = ta_check_column_type(ip, OBJTHDR(bindex), TA_INDEX)) != TCL_OK ||
         (status = tcol_convert(ip, bcol)) != TCL_OK)
         return status;
 

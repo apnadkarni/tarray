@@ -469,7 +469,7 @@ TCL_RESULT tcols_fill_indices(
     ta_value_t *pvalues = values;
     Tcl_Obj **ovalues;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INDEX);
 
     if (ntcols == 0 || pindices->used == 0)
         return TCL_OK;          /* Nothing to do */
@@ -1093,7 +1093,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, Tcl_Size ntcols,
      Tcl_Obj **rows;
      Tcl_Obj *o;
 
-     TA_ASSERT(pindices->type == TA_INT);
+     TA_ASSERT(pindices->type == TA_INDEX);
 
      for (i = 0; i < ntcols; ++i) {
          TA_ASSERT(! Tcl_IsShared(tcols[i]));
@@ -1254,7 +1254,7 @@ tcols_place_indices(Tcl_Interp *ip,
 {
     Tcl_Size i;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INDEX);
     
     if (ntcols == 0 || pindices->used == 0)
         return TCL_OK;          /* Nothing to do */
