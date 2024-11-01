@@ -27,6 +27,10 @@ if {![info exists tarray::test::known]} {
     namespace eval tarray::test {
         namespace import ::tcltest::test
 
+        proc tcl9 {} {
+            return [package vsatisfies [package require Tcl] 9]
+        }
+
         ################################################################
         # Define standard data used in tests
 
