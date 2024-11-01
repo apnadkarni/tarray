@@ -66,19 +66,25 @@ namespace eval tarray::test {
         tarray::column vinsert col $val $count
         return $col
     }
-    
+
     proc cast_equal {type col_val expr_val} {
-        switch -exact -- $type {
-            int  { set expr_val [expr {int($expr_val)}] }
-            byte { set expr_val [expr {$expr_val & 0xff}] }
-            uint { set expr_val [expr {wide($expr_val) & 0xffffffff}] }
-            wide { set expr_val [expr {wide($expr_val)}] }
+        if {$col_val == $expr_val} {
+            return 1
         }
-        
+        # Perhaps truncation in effect
+        switch -exact -- $type {
+            uint -
+            int  {set mask 0xffffffff}
+            byte  {set mask 0xff}
+            wide { set mask 0xffffffffffffffff}
+        }
+
+        set col_val [expr {$col_val & $mask}]
+        set expr_val [expr {$expr_val & $mask}]
         return [expr {$col_val == $expr_val}]
-        
+
     }
-    
+
     proc operand {type size} {
         variable operands
         if {![info exists operands($type,$size)]} {
