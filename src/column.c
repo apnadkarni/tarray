@@ -5643,37 +5643,46 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         }                                                               \
     } while (0)
 
-#define FILL_SUMS(type_, field_, sum_type_, unsigned_type_, step_field_) \
-    do {                                                                \
-        Tcl_Size i, bucket_index;                                            \
-        type_ *pdata;                                                   \
-        sum_type_ *pbucket;                                             \
-        buckets = thdr_alloc(ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbuckets); \
-        if (buckets == NULL) goto error_return;                         \
-        buckets->used = nbuckets;                                       \
-        thdr_clear(buckets);                                            \
-        pbucket = THDRELEMPTR(buckets, sum_type_, 0);                   \
-        pdata = THDRELEMPTR(thdr, type_, first);                        \
-        if (nbuckets == 1) {                                            \
-            /* Special case. Note step here NOT accurate so loop */     \
-            /* below will not work */                                   \
-            for (i = 0; i < count; ++i) {                               \
-                if (OUTSIDE_LIMITS(i, field_)) continue;                \
-                pbucket[0] += pdata[i];                                 \
-            }                                                           \
-        } else {                                                        \
-            for (i = 0; i < count; ++i) {                               \
-                if (OUTSIDE_LIMITS(i, field_)) continue;                \
-                if (pdata[i] > last.field_)                             \
-                    bucket_index = nbuckets-1;                          \
-                else                                                    \
-                    bucket_index = BUCKET_INDEX(pdata[i], field_, unsigned_type_, step_field_); \
-                if (bucket_index < 0 && bucket_index >= nbuckets)       \
-                    goto bucket_error;                                  \
-                /* TBD - overflow checks? */                            \
-                pbucket[bucket_index] += pdata[i];                      \
-            }                                                           \
-        }                                                               \
+#define FILL_SUMS(                                                        \
+    type_, field_, sum_type_, unsigned_type_, step_field_, addfn_)        \
+    do {                                                                  \
+        Tcl_Size i, bucket_index;                                         \
+        type_ *pdata;                                                     \
+        sum_type_ *pbucket;                                               \
+        buckets = thdr_alloc(                                             \
+            ip, thdr->type == TA_DOUBLE ? TA_DOUBLE : TA_WIDE, nbuckets); \
+        if (buckets == NULL)                                              \
+            goto error_return;                                            \
+        buckets->used = nbuckets;                                         \
+        thdr_clear(buckets);                                              \
+        pbucket = THDRELEMPTR(buckets, sum_type_, 0);                     \
+        pdata   = THDRELEMPTR(thdr, type_, first);                        \
+        if (nbuckets == 1) {                                              \
+            /* Special case. Note step here NOT accurate so loop */       \
+            /* below will not work */                                     \
+            for (i = 0; i < count; ++i) {                                 \
+                if (OUTSIDE_LIMITS(i, field_))                            \
+                    continue;                                             \
+                if (addfn_(pbucket[0], pdata[i], &pbucket[0]))            \
+                    goto computation_overflow;                            \
+            }                                                             \
+        }                                                                 \
+        else {                                                            \
+            for (i = 0; i < count; ++i) {                                 \
+                if (OUTSIDE_LIMITS(i, field_))                            \
+                    continue;                                             \
+                if (pdata[i] > last.field_)                               \
+                    bucket_index = nbuckets - 1;                          \
+                else                                                      \
+                    bucket_index = BUCKET_INDEX(                          \
+                        pdata[i], field_, unsigned_type_, step_field_);   \
+                if (bucket_index < 0 && bucket_index >= nbuckets)         \
+                    goto bucket_error;                                    \
+                /* TBD - overflow checks? */                              \
+                if (addfn_(pbucket[bucket_index], pdata[i], &pbucket[bucket_index]))            \
+                    goto computation_overflow;                            \
+            }                                                             \
+        }                                                                 \
     } while (0)
 
 #define FILL_INDICES(type_, field_, unsigned_type_, step_field_)           \
@@ -5765,7 +5774,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         FILL_LOWS(unsigned char, ucval);
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(unsigned char, ucval, unsigned char, ucval ); break;
-        case TA_SUM_CMD: FILL_SUMS(unsigned char, ucval, Tcl_WideInt, unsigned char, ucval); break;
+        case TA_SUM_CMD: FILL_SUMS(unsigned char, ucval, Tcl_WideInt, unsigned char, ucval, ovf_add_int64); break;
         case TA_VALUES_CMD: FILL_VALUES(unsigned char, ucval, unsigned char, ucval); break;
         case TA_INDICES_CMD: FILL_INDICES(unsigned char, ucval, unsigned char, ucval); break;
         }
@@ -5775,7 +5784,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         switch ((enum flags_e)opt) {
             /* NOTE: last two macro params are *unsigned* types */
         case TA_COUNT_CMD: FILL_COUNTS(int, ival, unsigned int, uival); break;
-        case TA_SUM_CMD: FILL_SUMS(int, ival, Tcl_WideInt, unsigned int, uival); break;
+        case TA_SUM_CMD: FILL_SUMS(int, ival, Tcl_WideInt, unsigned int, uival, ovf_add_int64); break;
         case TA_VALUES_CMD: FILL_VALUES(int, ival, unsigned int, uival); break;
         case TA_INDICES_CMD: FILL_INDICES(int, ival, unsigned int, uival); break;
         }
@@ -5784,7 +5793,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         FILL_LOWS(unsigned int, uival);
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(unsigned int, uival, unsigned int, uival); break;
-        case TA_SUM_CMD: FILL_SUMS(unsigned int, uival, Tcl_WideInt, unsigned int, uival); break;
+        case TA_SUM_CMD: FILL_SUMS(unsigned int, uival, Tcl_WideInt, unsigned int, uival, ovf_add_int64); break;
         case TA_VALUES_CMD: FILL_VALUES(unsigned int, uival, unsigned int, uival); break;
         case TA_INDICES_CMD: FILL_INDICES(unsigned int, uival, unsigned int, uival); break;
         }
@@ -5793,7 +5802,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         FILL_LOWS(Tcl_WideInt, wval);
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(Tcl_WideInt, wval, uint64_t, uwval); break;
-        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt, uint64_t, uwval); break;
+        case TA_SUM_CMD: FILL_SUMS(Tcl_WideInt, wval, Tcl_WideInt, uint64_t, uwval, ovf_add_int64); break;
         case TA_VALUES_CMD: FILL_VALUES(Tcl_WideInt, wval, uint64_t, uwval); break;
         case TA_INDICES_CMD: FILL_INDICES(Tcl_WideInt, wval, uint64_t, uwval); break;
         }
@@ -5802,7 +5811,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         FILL_LOWS(double, dval);
         switch ((enum flags_e)opt) {
         case TA_COUNT_CMD: FILL_COUNTS(double, dval, double, dval); break;
-        case TA_SUM_CMD: FILL_SUMS(double, dval, double, double, dval); break;
+        case TA_SUM_CMD: FILL_SUMS(double, dval, double, double, dval, ovf_add_double); break;
         case TA_VALUES_CMD: FILL_VALUES(double, dval, double, dval); break;
         case TA_INDICES_CMD: FILL_INDICES(double, dval, double, dval); break;
         }
@@ -5814,6 +5823,10 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     Tcl_SetObjResult(ip, Tcl_NewListObj(2, objs));
     return TCL_OK;
+
+computation_overflow:
+    Tcl_SetResult(ip, "Computational overflow occurred.", TCL_STATIC);
+    goto error_return;
 
 invalid_limits:
     Tcl_SetResult(ip, "The specified maximum must not be less than the specified minimum.", TCL_STATIC);

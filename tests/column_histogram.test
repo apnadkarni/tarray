@@ -196,7 +196,12 @@ namespace eval tarray::test {
             testdef ${collect}-2.1 "Histogram - single interval" $type {0 1 2 3 4 5} 1 {*}$collect
             testdef ${collect}-2.2.0 "Histogram - general" $type {100 249 120 170 190 195 201 200} 5 {*}$collect
             testdef ${collect}-2.2.1 "Histogram - general" $type [samplerange $type] 10 {*}$collect
-            testdef ${collect}-2.2.2 "Histogram - random" $type [tarray::column values [tarray::column random $type 10000]] 10 {*}$collect
+            if {$type eq "wide"} {
+                # Random wides will always overflow so use random ints
+                testdef ${collect}-2.2.2 "Histogram - random" $type [tarray::column values [tarray::column random int 10000]] 10 {*}$collect
+            } else {
+                testdef ${collect}-2.2.2 "Histogram - random" $type [tarray::column values [tarray::column random $type 10000]] 10 {*}$collect
+            }
             if {$type ne "byte"} {
                 testdef ${collect}-2.2.3 "Histogram - random" $type [tarray::column values [tarray::column series 100000]] 1000 {*}$collect
             }
