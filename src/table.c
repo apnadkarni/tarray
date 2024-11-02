@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, Ashok P. Nadkarni
+ * Copyright (c) 2013-2024, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file LICENSE for license
@@ -15,16 +15,16 @@
  * Struct to hold mapping of passed in data to columns in a table
  */
 typedef struct column_map_s {
-    int            *pmapped_indices;   /* Array mapping to column index. May
+    Tcl_Size       *pmapped_indices;   /* Array mapping to column index. May
                                           point to either mapped_indices[] or
                                           allocated memory. */
-    int             mapped_indices_count; /* Number of elements of above */
+    Tcl_Size        mapped_indices_count; /* Number of elements of above */
 
     Tcl_Obj       **pmapped_columns;  /* Array of mapped columns. Maybe 
                                          NULL indicating not initialized, or
                                          point to mapped_columns[] or
                                          allocated memory */
-    int             mapped_column_count; /* Number of elements of above */
+    Tcl_Size        mapped_column_count; /* Number of elements of above */
 
     /* TBD - actually this may not be needed here. If columns cannot be repeated
        in the map, then to check if all columns are specified checking 
@@ -39,7 +39,7 @@ typedef struct column_map_s {
                                    */
     /* Following are static areas to avoid memory allocation */
     Tcl_Obj       *mapped_columns[10];
-    int            mapped_indices[10];
+    Tcl_Size       mapped_indices[10];
     unsigned char  column_usage[40];
 } column_map_t;
 
@@ -68,8 +68,7 @@ int table_check(Tcl_Interp *ip, Tcl_Obj *otab)
 {
     thdr_t *thdr;
     Tcl_Obj **tcols;
-    int ncols;
-    int i;
+    Tcl_Size i, ncols;
 
     if (table_convert(ip, otab) != TCL_OK || ! table_affirm(otab))
         Tcl_Panic("Tcl_Obj is not a table");
@@ -80,13 +79,13 @@ int table_check(Tcl_Interp *ip, Tcl_Obj *otab)
     if (thdr->type != TA_ANY)
         Tcl_Panic("Table thdr->type not TA_ANY");
     if (thdr->nrefs < 1)
-        Tcl_Panic("Table thdr->nrefs (%d) < 1", thdr->nrefs);
-    
+        Tcl_Panic("Table thdr->nrefs (%" TCL_SIZE_MODIFIER "d) < 1", thdr->nrefs);
+
     ncols = thdr->used;
     tcols = THDRELEMPTR(thdr, Tcl_Obj *, 0);
     for (i = 0; i < ncols; ++i) {
         if (tcols[i]->refCount < 1)
-            Tcl_Panic("Table column ref count (%d) < 1", tcols[i]->refCount);
+            Tcl_Panic("Table column ref count (%" TCL_SIZE_MODIFIER "d) < 1", tcols[i]->refCount);
         tcol_check(ip, tcols[i]);
     }
 
@@ -119,7 +118,7 @@ static void column_map_reset(column_map_t *pmap)
 static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
                             column_map_t *pmap)
 {
-    int n, width;
+    Tcl_Size n, width;
     Tcl_Obj **objs;
 
     pmap->pmapped_indices = pmap->mapped_indices;
@@ -141,7 +140,7 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
     }
 
     if (n > ARRAYSIZE(pmap->mapped_indices))
-        pmap->pmapped_indices = (int *) TA_ALLOCMEM(n * sizeof(*pmap->pmapped_indices));
+        pmap->pmapped_indices = (Tcl_Size *) TA_ALLOCMEM(n * sizeof(*pmap->pmapped_indices));
     pmap->mapped_indices_count = n;
 
     TA_ASSERT(table_affirm(table));
@@ -152,8 +151,8 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
     memset(pmap->pcolumn_usage, 0, width*sizeof(*pmap->pcolumn_usage));
 
     while (n--) {
-        int colnum;
-        if (Tcl_GetIntFromObj(NULL, objs[n], &colnum) != TCL_OK &&
+        Tcl_Size colnum;
+        if (Tcl_GetSizeIntFromObj(NULL, objs[n], &colnum) != TCL_OK &&
             table_parse_column_index(ip, table, objs[n], &colnum) != TCL_OK)
             goto error_handler;
 
@@ -168,17 +167,20 @@ static TCL_RESULT column_map_init(Tcl_Interp *ip, Tcl_Obj *omap, Tcl_Obj *table,
         pmap->pcolumn_usage[colnum] = 1;
         pmap->pmapped_indices[n] = colnum;
     }
-    
+
     return TCL_OK;
-    
+
 error_handler:
     column_map_reset(pmap);
     return TCL_ERROR;
 }
 
-
-TA_INLINE TCL_RESULT column_map_verify(
-    Tcl_Interp *ip, column_map_t *pmap, int width, int cur_size, int new_size)
+TA_INLINE TCL_RESULT
+column_map_verify(Tcl_Interp *ip,
+                  column_map_t *pmap,
+                  Tcl_Size width,
+                  Tcl_Size cur_size,
+                  Tcl_Size new_size)
 {
 
     /* If we are not growing the table, the column map can be a subset,
@@ -203,10 +205,10 @@ TA_INLINE TCL_RESULT column_map_verify(
 
     return column_map_missing_columns_error(ip);
 }
-                                                         
+
 static TCL_RESULT column_map_get_columns(
     Tcl_Interp *ip, column_map_t *pmap, Tcl_Obj *table,
-    Tcl_Obj ***pcolumns, int *pncolumns)
+    Tcl_Obj ***pcolumns, Tcl_Size *pncolumns)
 {
     TA_ASSERT(table_affirm(table));
     if (pmap->mapped_indices_count == 0) {
@@ -218,7 +220,7 @@ static TCL_RESULT column_map_get_columns(
 
     if (pmap->mapped_column_count == 0) {
         /* We have not yet mapped the columns */
-        int n;
+        Tcl_Size n;
         Tcl_Obj **tcols = THDRELEMPTR(table_thdr(table), Tcl_Obj *, 0);
         n = pmap->mapped_indices_count;
         pmap->mapped_column_count = n;
@@ -240,7 +242,7 @@ static TCL_RESULT column_map_get_columns(
 static Tcl_Obj *column_map_get_column_names(column_map_t *pmap, Tcl_Obj *table)
 {
     Tcl_Obj *ocolnames, *ocolname;
-    int i;
+    Tcl_Size i;
 
     TA_ASSERT(table_affirm(table));
     if (pmap->mapped_indices_count == 0) {
@@ -254,7 +256,7 @@ static Tcl_Obj *column_map_get_column_names(column_map_t *pmap, Tcl_Obj *table)
     for (i = 0; i < pmap->mapped_indices_count; ++i) {
         TA_NOFAIL(table_column_index_to_name(NULL, table, pmap->pmapped_indices[i], &ocolname), TCL_OK);
         Tcl_ListObjAppendElement(NULL, ocolnames, ocolname);
-        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewIntObj(i));
+        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewWideIntObj(i));
     }
     return ocolnames;
 }
@@ -262,14 +264,15 @@ static Tcl_Obj *column_map_get_column_names(column_map_t *pmap, Tcl_Obj *table)
 
 TCL_RESULT tcols_fill_range(
     Tcl_Interp *ip,
-    int ntcols,
+    Tcl_Size ntcols,
     Tcl_Obj **tcols,            /* Must be unshared, no span and large enough */
     Tcl_Obj *orow,              /* Value to fill */
-    int pos,
-    int count,
+    Tcl_Size pos,
+    Tcl_Size count,
     int insert)
 {
-    int i, row_width, col_len, status;
+    Tcl_Size i, row_width, col_len;
+    int status;
     ta_value_t values[32];
     ta_value_t *pvalues = values;
     Tcl_Obj **ovalues;
@@ -324,8 +327,8 @@ vamoose:
  * table type routines
  */
 static void table_type_free_intrep(Tcl_Obj *o)
-{ 
-   thdr_t *thdr;
+{
+    thdr_t *thdr;
     Tcl_Obj *ocolnames;
 
     TA_ASSERT(table_affirm(o));
@@ -357,7 +360,7 @@ Tcl_Obj *table_column_names (Tcl_Obj *otab)
 {
     Tcl_Obj  *onames;
     Tcl_Obj **elems;
-    int       i, nelems;
+    Tcl_Size  i, nelems;
 
     TA_ASSERT(table_affirm(otab));
     TA_ASSERT(OBJCOLNAMES(otab));
@@ -383,11 +386,12 @@ Tcl_Obj *table_column_names (Tcl_Obj *otab)
 TCL_RESULT table_column_index_to_name(
     Tcl_Interp *ip,             /* May be NULL */
     Tcl_Obj *otab,
-    int colindex,
+    Tcl_Size colindex,
     Tcl_Obj **pname)
 {
     Tcl_Obj *onames, *oname;
-    int      i, status;
+    int      status;
+    Tcl_Size i;
 
     TA_ASSERT(table_affirm(otab));
 
@@ -405,7 +409,7 @@ TCL_RESULT table_column_index_to_name(
             /* Cross check */
             TA_ASSERT(Tcl_ListObjIndex(NULL, onames, i+1, &oname) == TCL_OK);
             TA_ASSERT(oname);
-            TA_ASSERT(Tcl_GetIntFromObj(NULL, oname, &i) == TCL_OK);
+            TA_ASSERT(Tcl_GetSizeIntFromObj(NULL, oname, &i) == TCL_OK);
             TA_ASSERT(i == colindex);
             return TCL_OK;
         }
@@ -417,14 +421,14 @@ TCL_RESULT table_column_index_to_name(
 
 TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
                                       Tcl_Obj *table, Tcl_Obj *oindex,
-                                      int *pindex)
+                                      Tcl_Size *pindex)
 {
-    int colindex;
+    Tcl_Size colindex;
     Tcl_Obj *onames, *o;
 
     TA_ASSERT(table_affirm(table));
 
-    if (Tcl_GetIntFromObj(NULL, oindex, &colindex) == TCL_OK) {
+    if (Tcl_GetSizeIntFromObj(NULL, oindex, &colindex) == TCL_OK) {
         if (colindex < 0 || colindex >= table_width(table))
             return ta_column_index_error(ip, colindex);
         *pindex = colindex;
@@ -434,12 +438,12 @@ TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
     /* Not an integer, see if name */
     onames = OBJCOLNAMES(table);
     TA_ASSERT(onames);
-              
+
     TA_NOFAIL(Tcl_DictObjGet(ip, onames, oindex, &o), TCL_OK);
     if (o == NULL)
         return ta_column_name_error(ip, oindex);
 
-    TA_NOFAIL(Tcl_GetIntFromObj(NULL, o, &colindex), TCL_OK);
+    TA_NOFAIL(Tcl_GetSizeIntFromObj(NULL, o, &colindex), TCL_OK);
     TA_ASSERT(colindex < table_width(table));
     *pindex = colindex;
     return TCL_OK;
@@ -452,19 +456,20 @@ TCL_RESULT table_parse_column_index(Tcl_Interp *ip,
 
 TCL_RESULT tcols_fill_indices(
     Tcl_Interp *ip,
-    int ntcols,
+    Tcl_Size ntcols,
     Tcl_Obj **tcols,            /* Must be unshared, no span and large enough */
     Tcl_Obj *orow,              /* Value to fill */
     thdr_t *pindices,
-    int new_size
+    Tcl_Size new_size
     )
 {
-    int i, row_width, status, col_len;
+    Tcl_Size i, row_width, col_len;
+    int status;
     ta_value_t values[32];
     ta_value_t *pvalues = values;
     Tcl_Obj **ovalues;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INDEX);
 
     if (ntcols == 0 || pindices->used == 0)
         return TCL_OK;          /* Nothing to do */
@@ -512,13 +517,14 @@ vamoose:
 /* SHould only be called if o is not a table already */
 TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 {
-    int       i, ntcols, nelems, ncolnames, status;
+    Tcl_Size i, ntcols, nelems, ncolnames;
+    int status;
     thdr_t   *thdr;
     Tcl_Obj **elems, **tcols, **colnames;
     Tcl_Obj  *colnames_map, *re;
 
     TA_ASSERT(! table_affirm(o));
-    
+
     if (tcol_affirm(o) ||
         Tcl_ListObjGetElements(NULL, o, &nelems, &elems) != TCL_OK ||
         nelems != 3 ||
@@ -561,7 +567,7 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
             return TCL_ERROR;
         }
         Tcl_ListObjAppendElement(ip, colnames_map, colnames[i]);
-        Tcl_ListObjAppendElement(ip, colnames_map, Tcl_NewIntObj(i));
+        Tcl_ListObjAppendElement(ip, colnames_map, Tcl_NewWideIntObj(i));
     }
     Tcl_DecrRefCount(re);
 
@@ -581,13 +587,15 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
 
 /* Makes the table data store modifiable. Does NOT make the column names
    modifiable */
-TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
-                                Tcl_Obj *table,
-                                 int minsize, /* Minsize of *contained* cols */
-                                 int prefsize /* Pref size of contained cols */
-    )
+TCL_RESULT
+table_make_modifiable(Tcl_Interp *ip,
+                      Tcl_Obj *table,
+                      Tcl_Size minsize, /* Minsize of *contained* cols */
+                      Tcl_Size prefsize /* Pref size of contained cols */
+)
 {
-    int i, status;
+    Tcl_Size i;
+    int status;
     thdr_t *thdr;
     Tcl_Obj **tcols;
 
@@ -595,7 +603,7 @@ TCL_RESULT table_make_modifiable(Tcl_Interp *ip,
 
     if ((status = table_convert(ip, table)) != TCL_OK)
         return status;
-    
+
     /* Make the table object itself modifiable in case its thdr is shared */
     thdr = table_thdr(table);
     if (thdr_shared(thdr)) {
@@ -640,12 +648,11 @@ TCL_RESULT table_fill_obj(
     Tcl_Obj *omap,
     int insert)
 {
-    int low, count;
+    Tcl_Size ncols, low, count;
     int status;
-    int ncols;
     thdr_t *pindices = NULL;
     column_map_t colmap;
-    int cur_size, new_size;
+    Tcl_Size cur_size, new_size;
     Tcl_Obj **tcols;
     int is_range = 0;
 
@@ -728,10 +735,10 @@ TCL_RESULT table_fill_obj(
     return status;
 }
 
-TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
-                                         int nrows, Tcl_Obj * const rows[])
+TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, Tcl_Size width,
+                                         Tcl_Size nrows, Tcl_Obj * const rows[])
 {
-    int r, i;
+    Tcl_Size r, i;
     for (r = 0; r < nrows; ++r) {
         if (Tcl_ListObjLength(ip, rows[r], &i) == TCL_ERROR)
             return TCL_ERROR;
@@ -741,11 +748,11 @@ TCL_RESULT tcols_validate_obj_row_widths(Tcl_Interp *ip, int width,
     return TCL_OK;
 }
 
-TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
+TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, Tcl_Size ntcols,
                                    Tcl_Obj * const *tcols,
-                                   int nrows, Tcl_Obj * const rows[])
+                                   Tcl_Size nrows, Tcl_Obj * const rows[])
 {
-    int r, t;
+    Tcl_Size r, t;
     ta_value_t v;
 
     /*
@@ -770,10 +777,10 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
      */
     for (r = 0; r < nrows; ++r) {
         Tcl_Obj **fields;
-        int nfields;
-        
+        Tcl_Size nfields;
+
         if (Tcl_ListObjGetElements(NULL, rows[r], &nfields, &fields) != TCL_OK) {
-            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid list syntax in row %d of source data.", r));
+            Tcl_SetObjResult(ip, Tcl_ObjPrintf("Invalid list syntax in row %" TCL_SIZE_MODIFIER "d of source data.", r));
             return TCL_ERROR;
         }
 
@@ -805,11 +812,12 @@ TCL_RESULT tcols_validate_obj_rows(Tcl_Interp *ip, int ntcols,
 
 /* ip may be NULL (only used for errors) */
 /* See asserts in code for prerequisite conditions */
-TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
-                          int nrows, Tcl_Obj * const *rows,
-                          int first, int insert)
+TCL_RESULT tcols_put_objs(Tcl_Interp *ip, Tcl_Size ntcols, Tcl_Obj * const *tcols,
+                          Tcl_Size nrows, Tcl_Obj * const *rows,
+                          Tcl_Size first, int insert)
 {
-    int t, r, ival;
+    Tcl_Size t, r;
+    int ival;
     int have_cols_that_need_validation;
     int need_data_validation;
     Tcl_Obj *oval;
@@ -951,9 +959,8 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
             case TA_BOOLEAN:
                 {
                     register ba_t *baP;
-                    ba_t ba, ba_mask;
-                    int off;
-                    
+                    ba_t ba, ba_mask, off;
+
                     /* Take care of the initial condition where the first bit
                        may not be aligned on a boundary */
                     baP = THDRELEMPTR(thdr, ba_t, first / BA_UNIT_SIZE);
@@ -1042,7 +1049,7 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
             }
         } else {
             /* TA_STRING */
-            register tas_t **pptas;
+            tas_t **pptas;
             pptas = THDRELEMPTR(thdr, tas_t *, first);
             for (r = 0; r < nrows ; ++r, ++pptas) {
                 Tcl_ListObjIndex(ip, rows[r], t, &oval);
@@ -1069,23 +1076,24 @@ TCL_RESULT tcols_put_objs(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols,
                 tcol_thdr(tcols[t])->used = first + nrows;
         }
     }
-     
+
     return TCL_OK;
 
  error_return:                  /* Interp should already contain errors */
     return TCL_ERROR;
  }
 
-static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
+static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, Tcl_Size ntcols,
                                     Tcl_Obj * const *tcols, Tcl_Obj *orows,
-                                    thdr_t *pindices, int new_size)
+                                    thdr_t *pindices, Tcl_Size new_size)
  {
      Tcl_Obj **prow;
-     int i, nrows, status;
+     Tcl_Size i, nrows;
+     int status;
      Tcl_Obj **rows;
      Tcl_Obj *o;
 
-     TA_ASSERT(pindices->type == TA_INT);
+     TA_ASSERT(pindices->type == TA_INDEX);
 
      for (i = 0; i < ntcols; ++i) {
          TA_ASSERT(! Tcl_IsShared(tcols[i]));
@@ -1122,10 +1130,10 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
     } while (0)
 
     for (i = 0; i < ntcols; ++i) {
-        int *pindex, *end;
+        Tcl_Size *pindex, *end;
 
         tcol_thdr(tcols[i])->sort_order = THDR_UNSORTED;
-        pindex = THDRELEMPTR(pindices, int, 0);
+        pindex = THDRINDEXELEMPTR(pindices, 0);
         end = pindex + pindices->used;
         prow = rows;
         switch (tcol_type(tcols[i])) {
@@ -1160,7 +1168,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
         case TA_ANY:
             {
                 Tcl_Obj **pobjs;
-                int j;
+                Tcl_Size j;
 
                 pobjs = THDRELEMPTR(tcol_thdr(tcols[i]), Tcl_Obj *, 0);
 
@@ -1186,7 +1194,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                     if (pobjs[*pindex] != NULL)
                         Tcl_DecrRefCount(pobjs[*pindex]);/* Deref what was originally in that slot */
                     pobjs[*pindex++] = o;
-                }               
+                }
             }
             break;
 
@@ -1194,7 +1202,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
             {
                 tas_t **pptas;
                 thdr_t *cur_thdr;
-                int j;
+                Tcl_Size j;
 
                 cur_thdr = tcol_thdr(tcols[i]);
                 pptas = THDRELEMPTR(cur_thdr, tas_t *, 0);
@@ -1222,7 +1230,7 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
                     pptas[*pindex] = tas_from_obj(o);
                     thdr_lookup_add(cur_thdr, *pindex);
                     ++pindex;
-                }               
+                }
             }
             break;
 
@@ -1236,11 +1244,17 @@ static  TCL_RESULT tcols_place_objs(Tcl_Interp *ip, int ntcols,
     return TCL_OK;
 }
 
-TCL_RESULT tcols_place_indices(Tcl_Interp *ip, int ntcols, Tcl_Obj * const *tcols, Tcl_Obj * const *srccols, thdr_t *pindices, int new_size)
+TCL_RESULT
+tcols_place_indices(Tcl_Interp *ip,
+                    Tcl_Size ntcols,
+                    Tcl_Obj *const *tcols,
+                    Tcl_Obj *const *srccols,
+                    thdr_t *pindices,
+                    Tcl_Size new_size)
 {
-    int i;
+    Tcl_Size i;
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INDEX);
     
     if (ntcols == 0 || pindices->used == 0)
         return TCL_OK;          /* Nothing to do */
@@ -1274,7 +1288,8 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
                           Tcl_Obj *omap,
                           int insert)
 {
-    int off, nrows, old_size, new_size, status, ntcols;
+    Tcl_Size off, nrows, old_size, new_size, ntcols;
+    int status;
     Tcl_Obj **rows, **tcols;
     column_map_t colmap;
 
@@ -1343,13 +1358,13 @@ TCL_RESULT table_put_objs(Tcl_Interp *ip, Tcl_Obj *table,
 }
 
 TCL_RESULT tcols_copy(Tcl_Interp *ip,
-                      int ntcols,
-                      Tcl_Obj * const *dstcols, int dst_elem_first,
-                      Tcl_Obj * const *srccols, int src_elem_first,
-                      int count,
+                      Tcl_Size ntcols,
+                      Tcl_Obj * const *dstcols, Tcl_Size dst_elem_first,
+                      Tcl_Obj * const *srccols, Tcl_Size src_elem_first,
+                      Tcl_Size count,
                       int insert)
 {
-    int i;
+    Tcl_Size i;
     thdr_t *psrc, *pdst;
 
     /* First do checks, then the copy so as to not error out half way */
@@ -1369,12 +1384,12 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
         if (pdst->type != psrc->type)
             return ta_mismatched_types_error(ip, pdst->type, psrc->type);
     }
-    
+
     /* Now that *all* columns have been checked, do the actual copy */
     for (i = 0; i < ntcols; ++i) {
         thdr_t *src_thdr;
         span_t *src_span;
-        int src_first, src_size;
+        Tcl_Size src_first, src_size;
         src_thdr = tcol_thdr(srccols[i]);
         src_span = tcol_span(srccols[i]);
         if (src_span) {
@@ -1388,7 +1403,7 @@ TCL_RESULT tcols_copy(Tcl_Interp *ip,
             count = src_size - src_elem_first; 
         thdr_copy(tcol_thdr(dstcols[i]), dst_elem_first,
                   tcol_thdr(srccols[i]), src_first + src_elem_first, count, insert);
-    }    
+    }
 
     return TCL_OK;
 }
@@ -1415,10 +1430,11 @@ TCL_RESULT table_copy(Tcl_Interp *ip, Tcl_Obj *dstable, Tcl_Obj *srctable,
                       Tcl_Obj *omap,
                       int insert)
 {
-    int first, ntcols, status;
+    Tcl_Size first, ntcols;
+    int status;
     Tcl_Obj **dstcols;
     Tcl_Obj **srccols;
-    int count, cur_size, new_size;
+    Tcl_Size count, cur_size, new_size;
     column_map_t colmap;
 
     TA_ASSERT(! Tcl_IsShared(dstable));
@@ -1468,7 +1484,7 @@ TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
                         Tcl_Obj *indexa, Tcl_Obj *indexb)
 {
     int status;
-    int i;
+    Tcl_Size i;
 
     TA_ASSERT(! Tcl_IsShared(table));
 
@@ -1492,8 +1508,8 @@ TCL_RESULT table_delete(Tcl_Interp *ip, Tcl_Obj *table,
 
 static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_Obj *omap, int fmt)
 {
-    int            i, nsrccols, index;
-    int            *pindex, *end;
+    Tcl_Size       i, nsrccols, index;
+    Tcl_Size      *pindex, *end;
     Tcl_Obj      **srccols;
     Tcl_Obj       *olist = NULL;
     Tcl_Obj      **olistelems;
@@ -1504,7 +1520,7 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
 
     /* TBD - TA_ASSERT validate table consistency */
 
-    TA_ASSERT(pindices->type == TA_INT);
+    TA_ASSERT(pindices->type == TA_INDEX);
 
     /* Do first since expect to do column_map_reset on returns */
     if (column_map_init(ip, omap, osrc, &colmap) != TCL_OK)
@@ -1518,10 +1534,10 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
 
     /* Special case when no columns are defined for the table but indices are specified */
     if (nsrccols == 0 && pindices->used) {
-        index = *THDRELEMPTR(pindices, int, 0);
+        index = *THDRELEMPTR(pindices, TA_INDEX, 0);
         goto index_error;
     }
-    
+
     if (fmt == TA_FORMAT_TARRAY) {
         Tcl_Obj **tcols;
         thdr_t *thdr;
@@ -1555,14 +1571,14 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
      * list and letting it shimmer when necessary is more efficient than
      * creating it as a dict.
      */
-    pindex = THDRELEMPTR(pindices, int, 0);
+    pindex = THDRINDEXELEMPTR(pindices, 0);
     end = pindex + pindices->used;
     if (fmt == TA_FORMAT_DICT) {
         olist = Tcl_NewListObj(2*pindices->used, NULL);
         while (pindex < end) {
-            Tcl_ListObjAppendElement(ip, olist, Tcl_NewIntObj(*pindex++));
+            Tcl_ListObjAppendElement(ip, olist, Tcl_NewWideIntObj(*pindex++));
             Tcl_ListObjAppendElement(ip, olist, Tcl_NewListObj(nsrccols, NULL));
-        }        
+        }
     } else {
         olist = Tcl_NewListObj(pindices->used, NULL);
         i = pindices->used;
@@ -1585,13 +1601,13 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
 
     for (i = 0; i < nsrccols; ++i) {
         void *srcbase;
-        int j, incr, bound, span_start;
+        Tcl_Size j, incr, bound, span_start;
         thdr_t *src_thdr;
         span_t *span;
 
         TA_ASSERT(tcol_affirm(srccols[i]));
-        
-        pindex = THDRELEMPTR(pindices, int, 0);
+
+        pindex = THDRINDEXELEMPTR(pindices, 0);
         end = pindex + pindices->used;
         src_thdr = OBJTHDR(srccols[i]);
         span = OBJTHDRSPAN(srccols[i]);
@@ -1610,7 +1626,7 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
             j = 0;
             incr = 1;
         }
-            
+
         switch (tcol_type(srccols[i])) {
         case TA_BOOLEAN:
             {
@@ -1674,9 +1690,15 @@ error_handler:    /* colmap must have been initialized */
     return NULL;
 }
 
-static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, Tcl_Obj *omap, int fmt)
+static Tcl_Obj *
+table_range(Tcl_Interp *ip,
+            Tcl_Obj *osrc,
+            Tcl_Size low,
+            Tcl_Size count,
+            Tcl_Obj *omap,
+            int fmt)
 {
-    int i, nsrccols, end;
+    Tcl_Size i, nsrccols, end;
     Tcl_Obj **srccols;
     Tcl_Obj *olist = NULL;
     Tcl_Obj **olistelems;
@@ -1743,7 +1765,7 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
     if (fmt == TA_FORMAT_DICT) {
         olist = Tcl_NewListObj(2*count, NULL);
         for (i = low; i < end; ++i) {
-            Tcl_ListObjAppendElement(ip, olist, Tcl_NewIntObj(i));
+            Tcl_ListObjAppendElement(ip, olist, Tcl_NewWideIntObj(i));
             Tcl_ListObjAppendElement(ip, olist, Tcl_NewListObj(nsrccols, NULL));
         }
     } else {
@@ -1766,7 +1788,7 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
     } while (0)                                                         \
 
     for (i = 0; i < nsrccols; ++i) {
-        int j, incr, src_first;
+        Tcl_Size j, incr, src_first;
         thdr_t *src_thdr;
         span_t *src_span;
 
@@ -1792,8 +1814,8 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
         case TA_BOOLEAN:
             {
                 ba_t *srcbaP = THDRELEMPTR(src_thdr, ba_t, 0);
-                int k;
-                int src_end = src_first + count; /* Not same as "end" var which is logical end */
+                Tcl_Size k;
+                Tcl_Size src_end = src_first + count; /* Not same as "end" var which is logical end */
                 for (k = src_first; k < src_end; j += incr, ++k) {
                     Tcl_ListObjAppendElement(ip, olistelems[j],
                                              Tcl_NewIntObj(ba_get(srcbaP, k)));
@@ -1835,9 +1857,9 @@ static Tcl_Obj *table_range(Tcl_Interp *ip, Tcl_Obj *osrc, int low, int count, T
     return olist;
 }
 
-Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index)
+Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Size index)
 {
-    int i, width;
+    Tcl_Size i, width;
     Tcl_Obj **srccols;
     Tcl_Obj *olist = NULL;
     Tcl_Obj *o;
@@ -1866,10 +1888,10 @@ Tcl_Obj *table_index(Tcl_Interp *ip, Tcl_Obj *table, int index)
 }
 
 TCL_RESULT table_insert_row(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalue,
-                            Tcl_Obj *opos, int count, Tcl_Obj *omap)
+                            Tcl_Obj *opos, Tcl_Size count, Tcl_Obj *omap)
 {
     int status;
-    int pos, col_len, ncols;
+    Tcl_Size pos, col_len, ncols;
     Tcl_Obj **tcols;
     column_map_t colmap;
 
@@ -1918,13 +1940,14 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
 {
     thdr_t        *pindices;
     Tcl_Obj      **tcols;
-    int            ntcols, cur_size, new_size, status;
+    Tcl_Size ntcols, cur_size, new_size;
+    int status;
     column_map_t   colmap;
 
     TA_ASSERT(! Tcl_IsShared(table));
 
-    if ((status = table_convert(ip, table)) != TCL_OK || 
-        (ntcols = table_width(table)) == 0) 
+    if ((status = table_convert(ip, table)) != TCL_OK ||
+        (ntcols = table_width(table)) == 0)
         return status;           /* Maybe OK or ERROR */
 
     if (ta_obj_to_indices(ip, oindices, 0, 0, &pindices, NULL) != TA_INDEX_TYPE_THDR)
@@ -1966,7 +1989,7 @@ TCL_RESULT table_place(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *ovalues,
         /* Source values specified as a list of rows */
         status =  tcols_place_objs(ip, ntcols, tcols, ovalues, pindices, new_size);
     }
-    
+
 vamoose:
     /* Before jumping here, colmap must have been initialized, 
        pindices allocated and status must hold return value */
@@ -1978,7 +2001,8 @@ vamoose:
 
 TCL_RESULT table_reverse(Tcl_Interp *ip, Tcl_Obj *table)
 {
-    int i, status;
+    int status;
+    Tcl_Size i;
 
     TA_ASSERT(! Tcl_IsShared(table));
 
@@ -2039,7 +2063,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
             break;
         }
     }
-       
+
     if (command == TA_RETRIEVE_GET) {
         thdr_t  *pindices;
 
@@ -2050,7 +2074,7 @@ TCL_RESULT table_retrieve(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
         thdr_decr_refs(pindices);
     } else {
         /* Range LOW HIGH */
-        int low, count;
+        Tcl_Size low, count;
         status = ta_fix_range_bounds(ip, table_length(table),
                                      objv[objc-2], objv[objc-1],
                                      &low, &count);
@@ -2071,13 +2095,13 @@ TCL_RESULT table_get_column(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *colspec)
 {
     thdr_t *thdr;
     Tcl_Obj *tcol;
-    int status, pos;
+    int status;
+    Tcl_Size pos;
 
     if ((status = table_convert(ip, table)) != TCL_OK)
         return status;
 
-    if ((status = table_parse_column_index(ip, table, colspec, &pos))
-        != TCL_OK)
+    if ((status = table_parse_column_index(ip, table, colspec, &pos)) != TCL_OK)
         return status;
 
     thdr = table_thdr(table);
@@ -2087,11 +2111,16 @@ TCL_RESULT table_get_column(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *colspec)
     return TCL_OK;
 }
 
-TCL_RESULT table_set_column(Tcl_Interp *ip, Tcl_Obj *table, Tcl_Obj *colspec, Tcl_Obj *newcol)
+TCL_RESULT
+table_set_column(Tcl_Interp *ip,
+                 Tcl_Obj *table,
+                 Tcl_Obj *colspec,
+                 Tcl_Obj *newcol)
 {
     thdr_t *thdr;
     Tcl_Obj *tcol;
-    int tab_len, status, pos;
+    Tcl_Size tab_len, pos;
+    int status;
 
     TA_ASSERT(! Tcl_IsShared(table));
     if ((status = table_convert(ip, table)) != TCL_OK)
@@ -2301,8 +2330,8 @@ table_delete_cmd(ClientData clientdata, Tcl_Interp *ip,
     int status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TABLE (INDEXLIST | LOW ?HIGH?)");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLE (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
     }
 
     table = objv[1];
@@ -2320,8 +2349,8 @@ TCL_RESULT table_vdelete_cmd(ClientData clientdata, Tcl_Interp *ip,
     int status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR (INDEXLIST | LOW ?HIGH?)");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR (INDEXLIST | LOW ?HIGH?)");
+        return TCL_ERROR;
     }
 
     table = Tcl_ObjGetVar2(ip, objv[1], NULL, TCL_LEAVE_ERR_MSG);
@@ -2338,14 +2367,14 @@ TCL_RESULT
 table_get_cmd(ClientData cdata, Tcl_Interp *ip,
               int objc, Tcl_Obj *const objv[])
 {
-    return table_retrieve(ip, objc, objv, (int)cdata);
+    return table_retrieve(ip, objc, objv, (int) (intptr_t) cdata);
 }
 
 TCL_RESULT
 table_index_cmd(ClientData cdata, Tcl_Interp *ip,
                 int objc, Tcl_Obj *const objv[])
 {
-    int ix;
+    Tcl_Size ix;
     Tcl_Obj *o;
     Tcl_Obj *grid;
 
@@ -2355,8 +2384,8 @@ table_index_cmd(ClientData cdata, Tcl_Interp *ip,
     }
     grid = objv[1];
     if (table_convert(ip, grid) == TCL_OK) {
-        int end = table_length(grid) - 1;
-	if (ta_convert_index(ip, objv[2], &ix, end, 0, end) == TCL_OK) {
+        Tcl_Size end = table_length(grid) - 1;
+        if (ta_convert_index(ip, objv[2], &ix, end, 0, end) == TCL_OK) {
             o = table_index(ip, grid, ix);
             if (o) {
                 Tcl_SetObjResult(ip, o);
@@ -2370,7 +2399,7 @@ table_index_cmd(ClientData cdata, Tcl_Interp *ip,
 static TCL_RESULT
 table_insert_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
                        Tcl_Obj **potab, Tcl_Obj **povalues, Tcl_Obj **pofirst,
-                       int *pcount, Tcl_Obj **pomap)
+                       Tcl_Size *pcount, Tcl_Obj **pomap)
 {
     int argoff;
 
@@ -2394,7 +2423,7 @@ table_insert_parseargs(Tcl_Interp *ip, int objc, Tcl_Obj * const *objv,
     *povalues = objv[++argoff];
     *pofirst = objv[++argoff];
     if (++argoff < objc) {
-        if (ta_get_int_from_obj(ip, objv[argoff], pcount) != TCL_OK)
+        if (ta_get_count_from_obj(ip, objv[argoff], 1, pcount) != TCL_OK)
             return TCL_ERROR;
     } else
         *pcount = 1;
@@ -2407,7 +2436,8 @@ table_insert_cmd(ClientData cdata, Tcl_Interp *ip,
     int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *table, *ovalues, *ofirst, *omap;
-    int status, count;
+    int status;
+    Tcl_Size count;
 
     if (table_insert_parseargs(ip, objc, objv, &table, &ovalues,
                                &ofirst, &count, &omap) != TCL_OK)
@@ -2425,7 +2455,8 @@ table_vinsert_cmd(ClientData cdata, Tcl_Interp *ip,
                   int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *ovar, *table, *ovalues, *ofirst, *omap;
-    int status, count;
+    int status;
+    Tcl_Size count;
 
     if (table_insert_parseargs(ip, objc, objv, &ovar, &ovalues,
                                &ofirst, &count, &omap) != TCL_OK)
@@ -2630,7 +2661,7 @@ table_size_cmd(ClientData cdata, Tcl_Interp *ip,
                int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *table;
-    Tcl_WideInt size;
+    Tcl_Size size;
 
     if (objc != 2) {
         Tcl_WrongNumArgs(ip, 1, objv, "TABLE");
@@ -2639,7 +2670,7 @@ table_size_cmd(ClientData cdata, Tcl_Interp *ip,
     table = objv[1];
     if (table_convert(ip, table) != TCL_OK)
         return TCL_ERROR;
-    size = (int)cdata ? table_width(table) : table_length(table);
+    size = cdata ? table_width(table) : table_length(table);
     Tcl_SetObjResult(ip, Tcl_NewWideIntObj(size));
     return TCL_OK;
 }
@@ -2652,8 +2683,8 @@ table_column_cmd(ClientData cdata, Tcl_Interp *ip,
     TCL_RESULT status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
+        return TCL_ERROR;
     }
 
     table = objv[1];
@@ -2676,8 +2707,8 @@ table_vcolumn_cmd(ClientData cdata, Tcl_Interp *ip,
     TCL_RESULT status;
 
     if (objc != 3 && objc != 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "TABLEVAR COLSPEC ?NEWCOLUMN?");
+        return TCL_ERROR;
     }
 
     table = Tcl_ObjGetVar2(ip, objv[1], NULL, TCL_LEAVE_ERR_MSG);
@@ -2740,9 +2771,9 @@ table_slice_cmd(ClientData cdata, Tcl_Interp *ip,
     Tcl_Obj *table;
     Tcl_Obj *collist;
     Tcl_Obj *ocolnames, *ocolname, **pdstcols;
-    int      count, status, srcindex;
+    Tcl_Size i, count, srcindex;
+    TCL_RESULT status;
     thdr_t  *thdr;
-    int i;
     Tcl_Obj *oindex;
 
     if (objc != 3) {
@@ -2782,7 +2813,7 @@ table_slice_cmd(ClientData cdata, Tcl_Interp *ip,
             break;
         /* Everything seems in order. Store name->index mapping */
         Tcl_ListObjAppendElement(NULL, ocolnames, ocolname);
-        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewIntObj(i));
+        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewWideIntObj(i));
         /* Store the column in the output */
         pdstcols[i] = table_column(table, srcindex);
         Tcl_IncrRefCount(pdstcols[i]);
@@ -2792,7 +2823,7 @@ table_slice_cmd(ClientData cdata, Tcl_Interp *ip,
             status = TCL_ERROR; /* Early termination => error */
     else {
         /*
-         * So far so good but tThere is one last thing to be checked - no
+         * So far so good but there is one last thing to be checked - no
          * duplicate names. We do this by checking size of the column
          * names dictionary.
          */

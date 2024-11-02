@@ -3,7 +3,6 @@ package require pt::pgen
 package require platform
 package require critcl 3.1
 package require critcl::app
-
 set taversion [source ../src/taversion.tcl]
 
 proc usage {} {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, Ashok P. Nadkarni
+ * Copyright (c) 2015-2024, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file license.terms for license
@@ -12,7 +12,7 @@
  * Thresholds for multithreading.
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
-int ta_math_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_math_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 static const char *ta_math_op_names[] = {
@@ -57,28 +57,28 @@ struct ta_math_operand {
     ta_value_t scalar_operand; /* Only valid if thdr_operand is NULL */
     Tcl_Obj *obj;              /* Original Tcl_Obj for operand. Only
                                   valid if thdr_operand is NULL */
-    int     span_start; /* Where in thdr_operand the logical column starts.
-                           Only valid if thdr_operand is not NULL */
+    Tcl_Size span_start; /* Where in thdr_operand the logical column starts.
+                            Only valid if thdr_operand is not NULL */
 };
 
 struct thdr_math_mt_context {
-    thdr_t  *thdr;              /* Will hold result (SHARED among threads)
-                                   thdr->header must NOT be modified except
-                                   by main thread!!!
-                                 */
-    struct ta_math_operand  *poperands;        /* Operands */
-    int      noperands;         /* Number of operands */
-    int      start;             /* Starting position in source thdr
-                                   for this thread */
-    int      count;             /* Number of elements in thdr to examine */
+    thdr_t *thdr; /* Will hold result (SHARED among threads)
+                     thdr->header must NOT be modified except
+                     by main thread!!!
+                   */
+    struct ta_math_operand *poperands; /* Operands */
+    Tcl_Size noperands;                /* Number of operands */
+    Tcl_Size start;                    /* Starting position in source thdr
+                                          for this thread */
+    Tcl_Size count;             /* Number of elements in thdr to examine */
     int      error_code;        /* If non-0, one of the error codes below */
 #define TAM_DIV0  1
     enum ta_math_op_e op;                /* Operation */
-};    
+};
 
 /* NOTE: will panic for non-numeric values */
 static double ta_math_double_from_operand(struct ta_math_operand *poperand,
-                                          int thdr_index)
+                                          Tcl_Size thdr_index)
 {
     if (poperand->thdr_operand) {
         return thdr_index_double(poperand->thdr_operand,
@@ -93,11 +93,11 @@ static double ta_math_double_from_operand(struct ta_math_operand *poperand,
 }
 
 /* NOTE: will panic for non-numeric values */
-static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
-                                          int thdr_index)
+static Tcl_WideInt
+ta_math_wide_from_operand(struct ta_math_operand *poperand, Tcl_Size thdr_index)
 {
     if (poperand->thdr_operand) {
-        return thdr_index_wide(poperand->thdr_operand, 
+        return thdr_index_wide(poperand->thdr_operand,
                                thdr_index + poperand->span_start);
     } else {
         /* All scalar non-double operands must have been promoted to wide */
@@ -106,8 +106,10 @@ static Tcl_WideInt ta_math_wide_from_operand(struct ta_math_operand *poperand,
     }
 }
 
-static char *ta_math_string_from_operand(struct ta_math_operand *poperand,
-                                         int thdr_index, char buf[TA_NUMERIC_SPACE])
+static char *
+ta_math_string_from_operand(struct ta_math_operand *poperand,
+                            Tcl_Size thdr_index,
+                            char buf[TA_NUMERIC_SPACE])
 {
     if (poperand->thdr_operand) {
         return thdr_index_string(poperand->thdr_operand, 
@@ -142,7 +144,7 @@ static double ta_math_double_operation(enum ta_math_op_e op, double dbl, ta_valu
         if ((dbl && operand) ||
             (dbl == 0 && operand == 0))
             return 0;
-        else 
+        else
             return 1;
     case TAM_OP_EQ: return dbl == operand;
     case TAM_OP_NE: return dbl != operand;
@@ -183,7 +185,7 @@ static Tcl_WideInt ta_math_wide_operation(enum ta_math_op_e op, Tcl_WideInt wide
         if ((wide && operand) ||
             (wide == 0 && operand == 0))
             return 0;
-        else 
+        else
             return 1;
     case TAM_OP_EQ: return wide == operand;
     case TAM_OP_NE: return wide != operand;
@@ -204,8 +206,8 @@ static void thdr_math_mt_worker(void *pv)
 {
     struct thdr_math_mt_context *pctx = pv;
     struct ta_math_operand *poperands;
-    int noperands;
-    int start, end;
+    Tcl_Size noperands;
+    Tcl_Size start, end;
     unsigned char type;
 
     TA_ASSERT(pctx->count > 0);
@@ -225,36 +227,36 @@ static void thdr_math_mt_worker(void *pv)
      * for the column span because the ta_math_xxx_from_operand already
      * account for the span starting offset.
      */
-#define DOUBLELOOP(op_)                                               \
-    do {                                                                \
-        int i, j;                                                       \
-        double *p = THDRELEMPTR(pctx->thdr, double, 0); \
-        for (i = start; i < end; ++i) {                                 \
+#define DOUBLELOOP(op_)                                                   \
+    do {                                                                  \
+        Tcl_Size i, j;                                                    \
+        double *p = THDRELEMPTR(pctx->thdr, double, 0);                   \
+        for (i = start; i < end; ++i) {                                   \
             double accum = ta_math_double_from_operand(&poperands[0], i); \
-            for (j = 1; j < noperands; ++j) {                           \
-                accum op_ ta_math_double_from_operand(&poperands[j], i); \
-            }                                                           \
-            p[i] = accum;                \
-        }                                                               \
+            for (j = 1; j < noperands; ++j) {                             \
+                accum op_ ta_math_double_from_operand(&poperands[j], i);  \
+            }                                                             \
+            p[i] = accum;                                                 \
+        }                                                                 \
     } while (0)
 
-#define INTEGERLOOP(op_, type_)                                       \
-    do {                                                                \
-        int i, j;                                                       \
-        type_ *p = THDRELEMPTR(pctx->thdr, type_, 0);                   \
-        for (i = start; i < end; ++i) {                                 \
+#define INTEGERLOOP(op_, type_)                                              \
+    do {                                                                     \
+        Tcl_Size i, j;                                                       \
+        type_ *p = THDRELEMPTR(pctx->thdr, type_, 0);                        \
+        for (i = start; i < end; ++i) {                                      \
             Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
-            for (j = 1; j < noperands; ++j) {                           \
-                accum op_ ta_math_wide_from_operand(&poperands[j], i); \
-            }                                                           \
-            p[i] = (type_) accum;         \
-        }                                                               \
+            for (j = 1; j < noperands; ++j) {                                \
+                accum op_ ta_math_wide_from_operand(&poperands[j], i);       \
+            }                                                                \
+            p[i] = (type_)accum;                                             \
+        }                                                                    \
     } while (0)
-    
+
     /* Integer div. See INST_DIV in tclExecute.c in Tcl sources for semantics */
 #define DIVLOOP(type_)                                                  \
     do {                                                                \
-        int i, j;                                                       \
+        Tcl_Size i, j;                                                       \
         type_ *p = THDRELEMPTR(pctx->thdr, type_, 0);                   \
         for (i = start; i < end; ++i) {                                 \
             Tcl_WideInt accum = ta_math_wide_from_operand(&poperands[0], i); \
@@ -346,7 +348,7 @@ static void thdr_math_mt_worker(void *pv)
     case TAM_OP_EXP:
         TA_ASSERT(type == TA_DOUBLE);
         {
-            int i, j;
+            Tcl_Size i, j;
             double *p = THDRELEMPTR(pctx->thdr, double, 0);
             for (i = start; i < end; ++i) {
                 /* Note pow() has to be computed right to left */
@@ -376,13 +378,13 @@ static void thdr_math_mt_worker(void *pv)
 static TCL_RESULT ta_math_boolean_result(
     Tcl_Interp *ip, int op,
     struct ta_math_operand *poperands, /* Must have at least one column */
-    int noperands,
-    int size /* Every col in poperands expected to be of this size */
+    Tcl_Size noperands,
+    Tcl_Size size /* Every col in poperands expected to be of this size */
 )
 {
     thdr_t *thdr;
     ba_t *baP;
-    int opindex;
+    Tcl_Size opindex;
     int need_complement;
     thdr_t *thdr2 = NULL;
 
@@ -393,7 +395,7 @@ static TCL_RESULT ta_math_boolean_result(
     if (thdr == NULL)
         return TCL_ERROR;
     baP = THDRELEMPTR(thdr, ba_t, 0);
-    
+
     if (size == 0)
         goto done;
 
@@ -450,7 +452,6 @@ static TCL_RESULT ta_math_boolean_result(
     */
     /* TBD - optimize for case of a single column. Just return the
        same column unless need to complement */
-    
 
     /* Initialize the result vector based on the first column operand */
     if (is_bit_op(op)) {
@@ -494,10 +495,10 @@ static TCL_RESULT ta_math_boolean_result(
             TA_ASSERT(poper->thdr_operand->used >= poper->span_start+size);
             ba_oper = THDRELEMPTR(poper->thdr_operand, ba_t, 0);
             switch (op) {
-            case TAM_OP_BITAND: 
+            case TAM_OP_BITAND:
                 ba_conjunct(baP, 0, ba_oper, poper->span_start, size);
                 break;
-            case TAM_OP_BITOR: 
+            case TAM_OP_BITOR:
                 ba_disjunct(baP, 0, ba_oper, poper->span_start, size);
                 break;
             case TAM_OP_BITXOR:
@@ -513,7 +514,7 @@ static TCL_RESULT ta_math_boolean_result(
         for ( ; opindex < noperands; ++opindex) {
             struct ta_math_operand *poper = &poperands[opindex];
             ba_t *ba_oper;
-            int start;
+            Tcl_Size start;
             if (poper->thdr_operand == NULL)
                 continue;           /* Skip scalar */
             /* Column operand */
@@ -564,10 +565,10 @@ done:
 TCL_RESULT ta_math_compare_operation(
     Tcl_Interp *ip, int op, int promoted_type,
     struct ta_math_operand *poperands, /* At least one column */
-    int noperands,
-    int size)
+    Tcl_Size noperands,
+    Tcl_Size size)
 {
-    int i, j;
+    Tcl_Size i, j;
     thdr_t *thdr;
     ba_t *baP;
 
@@ -659,9 +660,9 @@ done:
 TCL_RESULT ta_math_scalar_operation(
     Tcl_Interp *ip, int op, int promoted_type,
     struct ta_math_operand *poperands, /* Must be all scalars */
-    int noperands)
+    Tcl_Size noperands)
 {
-    int j;
+    Tcl_Size j;
     TCL_RESULT status = TCL_OK;
 
     TA_ASSERT(promoted_type != TA_STRING);
@@ -805,26 +806,29 @@ vamoose:
     return status;
 }
 
-TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
-                              int objc, Tcl_Obj *const objv[])
+TCL_RESULT
+tcol_math_cmd(ClientData clientdata,
+              Tcl_Interp *ip,
+              int objc,
+              Tcl_Obj *const objv[])
 {
     struct ta_math_operand operands[2];
     struct ta_math_operand *poperands;
-    int i, j, ncontexts, noperands;
+    Tcl_Size i, j, ncontexts, noperands;
     struct thdr_math_mt_context mt_context[4];
     thdr_t *result_thdr = NULL;
     TCL_RESULT status;
     int result_type;
-    int mt_sizes[4];
-    int thdr_size = 0;
+    Tcl_Size mt_sizes[4];
+    Tcl_Size thdr_size = 0;
     int op;
     int only_scalars = 1;
     unsigned char coltype = TA_NONE;
     int have_boolean_col = 0;
 
     if (objc < 3) {
-	Tcl_WrongNumArgs(ip, 1, objv, "operation tarray ?tarray...?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "operation tarray ?tarray...?");
+        return TCL_ERROR;
     }
 
     if ((status = ta_opt_from_obj(ip, objv[1], ta_math_op_names, "operation", 0, &op)) != TCL_OK)
@@ -929,7 +933,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                 /* Note integers are also stored as wides during computation */
                 ptav->type = TA_WIDE;
 
-                if (result_type != TA_DOUBLE 
+                if (result_type != TA_DOUBLE
                     && result_type != TA_WIDE && result_type != TA_ANY) {
                     /* If value fits in a byte, it fits in any type so
                        no need to change. Else figure out whether result
@@ -943,7 +947,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
                             if (result_type != TA_UINT) {
                                 if (ptav->wval > INT_MAX)
                                     result_type = TA_UINT;
-                                else 
+                                else
                                     result_type = TA_INT;
                             }
                         }
@@ -998,7 +1002,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         result_type = TA_DOUBLE;
 
     TA_ASSERT(result_type != TA_NONE && result_type != TA_STRING);
-    
+ 
     if (result_type == TA_DOUBLE && is_bit_op(op)) {
         status = ta_invalid_op_for_type(ip, TA_DOUBLE);
         goto vamoose;
@@ -1016,7 +1020,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     }
 
     TA_ASSERT(result_type != TA_ANY && result_type != TA_STRING);
-        
+
     /* Irrespective of type promotion, column types for logical operations
      * is always TA_BOOLEAN
      */
@@ -1045,6 +1049,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     /* We have at least one column and with at least one element */
 
 #if !defined(TA_MT_ENABLE)
+    have_boolean_col = have_boolean_col; /* Avoid gcc "unused var" */
     ncontexts = 1;
     mt_sizes[0] = thdr_size;
 #else
@@ -1066,20 +1071,20 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
         ncontexts = 1;
         mt_sizes[0] = thdr_size;
     } else {
-        ncontexts = thdr_calc_mt_split_ex(result_type, 0, thdr_size, 
-                                          ta_math_mt_threshold, 
+        ncontexts = thdr_calc_mt_split_ex(result_type, 0, thdr_size,
+                                          ta_math_mt_threshold,
                                           ARRAYSIZE(mt_sizes), mt_sizes);
     }
 #   if defined(TA_ENABLE_ASSERT)
     {
-        int total = 0;
+        Tcl_Size total = 0;
         for (j = 0; j < ncontexts; ++j) {
             total += mt_sizes[j];
         }
         TA_ASSERT(total == thdr_size);
     }
 #   endif
-    
+
 #endif
 
     /* Allocate the result thdr based on the type we want to return */
@@ -1096,7 +1101,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
     mt_context[0].op = op;
     mt_context[0].start = 0;
     mt_context[0].count = mt_sizes[0];
-    
+
     if (ncontexts == 1) {
         thdr_math_mt_worker(&mt_context[0]);
     }
@@ -1112,7 +1117,7 @@ TCL_RESULT tcol_math_cmd(ClientData clientdata, Tcl_Interp *ip,
             mt_context[j].count = mt_sizes[j];
             mt_context[j].start = mt_context[j-1].start + mt_context[j-1].count;
         }
-        
+
         grp = ta_mt_group_create();
         TA_ASSERT(grp != NULL); /* TBD */
         /* Fire off other threads. Context 0 we will handle ourselves */
@@ -1186,7 +1191,7 @@ static void convert_series_operand(ta_value_t *ptav, unsigned char tatype) {
         TA_ASSERT(ptav->type == TA_INT || ptav->type == TA_WIDE);
         if (ptav->type == TA_INT)
             ptav->dval = ptav->ival;
-        else 
+        else
             ptav->dval = (double) ptav->wval;
         break;
     default:
@@ -1198,9 +1203,9 @@ static void convert_series_operand(ta_value_t *ptav, unsigned char tatype) {
 static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, double step)
 {
     thdr_t *thdr = NULL;
-    int nmax;
+    Tcl_Size nmax;
     double   dbl, dmax, *pdbl;
-    
+
     if (step == 0 ||
         (step > 0 && start > limit) ||
         (step < 0 && start < limit)) {
@@ -1208,13 +1213,13 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
         return NULL;
     }
 
-    if (limit == start) 
+    if (limit == start)
         return thdr_alloc(ip, TA_DOUBLE, 0);
-    
+
     /* Below can probably be condensed but it reflects my thought
        process regarding over/under flows
     */
-    
+
     if ((start >= 0 && limit >= 0) ||
         (start < 0 && limit < 0)) {
         /* Both have same sign, so limit-start cannot overflow */
@@ -1254,21 +1259,21 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
      * loop below we will reallocate if necessary. To reduce chances of 
      * reallocation, add some margin to nmax
      */
-    if (dmax >= (INT_MAX-10))
+    if (dmax >= (TCL_SIZE_MAX-10))
         goto memory_limit_error;
 
-    nmax = 10 + (int) dmax;
-    
+    nmax = 10 + (Tcl_Size) dmax;
+
     thdr = thdr_alloc(ip, TA_DOUBLE, (int) nmax);
     if (thdr) {
-        int i;
+        Tcl_Size i;
         thdr_t *thdr2;
         pdbl = THDRELEMPTR(thdr, double, 0);
 
         if (step > 0) {
             for (i = 0, dbl = start; dbl < limit; dbl += step, ++i) {
                 if (i == nmax) {
-                    if (nmax > (INT_MAX-10))
+                    if (nmax > (TCL_SIZE_MAX-10))
                         goto memory_limit_error;
                     nmax += 10; /* TBD - compute limit-double/step ? */
                     thdr2 = thdr_realloc(ip, thdr, nmax);
@@ -1282,7 +1287,7 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
         } else {
             for (i = 0, dbl = start; dbl > limit; dbl += step, ++i) {
                 if (i == nmax) {
-                    if (nmax > (INT_MAX-10))
+                    if (nmax > (TCL_SIZE_MAX-10))
                         goto memory_limit_error;
                     nmax += 10; /* TBD - compute limit-double/step ? */
                     thdr2 = thdr_realloc(ip, thdr, nmax);
@@ -1294,10 +1299,10 @@ static thdr_t* init_double_series(Tcl_Interp *ip, double start, double limit, do
                 *pdbl++ = dbl;
             }
         }
-        thdr->used = (pdbl - THDRELEMPTR(thdr, double, 0));
+        thdr->used = (Tcl_Size) (pdbl - THDRELEMPTR(thdr, double, 0));
         TA_ASSERT(thdr->used <= nmax);
     }
-    
+
     return thdr;
 
 memory_limit_error:
@@ -1307,8 +1312,12 @@ error_exit:
         thdr_free(thdr);
     return NULL;
 }
-    
-static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt limit, Tcl_WideInt step)
+
+static thdr_t *
+init_wide_series(Tcl_Interp *ip,
+                 Tcl_WideInt start,
+                 Tcl_WideInt limit,
+                 Tcl_WideInt step)
 {
     thdr_t *thdr;
     Tcl_WideInt wide, *pwide;
@@ -1321,9 +1330,9 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
         return NULL;
     }
 
-    if (limit == start) 
+    if (limit == start)
         return thdr_alloc(ip, TA_WIDE, 0);
-    
+
     if ((start >= 0 && limit >= 0) ||
         (start < 0 && limit < 0)) {
         /* Both have same sign, so limit-start cannot overflow */
@@ -1350,13 +1359,13 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
         /* Note nmax may be an overestimate but no matter */
         /* TBD - maybe it does matter because the INT_MAX check below may unnecessarily fail */
     }
-    
-    if (nmax >= INT_MAX) {
+
+    if (nmax >= TCL_SIZE_MAX) {
         ta_limit_error(ip, nmax);
         return NULL;
     }
-    
-    thdr = thdr_alloc(ip, TA_WIDE, (int) nmax);
+
+    thdr = thdr_alloc(ip, TA_WIDE, (Tcl_Size) nmax);
     if (thdr) {
         pwide = THDRELEMPTR(thdr, Tcl_WideInt, 0);
 
@@ -1367,13 +1376,13 @@ static thdr_t* init_wide_series(Tcl_Interp *ip, Tcl_WideInt start, Tcl_WideInt l
             for (wide = start; wide > limit; wide += step)
                 *pwide++ = wide;
         }
-        thdr->used = (pwide - THDRELEMPTR(thdr, Tcl_WideInt, 0));
-        TA_ASSERT(thdr->used <= nmax);
+        thdr->used = (Tcl_Size) (pwide - THDRELEMPTR(thdr, Tcl_WideInt, 0));
+        TA_ASSERT((uint64_t) thdr->used <= nmax);
     }
-    
+
     return thdr;
 }
-    
+
 static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
 {
     thdr_t *thdr;
@@ -1389,7 +1398,7 @@ static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
 
     if (limit == start) 
         return thdr_alloc(ip, TA_INT, 0);
-    
+
     /*
      * Need to be careful of overflows so just convert to wide and check.
      * Note because of checks above, nmax is +ve irrespective of
@@ -1397,12 +1406,12 @@ static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
      */
     nmax = (((Tcl_WideInt) limit - (Tcl_WideInt) start) / step) + 1;
     TA_ASSERT(nmax > 0);
-    if (nmax >= INT_MAX) {
+    if (nmax >= TCL_SIZE_MAX) {
         ta_limit_error(ip, nmax);
         return NULL;
     }
-    
-    thdr = thdr_alloc(ip, TA_INT, (int) nmax);
+
+    thdr = thdr_alloc(ip, TA_INT, (Tcl_Size) nmax);
     if (thdr) {
         pi = THDRELEMPTR(thdr, int, 0);
 
@@ -1413,23 +1422,26 @@ static thdr_t* init_int_series(Tcl_Interp *ip, int start, int limit, int step)
             for (i = start; i > limit; i += step)
                 *pi++ = i;
         }
-        thdr->used = (pi - THDRELEMPTR(thdr, int, 0));
+        thdr->used = (Tcl_Size) (pi - THDRELEMPTR(thdr, int, 0));
         TA_ASSERT(thdr->used == nmax || thdr->used == (nmax-1));
     }
-    
+
     return thdr;
 }
 
-TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
-                              int objc, Tcl_Obj *const objv[])
+TCL_RESULT
+tcol_series_cmd(ClientData clientdata,
+                Tcl_Interp *ip,
+                int objc,
+                Tcl_Obj *const objv[])
 {
     ta_value_t start, limit, step;
     TCL_RESULT status;
     thdr_t *thdr = NULL;
-    
+
     if (objc < 2 || objc > 4) {
-	Tcl_WrongNumArgs(ip, 1, objv, "?START? LIMIT ?STEP?");
-	return TCL_ERROR;
+        Tcl_WrongNumArgs(ip, 1, objv, "?START? LIMIT ?STEP?");
+        return TCL_ERROR;
     }
 
     /*
@@ -1458,27 +1470,27 @@ TCL_RESULT tcol_series_cmd(ClientData clientdata, Tcl_Interp *ip,
                 return status;
         }
     }
-    
+
     /* Figure out the type of the result column. */
     if (start.type == TA_DOUBLE || limit.type == TA_DOUBLE || step.type == TA_DOUBLE) {
         convert_series_operand(&start, TA_DOUBLE);
         convert_series_operand(&limit, TA_DOUBLE);
         convert_series_operand(&step, TA_DOUBLE);
         thdr = init_double_series(ip, start.dval, limit.dval, step.dval);
-    } 
+    }
     else if (start.type == TA_WIDE || limit.type == TA_WIDE || step.type == TA_WIDE) {
         convert_series_operand(&start, TA_WIDE);
         convert_series_operand(&limit, TA_WIDE);
         convert_series_operand(&step, TA_WIDE);
         thdr = init_wide_series(ip, start.wval, limit.wval, step.wval);
-    } 
+    }
     else {
         TA_ASSERT(start.type == TA_INT);
         TA_ASSERT(limit.type == TA_INT);
         TA_ASSERT(step.type == TA_INT);
         thdr = init_int_series(ip, start.ival, limit.ival, step.ival);
-    } 
-            
+    }
+
     /* TBD - what if start==limit? Return single value or error or empty? */
 
     if (thdr) {
@@ -1500,7 +1512,7 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
 {
     thdr_t *thdra, *thdrb;
     span_t *spana, *spanb;
-    int counta, countb, starta, startb;
+    Tcl_Size counta, countb, starta, startb;
 
     if (cola == colb)
         return 1;
@@ -1524,17 +1536,17 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
         return 1;
     }
 
-#define CMPLOOP_(type_)                         \
-    do {                                        \
-        type_ *a, *b;                           \
-        int i;                                  \
-        a = THDRELEMPTR(thdra, type_, starta);  \
-        b = THDRELEMPTR(thdrb, type_, startb);  \
-        for (i = 0; i < counta; ++i) {          \
-            if (a[i] != b[i])                   \
-                return 0;                       \
-        }                                       \
-        return 1;                               \
+#define CMPLOOP_(type_)                        \
+    do {                                       \
+        type_ *a, *b;                          \
+        Tcl_Size i;                            \
+        a = THDRELEMPTR(thdra, type_, starta); \
+        b = THDRELEMPTR(thdrb, type_, startb); \
+        for (i = 0; i < counta; ++i) {         \
+            if (a[i] != b[i])                  \
+                return 0;                      \
+        }                                      \
+        return 1;                              \
     } while (0)
 
     if (thdra->type == thdrb->type) {
@@ -1552,7 +1564,7 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
         case TA_DOUBLE: CMPLOOP_(double);
         case TA_STRING:
             {
-                int i;
+                Tcl_Size i;
                 tas_t **a, **b;
                 a = THDRELEMPTR(thdra, tas_t *, starta);
                 b = THDRELEMPTR(thdrb, tas_t *, startb);
@@ -1565,7 +1577,7 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
 
         case TA_ANY:
             {
-                int i;
+                Tcl_Size i;
                 Tcl_Obj **a, **b;
                 a = THDRELEMPTR(thdra, Tcl_Obj *, starta);
                 b = THDRELEMPTR(thdrb, Tcl_Obj *, startb);
@@ -1584,25 +1596,25 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
     if (counta == 0)
         return 1;           /* Both empty columns */
 
-    /* 
+    /*
      * Types diff so we will have to promote to a common type.
      */
     if (thdra->type == TA_ANY || thdra->type == TA_STRING ||
         thdrb->type == TA_ANY || thdrb->type == TA_STRING) {
         char bufa[TA_NUMERIC_SPACE], bufb[TA_NUMERIC_SPACE];
         char *sa, *sb;
-        int i;
-        
+        Tcl_Size i;
+
         for (i = 0; i < counta; ++i) {
             sa = thdr_index_string(thdra, starta+i, bufa);
             sb = thdr_index_string(thdrb, startb+i, bufb);
             if (! ta_utf8_equal(sa, sb, 0))
                 return 0;
         }
-    } 
+    }
     else if (thdra->type == TA_DOUBLE || thdrb->type == TA_DOUBLE) {
         double a, b;
-        int i;
+        Tcl_Size i;
         for (i = 0; i < counta; ++i) {
             a = thdr_index_double(thdra, starta+i);
             b = thdr_index_double(thdrb, startb+i);
@@ -1612,14 +1624,14 @@ int tcol_equality_test(Tcl_Interp *ip, Tcl_Obj *cola, Tcl_Obj *colb, int strict)
     }
     else {
         Tcl_WideInt a, b;
-        int i;
+        Tcl_Size i;
         for (i = 0; i < counta; ++i) {
             a = thdr_index_wide(thdra, starta+i);
             b = thdr_index_wide(thdrb, startb+i);
             if (a != b)
                 return 0;
         }
-    }    
+    }
 
     return 1;
 }
@@ -1654,7 +1666,6 @@ int ovf_mul_int64_impl(int64_t a, int64_t b, int64_t *presult)
 
 int ovf_mul_uint64_impl(uint64_t a, uint64_t b, uint64_t *presult)
 {
-    
     if (b == 0) {
         *presult = 0;
         return 0;

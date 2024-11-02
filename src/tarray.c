@@ -15,8 +15,8 @@ int ta_full_validation;         /* Can really slow down! */
  * Thresholds for multithreading.
  * TBD - need to benchmark and set. Likely to depend on compiler.
  */
-int ta_fill_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
-int ta_minmax_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_fill_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
+Tcl_Size ta_minmax_mt_threshold = TA_MT_THRESHOLD_DEFAULT;
 #endif
 
 
@@ -67,9 +67,9 @@ FN2ARG(ta_addu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj,
 FN2ARG(ta_subu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_sub_uint32, Tcl_NewWideIntObj)
 FN2ARG(ta_mulu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_mul_uint32, Tcl_NewWideIntObj)
 
-FN2ARG(ta_add64_cmd, uint64_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
-FN2ARG(ta_sub64_cmd, uint64_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
-FN2ARG(ta_mul64_cmd, uint64_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_add64_cmd, int64_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_sub64_cmd, int64_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_mul64_cmd, int64_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
 
 static TCL_RESULT
 ta_same_tclobj_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
@@ -265,31 +265,40 @@ ta_define_commands(Tcl_Interp *ip)
     }
     Tcl_NRCreateCommand(ip, "::tarray::loop",
                         ta_loop_cmd, ta_loop_nr_cmd, NULL, NULL);
-    {
-        /* RNG object */
-        ta_cmd_counter *counterP = Tcl_Alloc(sizeof(ta_cmd_counter));
-        *counterP = 0;
-	Tcl_CreateObjCommand(ip, "::tarray::rng",
-                             ta_rng_cmd, counterP, ta_rng_destructor);
 
-        /* Commands related to random number generation */
-	ta_rng_t *prng;
-        prng = ckalloc(sizeof(ta_rng_t));
-        tcol_random_init(prng);
-        prng->nrefs = 4;        /* For each command reference below */
-	/*
-	 * Note all commands have the same ta_random_rng_delete
-	 * as last parameter. That's not a typo
-	 */
-	Tcl_CreateObjCommand(ip, "::tarray::column::random",
-                             tcol_random_cmd, prng, ta_random_rng_delete);
-        Tcl_CreateObjCommand(ip, "::tarray::randseed",
-                             ta_randseed_cmd, prng, ta_random_rng_delete);
-        Tcl_CreateObjCommand(ip, "::tarray::column::shuffle",
-                             tcol_shuffle_cmd, prng, ta_random_rng_delete);
-        Tcl_CreateObjCommand(ip, "::tarray::column::vshuffle",
-                             tcol_vshuffle_cmd, prng, ta_random_rng_delete);
-    }
+    /* RNG object */
+    ta_cmd_counter *counterP =
+        (ta_cmd_counter *)Tcl_Alloc(sizeof(ta_cmd_counter));
+    *counterP                = 0;
+    Tcl_CreateObjCommand(
+        ip, "::tarray::rng", ta_rng_cmd, counterP, ta_rng_destructor);
+
+    /* Commands related to random number generation */
+    ta_rng_t *prng;
+    prng = ckalloc(sizeof(ta_rng_t));
+    tcol_random_init(prng);
+    prng->nrefs = 4; /* For each command reference below */
+    /*
+     * Note all commands have the same ta_random_rng_delete
+     * as last parameter. That's not a typo
+     */
+    Tcl_CreateObjCommand(ip,
+                         "::tarray::column::random",
+                         tcol_random_cmd,
+                         prng,
+                         ta_random_rng_delete);
+    Tcl_CreateObjCommand(
+        ip, "::tarray::randseed", ta_randseed_cmd, prng, ta_random_rng_delete);
+    Tcl_CreateObjCommand(ip,
+                         "::tarray::column::shuffle",
+                         tcol_shuffle_cmd,
+                         prng,
+                         ta_random_rng_delete);
+    Tcl_CreateObjCommand(ip,
+                         "::tarray::column::vshuffle",
+                         tcol_vshuffle_cmd,
+                         prng,
+                         ta_random_rng_delete);
     return TCL_OK;
 }
 

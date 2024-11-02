@@ -140,11 +140,10 @@ static void DupParseargsOpt(Tcl_Obj *srcP, Tcl_Obj *dstP)
 
 static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
 {
-    int k, nopts;
+    Tcl_Size k, nopts, len;
     Tcl_Obj **optObjs;
     struct OptionDescriptor *optsP;
     struct OptionDescriptor *curP;
-    int len;
 
     if (objP->typePtr == &gParseargsOptionType)
         return TCL_OK;          /* Already in correct format */
@@ -157,7 +156,7 @@ static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
 
     for (k = 0; k < nopts ; ++k) {
         Tcl_Obj **elems;
-        int       nelems;
+        Tcl_Size  nelems;
         const char     *type;
         const char *p;
 
@@ -211,7 +210,7 @@ static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
 
             if (nelems > 2) {
                 Tcl_Obj **validObjs;
-                int nvalid;
+                Tcl_Size nvalid;
                 if (Tcl_ListObjGetElements(interp, elems[2], &nvalid, &validObjs) != TCL_OK)
                     goto error_handler;
                 if (nvalid == 0) {
@@ -262,7 +261,7 @@ static int SetParseargsOptFromAny(Tcl_Interp *interp, Tcl_Obj *objP)
 #endif
 
     objP->internalRep.ptrAndLongRep.ptr = optsP;
-    objP->internalRep.ptrAndLongRep.value = nopts;
+    objP->internalRep.ptrAndLongRep.value = (unsigned long) nopts;
     objP->typePtr = &gParseargsOptionType;
 
     return TCL_OK;
@@ -310,7 +309,7 @@ static void ParseargsUnknownOption(Tcl_Interp *interp, char *badopt, struct Opti
             sep = ", -";
         }
         else {
-            int k, nelems;
+            Tcl_Size k, nelems;
             Tcl_Obj **elems;
             if (opts[j].valid_values && 
                 Tcl_ListObjGetElements(NULL, opts[j].valid_values, &nelems, &elems) == TCL_OK) {
@@ -333,10 +332,10 @@ int parseargs_cmd(
     ClientData clientData,
     Tcl_Interp *interp,
     int objc,
-    Tcl_Obj *CONST objv[])
+    Tcl_Obj *const objv[])
 {
     Tcl_Obj    *argvObj;
-    int         argc, iarg;
+    Tcl_Size    argc, iarg;
     Tcl_Obj   **argv;
     int         nopts;
     int         j, k;
@@ -432,7 +431,7 @@ int parseargs_cmd(
 
     /* OK, now go through the passed arguments */
     for (iarg = 0; iarg < argc; ++iarg) {
-        int   argp_len;
+        Tcl_Size   argp_len;
         char *argp = Tcl_GetStringFromObj(argv[iarg], &argp_len);
         Tcl_Obj *radioOpt;
 
@@ -456,7 +455,7 @@ int parseargs_cmd(
                 }
             } else {
                 /* OPT_RADIO - search radio choices */
-                int choice, nchoices;
+                Tcl_Size choice, nchoices;
                 Tcl_Obj **choices;
                 if (opts[j].valid_values && 
                     Tcl_ListObjGetElements(NULL, opts[j].valid_values, &nchoices, &choices) == TCL_OK) {
@@ -550,7 +549,7 @@ int parseargs_cmd(
             /* Check list of allowed values if specified */
             if (opts[k].valid_values) {
                 Tcl_Obj **validObjs;
-                int nvalid, ivalid;
+                Tcl_Size nvalid, ivalid;
                 if (Tcl_ListObjGetElements(interp, opts[k].valid_values, &nvalid, &validObjs) != TCL_OK)
                     goto error_return;
                 for (ivalid = 0; ivalid < nvalid; ++ivalid) {
@@ -586,7 +585,7 @@ int parseargs_cmd(
             /* Check list of allowed values if specified */
             if (opts[k].valid_values) {
                 Tcl_Obj **validObjs;
-                int nvalid, ivalid;
+                Tcl_Size nvalid, ivalid;
                 char *s;
                 if (Tcl_ListObjGetElements(interp, opts[k].valid_values, &nvalid, &validObjs) != TCL_OK)
                     goto error_return;

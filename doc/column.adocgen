@@ -276,7 +276,7 @@ text {
 
     The command computes a bucket result for each bucket. By default,
     or if the `-count` option is specified,
-    this bucket result is the sum of the values falling into that bucket.
+    this bucket result is the number of values falling into that bucket.
     If the `-sum` option is specified, each bucket result is the sum
     of all values falling into that bucket.
     If the `-indices` option is specified, each bucket result is an index column

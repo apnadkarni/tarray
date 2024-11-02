@@ -1,4 +1,4 @@
-package require Tcl 8.6
+package require Tcl 8.6-
 package require platform
 package require tcltest
 
@@ -26,6 +26,10 @@ if {![info exists tarray::test::known]} {
 #    set auto_path [linsert $auto_path 0 [file normalize [file join [info script] .. .. build lib]]]
     namespace eval tarray::test {
         namespace import ::tcltest::test
+
+        proc tcl9 {} {
+            return [package vsatisfies [package require Tcl] 9]
+        }
 
         ################################################################
         # Define standard data used in tests
@@ -502,10 +506,15 @@ if {![info exists tarray::test::known]} {
             return $l
         }
 
-        proc indexcolumn {args} {
-            return [newcolumn int [concat {*}$args]]
+        if {[package vsatisfies [package require Tcl] 9-] && $::tcl_platform(pointerSize) == 8} {
+            proc indextype {} {return wide}
+        } else {
+            proc indextype {} {return int}
         }
-        
+        proc indexcolumn {args} {
+            return [newcolumn [indextype] [concat {*}$args]]
+        }
+
         proc indexspancolumn {args} {
             return [newspancolumn int [concat {*}$args]]
         }

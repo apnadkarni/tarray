@@ -49,8 +49,13 @@ namespace eval tarray::test {
     t 3 add64 0x7fffffffffffffff 0
     t 4 add64 -9223372036854775808 1
     t 5 add64 -9223372036854775807 -1
-    e e1 add64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
-    e e2 add64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    if {[tcl9]} {
+        e e1 add64 9223372036854775808 0 "integer value too large to represent"
+        e e2 add64 0 -9223372036854775809 "integer value too large to represent"
+    } else {
+        e e1 add64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
+        e e2 add64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    }
     e e3 add64 -9223372036854775808 -1 "64-bit integer overflow."
     e e4 add64 0x7fffffffffffffff 1 "64-bit integer overflow." 
 
@@ -87,8 +92,13 @@ namespace eval tarray::test {
     t 3 sub64 0x7fffffffffffffff 0x7fffffffffffffff  
     t 4 sub64 -9223372036854775808 0
     t 5 sub64 -9223372036854775808 -1
-    e e1 sub64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
-    e e2 sub64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    if {[tcl9]} {
+        e e1 sub64 9223372036854775808 0 "integer value too large to represent"
+        e e2 sub64 0 -9223372036854775809 "integer value too large to represent"
+    } else {
+        e e1 sub64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
+        e e2 sub64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    }
     e e3 sub64 -9223372036854775808 1 "64-bit integer overflow."
     e e4 sub64 0x7fffffffffffffff -1 "64-bit integer overflow." 
 
@@ -125,8 +135,13 @@ namespace eval tarray::test {
     t 3 mul64 0x7fffffffffffffff 0
     t 4 mul64 -9223372036854775808 1
     t 5 mul64 -9223372036854775807 -1
-    e e1 mul64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
-    e e2 mul64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    if {[tcl9]} {
+        e e1 mul64 9223372036854775808 0 "integer value too large to represent"
+        e e2 mul64 0 -9223372036854775809 "integer value too large to represent"
+    } else {
+        e e1 mul64 9223372036854775808 0 "Value 9223372036854775808 does not fit in a 64-bit integer."
+        e e2 mul64 0 -9223372036854775809 "Value -9223372036854775809 does not fit in a 64-bit integer."
+    }
     e e3 mul64 -9223372036854775808 -1 "64-bit integer overflow."
     e e4 mul64 0xb504f334 0xb504f334 "64-bit integer overflow." 
 

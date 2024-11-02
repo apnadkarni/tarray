@@ -844,11 +844,11 @@ namespace eval tarray::test::xtal_list {
 
     test xtal-list-assign-index-2.0 {list assign index} -setup {set l $L} -body {
         xtal::xtal { l[-1] = "ten" }
-    } -result "list index out of range" -returnCodes error
+    } -result "*out of range" -returnCodes error -match glob
     
     test xtal-list-assign-index-2.1 {list assign index} -setup {set l $L} -body {
         xtal::xtal { l[%l+1] = "ten" }
-    } -result "list index out of range" -returnCodes error
+    } -result "*out of range" -returnCodes error -match glob
     
     test xtal-list-assign-index-2.2 {list assign index} -setup {
         unset -nocomplain l

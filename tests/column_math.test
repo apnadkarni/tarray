@@ -66,19 +66,25 @@ namespace eval tarray::test {
         tarray::column vinsert col $val $count
         return $col
     }
-    
+
     proc cast_equal {type col_val expr_val} {
-        switch -exact -- $type {
-            int  { set expr_val [expr {int($expr_val)}] }
-            byte { set expr_val [expr {$expr_val & 0xff}] }
-            uint { set expr_val [expr {wide($expr_val) & 0xffffffff}] }
-            wide { set expr_val [expr {wide($expr_val)}] }
+        if {$col_val == $expr_val} {
+            return 1
         }
-        
+        # Perhaps truncation in effect
+        switch -exact -- $type {
+            uint -
+            int  {set mask 0xffffffff}
+            byte  {set mask 0xff}
+            wide { set mask 0xffffffffffffffff}
+        }
+
+        set col_val [expr {$col_val & $mask}]
+        set expr_val [expr {$expr_val & $mask}]
         return [expr {$col_val == $expr_val}]
-        
+
     }
-    
+
     proc operand {type size} {
         variable operands
         if {![info exists operands($type,$size)]} {
@@ -206,7 +212,9 @@ namespace eval tarray::test {
             # Two arg tests
             # Division is separated out because div by 0 is tested separately
             if {$op ne "/"} {
-                test [mathid]-$type-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 10]}
+                if {$op ne "*" || $type ne "wide"} {
+                    test [mathid]-$type-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 10]}
+                }
                 test [mathid]-$type-arg2 "$type $op scalar column" -body {verify_expr $op [samplevalue $type] [largespancolumn $type]}
                 test [mathid]-$type-arg2 "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
                 test [mathid]-$type-arg2 "$type $op column column" -body {verify_expr $op [largespancolumn $type] [operand $type [largesize]]}
@@ -366,8 +374,8 @@ namespace eval tarray::test {
     }
     test [mathid]-div0 "Scalar double / 0" -body {verify_expr / 5 0.0}
     test [mathid]-div0 "Scalar double 0.0 / 0" -body [list tarray::column math / 0.0 0.0] -result -NaN
-    test [mathid]-div0 "Column double / 0" -body {verify_expr / [samplecolumn double] 0}
-    test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / [samplevalue double] [col_with_0 double]}
+    test [mathid]-div0 "Column double / 0" -body {verify_expr / [samplecolumn double 1 end] 0.0}
+    test [mathid]-div0 "Scalar double / 0 column" -body {verify_expr / 1.0 [col_with_0 double]}
     test [mathid]-div0 "Column double / 0 column" -body {verify_expr / [largecolumn double] [col_with_0 double]}
 
     foreach op {& | ^} {

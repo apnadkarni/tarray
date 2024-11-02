@@ -206,5 +206,11 @@ TA_INLINE int ovf_mul_int64(int64_t a, int64_t b, int64_t *presult) {
 
 #endif /* __GNUC__ >= 5 */
 
+/* Only present for use in macros in common with integer values */
+TA_INLINE int ovf_add_double(double a, double b, double *presult) {
+    /* Double will not overflow but return Inf */
+    *presult = a + b;
+    return 0;
+}
 
 #endif
