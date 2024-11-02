@@ -1534,7 +1534,7 @@ static Tcl_Obj *table_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, Tcl_O
 
     /* Special case when no columns are defined for the table but indices are specified */
     if (nsrccols == 0 && pindices->used) {
-        index = *THDRELEMPTR(pindices, int, 0);
+        index = *THDRELEMPTR(pindices, TA_INDEX, 0);
         goto index_error;
     }
 
