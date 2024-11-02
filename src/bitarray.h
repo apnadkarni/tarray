@@ -107,8 +107,8 @@ typedef int ba_off_t;
 void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, int n);
 void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_off_t len);
 void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival);
-int ba_find(ba_t *baP, int bval, ba_off_t offset, ba_off_t count);
-int ba_count_ones(ba_t *baP, ba_off_t off, ba_off_t count);
+ba_off_t ba_find(ba_t *baP, int bval, ba_off_t offset, ba_off_t count);
+ba_off_t ba_count_ones(ba_t *baP, ba_off_t off, ba_off_t count);
 void ba_reverse(ba_t *baP, ba_off_t off, ba_off_t len);
 void ba_complement (ba_t *a, ba_off_t offa, ba_off_t count);
 void ba_conjunct (ba_t *a, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count);
@@ -144,7 +144,7 @@ BA_INLINE ba_off_t ba_count_unit_ones(ba_t ba)
         ba &= ba - 1; // clear the least significant bit set
     return nbits;
 #endif
-    
+
 }
 
 

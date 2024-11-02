@@ -1,20 +1,22 @@
 /*
- * Copyright (c) 2012, Ashok P. Nadkarni
+ * Copyright (c) 2012-2024, Ashok P. Nadkarni
  * All rights reserved.
  *
  * See the file LICENSE for license
  */
 
+#include "tcl.h" /* Need to define bit_offset_t etc. appropriately */
 #include <string.h>
 #if __GNUC__ && !__GNUC_STDC_INLINE__
 #define BA_INLINE
 #endif
 #include "bitarray.h"
 
-static void ba_copy_unaligned_upward(ba_t *to, ba_off_t to_internal_off, const ba_t *from, ba_off_t from_internal_off, ba_off_t len)
+static void ba_copy_unaligned_upward(ba_t *to, int to_internal_off, const ba_t *from, ba_off_t from_internal_off, ba_off_t len)
 {
     ba_t ba;
-    ba_off_t nbits, ba_len;
+    ba_off_t ba_len;
+    int nbits;
 
     BA_ASSERT(to_internal_off < BA_UNIT_SIZE);
     BA_ASSERT(from_internal_off < BA_UNIT_SIZE);
@@ -29,7 +31,7 @@ static void ba_copy_unaligned_upward(ba_t *to, ba_off_t to_internal_off, const b
         /* Align destination by writing out the fractional bits */
         nbits = BA_UNIT_SIZE - to_internal_off;
         if (nbits > len) {
-            nbits = len;
+            nbits = (int) len;
             len = 0;
         } else {
             len -= nbits;
@@ -64,20 +66,20 @@ static void ba_copy_unaligned_upward(ba_t *to, ba_off_t to_internal_off, const b
         ba |= *from << (BA_UNIT_SIZE - from_internal_off);
         *to++ = ba;
     }
-            
+
     /* Now we have the left over len bits */
     if (len == 0)
         return;
 
-    ba = ba_getn(from, from_internal_off, len);
-    ba_putn(to, 0, ba, len);
+    ba = ba_getn(from, from_internal_off, (int)len);
+    ba_putn(to, 0, ba, (int)len);
 }
 
-static void ba_copy_unaligned_downward(ba_t *to, ba_off_t to_internal_off, const ba_t *from, ba_off_t from_internal_off, ba_off_t len)
+static void ba_copy_unaligned_downward(ba_t *to, int to_internal_off, const ba_t *from, int from_internal_off, ba_off_t len)
 {
     ba_t ba;
-    ba_off_t nbits, ba_len;
-    ba_off_t off;
+    ba_off_t ba_len, off;
+    int nbits;
 
     BA_ASSERT(to_internal_off < BA_UNIT_SIZE);
     BA_ASSERT(from_internal_off < BA_UNIT_SIZE);
@@ -93,8 +95,8 @@ static void ba_copy_unaligned_downward(ba_t *to, ba_off_t to_internal_off, const
     nbits = (off % BA_UNIT_SIZE) + 1; /* Number of bits to write in last ba_t */
     if (nbits > len) {
         /* All bits fit in last ba_t */
-        to_internal_off = nbits - len;
-        nbits = len;
+        to_internal_off = nbits - (int)len;
+        nbits = (int) len;
     } else
         to_internal_off = 0;
 
@@ -137,12 +139,13 @@ static void ba_copy_unaligned_downward(ba_t *to, ba_off_t to_internal_off, const
         --from;
     }
 
-    BA_ASSERT(len < BA_UNIT_SIZE);
     if (len == 0)
         return;
+    BA_ASSERT(len < BA_UNIT_SIZE);
+    int remain = (int) len;
 
-    ba = ba_getn(from, from_internal_off+BA_UNIT_SIZE-len, len);
-    ba_putn(to, BA_UNIT_SIZE - len, ba, len);
+    ba = ba_getn(from, from_internal_off+BA_UNIT_SIZE-remain, remain);
+    ba_putn(to, BA_UNIT_SIZE - remain, ba, remain);
 }
 
 
@@ -152,11 +155,12 @@ void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_
 {
     const ba_t *from;
     ba_t *to;
-    ba_off_t from_internal_off, to_internal_off, ba_len;
+    ba_off_t ba_len;
+    int from_internal_off, to_internal_off;
 
     if (len == 0 || (dst == src && dst_off == src_off))
         return;
-        
+
     /* Point to where memory containing source / destination bits */
     from = src + (src_off / BA_UNIT_SIZE);
     to = dst + (dst_off / BA_UNIT_SIZE);
@@ -175,7 +179,7 @@ void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_
     if (from_internal_off == to_internal_off) {
         ba_t *leadingP;
         ba_t saved_leading_partial;
-        ba_off_t  leading_partial_len;
+        int  leading_partial_len;
         ba_t saved_trailing_partial;
 
         /*
@@ -201,7 +205,7 @@ void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_
                 len -= leading_partial_len;
             } else {
                 /* Entire length fits in first ba_t */
-                leading_partial_len = len;
+                leading_partial_len = (int) len;
                 len = 0;
             }
             saved_leading_partial = ba_getn(from, to_internal_off, leading_partial_len);
@@ -232,7 +236,8 @@ void ba_copy(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_off, ba_
             
             if (len) {
                 /* There are left over trailing bits */
-                ba_putn(to, 0, saved_trailing_partial, len);
+                BA_ASSERT(len < INT_MAX);
+                ba_putn(to, 0, saved_trailing_partial, (int) len);
             }
         }
         
@@ -261,7 +266,7 @@ void ba_copy_reverse(ba_t *dst, ba_off_t dst_off, const ba_t *src, ba_off_t src_
 
 void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival)
 {
-    ba_off_t bitpos;
+    int bitpos;
 
     if (count == 0)
         return;
@@ -279,10 +284,11 @@ void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival)
         } else {
             /* We have to preserve the top bits of this unit */
             BA_ASSERT((count + bitpos) < BA_UNIT_SIZE); /* Note <, not <= */
+            int bitpos_plus_count = (int) (bitpos+count);
             if (ival) {
-                *baP |= BITPOSMASKGE(bitpos) & BITPOSMASKLT(bitpos+count);
+                *baP |= BITPOSMASKGE(bitpos) & BITPOSMASKLT(bitpos_plus_count);
             } else {
-                *baP &= ~ (BITPOSMASKGE(bitpos) & BITPOSMASKLT(bitpos+count));
+                *baP &= ~ (BITPOSMASKGE(bitpos) & BITPOSMASKLT(bitpos_plus_count));
             }
             return;
         }
@@ -294,12 +300,13 @@ void ba_fill(ba_t *baP, ba_off_t off, ba_off_t count, int ival)
     /* Now copy full bytes with memset */
     memset(baP, ival ? 0xff : 0, sizeof(ba_t) * (count/BA_UNIT_SIZE));
     baP += count / BA_UNIT_SIZE;
-    count = count % BA_UNIT_SIZE;                      /* # remaining bits */
-    if (count) {
+    int remain = count % BA_UNIT_SIZE;                      /* # remaining bits */
+
+    if (remain) {
         if (ival)
-            *baP |= BITPOSMASKLT(count);
+            *baP |= BITPOSMASKLT(remain);
         else
-            *baP &= ~ BITPOSMASKLT(count);
+            *baP &= ~ BITPOSMASKLT(remain);
     }
 }
 
@@ -380,7 +387,7 @@ ba_off_t ba_count_ones(ba_t *baP, ba_off_t off, ba_off_t count)
      * in the last ba_t of the specified range
      */
     if (n < count) {
-        ba = ba & BITPOSMASKLT(count-n);
+        ba = ba & BITPOSMASKLT((int)(count-n));
         nbits += ba_count_unit_ones(ba);
     }
 
@@ -412,11 +419,11 @@ void ba_reverse(ba_t *baP, ba_off_t off, ba_off_t len)
 
     if (end_off > off) {
         /* Swap remaining left over bits. */
-        len = end_off - off;
-        front = ba_getn(baP, off, len); /* Get the left over bits */
+        int remain = (int)(end_off - off);
+        front = ba_getn(baP, off, remain); /* Get the left over bits */
         /* Reverse the bits and shift into position */
-        front = ba_reverse_unit(front) >> (BA_UNIT_SIZE-len);
-        ba_putn(baP, off, front, len);
+        front = ba_reverse_unit(front) >> (BA_UNIT_SIZE-remain);
+        ba_putn(baP, off, front, remain);
     }
 
 #else
@@ -446,10 +453,11 @@ void ba_reverse(ba_t *baP, ba_off_t off, ba_off_t len)
 
 void ba_complement (ba_t *a, ba_off_t offa, ba_off_t count)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
-    nbits = count - (nunits * BA_UNIT_SIZE);
+    nbits = (int) (count - (nunits * BA_UNIT_SIZE));
     
     /* TBD - optimize for various aligned cases */
     
@@ -469,10 +477,11 @@ void ba_complement (ba_t *a, ba_off_t offa, ba_off_t count)
 /* Note - src and dst areas must not overlap */
 void ba_conjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
-    nbits = count - (nunits * BA_UNIT_SIZE);
+    nbits = (int) (count - (nunits * BA_UNIT_SIZE));
     
     /* TBD - optimize for various aligned cases */
     
@@ -492,10 +501,11 @@ void ba_conjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count
 /* Note - src and dst areas must not overlap */
 void ba_disjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
-    nbits = count - (nunits * BA_UNIT_SIZE);
+    nbits = (int) (count - (nunits * BA_UNIT_SIZE));
     
     /* TBD - optimize for various aligned cases */
     
@@ -515,21 +525,22 @@ void ba_disjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count
 /* Note - src and dst areas must not overlap */
 void ba_xdisjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
-    nbits = count - (nunits * BA_UNIT_SIZE);
-    
+    nbits = (int) (count - (nunits * BA_UNIT_SIZE));
+
     /* TBD - optimize for various aligned cases */
-    
+
     /* Slow brute force path. Start by copying whole units */
     for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
         ba_put_unit(a, offa+bitsoff, ba_get_unit(a, offa+bitsoff) ^ ba_get_unit(b, offb+bitsoff));
 
     /* Copy leftover bits */
     if (nbits)
-        ba_putn(a, 
-                offa+bitsoff, 
+        ba_putn(a,
+                offa+bitsoff,
                 ba_getn(a, offa+bitsoff, nbits) ^ ba_getn(b, offb+bitsoff, nbits),
                 nbits);
 }
@@ -537,13 +548,14 @@ void ba_xdisjunct (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t coun
 /* Return 1 if two bitarrays are equal, else 0 */
 int ba_equal (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
-    nbits = count - (nunits * BA_UNIT_SIZE);
-    
+    nbits = (int) (count - (nunits * BA_UNIT_SIZE));
+
     /* TBD - optimize for various aligned cases */
-    
+
     /* Slow brute force path. Compare whole units first */
     for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE) {
         if (ba_get_unit(a, offa+bitsoff) != ba_get_unit(b, offb+bitsoff))
@@ -562,13 +574,14 @@ int ba_equal (ba_t *a, ba_off_t offa, ba_t *b, ba_off_t offb, ba_off_t count)
 /* Note - src and dst areas must not overlap */
 void ba_conjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count, ba_t *dst, ba_off_t dstoff)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
-    nbits = count - (nunits * BA_UNIT_SIZE);
-    
+    nbits = (int) (count - (nunits * BA_UNIT_SIZE));
+
     /* TBD - optimize for various aligned cases */
-    
+
     /* Slow brute force path. Start by copying whole units */
     for (i = 0, bitsoff = 0; i < nunits; ++i, bitsoff += BA_UNIT_SIZE)
         ba_put_unit(dst, dstoff+bitsoff, ba_get_unit(srca, offa+bitsoff) & ba_get_unit(srcb, offb+bitsoff));
@@ -587,7 +600,8 @@ void ba_conjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_
 /* Note - src and dst areas must not overlap */
 void ba_disjunct2 (ba_t *srca, ba_off_t offa, ba_t *srcb, ba_off_t offb, ba_off_t count, ba_t *dst, ba_off_t dstoff)
 {
-    ba_off_t i, nunits, nbits, bitsoff;
+    ba_off_t i, nunits, bitsoff;
+    int nbits;
 
     nunits = count / BA_UNIT_SIZE;
     nbits = count - (nunits * BA_UNIT_SIZE);
@@ -621,22 +635,22 @@ void ba_putn(ba_t *baP, ba_off_t off, ba_t ba, int n)
     else {
         if ((n+off) > BA_UNIT_SIZE) {
             /* bits are spread across two ba_t units */
-            baP[0] = ba_merge_unit(baP[0], (ba_t)(ba << off), BITPOSMASKGE(off));
-            n = off + n - BA_UNIT_SIZE;  /* # bits to store in top word */
+            baP[0] = ba_merge_unit(baP[0], (ba_t)(ba << off), BITPOSMASKGE((int)off));
+            n = (int) off + n - BA_UNIT_SIZE;  /* # bits to store in top word */
             baP[1] = ba_merge_unit(baP[1], (ba_t)(ba >> (BA_UNIT_SIZE - off)),
                                    BITPOSMASKLT(n));
         } else {
             /* Bits fit in one word */
             BA_ASSERT(n < BA_UNIT_SIZE); /* If == would have hit one of the cases above */
             ba <<= off;
-            n += off;
+            n += (int) off;
             BA_ASSERT(n <= BA_UNIT_SIZE);
             if (n == BA_UNIT_SIZE) {
-                *baP = ba_merge_unit(*baP, ba, BITPOSMASKGE(off));
+                *baP = ba_merge_unit(*baP, ba, BITPOSMASKGE((int)off));
             } else
                 *baP = ba_merge_unit(ba,
                                      *baP,
-                                     (ba_t) (BITPOSMASKLT(off) | BITPOSMASKGE(n)));
+                                     (ba_t) (BITPOSMASKLT((int)off) | BITPOSMASKGE(n)));
         }
     }
 }
