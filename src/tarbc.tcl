@@ -9,9 +9,11 @@ namespace eval tarray::rbc {
     # TBD - document tovector and fromvector
     # Define our rbc vector procedures to initialize rbc and then call
     # the *redefined* commands of the same name.
+    variable name
     foreach name {fromvector tovector} {
         proc $name args "init; tailcall \[namespace current\]::$name {*}\$args"
     }
+    unset name
 
     # Initializes rbc and defines the real commands
     proc init {} {

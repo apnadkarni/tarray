@@ -35,6 +35,7 @@ namespace eval tarray::test {
         tarray::randseed
         set a [tarray::column random int 5]
         set b [tarray::column random int 5]
+        after 1000; # Under WSL need this delay else same random init (time?)
         tarray::randseed
         set c [tarray::column random int 5]
         list [expr {$a eq $b}] [expr {$a eq $c}] [expr {$b eq $c}]

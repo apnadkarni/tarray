@@ -65,36 +65,33 @@ if {![catch {
 
 # Utility commands for parser syntax errors.
 
-namespace eval xtal::pt::util {
+# # ## ### ##### ######## ############# #####################
+## Requirements
+
+package require Tcl 8.5 9 ; # Required runtime.
+
+# # ## ### ##### ######## ############# #####################
+##
+
+namespace eval ::xtal::pt::util {
     namespace export error2readable error2position error2text
     namespace ensemble create
 }
 
-# From http://wiki.tcl.tk/29098
-#  dumpstr - dump str in the most readable way,
-#  replacing non-printable characters with their hex-code written as "\xXX"
-#-------------------------------------------------------------------------------
-proc xtal::pt::util::dumpstr { str } {
-    set result ""
-    while { $str != "" } {
-        if { [regexp -indices {^[-+*/%<=>.,:;|~^°`´!$&@(){}\[\]#'i\"A-Z_a-z0-9]+} $str igood] } {
-            # readable characters, excluding backslash
-            append result [string range $str 0 [lindex $igood 1]]
-            set str [string range $str [lindex $igood 1]+1 end]
-        }
-        if { $str != "" } {
-            set char [string index $str 0]
-            set str  [string range $str 1 end]
-            if { $char == "\\" } {
-                append result {\\}
-            } else {
-                binary scan $char c hex
-                append result [format "\\x%02X" [expr $hex & 0xff]]
-            }
-        }
+proc xtal::pt::util::dumpstr { s } {
+    set print ""
+    foreach c [split $s ""] {
+	if {(($c < "\x7F") && [string is print $c]) || ($c eq "\n")} {
+	    append print $c
+	} elseif {$c < "\u0100"} {
+	    append print \\x[format %02X [scan $c %c]]
+	} elseif {$c > "\uFFFF"} {
+	    append print \\U[format %08X [scan $c %c]]
+	} else {
+	    append print \\u[format %04X [scan $c %c]]
+	}
     }
-    append result $str
-    return $result
+    return $print
 }
 
 # This follows the char::quote api from the char package. If args is empty
