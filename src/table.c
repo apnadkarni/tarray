@@ -256,7 +256,7 @@ static Tcl_Obj *column_map_get_column_names(column_map_t *pmap, Tcl_Obj *table)
     for (i = 0; i < pmap->mapped_indices_count; ++i) {
         TA_NOFAIL(table_column_index_to_name(NULL, table, pmap->pmapped_indices[i], &ocolname), TCL_OK);
         Tcl_ListObjAppendElement(NULL, ocolnames, ocolname);
-        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewIntObj(i));
+        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewWideIntObj(i));
     }
     return ocolnames;
 }
@@ -567,7 +567,7 @@ TCL_RESULT table_convert_from_other(Tcl_Interp *ip, Tcl_Obj *o)
             return TCL_ERROR;
         }
         Tcl_ListObjAppendElement(ip, colnames_map, colnames[i]);
-        Tcl_ListObjAppendElement(ip, colnames_map, Tcl_NewIntObj(i));
+        Tcl_ListObjAppendElement(ip, colnames_map, Tcl_NewWideIntObj(i));
     }
     Tcl_DecrRefCount(re);
 
@@ -1765,7 +1765,7 @@ table_range(Tcl_Interp *ip,
     if (fmt == TA_FORMAT_DICT) {
         olist = Tcl_NewListObj(2*count, NULL);
         for (i = low; i < end; ++i) {
-            Tcl_ListObjAppendElement(ip, olist, Tcl_NewIntObj(i));
+            Tcl_ListObjAppendElement(ip, olist, Tcl_NewWideIntObj(i));
             Tcl_ListObjAppendElement(ip, olist, Tcl_NewListObj(nsrccols, NULL));
         }
     } else {
@@ -2813,7 +2813,7 @@ table_slice_cmd(ClientData cdata, Tcl_Interp *ip,
             break;
         /* Everything seems in order. Store name->index mapping */
         Tcl_ListObjAppendElement(NULL, ocolnames, ocolname);
-        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewIntObj(i));
+        Tcl_ListObjAppendElement(NULL, ocolnames, Tcl_NewWideIntObj(i));
         /* Store the column in the output */
         pdstcols[i] = table_column(table, srcindex);
         Tcl_IncrRefCount(pdstcols[i]);

@@ -3849,7 +3849,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, Tcl_Size low, Tcl_Size count,
             end = psrc->used;
     }
 
-    if (fmt == TA_FORMAT_TARRAY) 
+    if (fmt == TA_FORMAT_TARRAY)
         return tcol_new_span(psrc, low, end-low);
 
     /* TBD - optimize by allocating array and calling Tcl_NewListObj */
@@ -3859,7 +3859,7 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, Tcl_Size low, Tcl_Size count,
         type_ *pend = THDRELEMPTR(psrc, type_, end);             \
         while (p < pend) {                                              \
             if (fmt == TA_FORMAT_DICT)                                  \
-                Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low++));  \
+                Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(low++));  \
             Tcl_ListObjAppendElement(ip, o, objfn_(*p++));              \
         }                                                               \
     } while (0)
@@ -3872,8 +3872,8 @@ Tcl_Obj *tcol_range(Tcl_Interp *ip, Tcl_Obj *osrc, Tcl_Size low, Tcl_Size count,
             ba_t *baP = THDRELEMPTR(psrc, ba_t, 0);
             while (low < end) {
                 if (fmt == TA_FORMAT_DICT)
-                    Tcl_ListObjAppendElement(ip, o, Tcl_NewIntObj(low));
-                Tcl_ListObjAppendElement(ip, o, 
+                    Tcl_ListObjAppendElement(ip, o, Tcl_NewWideIntObj(low));
+                Tcl_ListObjAppendElement(ip, o,
                                          Tcl_NewIntObj(ba_get(baP, low)));
                 ++low;
             }
@@ -4602,7 +4602,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 index = *pindex++;                                      \
                 if (index < 0 || index >= bound)                        \
                     goto index_error;                                   \
-                Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index)); \
+                Tcl_ListObjAppendElement(ip, tcol, Tcl_NewWideIntObj(index)); \
                 Tcl_ListObjAppendElement(ip, tcol,                      \
                                          objfn_(fromP[index]));         \
             }                                                           \
@@ -4640,7 +4640,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                     if (index < 0 || index >= bound)
                         goto index_error;
                     if (fmt == TA_FORMAT_DICT)
-                        Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
+                        Tcl_ListObjAppendElement(ip, tcol, Tcl_NewWideIntObj(index));
                     Tcl_ListObjAppendElement(ip, tcol,
                                              Tcl_NewIntObj(ba_get(srcbaP, span_first + index)));
                 }
@@ -4685,7 +4685,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                 } else {
                     /* No need to bump ref counts as lists take care of it */
                     if (fmt == TA_FORMAT_DICT)
-                        Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
+                        Tcl_ListObjAppendElement(ip, tcol, Tcl_NewWideIntObj(index));
                     Tcl_ListObjAppendElement(ip, tcol, srcobjs[index]);
                 }
             }
@@ -4707,7 +4707,7 @@ Tcl_Obj *tcol_get(Tcl_Interp *ip, Tcl_Obj *osrc, thdr_t *pindices, int fmt)
                                       to be released on error */
                 } else {
                     if (fmt == TA_FORMAT_DICT)
-                        Tcl_ListObjAppendElement(ip, tcol, Tcl_NewIntObj(index));
+                        Tcl_ListObjAppendElement(ip, tcol, Tcl_NewWideIntObj(index));
                     Tcl_ListObjAppendElement(ip, tcol, tas_to_obj(srctas[index]));
                 }
             }
@@ -5380,8 +5380,8 @@ TCL_RESULT tcol_minmax_cmd(ClientData clientdata, Tcl_Interp *ip,
         }
         TA_ASSERT(min_index >= 0 && min_index < tcol_count);
         TA_ASSERT(max_index >= 0 && max_index < tcol_count);
-        objs[0] = Tcl_NewIntObj(min_index);
-        objs[1] = Tcl_NewIntObj(max_index);
+        objs[0] = Tcl_NewWideIntObj(min_index);
+        objs[1] = Tcl_NewWideIntObj(max_index);
     } else {
         thdr_minmax(thdr, range_start, range_count, ignore_case,
                     &min_index, &max_index, &objs[0], &objs[1]);
@@ -6223,7 +6223,7 @@ tcol_bitsset_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])
     }
     Tcl_SetObjResult(
         ip,
-        Tcl_NewIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), first, first+count)));
+        Tcl_NewWideIntObj(ba_count_ones(THDRELEMPTR(thdrP, ba_t, 0), first, first+count)));
     return TCL_OK;
 
 }

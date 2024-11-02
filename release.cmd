@@ -1,5 +1,9 @@
+setlocal
 rmdir/s/q build
 
+if not defined TCLSH set /p TCLSH=Enter path to tclsh: 
+echo Using %TCLSH%
+exit /B 0
 set OLDTCLSH=%TCLSH%
 set TCLSH=d:\tcl\magic\bin\tclsh86t.exe
 

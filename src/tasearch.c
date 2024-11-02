@@ -1353,7 +1353,7 @@ static TCL_RESULT thdr_indices_search(Tcl_Interp *ip, thdr_t * haystackP,
         }
         o = tcol_new(thdr);
     } else if (flags & TA_SEARCH_COUNT)
-        o = Tcl_NewIntObj(nmatches);
+        o = Tcl_NewWideIntObj(nmatches);
     else {
         if (flags & TA_SEARCH_INLINE)
             o = first_match >= 0 ? ta_value_to_obj(&found_val) : Tcl_NewObj();

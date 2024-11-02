@@ -25,7 +25,6 @@
   typedef int Tcl_Size;
 # endif
 # define Tcl_GetSizeIntFromObj Tcl_GetIntFromObj
-# define Tcl_NewSizeIntObj Tcl_NewIntObj
 # define TCL_SIZE_MAX      INT_MAX
 # define TCL_SIZE_MODIFIER ""
 #endif
