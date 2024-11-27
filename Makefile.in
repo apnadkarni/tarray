@@ -248,12 +248,6 @@ install-libraries: libraries
 #========================================================================
 
 install-doc: doc
-	@$(INSTALL_DATA_DIR) $(DESTDIR)$(mandir)/man3
-	@echo "Installing documentation in $(DESTDIR)$(mandir)"
-	@list='$(srcdir)/doc/man/man3/*.3tcl'; for i in $$list; do \
-	    echo "Installing $$i"; \
-	    $(INSTALL_DATA) $$i "$(DESTDIR)$(mandir)/man3" ; \
-	done
 
 test: binaries libraries
 	@cp $(srcdir)/src/*.tcl .

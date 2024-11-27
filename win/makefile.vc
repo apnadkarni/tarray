@@ -87,7 +87,7 @@ install: pkgindex $(PRJLIB) default-install-scripts
 	@$(CPY) $(PRJLIB) "$(BIN_INSTALL_DIR)" >NUL
 	@$(CPY) $(LIBDIR)\*.tcl "$(SCRIPT_INSTALL_DIR)"
 	@$(CPY) $(OUT_DIR)\pkgIndex.tcl "$(SCRIPT_INSTALL_DIR)"
-	@$(CPY) $(GENERICDIR)\license.terms "$(SCRIPT_INSTALL_DIR)"
+	@$(CPY) $(ROOT)\LICENSE "$(SCRIPT_INSTALL_DIR)"
 
 test: default-setup $(PROJECT)
 	@set TCLLIBPATH=$(OUT_DIR:\=/) $(ROOT:\=/)/build/lib

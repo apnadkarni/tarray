@@ -1,47 +1,68 @@
-setlocal
-rmdir/s/q build
+:: Builds release versions
 
-if not defined TCLSH set /p TCLSH=Enter path to tclsh: 
-echo Using %TCLSH%
-exit /B 0
-set OLDTCLSH=%TCLSH%
-set TCLSH=d:\tcl\magic\bin\tclsh86t.exe
+@setlocal
 
-@rem Form the file names based on the version we are building
-@for /f %%i in ('%TCLSH% src/taversion.tcl') do set TANAME=tarray-%%i
-@for /f %%i in ('%TCLSH% src/taversion.tcl') do set XTALNAME=xtal-%%i
-@for /f %%i in ('%TCLSH% ui/uiversion.tcl') do set UINAME=tarray_ui-%%i
+:: Tcl installations
+@set dir90x64=c:\Tcl\9.0.0\x64
+@set dir90x86=c:\Tcl\9.0.0\x86
+@set dir86x64=c:\Tcl\8.6.10\x64
+@set dir86x86=c:\Tcl\8.6.10\x86
 
-cmd /c "envset x86 && cd src && %TCLSH% build.tcl extension -target win32-ix86-cl"
-cmd /c "envset x64 && cd src && %TCLSH% build.tcl extension -target win32-x86_64-cl"
-@rem cmd /c "cd src && %TCLSH% build.tcl tea"
-cmd /c "envset x86 && cd xtal && %TCLSH% build.tcl extension -target win32-ix86-cl"
-cmd /c "envset x64 && cd xtal && %TCLSH% build.tcl extension -target win32-x86_64-cl"
-@rem cmd /c "cd xtal && %TCLSH% build.tcl tea"
-cmd /c "cd ui && %TCLSH% build.tcl package"
+:: Should not have to change anything after this line
 
-copy doc\announce.txt build\lib\tarray\readme.txt
-move build\lib\tarray build\lib\%TANAME%
-cd build\lib && zip -r ../%TANAME%.zip %TANAME% && cd ..\..
+:: Get package name from configure.{ac,in}
+@if exist configure.in set configure=configure.in
+@if exist configure.ac set configure=configure.ac
 
-copy doc\announce.txt build\lib\xtal\readme.txt
-move build\lib\xtal build\lib\%XTALNAME%
-cd build\lib && zip -r ../%XTALNAME%.zip %XTALNAME% && cd ..\..
+@for /F "usebackq delims=[] tokens=2" %%i in (`findstr "AC_INIT" %configure%`) do @set package=%%i
+@if NOT "x%package%" == "x" goto getversion
+@echo Could not get package name!
+@goto abort
 
-copy doc\announce.txt build\lib\tarray_ui\readme.txt
-move build\lib\tarray_ui build\lib\%UINAME%
-cd build\lib && zip -r ../%UINAME%.zip %UINAME% && cd ..\..
+:getversion
+@for /F "usebackq delims=[], tokens=4" %%i in (`findstr "AC_INIT" %configure%`) do @set version=%%i
+@if NOT "x%version%" == "x" goto build
+@echo Could not get package version!
+@goto abort
 
-copy doc\announce.txt build\tea\tarray\readme.txt
-dos2unix build/tea/tarray/readme.txt
-move build\tea\tarray build\tea\%TANAME%
-cd build\tea && tar cvf ../%TANAME%.tar %TANAME% && gzip ../%TANAME%.tar && cd ..\..
+:build
 
-copy build\tea\%TANAME%\readme.txt build\tea\xtal\readme.txt
-move build\tea\xtal build\tea\%XTALNAME%
-cd build\tea && tar cvf ../%XTALNAME%.tar %XTALNAME% && gzip ../%XTALNAME%.tar && cd ..\..
+@set pkgdir=%package%-%version%
+@set outdir=%~dp0dist\%pkgdir%
+@set outdiru=%outdir:\=/%
 
-dos2unix build/lib/%UINAME%/readme.txt
-cd build\lib && tar cvf ../%UINAME%.tar %UINAME% && gzip ../%UINAME%.tar && cd ..\..
+powershell .\release.ps1 %dir90x64% %outdir% x64
+@if ERRORLEVEL 1 goto abort
 
-set TCLSH=%OLDTCLSH%
+powershell .\release.ps1 %dir90x86% %outdir% x86
+@if ERRORLEVEL 1 goto abort
+
+powershell .\release.ps1 %dir86x64% %outdir% x64
+@if ERRORLEVEL 1 goto abort
+
+powershell .\release.ps1 %dir86x86% %outdir% x86
+@if ERRORLEVEL 1 goto abort
+
+echo lappend auto_path %outdiru%; exit [catch {puts [package require %package%]}] | %dir90x64%\bin\tclsh90.exe
+@if ERRORLEVEL 1 goto abort
+
+echo lappend auto_path %outdiru%; exit [catch {puts [package require %package%]}] | %dir90x86%\bin\tclsh90.exe
+@if ERRORLEVEL 1 goto abort
+
+echo lappend auto_path %outdiru%; exit [catch {puts [package require %package%]}] | %dir86x64%\bin\tclsh86t.exe
+@if ERRORLEVEL 1 goto abort
+
+echo lappend auto_path %outdiru%; exit [catch {puts [package require %package%]}] | %dir86x86%\bin\tclsh86t.exe
+@if ERRORLEVEL 1 goto abort
+
+cd %outdir%\.. && zip -r %pkgdir%.zip %pkgdir% || goto abort
+
+@endlocal
+@exit /B 0
+
+:abort
+@echo ERROR: Build failed!
+@endlocal
+@exit /B 1
+
+
