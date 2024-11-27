@@ -38,11 +38,10 @@
 # endif
 #endif
 
-#if defined(_MSC_VER)
-/* For MSC, use compiler version since it protects against A being a pointer */
+#if defined(_WIN32)
+/* Use compiler version since it protects against A being a pointer */
 # ifndef ARRAYSIZE
-/* Older SDK's do not define this */
-#  define ARRAYSIZE(A) RTL_NUMBER_OF(A)
+#  define ARRAYSIZE(A) RTL_NUMBER_OF_V2(A)
 # endif
 #else
 # define ARRAYSIZE(A) (sizeof(A)/sizeof(A[0]))
@@ -51,12 +50,6 @@
 #ifndef TA_INLINE
 # ifdef _MSC_VER
 #  define TA_INLINE __inline  /* Because VC++ 6 only accepts "inline" in C++  */
-# elif __GNUC__
-#  if __GNUC_STDC_INLINE__
-#   define TA_INLINE inline
-#  else
-#   define TA_INLINE extern inline
-#  endif
 # else
 #  define TA_INLINE static inline
 # endif

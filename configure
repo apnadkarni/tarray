@@ -4913,6 +4913,7 @@ $as_echo "$ac_cv_c_bigendian" >&6; }
     vars="src/bitarray.c \
                      src/column.c \
                      src/errors.c \
+                     src/mt.c \
                      src/parseargs.c \
                      src/pcg_basic.c \
                      src/rbcStubLib.c \

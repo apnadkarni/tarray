@@ -37,8 +37,9 @@ ta_mt_group_t ta_mt_group_create()
     return grp;
 }
 
-static DWORD WINAPI ta_mt_worker(struct ta_mt_workitem_s *pitem)
+static DWORD WINAPI ta_mt_worker(void *pv)
 {
+    struct ta_mt_workitem_s *pitem = (struct ta_mt_workitem_s *) pv;
     pitem->workfn(pitem->workarg);
     SetEvent(pitem->sig);
     ta_mt_group_release(pitem->owner); /* retain() when item was queued */

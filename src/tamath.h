@@ -64,15 +64,21 @@ OVF_ADDU_FN(uint8)
 /* For 32-bit use exact built-ins */
 #define ovf_add_int32  __builtin_sadd_overflow
 #define ovf_add_uint32 __builtin_uadd_overflow
-/* For 64-bit assumes l is 64 bits - TBD */
+#ifdef _WIN32
+/* Tcl_WideInt is long long */
+#define ovf_add_int64  __builtin_saddll_overflow
+#define ovf_add_uint64  __builtin_uaddll_overflow
+#else
+/* Tcl_WideInt is long */
 #define ovf_add_int64  __builtin_saddl_overflow
 #define ovf_add_uint64  __builtin_uaddl_overflow
+#endif
 
 /* Generic gcc built-in */
 #define OVF_SUB_FN(type_)                                               \
     TA_INLINE int ovf_sub_ ## type_ (type_ ## _t a, type_ ## _t b, type_ ## _t *presult) { \
-    return __builtin_sub_overflow(a, b, presult);                       \
-}
+        return __builtin_sub_overflow(a, b, presult);                   \
+    }
 #define OVF_SUBU_FN OVF_SUB_FN
 
 OVF_SUB_FN(int8)
@@ -81,8 +87,13 @@ OVF_SUBU_FN(uint8)
 /* For 32-bit use exact built-ins */
 #define ovf_sub_int32  __builtin_ssub_overflow
 #define ovf_sub_uint32 __builtin_usub_overflow
-/* For 64-bit assumes l is 64 bits */
+#ifdef _WIN32
+/* Tcl_WideInt is long long */
+#define ovf_sub_int64  __builtin_ssubll_overflow
+#else
+/* Tcl_WideInt is long */
 #define ovf_sub_int64  __builtin_ssubl_overflow
+#endif
 
 /* Generic gcc built-in */
 #define OVF_MUL_FN(type_)                                               \
@@ -97,9 +108,15 @@ OVF_MULU_FN(uint8)
 /* For 32-bit use exact built-ins */
 #define ovf_mul_int32  __builtin_smul_overflow
 #define ovf_mul_uint32 __builtin_umul_overflow
-/* For 64-bit assumes l is 64 bits */
+#ifdef _WIN32
+/* Tcl_WideInt is long long */
+#define ovf_mul_int64  __builtin_smulll_overflow
+#define ovf_mul_uint64  __builtin_umulll_overflow
+#else
+/* Tcl_WideInt is long */
 #define ovf_mul_int64  __builtin_smull_overflow
 #define ovf_mul_uint64  __builtin_umull_overflow
+#endif
 
 #else
 

@@ -74,6 +74,7 @@ TEA_SETUP_COMPILER
 TEA_ADD_SOURCES([src/bitarray.c \
                      src/column.c \
                      src/errors.c \
+                     src/mt.c \
                      src/parseargs.c \
                      src/pcg_basic.c \
                      src/rbcStubLib.c \
