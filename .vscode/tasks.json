@@ -1,0 +1,39 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "debug-9.0",
+            "type": "shell",
+            "command": "win\\build.bat TCLINSDIR=C:\\tcl\\main",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "debug-8.6",
+            "type": "shell",
+            "command": "set TCLINSDIR=C:\\tcl\\core-8-6-branch&& win\\build.bat",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "clean-8.6",
+            "type": "shell",
+            "command": "set TCLINSDIR=C:\\tcl\\core-8-6-branch&& win\\build.bat clean",
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "clean-9.0",
+            "type": "shell",
+            "command": "win\\build.bat clean",
+            "problemMatcher": [],
+            "group": "build"
+        }
+    ]
+}
