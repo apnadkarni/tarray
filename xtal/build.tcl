@@ -28,6 +28,7 @@ switch -exact -- [lindex $argv 0] {
     }
     test {
         cd ../tests
+	lappend env(TCLLIBPATH); # Make sure it exists
         set env(TCLLIBPATH) [linsert $env(TCLLIBPATH) 0 [file join $buildarea lib]]
         set fd [open |[list [info nameofexecutable] all.tcl -file xtal*.test {*}[lrange $argv 1 end]]]
         while {[gets $fd line] >= 0} {

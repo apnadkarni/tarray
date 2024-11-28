@@ -5407,7 +5407,7 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
     };
     Tcl_Obj *tcol;
     Tcl_Obj *objs[2];
-    uint64_t u64;
+    ta_uwide_t u64;
 
     if (objc != 7) {
 	Tcl_WrongNumArgs(ip, 1, objv, "COL count|sum|values|indices NBUCKETS MIN MAX STEP");
@@ -5464,7 +5464,9 @@ TCL_RESULT tcol_equalintervals_cmd(ClientData clientdata, Tcl_Interp *ip,
         CHECK_OK( ta_value_from_obj(ip, objv[6], TA_WIDE, &step) );
         step.uwval = step.wval;
 #else
-        Tcl_GetWideUIntFromObj(ip, objv[6], &step.uwval);
+        Tcl_WideUInt uw;
+        Tcl_GetWideUIntFromObj(ip, objv[6], &uw);
+        step.uwval = uw;
 #endif
         if (step.uwval == 0 || step.uwval > ((uint64_t)INT64_MAX+1))
             goto nonpositive_step;

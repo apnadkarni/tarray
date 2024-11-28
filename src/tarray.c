@@ -67,9 +67,9 @@ FN2ARG(ta_addu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj,
 FN2ARG(ta_subu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_sub_uint32, Tcl_NewWideIntObj)
 FN2ARG(ta_mulu32_cmd, uint32_t, "unsigned 32-bit integer", ta_get_uint_from_obj, ovf_mul_uint32, Tcl_NewWideIntObj)
 
-FN2ARG(ta_add64_cmd, int64_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
-FN2ARG(ta_sub64_cmd, int64_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
-FN2ARG(ta_mul64_cmd, int64_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_add64_cmd, ta_wide_t, "64-bit integer", ta_get_int64_from_obj, ovf_add_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_sub64_cmd, ta_wide_t, "64-bit integer", ta_get_int64_from_obj, ovf_sub_int64, Tcl_NewWideIntObj)
+FN2ARG(ta_mul64_cmd, ta_wide_t, "64-bit integer", ta_get_int64_from_obj, ovf_mul_int64, Tcl_NewWideIntObj)
 
 static TCL_RESULT
 ta_same_tclobj_cmd(void *cdata, Tcl_Interp *ip, int objc, Tcl_Obj *const objv[])

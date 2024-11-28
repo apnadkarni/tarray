@@ -11,8 +11,8 @@
 # # ## ### ##### ######## ############# #####################
 ## Requirements
 
-package require Tcl 8.6 9
-package require critcl 3.3
+package require Tcl 8.5 9
+package require critcl
 # @sak notprovided xtal
 package provide    xtal 2.0a0
 

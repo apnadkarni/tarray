@@ -105,6 +105,8 @@ typedef int TCL_RESULT;
 /* Space required for a numeric string */
 #define TA_NUMERIC_SPACE 40
 
+
+
 /* Must match g_type_tokens definition in tarray.c ! */
 #define TA_NONE 0
 #define TA_UINT 1
@@ -461,10 +463,7 @@ TCL_RESULT ta_get_wide_from_obj(Tcl_Interp *ip, Tcl_Obj *o, Tcl_WideInt *pi);
 #ifdef _MSC_VER
 #define ta_get_int64_from_obj ta_get_wide_from_obj
 #else
-/* Gcc complains about pointer mismatch between int64_t (long int)
-   and Tcl_WideInt (long long int) so define a wrapper
-*/
-TA_INLINE TCL_RESULT ta_get_int64_from_obj(Tcl_Interp *ip, Tcl_Obj *o, int64_t *pi64)
+TA_INLINE TCL_RESULT ta_get_int64_from_obj(Tcl_Interp *ip, Tcl_Obj *o, ta_wide_t *pi64)
 {
     TCL_RESULT res;
     Tcl_WideInt wide;

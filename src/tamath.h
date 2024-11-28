@@ -44,11 +44,24 @@
 # endif
 #endif
 
+/*
+ * Need our own types for mapping Tcl_WideInt to either
+ * long or long long because in Tcl 9 TCL_WIDE_INT_IS_LONG
+ * is set while Tcl_WideInt is typedefed as long long
+ */
+#if TCL_MAJOR_VERSION >8 || !defined(TCL_WIDE_INT_IS_LONG)
+typedef long long ta_wide_t;
+typedef unsigned long long ta_uwide_t;
+#define TA_WIDEINT_TYPEDEF_IS_LONGLONG
+#else
+typedef long ta_wide_t;
+typedef unsigned long ta_uwide_t;
+#endif
 
 #if __GNUC__ >= 5
 
 /****************************************************************
- * gcc has direct built-ins for integer overflow detection 
+ * gcc has direct built-ins for integer overflow detection
  ****************************************************************/
 
 /* Generic gcc built-in */
@@ -64,12 +77,10 @@ OVF_ADDU_FN(uint8)
 /* For 32-bit use exact built-ins */
 #define ovf_add_int32  __builtin_sadd_overflow
 #define ovf_add_uint32 __builtin_uadd_overflow
-#ifdef _WIN32
-/* Tcl_WideInt is long long */
+#ifdef TA_WIDEINT_TYPEDEF_IS_LONGLONG
 #define ovf_add_int64  __builtin_saddll_overflow
 #define ovf_add_uint64  __builtin_uaddll_overflow
 #else
-/* Tcl_WideInt is long */
 #define ovf_add_int64  __builtin_saddl_overflow
 #define ovf_add_uint64  __builtin_uaddl_overflow
 #endif
@@ -87,11 +98,9 @@ OVF_SUBU_FN(uint8)
 /* For 32-bit use exact built-ins */
 #define ovf_sub_int32  __builtin_ssub_overflow
 #define ovf_sub_uint32 __builtin_usub_overflow
-#ifdef _WIN32
-/* Tcl_WideInt is long long */
+#ifdef TA_WIDEINT_TYPEDEF_IS_LONGLONG
 #define ovf_sub_int64  __builtin_ssubll_overflow
 #else
-/* Tcl_WideInt is long */
 #define ovf_sub_int64  __builtin_ssubl_overflow
 #endif
 
@@ -108,12 +117,10 @@ OVF_MULU_FN(uint8)
 /* For 32-bit use exact built-ins */
 #define ovf_mul_int32  __builtin_smul_overflow
 #define ovf_mul_uint32 __builtin_umul_overflow
-#ifdef _WIN32
-/* Tcl_WideInt is long long */
+#ifdef TA_WIDEINT_TYPEDEF_IS_LONGLONG
 #define ovf_mul_int64  __builtin_smulll_overflow
 #define ovf_mul_uint64  __builtin_umulll_overflow
 #else
-/* Tcl_WideInt is long */
 #define ovf_mul_int64  __builtin_smull_overflow
 #define ovf_mul_uint64  __builtin_umull_overflow
 #endif
