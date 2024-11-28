@@ -15,6 +15,11 @@ if {[info exists env(TEMP)]} {
     }
 }
 
+# ERROR_ON_FAILURES for github actions
+set ErrorOnFailures [info exists env(ERROR_ON_FAILURES)]
+# NOTE: Do NOT unset ERROR_ON_FAILURES if recursing to subdirectories
+unset -nocomplain env(ERROR_ON_FAILURES)
 eval tcltest::configure $argv
-tcltest::runAllTests
+if {[tcltest::runAllTests] && $ErrorOnFailures} {exit 1}
+
 puts "All done."
