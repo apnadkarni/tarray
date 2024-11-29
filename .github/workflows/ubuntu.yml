@@ -3,16 +3,21 @@ name: Ubuntu
 on:
   workflow_dispatch:
     inputs:
-      tcltag:  # User input for selecting a specific job or all jobs
+      tcltag:  # User input for selecting Tcl tag
         description: 'Tcl version'
         required: true
         default: '["core-8-6-13", "main"]'
         type: string
-      osver:  # User input for selecting a specific job or all jobs
+      osver:  # User input for selecting OS
         description: 'OS version'
         required: true
         default: '["ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04"]'
         type: string
+      dotest: # Whether tests should be run
+        description: 'Run tests as well'
+        required: false
+        default: true
+        type: boolean
 jobs:
   build:
     strategy:
@@ -69,6 +74,7 @@ jobs:
         make
 
     - name: Test
+      if: github.event.inputs.dotest
       run: |
         cd build
         make test
