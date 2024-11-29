@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     proc testdef {id comment result args} {
         test column_linspace-$id $comment -body [list ::tarray::column linspace {*}$args] -result $result

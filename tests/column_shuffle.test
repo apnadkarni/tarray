@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
     namespace import ::tcltest::test
 
     foreach type {byte int uint wide double any string} {

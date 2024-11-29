@@ -50,7 +50,11 @@ ta_dump_cmd(ClientData clientdata, Tcl_Interp *ip,
             /* Because gcc and vc++ differ in output for NULL %p */
             oresult[i++] = Tcl_NewIntObj(0);
         } else {
-            sprintf(buf, "%p", (void *) span);
+            if (sizeof(span) == sizeof(int)) {
+                sprintf(buf, "0x%x", (int) (intptr_t) span);
+            } else {
+                sprintf(buf, "0x%" TCL_LL_MODIFIER "x", (Tcl_WideInt) (intptr_t) span);
+            }
             oresult[i++] = Tcl_NewStringObj(buf, -1);
         }
         if (span) {

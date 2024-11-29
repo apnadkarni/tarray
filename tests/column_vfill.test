@@ -3,8 +3,10 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     # Pick a fill value for each type
+    variable vfills
     array set vfills {
         boolean 1
         int     -2013

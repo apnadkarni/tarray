@@ -3,6 +3,14 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable type2
+    variable compare
+    variable equal
+    variable identical
+    variable C
+    variable D
+    variable S
 
     # First some tests when columns are of the same type
     foreach type {boolean byte int uint wide double string any} {

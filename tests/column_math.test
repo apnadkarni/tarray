@@ -14,8 +14,14 @@ source [file join [file dirname [info script]] testutil.tcl]
 # }
 
 namespace eval tarray::test {
+    variable type
+    variable op
+    variable ops
+    variable i
+    variable result_type
+
     namespace import ::tcl::mathop::*
-    
+
     proc mathid {} {
         variable math_testnum
         return math-[incr math_testnum]

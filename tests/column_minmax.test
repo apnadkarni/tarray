@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
     foreach type {any string boolean byte double int uint wide} {
         test column_minmax-$type-1.0 {
             Minmax an empty column

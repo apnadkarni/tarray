@@ -10,6 +10,7 @@ namespace eval tarray::test {
     }
 
     testdef default-1.0 {defaults} [newcolumn double {100 1000 10000}] 2 4 3
+    variable type
     foreach type {int uint wide double} {
         if {$type ne "byte"} {
             testdef $type-1.0 {ascending -type} [newcolumn $type {100 1000 10000}] 2 4 3 -type $type

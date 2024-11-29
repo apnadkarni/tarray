@@ -3,6 +3,18 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable low
+    variable lowpos1
+    variable lowpos2
+    variable high
+    variable highpos1
+    variable highpos2
+    variable l
+    variable n
+    variable op
+    variable elem
+    variable col
 
     namespace import ::tcl::mathop::*
 
@@ -44,7 +56,7 @@ namespace eval tarray::test {
         } -body {
             tarray::column search -eq -inline -all [newcolumn $type] [samplevalue $type]
         } -result [crep $type {}] -match column
-        
+
         test column_search-$type-eq-1.4 {
             Search an empty column -not
         } -body {

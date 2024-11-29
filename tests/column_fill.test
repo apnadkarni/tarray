@@ -3,8 +3,11 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable sample
 
     # Pick a fill value for each type
+    variable fills
     array set fills {
         boolean 1
         int     -2013
@@ -31,7 +34,7 @@ namespace eval tarray::test {
 
     #
     # column fill index
-
+    
     foreach type {boolean string any byte double int uint wide} {
 
         test column_fill-index-$type-1.0 {

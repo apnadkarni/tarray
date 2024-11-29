@@ -3,6 +3,8 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+
     proc intersection_match {expected result} {
         foreach r $result e $expected {
             if {![equal_bags [tarray::column range -list $r 0 end] $e]} {

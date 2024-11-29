@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     foreach type {boolean string any byte double int uint wide} {
         test column_type-$type-1.0 {
@@ -16,7 +17,7 @@ namespace eval tarray::test {
         } -body {
             tarray::column type [samplecolumn $type]
         } -result $type
-        
+
         test column_type-span-$type-1.0 {
             Type of empty column
         } -body {

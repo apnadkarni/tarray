@@ -3,6 +3,9 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable testnum
+    variable ind_type
 
     # args is any combination of -nocase, -increasing, -decreasing
     proc vsort_verify {type args} {

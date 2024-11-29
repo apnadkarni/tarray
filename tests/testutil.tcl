@@ -26,6 +26,14 @@ if {![info exists tarray::test::known]} {
 #    set auto_path [linsert $auto_path 0 [file normalize [file join [info script] .. .. build lib]]]
     namespace eval tarray::test {
         namespace import ::tcltest::test
+        variable i
+        variable count
+        variable anyl
+        variable type
+        variable w
+        variable l
+        variable pat
+        variable si
 
         proc tcl9 {} {
             return [package vsatisfies [package require Tcl] 9]
@@ -464,17 +472,17 @@ if {![info exists tarray::test::known]} {
                 error "Sample column is not a span into another column"
             }
         }
-        
+
         proc check_not_span_column {col} {
             if {[dict get [tarray::unsupported::dump $col] span*] != 0} {
                 error "Sample column is a span into another column"
             }
         }
-        
+
         proc newcolumn {type {init {}}} {
             return [tarray::column create $type $init]
         }
-        
+
         proc newspancolumn {type {init {}}} {
             # Used to create a column that internally uses spans
             set padlen 15; # Arbitrary number
@@ -482,6 +490,10 @@ if {![info exists tarray::test::known]} {
             set col [tarray::column create $type [concat $pad $init $pad]]
             set span [tarray::column range $col $padlen end-$padlen]
             array set desc [tarray::unsupported::dump $span]
+            if {$desc(span*) == 0} {
+                parray desc
+                error "Failure creating a span column"
+            }
             if {$desc(span.first) != $padlen || ($desc(span.count) != ([tarray::column size $col]-2*$padlen))} {
                 error "Error creating span column : [array get desc]"
             }
@@ -492,7 +504,7 @@ if {![info exists tarray::test::known]} {
             set coldef [col_def $types]
             return [tarray::table create $coldef $init]
         }
-        
+
         proc newtable2 {colnames args} {
             return [tarray::table create2 $colnames $args]
         }

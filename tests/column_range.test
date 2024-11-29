@@ -8,6 +8,8 @@ namespace eval tarray::test {
     # a new one every time
     variable cols_for_get
     variable spancols_for_get
+    variable mid
+    variable type
     foreach type {boolean string any byte double int uint wide} {
         set cols_for_get($type) [samplecolumn $type]
         check_not_span_column $cols_for_get($type)

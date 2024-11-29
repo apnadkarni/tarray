@@ -3,7 +3,8 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
-    
+    variable type
+
     # Return 1.0 if type is double
     proc numrep {type values} {
         if {$type eq "double"} {

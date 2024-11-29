@@ -11,7 +11,7 @@ namespace eval tarray::test {
         tailcall ::tcltest::test {*}$args -constraints havesqlite
     }
 
-    variable db_type_mapping
+    variable db_type_map
     set db_type_map {
         int int
         smallint int

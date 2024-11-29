@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     foreach type {boolean any byte double int uint wide} {
         test column_size-$type-1.0 {

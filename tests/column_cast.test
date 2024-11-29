@@ -3,6 +3,13 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable num
+    variable value
+    variable val
+    variable to_type
+    variable from_type
+
     namespace import ::tcltest::test
 
     foreach from_type {any string boolean byte double int uint wide} {
@@ -25,7 +32,6 @@ namespace eval tarray::test {
         }
     }
 
-    
     #
     # Tests to ensure string reps are correct when converting int<->uint
     test column_cast-int-to-uint-2.0 {
@@ -36,7 +42,7 @@ namespace eval tarray::test {
     } -body {
         tarray::column cast uint $col[set col {}] ;# Change ref count to 1
     } -result [newcolumn uint {0 4294967295 1}]
-    
+
     test column_cast-uint-to-int-2.0 {
         Test string rep on uint->int conversion
     } -setup {
@@ -45,8 +51,7 @@ namespace eval tarray::test {
     } -body {
         tarray::column cast int $col[set col {}] ;# Change ref count to 1
     } -result [newcolumn int {0 -1 1}]
-    
-    
+
     # Tests for numeric range conversions where value does not fit target
     # type - should not generate errors
     # NOTE: conversions from double are tested later since values

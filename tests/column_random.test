@@ -3,13 +3,16 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable mid
+
     namespace import ::tcltest::test
     # Tests for creating empty and large tarrays
     foreach type {boolean byte double int uint wide} {
         test column-random-$type-1.0 {
             Create empty random column
         } -body "tarray::column random $type 0" -result [newcolumn $type]
-        
+
         test column-random-$type-2.0 {
             Create random column
         } -body "check_random \[tarray::column random $type 10000\] $type 10000" -result ""
@@ -29,12 +32,12 @@ namespace eval tarray::test {
                 Create random column
             } -body "check_random \[tarray::column random $type 10000 100 200\] $type 10000 150 100 200" -result ""
         }
-        
+
         if {$type in {wide int}} {
             test column-random-$type-3.0.1 {
                 Create random column
             } -body "check_random \[tarray::column random $type 10000 -100000 100000\] $type 10000 0 -100000 100000" -result ""
-        } 
+        }
 
         test column-random-byte-4.0 {
                 Create random column
@@ -47,13 +50,13 @@ namespace eval tarray::test {
         } -body {
             check_random [tarray::column random int 10000 -0x10000000] int 10000 "" -0x10000000
         } -result ""
-        
+
         test column-random-uint-4.0 {
                 Create random column
         } -body {
             check_random [tarray::column random uint 10 0x10000000] uint 10 "" 0x10000000
         } -result ""
-        
+
         test column-random-wide-4.0 {
                 Create random column
         } -body {

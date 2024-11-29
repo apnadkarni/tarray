@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     proc placetest {as_span type indexlist_or_indexarray pass_values_as_list args} {
         variable sample

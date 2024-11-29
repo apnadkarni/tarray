@@ -6,7 +6,12 @@ namespace eval tarray::test {
     proc summarize {index col} {
         return [tarray::column size $col]
     }
-    
+    variable i
+    variable n
+    variable opts
+    variable type
+    variable testnum
+
     proc verify_table_summary {srctab resulttab args} {
         if {[llength [tarray::table cnames $resulttab]] != 2} {
             return "Result table does not have exactly two columns."

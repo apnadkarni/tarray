@@ -3,6 +3,14 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable type2
+    variable num
+    variable value
+    variable values
+    variable good
+    variable bad
+
     namespace import ::tcltest::test
 
     proc format_number {val type} {
@@ -11,7 +19,7 @@ namespace eval tarray::test {
         }
         return $val
     }
-    
+
     # Tests for creating empty and large tarrays
     foreach type {any string boolean byte double int uint wide} {
         test column_create-$type-1.0 {

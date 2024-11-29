@@ -4,6 +4,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
     # Initialize our own columns for testing so we do not have to create
     # a new one every time
     variable cols_for_get

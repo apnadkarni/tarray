@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     # Note two general types of tests - via a temp variable and directly
     # from the create return value. The difference is that in the

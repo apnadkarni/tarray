@@ -3,6 +3,9 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
+    variable i
+    variable n
 
     #
     # column vdelete index

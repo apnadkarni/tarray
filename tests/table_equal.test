@@ -3,6 +3,9 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable compare
+    variable equal
+    variable identical
     foreach compare {equal identical} {
         test table_${compare}-[incr $compare] \
             "table $compare empty tables" \

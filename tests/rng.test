@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
     namespace import ::tcltest::test
     # Tests for creating empty and large tarrays
     foreach type {boolean byte double int uint wide} {
@@ -12,21 +13,21 @@ namespace eval tarray::test {
             $r destroy
             check_random [tarray::column create $type [list $val]] $type 1
         } -result ""
-        
+
         test rng-$type-create-1.0 {rng create} -body {
             tarray::rng create r $type
             set val [r get]
             r destroy
             check_random [tarray::column create $type [list $val]] $type 1
         } -result ""
-        
+
         test rng-$type-new-1.1 {rng new} -body {
             set r [tarray::rng new $type]
             set val [$r get 10]
             $r destroy
             check_random [tarray::column create $type $val] $type 10
         } -result ""
-        
+
         test rng-$type-create-1.1 {rng create} -body {
             tarray::rng create r $type
             set val [r get 10]

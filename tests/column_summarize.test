@@ -3,10 +3,11 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
     proc summarize {index col} {
         return [tarray::column size $col]
     }
-    
+
     proc verify_column_summary {srccol result args} {
         set restype [tarray::column type $result]
         set size [tarray::column size $srccol]

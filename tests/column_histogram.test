@@ -3,7 +3,11 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
-    
+    variable type
+    variable collect
+    variable limits
+    variable compute
+
     proc verify_histogram {srccol nintervals result args} {
         # Result table must have exactly two columns
         set cnames [tarray::table cnames $result]
@@ -40,7 +44,7 @@ namespace eval tarray::test {
         if {[llength $categories] != [llength [lsort $categories]]} {
             return "Values in category column are not unique."
         }
-        
+
         # Now verify each data column
         switch -exact -- $opts(collect) {
             count {

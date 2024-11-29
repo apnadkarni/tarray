@@ -3,6 +3,7 @@
 source [file join [file dirname [info script]] testutil.tcl]
 
 namespace eval tarray::test {
+    variable type
 
     # args is any combination of -nocase, -increasing, -decreasing
     proc sort_verify_shared {as_span size type args} {

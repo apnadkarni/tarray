@@ -2,7 +2,8 @@
 
 source [file join [file dirname [info script]] testutil.tcl]
 namespace eval tarray::test {
-    
+    variable type
+
     foreach type {boolean string any byte double int uint wide} {
         test column_values-1.0 {
             Get values from empty column
@@ -15,13 +16,12 @@ namespace eval tarray::test {
         } -body {
             tarray::column values [samplecolumn $type]
         } -result [samplerange $type]
-        
+
         test column_values-2.1 {
             Get values from a spanned column
         } -body {
             tarray::column values [samplespancolumn $type]
         } -result [samplerange $type]
-        
     }
 }
 
