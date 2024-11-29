@@ -5205,6 +5205,10 @@ else
     done
 
 
+
+    PKG_CFLAGS="$PKG_CFLAGS -DHAVE_LIBDISPATCH"
+
+
     else
         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dispatch_group_create in -ldispatch" >&5
 $as_echo_n "checking for dispatch_group_create in -ldispatch... " >&6; }
