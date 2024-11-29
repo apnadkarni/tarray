@@ -166,6 +166,7 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 else
     if test "`uname -s`" = "Darwin" ; then
         TEA_ADD_LIBS([-ldispatch])
+        TEA_ADD_CFLAGS([-DHAVE_LIBDISPATCH])
     else
         AC_CHECK_LIB(dispatch, dispatch_group_create)
     fi
