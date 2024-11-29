@@ -128,7 +128,7 @@ else
     # Ensure no empty else clauses
     CLEANFILES="$CLEANFILES pkgIndex.tcl"
     if test "`uname -s`" = "Darwin" ; then
-        TEA_ADD_LIBS([-framework CoreFoundation])
+        TEA_ADD_LIBS([-framework CoreFoundation -framework CoreServices])
     fi
 fi
 

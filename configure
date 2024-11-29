@@ -5059,7 +5059,7 @@ else
     CLEANFILES="$CLEANFILES pkgIndex.tcl"
     if test "`uname -s`" = "Darwin" ; then
 
-    vars="-framework CoreFoundation"
+    vars="-framework CoreFoundation -framework CoreServices"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
 	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
