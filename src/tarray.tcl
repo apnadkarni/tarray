@@ -49,8 +49,6 @@ namespace eval tarray {
     }
 }
 
-interp alias {} tarray::column::count {} tarray::column::search -count
-
 proc tarray::column::bitmap0 {{count 0} {init {}}} {
     return [fill [fill [create boolean {} $count] 0 0 [incr count -1]] 1 $init]
 }

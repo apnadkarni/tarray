@@ -169,6 +169,7 @@ ta_define_commands(Tcl_Interp *ip)
         {"::tarray::types", ta_types_cmd, NULL, NULL},
 
         {"::tarray::column::bitsset", tcol_bitsset_cmd, NULL, NULL},
+        {"::tarray::column::count", tcol_search_cmd, (void*) 1, NULL},
         {"::tarray::column::create", tcol_create_cmd, NULL, NULL},
         {"::tarray::column::delete", tcol_delete_cmd, NULL, NULL},
         {"::tarray::column::fill", tcol_fill_cmd, NULL, NULL},

@@ -1402,7 +1402,7 @@ TCL_RESULT tcol_search_cmd(ClientData clientdata, Tcl_Interp *ip,
 
     count = span ? span->count : haystackP->used;
     search.indices = NULL;
-    search.flags = 0;
+    search.flags = clientdata ? TA_SEARCH_COUNT : 0;
     search.lower = 0;
     search.upper = count - 1;
     search.op = TA_SEARCH_OPT_EQ;
