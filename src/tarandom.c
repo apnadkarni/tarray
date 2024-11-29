@@ -69,8 +69,8 @@ void tcol_random_init(ta_rng_t *prng)
      * Just use complement of first as the second.
      * (See pcg32x3-demo.c in PCG distribution)
      */
-    pcg32_srandom_r(&prng->rng[0], seed ^ (uint64_t)&prng->rng[0], seq);
-    pcg32_srandom_r(&prng->rng[1], seed ^ (uint64_t)&prng->rng[1], ~seq);
+    pcg32_srandom_r(&prng->rng[0], seed ^ (uint64_t)(intptr_t)&prng->rng[0], seq);
+    pcg32_srandom_r(&prng->rng[1], seed ^ (uint64_t)(intptr_t)&prng->rng[1], ~seq);
 }
 
 /* Command deletion callback for tcol_random_cmd and tcol_randseed_cmd */
