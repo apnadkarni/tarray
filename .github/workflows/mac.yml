@@ -17,6 +17,7 @@ on:
         required: true
         type: choice
         options:
+          - '["macos-latest"]'
           - '["macos-12"]'
           - '["macos-13"]'
           - '["macos-14"]'

@@ -17,6 +17,7 @@ on:
         required: true
         type: choice
         options:
+          - '["windows-latest"]'
           - '["windows-2022"]'
           - '["windows-2019"]'
           - '["windows-2019", "windows-2022"]'
