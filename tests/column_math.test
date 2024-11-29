@@ -77,6 +77,20 @@ namespace eval tarray::test {
             int  {set mask 0xffffffff}
             byte  {set mask 0xff}
             wide { set mask 0xffffffffffffffff}
+            double {
+                # Mingw 32-bit floating computation uses VC6 runtime which
+                # has some anomalies.
+                set ret 0
+                catch {
+                    if {$::tcl_platform(platform) eq "windows" &&
+                        $::tcl_platform(pointerSize) == 4} {
+                        if {($col_val - $expr_val) < 1e-14} {
+                            set ret 1
+                        }
+                    }
+                }
+                return $ret
+            }
         }
 
         set col_val [expr {$col_val & $mask}]
@@ -201,28 +215,28 @@ namespace eval tarray::test {
 
             # Single arg tests
             if {$op ne "!="} {
-                test [mathid]-$type-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
-                test [mathid]-$type-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
-                test [mathid]-$type-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
-                test [mathid]-$type-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
+                test [mathid]-$type-$op-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]}
+                test [mathid]-$type-$op-arg1 "Single column $op $type arg" -body {verify_expr $op [samplecolumn $type]}
+                test [mathid]-$type-$op-arg1 "Single scalar math $op $type arg" -body {verify_expr math $op [samplevalue $type]}
+                test [mathid]-$type-$op-arg1 "Single scalar $op $type arg" -body {verify_expr $op [samplevalue $type]}
             } else {
-                test [mathid]-$type-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]} -returnCodes error -result "Invalid number of arguments."
+                test [mathid]-$type-$op-arg1 "Single column math $op $type arg" -body {verify_expr math $op [samplecolumn $type]} -returnCodes error -result "Invalid number of arguments."
             }
 
             # Two arg tests
             # Division is separated out because div by 0 is tested separately
             if {$op ne "/"} {
                 if {$op ne "*" || $type ne "wide"} {
-                    test [mathid]-$type-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 10]}
+                    test [mathid]-$type-$op-arg2 "$type math $op scalar scalar" -body {verify_expr math $op [samplevalue $type] [samplevalue $type 10]}
                 }
-                test [mathid]-$type-arg2 "$type $op scalar column" -body {verify_expr $op [samplevalue $type] [largespancolumn $type]}
-                test [mathid]-$type-arg2 "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
-                test [mathid]-$type-arg2 "$type $op column column" -body {verify_expr $op [largespancolumn $type] [operand $type [largesize]]}
+                test [mathid]-$type-$op-arg2 "$type $op scalar column" -body {verify_expr $op [samplevalue $type] [largespancolumn $type]}
+                test [mathid]-$type-$op-arg2 "$type math $op column scalar" -body {verify_expr math $op [samplecolumn $type] [samplevalue $type]}
+                test [mathid]-$type-$op-arg2 "$type $op column column" -body {verify_expr $op [largespancolumn $type] [operand $type [largesize]]}
             } else {
-                test [mathid]-$type-arg2 "$type $op scalar scalar" -body {verify_expr $op [samplevalue $type] 2.3}
-                test [mathid]-$type-arg2 "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
-                test [mathid]-$type-arg2 "$type $op column scalar" -body {verify_expr $op [col_with_0 $type] 1.1e2 }
-                test [mathid]-$type-arg2 "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
+                test [mathid]-$type-$op-arg2 "$type $op scalar scalar" -body {verify_expr $op [samplevalue $type] 2.3}
+                test [mathid]-$type-$op-arg2 "$type math $op scalar column" -body {verify_expr math $op 1000e1000 [col_without_0 $type]}
+                test [mathid]-$type-$op-arg2 "$type $op column scalar" -body {verify_expr $op [col_with_0 $type] 1.1e2 }
+                test [mathid]-$type-$op-arg2 "$type math $op column column" -body {verify_expr math $op [operand $type [largesize]] [col_without_0 $type] }
             }
 
             test [mathid]-$type-badlen-err "Differing length columns $op, $type" -body {
