@@ -164,7 +164,11 @@ if test "${TEA_PLATFORM}" = "windows" ; then
     # Ensure no empty if clauses
     :
 else
-    AC_CHECK_LIB(dispatch, dispatch_group_create)
+    if test "`uname -s`" = "Darwin" ; then
+        TEA_ADD_LIBS([-ldispatch])
+    else
+        AC_CHECK_LIB(dispatch, dispatch_group_create)
+    fi
 fi
 
 

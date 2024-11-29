@@ -5193,7 +5193,20 @@ if test "${TEA_PLATFORM}" = "windows" ; then
     # Ensure no empty if clauses
     :
 else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dispatch_group_create in -ldispatch" >&5
+    if test "`uname -s`" = "Darwin" ; then
+
+    vars="-ldispatch"
+    for i in $vars; do
+	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
+	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
+	    i=`echo "$i" | sed -e 's/^\([^-].*\)\.[lL][iI][bB]$/-l\1/'`
+	fi
+	PKG_LIBS="$PKG_LIBS $i"
+    done
+
+
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dispatch_group_create in -ldispatch" >&5
 $as_echo_n "checking for dispatch_group_create in -ldispatch... " >&6; }
 if ${ac_cv_lib_dispatch_dispatch_group_create+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -5238,6 +5251,7 @@ _ACEOF
 
 fi
 
+    fi
 fi
 
 
