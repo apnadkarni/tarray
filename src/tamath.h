@@ -154,7 +154,7 @@ OVF_ADDU_FN(uint64)
 TA_INLINE int ovf_add_int64(int64_t a, int64_t b, int64_t *presult) {
     *presult = a + b;
     return ((b > 0 && a > (INT64_MAX - b)) ||
-            (b < 0) && a < (INT64_MIN - b));
+            (b < 0 && a < (INT64_MIN - b)));
 }
 
 #define OVF_SUB_FN(type_, min_, max_) \
@@ -180,7 +180,7 @@ OVF_SUBU_FN(uint32)
 TA_INLINE int ovf_sub_int64(int64_t a, int64_t b, int64_t *presult) {
     *presult = a - b;
     return ((b > 0 && a < (INT64_MIN + b)) ||
-            (b < 0) && a > (INT64_MAX + b));
+            (b < 0 && a > (INT64_MAX + b)));
 }
 
 #define OVF_MUL_FN(type_, min_, max_) \
