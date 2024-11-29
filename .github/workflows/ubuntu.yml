@@ -2,15 +2,19 @@ name: Ubuntu
 
 on:
   workflow_dispatch:
-
+    inputs:
+      tcltag:  # User input for selecting a specific job or all jobs
+        description: 'Tcl version'
+        required: true
+        default: '["core-8-6-13", "main"]'
+        type: string
 jobs:
   build:
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
-        tclbranch:
-          - core-8-6-13
-          - main
+        tclbranch: ${{ fromJSON(github.event.inputs.tcltag) }}
+
     runs-on: ${{ matrix.os }}
     env:
       TCLSUBDIR: ${{ matrix.tclbranch }}
