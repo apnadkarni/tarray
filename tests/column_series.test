@@ -400,13 +400,13 @@ namespace eval tarray::test {
 
     test column_series-double-3.10 {
         Double start stop step, tests float rounding
-    } -body {
+    } -constraints notmingw32 -body {
         tarray::column series 1.0 0.0 -0.1
     } -result [newcolumn double {1.0 0.9 0.8 0.7000000000000001 0.6000000000000001 0.5000000000000001 0.40000000000000013 0.30000000000000016 0.20000000000000015 0.10000000000000014 1.3877787807814457e-16}]
 
     test column_series-double-3.10.1 {
         Double start stop step, tests float rounding
-    } -body {
+    } -constraints notmingw32 -body {
         tarray::column series 0.0 1.0 0.1
     } -result [newcolumn double {0.0 0.1 0.2 0.30000000000000004 0.4 0.5 0.6 0.7 0.7999999999999999 0.8999999999999999 0.9999999999999999}]
 

@@ -39,6 +39,19 @@ if {![info exists tarray::test::known]} {
             return [package vsatisfies [package require Tcl] 9]
         }
 
+        proc mingw32 {} {
+            if {$::tcl_platform(platform) eq "windows" && $::tcl_platform(pointerSize) == 4} {
+                set compiler [tarray::unsupported::compiler_info]
+                if {[string match gcc* [dict get $compiler compiler]]} {
+                    return 1
+                }
+            }
+            return 0
+        }
+
+        # MingW32 uses the VC6 msvcrt that has floating point anomalies
+        tcltest::testConstraint notmingw32 [expr {![mingw32]}]
+
         ################################################################
         # Define standard data used in tests
 
