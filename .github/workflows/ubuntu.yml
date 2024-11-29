@@ -11,18 +11,13 @@ on:
       osver:  # User input for selecting OS
         description: 'OS version'
         required: true
-        default: '["ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04"]'
-        type: string
-      xosver:  # User input for selecting OS
-        description: 'OS version'
-        required: true
         type: choice
         options:
           - '["ubuntu-20.04"]'
           - '["ubuntu-22.04"]'
           - '["ubuntu-24.04"]'
           - '["ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04"]'
-        default: '["ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04"]'
+        default: '["ubuntu-20.04"]'
       dotest: # Whether tests should be run
         description: 'Run tests as well'
         required: false
@@ -32,7 +27,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: ${{ fromJSON(github.event.inputs.xosver) }}
+        os: ${{ fromJSON(github.event.inputs.osver) }}
         tclbranch: ${{ fromJSON(github.event.inputs.tcltag) }}
 
     runs-on: ${{ matrix.os }}
