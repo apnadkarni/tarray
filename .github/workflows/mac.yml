@@ -6,8 +6,12 @@ on:
       tcltag:  # User input for selecting Tcl tag
         description: 'Tcl version'
         required: true
+        options:
+          - '["core-8-6-13"]'
+          - '["main"]'
+          - '["core-8-6-13", "main"]'
         default: '["core-8-6-13", "main"]'
-        type: string
+        type: choice
       osver:  # User input for selecting OS
         description: 'OS version'
         required: true
