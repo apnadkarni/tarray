@@ -48,7 +48,7 @@ jobs:
       with:
         arch: ${{ matrix.arch }}
 
-    - name: Checkout tcl-cffi
+    - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: true

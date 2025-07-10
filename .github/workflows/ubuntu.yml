@@ -47,6 +47,12 @@ jobs:
       with:
         submodules: true
 
+    - name: Install libtommath
+      id: tommath
+      run: |
+       sudo apt-get update
+       sudo apt-get install libtommath-dev
+
     - name: Cache Tcl build
       id: tcl-cache
       uses: actions/cache@v4
